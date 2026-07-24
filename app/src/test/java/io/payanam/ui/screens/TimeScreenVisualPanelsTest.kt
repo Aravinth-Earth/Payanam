@@ -45,6 +45,6 @@ class TimeScreenVisualPanelsTest {
 
     @Test
     fun shortDimensionLabel_supportsTamil_singleWordFirstTwoGraphemes() {
-        assertEquals("நே", shortDimensionLabel("நேரம்"))
+        assertEquals("நேர", shortDimensionLabel("நேரம்"))
     }
 }
