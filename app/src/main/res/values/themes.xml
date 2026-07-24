@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <style name="Theme.Payanam" parent="Theme.AppCompat.DayNight.NoActionBar">
+        <item name="android:statusBarColor">@color/primary</item>
+        <item name="android:navigationBarColor">@color/surface</item>
+    </style>
+</resources>

@@ -1,0 +1,39 @@
+name: Bug report
+description: Capture a reproducible problem that needs investigation or a fix.
+title: "[Bug]: "
+labels:
+  - type:bug
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem
+      description: Describe the bug and why it matters.
+      placeholder: What is going wrong?
+    validations:
+      required: true
+  - type: textarea
+    id: current-behavior
+    attributes:
+      label: Current behavior
+      description: What happens now?
+    validations:
+      required: true
+  - type: textarea
+    id: expected-behavior
+    attributes:
+      label: Expected behavior
+      description: What should happen instead?
+    validations:
+      required: true
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Reproduction or evidence
+      description: Steps, logs, screenshots, or notes that help reproduce the bug.
+      placeholder: 1. Go to... 2. Tap... 3. Observe...
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope and risk
+      description: Mention suspected modules, data flow, or regression risk if known.

@@ -1,0 +1,30 @@
+name: Feature request
+description: Track a new capability, user value, or product improvement.
+title: "[Feature]: "
+labels:
+  - type:feature
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or opportunity
+      description: What need, pain point, or goal is this addressing?
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposed change
+      description: Describe the desired behavior at a high level.
+    validations:
+      required: true
+  - type: textarea
+    id: value
+    attributes:
+      label: User value
+      description: Why is this worth doing now?
+  - type: textarea
+    id: constraints
+    attributes:
+      label: Constraints or rollout notes
+      description: Mention feature flags, milestones, privacy/security needs, or deferrals.

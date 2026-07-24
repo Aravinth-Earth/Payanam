@@ -1,0 +1,294 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.ui.viewmodel
+
+import android.content.Context
+import androidx.test.core.app.ApplicationProvider
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.domain.repository.DayPlanAllocationRecord
+import io.payanam.domain.repository.DayPlanPolicyRecord
+import io.payanam.domain.repository.DayPlanRepository
+import io.payanam.domain.repository.DayPlanTemplateRecord
+import io.payanam.domain.repository.DayTypeTemplatePreferenceRecord
+import io.payanam.domain.repository.TemplateAllocationRecord
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.test.StandardTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
+import kotlinx.coroutines.test.resetMain
+import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.test.setMain
+import org.junit.After
+import org.junit.Assert.assertEquals
+import org.junit.Assert.assertTrue
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+@OptIn(ExperimentalCoroutinesApi::class)
+class DayPlanViewModelModeTransitionTest {
+
+    private val testDispatcher = StandardTestDispatcher()
+    private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }
+    private lateinit var repository: FakeDayPlanRepository
+    private lateinit var viewModel: DayPlanViewModel
+
+    @Before
+    fun setUp() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        if (!UnifiedLogger.isInitialized()) {
+            UnifiedLogger.initialize(context, "test", 0)
+        }
+        Dispatchers.setMain(testDispatcher)
+        repository = FakeDayPlanRepository()
+        viewModel = DayPlanViewModel(repository)
+    }
+
+    @After
+    fun tearDown() {
+        Dispatchers.resetMain()
+    }
+
+    @Test
+    fun saveDayPlan_customMode_persists_allocations_starred_and_day_type_preferences() = runTest {
+        val dayKey = "2026-02-21"
+        val allocations = mapOf("career_work" to 120)
+        val dayTypeTemplateByType = mapOf(
+            DayPlanRepository.DAY_TYPE_WEEKDAY to "tpl-weekday",
+            DayPlanRepository.DAY_TYPE_WEEKEND to "tpl-weekend",
+            DayPlanRepository.DAY_TYPE_STARRED to "tpl-starred",
+        )
+
+        viewModel.saveDayPlan(
+            dayKey = dayKey,
+            mode = DayPlanRepository.MODE_CUSTOM,
+            allocations = allocations,
+            templateId = null,
+            isStarred = true,
+            dayTypeTemplateByType = dayTypeTemplateByType,
+        )
+        advanceUntilIdle()
+
+        logger?.d("DayPlanViewModelModeTransitionTest.custom", "Verified custom mode write path")
+        assertTrue(repository.starredUpdates.contains(dayKey to true))
+        assertEquals(allocations, repository.lastSetAllocations)
+        assertEquals(DayPlanRepository.SOURCE_MANUAL, repository.lastSetAllocationsSource)
+        assertEquals(
+            listOf(
+                DayPlanRepository.DAY_TYPE_WEEKDAY to "tpl-weekday",
+                DayPlanRepository.DAY_TYPE_WEEKEND to "tpl-weekend",
+                DayPlanRepository.DAY_TYPE_STARRED to "tpl-starred",
+            ),
+            repository.dayTypePreferenceUpdates,
+        )
+    }
+
+    @Test
+    fun saveDayPlan_templateMode_withoutTemplateId_resets_to_auto_and_clears_plan() = runTest {
+        val dayKey = "2026-02-22"
+
+        viewModel.saveDayPlan(
+            dayKey = dayKey,
+            mode = DayPlanRepository.MODE_TEMPLATE,
+            allocations = emptyMap(),
+            templateId = null,
+            isStarred = false,
+            dayTypeTemplateByType = emptyMap(),
+        )
+        advanceUntilIdle()
+
+        logger?.d("DayPlanViewModelModeTransitionTest.templateNull", "Verified template-null fallback path")
+        assertTrue(repository.modeUpdates.contains(Triple(dayKey, DayPlanRepository.MODE_AUTO, null)))
+        assertTrue(repository.clearedDays.contains(dayKey))
+    }
+
+    @Test
+    fun loadDayPlan_hydrates_ui_state_from_policy_allocations_and_resolved_template() = runTest {
+        val dayKey = "2026-02-23"
+        val resolvedTemplate = DayPlanTemplateRecord(
+            id = "tpl-resolved",
+            name = "Resolved Day",
+            description = null,
+            isActive = true,
+            sortOrder = 0,
+            allocations = listOf(
+                TemplateAllocationRecord(
+                    id = "ta-1",
+                    templateId = "tpl-resolved",
+                    dimensionId = "career_work",
+                    plannedMinutes = 180,
+                ),
+            ),
+        )
+        repository.dayPolicyByDay[dayKey] = DayPlanPolicyRecord(
+            dayKey = dayKey,
+            mode = DayPlanRepository.MODE_TEMPLATE,
+            templateId = "tpl-resolved",
+            isStarred = true,
+        )
+        repository.allocationsByDay[dayKey] = listOf(
+            DayPlanAllocationRecord(
+                id = "alloc-1",
+                dayKey = dayKey,
+                dimensionId = "career_work",
+                plannedMinutes = 180,
+                source = DayPlanRepository.SOURCE_TEMPLATE,
+                templateId = "tpl-resolved",
+            ),
+        )
+        repository.resolvedTemplateByDay[dayKey] = resolvedTemplate
+        repository.dayTypePreferences[DayPlanRepository.DAY_TYPE_WEEKDAY] = "tpl-weekday"
+        repository.dayTypePreferences[DayPlanRepository.DAY_TYPE_WEEKEND] = "tpl-weekend"
+        repository.dayTypePreferences[DayPlanRepository.DAY_TYPE_STARRED] = "tpl-starred"
+
+        viewModel.loadDayPlan(dayKey)
+        advanceUntilIdle()
+
+        val state = viewModel.uiState.value
+        assertEquals(dayKey, state.selectedDayKey)
+        assertEquals(DayPlanRepository.MODE_TEMPLATE, state.dayMode)
+        assertEquals("tpl-resolved", state.selectedDayTemplateId)
+        assertTrue(state.isStarredDay)
+        assertEquals(180, state.dayAllocations["career_work"])
+        assertEquals("tpl-weekday", state.dayTypeTemplateByType[DayPlanRepository.DAY_TYPE_WEEKDAY])
+        assertEquals("Resolved Day", state.resolvedTemplateForDay?.name)
+    }
+
+    @Test
+    fun loadDayPlan_duplicateRequestWhileInFlight_onlyLoadsOnce() = runTest {
+        val dayKey = "2026-02-24"
+        advanceUntilIdle()
+        repository.resetCounters()
+
+        viewModel.loadDayPlan(dayKey)
+        viewModel.loadDayPlan(dayKey)
+        advanceUntilIdle()
+
+        assertEquals(1, repository.getAllocationsForDayCount)
+        assertEquals(1, repository.getDayPolicyCount)
+        assertEquals(3, repository.getDayTypeTemplatePreferenceCount)
+        assertEquals(1, repository.resolveTemplateForDayCount)
+    }
+}
+
+private class FakeDayPlanRepository : DayPlanRepository {
+    val templatesFlow = MutableStateFlow<List<DayPlanTemplateRecord>>(emptyList())
+    val dayPolicyByDay = mutableMapOf<String, DayPlanPolicyRecord>()
+    val allocationsByDay = mutableMapOf<String, List<DayPlanAllocationRecord>>()
+    val resolvedTemplateByDay = mutableMapOf<String, DayPlanTemplateRecord?>()
+    val dayTypePreferences = mutableMapOf<String, String?>()
+    val modeUpdates = mutableListOf<Triple<String, String, String?>>()
+    val starredUpdates = mutableListOf<Pair<String, Boolean>>()
+    val dayTypePreferenceUpdates = mutableListOf<Pair<String, String?>>()
+    val clearedDays = mutableListOf<String>()
+    var getAllocationsForDayCount = 0
+    var getDayPolicyCount = 0
+    var getDayTypeTemplatePreferenceCount = 0
+    var resolveTemplateForDayCount = 0
+    var lastSetAllocations: Map<String, Int>? = null
+    var lastSetAllocationsSource: String? = null
+
+    override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> = flowOf(allocationsByDay[dayKey].orEmpty())
+
+    override suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
+        getAllocationsForDayCount += 1
+        return allocationsByDay[dayKey].orEmpty()
+    }
+
+    override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> = allocationsByDay[dayKey].orEmpty()
+
+    override suspend fun setAllocation(
+        dayKey: String,
+        dimensionId: String,
+        plannedMinutes: Int,
+        source: String,
+        templateId: String?,
+    ) {
+        lastSetAllocations = mapOf(dimensionId to plannedMinutes)
+        lastSetAllocationsSource = source
+    }
+
+    override suspend fun setAllocations(
+        dayKey: String,
+        allocations: Map<String, Int>,
+        source: String,
+        templateId: String?,
+    ) {
+        lastSetAllocations = allocations
+        lastSetAllocationsSource = source
+    }
+
+    override suspend fun applyTemplateToDay(dayKey: String, templateId: String) {
+        modeUpdates += Triple(dayKey, DayPlanRepository.MODE_TEMPLATE, templateId)
+    }
+
+    override suspend fun clearDayPlan(dayKey: String) {
+        clearedDays += dayKey
+    }
+
+    override suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord {
+        getDayPolicyCount += 1
+        return dayPolicyByDay[dayKey] ?: DayPlanPolicyRecord(
+            dayKey = dayKey,
+            mode = DayPlanRepository.MODE_AUTO,
+            templateId = null,
+            isStarred = false,
+        )
+    }
+
+    override suspend fun setDayMode(dayKey: String, mode: String, templateId: String?) {
+        modeUpdates += Triple(dayKey, mode, templateId)
+    }
+
+    override suspend fun setDayStarred(dayKey: String, isStarred: Boolean) {
+        starredUpdates += dayKey to isStarred
+    }
+
+    override suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord {
+        getDayTypeTemplatePreferenceCount += 1
+        return DayTypeTemplatePreferenceRecord(dayType, dayTypePreferences[dayType])
+    }
+
+    override suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?) {
+        dayTypePreferences[dayType] = templateId
+        dayTypePreferenceUpdates += dayType to templateId
+    }
+
+    override suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord? {
+        resolveTemplateForDayCount += 1
+        return resolvedTemplateByDay[dayKey]
+    }
+
+    override fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>> = templatesFlow
+
+    override fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>> = templatesFlow
+
+    override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? = templatesFlow.value.firstOrNull { it.id == id }
+
+    override suspend fun createTemplate(
+        name: String,
+        description: String?,
+        allocations: Map<String, Int>,
+    ): String = "template-id"
+
+    override suspend fun updateTemplate(
+        id: String,
+        name: String,
+        description: String?,
+        allocations: Map<String, Int>,
+    ) = Unit
+
+    override suspend fun deleteTemplate(id: String) = Unit
+
+    fun resetCounters() {
+        getAllocationsForDayCount = 0
+        getDayPolicyCount = 0
+        getDayTypeTemplatePreferenceCount = 0
+        resolveTemplateForDayCount = 0
+    }
+}

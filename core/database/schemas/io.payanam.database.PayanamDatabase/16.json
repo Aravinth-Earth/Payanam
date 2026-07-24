@@ -1,0 +1,2712 @@
+{
+  "formatVersion": 1,
+  "database": {
+    "version": 16,
+    "identityHash": "508b202e7c12ae8b5dcdb42be8845974",
+    "entities": [
+      {
+        "tableName": "tasks",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `status` TEXT NOT NULL, `dueDate` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, `completedAt` TEXT, `archivedAt` TEXT, `recurrenceEnabled` INTEGER NOT NULL, `recurrenceRule` TEXT, `durationMinutes` INTEGER NOT NULL, `impactLevel` TEXT NOT NULL, `goalAlignment` TEXT NOT NULL, `energyLevel` TEXT NOT NULL, `controlLevel` TEXT NOT NULL, `lifeIntentionCategory` TEXT NOT NULL, `dimension_id` TEXT, `day_key` TEXT, `explicitUrgency` REAL, `focusRequired` REAL, `recurrenceStrategy` TEXT, `blockedReason` TEXT, `completionRate` REAL, `externalDependency` TEXT, `notificationMode` TEXT, `customNotificationMinutes` INTEGER, `taskScore` REAL, `currentScore` REAL NOT NULL, `lastOccurrenceDate` TEXT, `dayBoundaryHour` INTEGER NOT NULL, `import_source` TEXT, `import_id` TEXT, `imported_at` TEXT, `import_batch_id` TEXT, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`import_batch_id`) REFERENCES `import_batches`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "dueDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "archivedAt",
+            "columnName": "archivedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "recurrenceEnabled",
+            "columnName": "recurrenceEnabled",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "recurrenceRule",
+            "columnName": "recurrenceRule",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "durationMinutes",
+            "columnName": "durationMinutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactLevel",
+            "columnName": "impactLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "goalAlignment",
+            "columnName": "goalAlignment",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energyLevel",
+            "columnName": "energyLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlLevel",
+            "columnName": "controlLevel",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lifeIntentionCategory",
+            "columnName": "lifeIntentionCategory",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "explicitUrgency",
+            "columnName": "explicitUrgency",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "focusRequired",
+            "columnName": "focusRequired",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "recurrenceStrategy",
+            "columnName": "recurrenceStrategy",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "blockedReason",
+            "columnName": "blockedReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "completionRate",
+            "columnName": "completionRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "externalDependency",
+            "columnName": "externalDependency",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notificationMode",
+            "columnName": "notificationMode",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "customNotificationMinutes",
+            "columnName": "customNotificationMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "taskScore",
+            "columnName": "taskScore",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "currentScore",
+            "columnName": "currentScore",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastOccurrenceDate",
+            "columnName": "lastOccurrenceDate",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dayBoundaryHour",
+            "columnName": "dayBoundaryHour",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importSource",
+            "columnName": "import_source",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importId",
+            "columnName": "import_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importedAt",
+            "columnName": "imported_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tasks_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tasks_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_tasks_day_key",
+            "unique": false,
+            "columnNames": [
+              "day_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tasks_day_key` ON `${TABLE_NAME}` (`day_key`)"
+          },
+          {
+            "name": "index_tasks_import_batch_id",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tasks_import_batch_id` ON `${TABLE_NAME}` (`import_batch_id`)"
+          },
+          {
+            "name": "index_tasks_import_source_import_id",
+            "unique": false,
+            "columnNames": [
+              "import_source",
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tasks_import_source_import_id` ON `${TABLE_NAME}` (`import_source`, `import_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "import_batches",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "import_batch_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "time_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `lifeIntentionCategory` TEXT NOT NULL, `dimension_id` TEXT, `day_key` TEXT, `taskId` TEXT, `startedAt` TEXT NOT NULL, `endedAt` TEXT, `focusRating` REAL, `focusNote` TEXT, `focusRatedAt` TEXT, `import_source` TEXT, `import_id` TEXT, `imported_at` TEXT, `import_batch_id` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL , FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`import_batch_id`) REFERENCES `import_batches`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lifeIntentionCategory",
+            "columnName": "lifeIntentionCategory",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "startedAt",
+            "columnName": "startedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "endedAt",
+            "columnName": "endedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "focusRating",
+            "columnName": "focusRating",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "focusNote",
+            "columnName": "focusNote",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "focusRatedAt",
+            "columnName": "focusRatedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importSource",
+            "columnName": "import_source",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importId",
+            "columnName": "import_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importedAt",
+            "columnName": "imported_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "importBatchId",
+            "columnName": "import_batch_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_time_entries_taskId",
+            "unique": false,
+            "columnNames": [
+              "taskId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_taskId` ON `${TABLE_NAME}` (`taskId`)"
+          },
+          {
+            "name": "index_time_entries_lifeIntentionCategory",
+            "unique": false,
+            "columnNames": [
+              "lifeIntentionCategory"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_lifeIntentionCategory` ON `${TABLE_NAME}` (`lifeIntentionCategory`)"
+          },
+          {
+            "name": "index_time_entries_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_time_entries_day_key",
+            "unique": false,
+            "columnNames": [
+              "day_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_day_key` ON `${TABLE_NAME}` (`day_key`)"
+          },
+          {
+            "name": "index_time_entries_import_batch_id",
+            "unique": false,
+            "columnNames": [
+              "import_batch_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_import_batch_id` ON `${TABLE_NAME}` (`import_batch_id`)"
+          },
+          {
+            "name": "index_time_entries_import_source_import_id",
+            "unique": false,
+            "columnNames": [
+              "import_source",
+              "import_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_import_source_import_id` ON `${TABLE_NAME}` (`import_source`, `import_id`)"
+          },
+          {
+            "name": "index_time_entries_startedAt",
+            "unique": false,
+            "columnNames": [
+              "startedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_startedAt` ON `${TABLE_NAME}` (`startedAt`)"
+          },
+          {
+            "name": "index_time_entries_endedAt",
+            "unique": false,
+            "columnNames": [
+              "endedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entries_endedAt` ON `${TABLE_NAME}` (`endedAt`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "taskId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "import_batches",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "import_batch_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "notes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `details` TEXT, `lifeIntentionCategory` TEXT NOT NULL, `dimension_id` TEXT, `day_key` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "details",
+            "columnName": "details",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lifeIntentionCategory",
+            "columnName": "lifeIntentionCategory",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_notes_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_notes_day_key",
+            "unique": false,
+            "columnNames": [
+              "day_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_notes_day_key` ON `${TABLE_NAME}` (`day_key`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "task_occurrences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `dueDate` TEXT NOT NULL, `completedAt` TEXT, `actualCompletedAt` TEXT, `actualDurationMinutes` INTEGER, `status` TEXT NOT NULL, `statusReason` TEXT, `createdAt` TEXT NOT NULL, `completionRate` REAL, `note` TEXT, `autoGenerated` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dueDate",
+            "columnName": "dueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completedAt",
+            "columnName": "completedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "actualCompletedAt",
+            "columnName": "actualCompletedAt",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "actualDurationMinutes",
+            "columnName": "actualDurationMinutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "status",
+            "columnName": "status",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "statusReason",
+            "columnName": "statusReason",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "completionRate",
+            "columnName": "completionRate",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "note",
+            "columnName": "note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "autoGenerated",
+            "columnName": "autoGenerated",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_task_occurrences_taskId",
+            "unique": false,
+            "columnNames": [
+              "taskId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_task_occurrences_taskId` ON `${TABLE_NAME}` (`taskId`)"
+          },
+          {
+            "name": "index_task_occurrences_dueDate",
+            "unique": false,
+            "columnNames": [
+              "dueDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_task_occurrences_dueDate` ON `${TABLE_NAME}` (`dueDate`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "taskId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "task_reschedules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `previousDueDate` TEXT NOT NULL, `newDueDate` TEXT NOT NULL, `rescheduledAt` TEXT NOT NULL, `wasOverdue` INTEGER NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "previousDueDate",
+            "columnName": "previousDueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "newDueDate",
+            "columnName": "newDueDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "rescheduledAt",
+            "columnName": "rescheduledAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "wasOverdue",
+            "columnName": "wasOverdue",
+            "affinity": "INTEGER",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_task_reschedules_taskId",
+            "unique": false,
+            "columnNames": [
+              "taskId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_task_reschedules_taskId` ON `${TABLE_NAME}` (`taskId`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "taskId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "day_journal_entries",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entryDate` TEXT NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryDate",
+            "columnName": "entryDate",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_journal_entries_entryDate",
+            "unique": true,
+            "columnNames": [
+              "entryDate"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_day_journal_entries_entryDate` ON `${TABLE_NAME}` (`entryDate`)"
+          }
+        ]
+      },
+      {
+        "tableName": "day_journal_responses",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `entryId` TEXT NOT NULL, `scope` TEXT NOT NULL, `dimensionKey` TEXT, `dimension_id` TEXT, `promptKey` TEXT NOT NULL, `responseText` TEXT, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`entryId`) REFERENCES `day_journal_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "entryId",
+            "columnName": "entryId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scope",
+            "columnName": "scope",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionKey",
+            "columnName": "dimensionKey",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "promptKey",
+            "columnName": "promptKey",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "responseText",
+            "columnName": "responseText",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_journal_responses_entryId",
+            "unique": false,
+            "columnNames": [
+              "entryId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_journal_responses_entryId` ON `${TABLE_NAME}` (`entryId`)"
+          },
+          {
+            "name": "index_day_journal_responses_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_journal_responses_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_day_journal_responses_entryId_scope_dimensionKey_promptKey",
+            "unique": true,
+            "columnNames": [
+              "entryId",
+              "scope",
+              "dimensionKey",
+              "promptKey"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_day_journal_responses_entryId_scope_dimensionKey_promptKey` ON `${TABLE_NAME}` (`entryId`, `scope`, `dimensionKey`, `promptKey`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "day_journal_entries",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "entryId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "journal_notes",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `title` TEXT NOT NULL, `details` TEXT, `lifeIntentionCategory` TEXT NOT NULL, `dimension_id` TEXT, `day_key` TEXT NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "details",
+            "columnName": "details",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "lifeIntentionCategory",
+            "columnName": "lifeIntentionCategory",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_journal_notes_day_key",
+            "unique": false,
+            "columnNames": [
+              "day_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_journal_notes_day_key` ON `${TABLE_NAME}` (`day_key`)"
+          },
+          {
+            "name": "index_journal_notes_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_journal_notes_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_journal_notes_updated_at",
+            "unique": false,
+            "columnNames": [
+              "updated_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_journal_notes_updated_at` ON `${TABLE_NAME}` (`updated_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "daily_insights",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `day_key` TEXT NOT NULL, `module` TEXT NOT NULL, `dimension_id` TEXT, `planned_minutes` INTEGER, `actual_minutes` INTEGER, `focused_minutes` INTEGER, `completed_count` INTEGER, `total_count` INTEGER, `summary_json` TEXT, `generated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "module",
+            "columnName": "module",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "plannedMinutes",
+            "columnName": "planned_minutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "actualMinutes",
+            "columnName": "actual_minutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "focusedMinutes",
+            "columnName": "focused_minutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "completedCount",
+            "columnName": "completed_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "totalCount",
+            "columnName": "total_count",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "summaryJson",
+            "columnName": "summary_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "generatedAt",
+            "columnName": "generated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_daily_insights_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_daily_insights_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_daily_insights_day_key_module_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "day_key",
+              "module",
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_daily_insights_day_key_module_dimension_id` ON `${TABLE_NAME}` (`day_key`, `module`, `dimension_id`)"
+          },
+          {
+            "name": "index_daily_insights_generated_at",
+            "unique": false,
+            "columnNames": [
+              "generated_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_daily_insights_generated_at` ON `${TABLE_NAME}` (`generated_at`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "app_settings",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `value` TEXT, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "value",
+            "columnName": "value",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_app_settings_key",
+            "unique": true,
+            "columnNames": [
+              "key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_app_settings_key` ON `${TABLE_NAME}` (`key`)"
+          }
+        ]
+      },
+      {
+        "tableName": "user_preferences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`key` TEXT NOT NULL, `valueType` TEXT NOT NULL, `stringValue` TEXT, `intValue` INTEGER, `doubleValue` REAL, `boolValue` INTEGER, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`key`))",
+        "fields": [
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "valueType",
+            "columnName": "valueType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "stringValue",
+            "columnName": "stringValue",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "intValue",
+            "columnName": "intValue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "doubleValue",
+            "columnName": "doubleValue",
+            "affinity": "REAL"
+          },
+          {
+            "fieldPath": "boolValue",
+            "columnName": "boolValue",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "key"
+          ]
+        }
+      },
+      {
+        "tableName": "import_batches",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `source` TEXT NOT NULL, `importedAt` TEXT NOT NULL, `version` TEXT, `fileHash` TEXT, `notes` TEXT, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "importedAt",
+            "columnName": "importedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "version",
+            "columnName": "version",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "fileHash",
+            "columnName": "fileHash",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_import_batches_source",
+            "unique": false,
+            "columnNames": [
+              "source"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_import_batches_source` ON `${TABLE_NAME}` (`source`)"
+          },
+          {
+            "name": "index_import_batches_importedAt",
+            "unique": false,
+            "columnNames": [
+              "importedAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_import_batches_importedAt` ON `${TABLE_NAME}` (`importedAt`)"
+          }
+        ]
+      },
+      {
+        "tableName": "scheduled_notifications",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `taskId` TEXT NOT NULL, `scheduledAt` TEXT NOT NULL, `notificationType` TEXT NOT NULL, `title` TEXT NOT NULL, `body` TEXT NOT NULL, `isDelivered` INTEGER NOT NULL, `createdAt` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`taskId`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "taskId",
+            "columnName": "taskId",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "scheduledAt",
+            "columnName": "scheduledAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notificationType",
+            "columnName": "notificationType",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "body",
+            "columnName": "body",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isDelivered",
+            "columnName": "isDelivered",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_scheduled_notifications_taskId",
+            "unique": false,
+            "columnNames": [
+              "taskId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scheduled_notifications_taskId` ON `${TABLE_NAME}` (`taskId`)"
+          },
+          {
+            "name": "index_scheduled_notifications_scheduledAt",
+            "unique": false,
+            "columnNames": [
+              "scheduledAt"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_scheduled_notifications_scheduledAt` ON `${TABLE_NAME}` (`scheduledAt`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "taskId"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "scoring_config",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` INTEGER NOT NULL, `dimensionWeight` REAL NOT NULL, `impactWeight` REAL NOT NULL, `alignmentWeight` REAL NOT NULL, `energyWeight` REAL NOT NULL, `controlWeight` REAL NOT NULL, `durationWeight` REAL NOT NULL, `impactCritical` REAL NOT NULL, `impactHigh` REAL NOT NULL, `impactModerate` REAL NOT NULL, `impactLow` REAL NOT NULL, `impactMinimal` REAL NOT NULL, `alignmentPerfect` REAL NOT NULL, `alignmentStrong` REAL NOT NULL, `alignmentModerate` REAL NOT NULL, `alignmentWeak` REAL NOT NULL, `alignmentNone` REAL NOT NULL, `energyHigh` REAL NOT NULL, `energyModerate` REAL NOT NULL, `energyLow` REAL NOT NULL, `controlFull` REAL NOT NULL, `controlMostly` REAL NOT NULL, `controlOffice` REAL NOT NULL, `controlExternal` REAL NOT NULL, `controlNone` REAL NOT NULL, `dimensionCareerWork` REAL NOT NULL, `dimensionHealthWellness` REAL NOT NULL, `dimensionRelationships` REAL NOT NULL, `dimensionPersonalGrowth` REAL NOT NULL, `dimensionFinancial` REAL NOT NULL, `dimensionSpiritual` REAL NOT NULL, `dimensionRecreation` REAL NOT NULL, `dimensionLearning` REAL NOT NULL, `dimensionContribution` REAL NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionWeight",
+            "columnName": "dimensionWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactWeight",
+            "columnName": "impactWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentWeight",
+            "columnName": "alignmentWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energyWeight",
+            "columnName": "energyWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlWeight",
+            "columnName": "controlWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "durationWeight",
+            "columnName": "durationWeight",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactCritical",
+            "columnName": "impactCritical",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactHigh",
+            "columnName": "impactHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactModerate",
+            "columnName": "impactModerate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactLow",
+            "columnName": "impactLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "impactMinimal",
+            "columnName": "impactMinimal",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentPerfect",
+            "columnName": "alignmentPerfect",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentStrong",
+            "columnName": "alignmentStrong",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentModerate",
+            "columnName": "alignmentModerate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentWeak",
+            "columnName": "alignmentWeak",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "alignmentNone",
+            "columnName": "alignmentNone",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energyHigh",
+            "columnName": "energyHigh",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energyModerate",
+            "columnName": "energyModerate",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "energyLow",
+            "columnName": "energyLow",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlFull",
+            "columnName": "controlFull",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlMostly",
+            "columnName": "controlMostly",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlOffice",
+            "columnName": "controlOffice",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlExternal",
+            "columnName": "controlExternal",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "controlNone",
+            "columnName": "controlNone",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionCareerWork",
+            "columnName": "dimensionCareerWork",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionHealthWellness",
+            "columnName": "dimensionHealthWellness",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionRelationships",
+            "columnName": "dimensionRelationships",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionPersonalGrowth",
+            "columnName": "dimensionPersonalGrowth",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionFinancial",
+            "columnName": "dimensionFinancial",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionSpiritual",
+            "columnName": "dimensionSpiritual",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionRecreation",
+            "columnName": "dimensionRecreation",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionLearning",
+            "columnName": "dimensionLearning",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionContribution",
+            "columnName": "dimensionContribution",
+            "affinity": "REAL",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        }
+      },
+      {
+        "tableName": "life_dimensions",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `key` TEXT NOT NULL, `label` TEXT NOT NULL, `description` TEXT, `color` TEXT NOT NULL, `icon` TEXT, `sortOrder` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "key",
+            "columnName": "key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "label",
+            "columnName": "label",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "color",
+            "columnName": "color",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "icon",
+            "columnName": "icon",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sortOrder",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "isActive",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "createdAt",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updatedAt",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_life_dimensions_key",
+            "unique": true,
+            "columnNames": [
+              "key"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_life_dimensions_key` ON `${TABLE_NAME}` (`key`)"
+          },
+          {
+            "name": "index_life_dimensions_sortOrder",
+            "unique": false,
+            "columnNames": [
+              "sortOrder"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_life_dimensions_sortOrder` ON `${TABLE_NAME}` (`sortOrder`)"
+          }
+        ]
+      },
+      {
+        "tableName": "tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `normalized_name` TEXT NOT NULL, `usage_count` INTEGER NOT NULL, `last_used_at` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "normalizedName",
+            "columnName": "normalized_name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "usageCount",
+            "columnName": "usage_count",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "lastUsedAt",
+            "columnName": "last_used_at",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_tags_normalized_name",
+            "unique": true,
+            "columnNames": [
+              "normalized_name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_tags_normalized_name` ON `${TABLE_NAME}` (`normalized_name`)"
+          },
+          {
+            "name": "index_tags_name",
+            "unique": false,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tags_name` ON `${TABLE_NAME}` (`name`)"
+          },
+          {
+            "name": "index_tags_last_used_at",
+            "unique": false,
+            "columnNames": [
+              "last_used_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_tags_last_used_at` ON `${TABLE_NAME}` (`last_used_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "task_tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`task_id` TEXT NOT NULL, `tag_id` TEXT NOT NULL, `created_at` TEXT NOT NULL, PRIMARY KEY(`task_id`, `tag_id`), FOREIGN KEY(`task_id`) REFERENCES `tasks`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tag_id`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "taskId",
+            "columnName": "task_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tagId",
+            "columnName": "tag_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "task_id",
+            "tag_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_task_tags_task_id",
+            "unique": false,
+            "columnNames": [
+              "task_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_task_tags_task_id` ON `${TABLE_NAME}` (`task_id`)"
+          },
+          {
+            "name": "index_task_tags_tag_id",
+            "unique": false,
+            "columnNames": [
+              "tag_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_task_tags_tag_id` ON `${TABLE_NAME}` (`tag_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "tasks",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "task_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tags",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tag_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "note_tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`note_id` TEXT NOT NULL, `tag_id` TEXT NOT NULL, `created_at` TEXT NOT NULL, PRIMARY KEY(`note_id`, `tag_id`), FOREIGN KEY(`note_id`) REFERENCES `notes`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tag_id`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "noteId",
+            "columnName": "note_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tagId",
+            "columnName": "tag_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "note_id",
+            "tag_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_note_tags_note_id",
+            "unique": false,
+            "columnNames": [
+              "note_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_note_tags_note_id` ON `${TABLE_NAME}` (`note_id`)"
+          },
+          {
+            "name": "index_note_tags_tag_id",
+            "unique": false,
+            "columnNames": [
+              "tag_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_note_tags_tag_id` ON `${TABLE_NAME}` (`tag_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "notes",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "note_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tags",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tag_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "time_entry_tags",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`time_entry_id` TEXT NOT NULL, `tag_id` TEXT NOT NULL, `created_at` TEXT NOT NULL, PRIMARY KEY(`time_entry_id`, `tag_id`), FOREIGN KEY(`time_entry_id`) REFERENCES `time_entries`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`tag_id`) REFERENCES `tags`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE )",
+        "fields": [
+          {
+            "fieldPath": "timeEntryId",
+            "columnName": "time_entry_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "tagId",
+            "columnName": "tag_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "time_entry_id",
+            "tag_id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_time_entry_tags_time_entry_id",
+            "unique": false,
+            "columnNames": [
+              "time_entry_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entry_tags_time_entry_id` ON `${TABLE_NAME}` (`time_entry_id`)"
+          },
+          {
+            "name": "index_time_entry_tags_tag_id",
+            "unique": false,
+            "columnNames": [
+              "tag_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_entry_tags_tag_id` ON `${TABLE_NAME}` (`tag_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "time_entries",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "time_entry_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "tags",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "tag_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "time_goals",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `dimension_id` TEXT, `target_minutes` INTEGER NOT NULL, `period` TEXT NOT NULL, `is_active` INTEGER NOT NULL, `notes` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "targetMinutes",
+            "columnName": "target_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "period",
+            "columnName": "period",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "notes",
+            "columnName": "notes",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_time_goals_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_goals_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_time_goals_period",
+            "unique": false,
+            "columnNames": [
+              "period"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_goals_period` ON `${TABLE_NAME}` (`period`)"
+          },
+          {
+            "name": "index_time_goals_is_active",
+            "unique": false,
+            "columnNames": [
+              "is_active"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_goals_is_active` ON `${TABLE_NAME}` (`is_active`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "time_rules",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `rule_type` TEXT NOT NULL, `config_json` TEXT, `is_active` INTEGER NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "ruleType",
+            "columnName": "rule_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "configJson",
+            "columnName": "config_json",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_time_rules_rule_type",
+            "unique": false,
+            "columnNames": [
+              "rule_type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_rules_rule_type` ON `${TABLE_NAME}` (`rule_type`)"
+          },
+          {
+            "name": "index_time_rules_is_active",
+            "unique": false,
+            "columnNames": [
+              "is_active"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_time_rules_is_active` ON `${TABLE_NAME}` (`is_active`)"
+          }
+        ]
+      },
+      {
+        "tableName": "lens_reflections",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `day_key` TEXT NOT NULL, `dimension_id` TEXT, `reflection_type` TEXT NOT NULL, `title` TEXT NOT NULL, `description` TEXT, `gap_minutes` INTEGER, `related_entity_id` TEXT, `is_addressed` INTEGER NOT NULL, `user_note` TEXT, `created_at` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "reflectionType",
+            "columnName": "reflection_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "title",
+            "columnName": "title",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "gapMinutes",
+            "columnName": "gap_minutes",
+            "affinity": "INTEGER"
+          },
+          {
+            "fieldPath": "relatedEntityId",
+            "columnName": "related_entity_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isAddressed",
+            "columnName": "is_addressed",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "userNote",
+            "columnName": "user_note",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_lens_reflections_day_key_dimension_id_reflection_type",
+            "unique": false,
+            "columnNames": [
+              "day_key",
+              "dimension_id",
+              "reflection_type"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lens_reflections_day_key_dimension_id_reflection_type` ON `${TABLE_NAME}` (`day_key`, `dimension_id`, `reflection_type`)"
+          },
+          {
+            "name": "index_lens_reflections_created_at",
+            "unique": false,
+            "columnNames": [
+              "created_at"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_lens_reflections_created_at` ON `${TABLE_NAME}` (`created_at`)"
+          }
+        ]
+      },
+      {
+        "tableName": "day_plan_templates",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `name` TEXT NOT NULL, `description` TEXT, `is_active` INTEGER NOT NULL, `sort_order` INTEGER NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "name",
+            "columnName": "name",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "description",
+            "columnName": "description",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isActive",
+            "columnName": "is_active",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "sortOrder",
+            "columnName": "sort_order",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_plan_templates_name",
+            "unique": true,
+            "columnNames": [
+              "name"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_day_plan_templates_name` ON `${TABLE_NAME}` (`name`)"
+          },
+          {
+            "name": "index_day_plan_templates_is_active",
+            "unique": false,
+            "columnNames": [
+              "is_active"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_templates_is_active` ON `${TABLE_NAME}` (`is_active`)"
+          }
+        ]
+      },
+      {
+        "tableName": "day_plan_template_allocations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `template_id` TEXT NOT NULL, `dimension_id` TEXT NOT NULL, `planned_minutes` INTEGER NOT NULL, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`template_id`) REFERENCES `day_plan_templates`(`id`) ON UPDATE NO ACTION ON DELETE CASCADE , FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateId",
+            "columnName": "template_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedMinutes",
+            "columnName": "planned_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_plan_template_allocations_template_id_dimension_id",
+            "unique": true,
+            "columnNames": [
+              "template_id",
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_day_plan_template_allocations_template_id_dimension_id` ON `${TABLE_NAME}` (`template_id`, `dimension_id`)"
+          },
+          {
+            "name": "index_day_plan_template_allocations_template_id",
+            "unique": false,
+            "columnNames": [
+              "template_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_template_allocations_template_id` ON `${TABLE_NAME}` (`template_id`)"
+          },
+          {
+            "name": "index_day_plan_template_allocations_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_template_allocations_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "day_plan_templates",
+            "onDelete": "CASCADE",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "template_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "day_plan_allocations",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `day_key` TEXT NOT NULL, `dimension_id` TEXT NOT NULL, `planned_minutes` INTEGER NOT NULL, `source` TEXT NOT NULL, `template_id` TEXT, `created_at` TEXT NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`id`), FOREIGN KEY(`dimension_id`) REFERENCES `life_dimensions`(`id`) ON UPDATE NO ACTION ON DELETE NO ACTION , FOREIGN KEY(`template_id`) REFERENCES `day_plan_templates`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "id",
+            "columnName": "id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "dimensionId",
+            "columnName": "dimension_id",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "plannedMinutes",
+            "columnName": "planned_minutes",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "source",
+            "columnName": "source",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateId",
+            "columnName": "template_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "createdAt",
+            "columnName": "created_at",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "id"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_plan_allocations_day_key_dimension_id",
+            "unique": true,
+            "columnNames": [
+              "day_key",
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE UNIQUE INDEX IF NOT EXISTS `index_day_plan_allocations_day_key_dimension_id` ON `${TABLE_NAME}` (`day_key`, `dimension_id`)"
+          },
+          {
+            "name": "index_day_plan_allocations_day_key",
+            "unique": false,
+            "columnNames": [
+              "day_key"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_allocations_day_key` ON `${TABLE_NAME}` (`day_key`)"
+          },
+          {
+            "name": "index_day_plan_allocations_dimension_id",
+            "unique": false,
+            "columnNames": [
+              "dimension_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_allocations_dimension_id` ON `${TABLE_NAME}` (`dimension_id`)"
+          },
+          {
+            "name": "index_day_plan_allocations_template_id",
+            "unique": false,
+            "columnNames": [
+              "template_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_allocations_template_id` ON `${TABLE_NAME}` (`template_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "life_dimensions",
+            "onDelete": "NO ACTION",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "dimension_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          },
+          {
+            "table": "day_plan_templates",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "template_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "day_plan_policies",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`day_key` TEXT NOT NULL, `mode` TEXT NOT NULL, `template_id` TEXT, `is_starred` INTEGER NOT NULL, `updated_at` TEXT NOT NULL, PRIMARY KEY(`day_key`), FOREIGN KEY(`template_id`) REFERENCES `day_plan_templates`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "dayKey",
+            "columnName": "day_key",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "mode",
+            "columnName": "mode",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateId",
+            "columnName": "template_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "isStarred",
+            "columnName": "is_starred",
+            "affinity": "INTEGER",
+            "notNull": true
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "day_key"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_plan_policies_template_id",
+            "unique": false,
+            "columnNames": [
+              "template_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_policies_template_id` ON `${TABLE_NAME}` (`template_id`)"
+          },
+          {
+            "name": "index_day_plan_policies_mode",
+            "unique": false,
+            "columnNames": [
+              "mode"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_policies_mode` ON `${TABLE_NAME}` (`mode`)"
+          },
+          {
+            "name": "index_day_plan_policies_is_starred",
+            "unique": false,
+            "columnNames": [
+              "is_starred"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_plan_policies_is_starred` ON `${TABLE_NAME}` (`is_starred`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "day_plan_templates",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "template_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      },
+      {
+        "tableName": "day_type_template_preferences",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`day_type` TEXT NOT NULL, `template_id` TEXT, `updated_at` TEXT NOT NULL, PRIMARY KEY(`day_type`), FOREIGN KEY(`template_id`) REFERENCES `day_plan_templates`(`id`) ON UPDATE NO ACTION ON DELETE SET NULL )",
+        "fields": [
+          {
+            "fieldPath": "dayType",
+            "columnName": "day_type",
+            "affinity": "TEXT",
+            "notNull": true
+          },
+          {
+            "fieldPath": "templateId",
+            "columnName": "template_id",
+            "affinity": "TEXT"
+          },
+          {
+            "fieldPath": "updatedAt",
+            "columnName": "updated_at",
+            "affinity": "TEXT",
+            "notNull": true
+          }
+        ],
+        "primaryKey": {
+          "autoGenerate": false,
+          "columnNames": [
+            "day_type"
+          ]
+        },
+        "indices": [
+          {
+            "name": "index_day_type_template_preferences_template_id",
+            "unique": false,
+            "columnNames": [
+              "template_id"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_day_type_template_preferences_template_id` ON `${TABLE_NAME}` (`template_id`)"
+          }
+        ],
+        "foreignKeys": [
+          {
+            "table": "day_plan_templates",
+            "onDelete": "SET NULL",
+            "onUpdate": "NO ACTION",
+            "columns": [
+              "template_id"
+            ],
+            "referencedColumns": [
+              "id"
+            ]
+          }
+        ]
+      }
+    ],
+    "setupQueries": [
+      "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '508b202e7c12ae8b5dcdb42be8845974')"
+    ]
+  }
+}

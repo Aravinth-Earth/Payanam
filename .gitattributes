@@ -1,0 +1,26 @@
+#  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+#  SPDX-License-Identifier: AGPL-3.0-or-later
+* text=auto
+
+*.kt text
+*.kts text
+*.md text
+*.xml text
+*.json text
+*.properties text
+*.yml text
+*.yaml text
+*.sh text eol=lf
+*.ps1 text eol=crlf
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.ico binary
+*.icns binary
+*.keystore binary
+*.jks binary
+*.p12 binary
+*.pfx binary

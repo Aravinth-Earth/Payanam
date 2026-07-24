@@ -1,0 +1,750 @@
+flowchart TD
+    subgraph SG_BOOT_ENTRY["Boot Entry Flow"]
+        direction TB
+    UPGRADE_RETAINED_DATA(["App updated (retain data mode)"])
+    APP_LAUNCH["App launch (pre-Room)"]
+    BOOT_RESOLVER["BootStateResolver"]
+    READ_BOOT_INPUTS["Read boot inputs (metadata + encryption state + boot flags + DB artifacts)"]
+    DB_INIT_CHOOSER[["Show DB Init chooser (Create New / Import Existing)"]]
+    DB_INIT_CHOOSER_ACTION{"User choice on DB Init chooser"}
+    IMPORT_PICKER[["SAF picker for existing DB"]]
+    IMPORT_PICKER_RESULT{"SAF picker result"}
+    IMPORT_FORMAT_DETECT{"Detect imported DB format"}
+    IMPORT_PLAINTEXT_DETECTED[["Plaintext DB detected for import"]]
+    IMPORT_PLAINTEXT_PASS_DECISION{"User provides new passphrase for plaintext import?"}
+    IMPORT_PLAINTEXT_COPY_ENCRYPT["Copy + encrypt plaintext DB using new passphrase"]
+    IMPORT_PLAINTEXT_RESULT{"Plaintext import + encrypt success?"}
+    IMPORT_PLAINTEXT_FAILED[["Plaintext DB import failed"]]
+    IMPORT_PLAINTEXT_FAILED_ACTION{"User choice after plaintext import failure"}
+    IMPORT_ENCRYPTED_DETECTED["Encrypted DB detected"]
+    IMPORT_PASS_PROMPT[["Ask passphrase for encrypted import"]]
+    IMPORT_PASS_RESULT{"Imported DB passphrase valid?"}
+    IMPORT_PASS_INVALID[["Imported DB passphrase invalid"]]
+    IMPORT_PASS_INVALID_ACTION{"User choice after invalid imported passphrase"}
+    IMPORT_PASS_OK["Imported DB passphrase verified"]
+    IMPORT_COPY_ENCRYPTED_DB["Copy imported encrypted DB artifacts"]
+    IMPORT_COPY_ENCRYPTED_RESULT{"Encrypted DB copy/import success?"}
+    IMPORT_COPY_ENCRYPTED_FAILED[["Encrypted DB import copy failed"]]
+    IMPORT_COPY_ENCRYPTED_FAILED_ACTION{"User choice after encrypted import copy failure"}
+    IMPORT_PREP_BOOT_STATE["Configure encryption with import passphrase + update metadata and boot flags after import"]
+    DB_ARTIFACTS_EXISTS{"DB artifacts found?"}
+    METADATA_READ_OK{"Metadata file readable?"}
+    METADATA_SCHEMA_VALID{"Metadata schemaVersion status"}
+    METADATA_HEALTHY{"Metadata isHealthy?"}
+    DB_IS_ENCRYPTED{"Metadata isEncrypted?"}
+    PLAINTEXT_DB_FOUND[["Local DB found but unencrypted (plaintext)"]]
+    PLAINTEXT_DB_ACTION{"User choice for plaintext local DB"}
+    PLAINTEXT_ENCRYPT_SETUP_SCREEN[["Ask passphrase to encrypt existing local DB"]]
+    PLAINTEXT_ENCRYPT_SETUP_SUCCESS["Passphrase setup for plaintext DB succeeded"]
+    PLAINTEXT_ENCRYPT_DB["Encrypt existing local DB with new passphrase"]
+    PLAINTEXT_ENCRYPT_RESULT{"Encrypt existing plaintext DB success?"}
+    PLAINTEXT_ENCRYPT_FAILED[["Encrypt existing plaintext DB failed"]]
+    PLAINTEXT_ENCRYPT_FAILED_ACTION{"User choice after plaintext DB encryption failure"}
+    PLAINTEXT_ENCRYPT_DONE["Plaintext DB encrypted successfully"]
+    INIT_COMPLETED_TRUE{"database_init_completed?"}
+    DB_FOUND_UNFINALIZED[["DB found but setup not finalized"]]
+    DB_FOUND_UNFINALIZED_ACTION{"User choice for unfinalized existing DB"}
+    FINALIZE_EXISTING_DB_SELECTION["Mark existing DB as selected/finalized"]
+    DB_ISSUE_IDENTIFIED{"Classify DB issue (metadata/boot checks)"}
+    DB_ISSUE_METADATA_CORRUPT[["Encrypted DB metadata appears corrupted"]]
+    DB_ISSUE_ACTION{"User choice after metadata corruption issue"}
+    DB_ISSUE_SCHEMA_IRREPARABLE[["DB schema is invalid/corrupt and cannot be repaired safely"]]
+    DB_ISSUE_SCHEMA_IRREPARABLE_ACTION{"User choice after schema-irreparable issue"}
+    DB_ISSUE_TOO_OLD[["DB schema is older than minimum supported version"]]
+    DB_ISSUE_TOO_OLD_ACTION{"User choice after unsupported old DB version"}
+    DB_ISSUE_TOO_NEW[["DB schema is newer than app supports"]]
+    DB_ISSUE_TOO_NEW_ACTION{"User choice after newer-than-supported DB"}
+    DB_ISSUE_SIDECAR_MISSING[["Metadata/sidecar missing or unreadable"]]
+    DB_ISSUE_SIDECAR_MISSING_ACTION{"User choice after sidecar metadata issue"}
+    DB_REPAIR_ATTEMPT["Attempt DB/metadata repair (if supported)"]
+    DB_REPAIR_RESULT{"Repair successful?"}
+    DB_REPAIR_FAILED[["Repair failed or not fixable"]]
+    DB_REPAIR_FAILED_ACTION{"User choice after repair failure"}
+    APP_UPDATE_REQUIRED(["END: Update app required (DB schema newer than supported)"])
+    MIGRATION_CHECK["Check migration needed"]
+    MIGRATION_REQUIRED{"Schema migration needed?"}
+    NO_MIGRATION_REQUIRED["Schema already current (no migration needed)"]
+    MIGRATION_SCREEN[["Show DB schema upgrade screen"]]
+    MIGRATION_ACTION{"User choice on migration screen"}
+    MIGRATION_DEFERRED[["Migration deferred (DB cannot open until upgraded)"]]
+    MIGRATION_DEFERRED_ACTION{"User choice after migration deferred"}
+    USER_STARTS_MIGRATION["User chooses Migrate"]
+    RUN_MIGRATIONS["Run stepwise migration chain (representative)"]
+    MIGRATION_RESULT{"Migration completed successfully?"}
+    MIGRATION_FAILED[["Migration failed"]]
+    MIGRATION_FAILED_ACTION{"User choice after migration failure"}
+    MIGRATION_SUCCESS["Migration completed successfully"]
+    UPDATE_METADATA["Update metadata (schema version + health)"]
+    INIT_ROOM["DB session confirmed ready (Room opened by DatabaseSessionManager after auth; this step finalizes app readiness)"]
+    APP_RUNTIME_READY(["App runtime ready (user starts using app)"])
+    CREATE_NEW_EXISTING_CHECK{"Any existing DB artifacts on disk?"}
+    CREATE_NEW_WIPE_CONFIRM[["Warn: creating new DB will permanently delete existing DB and all data"]]
+    CREATE_NEW_WIPE_DECISION{"User confirms create new and delete existing?"}
+    CREATE_NEW_WAL_CHECKPOINT["Checkpoint WAL into main DB file before backup"]
+    CREATE_NEW_CLOSE_ROOM_FOR_BACKUP["Close Room connection before backup"]
+    CREATE_NEW_TEMP_BACKUP["Copy all DB artifacts to payanam_temp_backup subfolder"]
+    CREATE_NEW_BACKUP_VERIFY{"Temp backup DB file readable?"}
+    CREATE_NEW_BACKUP_FAILED[["Temp backup failed - cannot safely proceed with create new"]]
+    CREATE_NEW_WIPE_ALL["Wipe all DB artifacts from DB dir including bak and temp files"]
+    CREATE_NEW_CLEANUP_TEMP_BACKUP["Delete payanam_temp_backup folder on success (no-op if folder absent)"]
+    CREATE_NEW_RESTORE_BACKUP["Wipe partial files and restore from payanam_temp_backup"]
+    CREATE_NEW_RESTORE_RESULT{"Restore from temp backup success?"}
+    CREATE_NEW_RESTORE_OK_SCREEN[["Create new failed - previous DB restored successfully"]]
+    CREATE_NEW_RESTORE_FAILED_SCREEN[["Create new failed and restore also failed - DB dir may be empty"]]
+    IMPORT_EXISTING_CHECK{"Any existing DB artifacts on disk?"}
+    IMPORT_WIPE_CONFIRM[["Warn: importing will permanently delete existing DB and all data"]]
+    IMPORT_WIPE_DECISION{"User confirms import and delete existing?"}
+    IMPORT_WAL_CHECKPOINT["Checkpoint WAL into main DB file before backup"]
+    IMPORT_CLOSE_ROOM_FOR_BACKUP["Close Room connection before backup"]
+    IMPORT_TEMP_BACKUP["Copy all DB artifacts to payanam_temp_backup subfolder"]
+    IMPORT_BACKUP_VERIFY{"Temp backup DB file readable?"}
+    IMPORT_BACKUP_FAILED[["Temp backup failed - cannot safely proceed with import"]]
+    IMPORT_WIPE_ALL["Wipe all DB artifacts from DB dir including bak and temp files"]
+    IMPORT_RESTORE_BACKUP["Wipe partial files and restore from payanam_temp_backup"]
+    IMPORT_RESTORE_RESULT{"Restore from temp backup success?"}
+    IMPORT_RESTORE_OK_SCREEN[["Import failed - previous DB restored successfully"]]
+    IMPORT_RESTORE_FAILED_SCREEN[["Import failed and restore also failed - DB dir may be empty"]]
+    CREATE_NEW_FLOW[["Enter Create New DB flow"]]
+    CREATE_NEW_SETUP_SCREEN[["Show passphrase setup for new DB"]]
+    CREATE_NEW_SETUP_RESULT{"New DB passphrase submission valid?"}
+    CREATE_NEW_SETUP_SUCCESS["New DB passphrase setup success"]
+    CREATE_NEW_DB["Create new encrypted DB"]
+    CREATE_NEW_BOOT_STATE["Update metadata + boot flags for new DB"]
+    CREATE_NEW_INIT_ROOM["Init Room (new DB ready)"]
+    DBSM_OPEN_DB["DatabaseSessionManager.openDatabase(passphrase) - build Room instance with SQLCipher SupportFactory, store in session holder"]
+    DBSM_OPEN_RESULT{"Room open succeeded?"}
+    DBSM_OPEN_FAILED[["DB open failed (wrong passphrase or corrupted file)"]]
+    DBSM_OPEN_FAILED_ACTION{"User choice after DB open failure"}
+    DBSM_CLOSE_DB["DatabaseSessionManager.closeDatabase() - null the Room instance, called before restartProcess() on import-replace only"]
+    AUTH_UNLOCK_SCREEN[["Passphrase unlock screen - shows payanam.db last-modified and file size from filesystem (no decryption needed)"]]
+    AUTH_UNLOCK_METHOD{"Auth method available"}
+    AUTH_BIOMETRIC_PROMPT[["System biometric prompt (fingerprint or face)"]]
+    AUTH_BIOMETRIC_RESULT{"Biometric verification result"}
+    AUTH_BIOMETRIC_KEYSTORE_UNWRAP["Keystore releases wrapped passphrase (key has setUserAuthenticationRequired=true, auth window satisfied)"]
+    AUTH_MANUAL_ENTRY[["User types passphrase manually"]]
+    AUTH_MANUAL_VERIFY{"Verify typed passphrase against stored PBKDF2 verifier"}
+    AUTH_MANUAL_FAILED[["Wrong passphrase entered"]]
+    AUTH_MANUAL_FAILED_ACTION{"User choice after wrong passphrase"}
+    AUTH_LOCKOUT[["Too many failed attempts - lockout active"]]
+    AUTH_LOCKOUT_ACTION{"User choice after lockout"}
+    AUTH_PASSPHRASE_READY["Passphrase available in memory for DB open (from biometric unwrap or manual entry)"]
+    AUTH_POST_UNLOCK_BIOMETRIC_OFFER[["Post-unlock offer: Enable biometric unlock? (shown only if biometric not yet enabled and device supports it)"]]
+    AUTH_POST_UNLOCK_BIOMETRIC_DECISION{"User choice on biometric offer"}
+    BIOSEC_ENABLE_FLOW["Biometric enable flow (from post-unlock offer or Settings)"]
+    BIOSEC_DEVICE_CHECK{"Device has enrolled biometric?"}
+    BIOSEC_NO_BIOMETRIC[["No biometric enrolled on device - show guidance"]]
+    BIOSEC_CONFIRM_PROMPT[["System biometric prompt to confirm enrollment for app"]]
+    BIOSEC_CONFIRM_RESULT{"Biometric enrollment confirmation result"}
+    BIOSEC_STORE_WRAPPED_KEY["Wrap passphrase under biometric-required Keystore key (setUserAuthenticationRequired=true) and persist"]
+    BIOSEC_ENABLE_DONE[["Biometric unlock enabled"]]
+    BIOSEC_ENABLE_FAILED[["Biometric enable failed"]]
+    BIOSEC_DISABLE_FLOW["Biometric disable flow (from Settings while DB session already unlocked)"]
+    BIOSEC_DELETE_KEY["Delete biometric-required Keystore key entry"]
+    BIOSEC_DISABLE_DONE[["Biometric unlock disabled"]]
+    SETTINGS_SECURITY_SCREEN[["Settings > Security - shows: session inactivity timeout config + biometric unlock toggle"]]
+    SETTINGS_TIMEOUT_CHANGE["User changes inactivity timeout value"]
+    SETTINGS_BIOMETRIC_TOGGLE{"User taps biometric unlock toggle"}
+    end
+    subgraph SG_SHARED_RESET["Shared Reset Flow"]
+        direction TB
+    RESET_SRC_METADATA_REPAIR["Set reset source = metadata repair"]
+    RESET_SRC_UNLOCK_LOCKOUT["Set reset source = unlock lockout"]
+    RESET_CONFIRM_SCREEN[["Forgot passphrase reset confirmation (deletes all local DB data)"]]
+    RESET_CONFIRM_DECISION{"Confirm reset?"}
+    RESET_CANCEL_ROUTE{"Return by reset source"}
+    RESET_DELETE_ALL["Delete DB artifacts + metadata + reset encryption state"]
+    RESET_POST_DELETE_ROUTE{"Route after reset delete by source"}
+    RESET_TO_CREATE_NEW["Handoff to fresh Create New DB flow"]
+    end
+    subgraph SG_SHARED_DELETE["Shared Delete Confirmation"]
+        direction TB
+    DEL_SRC_DB_ISSUE_FLOW["Set delete-confirm source = metadata-corruption issue flow"]
+    DEL_SRC_ISSUE_SCHEMA_IRREPARABLE["Set delete-confirm source = schema irreparable issue"]
+    DEL_SRC_ISSUE_TOO_OLD["Set delete-confirm source = unsupported old DB issue"]
+    DEL_SRC_ISSUE_TOO_NEW["Set delete-confirm source = newer-than-supported DB issue"]
+    DEL_SRC_ISSUE_SIDECAR_MISSING["Set delete-confirm source = sidecar metadata issue"]
+    DEL_SRC_DB_REPAIR_FAILED["Set delete-confirm source = repair failed flow"]
+    DEL_SRC_PLAINTEXT_DB["Set delete-confirm source = plaintext local DB flow"]
+    DEL_SRC_PLAINTEXT_ENCRYPT_FAILED["Set delete-confirm source = plaintext encryption failure"]
+    DEL_SRC_UNFINALIZED_DB["Set delete-confirm source = unfinalized DB flow"]
+    DEL_SRC_MIGRATION_DEFERRED["Set delete-confirm source = migration deferred"]
+    DEL_SRC_MIGRATION_FAILED["Set delete-confirm source = migration failure"]
+    DELETE_EXISTING_DB_CONFIRM[["Confirm delete current DB artifacts before Create New"]]
+    DELETE_EXISTING_DB_DECISION{"Delete current DB artifacts?"}
+    DELETE_CONFIRM_CANCEL_ROUTE{"Return by delete-confirm source"}
+    DELETE_EXISTING_DB_RUN["Delete DB + WAL + SHM + metadata"]
+    end
+    subgraph SG_RUNTIME["Runtime Session Flow"]
+        direction TB
+    RESET_SRC_RUNTIME_FORGOT["Set reset source = runtime forgot-passphrase"]
+    RUNTIME_INACTIVITY_TRACKER["Track inactivity timer (reset on each user-initiated DB write or screen interaction)"]
+    RUNTIME_INACTIVITY_CHECK{"Inactivity threshold reached?"}
+    RUNTIME_BACKGROUND_WAIT["App backgrounded or screen locked (inactivity timer continues)"]
+    RUNTIME_RESUME_CHECK{"Inactivity status on resume"}
+    RUNTIME_TRIGGER_LOCK["Call restartProcess() - kills process, wipes SQLCipher key from RAM, DB file remains encrypted on disk"]
+    RUNTIME_APP_RESTART["Restart app process after runtime lock or destructive reset"]
+    end
+    subgraph SG_DATA_OPS["Data Management (Export / Import)"]
+        direction TB
+    IMPORT_DB_UNUSABLE[["Imported DB is not usable (corrupted/unsupported)"]]
+    IMPORT_DB_UNUSABLE_ACTION{"User choice after unusable import DB"}
+    DATA_MGMT_HOME[["Settings > Data Management"]]
+    DATA_MGMT_ACTION{"User choice in Data Management"}
+    DATA_MGMT_SWITCH_DB_HANDOFF["Switch DB requested from settings"]
+    DATA_MGMT_IMPORT_DB_CONFIRM[["Warn: importing different DB will permanently delete current DB and all data"]]
+    DATA_MGMT_IMPORT_DB_DECISION{"User confirms import different DB from settings?"}
+    DATA_MGMT_RESET_DB_EXPORT_PROMPT[["Prompt: back up current DB before deleting? Yes runs manual backup, No proceeds"]]
+    DATA_MGMT_RESET_DB_EXPORT_DECISION{"User choice on backup before delete"}
+    DATA_MGMT_RESET_DB_CONFIRM[["Confirm reset database from settings (deletes local DB data with no recovery)"]]
+    DATA_MGMT_RESET_DB_DECISION{"Reset DB from settings?"}
+    DATA_MGMT_RESET_DB_DELETE["Checkpoint WAL then wipe all DB artifacts including bak and temp backup subfolder"]
+    DATA_MGMT_MAINT_CLOSE_ROOM["Close Room and release DB handles/jobs"]
+    DATA_MGMT_MAINT_BOOT_RESTART["Boot flow restarts from initial state"]
+    DATA_MGMT_MAINT_CACHE_CLEANUP["Cleanup metadata cache (if applicable)"]
+    EXPORT_SCOPE{"Choose export scope"}
+    EXPORT_DB_ENC_RUN["Export encrypted DB snapshot (.db + -wal + -shm or checkpointed)"]
+    EXPORT_DB_ENC_RESULT{"Encrypted export write success?"}
+    EXPORT_DB_PLAIN_WARN[["Warn about plaintext export visibility"]]
+    EXPORT_DB_PLAIN_CONFIRM{"User confirms plaintext export?"}
+    EXPORT_DB_PLAIN_RUN["Export one-time plaintext DB snapshot"]
+    EXPORT_DB_PLAIN_RESULT{"Plaintext export write success?"}
+    EXPORT_MODULE_SELECT[["Choose modules to export"]]
+    EXPORT_MODULE_SELECTED{"At least one module selected?"}
+    EXPORT_MODULE_RUN["Export selected module data file"]
+    EXPORT_MODULE_RESULT{"Module export write success?"}
+    EXPORT_OK[["Export complete"]]
+    EXPORT_ERR[["Export failed"]]
+    IMPORT_TYPE{"Choose import source type"}
+    IMPORT_DB_PICKER[["Pick full Payanam DB file/folder"]]
+    IMPORT_DB_PICKER_RESULT{"Full DB import picker result"}
+    IMPORT_DB_DETECT["Detect encryption/format of selected Payanam DB"]
+    IMPORT_DB_FORMAT{"Selected Payanam DB format"}
+    IMPORT_DB_BAD[["Selected file is not a valid usable Payanam DB"]]
+    IMPORT_DB_BAD_ACTION{"User choice after invalid full DB import file"}
+    IMPORT_DB_PLAIN_SCREEN[["Plaintext DB detected for full replace import"]]
+    IMPORT_DB_PLAIN_PASS{"Valid passphrase provided for plaintext DB import?"}
+    IMPORT_DB_ENC_SCREEN[["Encrypted DB detected for full replace import"]]
+    IMPORT_DB_ENC_PASS{"Encrypted DB passphrase verified?"}
+    IMPORT_DB_ENC_RETRY[["Invalid imported DB passphrase (full replace)"]]
+    IMPORT_DB_ENC_RETRY_ACTION{"User action after invalid full DB import passphrase"}
+    IMPORT_DB_HANDOFF["Close Room and enter maintenance replace flow"]
+    IMPORT_DB_EXECUTE["Execute full DB replace import (backup DB + encryption state, replace, configure encryption with import passphrase, validate)"]
+    IMPORT_DB_RESULT{"Full DB replace import success?"}
+    IMPORT_DB_ROLLBACK["Restore previous DB + encryption state from backup snapshot"]
+    IMPORT_DB_ERR[["Full DB import failed (previous DB restored)"]]
+    IMPORT_DB_OK[["Full DB import complete (restart required)"]]
+    IMPORT_DB_RESTART["Restart app to reopen imported DB"]
+    IMPORT_MOD_PICKER[["Pick module import file and options"]]
+    IMPORT_MOD_VALID{"Module import file valid?"}
+    IMPORT_MOD_EXECUTE["Execute module import (replace/merge)"]
+    IMPORT_MOD_RESULT{"Module import success?"}
+    IMPORT_MOD_OK[["Module import complete (no restart required)"]]
+    IMPORT_MOD_ERR[["Module import failed"]]
+    IMPORT_UH_PICKER[["Pick uHabits database file"]]
+    IMPORT_UH_EXECUTE["Import uHabits data (merge)"]
+    IMPORT_UH_RESULT{"uHabits import success?"}
+    IMPORT_UH_OK[["uHabits import complete (no restart required)"]]
+    IMPORT_UH_ERR[["uHabits import failed"]]
+    end
+    subgraph SG_AUTO_BACKUP["Auto-Backup"]
+        direction TB
+    AUTO_BK_TRIGGER(["AutoBackupWorker periodic run"])
+    AUTO_BK_RUN["Copy DB artifacts to auto-backup folder"]
+    AUTO_BK_RESULT{"Auto-backup copy success?"}
+    AUTO_BK_PRUNE["Prune old auto-backups (keep last N)"]
+    AUTO_BK_META["Record last auto-backup metadata"]
+    AUTO_BK_ERR[["Auto-backup failed (show non-auto-dismissible error message)"]]
+    end
+    UPGRADE_RETAINED_DATA -->|user launches app| APP_LAUNCH
+    APP_LAUNCH -->|enter| BOOT_RESOLVER
+    BOOT_RESOLVER -->|start| READ_BOOT_INPUTS
+    READ_BOOT_INPUTS -->|resolved| DB_ARTIFACTS_EXISTS
+    DB_ARTIFACTS_EXISTS -->|resolved / No| DB_INIT_CHOOSER
+    DB_INIT_CHOOSER -->|show| DB_INIT_CHOOSER_ACTION
+    DB_INIT_CHOOSER_ACTION -->|user / Import Existing| IMPORT_EXISTING_CHECK
+    DB_INIT_CHOOSER_ACTION -->|user / Create New| CREATE_NEW_EXISTING_CHECK
+    IMPORT_PICKER -->|show| IMPORT_PICKER_RESULT
+    IMPORT_PICKER_RESULT -->|resolved / No selection| DB_INIT_CHOOSER
+    IMPORT_PICKER_RESULT -->|resolved / Selected file/folder| IMPORT_FORMAT_DETECT
+    IMPORT_FORMAT_DETECT -->|resolved / Unknown/corrupt not usable| IMPORT_DB_UNUSABLE
+    IMPORT_DB_UNUSABLE -->|show| IMPORT_DB_UNUSABLE_ACTION
+    IMPORT_DB_UNUSABLE_ACTION -->|user / Select Different| IMPORT_PICKER
+    IMPORT_DB_UNUSABLE_ACTION -->|user / Create New| CREATE_NEW_FLOW
+    CREATE_NEW_FLOW -->|continue| CREATE_NEW_SETUP_SCREEN
+    CREATE_NEW_SETUP_SCREEN -->|submit| CREATE_NEW_SETUP_RESULT
+    CREATE_NEW_SETUP_RESULT -->|resolved / No / Invalid| CREATE_NEW_SETUP_SCREEN
+    CREATE_NEW_SETUP_RESULT -->|resolved / Yes / Valid| CREATE_NEW_SETUP_SUCCESS
+    CREATE_NEW_SETUP_SUCCESS -->|resolved / Success| CREATE_NEW_DB
+    CREATE_NEW_DB -->|complete / Success| CREATE_NEW_BOOT_STATE
+    CREATE_NEW_BOOT_STATE -->|complete| CREATE_NEW_INIT_ROOM
+    CREATE_NEW_INIT_ROOM -->|complete| CREATE_NEW_CLEANUP_TEMP_BACKUP
+    IMPORT_FORMAT_DETECT -->|resolved / Plaintext detected| IMPORT_PLAINTEXT_DETECTED
+    IMPORT_PLAINTEXT_DETECTED -->|show| IMPORT_PLAINTEXT_PASS_DECISION
+    IMPORT_PLAINTEXT_PASS_DECISION -->|user / No / Cancel| DB_INIT_CHOOSER
+    IMPORT_PLAINTEXT_PASS_DECISION -->|user / Yes / Provided valid passphrase| IMPORT_PLAINTEXT_COPY_ENCRYPT
+    IMPORT_PLAINTEXT_COPY_ENCRYPT -->|complete| IMPORT_PLAINTEXT_RESULT
+    IMPORT_PLAINTEXT_RESULT -->|resolved / Yes| IMPORT_PREP_BOOT_STATE
+    IMPORT_PLAINTEXT_RESULT -->|resolved / No| IMPORT_PLAINTEXT_FAILED
+    IMPORT_PLAINTEXT_FAILED -->|show| IMPORT_PLAINTEXT_FAILED_ACTION
+    IMPORT_PLAINTEXT_FAILED_ACTION -->|user / Retry| IMPORT_PLAINTEXT_DETECTED
+    IMPORT_PLAINTEXT_FAILED_ACTION -->|user / Import Different| IMPORT_PICKER
+    IMPORT_PLAINTEXT_FAILED_ACTION -->|user / Create New| CREATE_NEW_FLOW
+    IMPORT_PLAINTEXT_FAILED_ACTION -->|user / Cancel| DB_INIT_CHOOSER
+    IMPORT_FORMAT_DETECT -->|resolved / Encrypted detected| IMPORT_ENCRYPTED_DETECTED
+    IMPORT_ENCRYPTED_DETECTED -->|continue| IMPORT_PASS_PROMPT
+    IMPORT_PASS_PROMPT -->|submit| IMPORT_PASS_RESULT
+    IMPORT_PASS_RESULT -->|resolved / Yes| IMPORT_PASS_OK
+    IMPORT_PASS_RESULT -->|resolved / No| IMPORT_PASS_INVALID
+    IMPORT_PASS_INVALID -->|show| IMPORT_PASS_INVALID_ACTION
+    IMPORT_PASS_INVALID_ACTION -->|user / Retry| IMPORT_PASS_PROMPT
+    IMPORT_PASS_INVALID_ACTION -->|user / Import Different| IMPORT_PICKER
+    IMPORT_PASS_INVALID_ACTION -->|user / Create New| CREATE_NEW_FLOW
+    IMPORT_PASS_INVALID_ACTION -->|user / Cancel| DB_INIT_CHOOSER
+    IMPORT_PASS_OK -->|resolved / Success| IMPORT_COPY_ENCRYPTED_DB
+    IMPORT_COPY_ENCRYPTED_DB -->|complete| IMPORT_COPY_ENCRYPTED_RESULT
+    IMPORT_COPY_ENCRYPTED_RESULT -->|resolved / Yes| IMPORT_PREP_BOOT_STATE
+    IMPORT_COPY_ENCRYPTED_RESULT -->|resolved / No| IMPORT_COPY_ENCRYPTED_FAILED
+    IMPORT_COPY_ENCRYPTED_FAILED -->|show| IMPORT_COPY_ENCRYPTED_FAILED_ACTION
+    IMPORT_COPY_ENCRYPTED_FAILED_ACTION -->|user / Retry| IMPORT_COPY_ENCRYPTED_DB
+    IMPORT_COPY_ENCRYPTED_FAILED_ACTION -->|user / Import Different| IMPORT_PICKER
+    IMPORT_COPY_ENCRYPTED_FAILED_ACTION -->|user / Create New| CREATE_NEW_FLOW
+    IMPORT_COPY_ENCRYPTED_FAILED_ACTION -->|user / Cancel| DB_INIT_CHOOSER
+    IMPORT_PREP_BOOT_STATE -->|continue| MIGRATION_CHECK
+    DB_ARTIFACTS_EXISTS -->|resolved / Yes| METADATA_READ_OK
+    METADATA_READ_OK -->|resolved / Yes| METADATA_SCHEMA_VALID
+    METADATA_READ_OK -->|resolved / No| DB_ISSUE_IDENTIFIED
+    METADATA_SCHEMA_VALID -->|resolved / Supported| METADATA_HEALTHY
+    METADATA_SCHEMA_VALID -->|resolved / Invalid/corrupt| DB_ISSUE_IDENTIFIED
+    METADATA_SCHEMA_VALID -->|resolved / Higher than app supported| DB_ISSUE_IDENTIFIED
+    METADATA_SCHEMA_VALID -->|resolved / Lower than minimum supported| DB_ISSUE_IDENTIFIED
+    METADATA_HEALTHY -->|resolved / Yes| DB_IS_ENCRYPTED
+    METADATA_HEALTHY -->|resolved / No| DB_ISSUE_IDENTIFIED
+    DB_ISSUE_IDENTIFIED -->|resolved / Encrypted metadata corruption repairable/resettable| DB_ISSUE_METADATA_CORRUPT
+    DB_ISSUE_METADATA_CORRUPT -->|show| DB_ISSUE_ACTION
+    DB_ISSUE_IDENTIFIED -->|resolved / Schema irreparable / invalid| DB_ISSUE_SCHEMA_IRREPARABLE
+    DB_ISSUE_SCHEMA_IRREPARABLE -->|show| DB_ISSUE_SCHEMA_IRREPARABLE_ACTION
+    DB_ISSUE_SCHEMA_IRREPARABLE_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_ISSUE_SCHEMA_IRREPARABLE_ACTION -->|user / Create New| DEL_SRC_ISSUE_SCHEMA_IRREPARABLE
+    DB_ISSUE_IDENTIFIED -->|resolved / DB version too old unsupported| DB_ISSUE_TOO_OLD
+    DB_ISSUE_TOO_OLD -->|show| DB_ISSUE_TOO_OLD_ACTION
+    DB_ISSUE_TOO_OLD_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_ISSUE_TOO_OLD_ACTION -->|user / Create New| DEL_SRC_ISSUE_TOO_OLD
+    DB_ISSUE_IDENTIFIED -->|resolved / DB version too new update app required| DB_ISSUE_TOO_NEW
+    DB_ISSUE_TOO_NEW -->|show| DB_ISSUE_TOO_NEW_ACTION
+    DB_ISSUE_TOO_NEW_ACTION -->|user / Update App| APP_UPDATE_REQUIRED
+    DB_ISSUE_TOO_NEW_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_ISSUE_TOO_NEW_ACTION -->|user / Create New| DEL_SRC_ISSUE_TOO_NEW
+    DB_ISSUE_IDENTIFIED -->|resolved / Metadata sidecar missing/unreadable| DB_ISSUE_SIDECAR_MISSING
+    DB_ISSUE_SIDECAR_MISSING -->|show| DB_ISSUE_SIDECAR_MISSING_ACTION
+    DB_ISSUE_SIDECAR_MISSING_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_ISSUE_SIDECAR_MISSING_ACTION -->|user / Create New| DEL_SRC_ISSUE_SIDECAR_MISSING
+    DB_ISSUE_ACTION -->|user / Attempt Repair| DB_REPAIR_ATTEMPT
+    DB_ISSUE_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_ISSUE_ACTION -->|user / Create New| DEL_SRC_DB_ISSUE_FLOW
+    DB_REPAIR_ATTEMPT -->|complete| DB_REPAIR_RESULT
+    DB_REPAIR_RESULT -->|resolved / Yes| BOOT_RESOLVER
+    DB_REPAIR_RESULT -->|resolved / No| DB_REPAIR_FAILED
+    DB_REPAIR_FAILED -->|show| DB_REPAIR_FAILED_ACTION
+    DB_REPAIR_FAILED_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_REPAIR_FAILED_ACTION -->|user / Create New| DEL_SRC_DB_REPAIR_FAILED
+    DB_REPAIR_FAILED_ACTION -->|user / Forgot Passphrase Reset| RESET_SRC_METADATA_REPAIR
+    RESET_SRC_METADATA_REPAIR -->|continue| RESET_CONFIRM_SCREEN
+    RESET_CONFIRM_SCREEN -->|show| RESET_CONFIRM_DECISION
+    RESET_CONFIRM_DECISION -->|user / No| RESET_CANCEL_ROUTE
+    RESET_CANCEL_ROUTE -->|resolved / Metadata repair| DB_REPAIR_FAILED_ACTION
+    RESET_CONFIRM_DECISION -->|user / Yes| RESET_DELETE_ALL
+    RESET_DELETE_ALL -->|complete| RESET_POST_DELETE_ROUTE
+    RESET_TO_CREATE_NEW -->|continue| CREATE_NEW_FLOW
+    DB_IS_ENCRYPTED -->|resolved / Yes| INIT_COMPLETED_TRUE
+    DB_IS_ENCRYPTED -->|resolved / No| PLAINTEXT_DB_FOUND
+    PLAINTEXT_DB_FOUND -->|show| PLAINTEXT_DB_ACTION
+    PLAINTEXT_DB_ACTION -->|user / Encrypt Existing| PLAINTEXT_ENCRYPT_SETUP_SCREEN
+    PLAINTEXT_DB_ACTION -->|user / Import Different| IMPORT_PICKER
+    PLAINTEXT_DB_ACTION -->|user / Create New| DEL_SRC_PLAINTEXT_DB
+    PLAINTEXT_ENCRYPT_SETUP_SCREEN -->|submit| PLAINTEXT_ENCRYPT_SETUP_SUCCESS
+    PLAINTEXT_ENCRYPT_SETUP_SUCCESS -->|resolved / Success| PLAINTEXT_ENCRYPT_DB
+    PLAINTEXT_ENCRYPT_DB -->|complete| PLAINTEXT_ENCRYPT_RESULT
+    PLAINTEXT_ENCRYPT_RESULT -->|resolved / Yes| PLAINTEXT_ENCRYPT_DONE
+    PLAINTEXT_ENCRYPT_RESULT -->|resolved / No| PLAINTEXT_ENCRYPT_FAILED
+    PLAINTEXT_ENCRYPT_FAILED -->|show| PLAINTEXT_ENCRYPT_FAILED_ACTION
+    PLAINTEXT_ENCRYPT_FAILED_ACTION -->|user / Retry| PLAINTEXT_DB_ACTION
+    PLAINTEXT_ENCRYPT_FAILED_ACTION -->|user / Import Different| IMPORT_PICKER
+    PLAINTEXT_ENCRYPT_FAILED_ACTION -->|user / Create New| DEL_SRC_PLAINTEXT_ENCRYPT_FAILED
+    PLAINTEXT_ENCRYPT_DONE -->|continue| INIT_COMPLETED_TRUE
+    INIT_COMPLETED_TRUE -->|resolved / Yes| AUTH_UNLOCK_SCREEN
+    INIT_COMPLETED_TRUE -->|resolved / No| DB_FOUND_UNFINALIZED
+    DB_FOUND_UNFINALIZED -->|show| DB_FOUND_UNFINALIZED_ACTION
+    DB_FOUND_UNFINALIZED_ACTION -->|user / Use Existing| FINALIZE_EXISTING_DB_SELECTION
+    DB_FOUND_UNFINALIZED_ACTION -->|user / Import Different| IMPORT_PICKER
+    DB_FOUND_UNFINALIZED_ACTION -->|user / Create New| DEL_SRC_UNFINALIZED_DB
+    FINALIZE_EXISTING_DB_SELECTION -->|complete| AUTH_UNLOCK_SCREEN
+    RESET_SRC_UNLOCK_LOCKOUT -->|continue| RESET_CONFIRM_SCREEN
+    RESET_CANCEL_ROUTE -->|resolved / Unlock lockout| AUTH_UNLOCK_SCREEN
+    MIGRATION_CHECK -->|enter| MIGRATION_REQUIRED
+    MIGRATION_REQUIRED -->|resolved / Yes| MIGRATION_SCREEN
+    MIGRATION_REQUIRED -->|resolved / No| NO_MIGRATION_REQUIRED
+    NO_MIGRATION_REQUIRED -->|continue| INIT_ROOM
+    MIGRATION_SCREEN -->|show| MIGRATION_ACTION
+    MIGRATION_ACTION -->|user / Cancel| MIGRATION_DEFERRED
+    MIGRATION_ACTION -->|user / Migrate| USER_STARTS_MIGRATION
+    MIGRATION_DEFERRED -->|show| MIGRATION_DEFERRED_ACTION
+    MIGRATION_DEFERRED_ACTION -->|user / Retry migration| MIGRATION_SCREEN
+    MIGRATION_DEFERRED_ACTION -->|user / Import Different| IMPORT_PICKER
+    MIGRATION_DEFERRED_ACTION -->|user / Create New| DEL_SRC_MIGRATION_DEFERRED
+    USER_STARTS_MIGRATION -->|continue| RUN_MIGRATIONS
+    RUN_MIGRATIONS -->|complete| MIGRATION_RESULT
+    MIGRATION_RESULT -->|resolved / Yes| MIGRATION_SUCCESS
+    MIGRATION_RESULT -->|resolved / No| MIGRATION_FAILED
+    MIGRATION_FAILED -->|show| MIGRATION_FAILED_ACTION
+    MIGRATION_FAILED_ACTION -->|user / Retry| RUN_MIGRATIONS
+    MIGRATION_FAILED_ACTION -->|user / Import Different| IMPORT_PICKER
+    MIGRATION_FAILED_ACTION -->|user / Create New| DEL_SRC_MIGRATION_FAILED
+    DEL_SRC_DB_ISSUE_FLOW -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_ISSUE_SCHEMA_IRREPARABLE -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_ISSUE_TOO_OLD -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_ISSUE_TOO_NEW -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_ISSUE_SIDECAR_MISSING -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_DB_REPAIR_FAILED -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_PLAINTEXT_DB -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_PLAINTEXT_ENCRYPT_FAILED -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_UNFINALIZED_DB -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_MIGRATION_DEFERRED -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DEL_SRC_MIGRATION_FAILED -->|continue| DELETE_EXISTING_DB_CONFIRM
+    DELETE_EXISTING_DB_CONFIRM -->|show| DELETE_EXISTING_DB_DECISION
+    DELETE_EXISTING_DB_DECISION -->|user / No| DELETE_CONFIRM_CANCEL_ROUTE
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Metadata corruption issue flow| DB_ISSUE_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Schema irreparable issue| DB_ISSUE_SCHEMA_IRREPARABLE_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Unsupported old DB issue| DB_ISSUE_TOO_OLD_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Newer-than-supported DB issue| DB_ISSUE_TOO_NEW_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Sidecar metadata issue| DB_ISSUE_SIDECAR_MISSING_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Repair failed flow| DB_REPAIR_FAILED_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Plaintext local DB flow| PLAINTEXT_DB_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Plaintext encryption failure| PLAINTEXT_ENCRYPT_FAILED_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Unfinalized DB flow| DB_FOUND_UNFINALIZED_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Migration deferred| MIGRATION_DEFERRED_ACTION
+    DELETE_CONFIRM_CANCEL_ROUTE -->|resolved / Migration failed| MIGRATION_FAILED_ACTION
+    DELETE_EXISTING_DB_DECISION -->|user / Yes| DELETE_EXISTING_DB_RUN
+    DELETE_EXISTING_DB_RUN -->|complete| CREATE_NEW_FLOW
+    MIGRATION_SUCCESS -->|continue| UPDATE_METADATA
+    UPDATE_METADATA -->|complete| INIT_ROOM
+    INIT_ROOM -->|complete| APP_RUNTIME_READY
+    APP_RUNTIME_READY -->|session tracking starts| RUNTIME_INACTIVITY_TRACKER
+    RUNTIME_INACTIVITY_TRACKER -->|user interaction or DB write / Session active| RUNTIME_INACTIVITY_TRACKER
+    RUNTIME_INACTIVITY_TRACKER -->|inactivity timer fires / No user interaction since last check| RUNTIME_INACTIVITY_CHECK
+    RUNTIME_INACTIVITY_TRACKER -->|app backgrounded or screen locked| RUNTIME_BACKGROUND_WAIT
+    RUNTIME_BACKGROUND_WAIT -->|app resumed to foreground| RUNTIME_RESUME_CHECK
+    RUNTIME_RESUME_CHECK -->|resolved / Inactivity threshold not reached| RUNTIME_INACTIVITY_TRACKER
+    RUNTIME_RESUME_CHECK -->|resolved / Inactivity threshold reached| RUNTIME_TRIGGER_LOCK
+    RUNTIME_INACTIVITY_CHECK -->|resolved / Yes / threshold reached| RUNTIME_TRIGGER_LOCK
+    RUNTIME_INACTIVITY_CHECK -->|resolved / No / threshold not reached| RUNTIME_INACTIVITY_TRACKER
+    RUNTIME_TRIGGER_LOCK -->|execute| RUNTIME_APP_RESTART
+    RUNTIME_APP_RESTART -->|complete| APP_LAUNCH
+    RESET_POST_DELETE_ROUTE -->|resolved / Boot reset metadata repair or unlock lockout| RESET_TO_CREATE_NEW
+    RESET_POST_DELETE_ROUTE -->|resolved / Runtime forgot-passphrase| RUNTIME_APP_RESTART
+    RESET_CANCEL_ROUTE -->|resolved / Runtime forgot-passphrase| AUTH_UNLOCK_SCREEN
+    AUTH_UNLOCK_SCREEN -->|show| AUTH_UNLOCK_METHOD
+    AUTH_UNLOCK_METHOD -->|resolved / Biometric enabled and device biometric available| AUTH_BIOMETRIC_PROMPT
+    AUTH_UNLOCK_METHOD -->|resolved / Biometric not enabled or not available| AUTH_MANUAL_ENTRY
+    AUTH_BIOMETRIC_PROMPT -->|complete| AUTH_BIOMETRIC_RESULT
+    AUTH_BIOMETRIC_RESULT -->|resolved / Success| AUTH_BIOMETRIC_KEYSTORE_UNWRAP
+    AUTH_BIOMETRIC_RESULT -->|resolved / Failed or skipped| AUTH_MANUAL_ENTRY
+    AUTH_BIOMETRIC_KEYSTORE_UNWRAP -->|complete| AUTH_PASSPHRASE_READY
+    AUTH_MANUAL_ENTRY -->|submit| AUTH_MANUAL_VERIFY
+    AUTH_MANUAL_VERIFY -->|resolved / Valid| AUTH_PASSPHRASE_READY
+    AUTH_MANUAL_VERIFY -->|resolved / Invalid and retries remaining| AUTH_MANUAL_FAILED
+    AUTH_MANUAL_VERIFY -->|resolved / Invalid and max attempts reached| AUTH_LOCKOUT
+    AUTH_MANUAL_FAILED -->|show| AUTH_MANUAL_FAILED_ACTION
+    AUTH_MANUAL_FAILED_ACTION -->|user / Retry| AUTH_MANUAL_ENTRY
+    AUTH_MANUAL_FAILED_ACTION -->|user / Forgot passphrase| RESET_SRC_RUNTIME_FORGOT
+    AUTH_LOCKOUT -->|show| AUTH_LOCKOUT_ACTION
+    AUTH_LOCKOUT_ACTION -->|resolved / Lockout expired| AUTH_MANUAL_ENTRY
+    AUTH_LOCKOUT_ACTION -->|user / Forgot passphrase| RESET_SRC_UNLOCK_LOCKOUT
+    AUTH_PASSPHRASE_READY -->|continue| DBSM_OPEN_DB
+    DBSM_OPEN_DB -->|complete| DBSM_OPEN_RESULT
+    DBSM_OPEN_RESULT -->|resolved / Success| MIGRATION_CHECK
+    DBSM_OPEN_RESULT -->|resolved / Failed - wrong passphrase| DBSM_OPEN_FAILED
+    DBSM_OPEN_RESULT -->|resolved / Failed - file corrupt| DBSM_OPEN_FAILED
+    DBSM_OPEN_FAILED -->|show| DBSM_OPEN_FAILED_ACTION
+    DBSM_OPEN_FAILED_ACTION -->|user / Retry passphrase| AUTH_MANUAL_ENTRY
+    DBSM_OPEN_FAILED_ACTION -->|user / Reset and start fresh| RESET_SRC_RUNTIME_FORGOT
+    APP_RUNTIME_READY -->|post-unlock biometric offer eligible / Biometric not yet enabled and device supports biometric and user just completed manual passphrase unlock| AUTH_POST_UNLOCK_BIOMETRIC_OFFER
+    AUTH_POST_UNLOCK_BIOMETRIC_OFFER -->|show| AUTH_POST_UNLOCK_BIOMETRIC_DECISION
+    AUTH_POST_UNLOCK_BIOMETRIC_DECISION -->|user / Enable biometric| BIOSEC_ENABLE_FLOW
+    AUTH_POST_UNLOCK_BIOMETRIC_DECISION -->|user / Skip or dismiss| RUNTIME_INACTIVITY_TRACKER
+    RESET_SRC_RUNTIME_FORGOT -->|continue| RESET_CONFIRM_SCREEN
+    BIOSEC_ENABLE_FLOW -->|start| BIOSEC_DEVICE_CHECK
+    BIOSEC_DEVICE_CHECK -->|resolved / No biometric enrolled| BIOSEC_NO_BIOMETRIC
+    BIOSEC_DEVICE_CHECK -->|resolved / Biometric enrolled| BIOSEC_CONFIRM_PROMPT
+    BIOSEC_CONFIRM_PROMPT -->|complete| BIOSEC_CONFIRM_RESULT
+    BIOSEC_CONFIRM_RESULT -->|resolved / Success| BIOSEC_STORE_WRAPPED_KEY
+    BIOSEC_CONFIRM_RESULT -->|resolved / Failed or cancelled| BIOSEC_ENABLE_FAILED
+    BIOSEC_STORE_WRAPPED_KEY -->|complete| BIOSEC_ENABLE_DONE
+    BIOSEC_ENABLE_DONE -->|dismiss| SETTINGS_SECURITY_SCREEN
+    BIOSEC_NO_BIOMETRIC -->|dismiss| SETTINGS_SECURITY_SCREEN
+    BIOSEC_ENABLE_FAILED -->|dismiss| SETTINGS_SECURITY_SCREEN
+    SETTINGS_BIOMETRIC_TOGGLE -->|resolved / Enabling| BIOSEC_ENABLE_FLOW
+    SETTINGS_BIOMETRIC_TOGGLE -->|resolved / Disabling| BIOSEC_DISABLE_FLOW
+    BIOSEC_DISABLE_FLOW -->|start| BIOSEC_DELETE_KEY
+    BIOSEC_DELETE_KEY -->|complete| BIOSEC_DISABLE_DONE
+    BIOSEC_DISABLE_DONE -->|dismiss| SETTINGS_SECURITY_SCREEN
+    APP_RUNTIME_READY -->|user opens security settings| SETTINGS_SECURITY_SCREEN
+    SETTINGS_SECURITY_SCREEN -->|user changes timeout| SETTINGS_TIMEOUT_CHANGE
+    SETTINGS_TIMEOUT_CHANGE -->|complete| SETTINGS_SECURITY_SCREEN
+    SETTINGS_SECURITY_SCREEN -->|user taps biometric toggle| SETTINGS_BIOMETRIC_TOGGLE
+    SETTINGS_SECURITY_SCREEN -->|back| APP_RUNTIME_READY
+    IMPORT_DB_HANDOFF -->|continue| DBSM_CLOSE_DB
+    DBSM_CLOSE_DB -->|complete| IMPORT_DB_EXECUTE
+    APP_RUNTIME_READY -->|user opens data management| DATA_MGMT_HOME
+    DATA_MGMT_HOME -->|show| DATA_MGMT_ACTION
+    DATA_MGMT_ACTION -->|user / Export| EXPORT_SCOPE
+    DATA_MGMT_ACTION -->|user / Import| IMPORT_TYPE
+    DATA_MGMT_ACTION -->|user / Close| APP_RUNTIME_READY
+    DATA_MGMT_ACTION -->|user / Switch DB| DATA_MGMT_SWITCH_DB_HANDOFF
+    DATA_MGMT_SWITCH_DB_HANDOFF -->|continue| DATA_MGMT_IMPORT_DB_CONFIRM
+    DATA_MGMT_IMPORT_DB_CONFIRM -->|show| DATA_MGMT_IMPORT_DB_DECISION
+    DATA_MGMT_IMPORT_DB_DECISION -->|user / No| DATA_MGMT_HOME
+    DATA_MGMT_IMPORT_DB_DECISION -->|user / Yes| IMPORT_WAL_CHECKPOINT
+    DATA_MGMT_ACTION -->|user / Reset DB| DATA_MGMT_RESET_DB_EXPORT_PROMPT
+    DATA_MGMT_RESET_DB_EXPORT_PROMPT -->|show| DATA_MGMT_RESET_DB_EXPORT_DECISION
+    DATA_MGMT_RESET_DB_EXPORT_DECISION -->|user / Yes back up first| DATA_MGMT_RESET_DB_CONFIRM
+    DATA_MGMT_RESET_DB_EXPORT_DECISION -->|user / No skip backup| DATA_MGMT_RESET_DB_CONFIRM
+    DATA_MGMT_RESET_DB_CONFIRM -->|show| DATA_MGMT_RESET_DB_DECISION
+    DATA_MGMT_RESET_DB_DECISION -->|user / No| DATA_MGMT_HOME
+    DATA_MGMT_RESET_DB_DECISION -->|user / Yes| DATA_MGMT_RESET_DB_DELETE
+    DATA_MGMT_RESET_DB_DELETE -->|complete| DATA_MGMT_MAINT_CLOSE_ROOM
+    DATA_MGMT_MAINT_CLOSE_ROOM -->|complete| DATA_MGMT_MAINT_BOOT_RESTART
+    DATA_MGMT_MAINT_BOOT_RESTART -->|continue| DATA_MGMT_MAINT_CACHE_CLEANUP
+    DATA_MGMT_MAINT_CACHE_CLEANUP -->|complete| DB_INIT_CHOOSER
+    CREATE_NEW_EXISTING_CHECK -->|check / No existing artifacts| CREATE_NEW_FLOW
+    CREATE_NEW_EXISTING_CHECK -->|check / Existing artifacts found| CREATE_NEW_WIPE_CONFIRM
+    CREATE_NEW_WIPE_CONFIRM -->|show| CREATE_NEW_WIPE_DECISION
+    CREATE_NEW_WIPE_DECISION -->|user / No| DB_INIT_CHOOSER
+    CREATE_NEW_WIPE_DECISION -->|user / Yes| CREATE_NEW_WAL_CHECKPOINT
+    CREATE_NEW_WAL_CHECKPOINT -->|complete| CREATE_NEW_CLOSE_ROOM_FOR_BACKUP
+    CREATE_NEW_CLOSE_ROOM_FOR_BACKUP -->|complete| CREATE_NEW_TEMP_BACKUP
+    CREATE_NEW_TEMP_BACKUP -->|complete| CREATE_NEW_BACKUP_VERIFY
+    CREATE_NEW_BACKUP_VERIFY -->|check / Backup readable| CREATE_NEW_WIPE_ALL
+    CREATE_NEW_BACKUP_VERIFY -->|check / Backup unreadable or failed| CREATE_NEW_BACKUP_FAILED
+    CREATE_NEW_BACKUP_FAILED -->|user / Dismiss| DB_INIT_CHOOSER
+    CREATE_NEW_WIPE_ALL -->|complete| CREATE_NEW_FLOW
+    CREATE_NEW_DB -->|complete / failed| CREATE_NEW_RESTORE_BACKUP
+    CREATE_NEW_CLEANUP_TEMP_BACKUP -->|complete| APP_RUNTIME_READY
+    CREATE_NEW_RESTORE_BACKUP -->|complete| CREATE_NEW_RESTORE_RESULT
+    CREATE_NEW_RESTORE_RESULT -->|check / success| CREATE_NEW_RESTORE_OK_SCREEN
+    CREATE_NEW_RESTORE_RESULT -->|check / failed| CREATE_NEW_RESTORE_FAILED_SCREEN
+    CREATE_NEW_RESTORE_OK_SCREEN -->|user / Dismiss| DB_INIT_CHOOSER
+    CREATE_NEW_RESTORE_FAILED_SCREEN -->|user / Dismiss| DB_INIT_CHOOSER
+    IMPORT_EXISTING_CHECK -->|check / No existing artifacts| IMPORT_PICKER
+    IMPORT_EXISTING_CHECK -->|check / Existing artifacts found| IMPORT_WIPE_CONFIRM
+    IMPORT_WIPE_CONFIRM -->|show| IMPORT_WIPE_DECISION
+    IMPORT_WIPE_DECISION -->|user / No| DB_INIT_CHOOSER
+    IMPORT_WIPE_DECISION -->|user / Yes| IMPORT_WAL_CHECKPOINT
+    IMPORT_WAL_CHECKPOINT -->|complete| IMPORT_CLOSE_ROOM_FOR_BACKUP
+    IMPORT_CLOSE_ROOM_FOR_BACKUP -->|complete| IMPORT_TEMP_BACKUP
+    IMPORT_TEMP_BACKUP -->|complete| IMPORT_BACKUP_VERIFY
+    IMPORT_BACKUP_VERIFY -->|check / Backup readable| IMPORT_WIPE_ALL
+    IMPORT_BACKUP_VERIFY -->|check / Backup unreadable or failed| IMPORT_BACKUP_FAILED
+    IMPORT_BACKUP_FAILED -->|user / Dismiss| DB_INIT_CHOOSER
+    IMPORT_WIPE_ALL -->|complete| IMPORT_PICKER
+    IMPORT_WIPE_ALL -->|picker cancelled / temp backup exists| IMPORT_RESTORE_BACKUP
+    IMPORT_RESTORE_BACKUP -->|complete| IMPORT_RESTORE_RESULT
+    IMPORT_RESTORE_RESULT -->|check / success| IMPORT_RESTORE_OK_SCREEN
+    IMPORT_RESTORE_RESULT -->|check / failed| IMPORT_RESTORE_FAILED_SCREEN
+    IMPORT_RESTORE_OK_SCREEN -->|user / Dismiss| DB_INIT_CHOOSER
+    IMPORT_RESTORE_FAILED_SCREEN -->|user / Dismiss| DB_INIT_CHOOSER
+    EXPORT_SCOPE -->|user / Full Database - Encrypted| EXPORT_DB_ENC_RUN
+    EXPORT_SCOPE -->|user / Full Database - Plaintext one-time| EXPORT_DB_PLAIN_WARN
+    EXPORT_SCOPE -->|user / Per-module data| EXPORT_MODULE_SELECT
+    EXPORT_DB_ENC_RUN -->|complete| EXPORT_DB_ENC_RESULT
+    EXPORT_DB_ENC_RESULT -->|resolved / Yes| EXPORT_OK
+    EXPORT_DB_ENC_RESULT -->|resolved / No| EXPORT_ERR
+    EXPORT_DB_PLAIN_WARN -->|show| EXPORT_DB_PLAIN_CONFIRM
+    EXPORT_DB_PLAIN_CONFIRM -->|user / No| EXPORT_SCOPE
+    EXPORT_DB_PLAIN_CONFIRM -->|user / Yes| EXPORT_DB_PLAIN_RUN
+    EXPORT_DB_PLAIN_RUN -->|complete| EXPORT_DB_PLAIN_RESULT
+    EXPORT_DB_PLAIN_RESULT -->|resolved / Yes| EXPORT_OK
+    EXPORT_DB_PLAIN_RESULT -->|resolved / No| EXPORT_ERR
+    EXPORT_MODULE_SELECT -->|submit| EXPORT_MODULE_SELECTED
+    EXPORT_MODULE_SELECTED -->|resolved / No| EXPORT_MODULE_SELECT
+    EXPORT_MODULE_SELECTED -->|resolved / Yes| EXPORT_MODULE_RUN
+    EXPORT_MODULE_RUN -->|complete| EXPORT_MODULE_RESULT
+    EXPORT_MODULE_RESULT -->|resolved / Yes| EXPORT_OK
+    EXPORT_MODULE_RESULT -->|resolved / No| EXPORT_ERR
+    EXPORT_OK -->|dismiss| DATA_MGMT_HOME
+    EXPORT_ERR -->|dismiss| DATA_MGMT_HOME
+    APP_RUNTIME_READY -->|auto-backup worker| AUTO_BK_TRIGGER
+    AUTO_BK_TRIGGER -->|start| AUTO_BK_RUN
+    AUTO_BK_RUN -->|complete| AUTO_BK_RESULT
+    AUTO_BK_RESULT -->|resolved / Yes| AUTO_BK_PRUNE
+    AUTO_BK_PRUNE -->|complete| AUTO_BK_META
+    AUTO_BK_META -->|complete| APP_RUNTIME_READY
+    AUTO_BK_RESULT -->|resolved / No| AUTO_BK_ERR
+    AUTO_BK_ERR -->|dismiss| APP_RUNTIME_READY
+    IMPORT_TYPE -->|user / Full Payanam DB - Replace| IMPORT_DB_PICKER
+    IMPORT_TYPE -->|user / Per-module data| IMPORT_MOD_PICKER
+    IMPORT_TYPE -->|user / uHabits database| IMPORT_UH_PICKER
+    IMPORT_TYPE -->|user / Back| DATA_MGMT_HOME
+    IMPORT_DB_PICKER -->|show| IMPORT_DB_PICKER_RESULT
+    IMPORT_DB_PICKER_RESULT -->|resolved / No selection| IMPORT_TYPE
+    IMPORT_DB_PICKER_RESULT -->|resolved / Selection| IMPORT_DB_DETECT
+    IMPORT_DB_DETECT -->|complete| IMPORT_DB_FORMAT
+    IMPORT_DB_FORMAT -->|resolved / Plaintext detected| IMPORT_DB_PLAIN_SCREEN
+    IMPORT_DB_FORMAT -->|resolved / Encrypted detected| IMPORT_DB_ENC_SCREEN
+    IMPORT_DB_FORMAT -->|resolved / Unknown or corrupt| IMPORT_DB_BAD
+    IMPORT_DB_BAD -->|show| IMPORT_DB_BAD_ACTION
+    IMPORT_DB_BAD_ACTION -->|user / Select Different| IMPORT_DB_PICKER
+    IMPORT_DB_BAD_ACTION -->|user / Back| IMPORT_TYPE
+    IMPORT_DB_PLAIN_SCREEN -->|submit| IMPORT_DB_PLAIN_PASS
+    IMPORT_DB_PLAIN_PASS -->|resolved / No| IMPORT_DB_PLAIN_SCREEN
+    IMPORT_DB_PLAIN_PASS -->|resolved / Yes| IMPORT_DB_HANDOFF
+    IMPORT_DB_ENC_SCREEN -->|submit| IMPORT_DB_ENC_PASS
+    IMPORT_DB_ENC_PASS -->|resolved / No| IMPORT_DB_ENC_RETRY
+    IMPORT_DB_ENC_RETRY -->|show| IMPORT_DB_ENC_RETRY_ACTION
+    IMPORT_DB_ENC_RETRY_ACTION -->|user / Retry| IMPORT_DB_ENC_SCREEN
+    IMPORT_DB_ENC_RETRY_ACTION -->|user / Cancel| IMPORT_TYPE
+    IMPORT_DB_ENC_PASS -->|resolved / Yes| IMPORT_DB_HANDOFF
+    IMPORT_DB_HANDOFF -->|continue| IMPORT_DB_EXECUTE
+    IMPORT_DB_EXECUTE -->|complete| IMPORT_DB_RESULT
+    IMPORT_DB_RESULT -->|resolved / Yes| IMPORT_DB_OK
+    IMPORT_DB_RESULT -->|resolved / No| IMPORT_DB_ROLLBACK
+    IMPORT_DB_ROLLBACK -->|complete| IMPORT_DB_ERR
+    IMPORT_DB_ERR -->|dismiss| IMPORT_TYPE
+    IMPORT_DB_OK -->|ack| IMPORT_DB_RESTART
+    IMPORT_DB_RESTART -->|complete| APP_LAUNCH
+    IMPORT_MOD_PICKER -->|submit| IMPORT_MOD_VALID
+    IMPORT_MOD_VALID -->|resolved / No| IMPORT_MOD_ERR
+    IMPORT_MOD_VALID -->|resolved / Yes| IMPORT_MOD_EXECUTE
+    IMPORT_MOD_EXECUTE -->|complete| IMPORT_MOD_RESULT
+    IMPORT_MOD_RESULT -->|resolved / Yes| IMPORT_MOD_OK
+    IMPORT_MOD_RESULT -->|resolved / No| IMPORT_MOD_ERR
+    IMPORT_MOD_OK -->|dismiss| DATA_MGMT_HOME
+    IMPORT_MOD_ERR -->|dismiss| IMPORT_TYPE
+    IMPORT_UH_PICKER -->|submit| IMPORT_UH_EXECUTE
+    IMPORT_UH_EXECUTE -->|complete| IMPORT_UH_RESULT
+    IMPORT_UH_RESULT -->|resolved / Yes| IMPORT_UH_OK
+    IMPORT_UH_RESULT -->|resolved / No| IMPORT_UH_ERR
+    IMPORT_UH_OK -->|dismiss| DATA_MGMT_HOME
+    IMPORT_UH_ERR -->|dismiss| IMPORT_TYPE
+    linkStyle 4 stroke:#C62828,stroke-width:2px
+    linkStyle 6 stroke:#1565C0,stroke-width:2px
+    linkStyle 7 stroke:#EF6C00,stroke-width:2px
+    linkStyle 9 stroke:#1565C0,stroke-width:2px
+    linkStyle 10 stroke:#EF6C00,stroke-width:2px
+    linkStyle 13 stroke:#1565C0,stroke-width:2px
+    linkStyle 14 stroke:#EF6C00,stroke-width:2px
+    linkStyle 17 stroke:#C62828,stroke-width:2px
+    linkStyle 18 stroke:#2E7D32,stroke-width:2px
+    linkStyle 25 stroke:#1565C0,stroke-width:2px
+    linkStyle 26 stroke:#2E7D32,stroke-width:2px
+    linkStyle 28 stroke:#2E7D32,stroke-width:2px
+    linkStyle 29 stroke:#C62828,stroke-width:2px
+    linkStyle 38 stroke:#2E7D32,stroke-width:2px
+    linkStyle 39 stroke:#C62828,stroke-width:2px
+    linkStyle 47 stroke:#2E7D32,stroke-width:2px
+    linkStyle 48 stroke:#C62828,stroke-width:2px
+    linkStyle 55 stroke:#2E7D32,stroke-width:2px
+    linkStyle 56 stroke:#2E7D32,stroke-width:2px
+    linkStyle 57 stroke:#C62828,stroke-width:2px
+    linkStyle 62 stroke:#2E7D32,stroke-width:2px
+    linkStyle 63 stroke:#C62828,stroke-width:2px
+    linkStyle 68 stroke:#1565C0,stroke-width:2px
+    linkStyle 69 stroke:#EF6C00,stroke-width:2px
+    linkStyle 72 stroke:#1565C0,stroke-width:2px
+    linkStyle 73 stroke:#EF6C00,stroke-width:2px
+    linkStyle 81 stroke:#1565C0,stroke-width:2px
+    linkStyle 82 stroke:#EF6C00,stroke-width:2px
+    linkStyle 87 stroke:#2E7D32,stroke-width:2px
+    linkStyle 88 stroke:#C62828,stroke-width:2px
+    linkStyle 95 stroke:#C62828,stroke-width:2px
+    linkStyle 97 stroke:#2E7D32,stroke-width:2px
+    linkStyle 100 stroke:#2E7D32,stroke-width:2px
+    linkStyle 101 stroke:#C62828,stroke-width:2px
+    linkStyle 109 stroke:#2E7D32,stroke-width:2px
+    linkStyle 110 stroke:#C62828,stroke-width:2px
+    linkStyle 116 stroke:#2E7D32,stroke-width:2px
+    linkStyle 117 stroke:#C62828,stroke-width:2px
+    linkStyle 126 stroke:#2E7D32,stroke-width:2px
+    linkStyle 127 stroke:#C62828,stroke-width:2px
+    linkStyle 130 stroke:#1565C0,stroke-width:2px
+    linkStyle 131 stroke:#EF6C00,stroke-width:2px
+    linkStyle 138 stroke:#2E7D32,stroke-width:2px
+    linkStyle 139 stroke:#C62828,stroke-width:2px
+    linkStyle 156 stroke:#C62828,stroke-width:2px
+    linkStyle 168 stroke:#2E7D32,stroke-width:2px
+    linkStyle 178 stroke:#1565C0,stroke-width:2px
+    linkStyle 179 stroke:#EF6C00,stroke-width:2px
+    linkStyle 180 stroke:#1565C0,stroke-width:2px
+    linkStyle 181 stroke:#EF6C00,stroke-width:2px
+    linkStyle 184 stroke:#1565C0,stroke-width:2px
+    linkStyle 185 stroke:#EF6C00,stroke-width:2px
+    linkStyle 188 stroke:#1565C0,stroke-width:2px
+    linkStyle 189 stroke:#EF6C00,stroke-width:2px
+    linkStyle 191 stroke:#2E7D32,stroke-width:2px
+    linkStyle 192 stroke:#C62828,stroke-width:2px
+    linkStyle 199 stroke:#1565C0,stroke-width:2px
+    linkStyle 200 stroke:#EF6C00,stroke-width:2px
+    linkStyle 202 stroke:#1565C0,stroke-width:2px
+    linkStyle 203 stroke:#EF6C00,stroke-width:2px
+    linkStyle 210 stroke:#1565C0,stroke-width:2px
+    linkStyle 211 stroke:#EF6C00,stroke-width:2px
+    linkStyle 214 stroke:#1565C0,stroke-width:2px
+    linkStyle 215 stroke:#EF6C00,stroke-width:2px
+    linkStyle 218 stroke:#1565C0,stroke-width:2px
+    linkStyle 219 stroke:#EF6C00,stroke-width:2px
+    linkStyle 221 stroke:#2E7D32,stroke-width:2px
+    linkStyle 222 stroke:#C62828,stroke-width:2px
+    linkStyle 227 stroke:#1565C0,stroke-width:2px
+    linkStyle 228 stroke:#EF6C00,stroke-width:2px
+    linkStyle 247 stroke:#C62828,stroke-width:2px
+    linkStyle 248 stroke:#2E7D32,stroke-width:2px
+    linkStyle 251 stroke:#1565C0,stroke-width:2px
+    linkStyle 252 stroke:#EF6C00,stroke-width:2px
+    linkStyle 254 stroke:#C62828,stroke-width:2px
+    linkStyle 255 stroke:#2E7D32,stroke-width:2px
+    linkStyle 260 stroke:#1565C0,stroke-width:2px
+    linkStyle 261 stroke:#EF6C00,stroke-width:2px
+    linkStyle 263 stroke:#C62828,stroke-width:2px
+    linkStyle 264 stroke:#2E7D32,stroke-width:2px
+    linkStyle 268 stroke:#2E7D32,stroke-width:2px
+    linkStyle 269 stroke:#C62828,stroke-width:2px
+    linkStyle 275 stroke:#2E7D32,stroke-width:2px
+    linkStyle 276 stroke:#C62828,stroke-width:2px
+    linkStyle 279 stroke:#1565C0,stroke-width:2px
+    linkStyle 280 stroke:#EF6C00,stroke-width:2px
+    linkStyle 282 stroke:#C62828,stroke-width:2px
+    linkStyle 283 stroke:#2E7D32,stroke-width:2px
+    linkStyle 287 stroke:#2E7D32,stroke-width:2px
+    linkStyle 288 stroke:#C62828,stroke-width:2px
+    linkStyle 293 stroke:#2E7D32,stroke-width:2px
+    linkStyle 294 stroke:#C62828,stroke-width:2px
+    linkStyle 301 stroke:#2E7D32,stroke-width:2px
+    linkStyle 302 stroke:#C62828,stroke-width:2px
+    linkStyle 304 stroke:#C62828,stroke-width:2px
+    linkStyle 305 stroke:#2E7D32,stroke-width:2px
+    linkStyle 307 stroke:#2E7D32,stroke-width:2px
+    linkStyle 308 stroke:#C62828,stroke-width:2px
+    linkStyle 310 stroke:#C62828,stroke-width:2px
+    linkStyle 311 stroke:#2E7D32,stroke-width:2px
+    linkStyle 313 stroke:#2E7D32,stroke-width:2px
+    linkStyle 314 stroke:#C62828,stroke-width:2px
+    linkStyle 320 stroke:#2E7D32,stroke-width:2px
+    linkStyle 323 stroke:#C62828,stroke-width:2px
+    linkStyle 330 stroke:#1565C0,stroke-width:2px
+    linkStyle 331 stroke:#EF6C00,stroke-width:2px
+    linkStyle 337 stroke:#1565C0,stroke-width:2px
+    linkStyle 338 stroke:#EF6C00,stroke-width:2px
+    linkStyle 340 stroke:#C62828,stroke-width:2px
+    linkStyle 341 stroke:#2E7D32,stroke-width:2px
+    linkStyle 343 stroke:#C62828,stroke-width:2px
+    linkStyle 345 stroke:#1565C0,stroke-width:2px
+    linkStyle 346 stroke:#EF6C00,stroke-width:2px
+    linkStyle 347 stroke:#2E7D32,stroke-width:2px
+    linkStyle 350 stroke:#2E7D32,stroke-width:2px
+    linkStyle 351 stroke:#C62828,stroke-width:2px
+    linkStyle 357 stroke:#C62828,stroke-width:2px
+    linkStyle 358 stroke:#2E7D32,stroke-width:2px
+    linkStyle 360 stroke:#2E7D32,stroke-width:2px
+    linkStyle 361 stroke:#C62828,stroke-width:2px
+    linkStyle 366 stroke:#2E7D32,stroke-width:2px
+    linkStyle 367 stroke:#C62828,stroke-width:2px
+    style APP_UPDATE_REQUIRED fill:#B71C1C,color:#FFFFFF,stroke:#FFCDD2,stroke-width:2px

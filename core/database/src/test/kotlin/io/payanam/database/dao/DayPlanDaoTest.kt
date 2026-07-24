@@ -1,0 +1,342 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.database.dao
+
+import android.content.Context
+import androidx.room.Room
+import androidx.test.core.app.ApplicationProvider
+import com.google.common.truth.Truth.assertThat
+import io.payanam.database.PayanamDatabase
+import io.payanam.database.entity.DayPlanAllocationEntity
+import io.payanam.database.entity.DayPlanTemplateAllocationEntity
+import io.payanam.database.entity.DayPlanTemplateEntity
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.runBlocking
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
+
+@RunWith(RobolectricTestRunner::class)
+class DayPlanDaoTest {
+    private lateinit var database: PayanamDatabase
+    private lateinit var dayPlanDao: DayPlanDao
+
+    @Before
+    fun setup() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        database =
+            Room
+                .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
+                .fallbackToDestructiveMigration()
+                .allowMainThreadQueries()
+                .build()
+        dayPlanDao = database.dayPlanDao()
+        seedLifeDimensions()
+    }
+
+    private fun seedLifeDimensions() {
+        val db = database.openHelper.writableDatabase
+        val now = "2026-01-01T00:00:00"
+        val dims = listOf("career_work", "health_wellness", "learning", "relationships", "personal_growth")
+        dims.forEachIndexed { index, id ->
+            db.execSQL(
+                """INSERT OR IGNORE INTO life_dimensions (id, key, label, color, sortOrder, isActive, createdAt, updatedAt)
+                   VALUES ('$id', '$id', '$id', '#FF5722', $index, 1, '$now', '$now')""",
+            )
+        }
+    }
+
+    @After
+    fun tearDown() {
+        database.close()
+    }
+
+    // ---- Day Plan Allocation Tests ----
+
+    @Test
+    fun insertAllocation_and_getAllocationsForDay() =
+        runBlocking {
+            val entity = createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120)
+            dayPlanDao.insertAllocation(entity)
+
+            val allocations = dayPlanDao.getAllocationsForDay("2026-02-09")
+            assertThat(allocations).hasSize(1)
+            assertThat(allocations[0].dimensionId).isEqualTo("career_work")
+            assertThat(allocations[0].plannedMinutes).isEqualTo(120)
+        }
+
+    @Test
+    fun observeAllocationsForDay_emitsUpdates() =
+        runBlocking {
+            val entity = createAllocation(dayKey = "2026-02-09", dimensionId = "health_wellness", plannedMinutes = 60)
+            dayPlanDao.insertAllocation(entity)
+
+            val allocations = dayPlanDao.observeAllocationsForDay("2026-02-09").first()
+            assertThat(allocations).hasSize(1)
+            assertThat(allocations[0].plannedMinutes).isEqualTo(60)
+        }
+
+    @Test
+    fun getAllocationForDayAndDimension_returnsCorrectAllocation() =
+        runBlocking {
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120))
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-09", dimensionId = "health_wellness", plannedMinutes = 60))
+
+            val allocation = dayPlanDao.getAllocationForDayAndDimension("2026-02-09", "career_work")
+            assertThat(allocation).isNotNull()
+            assertThat(allocation?.plannedMinutes).isEqualTo(120)
+
+            val missing = dayPlanDao.getAllocationForDayAndDimension("2026-02-09", "nonexistent")
+            assertThat(missing).isNull()
+        }
+
+    @Test
+    fun getAllocationsForRange_returnsRangeResults() =
+        runBlocking {
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-07", dimensionId = "career_work", plannedMinutes = 100))
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-08", dimensionId = "career_work", plannedMinutes = 110))
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120))
+            dayPlanDao.insertAllocation(createAllocation(dayKey = "2026-02-10", dimensionId = "career_work", plannedMinutes = 130))
+
+            val range = dayPlanDao.getAllocationsForRange("2026-02-08", "2026-02-09")
+            assertThat(range).hasSize(2)
+        }
+
+    @Test
+    fun insertAllocations_batch() =
+        runBlocking {
+            val entities =
+                listOf(
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120),
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "health_wellness", plannedMinutes = 60),
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "learning", plannedMinutes = 90),
+                )
+            dayPlanDao.insertAllocations(entities)
+
+            val allocations = dayPlanDao.getAllocationsForDay("2026-02-09")
+            assertThat(allocations).hasSize(3)
+        }
+
+    @Test
+    fun deleteAllocationsForDay_removesAll() =
+        runBlocking {
+            dayPlanDao.insertAllocations(
+                listOf(
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120),
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "health_wellness", plannedMinutes = 60),
+                ),
+            )
+
+            dayPlanDao.deleteAllocationsForDay("2026-02-09")
+
+            val allocations = dayPlanDao.getAllocationsForDay("2026-02-09")
+            assertThat(allocations).isEmpty()
+        }
+
+    @Test
+    fun getPlannedDays_returnsDistinctDays() =
+        runBlocking {
+            dayPlanDao.insertAllocations(
+                listOf(
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120),
+                    createAllocation(dayKey = "2026-02-09", dimensionId = "health_wellness", plannedMinutes = 60),
+                    createAllocation(dayKey = "2026-02-08", dimensionId = "career_work", plannedMinutes = 100),
+                ),
+            )
+
+            val days = dayPlanDao.getPlannedDays(10)
+            assertThat(days).hasSize(2)
+            assertThat(days).containsExactly("2026-02-09", "2026-02-08")
+            Unit
+        }
+
+    // ---- Template Tests ----
+
+    @Test
+    fun insertTemplate_and_getTemplateById() =
+        runBlocking {
+            val template = createTemplate(id = "t1", name = "Work Day")
+            dayPlanDao.insertTemplate(template)
+
+            val retrieved = dayPlanDao.getTemplateById("t1")
+            assertThat(retrieved).isNotNull()
+            assertThat(retrieved?.name).isEqualTo("Work Day")
+        }
+
+    @Test
+    fun observeActiveTemplates_filtersInactive() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day", isActive = 1))
+            dayPlanDao.insertTemplate(createTemplate(id = "t2", name = "Leave Day", isActive = 0))
+            dayPlanDao.insertTemplate(createTemplate(id = "t3", name = "Travel Day", isActive = 1))
+
+            val active = dayPlanDao.observeActiveTemplates().first()
+            assertThat(active).hasSize(2)
+            assertThat(active.map { it.name }).containsExactly("Work Day", "Travel Day")
+            Unit
+        }
+
+    @Test
+    fun observeAllTemplates_returnsAll() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day", isActive = 1))
+            dayPlanDao.insertTemplate(createTemplate(id = "t2", name = "Leave Day", isActive = 0))
+
+            val all = dayPlanDao.observeAllTemplates().first()
+            assertThat(all).hasSize(2)
+        }
+
+    @Test
+    fun getActiveTemplateCount_countsActive() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day", isActive = 1))
+            dayPlanDao.insertTemplate(createTemplate(id = "t2", name = "Leave Day", isActive = 0))
+            dayPlanDao.insertTemplate(createTemplate(id = "t3", name = "Travel Day", isActive = 1))
+
+            val count = dayPlanDao.getActiveTemplateCount()
+            assertThat(count).isEqualTo(2)
+        }
+
+    @Test
+    fun softDeleteTemplate_setsInactive() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day", isActive = 1))
+
+            dayPlanDao.softDeleteTemplate("t1", "2026-02-09T12:00:00")
+
+            val template = dayPlanDao.getTemplateById("t1")
+            assertThat(template?.isActive).isEqualTo(0)
+        }
+
+    @Test
+    fun deleteTemplate_removesCompletely() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day"))
+
+            dayPlanDao.deleteTemplate("t1")
+
+            val template = dayPlanDao.getTemplateById("t1")
+            assertThat(template).isNull()
+        }
+
+    // ---- Template Allocation Tests ----
+
+    @Test
+    fun insertTemplateAllocations_and_getTemplateAllocations() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day"))
+            val allocations =
+                listOf(
+                    createTemplateAllocation(templateId = "t1", dimensionId = "career_work", plannedMinutes = 240),
+                    createTemplateAllocation(templateId = "t1", dimensionId = "health_wellness", plannedMinutes = 60),
+                )
+            dayPlanDao.insertTemplateAllocations(allocations)
+
+            val retrieved = dayPlanDao.getTemplateAllocations("t1")
+            assertThat(retrieved).hasSize(2)
+        }
+
+    @Test
+    fun observeTemplateAllocations_emitsAllocations() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day"))
+            dayPlanDao.insertTemplateAllocations(
+                listOf(
+                    createTemplateAllocation(templateId = "t1", dimensionId = "career_work", plannedMinutes = 240),
+                ),
+            )
+
+            val allocations = dayPlanDao.observeTemplateAllocations("t1").first()
+            assertThat(allocations).hasSize(1)
+            assertThat(allocations[0].plannedMinutes).isEqualTo(240)
+        }
+
+    @Test
+    fun deleteTemplateAllocations_removesForTemplate() =
+        runBlocking {
+            dayPlanDao.insertTemplate(createTemplate(id = "t1", name = "Work Day"))
+            dayPlanDao.insertTemplate(createTemplate(id = "t2", name = "Leave Day"))
+            dayPlanDao.insertTemplateAllocations(
+                listOf(
+                    createTemplateAllocation(templateId = "t1", dimensionId = "career_work", plannedMinutes = 240),
+                    createTemplateAllocation(templateId = "t2", dimensionId = "health_wellness", plannedMinutes = 120),
+                ),
+            )
+
+            dayPlanDao.deleteTemplateAllocations("t1")
+
+            assertThat(dayPlanDao.getTemplateAllocations("t1")).isEmpty()
+            assertThat(dayPlanDao.getTemplateAllocations("t2")).hasSize(1)
+        }
+
+    @Test
+    fun insertAllocation_replacesOnConflict() =
+        runBlocking {
+            val entity = createAllocation(id = "a1", dayKey = "2026-02-09", dimensionId = "career_work", plannedMinutes = 120)
+            dayPlanDao.insertAllocation(entity)
+
+            dayPlanDao.insertAllocation(entity.copy(plannedMinutes = 200))
+
+            val allocations = dayPlanDao.getAllocationsForDay("2026-02-09")
+            assertThat(allocations).hasSize(1)
+            assertThat(allocations[0].plannedMinutes).isEqualTo(200)
+        }
+
+    // ---- Helpers ----
+
+    private var allocationCounter = 0
+
+    private fun createAllocation(
+        id: String = "alloc_${allocationCounter++}",
+        dayKey: String = "2026-02-09",
+        dimensionId: String = "career_work",
+        plannedMinutes: Int = 120,
+        source: String = "manual",
+        templateId: String? = null,
+    ) = DayPlanAllocationEntity(
+        id = id,
+        dayKey = dayKey,
+        dimensionId = dimensionId,
+        plannedMinutes = plannedMinutes,
+        source = source,
+        templateId = templateId,
+        createdAt = "2026-02-09T09:00:00",
+        updatedAt = "2026-02-09T09:00:00",
+    )
+
+    private var templateCounter = 0
+
+    private fun createTemplate(
+        id: String = "template_${templateCounter++}",
+        name: String = "Template",
+        description: String? = null,
+        isActive: Int = 1,
+        sortOrder: Int = 0,
+    ) = DayPlanTemplateEntity(
+        id = id,
+        name = name,
+        description = description,
+        isActive = isActive,
+        sortOrder = sortOrder,
+        createdAt = "2026-02-09T09:00:00",
+        updatedAt = "2026-02-09T09:00:00",
+    )
+
+    private var templateAllocCounter = 0
+
+    private fun createTemplateAllocation(
+        id: String = "talloc_${templateAllocCounter++}",
+        templateId: String = "t1",
+        dimensionId: String = "career_work",
+        plannedMinutes: Int = 120,
+    ) = DayPlanTemplateAllocationEntity(
+        id = id,
+        templateId = templateId,
+        dimensionId = dimensionId,
+        plannedMinutes = plannedMinutes,
+        createdAt = "2026-02-09T09:00:00",
+        updatedAt = "2026-02-09T09:00:00",
+    )
+}

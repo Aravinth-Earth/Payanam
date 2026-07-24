@@ -1,0 +1,105 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
+# SPDX-License-Identifier: AGPL-3.0-or-later
+
+# ================================
+# Kotlin/Gradle Android Project
+# ================================
+
+# Gradle
+.gradle/
+!gradle/wrapper/gradle-wrapper.jar
+!**/src/**/build/
+build/
+!build-tools/**
+
+# Kotlin
+.kotlin/
+
+# IDE
+.idea/
+*.iml
+*.ipr
+*.iws
+.vscode/settings.json
+
+# Android
+local.properties
+*.apk
+*.aab
+*.jks
+*.keystore
+keystore.properties
+keystore-dev-debug.properties
+keystore-release.properties
+signing/
+
+# Build outputs
+app/build/
+core/*/build/
+output/
+
+# ================================
+# Common
+# ================================
+
+# Logs
+logs/
+*.log
+app-logs-for-analysis/
+
+# Temporary files
+*.tmp
+*.temp
+debug/
+dev_dry_runs/
+
+# Coverage
+coverage/
+
+# Python (for scripts)
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.pytest_cache/
+*.egg-info/
+
+
+# ================================
+# AI Agent Development Infrastructure
+# ================================
+.opencode/
+.hermes/
+opencode.json
+.ghpo/
+**/AGENTS.md
+**/CLAUDE.md
+AGENTS-REFERENCE.md
+build-tools/scripts/assert-ghpo-cache-fresh.ps1
+build-tools/scripts/install-git-hooks.ps1
+build-tools/scripts/pre-commit.ps1
+
+# ================================
+# Pre-publish temp analysis files
+docs/publish-audit-report.md
+docs/foss-publication/agent-config-readiness-report.md
+core-public-readiness-report.md
+docs/db/package-lock.json
+
+# ================================
+# Committed binaries / tooling
+# ================================
+build-tools/tools/perfetto/
+
+# ================================
+# Personal workflow files
+my-repo-open-issues.json
+*roadmap-logs*
+user-logged-error/
+.vscode/
+!poc/
+*/poc/
+.aider*

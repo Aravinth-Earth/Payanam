@@ -1,0 +1,37 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.database.mapper
+
+import io.payanam.database.entity.TagEntity
+import io.payanam.domain.model.Tag
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+
+object TagMapper {
+    private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+
+    fun TagEntity.toDomain(): Tag =
+        Tag(
+            id = id,
+            name = name,
+            normalizedName = normalizedName,
+            usageCount = usageCount,
+            lastUsedAt = lastUsedAt?.takeIf { it.isNotBlank() }?.let { parseDateTime(it) },
+            createdAt = parseDateTime(createdAt),
+            updatedAt = parseDateTime(updatedAt),
+        )
+
+    private fun parseDateTime(isoString: String): LocalDateTime {
+        val normalizedString =
+            if (isoString.endsWith("Z")) {
+                isoString.dropLast(1)
+            } else {
+                isoString
+            }
+        return try {
+            LocalDateTime.parse(normalizedString, formatter)
+        } catch (_: Exception) {
+            LocalDateTime.parse(normalizedString)
+        }
+    }
+}

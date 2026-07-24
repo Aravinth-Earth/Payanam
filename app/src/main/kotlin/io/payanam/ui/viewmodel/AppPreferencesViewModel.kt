@@ -1,0 +1,1887 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.ui.viewmodel
+import android.content.Context
+import android.content.res.Configuration
+import android.content.res.Resources
+import androidx.compose.runtime.compositionLocalOf
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.toArgb
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import androidx.sqlite.db.SupportSQLiteDatabase
+import dagger.hilt.android.lifecycle.HiltViewModel
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.BuildConfig
+import io.payanam.R
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.model.ConfiguredLifeDimension
+import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.model.LifeDimension
+import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.service.AutoBackupWorker
+import io.payanam.service.BackupStatusSnapshot
+import io.payanam.service.BackupStatusStore
+import io.payanam.service.BackupTrigger
+import io.payanam.service.DatabaseBackupCoordinator
+import io.payanam.shared.settings.FocusModePreset
+import io.payanam.ui.model.DimensionIconCatalog
+import io.payanam.ui.model.DimensionIconOption
+import io.payanam.ui.model.DimensionTextCatalog
+import io.payanam.ui.theme.LifeDimensionColors
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asSharedFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filter
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import java.util.Locale
+import javax.inject.Inject
+
+private data class BackupSettingsBundle(
+    val settings: Map<String, String?>,
+    val dimensions: List<ConfiguredLifeDimension>,
+    val systemLanguageTag: String?,
+    val backupStatus: BackupStatusSnapshot,
+)
+
+private val appPreferencesLogger
+    get() = if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance() else null
+private val unresolvedDimensionResolutionKeys = mutableSetOf<String>()
+
+private const val DEFAULT_TIME_HOUR_HEIGHT_DP = 60f
+private const val MIN_TIME_HOUR_HEIGHT_DP = 24f
+private const val MAX_TIME_HOUR_HEIGHT_DP = 2880f
+enum class ThemeModeOption(val key: String) {
+    SYSTEM("system"),
+    LIGHT("light"),
+    DARK("dark"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): ThemeModeOption? = entries.find { it.key == key }
+    }
+}
+enum class FontFamilyOption(val key: String) {
+    SANS_SERIF("sans-serif"),
+    MONOSPACE("monospace"),
+    SERIF("serif"),
+    CURSIVE("cursive"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): FontFamilyOption? = when (key) {
+            "roboto", "nunito", "orbitron", "dosis", "sans-serif" -> SANS_SERIF
+            "ubuntu-mono", "monospace" -> MONOSPACE
+            "libre-baskerville", "serif" -> SERIF
+            "kalam", "cursive" -> CURSIVE
+            else -> entries.find { it.key == key }
+        }
+    }
+}
+enum class TimeFormatOption(val key: String, val use24Hour: Boolean) {
+    TWENTY_FOUR("24h", true),
+    TWELVE("12h", false),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): TimeFormatOption? = entries.find { it.key == key }
+    }
+}
+enum class AppLanguageOption(val key: String) {
+    SYSTEM("system"),
+    ENGLISH("en"),
+    TAMIL("ta"),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): AppLanguageOption? = entries.find { it.key == key }
+    }
+}
+data class DimensionPreference(
+    val key: String,
+    val label: String,
+    val color: Color,
+    val isVisible: Boolean,
+    val id: String = key,
+    val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(key),
+    val hasCustomLabelOverride: Boolean = false,
+    val canonicalId: String = key,
+    val description: String? = null,
+)
+data class DimensionOption(
+    val id: String,
+    val label: String,
+    val color: Color,
+    val isVisible: Boolean,
+    val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
+    val hasCustomLabelOverride: Boolean = false,
+    val canonicalId: String = id,
+    val description: String? = null,
+)
+
+data class LaunchDestination(
+    val route: String = "time",
+    val taskFilter: TaskFilter? = null,
+)
+enum class BackupInterval(val key: String, val minutes: Long) {
+    FIFTEEN_MIN("15m", 15),
+    THIRTY_MIN("30m", 30),
+    SIXTY_MIN("60m", 60),
+    TWO_HOURS("2h", 120),
+    SIX_HOURS("6h", 360),
+    TWELVE_HOURS("12h", 720),
+    DAILY("24h", 1440),
+    ;
+
+    companion object {
+        fun fromKey(key: String?): BackupInterval? = entries.find { it.key == key }
+    }
+}
+val ThemeModeOption.displayName: String
+    get() = key
+val FontFamilyOption.displayName: String
+    get() = key
+val TimeFormatOption.displayName: String
+    get() = key
+val BackupInterval.displayName: String
+    get() = key
+val ThemeModeOption.labelResId: Int
+    get() = when (this) {
+        ThemeModeOption.SYSTEM -> R.string.settings_option_theme_system
+        ThemeModeOption.LIGHT -> R.string.settings_option_theme_light
+        ThemeModeOption.DARK -> R.string.settings_option_theme_dark
+    }
+val FontFamilyOption.labelResId: Int
+    get() = when (this) {
+        FontFamilyOption.SANS_SERIF -> R.string.settings_option_font_sans_serif
+        FontFamilyOption.MONOSPACE -> R.string.settings_option_font_monospace
+        FontFamilyOption.SERIF -> R.string.settings_option_font_serif
+        FontFamilyOption.CURSIVE -> R.string.settings_option_font_cursive
+    }
+val TimeFormatOption.labelResId: Int
+    get() = when (this) {
+        TimeFormatOption.TWENTY_FOUR -> R.string.settings_option_time_format_24h
+        TimeFormatOption.TWELVE -> R.string.settings_option_time_format_12h
+    }
+val BackupInterval.labelResId: Int
+    get() = when (this) {
+        BackupInterval.FIFTEEN_MIN -> R.string.settings_option_backup_15_min
+        BackupInterval.THIRTY_MIN -> R.string.settings_option_backup_30_min
+        BackupInterval.SIXTY_MIN -> R.string.settings_option_backup_1_hour
+        BackupInterval.TWO_HOURS -> R.string.settings_option_backup_2_hours
+        BackupInterval.SIX_HOURS -> R.string.settings_option_backup_6_hours
+        BackupInterval.TWELVE_HOURS -> R.string.settings_option_backup_12_hours
+        BackupInterval.DAILY -> R.string.settings_option_backup_daily
+    }
+
+data class AppPreferencesState(
+    val themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
+    val appLanguage: AppLanguageOption = AppLanguageOption.SYSTEM,
+    val effectiveLanguageTag: String = resolveEffectiveLanguageTag(AppLanguageOption.SYSTEM, null),
+    val fontFamily: FontFamilyOption = FontFamilyOption.SANS_SERIF,
+    val timeFormat: TimeFormatOption = TimeFormatOption.TWENTY_FOUR,
+    val timeHourHeightDp: Float = DEFAULT_TIME_HOUR_HEIGHT_DP,
+    val dimensionPreferences: List<DimensionPreference> = emptyList(),
+    val dynamicDimensionOptions: List<DimensionOption> = emptyList(),
+    // Auto-backup settings
+    val autoBackupEnabled: Boolean = false,
+    val autoBackupInterval: BackupInterval = BackupInterval.SIXTY_MIN,
+    val autoBackupLastRun: String? = null,
+    val autoBackupLastErrorMessage: String? = null,
+    val autoBackupLastErrorAt: String? = null,
+    val backupRotationEnabled: Boolean = false,
+    val backupRotationCount: Int = 50,
+    // Day boundary for recurrence (0-5, hour when day "ends" for recurring tasks)
+    val dayBoundaryHour: Int = 0,
+    // Debug logging
+    val debugLoggingEnabled: Boolean = BuildConfig.DEBUG,
+    // Database init completed flag
+    val databaseInitCompleted: Boolean = false,
+    // Auto-tracking habit completion time
+    val autoTrackHabitTimeGlobal: Boolean = false,
+    val autoTrackDimensionPreferences: Map<String, Boolean> = emptyMap(),
+    // Focus Mode
+    val activePreset: FocusModePreset = FocusModePreset.FULL_SUITE,
+    val tabVisibility: Map<String, Boolean> = emptyMap(),
+    val focusModeOnboardingCompleted: Boolean = false,
+    val currentTaskFilter: TaskFilter = TaskFilter.TODAY,
+    // Default launch destination
+    val launchDestination: LaunchDestination = LaunchDestination(),
+    // Insights charts visibility settings
+    val chartTimeModuleEnabled: Boolean = true,
+    val chartTimeOverallSnapshotEnabled: Boolean = false,
+    val chartTimeExecutionDetailsEnabled: Boolean = false,
+    val chartTimeScoreCardsEnabled: Boolean = false,
+    val chartTimeOverallScoreCardEnabled: Boolean = false,
+    val chartTimeDimensionScoreCardsEnabled: Boolean = false,
+    val chartTimeLineGraphsEnabled: Boolean = false,
+    val chartTimeDailyScoreTrendEnabled: Boolean = false,
+    val chartTimeProgressTrendEnabled: Boolean = false,
+    val chartTimeHistoricalRankingEnabled: Boolean = false,
+    val chartTimeMomentumStreakEnabled: Boolean = false,
+    val chartTaskModuleEnabled: Boolean = false,
+    val chartHabitModuleEnabled: Boolean = false,
+    val chartJournalModuleEnabled: Boolean = false,
+    val chartNoteModuleEnabled: Boolean = false,
+    val chartAverageDailyTimeEnabled: Boolean = true,
+    val chartDimSplitEnabled: Boolean = false,
+    val chartDimTrendEnabled: Boolean = false,
+    val chartDailyTimelineEnabled: Boolean = false,
+    val chartWeeklyPatternEnabled: Boolean = false,
+    val chartDailyRhythmEnabled: Boolean = false,
+    val chartWeeklyPatternExclEmpty: Boolean = false,
+    val chartDailyRhythmExclEmpty: Boolean = false,
+    val isLoading: Boolean = true,
+)
+val LocalAppPreferences = compositionLocalOf { AppPreferencesState() }
+fun AppPreferencesState.labelFor(dimensionName: String): String = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.label
+    ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.label
+    ?: dimensionName
+fun AppPreferencesState.labelForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.label
+fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: String?): String? {
+    val directLabel = labelForDimensionId(dimensionId)
+    if (!directLabel.isNullOrBlank()) {
+        return directLabel
+    }
+    val fallbackName = dimensionName?.trim().orEmpty()
+    if (fallbackName.isBlank()) {
+        return null
+    }
+    return labelFor(fallbackName)
+}
+fun AppPreferencesState.matchesDimensionOption(
+    option: DimensionOption,
+    dimensionId: String?,
+    dimensionName: String?,
+): Boolean {
+    if (!dimensionId.isNullOrBlank() && option.id == dimensionId) {
+        return true
+    }
+    val normalizedName = dimensionName?.trim().orEmpty()
+    if (normalizedName.isBlank()) {
+        return false
+    }
+    if (normalizedName == option.label) {
+        return true
+    }
+    return labelForDimension(dimensionId, normalizedName) == option.label
+}
+fun AppPreferencesState.colorFor(dimensionName: String): Color = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.color
+    ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.color
+    ?: LifeDimensionColors.forDimension(dimensionName)
+fun AppPreferencesState.colorForDimensionId(dimensionId: String?): Color? = findDimensionOption(dimensionId)?.color
+fun AppPreferencesState.iconKeyForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.iconKey
+fun AppPreferencesState.iconOptionForDimensionId(dimensionId: String?): DimensionIconOption? = findDimensionOption(dimensionId)?.let { DimensionIconCatalog.resolve(it.iconKey, it.id) }
+fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Boolean {
+    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
+    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
+    return autoTrackDimensionPreferences.entries.firstOrNull { (storedId, _) ->
+        val storedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(storedId)?.id
+        storedId == requestedId ||
+            (!requestedCanonicalId.isNullOrBlank() && storedCanonicalId == requestedCanonicalId)
+    }?.value ?: false
+}
+fun AppPreferencesState.colorForDimension(dimensionId: String?, dimensionName: String?): Color? = colorForDimensionId(dimensionId)
+    ?: dimensionName?.trim()?.takeIf { it.isNotEmpty() }?.let(::colorFor)
+fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
+    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return true
+    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
+    return visibleDimensionOptions().any { option ->
+        option.isVisible &&
+            (
+                option.id == requestedId ||
+                    (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
+                )
+    }
+}
+fun AppPreferencesState.isVisible(dimensionName: String): Boolean = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.isVisible ?: true
+fun AppPreferencesState.effectiveLaunchTaskFilter(): TaskFilter = launchDestination.taskFilter ?: currentTaskFilter
+fun AppPreferencesState.visibleDimensions(): List<DimensionPreference> = dimensionPreferences.filter { it.isVisible }
+fun AppPreferencesState.optionsForSelection(selected: LifeDimension?): List<DimensionPreference> {
+    if (selected == null) {
+        return visibleDimensions()
+    }
+    return dimensionPreferences.filter { it.isVisible || it.canonicalId == selected.id || it.id == selected.id }
+}
+fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
+    val defaults = dimensionPreferences.map {
+        DimensionOption(
+            id = it.id,
+            canonicalId = it.canonicalId,
+            label = it.label,
+            description = it.description,
+            color = it.color,
+            isVisible = it.isVisible,
+            iconKey = it.iconKey,
+            hasCustomLabelOverride = it.hasCustomLabelOverride,
+        )
+    }
+    return (defaults + dynamicDimensionOptions)
+        .distinctBy { it.id }
+        .filter { it.isVisible }
+}
+fun AppPreferencesState.optionsForSelection(selectedDimensionId: String?): List<DimensionOption> {
+    val defaults = dimensionPreferences.map {
+        DimensionOption(
+            id = it.id,
+            canonicalId = it.canonicalId,
+            label = it.label,
+            description = it.description,
+            color = it.color,
+            isVisible = it.isVisible,
+            iconKey = it.iconKey,
+            hasCustomLabelOverride = it.hasCustomLabelOverride,
+        )
+    }
+    val all = (defaults + dynamicDimensionOptions).distinctBy { it.id }
+    if (selectedDimensionId.isNullOrBlank()) {
+        return all.filter { it.isVisible }
+    }
+    val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(selectedDimensionId)?.id
+    return all.filter { option ->
+        option.isVisible ||
+            option.id == selectedDimensionId ||
+            (!selectedCanonicalId.isNullOrBlank() && option.canonicalId == selectedCanonicalId)
+    }
+}
+
+private fun AppPreferencesState.findVisibleDimensionOption(dimensionId: String?): DimensionOption? {
+    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
+    return visibleDimensionOptions().firstOrNull { option ->
+        option.id == requestedId ||
+            (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
+    }
+}
+
+private fun AppPreferencesState.findDimensionOption(dimensionId: String?): DimensionOption? {
+    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
+    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
+    val options = dimensionPreferences.map {
+        DimensionOption(
+            id = it.id,
+            canonicalId = it.canonicalId,
+            label = it.label,
+            description = it.description,
+            color = it.color,
+            isVisible = it.isVisible,
+            iconKey = it.iconKey,
+            hasCustomLabelOverride = it.hasCustomLabelOverride,
+        )
+    } + dynamicDimensionOptions
+    val resolved = options
+        .distinctBy { it.id }
+        .firstOrNull { option ->
+            option.id == requestedId ||
+                (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
+        }
+    if (resolved == null) {
+        val traceKey = requestedCanonicalId ?: requestedId
+        synchronized(unresolvedDimensionResolutionKeys) {
+            if (unresolvedDimensionResolutionKeys.add(traceKey)) {
+                appPreferencesLogger?.w(
+                    "AppPreferencesState.findDimensionOption",
+                    "Could not resolve dimension option from app preferences state",
+                    mapOf(
+                        "requestedId" to requestedId,
+                        "requestedCanonicalId" to (requestedCanonicalId ?: "null"),
+                        "dimensionPreferenceIds" to dimensionPreferences.joinToString(",") { it.id },
+                        "dynamicOptionIds" to dynamicDimensionOptions.joinToString(",") { it.id },
+                    ),
+                )
+            }
+        }
+    }
+    return resolved
+}
+
+private fun dimensionSortOrder(dimensionId: String): Int = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.sortOrder ?: Int.MAX_VALUE
+
+@HiltViewModel
+class AppPreferencesViewModel @Inject constructor(
+    private val appSettingsRepository: AppSettingsRepository,
+    private val lifeDimensionCatalogRepository: LifeDimensionCatalogRepository,
+    private val sessionManager: DatabaseSessionManager,
+    private val backupStatusStore: BackupStatusStore,
+    private val databaseBackupCoordinator: DatabaseBackupCoordinator,
+    @ApplicationContext private val context: Context,
+) : ViewModel() {
+    private val logger = UnifiedLogger.getInstance()
+    private val _uiState = MutableStateFlow(AppPreferencesState())
+    private val runtimeSystemLanguageTag = MutableStateFlow(resolveSystemLanguageTag())
+    val uiState: StateFlow<AppPreferencesState> = _uiState.asStateFlow()
+    private val _manualBackupResultMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val manualBackupResultMessage: SharedFlow<String> = _manualBackupResultMessage.asSharedFlow()
+    private val _manualBackupInProgress = MutableStateFlow(false)
+    val manualBackupInProgress: StateFlow<Boolean> = _manualBackupInProgress.asStateFlow()
+    private val _legacyDimensionDiagnosticsMessage = MutableSharedFlow<String>(extraBufferCapacity = 1)
+    val legacyDimensionDiagnosticsMessage: SharedFlow<String> = _legacyDimensionDiagnosticsMessage.asSharedFlow()
+    private val _legacyDimensionDiagnosticsInProgress = MutableStateFlow(false)
+    val legacyDimensionDiagnosticsInProgress: StateFlow<Boolean> = _legacyDimensionDiagnosticsInProgress.asStateFlow()
+    init {
+        UnifiedLogger.setDebugLoggingEnabled(BuildConfig.DEBUG)
+        observeSettings()
+    }
+
+    @OptIn(kotlinx.coroutines.ExperimentalCoroutinesApi::class)
+    private fun observeSettings() {
+        viewModelScope.launch {
+            sessionManager.isOpen
+                .filter { it }
+                .flatMapLatest {
+                    combine(
+                        appSettingsRepository.getAllSettings(),
+                        lifeDimensionCatalogRepository.observeAllDimensions(),
+                        runtimeSystemLanguageTag,
+                        backupStatusStore.status,
+                    ) { settings, dimensions, systemLanguageTag, backupStatus ->
+                        BackupSettingsBundle(
+                            settings = settings,
+                            dimensions = dimensions,
+                            systemLanguageTag = systemLanguageTag,
+                            backupStatus = backupStatus,
+                        )
+                    }
+                }
+                .collect { bundle ->
+                    val settings = bundle.settings
+                    val configuredDimensions = bundle.dimensions
+                    val systemLanguageTag = bundle.systemLanguageTag
+                    val backupStatus = bundle.backupStatus
+                    val themeMode = ThemeModeOption.fromKey(settings[KEY_THEME_MODE]) ?: ThemeModeOption.SYSTEM
+                    val appLanguage = AppLanguageOption.fromKey(settings[KEY_APP_LANGUAGE]) ?: AppLanguageOption.SYSTEM
+                    val effectiveLanguageTag = resolveEffectiveLanguageTag(appLanguage, systemLanguageTag)
+                    val fontFamily = FontFamilyOption.fromKey(settings[KEY_FONT_FAMILY]) ?: FontFamilyOption.SANS_SERIF
+                    val timeFormat = TimeFormatOption.fromKey(settings[KEY_TIME_FORMAT]) ?: TimeFormatOption.TWENTY_FOUR
+                    val timeHourHeightDp = resolveTimeHourHeightDp(settings)
+                    val (dimensionPrefs, dynamicDimensionOptions) = buildDimensionCatalogUiState(
+                        dimensions = configuredDimensions,
+                        effectiveLanguageTag = effectiveLanguageTag,
+                    )
+                    val dimensionSettingsLogSignature = buildString {
+                        append("appLanguage=")
+                        append(appLanguage.key)
+                        append("|effectiveLanguageTag=")
+                        append(effectiveLanguageTag)
+                        append("|systemLanguageTag=")
+                        append(systemLanguageTag)
+                        append("|catalogIds=")
+                        append(configuredDimensions.joinToString(",") { it.id })
+                        append("|defaultIds=")
+                        append(dimensionPrefs.joinToString(",") { it.id })
+                        append("|customIds=")
+                        append(dynamicDimensionOptions.joinToString(",") { it.id })
+                    }
+                    if (lastLoggedDimensionSettingsSignature != dimensionSettingsLogSignature) {
+                        logger.i(
+                            "AppPreferencesViewModel.observeSettings",
+                            "Dimension settings snapshot loaded",
+                            mapOf(
+                                "defaultDimensionCount" to dimensionPrefs.size,
+                                "dynamicDimensionCount" to dynamicDimensionOptions.size,
+                                "catalogDimensionCount" to configuredDimensions.size,
+                                "appLanguage" to appLanguage.key,
+                                "effectiveLanguageTag" to effectiveLanguageTag,
+                                "systemLanguageTag" to systemLanguageTag,
+                            ),
+                        )
+                        logger.i(
+                            "AppPreferencesViewModel.observeSettings",
+                            "Dimension trace catalogIds=${configuredDimensions.joinToString(",") { it.id }} defaultIds=${dimensionPrefs.joinToString(",") { it.id }} customIds=${dynamicDimensionOptions.joinToString(",") { it.id }}",
+                        )
+                        logger.i(
+                            "AppPreferencesViewModel.observeSettings",
+                            "Dimension label trace ${
+                                (
+                                    dimensionPrefs.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" } +
+                                        dynamicDimensionOptions.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" }
+                                    )
+                                    .joinToString(" | ")
+                            }",
+                        )
+                        logger.i(
+                            "AppPreferencesViewModel.observeSettings",
+                            "Dimension icon trace defaultIcons=${dimensionPrefs.joinToString(",") { "${it.id}:${it.iconKey}" }} customIcons=${dynamicDimensionOptions.joinToString(",") { "${it.id}:${it.iconKey}" }}",
+                        )
+                        lastLoggedDimensionSettingsSignature = dimensionSettingsLogSignature
+                    }
+                    val autoBackupEnabled = settings[KEY_AUTO_BACKUP_ENABLED]?.toBoolean() ?: false
+                    val autoBackupInterval = BackupInterval.fromKey(settings[KEY_AUTO_BACKUP_INTERVAL]) ?: BackupInterval.SIXTY_MIN
+                    val autoBackupLastRun = backupStatus.lastSuccessDisplay ?: settings[KEY_AUTO_BACKUP_LAST_RUN]
+                    val backupFailureStatus = backupStatus.latestFailure
+                    val backupRotationEnabled = settings[KEY_BACKUP_ROTATION_ENABLED]?.toBoolean() ?: false
+                    val backupRotationCount = settings[KEY_BACKUP_ROTATION_COUNT]?.toIntOrNull()?.coerceIn(1, 999) ?: 50
+                    val dayBoundaryHour = settings[KEY_DAY_BOUNDARY_HOUR]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
+                    val debugLoggingEnabled = settings[KEY_DEBUG_LOGGING_ENABLED]?.toBoolean() ?: BuildConfig.DEBUG
+                    val databaseInitCompleted = settings[KEY_DATABASE_INIT_COMPLETED]?.toBoolean() ?: false
+                    // Auto-tracking habit completion time preferences
+                    val autoTrackHabitTimeGlobal = settings[KEY_AUTO_TRACK_HABIT_TIME]?.toBoolean() ?: false
+                    val autoTrackDimensionIds = (dimensionPrefs.map { it.id } + dynamicDimensionOptions.map { it.id }).distinct()
+                    val autoTrackDimensionPrefs = autoTrackDimensionIds.associateWith { dimensionId ->
+                        settings["$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId"]?.toBoolean()
+                            ?: autoTrackHabitTimeGlobal
+                    }
+                    // Focus Mode preferences
+                    val activePreset = FocusModePreset.fromPresetId(settings[KEY_ACTIVE_PRESET])
+                    val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
+                    val tabVisibility = allTabs.associateWith { tabRoute ->
+                        if (tabRoute == "settings") {
+                            true // Settings tab is always visible
+                        } else {
+                            settings["$KEY_TAB_VISIBLE_PREFIX$tabRoute"]?.toBoolean()
+                                ?: activePreset.visibleTabs.contains(tabRoute)
+                        }
+                    }
+                    val focusModeOnboardingCompleted = settings[KEY_FOCUS_MODE_ONBOARDING_COMPLETED]?.toBoolean() ?: false
+                    val currentTaskFilter = TaskFilter.fromKey(settings[KEY_TASK_FILTER_OPTION])
+                    val launchDestinationRoute = settings[KEY_LAUNCH_DESTINATION_ROUTE] ?: "time"
+                    val launchDestinationTaskFilter = TaskFilter.fromKey(settings[KEY_LAUNCH_DESTINATION_TASK_FILTER])
+                    val launchDestination = LaunchDestination(
+                        route = launchDestinationRoute,
+                        taskFilter = launchDestinationTaskFilter,
+                    )
+                    // Insights charts visibility prefs
+                    val chartTimeModuleEnabled = settings[KEY_CHART_TIME_MODULE]?.toBoolean() ?: true
+                    val chartTimeOverallSnapshotEnabled = settings[KEY_CHART_TIME_OVERALL_SNAPSHOT]?.toBoolean() ?: false
+                    val chartTimeExecutionDetailsEnabled = settings[KEY_CHART_TIME_EXECUTION_DETAILS]?.toBoolean() ?: false
+                    val chartTimeScoreCardsEnabled = settings[KEY_CHART_TIME_SCORE_CARDS]?.toBoolean() ?: false
+                    val chartTimeOverallScoreCardEnabled = settings[KEY_CHART_TIME_OVERALL_SCORE_CARD]?.toBoolean() ?: false
+                    val chartTimeDimensionScoreCardsEnabled = settings[KEY_CHART_TIME_DIM_SCORE_CARDS]?.toBoolean() ?: false
+                    val chartTimeLineGraphsEnabled = settings[KEY_CHART_TIME_LINE_GRAPHS]?.toBoolean() ?: false
+                    val chartTimeDailyScoreTrendEnabled = settings[KEY_CHART_TIME_DAILY_SCORE_TREND]?.toBoolean() ?: false
+                    val chartTimeProgressTrendEnabled = settings[KEY_CHART_TIME_PROGRESS_TREND]?.toBoolean() ?: false
+                    val chartTimeHistoricalRankingEnabled = settings[KEY_CHART_TIME_HISTORICAL_RANKING]?.toBoolean() ?: false
+                    val chartTimeMomentumStreakEnabled = settings[KEY_CHART_TIME_MOMENTUM_STREAK]?.toBoolean() ?: false
+                    val chartTaskModuleEnabled = settings[KEY_CHART_TASK_MODULE]?.toBoolean() ?: false
+                    val chartHabitModuleEnabled = settings[KEY_CHART_HABIT_MODULE]?.toBoolean() ?: false
+                    val chartJournalModuleEnabled = settings[KEY_CHART_JOURNAL_MODULE]?.toBoolean() ?: false
+                    val chartNoteModuleEnabled = settings[KEY_CHART_NOTE_MODULE]?.toBoolean() ?: false
+                    val chartAverageDailyTimeEnabled = settings[KEY_CHART_AVERAGE_DAILY_TIME]?.toBoolean() ?: true
+                    val chartDimSplitEnabled = settings[KEY_CHART_DIM_SPLIT]?.toBoolean() ?: false
+                    val chartDimTrendEnabled = settings[KEY_CHART_DIM_TREND]?.toBoolean() ?: false
+                    val chartDailyTimelineEnabled = settings[KEY_CHART_DAILY_TIMELINE]?.toBoolean() ?: false
+                    val chartWeeklyPatternEnabled = settings[KEY_CHART_WEEKLY_PATTERN]?.toBoolean() ?: false
+                    val chartDailyRhythmEnabled = settings[KEY_CHART_DAILY_RHYTHM]?.toBoolean() ?: false
+                    val chartWeeklyPatternExclEmpty = settings[KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY]?.toBoolean() ?: false
+                    val chartDailyRhythmExclEmpty = settings[KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY]?.toBoolean() ?: false
+                    // Update UnifiedLogger debug logging
+                    io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(debugLoggingEnabled)
+                    _uiState.update {
+                        it.copy(
+                            themeMode = themeMode,
+                            appLanguage = appLanguage,
+                            effectiveLanguageTag = effectiveLanguageTag,
+                            fontFamily = fontFamily,
+                            timeFormat = timeFormat,
+                            timeHourHeightDp = timeHourHeightDp,
+                            dimensionPreferences = dimensionPrefs,
+                            dynamicDimensionOptions = dynamicDimensionOptions,
+                            autoBackupEnabled = autoBackupEnabled,
+                            autoBackupInterval = autoBackupInterval,
+                            autoBackupLastRun = autoBackupLastRun,
+                            autoBackupLastErrorMessage = backupFailureStatus?.message,
+                            autoBackupLastErrorAt = backupFailureStatus?.recordedAtDisplay,
+                            backupRotationEnabled = backupRotationEnabled,
+                            backupRotationCount = backupRotationCount,
+                            dayBoundaryHour = dayBoundaryHour,
+                            debugLoggingEnabled = debugLoggingEnabled,
+                            databaseInitCompleted = databaseInitCompleted,
+                            autoTrackHabitTimeGlobal = autoTrackHabitTimeGlobal,
+                            autoTrackDimensionPreferences = autoTrackDimensionPrefs,
+                            activePreset = activePreset,
+                            tabVisibility = tabVisibility,
+                            focusModeOnboardingCompleted = focusModeOnboardingCompleted,
+                            currentTaskFilter = currentTaskFilter,
+                            launchDestination = launchDestination,
+                            chartTimeModuleEnabled = chartTimeModuleEnabled,
+                            chartTimeOverallSnapshotEnabled = chartTimeOverallSnapshotEnabled,
+                            chartTimeExecutionDetailsEnabled = chartTimeExecutionDetailsEnabled,
+                            chartTimeScoreCardsEnabled = chartTimeScoreCardsEnabled,
+                            chartTimeOverallScoreCardEnabled = chartTimeOverallScoreCardEnabled,
+                            chartTimeDimensionScoreCardsEnabled = chartTimeDimensionScoreCardsEnabled,
+                            chartTimeLineGraphsEnabled = chartTimeLineGraphsEnabled,
+                            chartTimeDailyScoreTrendEnabled = chartTimeDailyScoreTrendEnabled,
+                            chartTimeProgressTrendEnabled = chartTimeProgressTrendEnabled,
+                            chartTimeHistoricalRankingEnabled = chartTimeHistoricalRankingEnabled,
+                            chartTimeMomentumStreakEnabled = chartTimeMomentumStreakEnabled,
+                            chartTaskModuleEnabled = chartTaskModuleEnabled,
+                            chartHabitModuleEnabled = chartHabitModuleEnabled,
+                            chartJournalModuleEnabled = chartJournalModuleEnabled,
+                            chartNoteModuleEnabled = chartNoteModuleEnabled,
+                            chartAverageDailyTimeEnabled = chartAverageDailyTimeEnabled,
+                            chartDimSplitEnabled = chartDimSplitEnabled,
+                            chartDimTrendEnabled = chartDimTrendEnabled,
+                            chartDailyTimelineEnabled = chartDailyTimelineEnabled,
+                            chartWeeklyPatternEnabled = chartWeeklyPatternEnabled,
+                            chartDailyRhythmEnabled = chartDailyRhythmEnabled,
+                            chartWeeklyPatternExclEmpty = chartWeeklyPatternExclEmpty,
+                            chartDailyRhythmExclEmpty = chartDailyRhythmExclEmpty,
+                            isLoading = false,
+                        )
+                    }
+                }
+        }
+    }
+    fun setThemeMode(mode: ThemeModeOption) {
+        saveSetting(KEY_THEME_MODE, mode.key)
+    }
+    fun setAppLanguage(language: AppLanguageOption) {
+        saveSetting(KEY_APP_LANGUAGE, language.key)
+    }
+    fun updateSystemLanguageTag(languageTag: String?) {
+        val normalizedTag = normalizeSupportedLanguageTag(languageTag)
+        if (runtimeSystemLanguageTag.value == normalizedTag) {
+            return
+        }
+        runtimeSystemLanguageTag.value = normalizedTag
+        logger.i(
+            "AppPreferencesViewModel.updateSystemLanguageTag",
+            "Updated runtime system language tag",
+            mapOf("systemLanguageTag" to normalizedTag),
+        )
+    }
+    fun setFontFamily(fontFamily: FontFamilyOption) {
+        saveSetting(KEY_FONT_FAMILY, fontFamily.key)
+    }
+    fun setTimeFormat(timeFormat: TimeFormatOption) {
+        saveSetting(KEY_TIME_FORMAT, timeFormat.key)
+    }
+    fun setTimeHourHeightDp(hourHeightDp: Float) {
+        val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
+        val normalized = String.format(Locale.US, "%.2f", clamped)
+        saveSetting(KEY_TIME_HOUR_HEIGHT_DP, normalized)
+    }
+    fun setDimensionLabel(dimension: LifeDimension, label: String) {
+        setDimensionLabel(dimension.id, label)
+    }
+    fun setDimensionLabel(dimensionId: String, label: String) {
+        viewModelScope.launch {
+            val normalizedLabel = normalizeDimensionLabelForStorage(
+                dimensionId = dimensionId,
+                candidateLabel = label,
+                effectiveLanguageTag = _uiState.value.effectiveLanguageTag,
+            )
+            try {
+                lifeDimensionCatalogRepository.updateDimensionLabel(dimensionId, normalizedLabel)
+                logger.i(
+                    "AppPreferencesViewModel.setDimensionLabel",
+                    "Dimension label updated in DB-backed catalog",
+                    mapOf("dimensionId" to dimensionId),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.setDimensionLabel",
+                    "Failed to update dimension label in DB-backed catalog",
+                    e,
+                    mapOf("dimensionId" to dimensionId),
+                )
+            }
+        }
+    }
+    fun setDimensionColor(dimension: LifeDimension, color: Color) {
+        setDimensionColor(dimension.id, color)
+    }
+    fun setDimensionColor(dimensionId: String, color: Color) {
+        viewModelScope.launch {
+            try {
+                lifeDimensionCatalogRepository.updateDimensionColor(dimensionId, colorToHex(color))
+                logger.i(
+                    "AppPreferencesViewModel.setDimensionColor",
+                    "Dimension color updated in DB-backed catalog",
+                    mapOf("dimensionId" to dimensionId),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.setDimensionColor",
+                    "Failed to update dimension color in DB-backed catalog",
+                    e,
+                    mapOf("dimensionId" to dimensionId),
+                )
+            }
+        }
+    }
+    fun resetDimensionLabel(dimensionId: String) {
+        viewModelScope.launch {
+            try {
+                lifeDimensionCatalogRepository.updateDimensionLabel(
+                    dimensionId = dimensionId,
+                    label = defaultStoredLabelForDimension(dimensionId),
+                )
+                logger.i(
+                    "AppPreferencesViewModel.resetDimensionLabel",
+                    "Dimension label reset to app default in DB-backed catalog",
+                    mapOf("dimensionId" to dimensionId),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.resetDimensionLabel",
+                    "Failed to reset dimension label in DB-backed catalog",
+                    e,
+                    mapOf("dimensionId" to dimensionId),
+                )
+            }
+        }
+    }
+    fun setDimensionIcon(dimensionId: String, iconKey: String) {
+        viewModelScope.launch {
+            try {
+                lifeDimensionCatalogRepository.updateDimensionIcon(dimensionId, iconKey)
+                logger.i(
+                    "AppPreferencesViewModel.setDimensionIcon",
+                    "Dimension icon updated in DB-backed catalog",
+                    mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.setDimensionIcon",
+                    "Failed to update dimension icon in DB-backed catalog",
+                    e,
+                    mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
+                )
+            }
+        }
+    }
+    fun setDimensionVisibility(dimension: LifeDimension, isVisible: Boolean) {
+        setDimensionVisibility(dimension.id, isVisible)
+    }
+    fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
+        viewModelScope.launch {
+            try {
+                lifeDimensionCatalogRepository.updateDimensionActiveState(dimensionId, isVisible)
+                logger.i(
+                    "AppPreferencesViewModel.setDimensionVisibility",
+                    "Dimension visibility updated in DB-backed catalog",
+                    mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.setDimensionVisibility",
+                    "Failed to update dimension visibility in DB-backed catalog",
+                    e,
+                    mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
+                )
+            }
+        }
+    }
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        saveSetting(KEY_AUTO_BACKUP_ENABLED, enabled.toString())
+    }
+    fun setAutoBackupInterval(interval: BackupInterval) {
+        saveSetting(KEY_AUTO_BACKUP_INTERVAL, interval.key)
+    }
+    fun setAutoBackupLastRun(timestamp: String) {
+        saveSetting(KEY_AUTO_BACKUP_LAST_RUN, timestamp)
+    }
+    fun setBackupRotationEnabled(enabled: Boolean) {
+        saveSetting(KEY_BACKUP_ROTATION_ENABLED, enabled.toString())
+        syncBackupRotationToSharedPrefs(enabled, _uiState.value.backupRotationCount)
+    }
+    fun setBackupRotationCount(count: Int) {
+        val clamped = count.coerceIn(1, 999)
+        saveSetting(KEY_BACKUP_ROTATION_COUNT, clamped.toString())
+        syncBackupRotationToSharedPrefs(_uiState.value.backupRotationEnabled, clamped)
+    }
+    private fun syncBackupRotationToSharedPrefs(enabled: Boolean, count: Int) {
+        context.getSharedPreferences("payanam_backup_meta", Context.MODE_PRIVATE)
+            .edit()
+            .putBoolean("backup_rotation_enabled", enabled)
+            .putInt("backup_rotation_count", count)
+            .apply()
+    }
+    fun refreshAutoBackupStatusFromStorage() {
+        backupStatusStore.refresh()
+        val status = backupStatusStore.status.value
+        logger.d(
+            "AppPreferencesViewModel.refreshAutoBackupStatusFromStorage",
+            "Refreshed backup status from backup artifacts",
+            mapOf(
+                "latestBackup" to (status.lastSuccessDisplay ?: "none"),
+                "latestFailure" to (status.latestFailure?.message ?: "none"),
+            ),
+        )
+        _uiState.update { state ->
+            state.copy(
+                autoBackupLastRun = status.lastSuccessDisplay ?: state.autoBackupLastRun,
+                autoBackupLastErrorMessage = status.latestFailure?.message,
+                autoBackupLastErrorAt = status.latestFailure?.recordedAtDisplay,
+            )
+        }
+    }
+    fun dismissAutoBackupFailureMessage() {
+        backupStatusStore.dismissLatestFailure()
+        logger.i(
+            "AppPreferencesViewModel.dismissAutoBackupFailureMessage",
+            "Dismissed auto-backup failure message",
+        )
+        _uiState.update { state ->
+            state.copy(
+                autoBackupLastErrorMessage = null,
+                autoBackupLastErrorAt = null,
+            )
+        }
+    }
+    fun triggerManualBackupNow() {
+        _manualBackupInProgress.value = true
+        viewModelScope.launch {
+            try {
+                val result = databaseBackupCoordinator.backupToAppBackupDirectory(BackupTrigger.MANUAL)
+                refreshAutoBackupStatusFromStorage()
+                _manualBackupResultMessage.tryEmit(
+                    context.getString(R.string.settings_manual_backup_success, result.recordedAtDisplay),
+                )
+                logger.i(
+                    "AppPreferencesViewModel.triggerManualBackupNow",
+                    "Manual backup succeeded",
+                    mapOf(
+                        "recordedAt" to result.recordedAtDisplay,
+                        "attemptsUsed" to result.attemptsUsed,
+                        "destinationPath" to result.destinationPath,
+                    ),
+                )
+                AutoBackupWorker.rescheduleFromNow(context, appSettingsRepository)
+            } catch (error: Exception) {
+                refreshAutoBackupStatusFromStorage()
+                _manualBackupResultMessage.tryEmit(
+                    context.getString(R.string.settings_manual_backup_failed, error.message ?: "Backup failed"),
+                )
+                logger.e("AppPreferencesViewModel.triggerManualBackupNow", "Manual backup failed", error)
+            } finally {
+                _manualBackupInProgress.value = false
+            }
+        }
+    }
+    fun runLegacyDimensionDiagnostics() {
+        if (_legacyDimensionDiagnosticsInProgress.value) {
+            return
+        }
+        _legacyDimensionDiagnosticsInProgress.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            val logTag = "AppPreferencesViewModel.runLegacyDimensionDiagnostics"
+            try {
+                val readableDb = sessionManager.requireDatabase().openHelper.readableDatabase
+                logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_START")
+
+                val countRows = mutableListOf<Map<String, Any>>()
+                val countSql = """
+                    SELECT 'life_dimensions' AS table_name, id AS dimension_id, COUNT(*) AS row_count
+                    FROM life_dimensions
+                    WHERE id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY id
+                    UNION ALL
+                    SELECT 'tasks' AS table_name, dimension_id, COUNT(*) AS row_count
+                    FROM tasks
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'time_entries', dimension_id, COUNT(*)
+                    FROM time_entries
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'notes', dimension_id, COUNT(*)
+                    FROM notes
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'journal_notes', dimension_id, COUNT(*)
+                    FROM journal_notes
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'day_journal_responses', dimension_id, COUNT(*)
+                    FROM day_journal_responses
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'daily_insights', dimension_id, COUNT(*)
+                    FROM daily_insights
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'lens_reflections', dimension_id, COUNT(*)
+                    FROM lens_reflections
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'time_goals', dimension_id, COUNT(*)
+                    FROM time_goals
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'day_plan_allocations', dimension_id, COUNT(*)
+                    FROM day_plan_allocations
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    UNION ALL
+                    SELECT 'day_plan_template_allocations', dimension_id, COUNT(*)
+                    FROM day_plan_template_allocations
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    GROUP BY dimension_id
+                    ORDER BY table_name, dimension_id
+                """.trimIndent()
+                readableDb.query(countSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        countRows += mapOf(
+                            "table" to cursor.getString(0),
+                            "dimensionId" to cursor.getString(1),
+                            "rowCount" to cursor.getLong(2),
+                        )
+                    }
+                }
+
+                val legacyLabelRows = mutableListOf<Map<String, Any>>()
+                appendLabelDiagnostics(
+                    readableDb = readableDb,
+                    sql = """
+                        SELECT 'life_dimensions' AS table_name, label AS label_value, COUNT(*) AS row_count
+                        FROM life_dimensions
+                        WHERE label IN ($LEGACY_DIMENSION_SQL_LABELS)
+                        GROUP BY label
+                        UNION ALL
+                        SELECT 'tasks' AS table_name, lifeIntentionCategory AS label_value, COUNT(*) AS row_count
+                        FROM tasks
+                        WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'time_entries', lifeIntentionCategory, COUNT(*)
+                        FROM time_entries
+                        WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'notes', lifeIntentionCategory, COUNT(*)
+                        FROM notes
+                        WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'journal_notes', lifeIntentionCategory, COUNT(*)
+                        FROM journal_notes
+                        WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                        GROUP BY lifeIntentionCategory
+                        ORDER BY table_name, label_value
+                    """.trimIndent(),
+                    issueType = "legacy_label",
+                    rows = legacyLabelRows,
+                )
+
+                val nonStandardLabelRows = mutableListOf<Map<String, Any>>()
+                appendLabelDiagnostics(
+                    readableDb = readableDb,
+                    sql = """
+                        SELECT 'life_dimensions' AS table_name, label AS label_value, COUNT(*) AS row_count
+                        FROM life_dimensions
+                        WHERE label IS NOT NULL AND TRIM(label) <> ''
+                        GROUP BY label
+                        UNION ALL
+                        SELECT 'tasks' AS table_name, lifeIntentionCategory AS label_value, COUNT(*) AS row_count
+                        FROM tasks
+                        WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'time_entries', lifeIntentionCategory, COUNT(*)
+                        FROM time_entries
+                        WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'notes', lifeIntentionCategory, COUNT(*)
+                        FROM notes
+                        WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                        GROUP BY lifeIntentionCategory
+                        UNION ALL
+                        SELECT 'journal_notes', lifeIntentionCategory, COUNT(*)
+                        FROM journal_notes
+                        WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                        GROUP BY lifeIntentionCategory
+                        ORDER BY table_name, label_value
+                    """.trimIndent(),
+                    issueType = "non_standard_label",
+                    rows = nonStandardLabelRows,
+                    predicate = { row ->
+                        val value = row["value"]?.toString()
+                        !DimensionTaxonomyCatalog.isCanonicalLabel(value)
+                    },
+                )
+
+                val legacyDimensionKeyRows = mutableListOf<Map<String, Any>>()
+                val lifeDimensionKeySql = """
+                    SELECT 'life_dimensions' AS table_name, key AS dimension_key, COUNT(*) AS row_count
+                    FROM life_dimensions
+                    WHERE key IN ($LEGACY_DIMENSION_SQL_IDS, $LEGACY_DIMENSION_SQL_SLUGS)
+                    GROUP BY key
+                    ORDER BY key
+                """.trimIndent()
+                readableDb.query(lifeDimensionKeySql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        legacyDimensionKeyRows += mapOf(
+                            "issueType" to "legacy_dimension_key",
+                            "table" to cursor.getString(0),
+                            "value" to cursor.getString(1),
+                            "rowCount" to cursor.getLong(2),
+                        )
+                    }
+                }
+
+                val dimensionKeySql = """
+                    SELECT 'day_journal_responses' AS table_name, dimensionKey AS dimension_key, COUNT(*) AS row_count
+                    FROM day_journal_responses
+                    WHERE dimensionKey IN ($LEGACY_DIMENSION_SQL_IDS, $LEGACY_DIMENSION_SQL_SLUGS)
+                    GROUP BY dimensionKey
+                    ORDER BY dimensionKey
+                """.trimIndent()
+                readableDb.query(dimensionKeySql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        legacyDimensionKeyRows += mapOf(
+                            "issueType" to "legacy_dimension_key",
+                            "table" to cursor.getString(0),
+                            "value" to cursor.getString(1),
+                            "rowCount" to cursor.getLong(2),
+                        )
+                    }
+                }
+
+                if (countRows.isEmpty()) {
+                    logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_COUNTS none")
+                } else {
+                    countRows.forEach { row ->
+                        logger.i(
+                            logTag,
+                            "LEGACY_DIMENSION_DIAGNOSTICS_COUNT",
+                            row,
+                        )
+                    }
+                }
+
+                val issueRows = legacyLabelRows + nonStandardLabelRows + legacyDimensionKeyRows
+                if (issueRows.isEmpty()) {
+                    logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_ISSUES none")
+                } else {
+                    issueRows.forEach { row ->
+                        logger.i(
+                            logTag,
+                            "LEGACY_DIMENSION_DIAGNOSTICS_ISSUE",
+                            row,
+                        )
+                    }
+                }
+
+                val sampleSql = """
+                    SELECT 'life_dimensions' AS table_name, id, id AS dimension_id, COALESCE(label, '') AS category, COALESCE(updatedAt, createdAt, '') AS primary_date
+                    FROM life_dimensions
+                    WHERE id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    UNION ALL
+                    SELECT 'time_entries' AS table_name, id, dimension_id, COALESCE(lifeIntentionCategory, '') AS category, startedAt AS primary_date
+                    FROM time_entries
+                    WHERE dimension_id IN ($LEGACY_DIMENSION_SQL_IDS)
+                    ORDER BY startedAt DESC
+                    LIMIT 20
+                """.trimIndent()
+                val sampleRows = mutableListOf<Map<String, Any>>()
+                readableDb.query(sampleSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        sampleRows += mapOf(
+                            "table" to cursor.getString(0),
+                            "id" to cursor.getString(1),
+                            "dimensionId" to cursor.getString(2),
+                            "category" to cursor.getString(3),
+                            "primaryDate" to cursor.getString(4),
+                        )
+                    }
+                }
+                val dimensionKeySampleSql = """
+                    SELECT 'day_journal_responses' AS table_name, id, COALESCE(dimensionKey, '') AS dimension_key, COALESCE(promptKey, '') AS prompt_key, COALESCE(updatedAt, createdAt, '') AS primary_date
+                    FROM day_journal_responses
+                    WHERE dimensionKey IN ($LEGACY_DIMENSION_SQL_IDS, $LEGACY_DIMENSION_SQL_SLUGS)
+                    ORDER BY updatedAt DESC, createdAt DESC
+                    LIMIT 20
+                """.trimIndent()
+                readableDb.query(dimensionKeySampleSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        sampleRows += mapOf(
+                            "table" to cursor.getString(0),
+                            "id" to cursor.getString(1),
+                            "dimensionKey" to cursor.getString(2),
+                            "promptKey" to cursor.getString(3),
+                            "primaryDate" to cursor.getString(4),
+                        )
+                    }
+                }
+                val lifeDimensionKeySampleSql = """
+                    SELECT 'life_dimensions' AS table_name, id, COALESCE(key, '') AS dimension_key, COALESCE(label, '') AS prompt_key, COALESCE(updatedAt, createdAt, '') AS primary_date
+                    FROM life_dimensions
+                    WHERE key IN ($LEGACY_DIMENSION_SQL_IDS, $LEGACY_DIMENSION_SQL_SLUGS)
+                    ORDER BY sortOrder ASC
+                    LIMIT 20
+                """.trimIndent()
+                readableDb.query(lifeDimensionKeySampleSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        sampleRows += mapOf(
+                            "table" to cursor.getString(0),
+                            "id" to cursor.getString(1),
+                            "dimensionKey" to cursor.getString(2),
+                            "promptKey" to cursor.getString(3),
+                            "primaryDate" to cursor.getString(4),
+                        )
+                    }
+                }
+                if (sampleRows.isEmpty()) {
+                    logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_SAMPLES none")
+                } else {
+                    sampleRows.forEach { row ->
+                        logger.i(
+                            logTag,
+                            "LEGACY_DIMENSION_DIAGNOSTICS_SAMPLE",
+                            row,
+                        )
+                    }
+                }
+
+                // Label samples: per-row detail for every legacy_label hit across all 5 tables.
+                // Shows the actual stored label and the paired dimension_id (as dimSlug/pairedDimKey
+                // to avoid LogSanitizer redaction on "label"/"id" key tokens).
+                // journal_notes uses snake_case column names (created_at/updated_at) per @ColumnInfo.
+                val labelSampleSql = """
+                    SELECT 'life_dimensions' AS tbl, COALESCE(key, '') AS dimSlug, COALESCE(label, '') AS legacyEntry, '' AS pairedDimKey, COALESCE(updatedAt, createdAt, '') AS primaryDate
+                    FROM life_dimensions
+                    WHERE label IN ($LEGACY_DIMENSION_SQL_LABELS)
+                    UNION ALL
+                    SELECT 'tasks', '', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COALESCE(updatedAt, createdAt, '')
+                    FROM tasks
+                    WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                    UNION ALL
+                    SELECT 'time_entries', '', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), startedAt
+                    FROM time_entries
+                    WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                    UNION ALL
+                    SELECT 'notes', '', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COALESCE(updatedAt, createdAt, '')
+                    FROM notes
+                    WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                    UNION ALL
+                    SELECT 'journal_notes', '', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COALESCE(updated_at, created_at, '')
+                    FROM journal_notes
+                    WHERE lifeIntentionCategory IN ($LEGACY_DIMENSION_SQL_LABELS)
+                    ORDER BY tbl, primaryDate DESC
+                    LIMIT 100
+                """.trimIndent()
+                val labelSampleRows = mutableListOf<Map<String, Any>>()
+                readableDb.query(labelSampleSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        labelSampleRows += mapOf(
+                            "tbl" to cursor.getString(0),
+                            "dimSlug" to cursor.getString(1),
+                            "legacyEntry" to cursor.getString(2),
+                            "pairedDimKey" to cursor.getString(3),
+                            "primaryDate" to cursor.getString(4),
+                        )
+                    }
+                }
+                if (labelSampleRows.isEmpty()) {
+                    logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_LABEL_SAMPLES none")
+                } else {
+                    labelSampleRows.forEach { row ->
+                        logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_LABEL_SAMPLE", row)
+                    }
+                }
+
+                // Non-standard label samples: distinct (label, dimension_id, count) groups for
+                // values that are neither canonical nor known legacy labels. These need human
+                // review before any fix — they may be user-entered custom text.
+                // Key names chosen to avoid LogSanitizer redaction: storedEntry, pairedDimKey.
+                val nonStandardSampleSql = """
+                    SELECT 'time_entries' AS tbl, COALESCE(lifeIntentionCategory, '') AS storedEntry, COALESCE(dimension_id, '') AS pairedDimKey, COUNT(*) AS rowCount
+                    FROM time_entries
+                    WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                      AND lifeIntentionCategory NOT IN ($LEGACY_DIMENSION_SQL_LABELS)
+                      AND lifeIntentionCategory NOT IN ($CANONICAL_DIMENSION_SQL_LABELS)
+                    GROUP BY lifeIntentionCategory, dimension_id
+                    UNION ALL
+                    SELECT 'tasks', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COUNT(*)
+                    FROM tasks
+                    WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                      AND lifeIntentionCategory NOT IN ($LEGACY_DIMENSION_SQL_LABELS)
+                      AND lifeIntentionCategory NOT IN ($CANONICAL_DIMENSION_SQL_LABELS)
+                    GROUP BY lifeIntentionCategory, dimension_id
+                    UNION ALL
+                    SELECT 'notes', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COUNT(*)
+                    FROM notes
+                    WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                      AND lifeIntentionCategory NOT IN ($LEGACY_DIMENSION_SQL_LABELS)
+                      AND lifeIntentionCategory NOT IN ($CANONICAL_DIMENSION_SQL_LABELS)
+                    GROUP BY lifeIntentionCategory, dimension_id
+                    UNION ALL
+                    SELECT 'journal_notes', COALESCE(lifeIntentionCategory, ''), COALESCE(dimension_id, ''), COUNT(*)
+                    FROM journal_notes
+                    WHERE lifeIntentionCategory IS NOT NULL AND TRIM(lifeIntentionCategory) <> ''
+                      AND lifeIntentionCategory NOT IN ($LEGACY_DIMENSION_SQL_LABELS)
+                      AND lifeIntentionCategory NOT IN ($CANONICAL_DIMENSION_SQL_LABELS)
+                    GROUP BY lifeIntentionCategory, dimension_id
+                    ORDER BY tbl, storedEntry
+                """.trimIndent()
+                val nonStandardSampleRows = mutableListOf<Map<String, Any>>()
+                readableDb.query(nonStandardSampleSql).use { cursor ->
+                    while (cursor.moveToNext()) {
+                        nonStandardSampleRows += mapOf(
+                            "tbl" to cursor.getString(0),
+                            "storedEntry" to cursor.getString(1),
+                            "pairedDimKey" to cursor.getString(2),
+                            "rowCount" to cursor.getLong(3),
+                        )
+                    }
+                }
+                if (nonStandardSampleRows.isEmpty()) {
+                    logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_NONSTANDARD_SAMPLES none")
+                } else {
+                    nonStandardSampleRows.forEach { row ->
+                        logger.i(logTag, "LEGACY_DIMENSION_DIAGNOSTICS_NONSTANDARD_SAMPLE", row)
+                    }
+                }
+
+                val impactedTables = (countRows + issueRows).map { it.getValue("table").toString() }.distinct().size
+                val totalRows = (countRows + issueRows).sumOf { (it["rowCount"] as Long).toInt() }
+                logger.i(
+                    logTag,
+                    "LEGACY_DIMENSION_DIAGNOSTICS_END",
+                    mapOf(
+                        "impactedTables" to impactedTables,
+                        "totalLegacyRows" to totalRows,
+                        "sampleCount" to sampleRows.size,
+                        "legacyIdCount" to countRows.size,
+                        "issueCount" to issueRows.size,
+                    ),
+                )
+                _legacyDimensionDiagnosticsMessage.tryEmit(
+                    context.getString(
+                        R.string.settings_snackbar_legacy_dimension_diagnostics_complete,
+                        totalRows,
+                        impactedTables,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    logTag,
+                    "LEGACY_DIMENSION_DIAGNOSTICS_FAILED",
+                    e,
+                )
+                _legacyDimensionDiagnosticsMessage.tryEmit(
+                    context.getString(
+                        R.string.settings_snackbar_legacy_dimension_diagnostics_failed,
+                        e.message ?: e::class.java.simpleName,
+                    ),
+                )
+            } finally {
+                _legacyDimensionDiagnosticsInProgress.value = false
+            }
+        }
+    }
+    fun setDayBoundaryHour(hour: Int) {
+        val clampedHour = hour.coerceIn(0, 5)
+        saveSetting(KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
+    }
+    fun setDebugLoggingEnabled(enabled: Boolean) {
+        saveSetting(KEY_DEBUG_LOGGING_ENABLED, enabled.toString())
+        UnifiedLogger.setDebugLoggingEnabled(enabled)
+    }
+    fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
+        saveSetting(KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
+        logger.i(
+            "AppPreferencesViewModel.setAutoTrackHabitTimeGlobal",
+            "Auto-tracking global setting updated",
+            mapOf(
+                "enabled" to enabled,
+            ),
+        )
+    }
+    fun setAutoTrackDimensionPreference(dimension: LifeDimension, enabled: Boolean) {
+        setAutoTrackDimensionPreference(dimension.id, enabled)
+    }
+    fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
+        saveSetting("$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
+        logger.i(
+            "AppPreferencesViewModel.setAutoTrackDimensionPreference",
+            "Auto-tracking dimension setting updated",
+            mapOf(
+                "dimensionId" to dimensionId,
+                "enabled" to enabled,
+            ),
+        )
+    }
+
+    /**
+     * Set the active focus mode preset and update tab visibility accordingly.
+     * Settings tab is always kept visible regardless of preset.
+     */
+    fun setActivePreset(preset: FocusModePreset) {
+        saveSetting(KEY_ACTIVE_PRESET, preset.presetId)
+        // Update individual tab visibility based on preset
+        // Settings tab is always visible
+        val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
+        allTabs.forEach { tabRoute ->
+            val isVisible = tabRoute == "settings" || preset.visibleTabs.contains(tabRoute)
+            saveSetting("$KEY_TAB_VISIBLE_PREFIX$tabRoute", isVisible.toString())
+        }
+        logger.i(
+            "AppPreferencesViewModel.setActivePreset",
+            "Focus mode preset changed",
+            mapOf(
+                "preset" to preset.presetId,
+                "visibleTabs" to preset.visibleTabs.joinToString(", "),
+            ),
+        )
+    }
+
+    /**
+     * Toggle visibility of individual tab. Settings tab cannot be hidden.
+     */
+    fun setTabVisibility(tabRoute: String, visible: Boolean) {
+        if (tabRoute == "settings") {
+            logger.w("AppPreferencesViewModel.setTabVisibility", "Attempted to hide Settings tab, ignoring")
+            return
+        }
+        saveSetting("$KEY_TAB_VISIBLE_PREFIX$tabRoute", visible.toString())
+        logger.i(
+            "AppPreferencesViewModel.setTabVisibility",
+            "Tab visibility changed",
+            mapOf(
+                "tabRoute" to tabRoute,
+                "visible" to visible,
+            ),
+        )
+    }
+
+    /**
+     * Mark focus mode onboarding as completed. This is a one-time flag.
+     */
+    fun markFocusModeOnboardingCompleted() {
+        saveSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED, "true")
+        logger.i("AppPreferencesViewModel.markFocusModeOnboardingCompleted", "Focus mode onboarding marked as completed")
+    }
+    fun setLaunchDestinationTime() {
+        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "time")
+        clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
+    }
+    fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
+        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
+        saveSettingNullable(KEY_LAUNCH_DESTINATION_TASK_FILTER, taskFilter?.key)
+        if (taskFilter != null) {
+            saveSetting(KEY_TASK_FILTER_OPTION, taskFilter.key)
+        }
+        logger.i(
+            "AppPreferencesViewModel.setLaunchDestinationTasks",
+            "Default launch destination updated",
+            mapOf("taskFilter" to (taskFilter?.key ?: "none")),
+        )
+    }
+
+    fun setChartTimeModuleEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_MODULE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeModuleEnabled", "Time insights module toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeOverallSnapshotEnabled", "Time overall snapshot card toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_EXECUTION_DETAILS, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeExecutionDetailsEnabled", "Time execution details toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeScoreCardsEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_SCORE_CARDS, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeScoreCardsEnabled", "Time score cards section toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeOverallScoreCardEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_OVERALL_SCORE_CARD, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeOverallScoreCardEnabled", "Time overall score card toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeDimensionScoreCardsEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_DIM_SCORE_CARDS, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeDimensionScoreCardsEnabled", "Time dimension score cards toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeLineGraphsEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_LINE_GRAPHS, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeLineGraphsEnabled", "Time line graphs section toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_DAILY_SCORE_TREND, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeDailyScoreTrendEnabled", "Time daily score trend toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeProgressTrendEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_PROGRESS_TREND, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeProgressTrendEnabled", "Time progress trend toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_HISTORICAL_RANKING, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeHistoricalRankingEnabled", "Time historical ranking toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTimeMomentumStreakEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TIME_MOMENTUM_STREAK, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTimeMomentumStreakEnabled", "Time momentum streak toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartTaskModuleEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_TASK_MODULE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartTaskModuleEnabled", "Task insights module toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartHabitModuleEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_HABIT_MODULE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartHabitModuleEnabled", "Habit insights module toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartJournalModuleEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_JOURNAL_MODULE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartJournalModuleEnabled", "Journal insights module toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartNoteModuleEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_NOTE_MODULE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartNoteModuleEnabled", "Note insights module toggled", mapOf("enabled" to enabled))
+    }
+
+    fun setChartAverageDailyTimeEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_AVERAGE_DAILY_TIME, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartAverageDailyTimeEnabled", "Average daily time chart toggled", mapOf("enabled" to enabled))
+    }
+
+    /**
+     * Check if focus mode onboarding has been completed.
+     */
+    suspend fun hasFocusModeOnboardingCompleted(): Boolean = appSettingsRepository.getSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED) == "true"
+    private fun saveSetting(key: String, value: String) {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.setSetting(key, value)
+                logger.d(
+                    "AppPreferencesViewModel.saveSetting",
+                    "Setting updated",
+                    mapOf(
+                        "key" to key,
+                        "value" to value,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.saveSetting",
+                    "Failed to update setting",
+                    e,
+                    mapOf(
+                        "key" to key,
+                    ),
+                )
+            }
+        }
+    }
+    private fun clearSetting(key: String) {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.setSetting(key, null)
+                logger.d(
+                    "AppPreferencesViewModel.saveSetting",
+                    "Setting cleared",
+                    mapOf(
+                        "key" to key,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.saveSetting",
+                    "Failed to clear setting",
+                    e,
+                    mapOf(
+                        "key" to key,
+                    ),
+                )
+            }
+        }
+    }
+    private fun saveSettingNullable(key: String, value: String?) {
+        if (value == null) {
+            clearSetting(key)
+        } else {
+            saveSetting(key, value)
+        }
+    }
+    private fun parseColor(hex: String): Color {
+        val normalized = hex.removePrefix("#")
+        return try {
+            val colorLong = normalized.toLong(16)
+            if (normalized.length <= 6) {
+                Color((0xFF000000 or colorLong).toInt())
+            } else {
+                Color(colorLong.toInt())
+            }
+        } catch (e: Exception) {
+            LifeDimensionColors.forDimension("Career & Work")
+        }
+    }
+    private fun colorToHex(color: Color): String = "#%08X".format(color.toArgb())
+
+    private fun appendLabelDiagnostics(
+        readableDb: SupportSQLiteDatabase,
+        sql: String,
+        issueType: String,
+        rows: MutableList<Map<String, Any>>,
+        predicate: (Map<String, Any>) -> Boolean = { true },
+    ) {
+        readableDb.query(sql).use { cursor ->
+            while (cursor.moveToNext()) {
+                val row = mapOf(
+                    "issueType" to issueType,
+                    "table" to cursor.getString(0),
+                    "value" to cursor.getString(1),
+                    "rowCount" to cursor.getLong(2),
+                )
+                if (predicate(row)) {
+                    rows += row
+                }
+            }
+        }
+    }
+
+    private fun buildDimensionCatalogUiState(
+        dimensions: List<ConfiguredLifeDimension>,
+        effectiveLanguageTag: String,
+    ): Pair<List<DimensionPreference>, List<DimensionOption>> {
+        val preferredRows = dimensions
+            .filterNot { it.id == DimensionTaxonomyCatalog.UNASSIGNED.id }
+            .groupBy { DimensionTaxonomyCatalog.fromCanonicalId(it.id)?.id ?: it.id }
+            .values
+            .map(::selectPreferredCatalogDimensionRow)
+            .sortedBy { DimensionTaxonomyCatalog.fromCanonicalId(it.id)?.sortOrder ?: it.sortOrder }
+
+        val builtInPreferences = mutableListOf<DimensionPreference>()
+
+        preferredRows.forEach { dimension ->
+            val option = toDbBackedDimensionOption(
+                dimension = dimension,
+                effectiveLanguageTag = effectiveLanguageTag,
+            )
+            builtInPreferences += DimensionPreference(
+                key = option.canonicalId,
+                id = option.id,
+                canonicalId = option.canonicalId,
+                label = option.label,
+                description = option.description,
+                color = option.color,
+                isVisible = option.isVisible,
+                iconKey = option.iconKey,
+                hasCustomLabelOverride = option.hasCustomLabelOverride,
+            )
+        }
+
+        return builtInPreferences.sortedBy { dimensionSortOrder(it.canonicalId) } to emptyList()
+    }
+
+    private fun selectPreferredCatalogDimensionRow(
+        candidates: List<ConfiguredLifeDimension>,
+    ): ConfiguredLifeDimension = candidates.sortedWith(
+        compareByDescending<ConfiguredLifeDimension> { candidate ->
+            val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(candidate.id)?.id
+            when {
+                canonicalId != null && candidate.id == canonicalId -> 3
+
+                canonicalId != null &&
+                    candidate.key == DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.slug -> 2
+
+                candidate.isActive -> 1
+
+                else -> 0
+            }
+        }.thenBy { it.sortOrder },
+    ).first()
+
+    private fun toDbBackedDimensionOption(
+        dimension: ConfiguredLifeDimension,
+        effectiveLanguageTag: String,
+    ): DimensionOption {
+        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimension.id)?.id
+        val canonicalDefinition = DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)
+        val resolvedColorHex = dimension.colorHex.ifBlank {
+            canonicalDefinition?.defaultColorHex ?: colorToHex(LifeDimensionColors.forDimension("Career & Work"))
+        }
+        val resolvedIconKey = dimension.iconKey?.trim()?.takeIf { it.isNotEmpty() }
+            ?: canonicalDefinition?.defaultIconKey
+            ?: DimensionIconCatalog.defaultIconKeyForDimensionId(dimension.id)
+        return DimensionOption(
+            id = dimension.id,
+            canonicalId = canonicalId ?: dimension.id,
+            label = resolveDbBackedDimensionLabel(
+                dimension = dimension,
+                canonicalId = canonicalId,
+                effectiveLanguageTag = effectiveLanguageTag,
+            ),
+            description = resolveDbBackedDimensionDescription(
+                dimension = dimension,
+                canonicalId = canonicalId,
+                effectiveLanguageTag = effectiveLanguageTag,
+            ),
+            color = parseColor(resolvedColorHex),
+            isVisible = dimension.isActive,
+            iconKey = resolvedIconKey,
+            hasCustomLabelOverride = canonicalId == null ||
+                hasCustomDbBackedLabel(
+                    canonicalId = canonicalId,
+                    storedLabel = dimension.label,
+                ),
+        )
+    }
+
+    private fun resolveDbBackedDimensionLabel(
+        dimension: ConfiguredLifeDimension,
+        canonicalId: String?,
+        effectiveLanguageTag: String,
+    ): String {
+        val trimmedLabel = dimension.label.trim()
+        if (canonicalId != null && !hasCustomDbBackedLabel(canonicalId, trimmedLabel)) {
+            return localizedCatalogLabel(
+                canonicalId = canonicalId,
+                languageTag = effectiveLanguageTag,
+            ) ?: DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.fallbackLabel
+                ?: trimmedLabel.ifBlank { dimension.id }
+        }
+        return trimmedLabel.ifBlank {
+            localizedCatalogLabel(
+                canonicalId = canonicalId,
+                languageTag = effectiveLanguageTag,
+            ) ?: dimension.id
+        }
+    }
+
+    private fun resolveDbBackedDimensionDescription(
+        dimension: ConfiguredLifeDimension,
+        canonicalId: String?,
+        effectiveLanguageTag: String,
+    ): String? {
+        if (canonicalId != null) {
+            return localizedCatalogDescription(
+                canonicalId = canonicalId,
+                languageTag = effectiveLanguageTag,
+            ) ?: DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.fallbackDescription
+                ?: dimension.description?.trim()?.takeIf { it.isNotEmpty() }
+        }
+        return dimension.description?.trim()?.takeIf { it.isNotEmpty() }
+    }
+
+    private fun hasCustomDbBackedLabel(canonicalId: String, storedLabel: String?): Boolean {
+        val trimmedLabel = storedLabel?.trim().orEmpty()
+        if (trimmedLabel.isBlank()) {
+            return false
+        }
+        return trimmedLabel !in knownAppOwnedCatalogLabels(canonicalId)
+    }
+
+    private fun knownAppOwnedCatalogLabels(canonicalId: String): Set<String> {
+        val canonicalDefinition = DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)
+        return buildSet {
+            canonicalDefinition?.fallbackLabel?.let(::add)
+            SUPPORTED_DIMENSION_LOCALE_TAGS
+                .mapNotNull { localeTag -> localizedCatalogLabel(canonicalId, localeTag) }
+                .forEach(::add)
+        }
+    }
+
+    private fun localizedCatalogLabel(canonicalId: String?, languageTag: String?): String? {
+        val resId = DimensionTextCatalog.labelResIdForCanonicalId(canonicalId) ?: return null
+        return localizedStringForLanguageTag(resId, languageTag)
+    }
+
+    private fun localizedCatalogDescription(canonicalId: String?, languageTag: String?): String? {
+        val resId = DimensionTextCatalog.descriptionResIdForCanonicalId(canonicalId) ?: return null
+        return localizedStringForLanguageTag(resId, languageTag)
+    }
+
+    private fun localizedStringForLanguageTag(resId: Int, languageTag: String?): String {
+        if (languageTag.isNullOrBlank()) {
+            return context.getString(resId)
+        }
+        val config = Configuration(context.resources.configuration)
+        config.setLocale(Locale.forLanguageTag(languageTag))
+        return context.createConfigurationContext(config).getString(resId)
+    }
+
+    private fun normalizeDimensionLabelForStorage(
+        dimensionId: String,
+        candidateLabel: String,
+        effectiveLanguageTag: String,
+    ): String {
+        val trimmedLabel = candidateLabel.trim()
+        if (trimmedLabel.isBlank()) {
+            return defaultStoredLabelForDimension(dimensionId)
+        }
+        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: return trimmedLabel
+        val localizedLabel = localizedCatalogLabel(canonicalId, effectiveLanguageTag)
+        return if (
+            trimmedLabel == localizedLabel ||
+            trimmedLabel in knownAppOwnedCatalogLabels(canonicalId)
+        ) {
+            defaultStoredLabelForDimension(dimensionId)
+        } else {
+            trimmedLabel
+        }
+    }
+
+    private fun defaultStoredLabelForDimension(dimensionId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
+
+    private fun resolveTimeHourHeightDp(settings: Map<String, String?>): Float {
+        val persisted = settings[KEY_TIME_HOUR_HEIGHT_DP]
+            ?.toFloatOrNull()
+            ?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
+        if (persisted != null) {
+            return persisted
+        }
+        return legacyTimeScaleKeyToHourHeightDp(settings[KEY_TIME_SCALE_LEGACY_KEY])
+            ?: DEFAULT_TIME_HOUR_HEIGHT_DP
+    }
+    private fun legacyTimeScaleKeyToHourHeightDp(legacyKey: String?): Float? = when (legacyKey) {
+        "2h" -> 30f
+        "1h" -> 60f
+        "20m" -> 180f
+        "15m" -> 240f
+        "10m" -> 360f
+        "5m" -> 720f
+        else -> null
+    }?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
+    fun setChartDimSplitEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_DIM_SPLIT, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartDimSplitEnabled", "Chart dim split toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartDimTrendEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_DIM_TREND, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartDimTrendEnabled", "Chart dim trend toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartDailyTimelineEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_DAILY_TIMELINE, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartDailyTimelineEnabled", "Chart daily timeline toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartWeeklyPatternEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_WEEKLY_PATTERN, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartWeeklyPatternEnabled", "Chart weekly pattern toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartDailyRhythmEnabled(enabled: Boolean) {
+        saveSetting(KEY_CHART_DAILY_RHYTHM, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartDailyRhythmEnabled", "Chart daily rhythm toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartWeeklyPatternExclEmpty(enabled: Boolean) {
+        saveSetting(KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartWeeklyPatternExclEmpty", "Chart weekly pattern excl-empty toggled", mapOf("enabled" to enabled))
+    }
+    fun setChartDailyRhythmExclEmpty(enabled: Boolean) {
+        saveSetting(KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled.toString())
+        logger.i("AppPreferencesViewModel.setChartDailyRhythmExclEmpty", "Chart daily rhythm excl-empty toggled", mapOf("enabled" to enabled))
+    }
+
+    private fun resolveSystemLanguageTag(): String = normalizeSupportedLanguageTag(
+        Resources.getSystem()
+            .configuration
+            .locales[0]
+            ?.language,
+    )
+    companion object {
+        @Volatile
+        private var lastLoggedDimensionSettingsSignature: String? = null
+
+        private const val KEY_THEME_MODE = "theme_mode"
+        const val KEY_APP_LANGUAGE = "app_language"
+        private const val KEY_FONT_FAMILY = "font_family"
+        private const val KEY_TIME_FORMAT = "time_format"
+        private const val KEY_TIME_HOUR_HEIGHT_DP = "time_hour_height_dp"
+        private const val KEY_TIME_SCALE_LEGACY_KEY = "time_scale"
+        private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
+        private const val KEY_AUTO_BACKUP_INTERVAL = "auto_backup_interval"
+        private const val KEY_AUTO_BACKUP_LAST_RUN = "auto_backup_last_run"
+        private const val KEY_BACKUP_ROTATION_ENABLED = "backup_rotation_enabled"
+        private const val KEY_BACKUP_ROTATION_COUNT = "backup_rotation_count"
+        private const val KEY_DEBUG_LOGGING_ENABLED = "debug_logging_enabled"
+        private const val LEGACY_DIMENSION_SQL_IDS =
+            "'dim_career_work','dim_health_wellness','dim_relationships','dim_personal_growth'," +
+                "'dim_financial','dim_spiritual','dim_recreation','dim_learning','dim_contribution'"
+        private const val LEGACY_DIMENSION_SQL_LABELS =
+            "'Career & Work','Earn to Live','Health & Wellness','Health & Fitness','Relationships'," +
+                "'Family & Relationship','Personal Growth','Admin & Misc','Financial','Home & Environment'," +
+                "'Spiritual','Mindfulness & Spirituality','Recreation','Recreation & Travel'," +
+                "'Learning','Contribution'"
+        private const val CANONICAL_DIMENSION_SQL_LABELS =
+            "'Physical Health','Mental Health','Family & Relationships','Home & Environment'," +
+                "'Work & Livelihood','Money & Finance','Learning & Growth','Recreation & Leisure'," +
+                "'Community & Service','Unassigned'"
+        private const val LEGACY_DIMENSION_SQL_SLUGS =
+            "'career_work','health_wellness','relationships','personal_growth'," +
+                "'financial','spiritual','recreation','learning','contribution'"
+        private const val KEY_DATABASE_INIT_COMPLETED = "database_init_completed"
+        const val KEY_TASK_SORT_OPTION = "task_sort_option"
+        const val KEY_TASK_FILTER_OPTION = "task_filter_option"
+        const val KEY_HABIT_SORT_OPTION = "habit_sort_option"
+        const val KEY_DAY_BOUNDARY_HOUR = "day_boundary_hour"
+        const val KEY_AUTO_TRACK_HABIT_TIME = "auto_track_habit_time_global"
+        const val KEY_AUTO_TRACK_DIMENSION_PREFIX = "auto_track_dimension_"
+        private const val KEY_ACTIVE_PRESET = "focus_mode_active_preset"
+        private const val KEY_TAB_VISIBLE_PREFIX = "tab_visible_"
+        private const val KEY_FOCUS_MODE_ONBOARDING_COMPLETED = "focus_mode_onboarding_completed"
+        private const val KEY_LAUNCH_DESTINATION_ROUTE = "launch_destination_route"
+        private const val KEY_LAUNCH_DESTINATION_TASK_FILTER = "launch_destination_task_filter"
+
+        // Insights charts visibility keys
+        private const val KEY_CHART_TIME_MODULE = "chart_time_module_enabled"
+        private const val KEY_CHART_TIME_OVERALL_SNAPSHOT = "chart_time_overall_snapshot_enabled"
+        private const val KEY_CHART_TIME_EXECUTION_DETAILS = "chart_time_execution_details_enabled"
+        private const val KEY_CHART_TIME_SCORE_CARDS = "chart_time_score_cards_enabled"
+        private const val KEY_CHART_TIME_OVERALL_SCORE_CARD = "chart_time_overall_score_card_enabled"
+        private const val KEY_CHART_TIME_DIM_SCORE_CARDS = "chart_time_dimension_score_cards_enabled"
+        private const val KEY_CHART_TIME_LINE_GRAPHS = "chart_time_line_graphs_enabled"
+        private const val KEY_CHART_TIME_DAILY_SCORE_TREND = "chart_time_daily_score_trend_enabled"
+        private const val KEY_CHART_TIME_PROGRESS_TREND = "chart_time_progress_trend_enabled"
+        private const val KEY_CHART_TIME_HISTORICAL_RANKING = "chart_time_historical_ranking_enabled"
+        private const val KEY_CHART_TIME_MOMENTUM_STREAK = "chart_time_momentum_streak_enabled"
+        private const val KEY_CHART_TASK_MODULE = "chart_task_module_enabled"
+        private const val KEY_CHART_HABIT_MODULE = "chart_habit_module_enabled"
+        private const val KEY_CHART_JOURNAL_MODULE = "chart_journal_module_enabled"
+        private const val KEY_CHART_NOTE_MODULE = "chart_note_module_enabled"
+        private const val KEY_CHART_AVERAGE_DAILY_TIME = "chart_average_daily_time_enabled"
+        private const val KEY_CHART_DIM_SPLIT = "chart_dim_split_enabled"
+        private const val KEY_CHART_DIM_TREND = "chart_dim_trend_enabled"
+        private const val KEY_CHART_DAILY_TIMELINE = "chart_daily_timeline_enabled"
+        private const val KEY_CHART_WEEKLY_PATTERN = "chart_weekly_pattern_enabled"
+        private const val KEY_CHART_DAILY_RHYTHM = "chart_daily_rhythm_enabled"
+        private const val KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY = "chart_weekly_pattern_excl_empty"
+        private const val KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY = "chart_daily_rhythm_excl_empty"
+        private val SUPPORTED_DIMENSION_LOCALE_TAGS = listOf("en", "ta")
+    }
+}
+
+internal fun resolveEffectiveLanguageTag(
+    option: AppLanguageOption,
+    systemLanguageTag: String?,
+): String = when (option) {
+    AppLanguageOption.ENGLISH -> AppLanguageOption.ENGLISH.key
+    AppLanguageOption.TAMIL -> AppLanguageOption.TAMIL.key
+    AppLanguageOption.SYSTEM -> normalizeSupportedLanguageTag(systemLanguageTag)
+}
+
+internal fun normalizeSupportedLanguageTag(languageTag: String?): String {
+    val normalized = languageTag
+        ?.trim()
+        ?.lowercase(Locale.ROOT)
+        ?.substringBefore('-')
+    return if (normalized == AppLanguageOption.TAMIL.key) {
+        AppLanguageOption.TAMIL.key
+    } else {
+        AppLanguageOption.ENGLISH.key
+    }
+}

@@ -1,0 +1,7 @@
+{
+  "autoProfile": {
+    "enabled": true,
+    "normalEveryHours": 12,
+    "fullEveryHours": 48
+  }
+}

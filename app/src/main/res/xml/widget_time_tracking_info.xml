@@ -1,0 +1,18 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="146dp"
+    android:minHeight="72dp"
+    android:targetCellWidth="2"
+    android:targetCellHeight="1"
+    android:minResizeWidth="146dp"
+    android:minResizeHeight="72dp"
+    android:maxResizeWidth="530dp"
+    android:maxResizeHeight="400dp"
+    android:resizeMode="horizontal"
+    android:updatePeriodMillis="60000"
+    android:initialLayout="@layout/widget_time_tracking"
+    android:previewLayout="@layout/widget_time_tracking"
+    android:widgetCategory="home_screen"
+    android:description="@string/widget_description" />

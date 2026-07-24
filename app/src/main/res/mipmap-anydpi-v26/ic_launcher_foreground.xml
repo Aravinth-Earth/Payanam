@@ -1,0 +1,88 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+  Life Wheel icon for Payanam ("journey" in Tamil).
+  Six equal radial segments arranged in a circle represent the multiple
+  dimensions of life that Payanam tracks. The center ring represents
+  the self at the heart of the journey. Designed for Android adaptive
+  icon (108x108dp viewport, 72dp safe zone centered at 54,54).
+  Segment rim radius: 32. Segment vertices (60deg apart, 0deg at top):
+    0deg  (54, 22)   60deg  (81.7, 38)   120deg (81.7, 70)
+    180deg (54, 86)  240deg (26.3, 70)   300deg (26.3, 38)
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Six pie segments alternating solid white and light teal -->
+
+    <!-- Segment 1: 0deg to 60deg (top to upper-right) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54 L54,22 A32,32 0 0,1 81.7,38 Z" />
+
+    <!-- Segment 2: 60deg to 120deg (upper-right to lower-right) -->
+    <path
+        android:fillColor="#B2DFDB"
+        android:pathData="M54,54 L81.7,38 A32,32 0 0,1 81.7,70 Z" />
+
+    <!-- Segment 3: 120deg to 180deg (lower-right to bottom) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54 L81.7,70 A32,32 0 0,1 54,86 Z" />
+
+    <!-- Segment 4: 180deg to 240deg (bottom to lower-left) -->
+    <path
+        android:fillColor="#B2DFDB"
+        android:pathData="M54,54 L54,86 A32,32 0 0,1 26.3,70 Z" />
+
+    <!-- Segment 5: 240deg to 300deg (lower-left to upper-left) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,54 L26.3,70 A32,32 0 0,1 26.3,38 Z" />
+
+    <!-- Segment 6: 300deg to 360deg (upper-left to top) -->
+    <path
+        android:fillColor="#B2DFDB"
+        android:pathData="M54,54 L26.3,38 A32,32 0 0,1 54,22 Z" />
+
+    <!-- Radial divider lines (teal background color shows through as gaps) -->
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L54,22" />
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L81.7,38" />
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L81.7,70" />
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L54,86" />
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L26.3,70" />
+    <path
+        android:strokeColor="#00695C"
+        android:strokeWidth="2"
+        android:pathData="M54,54 L26.3,38" />
+
+    <!-- Center: white ring (r=9) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M54,45 A9,9 0 1,0 54,63 A9,9 0 1,0 54,45 Z" />
+
+    <!-- Center: teal dot (r=5) creates the donut -->
+    <path
+        android:fillColor="#00695C"
+        android:pathData="M54,49 A5,5 0 1,0 54,59 A5,5 0 1,0 54,49 Z" />
+
+</vector>

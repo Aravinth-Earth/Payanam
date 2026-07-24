@@ -1,0 +1,114 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.ui.theme
+
+import androidx.compose.ui.graphics.Color
+import io.payanam.domain.model.DimensionTaxonomyCatalog
+
+// Primary colors — fallback palette (used when dynamic colors are unavailable)
+// Dark theme: deep teal + warm grey-teal + soft amber
+val Purple80 = Color(0xFF80CBC4)
+val PurpleGrey80 = Color(0xFFB0BEC5)
+val Pink80 = Color(0xFFFFD54F)
+
+// Light theme: indigo-teal + slate + amber
+val Purple40 = Color(0xFF00796B)
+val PurpleGrey40 = Color(0xFF546E7A)
+val Pink40 = Color(0xFFFF8F00)
+
+// Life Dimension Colors (matching original app)
+object LifeDimensionColors {
+    private val fallbackLoggedDimensions = mutableSetOf<String>()
+    private val canonicalIdTraceLogged = mutableSetOf<String>()
+
+    val CareerWork = Color(0xFF4CAF50) // Green
+    val HealthWellness = Color(0xFF2196F3) // Blue
+    val Relationships = Color(0xFFE91E63) // Pink
+    val PersonalGrowth = Color(0xFF9C27B0) // Purple
+    val Financial = Color(0xFFFF9800) // Orange
+    val Spiritual = Color(0xFF795548) // Brown
+    val Recreation = Color(0xFF00BCD4) // Cyan
+    val Learning = Color(0xFFFFC107) // Amber
+    val Contribution = Color(0xFF607D8B) // Blue Grey
+
+    fun forDimensionId(dimensionId: String?): Color? {
+        val normalizedId = dimensionId?.trim().orEmpty()
+        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(normalizedId)?.id
+        val canonicalColorHex = DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.defaultColorHex
+            ?: return null
+        return parseHexColor(canonicalColorHex)
+    }
+
+    /**
+     * Default dimension colors - used ONLY for initial setup.
+     * All UI should use LocalAppPreferences.current.colorFor() instead.
+     * @deprecated Phase 4: Use user-defined colors from AppPreferencesState
+     */
+    fun forDimension(dimension: String): Color {
+        // Log warning if called (Phase 4: moving to user preferences)
+        // Safe for tests - catch any exceptions from logger
+        try {
+            synchronized(fallbackLoggedDimensions) {
+                if (fallbackLoggedDimensions.add(dimension)) {
+                    io.payanam.common.logging.UnifiedLogger.getInstance().d(
+                        "LifeDimensionColors.forDimension",
+                        "Using fallback colors - UI should use LocalAppPreferences.colorFor() instead",
+                        mapOf("dimension" to dimension),
+                    )
+                }
+            }
+        } catch (e: Exception) {
+            // Ignore logger errors in test context
+        }
+        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimension)?.id
+        if (canonicalId == null) {
+            try {
+                io.payanam.common.logging.UnifiedLogger.getInstance().w(
+                    "LifeDimensionColors.forDimension",
+                    "Missing canonical dimension id; using default palette color",
+                    mapOf("dimension" to dimension),
+                )
+            } catch (_: Exception) {
+            }
+            return PurpleGrey40
+        }
+        return DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.defaultColorHex?.let(::parseHexColor)
+            ?: PurpleGrey40
+    }
+
+    private fun parseHexColor(hex: String): Color {
+        val normalized = hex.removePrefix("#")
+        val colorLong = normalized.toLong(16)
+        return if (normalized.length <= 6) {
+            Color((0xFF000000 or colorLong).toInt())
+        } else {
+            Color(colorLong.toInt())
+        }
+    }
+}
+
+// Task Status Colors
+object StatusColors {
+    val Pending = Color(0xFF757575) // Grey
+    val Completed = Color(0xFF4CAF50) // Green
+    val Skipped = Color(0xFFFF9800) // Orange
+    val Missed = Color(0xFFF44336) // Red
+    val Archived = Color(0xFF9E9E9E) // Light Grey
+}
+
+// Score Colors (gradient based on score 0..1)
+fun scoreColor(score: Float): Color = when {
+    score >= 0.8f -> Color(0xFF4CAF50)
+
+    // Green - high priority
+    score >= 0.6f -> Color(0xFF8BC34A)
+
+    // Light green
+    score >= 0.4f -> Color(0xFFFFC107)
+
+    // Amber - medium
+    score >= 0.2f -> Color(0xFFFF9800)
+
+    // Orange
+    else -> Color(0xFFF44336) // Red - low priority
+}
