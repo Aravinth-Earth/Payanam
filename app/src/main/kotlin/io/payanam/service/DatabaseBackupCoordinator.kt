@@ -292,16 +292,98 @@ class DatabaseBackupCoordinator @Inject constructor(
         try {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             val rotationEnabled = prefs.getBoolean(BackupStatusStore.KEY_BACKUP_ROTATION_ENABLED, false)
+            val maxBackups = prefs.getInt(BackupStatusStore.KEY_BACKUP_ROTATION_COUNT, 50).coerceIn(1, 999)
+
+            logger.i(
+                "DatabaseBackupCoordinator.cleanupOldBackups",
+                "Cleanup invoked",
+                mapOf(
+                    "rotationEnabled" to rotationEnabled,
+                    "maxBackups" to maxBackups,
+                    "backupDir" to backupDir.absolutePath,
+                ),
+            )
+
             if (!rotationEnabled) {
+                logger.i(
+                    "DatabaseBackupCoordinator.cleanupOldBackups",
+                    "Rotation disabled in config — 0 backups deleted",
+                )
                 return
             }
-            val maxBackups = prefs.getInt(BackupStatusStore.KEY_BACKUP_ROTATION_COUNT, 50).coerceIn(1, 999)
-            val backupSessionDirs = backupDir.listFiles { file ->
-                file.isDirectory && file.name.startsWith("auto_bk_")
-            }?.sortedByDescending { it.lastModified() } ?: emptyList()
-            backupSessionDirs.drop(maxBackups).forEach { directory ->
-                directory.deleteRecursively()
+
+            val allDirs =
+                backupDir
+                    .listFiles { file -> file.isDirectory && file.name.startsWith("auto_bk_") }
+                    ?.toList() ?: emptyList()
+
+            logger.i(
+                "DatabaseBackupCoordinator.cleanupOldBackups",
+                "Backup dirs scanned",
+                mapOf("totalDirs" to allDirs.size),
+            )
+
+            val sorted = allDirs.sortedByDescending { it.lastModified() }
+            val toDelete = sorted.drop(maxBackups)
+
+            if (toDelete.isEmpty()) {
+                logger.i(
+                    "DatabaseBackupCoordinator.cleanupOldBackups",
+                    "$maxBackups dirs found, maxBackups=$maxBackups — 0 to delete (under limit)",
+                    mapOf("totalDirs" to allDirs.size, "maxBackups" to maxBackups),
+                )
+                return
             }
+
+            logger.i(
+                "DatabaseBackupCoordinator.cleanupOldBackups",
+                "Retention plan",
+                mapOf(
+                    "totalDirs" to allDirs.size,
+                    "keepCount" to maxBackups,
+                    "deleteCount" to toDelete.size,
+                    "newestDir" to (sorted.firstOrNull()?.name ?: ""),
+                    "oldestKept" to (sorted.getOrNull(maxBackups - 1)?.name ?: ""),
+                    "oldestDeleted" to (toDelete.lastOrNull()?.name ?: ""),
+                ),
+            )
+
+            var deleted = 0
+            var failed = 0
+            val failedNames = mutableListOf<String>()
+
+            toDelete.forEach { dir ->
+                val ok = dir.deleteRecursively()
+                if (ok) {
+                    deleted++
+                } else {
+                    failed++
+                    failedNames.add(dir.name)
+                    logger.w(
+                        "DatabaseBackupCoordinator.cleanupOldBackups",
+                        "Delete failed",
+                        mapOf("dir" to dir.name),
+                    )
+                }
+            }
+
+            logger.i(
+                "DatabaseBackupCoordinator.cleanupOldBackups",
+                "Cleanup result",
+                mapOf(
+                    "attempted" to toDelete.size,
+                    "deleted" to deleted,
+                    "failed" to failed,
+                    "failedDirsSample" to when {
+                        failedNames.size <= 10 -> failedNames.joinToString(",")
+                        else -> {
+                            val first = failedNames.take(5).joinToString(",")
+                            val last = failedNames.takeLast(5).joinToString(",")
+                            "$first ... (${failedNames.size - 10} skipped) ... $last"
+                        }
+                    },
+                ),
+            )
         } catch (error: Exception) {
             logger.e("DatabaseBackupCoordinator.cleanupOldBackups", "Backup cleanup failed", error)
         }

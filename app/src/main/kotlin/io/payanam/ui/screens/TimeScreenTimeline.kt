@@ -257,7 +257,7 @@ internal fun TimeCalendarView(
                 task.dueDate?.let { due ->
                     val layout = timelineLayouts["planned_${task.id}"]
                     val color = preferences.colorForDimensionId(task.dimensionId)
-                        ?: preferences.colorFor(task.lifeIntentionCategory)
+                        ?: MaterialTheme.colorScheme.primary
                     PlannedTaskBlock(
                         task = task,
                         dueDate = due,
@@ -283,13 +283,13 @@ internal fun TimeCalendarView(
                 val dimensionId = entry.dimensionId
                     ?: entry.taskId?.let { taskLookup[it]?.dimensionId }
                 val dimensionLabel = preferences.labelForDimensionId(dimensionId)
-                    ?: preferences.labelFor(entry.lifeIntentionCategory)
+                    ?: ""
                 val focusValueLabel = formatCompactFocusValue(entry.focusRating)
                 val dimensionIconOption = preferences.iconOptionForDimensionId(dimensionId)
                     ?: DimensionIconCatalog.resolve(null, dimensionId)
                 val dimensionColor = toMutedPastelColor(
                     baseColor = preferences.colorForDimensionId(dimensionId)
-                        ?: preferences.colorFor(entry.lifeIntentionCategory),
+                        ?: MaterialTheme.colorScheme.primary,
                     surfaceColor = MaterialTheme.colorScheme.surface,
                 )
                 TimeEntryBlock(

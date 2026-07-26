@@ -71,7 +71,6 @@ import java.util.Locale
 fun getLifeDimensionColor(dimensionId: String): Color {
     val preferences = io.payanam.ui.viewmodel.LocalAppPreferences.current
     return preferences.colorForDimensionId(dimensionId)
-        ?: DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel?.let(preferences::colorFor)
         ?: MaterialTheme.colorScheme.primary
 }
 
