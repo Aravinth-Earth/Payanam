@@ -4,7 +4,11 @@
 
 package io.payanam.ui
 
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.ui.Alignment
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Checklist
@@ -310,6 +314,11 @@ fun PayanamNavHost(
     DisposableEffect(navController) {
         val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
             val route = destination.route ?: return@OnDestinationChangedListener
+            logger.i(
+                "PayanamNavHost.destinationChanged",
+                "Navigation event",
+                mapOf("route" to route),
+            )
             if (FeatureFlags.minimalModeEnabled && !isRouteAllowed(route)) {
                 logger.w(
                     "PayanamNavHost.backStackGuard",
@@ -401,32 +410,38 @@ fun PayanamNavHost(
             )
         }
 
-        val startDestination = when {
-            shouldShowPassphraseSetup -> Routes.PASSPHRASE_SETUP
-            shouldShowPassphraseUnlock -> Routes.PASSPHRASE_UNLOCK
-            shouldShowDatabaseInit -> Routes.DATABASE_INIT
-            shouldShowFocusModeOnboarding -> Routes.FOCUS_MODE_SELECTION
-            else -> preferencesState.launchDestination.route
+        val landingRoute = preferencesState.launchDestination.route
+        val landingReady = !preferencesState.isLoading && landingRoute.isNotEmpty()
+            && !shouldShowPassphraseSetup && !shouldShowPassphraseUnlock
+            && !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding
+
+        val startDestination = remember(landingReady) {
+            if (landingReady) {
+                landingRoute
+            } else {
+                when {
+                    shouldShowPassphraseSetup -> Routes.PASSPHRASE_SETUP
+                    shouldShowPassphraseUnlock -> Routes.PASSPHRASE_UNLOCK
+                    shouldShowDatabaseInit -> Routes.DATABASE_INIT
+                    shouldShowFocusModeOnboarding -> Routes.FOCUS_MODE_SELECTION
+                    else -> null
+                }
+            }
         }
 
-        // Guard against starting on a disabled route in minimal mode
-        val guardedStartDestination = if (!isRouteAllowed(startDestination)) {
-            logger.w(
-                "PayanamNavHost",
-                "Start destination blocked by feature flags; falling back to Time",
-                mapOf(
-                    "requestedRoute" to startDestination,
-                    "minimalModeEnabled" to FeatureFlags.minimalModeEnabled,
-                ),
-            )
-            Screen.Time.route
-        } else {
-            startDestination
+        if (startDestination == null) {
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center,
+            ) {
+                CircularProgressIndicator()
+            }
+            return@Scaffold
         }
 
         NavHost(
             navController = navController,
-            startDestination = guardedStartDestination,
+            startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
             composable(Routes.PASSPHRASE_SETUP) {
