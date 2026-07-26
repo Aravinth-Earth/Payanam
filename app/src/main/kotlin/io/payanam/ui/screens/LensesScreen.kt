@@ -90,6 +90,7 @@ fun LensesScreen(
     }
 
     LaunchedEffect(uiState.selectedDate, uiState.selectedMoment) {
+        viewModel.loadLensData()
         logger.d(
             "LensesScreen",
             "Simplified lens updated",

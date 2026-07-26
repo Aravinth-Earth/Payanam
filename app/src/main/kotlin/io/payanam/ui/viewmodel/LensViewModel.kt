@@ -353,7 +353,7 @@ class LensViewModel @Inject constructor(
         }
     }
 
-    private fun loadLensData() {
+    fun loadLensData() {
         lensLoadJob?.cancel()
         reflectionRefreshJob?.cancel()
         historyBackfill.cancel()
