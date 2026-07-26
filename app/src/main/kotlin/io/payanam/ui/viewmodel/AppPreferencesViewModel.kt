@@ -130,7 +130,7 @@ data class DimensionOption(
 )
 
 data class LaunchDestination(
-    val route: String = "time",
+    val route: String = "",
     val taskFilter: TaskFilter? = null,
 )
 enum class BackupInterval(val key: String, val minutes: Long) {
@@ -1366,6 +1366,11 @@ class AppPreferencesViewModel @Inject constructor(
     fun setLaunchDestinationTime() {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "time")
         clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
+        logger.i(
+            "AppPreferencesViewModel.setLaunchDestinationTime",
+            "Default launch destination saved",
+            mapOf("route" to "time"),
+        )
     }
     fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
@@ -1376,7 +1381,16 @@ class AppPreferencesViewModel @Inject constructor(
         logger.i(
             "AppPreferencesViewModel.setLaunchDestinationTasks",
             "Default launch destination updated",
-            mapOf("taskFilter" to (taskFilter?.key ?: "none")),
+            mapOf("route" to "tasks", "taskFilter" to (taskFilter?.key ?: "none")),
+        )
+    }
+    fun setLaunchDestination(route: String) {
+        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, route)
+        clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
+        logger.i(
+            "AppPreferencesViewModel.setLaunchDestination",
+            "Default launch destination saved",
+            mapOf("route" to route),
         )
     }
 

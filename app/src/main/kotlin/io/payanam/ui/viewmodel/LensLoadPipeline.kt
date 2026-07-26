@@ -229,6 +229,7 @@ internal fun buildRangeSummaryForSnapshots(
             "actualMinutes" to summary.totalActualMinutes,
             "completedTasks" to summary.completedTaskCount,
             "missedTasks" to summary.missedTaskCount,
+            "plannedHabits" to summary.plannedHabitCount,
             "completedHabits" to summary.completedHabitCount,
             "missedHabits" to summary.missedHabitCount,
         ),

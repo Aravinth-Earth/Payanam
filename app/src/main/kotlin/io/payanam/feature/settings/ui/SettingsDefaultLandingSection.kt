@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import androidx.compose.runtime.LaunchedEffect
 import io.payanam.R
+import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.viewmodel.TaskFilter
@@ -36,9 +38,35 @@ internal fun SettingsDefaultLandingSection(
         return
     }
 
+    val logger = UnifiedLogger.getInstance()
     val launchDestination = prefsState.launchDestination
     val effectiveTaskFilter = launchDestination.taskFilter ?: prefsState.currentTaskFilter
     val isTasksDestination = launchDestination.route == "tasks"
+
+    val allRoutes = listOf(
+        "tasks" to R.string.settings_database_tasks,
+        "habits" to R.string.loc_habits,
+        "time" to R.string.loc_time,
+        "journal" to R.string.loc_journal,
+        "notes" to R.string.settings_database_notes,
+        "lenses" to R.string.loc_lenses,
+    )
+
+    val visibleRoutes = allRoutes.filter { (route, _) ->
+        prefsState.tabVisibility[route] != false
+    }
+
+    LaunchedEffect(visibleRoutes) {
+        if (visibleRoutes.none { it.first == launchDestination.route }) {
+            visibleRoutes.firstOrNull()?.let { (route, _) ->
+                logger.i(
+                    "SettingsDefaultLanding",
+                    "Auto-switching landing: ${launchDestination.route} → $route",
+                )
+                prefsViewModel.setLaunchDestination(route)
+            }
+        }
+    }
 
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
@@ -52,26 +80,30 @@ internal fun SettingsDefaultLandingSection(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
-            listOf("time", "tasks").forEachIndexed { index, route ->
+            visibleRoutes.forEachIndexed { index, (route, labelRes) ->
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
+                    shape = SegmentedButtonDefaults.itemShape(index = index, count = visibleRoutes.size),
                     onClick = {
-                        if (route == "time") {
-                            prefsViewModel.setLaunchDestinationTime()
-                        } else {
-                            prefsViewModel.setLaunchDestinationTasks(
+                        logger.i(
+                            "SettingsDefaultLanding",
+                            "User changed default landing",
+                            mapOf(
+                                "route" to route,
+                                "wasHidden" to (prefsState.tabVisibility[route] == false).toString(),
+                            ),
+                        )
+                        when (route) {
+                            "time" -> prefsViewModel.setLaunchDestinationTime()
+                            "tasks" -> prefsViewModel.setLaunchDestinationTasks(
                                 if (effectiveTaskFilter == TaskFilter.NOT_ACTIVE) null else effectiveTaskFilter,
                             )
+                            else -> prefsViewModel.setLaunchDestination(route)
                         }
                     },
                     selected = launchDestination.route == route,
                 ) {
                     Text(
-                        text = if (route == "time") {
-                            stringResource(id = R.string.settings_default_landing_time)
-                        } else {
-                            stringResource(id = R.string.settings_database_tasks)
-                        },
+                        text = stringResource(id = labelRes),
                         style = MaterialTheme.typography.labelSmall,
                     )
                 }
@@ -93,6 +125,14 @@ internal fun SettingsDefaultLandingSection(
                     SegmentedButton(
                         shape = SegmentedButtonDefaults.itemShape(index = index, count = 2),
                         onClick = {
+                            logger.i(
+                                "SettingsDefaultLanding",
+                                "User changed task layer",
+                                mapOf("filter" to (when (filter) {
+                                    TaskFilter.NOT_ACTIVE -> "not_active"
+                                    else -> "active"
+                                })),
+                            )
                             when (filter) {
                                 TaskFilter.NOT_ACTIVE -> prefsViewModel.setLaunchDestinationTasks(TaskFilter.NOT_ACTIVE)
 
@@ -129,7 +169,14 @@ internal fun SettingsDefaultLandingSection(
                     listOf(TaskFilter.OVERDUE, TaskFilter.TODAY, TaskFilter.FUTURE).forEachIndexed { index, filter ->
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(index = index, count = 3),
-                            onClick = { prefsViewModel.setLaunchDestinationTasks(filter) },
+                            onClick = {
+                                logger.i(
+                                    "SettingsDefaultLanding",
+                                    "User changed task state",
+                                    mapOf("filter" to filter.key),
+                                )
+                                prefsViewModel.setLaunchDestinationTasks(filter)
+                            },
                             selected = effectiveTaskFilter == filter,
                         ) {
                             Text(
@@ -145,22 +192,6 @@ internal fun SettingsDefaultLandingSection(
                     }
                 }
             }
-            Text(
-                text = if (launchDestination.route == "time") {
-                    stringResource(id = R.string.settings_default_landing_summary_time)
-                } else {
-                    val taskSummary = when (effectiveTaskFilter) {
-                        TaskFilter.NOT_ACTIVE -> stringResource(id = R.string.loc_not_active)
-                        TaskFilter.OVERDUE -> stringResource(id = R.string.loc_past)
-                        TaskFilter.TODAY -> stringResource(id = R.string.loc_today)
-                        TaskFilter.FUTURE -> stringResource(id = R.string.loc_future)
-                        else -> stringResource(id = R.string.settings_default_landing_current_tasks)
-                    }
-                    stringResource(id = R.string.settings_default_landing_summary_tasks, taskSummary)
-                },
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
         }
     }
 }
