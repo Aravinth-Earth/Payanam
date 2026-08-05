@@ -109,6 +109,13 @@ if ($LASTEXITCODE -eq 0) {
     git tag -d $tag
 }
 
+# Also delete remote tag to prevent stale commit reference
+$remoteTagExists = git ls-remote origin "refs/tags/$tag" 2>$null
+if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
+    Write-LogWithTime "Removing stale remote tag..." "Yellow"
+    git push origin ":refs/tags/$tag" 2>$null
+}
+
 # ── 8. Create new release ─────────────────────────────────────────────────────
 
 Write-LogWithTime "Creating GitHub release: $tag ..." "Cyan"
