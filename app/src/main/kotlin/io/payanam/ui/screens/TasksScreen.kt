@@ -682,32 +682,34 @@ private fun HabitsTabContent(
             }
         }
     } else {
-        Column(modifier = Modifier.fillMaxSize()) {
-            // Date header row - shows day labels above checkmarks
-            DayHeaderRow(buttonCount = buttonCount)
-            LazyColumn(
-                state = listState,
-                modifier = Modifier.fillMaxSize(),
-                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-                verticalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                items(
-                    items = rows,
-                    key = { it.id },
-                    contentType = { "habit_row" },
-                ) { row ->
-                    HabitCard(
-                        task = row.task,
-                        checkmarks = row.checkmarks,
-                        onCardClick = { onCardClick(row.task) },
-                        onCheckmarkClick = { checkmark ->
-                            onCheckmarkClick(row.id, checkmark)
-                        },
-                        onCheckmarkLongClick = { checkmark ->
-                            onCheckmarkLongClick(row.id, checkmark)
-                        },
-                    )
-                }
+        LazyColumn(
+            state = listState,
+            modifier = Modifier.fillMaxSize(),
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            overscrollEffect = null,
+        ) {
+            // Date header as sticky header (stays pinned on scroll)
+            stickyHeader(key = "day_header") {
+                DayHeaderRow(buttonCount = buttonCount)
+            }
+            items(
+                items = rows,
+                key = { it.id },
+                contentType = { "habit_row" },
+            ) { row ->
+                HabitCard(
+                    task = row.task,
+                    checkmarks = row.checkmarks,
+                    onCardClick = { onCardClick(row.task) },
+                    onCheckmarkClick = { checkmark ->
+                        onCheckmarkClick(row.id, checkmark)
+                    },
+                    onCheckmarkLongClick = { checkmark ->
+                        onCheckmarkLongClick(row.id, checkmark)
+                    },
+                    buttonCount = buttonCount,
+                )
             }
         }
     }

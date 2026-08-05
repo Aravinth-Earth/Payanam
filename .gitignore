@@ -103,3 +103,8 @@ user-logged-error/
 !poc/
 */poc/
 .aider*
+
+# Local performance tooling (Hermes use only)
+build-tools/scripts/scroll-jank-analyze.sh
+build-tools/scripts/scroll-jank-report.py
+output/scroll-jank/

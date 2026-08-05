@@ -4,8 +4,7 @@
 
 package io.payanam.ui.components
 
-import androidx.compose.animation.animateColorAsState
-import androidx.compose.animation.core.animateFloatAsState
+
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
@@ -37,7 +36,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.Immutable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -90,6 +89,7 @@ private val dayNumberFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(
 /**
  * Data for a single day's checkmark.
  */
+@Immutable
 data class DayCheckmark(
     val date: LocalDate,
     val status: CheckmarkStatus,
@@ -131,11 +131,7 @@ fun ScoreRing(
     strokeWidth: Dp = 3.dp, // Reduced from 4dp
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
-    val animatedScore by animateFloatAsState(
-        targetValue = score.toFloat(),
-        label = "score_animation",
-    )
-    val scoreColorValue = scoreColor(animatedScore)
+    val scoreColorValue = scoreColor(score.toFloat())
 
     Box(
         modifier = modifier.size(size),
@@ -156,7 +152,7 @@ fun ScoreRing(
             drawArc(
                 color = scoreColorValue,
                 startAngle = -90f,
-                sweepAngle = 360f * animatedScore,
+                sweepAngle = 360f * score.toFloat(),
                 useCenter = false,
                 style = Stroke(width = strokeWidthPx, cap = StrokeCap.Round),
             )
@@ -164,7 +160,7 @@ fun ScoreRing(
 
         // Score percentage text
         Text(
-            text = "${(animatedScore * 100).toInt()}",
+            text = "${(score.toFloat() * 100).toInt()}",
             style = MaterialTheme.typography.labelSmall, // Reduced from labelMedium
             fontWeight = FontWeight.Bold,
             color = scoreColorValue,
@@ -191,16 +187,13 @@ fun CheckmarkButton(
     val logger = UnifiedLogger.getInstance()
     val haptic = LocalHapticFeedback.current
 
-    val backgroundColor by animateColorAsState(
-        targetValue = when (checkmark.status) {
-            CheckmarkStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.9f)
-            CheckmarkStatus.SKIPPED -> Color(0xFF9E9E9E).copy(alpha = 0.6f)
-            CheckmarkStatus.MISSED -> Color(0xFFF44336).copy(alpha = 0.8f)
-            CheckmarkStatus.PENDING -> Color.Transparent
-            CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
-        },
-        label = "checkmark_bg",
-    )
+    val backgroundColor = when (checkmark.status) {
+        CheckmarkStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.9f)
+        CheckmarkStatus.SKIPPED -> Color(0xFF9E9E9E).copy(alpha = 0.6f)
+        CheckmarkStatus.MISSED -> Color(0xFFF44336).copy(alpha = 0.8f)
+        CheckmarkStatus.PENDING -> Color.Transparent
+        CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    }
 
     val borderColor = when (checkmark.status) {
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
@@ -345,10 +338,10 @@ fun HabitCard(
     onCheckmarkClick: (DayCheckmark) -> Unit,
     onCheckmarkLongClick: (DayCheckmark) -> Unit,
     modifier: Modifier = Modifier,
+    buttonCount: Int = calculateButtonCount(),
     shortToggleEnabled: Boolean = true,
 ) {
     val logger = UnifiedLogger.getInstance()
-    val buttonCount = calculateButtonCount()
     val displayCheckmarks = remember(checkmarks, buttonCount) {
         checkmarks.take(buttonCount)
     }
@@ -401,8 +394,8 @@ fun HabitCard(
                 modifier = Modifier.weight(1f),
             )
 
-            // Checkmark Panel
-            CheckmarkPanel(
+            // Checkmark Panel (Canvas-based)
+            CheckmarkPanelCanvas(
                 checkmarks = displayCheckmarks,
                 onCheckmarkClick = onCheckmarkClick,
                 onCheckmarkLongClick = onCheckmarkLongClick,
