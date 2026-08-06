@@ -40,11 +40,7 @@ class NavRoutePolicyMinimalModeTest {
 
     @Test fun `minimal mode - scoring_config is allowed`() = assertTrue(NavRoutePolicy.isAllowed("scoring_config", minimalModeEnabled = true))
 
-    @Test fun `minimal mode - feedback is allowed`() = assertTrue(NavRoutePolicy.isAllowed("feedback", minimalModeEnabled = true))
-
-    @Test fun `minimal mode - my_reports is allowed`() = assertTrue(NavRoutePolicy.isAllowed("my_reports", minimalModeEnabled = true))
-
-    // ── Minimal mode ON: startup gate routes always pass ──────────────────
+    // ── Minimal mode ON: startup gate routes always pass
     @Test fun `minimal mode - database_init is always allowed`() = assertTrue(NavRoutePolicy.isAllowed("database_init", minimalModeEnabled = true))
 
     @Test fun `minimal mode - passphrase_setup is always allowed`() = assertTrue(NavRoutePolicy.isAllowed("passphrase_setup", minimalModeEnabled = true))

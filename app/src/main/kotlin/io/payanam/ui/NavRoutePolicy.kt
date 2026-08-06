@@ -29,8 +29,6 @@ internal object NavRoutePolicy {
         "task_detail",
         "edit_task",
         "scoring_config",
-        "feedback",
-        "my_reports",
     )
 
     val minimalModeAllowedTabs: Set<String> = setOf(
