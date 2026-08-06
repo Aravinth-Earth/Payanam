@@ -61,10 +61,16 @@ internal fun visibleHabitsForDisplay(
     habits: List<Task>,
     todayStatusByTaskId: Map<String, CheckmarkStatus>,
     showCompletedHabits: Boolean,
+    hideAllMarkedToday: Boolean = false,
 ): List<Task> {
-    if (showCompletedHabits) return habits
+    if (showCompletedHabits && !hideAllMarkedToday) return habits
     return habits.filter { task ->
-        (todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN) != CheckmarkStatus.COMPLETED
+        val status = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
+        when {
+            hideAllMarkedToday -> status != CheckmarkStatus.COMPLETED && status != CheckmarkStatus.SKIPPED && status != CheckmarkStatus.MISSED
+            !showCompletedHabits -> status != CheckmarkStatus.COMPLETED
+            else -> true
+        }
     }
 }
 

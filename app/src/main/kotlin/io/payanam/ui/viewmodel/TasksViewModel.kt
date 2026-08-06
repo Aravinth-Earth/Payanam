@@ -57,6 +57,7 @@ class TasksViewModel @Inject constructor(
                 currentSort = state.currentSort,
                 showArchivedHabits = state.showArchivedHabits,
                 showCompletedHabits = state.showCompletedHabits,
+                hideAllMarkedToday = state.hideAllMarkedToday,
                 showCompletionDialog = state.showCompletionDialog,
                 completionDialogTask = state.completionDialogTask,
                 completionDialogDate = state.completionDialogDate,
@@ -234,6 +235,7 @@ class TasksViewModel @Inject constructor(
                             habits = sortedRecurring,
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             showCompletedHabits = state.showCompletedHabits,
+                            hideAllMarkedToday = state.hideAllMarkedToday,
                         )
                         val filteredOneTime = filteredSorted.filterNot { it.recurrenceEnabled }
                         val visibleHabitRows = TasksRowCacheManager.buildHabitRows(
@@ -241,6 +243,7 @@ class TasksViewModel @Inject constructor(
                             checkmarksByTaskId = checkmarkPayload.taskCheckmarks,
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             showCompletedHabits = state.showCompletedHabits,
+                            hideAllMarkedToday = state.hideAllMarkedToday,
                         )
                         val filteredTaskRows = TasksRowCacheManager.buildTaskRows(filteredOneTime)
                         val filterCounts = buildTaskFilterCounts(
@@ -537,12 +540,14 @@ class TasksViewModel @Inject constructor(
                         habits = sortedRecurring,
                         todayStatusByTaskId = updatedTodayStatus,
                         showCompletedHabits = state.showCompletedHabits,
+                        hideAllMarkedToday = state.hideAllMarkedToday,
                     ),
                     visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                         tasks = sortedRecurring,
                         checkmarksByTaskId = updatedCheckmarks,
                         todayStatusByTaskId = updatedTodayStatus,
                         showCompletedHabits = state.showCompletedHabits,
+                        hideAllMarkedToday = state.hideAllMarkedToday,
                     ),
                 )
             }
@@ -615,12 +620,14 @@ class TasksViewModel @Inject constructor(
                         habits = sortedRecurring,
                         todayStatusByTaskId = state.todayHabitStatusByTaskId,
                         showCompletedHabits = state.showCompletedHabits,
+                        hideAllMarkedToday = state.hideAllMarkedToday,
                     ),
                     visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                         tasks = sortedRecurring,
                         checkmarksByTaskId = state.taskCheckmarks,
                         todayStatusByTaskId = state.todayHabitStatusByTaskId,
                         showCompletedHabits = state.showCompletedHabits,
+                        hideAllMarkedToday = state.hideAllMarkedToday,
                     ),
                 )
             }
@@ -756,12 +763,14 @@ class TasksViewModel @Inject constructor(
                     habits = sorted,
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
+                    hideAllMarkedToday = state.hideAllMarkedToday,
                 ),
                 visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                     tasks = sorted,
                     checkmarksByTaskId = state.taskCheckmarks,
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
+                    hideAllMarkedToday = state.hideAllMarkedToday,
                 ),
             )
         }
@@ -784,12 +793,36 @@ class TasksViewModel @Inject constructor(
                     habits = state.recurringTasks,
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = newValue,
+                    hideAllMarkedToday = state.hideAllMarkedToday,
                 ),
                 visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                     tasks = state.recurringTasks,
                     checkmarksByTaskId = state.taskCheckmarks,
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = newValue,
+                    hideAllMarkedToday = state.hideAllMarkedToday,
+                ),
+            )
+        }
+    }
+    fun toggleHideAllMarkedToday() {
+        _uiState.update { state ->
+            val newValue = !state.hideAllMarkedToday
+            logger.d("TasksViewModel.toggleHideAllMarkedToday", "Toggled", mapOf("hideAllMarked" to newValue))
+            state.copy(
+                hideAllMarkedToday = newValue,
+                visibleRecurringTasks = visibleHabitsForDisplay(
+                    habits = state.recurringTasks,
+                    todayStatusByTaskId = state.todayHabitStatusByTaskId,
+                    showCompletedHabits = state.showCompletedHabits,
+                    hideAllMarkedToday = newValue,
+                ),
+                visibleHabitRows = TasksRowCacheManager.buildHabitRows(
+                    tasks = state.recurringTasks,
+                    checkmarksByTaskId = state.taskCheckmarks,
+                    todayStatusByTaskId = state.todayHabitStatusByTaskId,
+                    showCompletedHabits = state.showCompletedHabits,
+                    hideAllMarkedToday = newValue,
                 ),
             )
         }
