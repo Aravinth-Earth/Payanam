@@ -29,6 +29,8 @@ data class SettingsUiState(
     val showDeleteExportPrompt: Boolean = false,
     val awaitingImportPassphrase: Boolean = false,
     val importPassphraseError: String? = null,
+    val isCheckingForUpdate: Boolean = false,
+    val updateCheckResult: UpdateCheckResult? = null,
 )
 sealed class ExportResult {
     data class Success(val fileName: String) : ExportResult()

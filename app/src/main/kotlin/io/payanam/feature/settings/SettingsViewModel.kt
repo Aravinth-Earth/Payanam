@@ -552,7 +552,47 @@ class SettingsViewModel @Inject constructor(
     }
 
     private fun getFileNameFromUri(uri: Uri): String? = uri.lastPathSegment?.substringAfterLast("/")
+
+    // ── Update checker ────────────────────────────────────────────────────────
+    private var lastCheckTimestampMs = 0L
+    private var checkCountInWindow = 0
+    private var windowStartMs = 0L
+
+    fun checkForUpdate() {
+        val now = System.currentTimeMillis()
+
+        // Cooldown guard: 1 minute between checks
+        if (now - lastCheckTimestampMs < CHECK_COOLDOWN_MS) return
+
+        // Rate limit guard: max 5 checks per 5-minute window
+        if (now - windowStartMs > RATE_WINDOW_MS) {
+            windowStartMs = now
+            checkCountInWindow = 0
+        }
+        if (checkCountInWindow >= MAX_CHECKS_PER_WINDOW) return
+
+        lastCheckTimestampMs = now
+        checkCountInWindow++
+
+        logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber))
+        _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckResult = null) }
+        viewModelScope.launch {
+            val result = UpdateChecker.check(_uiState.value.buildNumber)
+            logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
+                "updateAvailable" to result.isUpdateAvailable,
+                "latestBuild" to result.latestBuildNumber,
+                "error" to result.error?.name,
+            ))
+            _uiState.update {
+                it.copy(isCheckingForUpdate = false, updateCheckResult = result)
+            }
+        }
+    }
+
     companion object {
         private const val IMPORT_SOURCE_UHABITS = "uhabits"
+        private const val CHECK_COOLDOWN_MS = 60_000L        // 1 minute between checks
+        private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
+        private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
     }
 }

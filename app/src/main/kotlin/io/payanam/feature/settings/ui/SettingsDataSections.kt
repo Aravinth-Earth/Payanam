@@ -21,6 +21,7 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Button
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
@@ -33,6 +34,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.R
+import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
@@ -349,7 +351,9 @@ internal fun AboutSettingsSection(
     onToggleExpanded: () -> Unit,
     uiState: SettingsUiState,
     onViewGithub: () -> Unit,
+    onCheckForUpdate: () -> Unit = {},
 ) {
+    val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
         title = stringResource(id = R.string.settings_about_title),
         icon = Icons.Default.Info,
@@ -399,6 +403,78 @@ internal fun AboutSettingsSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        Spacer(modifier = Modifier.height(12.dp))
+        HorizontalDivider()
+        Spacer(modifier = Modifier.height(8.dp))
+
+        // Update check
+        Button(
+            onClick = onCheckForUpdate,
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !uiState.isCheckingForUpdate,
+        ) {
+            if (uiState.isCheckingForUpdate) {
+                CircularProgressIndicator(
+                    modifier = Modifier.size(16.dp),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+            }
+            Text(
+                text = if (uiState.isCheckingForUpdate) {
+                    stringResource(id = R.string.settings_update_checking)
+                } else {
+                    stringResource(id = R.string.settings_update_check_button)
+                },
+            )
+        }
+
+        val result = uiState.updateCheckResult
+        if (result != null && !uiState.isCheckingForUpdate) {
+            Spacer(modifier = Modifier.height(8.dp))
+            when {
+                result.error != null -> {
+                    val errorText = when (result.error) {
+                        UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
+                            stringResource(id = R.string.settings_update_error_network)
+                        UpdateCheckError.RATE_LIMITED ->
+                            stringResource(id = R.string.settings_update_error_rate_limited)
+                        UpdateCheckError.GITHUB_UNAVAILABLE ->
+                            stringResource(id = R.string.settings_update_error_github)
+                        UpdateCheckError.PARSE_ERROR, UpdateCheckError.UNKNOWN ->
+                            stringResource(id = R.string.settings_update_error_parse)
+                    }
+                    Text(
+                        text = errorText,
+                        color = MaterialTheme.colorScheme.error,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+                result.isUpdateAvailable -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
+                        color = MaterialTheme.colorScheme.primary,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    OutlinedButton(onClick = {
+                        result.releaseUrl?.let { url ->
+                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                        }
+                    }) {
+                        Text(stringResource(id = R.string.settings_update_view_release))
+                    }
+                }
+                else -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+            }
+        }
     }
 }
 

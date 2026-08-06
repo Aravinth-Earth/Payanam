@@ -541,6 +541,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "github"))
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
                 },
+                onCheckForUpdate = viewModel::checkForUpdate,
             )
         }
     }
