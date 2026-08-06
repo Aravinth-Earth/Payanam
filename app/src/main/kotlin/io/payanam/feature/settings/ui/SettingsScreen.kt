@@ -59,7 +59,7 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.viewmodel.TaskFilter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToPassphraseChange: () -> Unit = {}, onNavigateToScoringConfig: () -> Unit = {}, onNavigateToDatabaseInit: () -> Unit = {}, onNavigateToFeedback: () -> Unit = {}, onNavigateToMyReports: () -> Unit = {}) {
+fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToPassphraseChange: () -> Unit = {}, onNavigateToScoringConfig: () -> Unit = {}, onNavigateToDatabaseInit: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
     val activity = checkNotNull(LocalActivity.current)
     val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
@@ -540,14 +540,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 onViewGithub = {
                     logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "github"))
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
-                },
-                onNavigateToFeedback = {
-                    logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "feedback"))
-                    onNavigateToFeedback()
-                },
-                onNavigateToMyReports = {
-                    logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "reports"))
-                    onNavigateToMyReports()
                 },
             )
         }

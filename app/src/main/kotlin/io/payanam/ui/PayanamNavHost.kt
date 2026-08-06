@@ -66,10 +66,8 @@ import io.payanam.ui.screens.DatabasePassphraseUnlockScreen
 import io.payanam.ui.screens.DayScreen
 import io.payanam.ui.screens.DayScreenMode
 import io.payanam.ui.screens.EditTaskScreen
-import io.payanam.ui.screens.FeedbackScreen
 import io.payanam.ui.screens.FocusModeSelectionScreen
 import io.payanam.ui.screens.LensesScreen
-import io.payanam.ui.screens.MyReportsScreen
 import io.payanam.ui.screens.NotesScreen
 import io.payanam.ui.screens.ScoringConfigScreen
 import io.payanam.ui.screens.TaskDetailScreen
@@ -146,8 +144,6 @@ object Routes {
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val EDIT_TASK = "edit_task/{taskId}"
     const val SCORING_CONFIG = "scoring_config"
-    const val FEEDBACK = "feedback"
-    const val MY_REPORTS = "my_reports"
 
     fun taskDetail(taskId: String) = "task_detail/$taskId"
     fun editTask(taskId: String) = "edit_task/$taskId"
@@ -616,14 +612,6 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Delete all data complete; restarting process for clean DB init", mapOf())
                         onRestartAfterDelete()
                     },
-                    onNavigateToFeedback = {
-                        logger.i("PayanamNavHost", "Navigating to feedback", mapOf())
-                        navController.navigate(Routes.FEEDBACK)
-                    },
-                    onNavigateToMyReports = {
-                        logger.i("PayanamNavHost", "Navigating to my reports", mapOf())
-                        navController.navigate(Routes.MY_REPORTS)
-                    },
                 )
             }
 
@@ -668,21 +656,7 @@ fun PayanamNavHost(
                 )
             }
 
-            composable(Routes.FEEDBACK) {
-                FeedbackScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                    onNavigateToMyReports = {
-                        logger.i("PayanamNavHost", "Navigating to my reports from feedback", mapOf())
-                        navController.navigate(Routes.MY_REPORTS)
-                    },
-                )
-            }
 
-            composable(Routes.MY_REPORTS) {
-                MyReportsScreen(
-                    onNavigateBack = { navController.popBackStack() },
-                )
-            }
         }
     }
 }

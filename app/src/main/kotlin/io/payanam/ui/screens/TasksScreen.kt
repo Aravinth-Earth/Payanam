@@ -237,6 +237,7 @@ fun TasksScreen(
                 onSetHabitSortOption = viewModel::setHabitSortOption,
                 onToggleShowCompletedHabits = viewModel::toggleShowCompletedHabits,
                 onToggleShowArchivedHabits = viewModel::toggleShowArchivedHabits,
+                onToggleHideAllMarkedToday = viewModel::toggleHideAllMarkedToday,
                 onSetTaskSortOption = viewModel::setSortOption,
             )
         },
@@ -429,6 +430,7 @@ private fun TasksTopBar(
     onSetHabitSortOption: (HabitSortOption) -> Unit,
     onToggleShowCompletedHabits: () -> Unit,
     onToggleShowArchivedHabits: () -> Unit,
+    onToggleHideAllMarkedToday: () -> Unit,
     onSetTaskSortOption: (TaskSortOption) -> Unit,
 ) {
     val logger = UnifiedLogger.getInstance()
@@ -521,6 +523,22 @@ private fun TasksTopBar(
                             onClick = {
                                 logger.d("TasksScreen.hideCompletedToggled", "Hide completed toggled", mapOf("tab" to "habits", "value" to chromeState.showCompletedHabits))
                                 onToggleShowCompletedHabits()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.Checkbox(
+                                        checked = chromeState.hideAllMarkedToday,
+                                        onCheckedChange = null,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(id = io.payanam.R.string.loc_hide_all_marked_today))
+                                }
+                            },
+                            onClick = {
+                                logger.d("TasksScreen.hideAllMarkedToggled", "Hide all marked toggled", mapOf("tab" to "habits", "value" to chromeState.hideAllMarkedToday))
+                                onToggleHideAllMarkedToday()
                             },
                         )
                         DropdownMenuItem(

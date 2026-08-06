@@ -349,8 +349,6 @@ internal fun AboutSettingsSection(
     onToggleExpanded: () -> Unit,
     uiState: SettingsUiState,
     onViewGithub: () -> Unit,
-    onNavigateToFeedback: () -> Unit = {},
-    onNavigateToMyReports: () -> Unit = {},
 ) {
     SettingsCard(
         title = stringResource(id = R.string.settings_about_title),
@@ -391,14 +389,16 @@ internal fun AboutSettingsSection(
             Text(stringResource(id = R.string.settings_action_view_on_github))
         }
         Spacer(modifier = Modifier.height(8.dp))
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            OutlinedButton(onClick = onNavigateToFeedback) {
-                Text(stringResource(id = R.string.feedback_screen_title))
-            }
-            OutlinedButton(onClick = onNavigateToMyReports) {
-                Text(stringResource(id = R.string.my_reports_screen_title))
-            }
-        }
+        Text(
+            text = stringResource(id = R.string.feedback_contact_email_value, stringResource(id = R.string.feedback_contact_email)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(id = R.string.feedback_contact_signal_value, stringResource(id = R.string.feedback_contact_signal)),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
     }
 }
 

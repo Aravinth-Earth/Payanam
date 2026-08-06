@@ -35,6 +35,7 @@ internal object TasksRowCacheManager {
         checkmarksByTaskId: Map<String, List<DayCheckmark>>,
         todayStatusByTaskId: Map<String, CheckmarkStatus>,
         showCompletedHabits: Boolean,
+        hideAllMarkedToday: Boolean = false,
     ): List<HabitRowUiModel> {
         val activeTaskIds = tasks.map { it.id }.toSet()
         habitRowsById.keys.retainAll(activeTaskIds)
@@ -43,7 +44,12 @@ internal object TasksRowCacheManager {
         tasks.forEach { task ->
             val checkmarks = checkmarksByTaskId[task.id] ?: emptyList()
             val todayStatus = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
-            if (!showCompletedHabits && todayStatus == CheckmarkStatus.COMPLETED) {
+            val shouldHide = when {
+                hideAllMarkedToday -> todayStatus in setOf(CheckmarkStatus.COMPLETED, CheckmarkStatus.SKIPPED, CheckmarkStatus.MISSED)
+                !showCompletedHabits -> todayStatus == CheckmarkStatus.COMPLETED
+                else -> false
+            }
+            if (shouldHide) {
                 return@forEach
             }
             val fingerprint = habitFingerprint(task, checkmarks, todayStatus)

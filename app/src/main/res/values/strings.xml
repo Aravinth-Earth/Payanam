@@ -430,6 +430,7 @@
     <string name="loc_stop_and_save_focus">Stop and Save Focus</string>
     <string name="loc_gist">Gist</string>
     <string name="loc_hide_completed_today">Hide completed today</string>
+    <string name="loc_hide_all_marked_today">Hide all marked today</string>
     <string name="loc_hours">Hours</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
@@ -1085,57 +1086,11 @@
     <string name="db_external_deletion_title">Database Not Found</string>
     <string name="db_external_deletion_message">Your database was deleted externally while the app was closed. This can happen from app data clearing or reinstallation.\n\nIf you have auto-backups enabled, you can recover your data by importing the latest backup from Settings → Data Management.</string>
 
-    <!-- In-app feedback -->
-    <string name="feedback_screen_title">Send Feedback</string>
-    <string name="feedback_type_bug">Bug</string>
-    <string name="feedback_type_feature">Feature Request</string>
-    <string name="feedback_type_general">General</string>
-    <string name="feedback_field_title_placeholder">Brief summary</string>
-    <string name="feedback_field_description_label">Description</string>
-    <string name="feedback_field_description_placeholder">What happened? What did you expect?</string>
-    <string name="feedback_field_steps_label">Steps to Reproduce</string>
-    <string name="feedback_field_steps_placeholder">1. Open the app
-2. …</string>
-    <string name="feedback_meta_section_header">Include with report</string>
-    <string name="feedback_meta_device_model">Device model (%1$s)</string>
-    <string name="feedback_meta_os_version">OS version (Android %1$s)</string>
-    <string name="feedback_meta_locale">App locale (%1$s)</string>
-    <string name="feedback_meta_build">Build #%1$d</string>
-    <string name="feedback_submit_button">Submit</string>
-    <string name="feedback_submitting">Submitting…</string>
-    <string name="feedback_success_title">Report Submitted</string>
-    <string name="feedback_success_message">Report submitted. The issue will open in your browser.</string>
-    <string name="feedback_error_empty_fields">Please fill in title and description.</string>
-    <string name="feedback_error_network">Network error. Please try again.</string>
-    <string name="feedback_error_limit_reached">Limit reached (3/hr, 12/day). Try again later.</string>
-    <string name="feedback_submissions_remaining">%1$d reports remaining this hour</string>
-    <string name="feedback_privacy_notice">Don\'t include personal or sensitive information. Reports are submitted to the public GitHub Issues page.</string>
-    <string name="feedback_contact_section_header">Send logs or recordings?</string>
-    <string name="feedback_contact_description">Note your issue number above, then reach out via:</string>
+    <!-- Developer contact (used in About section) -->
     <string name="feedback_contact_email_value">Email: %1$s</string>
     <string name="feedback_contact_signal_value">Signal: %1$s</string>
-    <string name="feedback_contact_email_button">Email</string>
-    <string name="feedback_contact_signal_button">Copy Signal username</string>
-    <string name="feedback_contact_signal_copied">Copied!</string>
-    <string name="feedback_contact_not_configured">Developer contact details are not configured yet.</string>
-    <string name="feedback_contact_email_unavailable">No email app is available on this device.</string>
-    <string name="feedback_contact_email_open_failed">Could not open email app. Try again.</string>
-    <string name="feedback_contact_copy_failed">Could not copy username to clipboard.</string>
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_signal">zatu.69</string>
-
-    <!-- My Reports -->
-    <string name="my_reports_screen_title">My Reports</string>
-    <string name="my_reports_refresh_button">Refresh</string>
-    <string name="my_reports_empty">No reports submitted yet.</string>
-    <string name="my_reports_issue_state_open">Open</string>
-    <string name="my_reports_issue_state_closed">Closed</string>
-    <string name="my_reports_refresh_throttled">Refresh available in %1$s</string>
-    <string name="my_reports_error">Could not load reports. Try again later.</string>
-    <string name="my_reports_tap_expand_hint">Tap card to view details</string>
-    <string name="my_reports_open_link_button">Open Link</string>
-    <string name="my_reports_steps_prefix">Steps: %1$s</string>
-    <string name="my_reports_metadata_prefix">Metadata: %1$s</string>
 
     <!-- Settings About additions -->
  </resources>
