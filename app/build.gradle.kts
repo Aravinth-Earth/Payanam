@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1507
-          versionName = "#1507 (20260806_002106)"
+          versionCode = 1511
+          versionName = "#1511 (20260806_115046)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -163,6 +163,15 @@ spotless {
                 )
             )
         licenseHeaderFile("${rootProject.projectDir}/config/spotless/copyright.kt")
+    }
+}
+
+configurations.configureEach {
+    if (name.endsWith("RuntimeClasspath") && !name.contains("Test") && !name.contains("androidTest")) {
+        exclude(group = "com.android.tools.emulator")
+        exclude(group = "io.grpc")
+        exclude(group = "io.netty")
+        exclude(group = "org.bouncycastle")
     }
 }
 
