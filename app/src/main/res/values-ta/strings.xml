@@ -1091,5 +1091,16 @@
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_signal">zatu.69</string>
 
+    <!-- Update checker -->
+    <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
+    <string name="settings_update_checking">சரிபார்க்கிறது…</string>
+    <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
+    <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
+    <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_rate_limited">வரம்பு எட்டப்பட்டது. சில நிமிடங்கள் கழித்து முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_github">GitHub கிடைக்கவில்லை. பின்னர் முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_parse">சமீபத்திய பதிப்பை தீர்மானிக்க முடியவில்லை.</string>
+    <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
+
     <!-- Settings About additions -->
 </resources>

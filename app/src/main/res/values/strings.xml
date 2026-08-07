@@ -1092,5 +1092,16 @@
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_signal">zatu.69</string>
 
+    <!-- Update checker -->
+    <string name="settings_update_check_button">Check for update</string>
+    <string name="settings_update_checking">Checking…</string>
+    <string name="settings_update_available">Update available: build #%1$d</string>
+    <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
+    <string name="settings_update_error_network">Could not check for updates. Try again later.</string>
+    <string name="settings_update_error_rate_limited">Rate limited. Try again in a few minutes.</string>
+    <string name="settings_update_error_github">GitHub unavailable. Try again later.</string>
+    <string name="settings_update_error_parse">Could not determine latest version.</string>
+    <string name="settings_update_view_release">View release</string>
+
     <!-- Settings About additions -->
  </resources>
