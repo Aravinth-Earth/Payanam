@@ -210,8 +210,8 @@ internal fun DebugLogExportActions(
     scope: CoroutineScope,
     snackbarHostState: SnackbarHostState,
     context: Context,
-    legacyDimensionDiagnosticsInProgress: Boolean,
-    onRunLegacyDimensionDiagnostics: () -> Unit,
+    habitScoreDiagnosticsInProgress: Boolean,
+    onRunHabitScoreDiagnostics: () -> Unit,
 ) {
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -282,13 +282,13 @@ internal fun DebugLogExportActions(
         OutlinedButton(
             onClick = {
                 logger.i(
-                    "SettingsScreen.legacyDimensionDiagnosticsTapped",
-                    "Legacy dimension diagnostics tapped",
+                    "SettingsScreen.habitScoreDiagnosticsTapped",
+                    "Habit score diagnostics tapped",
                 )
-                onRunLegacyDimensionDiagnostics()
+                onRunHabitScoreDiagnostics()
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = !legacyDimensionDiagnosticsInProgress,
+            enabled = !habitScoreDiagnosticsInProgress,
         ) {
             Icon(
                 imageVector = Icons.Default.Storage,
@@ -298,10 +298,10 @@ internal fun DebugLogExportActions(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 stringResource(
-                    id = if (legacyDimensionDiagnosticsInProgress) {
-                        R.string.settings_action_run_legacy_dimension_diagnostics_in_progress
+                    id = if (habitScoreDiagnosticsInProgress) {
+                        R.string.settings_action_run_habit_score_diagnostics_in_progress
                     } else {
-                        R.string.settings_action_run_legacy_dimension_diagnostics
+                        R.string.settings_action_run_habit_score_diagnostics
                     },
                 ),
             )

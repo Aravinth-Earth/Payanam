@@ -120,8 +120,8 @@
     <string name="settings_action_change_passphrase">பயன்பாட்டு கடவுச்சொல் மாற்று</string>
     <string name="settings_action_export_latest_log">அண்மை பதிவு ஏற்றுமதி</string>
     <string name="settings_action_export_all_logs">அனைத்து பதிவுகளும் ஏற்றுமதி</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics">பழைய பரிமாண கண்டறிதலை இயக்கு</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics_in_progress">பழைய பரிமாண கண்டறிதல் இயங்குகிறது…</string>
+    <string name="settings_action_run_habit_score_diagnostics">பழக்க மதிப்பெண் கண்டறிதலை இயக்கு</string>
+    <string name="settings_action_run_habit_score_diagnostics_in_progress">பழக்க மதிப்பெண் கண்டறிதல் இயங்குகிறது…</string>
     <string name="settings_action_delete_all_data">அனைத்து தரவையும் அழி</string>
     <string name="settings_action_delete_file">கோப்பை அழி</string>
     <string name="settings_action_delete_import">அழித்து இறக்குமதி செய்</string>
@@ -175,8 +175,8 @@
     <string name="settings_snackbar_latest_log_export_failed">அண்மை பதிவு ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_all_logs_exported">அனைத்து பதிவுகளும் ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_complete">பழைய பரிமாண கண்டறிதல் பதிவானது. வரிகள்: %1$d, அட்டவணைகள்: %2$d</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_failed">பழைய பரிமாண கண்டறிதல் தோல்வி: %1$s</string>
+    <string name="settings_snackbar_habit_score_diagnostics_complete">பழக்க மதிப்பெண் கண்டறிதல் பதிவானது. பழக்கங்கள்: %1$d, நிகழ்வுகளுடன்: %2$d</string>
+    <string name="settings_snackbar_habit_score_diagnostics_failed">பழக்க மதிப்பெண் கண்டறிதல் தோல்வி: %1$s</string>
     <string name="settings_action_run_legacy_label_fix">பழைய பெயர்களை சரிசெய்</string>
     <string name="settings_action_run_legacy_label_fix_in_progress">பழைய பெயர்கள் சரிசெய்யப்படுகின்றன…</string>
     <string name="settings_action_run_legacy_label_verify">சரிசெய்தலை சரிபார்</string>

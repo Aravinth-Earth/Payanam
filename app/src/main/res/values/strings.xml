@@ -120,8 +120,8 @@
     <string name="settings_action_change_passphrase">Update Passphrase</string>
     <string name="settings_action_export_latest_log">Export Latest Log</string>
     <string name="settings_action_export_all_logs">Export All Logs</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics">Run Legacy Dimension Diagnostics</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics_in_progress">Running Legacy Dimension Diagnostics…</string>
+    <string name="settings_action_run_habit_score_diagnostics">Run Habit Score Diagnostics</string>
+    <string name="settings_action_run_habit_score_diagnostics_in_progress">Running Habit Score Diagnostics…</string>
     <string name="settings_action_delete_all_data">Delete All Data</string>
     <string name="settings_action_delete_file">Delete file</string>
     <string name="settings_action_delete_import">Delete &amp; Import</string>
@@ -176,8 +176,8 @@
     <string name="settings_snackbar_latest_log_export_failed">Failed to export latest log</string>
     <string name="settings_snackbar_all_logs_exported">All logs exported to: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">Failed to export all logs</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_complete">Legacy dimension diagnostics logged. Rows: %1$d, tables: %2$d</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_failed">Legacy dimension diagnostics failed: %1$s</string>
+    <string name="settings_snackbar_habit_score_diagnostics_complete">Habit score diagnostics logged. Habits: %1$d, with occurrences: %2$d</string>
+    <string name="settings_snackbar_habit_score_diagnostics_failed">Habit score diagnostics failed: %1$s</string>
     <string name="settings_action_run_legacy_label_fix">Fix Legacy Labels</string>
     <string name="settings_action_run_legacy_label_fix_in_progress">Fixing Legacy Labels…</string>
     <string name="settings_action_run_legacy_label_verify">Verify Label Fix</string>

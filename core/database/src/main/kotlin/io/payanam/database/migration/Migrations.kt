@@ -947,3 +947,107 @@ val MIGRATION_16_17 =
             logger.d("Migration.16_17", "Retaining task_reschedules table for schema compatibility")
         }
     }
+
+/**
+ * Schema v18 — self-governance score roll-up foundation.
+ *
+ * Adds three metric tables (SQL only — no data backfill here):
+ *   habit_metrics      (L1: sparse due-day rows per habit)
+ *   dimension_metrics  (L2: dense per-dimension rows)
+ *   day_metrics        (L3: dense per-day rows)
+ *
+ * Rule conversion (num/den → CONFIG) and backfill happen in the
+ * post-open backfill service (Inc 3), not inside this migration.
+ */
+val MIGRATION_17_18 =
+    object : Migration(17, 18) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.17_18", "Creating score roll-up metric tables")
+
+            try {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS habit_metrics (
+                        habitId TEXT NOT NULL,
+                        dayKey TEXT NOT NULL,
+                        score REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL,
+                        PRIMARY KEY (habitId, dayKey)
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_habit_metrics_habitId ON habit_metrics(habitId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_habit_metrics_dayKey ON habit_metrics(dayKey)")
+
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS dimension_metrics (
+                        dimensionId TEXT NOT NULL,
+                        dayKey TEXT NOT NULL,
+                        score REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL,
+                        PRIMARY KEY (dimensionId, dayKey)
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_dimension_metrics_dimensionId ON dimension_metrics(dimensionId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_dimension_metrics_dayKey ON dimension_metrics(dayKey)")
+
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS day_metrics (
+                        dayKey TEXT NOT NULL PRIMARY KEY,
+                        dayScore REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+
+                // Post-migration verification: confirm all three tables exist
+                val tables = mutableListOf<String>()
+                database.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('habit_metrics', 'dimension_metrics', 'day_metrics') ORDER BY name").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        tables += cursor.getString(0)
+                    }
+                }
+                val expected = listOf("day_metrics", "dimension_metrics", "habit_metrics")
+                if (tables != expected) {
+                    throw IllegalStateException(
+                        "Migration 17→18 table verification failed: expected $expected, found $tables",
+                    )
+                }
+
+                logger.i(
+                    "Migration.17_18",
+                    "Metric tables created and verified",
+                    mapOf(
+                        "tables" to tables,
+                        "expected" to expected,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.17_18",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }

@@ -88,9 +88,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
     LaunchedEffect(Unit) { prefsViewModel.refreshAutoBackupStatusFromStorage() }
     LaunchedEffect(viewModel.navigateToDatabaseInit) { viewModel.navigateToDatabaseInit.collect { onNavigateToDatabaseInit() } }
     val manualBackupInProgress by prefsViewModel.manualBackupInProgress.collectAsState()
-    val legacyDimensionDiagnosticsInProgress by prefsViewModel.legacyDimensionDiagnosticsInProgress.collectAsState()
-    LaunchedEffect(Unit) { prefsViewModel.manualBackupResultMessage.collect { snackbarHostState.showSnackbar(it) } }
-    LaunchedEffect(Unit) { prefsViewModel.legacyDimensionDiagnosticsMessage.collect { snackbarHostState.showSnackbar(it) } }
+    val habitScoreDiagnosticsInProgress by prefsViewModel.habitScoreDiagnosticsInProgress.collectAsState()
+    LaunchedEffect(Unit) { prefsViewModel.habitScoreDiagnosticsMessage.collect { snackbarHostState.showSnackbar(it) } }
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
@@ -446,8 +445,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         scope = scope,
                         snackbarHostState = snackbarHostState,
                         context = context,
-                        legacyDimensionDiagnosticsInProgress = legacyDimensionDiagnosticsInProgress,
-                        onRunLegacyDimensionDiagnostics = prefsViewModel::runLegacyDimensionDiagnostics,
+                        habitScoreDiagnosticsInProgress = habitScoreDiagnosticsInProgress,
+                        onRunHabitScoreDiagnostics = prefsViewModel::runHabitScoreDiagnostics,
                     )
                 }
             }
