@@ -6,6 +6,7 @@ param(
     [switch]$Clean,
     [switch]$CleanInstall,
     [switch]$SkipTests,
+    [switch]$SkipGuardrails,
     [switch]$RunMaestro,
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
@@ -1199,7 +1200,10 @@ switch ($effectiveProfile)
 {
     "quick"
     {
-        $runAndroidGuardrails = $false
+        # Static guardrails (file length, import count, strings dedupe,
+        # security/logging contracts) are cheap file scans and always run —
+        # they catch structural regressions even on fast iteration builds.
+        # Only expensive verification (tests/coverage/smoke) stays profile-gated.
         $runPostInstallVerification = $false
     }
     "normal"
@@ -1237,6 +1241,10 @@ if ($SkipTests)
     $runUnitTests = $false
     $runRegressionTests = $false
     $runCoverage = $false
+}
+if ($SkipGuardrails)
+{
+    $runAndroidGuardrails = $false
 }
 if ($SkipMaestro)
 {
@@ -1315,7 +1323,7 @@ Write-LogWithTime "  ✅ All core source files present" "Green"
 
 if ($runAndroidGuardrails)
 {
-    Write-LogWithTime "Checking Android guardrails..." "Cyan"
+    Write-LogWithTime "Checking Android guardrails (always-on static checks)... " "Cyan"
     $moduleLineLimits = @{
         "app/src/main/kotlin" = 9700
         "core/common/src/main/kotlin" = 9400
@@ -1444,7 +1452,7 @@ if ($runAndroidGuardrails)
     Write-LogWithTime "  ✅ Critical logging coverage contract passed" "Green"
 } else
 {
-    Write-LogWithTime "Skipping Android guardrails for profile '$effectiveProfile'." "Yellow"
+    Write-LogWithTime "Skipping Android guardrails (explicit -SkipGuardrails)." "Yellow"
 }
 
 # Check 5: Unit tests (profile + optional skip)

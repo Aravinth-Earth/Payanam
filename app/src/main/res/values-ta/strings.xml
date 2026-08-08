@@ -666,6 +666,7 @@
     <string name="loc_habit_calendar">பழக்க நாட்காட்டி</string>
     <string name="loc_habit_health">பழக்கம் ஆரோக்கியம்</string>
     <string name="loc_habits_count">பழக்கம் (%1$d)</string>
+    <string name="loc_habits_count_filtered">பழக்கம் (%1$d / %2$d)</string>
     <string name="loc_high">உயர்</string>
     <string name="loc_high_alignment">உயர் சீரமைப்பு</string>
     <string name="loc_how_did_it_go">எப்படி சென்றது</string>
@@ -774,7 +775,10 @@
     <string name="loc_task_filter_with_count">%1$s (%2$d)</string>
     <string name="loc_search_tasks">பணிகளை தேடவும்</string>
     <string name="loc_search_tasks_placeholder">அனைத்து பணிகளிலும் தேடவும்</string>
+    <string name="loc_search_habits">பழக்கங்களை தேடவும்</string>
+    <string name="loc_search_habits_placeholder">அனைத்து பழக்கங்களிலும் தேடவும்</string>
     <string name="loc_no_tasks_match_search">உங்கள் தேடலுக்கு பொருந்தும் பணிகள் இல்லை</string>
+    <string name="loc_no_habits_match_search">உங்கள் தேடலுக்கு பொருந்தும் பழக்கங்கள் இல்லை</string>
     <string name="loc_tasks_count">பணிகள் (%1$d)</string>
     <string name="loc_tasks_due_today">இன்று செய்ய வேண்டிய பணிகள்</string>
     <string name="loc_tasks_per_life_dimension">வாழ்க்கையின் அளவுக்கான பணிகள்</string>
@@ -1093,7 +1097,7 @@
 
     <!-- Update checker -->
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
-    <string name="settings_update_checking">சரிபார்க்கிறது…</string>
+    <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
     <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
