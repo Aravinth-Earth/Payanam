@@ -189,3 +189,14 @@ private fun energyLevelToValue(level: String): Int = when (level) {
     "High" -> 3
     else -> 2
 }
+
+/**
+ * Title-only fuzzy search matcher, shared by Tasks and Habits tab search fields.
+ * Matches what the listing shows — internal fields (status, dimensionId, etc.)
+ * are not user-visible and would pollute results.
+ */
+internal fun Task.matchesTaskSearch(query: String): Boolean {
+    if (query.isBlank()) return true
+    // Defensive: lowercase both sides so the matcher is caller-independent.
+    return title.lowercase().contains(query.lowercase())
+}

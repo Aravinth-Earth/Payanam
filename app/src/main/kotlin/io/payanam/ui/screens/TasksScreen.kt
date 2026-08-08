@@ -20,11 +20,15 @@ import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Repeat
+import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.Sort
 import androidx.compose.material.icons.filled.Task
 import androidx.compose.material3.CircularProgressIndicator
@@ -35,7 +39,9 @@ import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
@@ -50,10 +56,15 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.snapshotFlow
 import androidx.compose.runtime.withFrameNanos
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.platform.LocalSoftwareKeyboardController
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.payanam.FeatureFlags
@@ -74,6 +85,7 @@ import io.payanam.ui.viewmodel.TaskRowUiModel
 import io.payanam.ui.viewmodel.TaskSortOption
 import io.payanam.ui.viewmodel.TasksChromeUiState
 import io.payanam.ui.viewmodel.TasksTabUiState
+import io.payanam.ui.viewmodel.matchesTaskSearch
 import io.payanam.ui.viewmodel.TasksViewModel
 import java.time.LocalDate
 
@@ -173,6 +185,12 @@ fun TasksScreen(
     var showHabitSortMenu by remember { mutableStateOf(false) }
     var showHabitFilterMenu by remember { mutableStateOf(false) }
 
+    // Search state for Habits tab (hidden by default; toggled from top bar icon)
+    var habitSearchActive by remember { mutableStateOf(false) }
+    var habitSearchQuery by remember { mutableStateOf("") }
+    var habitSearchOpenElapsed by remember { mutableStateOf(0L) }
+    var habitVisibleCount by remember { mutableStateOf(0) }
+
     // Menu state for Tasks tab
     var showTaskSortMenu by remember { mutableStateOf(false) }
     var pendingTabTrace by remember { mutableStateOf<TaskTabInteractionTrace?>(null) }
@@ -183,6 +201,10 @@ fun TasksScreen(
         TasksScreenMode.COMBINED -> selectedTabIndex
     }
     val showTabRow = mode == TasksScreenMode.COMBINED
+
+    // Hoisted here so tab switches can dismiss the keyboard even after the
+    // Habits tab content (which owns the search field) leaves composition.
+    val screenKeyboard = LocalSoftwareKeyboardController.current
 
     LaunchedEffect(Unit) {
         PerfBaselineTelemetry.markEvent(screen = "tasks", event = "screen_enter")
@@ -202,6 +224,14 @@ fun TasksScreen(
             event = "tab_selected",
             data = mapOf("tab" to if (effectiveTabIndex == 0) "habits" else "tasks"),
         )
+        // Reset habit search when leaving the Habits tab so returning users
+        // start from a clean list instead of a stale search mode. Keyboard is
+        // dismissed here because the search field's content is leaving composition.
+        if (effectiveTabIndex != 0 && habitSearchActive) {
+            habitSearchActive = false
+            habitSearchQuery = ""
+            screenKeyboard?.hide()
+        }
     }
 
     LaunchedEffect(effectiveTabIndex, pendingTabTrace?.interactionId) {
@@ -232,6 +262,22 @@ fun TasksScreen(
                 onShowHabitSortMenuChange = { showHabitSortMenu = it },
                 showHabitFilterMenu = showHabitFilterMenu,
                 onShowHabitFilterMenuChange = { showHabitFilterMenu = it },
+                habitSearchActive = habitSearchActive,
+                onToggleHabitSearch = {
+                    val nowMs = SystemClock.elapsedRealtime()
+                    logger.d("TasksScreen.searchToggled", "Habit search toggled", mapOf("tab" to "habits", "active" to !habitSearchActive, "elapsedMs" to nowMs))
+                    if (habitSearchActive) {
+                        habitSearchQuery = ""
+                    } else {
+                        habitSearchOpenElapsed = nowMs
+                    }
+                    habitSearchActive = !habitSearchActive
+                    PerfBaselineTelemetry.markEvent(
+                        screen = "habits",
+                        event = if (habitSearchActive) "search_opened" else "search_closed",
+                        data = mapOf("elapsedMs" to nowMs),
+                    )
+                },
                 showTaskSortMenu = showTaskSortMenu,
                 onShowTaskSortMenuChange = { showTaskSortMenu = it },
                 onSetHabitSortOption = viewModel::setHabitSortOption,
@@ -239,6 +285,8 @@ fun TasksScreen(
                 onToggleShowArchivedHabits = viewModel::toggleShowArchivedHabits,
                 onToggleHideAllMarkedToday = viewModel::toggleHideAllMarkedToday,
                 onSetTaskSortOption = viewModel::setSortOption,
+                habitVisibleCount = habitVisibleCount,
+                habitSearchQuery = habitSearchQuery,
             )
         },
         floatingActionButton = {
@@ -343,6 +391,40 @@ fun TasksScreen(
                 effectiveTabIndex == 0 -> {
                     HabitsTabRoute(
                         viewModel = viewModel,
+                        searchActive = habitSearchActive,
+                        searchQuery = habitSearchQuery,
+                        onSearchQueryChange = { newQuery ->
+                            habitSearchQuery = newQuery
+                            logger.d(
+                                "TasksScreen.searchQueryChanged",
+                                "Habit search query changed",
+                                mapOf(
+                                    "query" to newQuery,
+                                    "queryLength" to newQuery.length,
+                                    "elapsedSinceOpenMs" to (SystemClock.elapsedRealtime() - habitSearchOpenElapsed),
+                                ),
+                            )
+                        },
+                        onCloseSearch = {
+                            val closeMs = SystemClock.elapsedRealtime()
+                            logger.d(
+                                "TasksScreen.searchClosed",
+                                "Habit search closed",
+                                mapOf(
+                                    "query" to habitSearchQuery,
+                                    "queryLength" to habitSearchQuery.length,
+                                    "elapsedSinceOpenMs" to (closeMs - habitSearchOpenElapsed),
+                                ),
+                            )
+                            PerfBaselineTelemetry.markEvent(
+                                screen = "habits",
+                                event = "search_closed",
+                                data = mapOf("elapsedSinceOpenMs" to (closeMs - habitSearchOpenElapsed)),
+                            )
+                            habitSearchQuery = ""
+                            habitSearchActive = false
+                        },
+                        onVisibleCountChange = { habitVisibleCount = it },
                         onCardClick = { task ->
                             logger.i("TasksScreen", "Habit card clicked", mapOf("taskId" to task.id, "taskTitle" to task.title))
                             onNavigateToTaskDetail(task.id)
@@ -425,6 +507,10 @@ private fun TasksTopBar(
     onShowHabitSortMenuChange: (Boolean) -> Unit,
     showHabitFilterMenu: Boolean,
     onShowHabitFilterMenuChange: (Boolean) -> Unit,
+    habitSearchActive: Boolean,
+    onToggleHabitSearch: () -> Unit,
+    habitSearchQuery: String,
+    habitVisibleCount: Int,
     showTaskSortMenu: Boolean,
     onShowTaskSortMenuChange: (Boolean) -> Unit,
     onSetHabitSortOption: (HabitSortOption) -> Unit,
@@ -444,7 +530,19 @@ private fun TasksTopBar(
                 }
                 Text(text = stringResource(id = titleRes))
                 val subtitle = if (effectiveTabIndex == 0) {
-                    stringResource(id = io.payanam.R.string.loc_habits_count, chromeState.recurringTaskCount)
+                    val filterActive = !chromeState.showCompletedHabits || chromeState.hideAllMarkedToday || chromeState.showArchivedHabits
+                    // Show "x of y" only when search/filter actually narrows the list;
+                    // blank search query or no filters -> plain count.
+                    val searchNarrows = habitSearchActive && habitSearchQuery.isNotBlank()
+                    if (searchNarrows || filterActive) {
+                        stringResource(
+                            id = io.payanam.R.string.loc_habits_count_filtered,
+                            habitVisibleCount,
+                            chromeState.recurringTaskCount,
+                        )
+                    } else {
+                        stringResource(id = io.payanam.R.string.loc_habits_count, chromeState.recurringTaskCount)
+                    }
                 } else {
                     stringResource(id = io.payanam.R.string.loc_tasks_count, chromeState.oneTimeTaskCount)
                 }
@@ -457,6 +555,19 @@ private fun TasksTopBar(
         },
         actions = {
             if (effectiveTabIndex == 0) {
+                if (!habitSearchActive) {
+                    Box {
+                        androidx.compose.material3.IconButton(onClick = {
+                            onToggleHabitSearch()
+                        }) {
+                            Icon(
+                                imageVector = Icons.Default.Search,
+                                contentDescription = stringResource(id = io.payanam.R.string.loc_search_habits),
+                            )
+                        }
+                    }
+                }
+
                 Box {
                     androidx.compose.material3.IconButton(onClick = {
                         logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
@@ -613,6 +724,11 @@ private fun TasksTopBar(
 @Composable
 private fun HabitsTabRoute(
     viewModel: TasksViewModel,
+    searchActive: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onCloseSearch: () -> Unit,
+    onVisibleCountChange: (Int) -> Unit,
     onCardClick: (Task) -> Unit,
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
@@ -621,6 +737,11 @@ private fun HabitsTabRoute(
     HabitsTabContent(
         rows = habitsTabState.rows,
         totalHabitCount = habitsTabState.totalHabitCount,
+        searchActive = searchActive,
+        searchQuery = searchQuery,
+        onSearchQueryChange = onSearchQueryChange,
+        onCloseSearch = onCloseSearch,
+        onVisibleCountChange = onVisibleCountChange,
         onCardClick = onCardClick,
         onCheckmarkClick = onCheckmarkClick,
         onCheckmarkLongClick = onCheckmarkLongClick,
@@ -666,12 +787,73 @@ private fun TasksTabRoute(
 private fun HabitsTabContent(
     rows: List<HabitRowUiModel>,
     totalHabitCount: Int,
+    searchActive: Boolean,
+    searchQuery: String,
+    onSearchQueryChange: (String) -> Unit,
+    onCloseSearch: () -> Unit,
+    onVisibleCountChange: (Int) -> Unit,
     onCardClick: (Task) -> Unit,
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
 ) {
     val buttonCount = calculateButtonCount()
     val listState = rememberLazyListState()
+    val keyboard = LocalSoftwareKeyboardController.current
+    val searchFocusRequester = remember { FocusRequester() }
+    val logger = remember { UnifiedLogger.getInstance() }
+
+    // Auto-focus + show keyboard when search opens, so the first keystroke is not
+    // swallowed by the IME connection handshake (results appear from char 1).
+    LaunchedEffect(searchActive) {
+        if (searchActive) {
+            searchFocusRequester.requestFocus()
+            keyboard?.show()
+        } else {
+            keyboard?.hide()
+        }
+    }
+
+    // Hide keyboard as soon as the user starts scrolling the results list.
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.isScrollInProgress }
+            .collect { scrolling ->
+                if (scrolling) keyboard?.hide()
+            }
+    }
+
+    val displayRows = remember(rows, searchQuery) {
+        val normalizedQuery = searchQuery.trim().lowercase()
+        if (normalizedQuery.isBlank()) {
+            rows
+        } else {
+            rows.filter { row -> row.task.matchesTaskSearch(normalizedQuery) }
+        }
+    }
+
+    LaunchedEffect(displayRows.size, searchQuery) {
+        onVisibleCountChange(displayRows.size)
+        if (searchActive) {
+            logger.d(
+                "TasksScreen.habitSearchFiltered",
+                "Habit search filter applied",
+                mapOf(
+                    "query" to searchQuery,
+                    "queryLength" to searchQuery.length,
+                    "inputRows" to rows.size,
+                    "matchedRows" to displayRows.size,
+                ),
+            )
+            PerfBaselineTelemetry.markEvent(
+                screen = "habits",
+                event = "search_filtered",
+                data = mapOf(
+                    "queryLength" to searchQuery.length,
+                    "inputRows" to rows.size,
+                    "matchedRows" to displayRows.size,
+                ),
+            )
+        }
+    }
 
     if (rows.isEmpty()) {
         Box(
@@ -700,34 +882,82 @@ private fun HabitsTabContent(
             }
         }
     } else {
-        LazyColumn(
-            state = listState,
-            modifier = Modifier.fillMaxSize(),
-            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(6.dp),
-            overscrollEffect = null,
-        ) {
-            // Date header as sticky header (stays pinned on scroll)
-            stickyHeader(key = "day_header") {
-                DayHeaderRow(buttonCount = buttonCount)
-            }
-            items(
-                items = rows,
-                key = { it.id },
-                contentType = { "habit_row" },
-            ) { row ->
-                HabitCard(
-                    task = row.task,
-                    checkmarks = row.checkmarks,
-                    onCardClick = { onCardClick(row.task) },
-                    onCheckmarkClick = { checkmark ->
-                        onCheckmarkClick(row.id, checkmark)
+        Column(modifier = Modifier.fillMaxSize()) {
+            if (searchActive) {
+                OutlinedTextField(
+                    value = searchQuery,
+                    onValueChange = onSearchQueryChange,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 4.dp)
+                        .focusRequester(searchFocusRequester),
+                    singleLine = true,
+                    label = { Text(stringResource(id = io.payanam.R.string.loc_search_habits)) },
+                    placeholder = { Text(stringResource(id = io.payanam.R.string.loc_search_habits_placeholder)) },
+                    leadingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.Search,
+                            contentDescription = null,
+                        )
                     },
-                    onCheckmarkLongClick = { checkmark ->
-                        onCheckmarkLongClick(row.id, checkmark)
+                    trailingIcon = {
+                        IconButton(onClick = onCloseSearch) {
+                            Icon(
+                                imageVector = Icons.Default.Close,
+                                contentDescription = stringResource(id = io.payanam.R.string.loc_clear_search),
+                            )
+                        }
                     },
-                    buttonCount = buttonCount,
+                    keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
+                    keyboardActions = KeyboardActions(
+                        onSearch = {
+                            // Live search on every keystroke; Enter just dismisses the keyboard.
+                            keyboard?.hide()
+                        },
+                    ),
                 )
+            }
+            if (displayRows.isEmpty()) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    Text(
+                        text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_habits_match_search),
+                        style = MaterialTheme.typography.titleMedium,
+                    )
+                }
+            } else {
+                LazyColumn(
+                    state = listState,
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(horizontal = 16.dp, vertical = 8.dp),
+                    verticalArrangement = Arrangement.spacedBy(6.dp),
+                    overscrollEffect = null,
+                ) {
+                    // Date header as sticky header (stays pinned on scroll)
+                    stickyHeader(key = "day_header") {
+                        DayHeaderRow(buttonCount = buttonCount)
+                    }
+                    items(
+                        items = displayRows,
+                        key = { it.id },
+                        contentType = { "habit_row" },
+                    ) { row ->
+                        HabitCard(
+                            task = row.task,
+                            checkmarks = row.checkmarks,
+                            onCardClick = { onCardClick(row.task) },
+                            onCheckmarkClick = { checkmark ->
+                                onCheckmarkClick(row.id, checkmark)
+                            },
+                            onCheckmarkLongClick = { checkmark ->
+                                onCheckmarkLongClick(row.id, checkmark)
+                            },
+                            buttonCount = buttonCount,
+                        )
+                    }
+                }
             }
         }
     }
@@ -954,20 +1184,6 @@ private fun taskFilterLabel(filter: TaskFilter): String = when (filter) {
     TaskFilter.COMPLETED -> stringResource(id = io.payanam.R.string.loc_completed)
     TaskFilter.ARCHIVED -> stringResource(id = io.payanam.R.string.loc_archived)
     TaskFilter.NOT_ACTIVE -> stringResource(id = io.payanam.R.string.loc_not_active)
-}
-
-private fun Task.matchesTaskSearch(query: String): Boolean {
-    if (query.isBlank()) return true
-    val searchableFields = listOfNotNull(
-        title,
-        description,
-        status,
-        lifeIntentionCategory,
-        dimensionId,
-        blockedReason,
-        externalDependency,
-    )
-    return searchableFields.any { field -> field.lowercase().contains(query) }
 }
 
 @Composable
