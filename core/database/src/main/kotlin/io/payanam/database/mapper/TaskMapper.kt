@@ -39,7 +39,6 @@ object TaskMapper {
             notificationMode = notificationMode,
             customNotificationMinutes = customNotificationMinutes,
             taskScore = taskScore,
-            currentScore = currentScore,
             lastOccurrenceDate = PersistedDateTime.parseOrDateStart(lastOccurrenceDate),
         )
 
@@ -72,7 +71,6 @@ object TaskMapper {
             notificationMode = notificationMode,
             customNotificationMinutes = customNotificationMinutes,
             taskScore = taskScore,
-            currentScore = currentScore,
             lastOccurrenceDate = lastOccurrenceDate?.let(PersistedDateTime::format),
         )
 }

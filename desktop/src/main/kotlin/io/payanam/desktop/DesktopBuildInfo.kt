@@ -4,9 +4,9 @@ package io.payanam.desktop
 
 object DesktopBuildInfo {
     const val PLATFORM = "Windows"
-    const val PLATFORM_BUILD_NUMBER = 615
-    const val OVERALL_BUILD_NUMBER = 2069
-    const val BUILD_TIMESTAMP = "20260414_160112"
-    const val VERSION_DISPLAY_NAME = "#W615 (20260414_160112)"
-    const val BUILD_NAME = "Payanam_Windows_615_20260414_160112"
+    const val PLATFORM_BUILD_NUMBER = 616
+    const val OVERALL_BUILD_NUMBER = 2165
+    const val BUILD_TIMESTAMP = "20260808_221149"
+    const val VERSION_DISPLAY_NAME = "#W616 (20260808_221149)"
+    const val BUILD_NAME = "Payanam_Windows_616_20260808_221149"
 }

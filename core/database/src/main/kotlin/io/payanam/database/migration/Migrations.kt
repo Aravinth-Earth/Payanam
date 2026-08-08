@@ -1051,3 +1051,121 @@ val MIGRATION_17_18 =
             }
         }
     }
+
+/**
+ * 18 → 19: drop the decay `currentScore` column from tasks.
+ * The score roll-up (Inc 3/4) replaced decay; consumers read L1 metrics
+ * directly (HabitMetricRepository). SQLite < 3.35 lacks DROP COLUMN, so
+ * rebuild the tasks table without the column (16→17 pattern).
+ */
+val MIGRATION_18_19 =
+    object : Migration(18, 19) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.18_19", "Dropping decay currentScore column from tasks")
+
+            try {
+                database.execSQL(
+                    """
+                    CREATE TABLE tasks_new (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        dueDate TEXT,
+                        createdAt TEXT NOT NULL,
+                        updatedAt TEXT NOT NULL,
+                        completedAt TEXT,
+                        archivedAt TEXT,
+                        recurrenceEnabled INTEGER NOT NULL DEFAULT 0,
+                        recurrenceRule TEXT,
+                        recurrenceStrategy TEXT,
+                        durationMinutes INTEGER NOT NULL DEFAULT 60,
+                        impactLevel TEXT NOT NULL DEFAULT 'Moderate Impact',
+                        goalAlignment TEXT NOT NULL DEFAULT 'Moderate Alignment',
+                        energyLevel TEXT NOT NULL DEFAULT 'Moderate',
+                        controlLevel TEXT NOT NULL DEFAULT 'Office/Colleagues Dependent',
+                        lifeIntentionCategory TEXT NOT NULL DEFAULT 'Career & Work',
+                        dimension_id TEXT,
+                        day_key TEXT,
+                        explicitUrgency REAL,
+                        focusRequired REAL,
+                        blockedReason TEXT,
+                        completionRate REAL,
+                        externalDependency TEXT,
+                        notificationMode TEXT,
+                        customNotificationMinutes INTEGER,
+                        taskScore REAL,
+                        lastOccurrenceDate TEXT,
+                        dayBoundaryHour INTEGER NOT NULL DEFAULT 0,
+                        import_source TEXT,
+                        import_id TEXT,
+                        imported_at TEXT,
+                        import_batch_id TEXT,
+                        FOREIGN KEY(dimension_id) REFERENCES life_dimensions(id),
+                        FOREIGN KEY(import_batch_id) REFERENCES import_batches(id)
+                    )
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    INSERT INTO tasks_new
+                        (id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
+                         recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
+                         energyLevel, controlLevel, lifeIntentionCategory, dimension_id, day_key,
+                         explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
+                         notificationMode, customNotificationMinutes, taskScore,
+                         lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id)
+                    SELECT
+                        id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
+                        recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
+                        energyLevel, controlLevel, lifeIntentionCategory, dimension_id, day_key,
+                        explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
+                        notificationMode, customNotificationMinutes, taskScore,
+                        lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id
+                    FROM tasks
+                    """.trimIndent(),
+                )
+
+                database.execSQL("DROP TABLE tasks")
+                database.execSQL("ALTER TABLE tasks_new RENAME TO tasks")
+
+                // Recreate indexes lost during the rename
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_dimension_id ON tasks(dimension_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_day_key ON tasks(day_key)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_import_batch_id ON tasks(import_batch_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_import_source_import_id ON tasks(import_source, import_id)")
+
+                // Post-migration verification: currentScore must be gone
+                val columns = mutableListOf<String>()
+                database.query("PRAGMA table_info(tasks)").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        columns += cursor.getString(1)
+                    }
+                }
+                if ("currentScore" in columns) {
+                    throw IllegalStateException("Migration 18→19 failed: currentScore column still present in tasks")
+                }
+
+                logger.i(
+                    "Migration.18_19",
+                    "tasks rebuilt without currentScore",
+                    mapOf(
+                        "columnCount" to columns.size,
+                        "currentScoreDropped" to true,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.18_19",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }

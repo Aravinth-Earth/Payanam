@@ -49,7 +49,6 @@ class ScoreRollupBackfillServiceTest {
         notificationMode = "auto",
         customNotificationMinutes = null,
         taskScore = null,
-        currentScore = 1.0,
         lastOccurrenceDate = null,
         dayBoundaryHour = 0,
         importSource = null,

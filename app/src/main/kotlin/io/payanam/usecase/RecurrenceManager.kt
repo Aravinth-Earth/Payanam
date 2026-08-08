@@ -203,7 +203,6 @@ class RecurrenceManager @Inject constructor(
                 taskRepository.updateRecurrenceState(
                     taskId = task.id,
                     newDueDate = newDueDate,
-                    newScore = task.currentScore,
                     lastOccurrenceDate = LocalDateTime.now(),
                 )
                 repairedCount++
@@ -245,7 +244,6 @@ class RecurrenceManager @Inject constructor(
                 "overdueDate" to overdueDate.toString(),
                 "effectiveToday" to effectiveToday.toString(),
                 "daysMissed" to daysMissed,
-                "currentScore" to task.currentScore,
             ),
         )
 
@@ -267,7 +265,6 @@ class RecurrenceManager @Inject constructor(
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = task.currentScore,
             lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
         )
 
@@ -312,7 +309,6 @@ class RecurrenceManager @Inject constructor(
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = task.currentScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
@@ -337,21 +333,12 @@ class RecurrenceManager @Inject constructor(
             return
         }
 
-        // In uHabits style, skipping applies decay
-        val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(
-            previousScore = task.currentScore,
-            completed = false, // Not completed = decay applies
-            frequency = frequency,
-        )
-        val newDueDate = calculateNextDueDate(task, nextDueStrategy)
-
-        // Decay scoring removed (Inc 3) — currentScore is now bridged from the
+        // Decay scoring removed (Inc 3) — currentScore is bridged from the
         // score roll-up L1 by ScoreRollupCascadeService; due-date advancement kept.
+        val newDueDate = calculateNextDueDate(task, nextDueStrategy)
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = task.currentScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
@@ -381,7 +368,6 @@ class RecurrenceManager @Inject constructor(
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = task.currentScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
@@ -606,18 +592,11 @@ class RecurrenceManager @Inject constructor(
             ?.atTime(reminderTime)
             ?: task.lastOccurrenceDate
             ?: LocalDateTime.now()
-        val newScore = RecurrenceScoreCalculator.calculateDerivedFrequencyScore(
-            occurrences = occurrenceMap,
-            frequency = frequencyRule,
-            anchorDate = anchorDate,
-            today = today,
-            seedScore = 1.0,
-        )
+        // Inc 4b: decay derived score removed — score roll-up (L1) owns scoring now.
 
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = latestOccurrenceDate,
         )
 
@@ -634,7 +613,6 @@ class RecurrenceManager @Inject constructor(
                 "effectiveTargetCount" to windowState.effectiveTargetCount,
                 "windowSatisfied" to windowState.isSatisfied,
                 "nextReminderDate" to newDueDate.toString(),
-                "derivedScore" to String.format("%.3f", newScore),
                 "currentStreak" to stats.currentStreak,
             ),
         )

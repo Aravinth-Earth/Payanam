@@ -99,7 +99,6 @@ internal class UhabitsImporter(
                     notificationMode = existingTask?.notificationMode ?: "auto",
                     customNotificationMinutes = existingTask?.customNotificationMinutes,
                     taskScore = existingTask?.taskScore,
-                    currentScore = existingTask?.currentScore ?: 1.0,
                     lastOccurrenceDate = existingTask?.lastOccurrenceDate,
                     importSource = IMPORT_SOURCE_UHABITS,
                     importId = importId,

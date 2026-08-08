@@ -37,9 +37,8 @@ import javax.inject.Singleton
  * "app unused for days/weeks" case: the gap appears as 0.0 rows on the
  * next open — no manual action needed.
  *
- * Bridge: tasks.currentScore is kept in sync with the habit's latest L1
- * runningAvg so existing UI consumers (HabitCard ring, sorting) keep
- * showing the new-model number until Inc 4 removes the column.
+ * Inc 4b: the currentScore bridge is removed — consumers read the L1
+ * metrics directly (HabitMetricRepository.getLatestPerHabit).
  *
  * Fully trace-logged: CASCADE_* and CATCHUP_* events for every
  * positive/edge/error outcome.
@@ -82,17 +81,6 @@ class ScoreRollupCascadeService
                     "CASCADE_L1_HABIT",
                     mapOf("taskId" to taskId, "tailRows" to rows.count { it.dayKey >= date.toString() }),
                 )
-
-                // ── Bridge: currentScore = latest L1 runningAvg ──────────
-                val latest = rows.maxByOrNull { it.dayKey }
-                if (latest != null) {
-                    taskDao.updateCurrentScore(taskId, latest.runningAvg, LocalDateTime.now().toString())
-                    logger.i(
-                        tag,
-                        "CASCADE_BRIDGE_SCORE",
-                        mapOf("taskId" to taskId, "bridgeScore" to latest.runningAvg),
-                    )
-                }
 
                 // ── L2: affected dimension tail ──────────────────────────
                 val dimensionId = task.dimensionId ?: "dim_unassigned"
@@ -157,11 +145,6 @@ class ScoreRollupCascadeService
                 val earliest = rows.minOfOrNull { it.dayKey } ?: LocalDate.now().toString()
                 habitDao.deleteFrom(taskId, "0000-01-01")
                 if (rows.isNotEmpty()) habitDao.upsertAll(rows)
-
-                val latest = rows.maxByOrNull { it.dayKey }
-                if (latest != null) {
-                    taskDao.updateCurrentScore(taskId, latest.runningAvg, LocalDateTime.now().toString())
-                }
 
                 // L2: rebuild the affected dimension fully (from its earliest member row).
                 val dimensionId = task.dimensionId ?: "dim_unassigned"

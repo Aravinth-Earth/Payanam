@@ -98,7 +98,7 @@ class ScoreRollupCascadeServiceTest {
     }
 
     @Test
-    fun `toggle today creates L1 row and bridges currentScore`() = runTest {
+    fun `toggle today creates L1 row`() = runTest {
         insertTask("h1")
         val today = LocalDate.now()
         insertOccurrence("h1", today)
@@ -109,8 +109,6 @@ class ScoreRollupCascadeServiceTest {
         assertTrue("L1 rows exist", rows.isNotEmpty())
         assertEquals(today.toString(), rows.last().dayKey)
         assertEquals(1.0, rows.last().score, 1e-9)
-        val task = db.taskDao().getTaskById("h1")
-        assertEquals(rows.last().runningAvg, task!!.currentScore, 1e-9) // bridge
     }
 
     @Test

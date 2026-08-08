@@ -15,6 +15,7 @@ import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.migration.MIGRATION_16_17
 import io.payanam.database.migration.MIGRATION_17_18
+import io.payanam.database.migration.MIGRATION_18_19
 import io.payanam.database.security.DatabaseEncryptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -115,7 +116,7 @@ class DatabaseSessionManager
                                 PayanamDatabase::class.java,
                                 PayanamDatabase.DATABASE_NAME,
                             ).setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-                            .addMigrations(MIGRATION_16_17, MIGRATION_17_18)
+                            .addMigrations(MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19)
                             .openHelperFactory(SupportFactory(bytes))
                             .build()
                     // Force open so SQLCipher validation happens now (throws on wrong passphrase)
