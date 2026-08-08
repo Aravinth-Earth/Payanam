@@ -40,6 +40,7 @@ import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.PayanamDatabase
+import io.payanam.database.backfill.ScoreRollupBackfillService
 import io.payanam.database.security.DatabaseArtifactJanitor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
@@ -87,6 +88,9 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var recurrenceManager: Lazy<RecurrenceManager>
+
+    @Inject
+    lateinit var scoreRollupBackfillService: Lazy<ScoreRollupBackfillService>
 
     @Inject
     lateinit var appSettingsRepository: Lazy<AppSettingsRepository>
@@ -465,6 +469,8 @@ class MainActivity : FragmentActivity() {
                     }
                     recurrenceManager.get().autoAdvanceRecurringTasks()
                     logger.i("MainActivity.onStart", "Auto-advanced recurring tasks")
+                    // One-time score roll-up backfill (rule conversion + L1/L2/L3)
+                    scoreRollupBackfillService.get().runIfNeeded()
                 } catch (e: CancellationException) {
                     logger.d("MainActivity.onStart", "Startup recurrence maintenance cancelled")
                     throw e
@@ -509,6 +515,13 @@ class MainActivity : FragmentActivity() {
                 "Passphrase unlocked with incomplete DB-init state; routing to mandatory DatabaseInit",
             )
             showDatabaseInit = true
+        } else {
+            // Cold boot with passphrase skips startup maintenance while the
+            // unlock gate is visible (onStart guard). Run it now that the DB
+            // session is open: recurrence auto-advance + one-time score
+            // roll-up backfill both depend on it.
+            logger.i("MainActivity.handlePostUnlockInitState", "DB unlocked; running startup maintenance")
+            runStartupMaintenance()
         }
     }
 

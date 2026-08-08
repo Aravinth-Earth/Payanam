@@ -998,6 +998,51 @@ class AppPreferencesViewModel @Inject constructor(
                     mapOf("distribution" to dimDist),
                 )
 
+                // ── 6. Score roll-up metric tables (actual DB read-back) ───
+                // Reads the v18 metric tables directly so the backfill result
+                // can be verified from the DB itself, not just write-path logs.
+                val metricTables = listOf("habit_metrics", "dimension_metrics", "day_metrics")
+                for (table in metricTables) {
+                    readableDb.query(
+                        """
+                        SELECT COUNT(*), MIN(dayKey), MAX(dayKey)
+                        FROM $table
+                        """.trimIndent(),
+                    ).use { cursor ->
+                        if (cursor.moveToNext()) {
+                            logger.i(
+                                logTag,
+                                "HABIT_SCORE_DIAGNOSTICS_METRIC_TABLE",
+                                mapOf(
+                                    "table" to table,
+                                    "rowCount" to cursor.getLong(0),
+                                    "minDayKey" to (cursor.getString(1) ?: "null"),
+                                    "maxDayKey" to (cursor.getString(2) ?: "null"),
+                                ),
+                            )
+                        }
+                    }
+                }
+                // Distinct habit/dimension coverage inside metric tables
+                readableDb.query("SELECT COUNT(DISTINCT habitId) FROM habit_metrics").use { cursor ->
+                    if (cursor.moveToNext()) {
+                        logger.i(
+                            logTag,
+                            "HABIT_SCORE_DIAGNOSTICS_METRIC_COVERAGE",
+                            mapOf("distinctHabitsInL1" to cursor.getLong(0)),
+                        )
+                    }
+                }
+                readableDb.query("SELECT COUNT(DISTINCT dimensionId) FROM dimension_metrics").use { cursor ->
+                    if (cursor.moveToNext()) {
+                        logger.i(
+                            logTag,
+                            "HABIT_SCORE_DIAGNOSTICS_METRIC_COVERAGE",
+                            mapOf("distinctDimensionsInL2" to cursor.getLong(0)),
+                        )
+                    }
+                }
+
                 logger.i(
                     logTag,
                     "HABIT_SCORE_DIAGNOSTICS_END",

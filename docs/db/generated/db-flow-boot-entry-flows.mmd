@@ -69,7 +69,7 @@ flowchart TD
     MIGRATION_DEFERRED[["Migration deferred (DB cannot open until upgraded)"]]
     MIGRATION_DEFERRED_ACTION{"User choice after migration deferred"}
     USER_STARTS_MIGRATION["User chooses Migrate"]
-    RUN_MIGRATIONS["Run stepwise migration chain (representative)"]
+    RUN_MIGRATIONS["Run stepwise migration chain - v18 adds habit_metrics, dimension_metrics and day_metrics tables"]
     MIGRATION_RESULT{"Migration completed successfully?"}
     MIGRATION_FAILED[["Migration failed"]]
     MIGRATION_FAILED_ACTION{"User choice after migration failure"}
@@ -144,6 +144,16 @@ flowchart TD
     SETTINGS_SECURITY_SCREEN[["Settings > Security - shows: session inactivity timeout config + biometric unlock toggle"]]
     SETTINGS_TIMEOUT_CHANGE["User changes inactivity timeout value"]
     SETTINGS_BIOMETRIC_TOGGLE{"User taps biometric unlock toggle"}
+    STARTUP_MAINTENANCE["Startup maintenance - repair stuck recurring tasks, auto-advance due dates, run score roll-up backfill"]
+    SCORE_BACKFILL_CHECK{"Score roll-up backfill guard check - is backfill already done"}
+    SCORE_BACKFILL_ALREADY_DONE["Backfill already done - skip (idempotent)"]
+    SCORE_BACKFILL_FRESH_CHECK{"Legacy-data check - any num/den rules or occurrences"}
+    SCORE_BACKFILL_FRESH_INSTALL["Fresh install - no legacy data - set guard and skip"]
+    SCORE_BACKFILL_L1["Backfill L1 - convert num/den rules to CONFIG, build sparse habit metric rows"]
+    SCORE_BACKFILL_L2["Backfill L2 - build dense dimension metric rows with carry-forward and weight normalization"]
+    SCORE_BACKFILL_L3["Backfill L3 - build dense day metric rows"]
+    SCORE_BACKFILL_SET_GUARD["Set backfill done guard key"]
+    SCORE_BACKFILL_FAILED["Backfill failed - log error, guard NOT set so next launch retries"]
     end
     subgraph SG_SHARED_RESET["Shared Reset Flow"]
         direction TB
@@ -625,6 +635,23 @@ flowchart TD
     IMPORT_UH_RESULT -->|resolved / No| IMPORT_UH_ERR
     IMPORT_UH_OK -->|dismiss| DATA_MGMT_HOME
     IMPORT_UH_ERR -->|dismiss| IMPORT_TYPE
+    INIT_ROOM -->|startup maintenance begins / DB session open and onStart gates clear or post-unlock init completed| STARTUP_MAINTENANCE
+    STARTUP_MAINTENANCE -->|complete| APP_RUNTIME_READY
+    STARTUP_MAINTENANCE -->|backfill| SCORE_BACKFILL_CHECK
+    SCORE_BACKFILL_CHECK -->|resolved / Guard key present| SCORE_BACKFILL_ALREADY_DONE
+    SCORE_BACKFILL_CHECK -->|resolved / Guard key absent| SCORE_BACKFILL_FRESH_CHECK
+    SCORE_BACKFILL_FRESH_CHECK -->|resolved / No legacy rules and no occurrences| SCORE_BACKFILL_FRESH_INSTALL
+    SCORE_BACKFILL_FRESH_CHECK -->|resolved / Legacy rules or occurrences exist| SCORE_BACKFILL_L1
+    SCORE_BACKFILL_L1 -->|complete| SCORE_BACKFILL_L2
+    SCORE_BACKFILL_L2 -->|complete| SCORE_BACKFILL_L3
+    SCORE_BACKFILL_L3 -->|complete| SCORE_BACKFILL_SET_GUARD
+    SCORE_BACKFILL_SET_GUARD -->|complete| SCORE_BACKFILL_ALREADY_DONE
+    SCORE_BACKFILL_L1 -->|failure / Exception thrown| SCORE_BACKFILL_FAILED
+    SCORE_BACKFILL_L2 -->|failure / Exception thrown| SCORE_BACKFILL_FAILED
+    SCORE_BACKFILL_L3 -->|failure / Exception thrown| SCORE_BACKFILL_FAILED
+    SCORE_BACKFILL_FAILED -->|complete| STARTUP_MAINTENANCE
+    SCORE_BACKFILL_ALREADY_DONE -->|complete| APP_RUNTIME_READY
+    SCORE_BACKFILL_FRESH_INSTALL -->|complete| APP_RUNTIME_READY
     linkStyle 4 stroke:#C62828,stroke-width:2px
     linkStyle 6 stroke:#1565C0,stroke-width:2px
     linkStyle 7 stroke:#EF6C00,stroke-width:2px
@@ -747,4 +774,8 @@ flowchart TD
     linkStyle 361 stroke:#C62828,stroke-width:2px
     linkStyle 366 stroke:#2E7D32,stroke-width:2px
     linkStyle 367 stroke:#C62828,stroke-width:2px
+    linkStyle 373 stroke:#1565C0,stroke-width:2px
+    linkStyle 374 stroke:#EF6C00,stroke-width:2px
+    linkStyle 375 stroke:#1565C0,stroke-width:2px
+    linkStyle 376 stroke:#EF6C00,stroke-width:2px
     style APP_UPDATE_REQUIRED fill:#B71C1C,color:#FFFFFF,stroke:#FFCDD2,stroke-width:2px

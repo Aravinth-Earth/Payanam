@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1534
-          versionName = "#1534 (20260808_164727)"
+          versionCode = 1541
+          versionName = "#1541 (20260808_184648)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
