@@ -18,6 +18,12 @@ interface DimensionMetricDao {
     @Query("DELETE FROM dimension_metrics WHERE dimensionId = :dimensionId AND dayKey >= :fromDay")
     suspend fun deleteFrom(dimensionId: String, fromDay: String)
 
+    @Query("SELECT * FROM dimension_metrics ORDER BY dayKey ASC")
+    fun observeAll(): Flow<List<DimensionMetricEntity>>
+
+    @Query("SELECT * FROM dimension_metrics")
+    suspend fun getAll(): List<DimensionMetricEntity>
+
     @Query("SELECT * FROM dimension_metrics WHERE dimensionId = :dimensionId ORDER BY dayKey ASC")
     fun observeForDimension(dimensionId: String): Flow<List<DimensionMetricEntity>>
 

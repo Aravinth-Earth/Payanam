@@ -112,6 +112,13 @@ interface TaskDao {
         updatedAt: String,
     )
 
+    @Query("UPDATE tasks SET currentScore = :score, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateCurrentScore(
+        id: String,
+        score: Double,
+        updatedAt: String,
+    )
+
     @Query(
         """
         UPDATE tasks

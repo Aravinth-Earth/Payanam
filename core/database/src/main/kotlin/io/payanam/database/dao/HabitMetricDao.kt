@@ -24,6 +24,9 @@ interface HabitMetricDao {
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     fun observeForHabit(habitId: String): Flow<List<HabitMetricEntity>>
 
+    @Query("SELECT * FROM habit_metrics")
+    suspend fun getAll(): List<HabitMetricEntity>
+
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     suspend fun latestBefore(habitId: String, dayKey: String): HabitMetricEntity?
 

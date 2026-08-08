@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.AppSettingsRepository
@@ -43,6 +44,7 @@ class TasksViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val recurrenceManager: RecurrenceManager,
     private val createTimeEntryForHabitUseCase: io.payanam.usecase.CreateTimeEntryForHabitUseCase,
+    private val scoreRollupCascadeService: ScoreRollupCascadeService,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TasksUiState())
@@ -405,7 +407,7 @@ class TasksViewModel @Inject constructor(
                     ),
                 )
                 refreshCheckmarksForTask(taskId)
-                updateTaskScoreAfterStatusChange(taskId)
+                scoreRollupCascadeService.recalcForStatusChange(taskId, date)
             } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.toggleCheckmark",
@@ -452,7 +454,7 @@ class TasksViewModel @Inject constructor(
                     ),
                 )
                 refreshCheckmarksForTask(task.id)
-                updateTaskScoreAfterStatusChange(task.id)
+                scoreRollupCascadeService.recalcForStatusChange(task.id, date)
                 createTimeEntryForHabitUseCase(task, actualCompletedAt, actualDurationMinutes)
                 dismissCompletionDialog()
             } catch (e: Exception) {
@@ -511,7 +513,7 @@ class TasksViewModel @Inject constructor(
                     )
                 }
                 refreshCheckmarksForTask(taskId)
-                updateTaskScoreAfterStatusChange(taskId)
+                scoreRollupCascadeService.recalcForStatusChange(taskId, date)
             } catch (e: Exception) {
                 logger.e("TasksViewModel.updateCheckmark", "Failed to update checkmark", e)
             }
@@ -553,49 +555,6 @@ class TasksViewModel @Inject constructor(
             }
         } catch (e: Exception) {
             logger.e("TasksViewModel.refreshCheckmarksForTask", "Failed to refresh checkmarks", e)
-        }
-    }
-    private suspend fun updateTaskScoreAfterStatusChange(taskId: String) {
-        if (!FeatureFlags.scoringEnabled) return
-        try {
-            val task = taskRepository.getTaskById(taskId) ?: return
-            if (!task.recurrenceEnabled) return
-            if (recurrenceManager.isFrequencyHabit(task)) {
-                recurrenceManager.refreshFrequencyHabitState(taskId)
-                refreshRecurringTasksList()
-                return
-            }
-            val occurrences = taskOccurrenceRepository.getOccurrencesForLastNDays(taskId, 30)
-            val completedCount = occurrences.count { it.status == "completed" }
-            val totalWithStatus = occurrences.count { it.status in listOf("completed", "missed", "skipped") }
-            val completionRate = if (totalWithStatus > 0) {
-                completedCount.toDouble() / totalWithStatus
-            } else {
-                0.5 // Default to 50% if no history
-            }
-            val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-            val baseScore = RecurrenceScoreCalculator.calculateNewScore(
-                previousScore = task.currentScore,
-                completed = occurrences.any { it.status == "completed" && it.occurrenceDate.startsWith(LocalDate.now().toString()) },
-                frequency = frequency,
-            )
-            val newScore = (baseScore * 0.7 + completionRate * 0.3).coerceIn(0.0, 1.0)
-            taskRepository.updateTaskScore(taskId, newScore)
-            logger.i(
-                "TasksViewModel.updateTaskScoreAfterStatusChange",
-                "Score recalculated",
-                mapOf(
-                    "taskId" to taskId,
-                    "oldScore" to String.format("%.2f", task.currentScore),
-                    "newScore" to String.format("%.2f", newScore),
-                    "completionRate" to String.format("%.2f", completionRate),
-                    "completedCount" to completedCount,
-                    "totalOccurrences" to totalWithStatus,
-                ),
-            )
-            refreshRecurringTasksList()
-        } catch (e: Exception) {
-            logger.e("TasksViewModel.updateTaskScoreAfterStatusChange", "Failed to update score", e)
         }
     }
     private suspend fun refreshRecurringTasksList() {
@@ -874,7 +833,7 @@ class TasksViewModel @Inject constructor(
                         }
                     }
                     refreshCheckmarksForTask(taskId)
-                    updateTaskScoreAfterStatusChange(taskId)
+                    scoreRollupCascadeService.recalcForStatusChange(taskId, LocalDate.now())
                 } else {
                     notificationScheduler.cancelForTask(taskId)
                 }

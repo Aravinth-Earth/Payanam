@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskInput
 import io.payanam.domain.repository.TagRepository
@@ -38,6 +39,7 @@ class EditTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val tagRepository: TagRepository,
     private val notificationScheduler: NotificationScheduler,
+    private val scoreRollupCascadeService: ScoreRollupCascadeService,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
@@ -144,8 +146,16 @@ class EditTaskViewModel @Inject constructor(
                     mapOf("taskId" to taskId, "tagCount" to input.tags.size),
                 )
 
-                // Recalculate and update score
-                if (FeatureFlags.scoringEnabled) {
+                // Rebuild score roll-up for rule/dimension changes (Inc 3):
+                // stale grid rows are removed and L1/L2/L3 recomputed.
+                if (updatedTask.recurrenceEnabled) {
+                    scoreRollupCascadeService.recalcForRuleChange(taskId)
+                    logger.d(
+                        "EditTaskViewModel.updateTask",
+                        "Score roll-up rebuilt after task update",
+                        mapOf("taskId" to taskId),
+                    )
+                } else if (FeatureFlags.scoringEnabled) {
                     val score = ElegantTaskScoring.calculateScore(updatedTask)
                     taskRepository.updateTaskScore(taskId, score)
                     logger.d(

@@ -1247,6 +1247,66 @@
    "id": "SCORE_BACKFILL_FAILED",
    "label": "Backfill failed - log error, guard NOT set so next launch retries",
    "type": "process"
+  },
+  {
+   "id": "CASCADE_RECALC",
+   "label": "Cascade recalc on checkmark toggle - rebuild habit L1 tail, dimension L2 tail, day L3 tail",
+   "type": "process"
+  },
+  {
+   "id": "CASCADE_L1_HABIT",
+   "label": "Rebuild habit L1 tail from toggled day onward, bridge currentScore to latest runningAvg",
+   "type": "process"
+  },
+  {
+   "id": "CASCADE_L2_DIMENSION",
+   "label": "Rebuild affected dimension L2 tail with equal-weight carry-forward",
+   "type": "process"
+  },
+  {
+   "id": "CASCADE_L3_DAY",
+   "label": "Rebuild day L3 tail",
+   "type": "process"
+  },
+  {
+   "id": "CASCADE_DONE",
+   "label": "Cascade complete - return to app runtime",
+   "type": "process"
+  },
+  {
+   "id": "CASCADE_FAILED",
+   "label": "Cascade failed - log error, UI unaffected",
+   "type": "process"
+  },
+  {
+   "id": "CATCHUP_CHECK",
+   "label": "Startup catch-up - compare stored max dayKey vs computed timeline through yesterday",
+   "type": "decision"
+  },
+  {
+   "id": "CATCHUP_L1_EXTEND",
+   "label": "Extend habit L1 tails through yesterday - missed gap days score 0.0, logged 1.0",
+   "type": "process"
+  },
+  {
+   "id": "CATCHUP_L2_L3_REFRESH",
+   "label": "Refresh affected dimension L2 and day L3 tails",
+   "type": "process"
+  },
+  {
+   "id": "CATCHUP_NO_GAP",
+   "label": "No lagging habits - catch-up skipped",
+   "type": "process"
+  },
+  {
+   "id": "CATCHUP_DONE",
+   "label": "Catch-up complete - return to app runtime",
+   "type": "process"
+  },
+  {
+   "id": "CATCHUP_FAILED",
+   "label": "Catch-up failed - log error, retry next launch",
+   "type": "process"
   }
  ],
  "transitions": [
@@ -4345,6 +4405,166 @@
    "guard": "",
    "action": "Return to app runtime",
    "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TCS001",
+   "from": "APP_RUNTIME_READY",
+   "trigger": "user toggles checkmark on a recurring habit",
+   "guard": "Habit recurrenceEnabled and session open",
+   "action": "Occurrence status persisted, then cascade recalc",
+   "to": "CASCADE_RECALC"
+  },
+  {
+   "id": "TCS002",
+   "from": "CASCADE_RECALC",
+   "trigger": "start",
+   "guard": "",
+   "action": "Rebuild habit L1 tail from toggled day onward",
+   "to": "CASCADE_L1_HABIT"
+  },
+  {
+   "id": "TCS003",
+   "from": "CASCADE_L1_HABIT",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Bridge currentScore to latest L1 runningAvg, rebuild dimension tail",
+   "to": "CASCADE_L2_DIMENSION"
+  },
+  {
+   "id": "TCS004",
+   "from": "CASCADE_L2_DIMENSION",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Rebuild day L3 tail",
+   "to": "CASCADE_L3_DAY"
+  },
+  {
+   "id": "TCS005",
+   "from": "CASCADE_L3_DAY",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Log CASCADE_END",
+   "to": "CASCADE_DONE"
+  },
+  {
+   "id": "TCS006",
+   "from": "CASCADE_DONE",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Return to app runtime",
+   "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TCS007",
+   "from": "CASCADE_L1_HABIT",
+   "trigger": "failure",
+   "guard": "Exception",
+   "action": "Log CASCADE_FAILED, no guard, UI unaffected",
+   "to": "CASCADE_FAILED"
+  },
+  {
+   "id": "TCS008",
+   "from": "CASCADE_L2_DIMENSION",
+   "trigger": "failure",
+   "guard": "Exception",
+   "action": "Log CASCADE_FAILED, no guard, UI unaffected",
+   "to": "CASCADE_FAILED"
+  },
+  {
+   "id": "TCS009",
+   "from": "CASCADE_L3_DAY",
+   "trigger": "failure",
+   "guard": "Exception",
+   "action": "Log CASCADE_FAILED, no guard, UI unaffected",
+   "to": "CASCADE_FAILED"
+  },
+  {
+   "id": "TCS010",
+   "from": "CASCADE_FAILED",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Return to runtime",
+   "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TCS020",
+   "from": "STARTUP_MAINTENANCE",
+   "trigger": "catch-up",
+   "guard": "Backfill guard already set",
+   "action": "Compare stored max dayKey vs computed timeline through yesterday per habit",
+   "to": "CATCHUP_CHECK"
+  },
+  {
+   "id": "TCS021",
+   "from": "CATCHUP_CHECK",
+   "trigger": "resolved",
+   "guard": "Any habit lags behind",
+   "action": "Extend lagging habit L1 tails with 0.0 for missed gap days",
+   "to": "CATCHUP_L1_EXTEND"
+  },
+  {
+   "id": "TCS022",
+   "from": "CATCHUP_CHECK",
+   "trigger": "resolved",
+   "guard": "No habit lags",
+   "action": "Log CATCHUP_NO_GAP",
+   "to": "CATCHUP_NO_GAP"
+  },
+  {
+   "id": "TCS023",
+   "from": "CATCHUP_L1_EXTEND",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Refresh affected dimension L2 and day L3 tails",
+   "to": "CATCHUP_L2_L3_REFRESH"
+  },
+  {
+   "id": "TCS024",
+   "from": "CATCHUP_L2_L3_REFRESH",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Log CATCHUP_END",
+   "to": "CATCHUP_DONE"
+  },
+  {
+   "id": "TCS025",
+   "from": "CATCHUP_L1_EXTEND",
+   "trigger": "failure",
+   "guard": "Exception",
+   "action": "Log CATCHUP_FAILED, retry next launch",
+   "to": "CATCHUP_FAILED"
+  },
+  {
+   "id": "TCS026",
+   "from": "CATCHUP_L2_L3_REFRESH",
+   "trigger": "failure",
+   "guard": "Exception",
+   "action": "Log CATCHUP_FAILED, retry next launch",
+   "to": "CATCHUP_FAILED"
+  },
+  {
+   "id": "TCS027",
+   "from": "CATCHUP_NO_GAP",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Return to app runtime",
+   "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TCS028",
+   "from": "CATCHUP_DONE",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Return to app runtime",
+   "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TCS029",
+   "from": "CATCHUP_FAILED",
+   "trigger": "complete",
+   "guard": "",
+   "action": "Return to runtime, retry next launch",
+   "to": "STARTUP_MAINTENANCE"
   }
  ]
 }

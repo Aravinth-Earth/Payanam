@@ -51,6 +51,7 @@ class ScoreRollupBackfillService
     @Inject
     constructor(
         private val sessionManager: DatabaseSessionManager,
+        private val cascadeService: ScoreRollupCascadeService,
     ) {
         private val logger = UnifiedLogger.getInstance()
 
@@ -85,8 +86,12 @@ class ScoreRollupBackfillService
 
             /**
              * L1: sparse due-day rows for one habit. Returns (rows, firstDue, convertedRule).
-             * Today is NOT scored (stays pending). Off-grid completions are NOT counted
-             * (strict-grid semantics — user decision).
+             * Today is NOT scored by default (stays pending). Off-grid completions are NOT
+             * counted (strict-grid semantics — user decision).
+             *
+             * [includeToday] — cascade mode: when true, today gets a row ONLY if an
+             * occurrence is logged for today (completed/skipped/missed). Un-logged
+             * today stays pending (no row).
              *
              * Edge case: a habit with zero occurrences still gets its rule converted
              * (anchor = createdAt date fallback) so the live cascade (Inc 3) never
@@ -95,12 +100,16 @@ class ScoreRollupBackfillService
             internal fun buildHabitMetrics(
                 task: TaskEntity,
                 occurrences: List<TaskOccurrenceEntity>,
+                includeToday: Boolean = false,
             ): Triple<List<HabitMetricEntity>, LocalDate?, String?> {
                 if (task.recurrenceEnabled != 1) return Triple(emptyList(), null, null)
 
                 val occByDate = occurrences
                     .filter { it.status == "completed" || it.status == "skipped" }
                     .associateBy { it.dueDate.take(10) }
+                // Any occurrence today (any status) — controls whether today
+                // gets a row in cascade mode (includeToday=true).
+                val todayLogged = occurrences.any { it.dueDate.take(10) == LocalDate.now().toString() }
 
                 val firstDue = occurrences
                     .mapNotNull { parseLocalDate(it.dueDate) }
@@ -124,7 +133,8 @@ class ScoreRollupBackfillService
                 var posContinue = 0
 
                 var day = firstDueDay
-                while (day.isBefore(today)) { // today stays pending
+                val loopEnd = if (includeToday && todayLogged) today.plusDays(1) else today
+                while (day.isBefore(loopEnd)) { // today stays pending unless logged (cascade)
                     if (config.isScheduledDay(day)) {
                         val score = if (occByDate[day.toString()] != null) 1.0 else 0.0
                         sumScores += score
@@ -167,11 +177,13 @@ class ScoreRollupBackfillService
              * Equal weights within a dimension (no per-habit weights in Payanam yet);
              * carry-forward of each habit's last known score for non-due days;
              * first-due exclusion (habit not yet started contributes nothing).
+             * [includeToday] — cascade mode: also emit today's row (today logged).
              */
             internal fun buildDimensionMetrics(
                 recurring: List<TaskEntity>,
                 firstDuePerHabit: Map<String, LocalDate>,
                 habitRows: List<HabitMetricEntity>,
+                includeToday: Boolean = false,
             ): List<DimensionMetricEntity> {
                 if (habitRows.isEmpty()) return emptyList()
 
@@ -191,6 +203,7 @@ class ScoreRollupBackfillService
                     val weight = 1.0 / habits.size
                     val earliest = habits.mapNotNull { firstDuePerHabit[it.id] }.minOrNull() ?: continue
                     val today = LocalDate.now()
+                    val loopEnd = if (includeToday) today.plusDays(1) else today
 
                     var day = earliest
                     var sumScores = 0.0
@@ -200,7 +213,7 @@ class ScoreRollupBackfillService
                     var streakNet = 0
                     var posContinue = 0
 
-                    while (day.isBefore(today)) {
+                    while (day.isBefore(loopEnd)) {
                         var dimScoreNumerator = 0.0
                         var weightSum = 0.0
                         for (habit in habits) {
@@ -297,7 +310,11 @@ class ScoreRollupBackfillService
             val db = sessionManager.requireDatabase()
             val settingsDao = db.appSettingsDao()
             if (settingsDao.getSetting(BACKFILL_DONE_KEY) != null) {
-                logger.d("ScoreRollupBackfillService.runIfNeeded", "Backfill already done; skipping")
+                // Backfill already done — run the daily catch-up instead:
+                // extend every habit's L1 through yesterday (missed gap → 0.0,
+                // logged → 1.0), then refresh L2/L3 tails.
+                logger.d("ScoreRollupBackfillService.runIfNeeded", "Backfill already done; running catch-up")
+                cascadeService.catchUpTail()
                 return
             }
 

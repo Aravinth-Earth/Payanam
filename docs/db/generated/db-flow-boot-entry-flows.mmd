@@ -154,6 +154,18 @@ flowchart TD
     SCORE_BACKFILL_L3["Backfill L3 - build dense day metric rows"]
     SCORE_BACKFILL_SET_GUARD["Set backfill done guard key"]
     SCORE_BACKFILL_FAILED["Backfill failed - log error, guard NOT set so next launch retries"]
+    CASCADE_RECALC["Cascade recalc on checkmark toggle - rebuild habit L1 tail, dimension L2 tail, day L3 tail"]
+    CASCADE_L1_HABIT["Rebuild habit L1 tail from toggled day onward, bridge currentScore to latest runningAvg"]
+    CASCADE_L2_DIMENSION["Rebuild affected dimension L2 tail with equal-weight carry-forward"]
+    CASCADE_L3_DAY["Rebuild day L3 tail"]
+    CASCADE_DONE["Cascade complete - return to app runtime"]
+    CASCADE_FAILED["Cascade failed - log error, UI unaffected"]
+    CATCHUP_CHECK{"Startup catch-up - compare stored max dayKey vs computed timeline through yesterday"}
+    CATCHUP_L1_EXTEND["Extend habit L1 tails through yesterday - missed gap days score 0.0, logged 1.0"]
+    CATCHUP_L2_L3_REFRESH["Refresh affected dimension L2 and day L3 tails"]
+    CATCHUP_NO_GAP["No lagging habits - catch-up skipped"]
+    CATCHUP_DONE["Catch-up complete - return to app runtime"]
+    CATCHUP_FAILED["Catch-up failed - log error, retry next launch"]
     end
     subgraph SG_SHARED_RESET["Shared Reset Flow"]
         direction TB
@@ -652,6 +664,26 @@ flowchart TD
     SCORE_BACKFILL_FAILED -->|complete| STARTUP_MAINTENANCE
     SCORE_BACKFILL_ALREADY_DONE -->|complete| APP_RUNTIME_READY
     SCORE_BACKFILL_FRESH_INSTALL -->|complete| APP_RUNTIME_READY
+    APP_RUNTIME_READY -->|user toggles checkmark on a recurring habit / Habit recurrenceEnabled and session open| CASCADE_RECALC
+    CASCADE_RECALC -->|start| CASCADE_L1_HABIT
+    CASCADE_L1_HABIT -->|complete| CASCADE_L2_DIMENSION
+    CASCADE_L2_DIMENSION -->|complete| CASCADE_L3_DAY
+    CASCADE_L3_DAY -->|complete| CASCADE_DONE
+    CASCADE_DONE -->|complete| APP_RUNTIME_READY
+    CASCADE_L1_HABIT -->|failure / Exception| CASCADE_FAILED
+    CASCADE_L2_DIMENSION -->|failure / Exception| CASCADE_FAILED
+    CASCADE_L3_DAY -->|failure / Exception| CASCADE_FAILED
+    CASCADE_FAILED -->|complete| APP_RUNTIME_READY
+    STARTUP_MAINTENANCE -->|catch-up / Backfill guard already set| CATCHUP_CHECK
+    CATCHUP_CHECK -->|resolved / Any habit lags behind| CATCHUP_L1_EXTEND
+    CATCHUP_CHECK -->|resolved / No habit lags| CATCHUP_NO_GAP
+    CATCHUP_L1_EXTEND -->|complete| CATCHUP_L2_L3_REFRESH
+    CATCHUP_L2_L3_REFRESH -->|complete| CATCHUP_DONE
+    CATCHUP_L1_EXTEND -->|failure / Exception| CATCHUP_FAILED
+    CATCHUP_L2_L3_REFRESH -->|failure / Exception| CATCHUP_FAILED
+    CATCHUP_NO_GAP -->|complete| APP_RUNTIME_READY
+    CATCHUP_DONE -->|complete| APP_RUNTIME_READY
+    CATCHUP_FAILED -->|complete| STARTUP_MAINTENANCE
     linkStyle 4 stroke:#C62828,stroke-width:2px
     linkStyle 6 stroke:#1565C0,stroke-width:2px
     linkStyle 7 stroke:#EF6C00,stroke-width:2px
@@ -778,4 +810,6 @@ flowchart TD
     linkStyle 374 stroke:#EF6C00,stroke-width:2px
     linkStyle 375 stroke:#1565C0,stroke-width:2px
     linkStyle 376 stroke:#EF6C00,stroke-width:2px
+    linkStyle 398 stroke:#1565C0,stroke-width:2px
+    linkStyle 399 stroke:#EF6C00,stroke-width:2px
     style APP_UPDATE_REQUIRED fill:#B71C1C,color:#FFFFFF,stroke:#FFCDD2,stroke-width:2px
