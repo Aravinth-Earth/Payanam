@@ -27,6 +27,22 @@ interface HabitMetricDao {
     @Query("SELECT * FROM habit_metrics")
     suspend fun getAll(): List<HabitMetricEntity>
 
+    /**
+     * Latest metric row per habit (one row per habitId — the current L1 state).
+     * SQLite picks an arbitrary row per group; since runningAvg/progress/streaks
+     * are cumulative, the MAX(dayKey) row IS the latest state. Use a subquery
+     * to make it deterministic.
+     */
+    @Query(
+        """
+        SELECT hm.* FROM habit_metrics hm
+        INNER JOIN (
+            SELECT habitId, MAX(dayKey) AS maxDay FROM habit_metrics GROUP BY habitId
+        ) latest ON latest.habitId = hm.habitId AND latest.maxDay = hm.dayKey
+        """,
+    )
+    suspend fun getLatestPerHabit(): List<HabitMetricEntity>
+
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     suspend fun latestBefore(habitId: String, dayKey: String): HabitMetricEntity?
 

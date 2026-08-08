@@ -117,6 +117,7 @@ fun TaskDetailScreen(
                     rescheduleHistory = uiState.rescheduleHistory,
                     isLoadingReschedules = uiState.isLoadingReschedules,
                     completionStats = uiState.completionStats,
+                    latestL1 = uiState.latestL1,
                     onComplete = { currentStatusAction = StatusAction.COMPLETE },
                     onSkip = { currentStatusAction = StatusAction.SKIP },
                     onMiss = { currentStatusAction = StatusAction.MISS },

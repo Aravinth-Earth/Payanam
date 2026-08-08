@@ -33,6 +33,7 @@ data class TaskDetailUiState(
     val rescheduleHistory: List<TaskReschedule> = emptyList(),
     val isLoadingReschedules: Boolean = false,
     val completionStats: CompletionStats? = null,
+    val latestL1: io.payanam.domain.model.HabitL1Summary? = null,
 
     // Dialog states
     val showStatusNoteDialog: Boolean = false,
@@ -47,6 +48,7 @@ class TaskDetailViewModel @Inject constructor(
     private val taskRescheduleRepository: TaskRescheduleRepository,
     private val notificationScheduler: NotificationScheduler,
     private val recurrenceManager: RecurrenceManager,
+    private val habitMetricRepository: io.payanam.domain.repository.HabitMetricRepository,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
@@ -62,9 +64,16 @@ class TaskDetailViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 val task = taskRepository.getTaskById(taskId)
+                // Inc 4: latest L1 score roll-up state (6 metrics) for the detail card
+                val latestL1 = if (task?.recurrenceEnabled == true) {
+                    runCatching { habitMetricRepository.getLatestForHabit(taskId) }.getOrNull()
+                } else {
+                    null
+                }
                 _uiState.update {
                     it.copy(
                         task = task,
+                        latestL1 = latestL1,
                         isLoading = false,
                         error = null,
                     )
@@ -85,7 +94,6 @@ class TaskDetailViewModel @Inject constructor(
                         "taskId" to taskId,
                         "found" to (task != null),
                         "recurring" to (task?.recurrenceEnabled ?: false),
-                        "currentScore" to (task?.currentScore ?: 0.0),
                     ),
                 )
             } catch (e: Exception) {

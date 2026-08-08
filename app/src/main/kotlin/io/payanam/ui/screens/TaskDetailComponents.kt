@@ -71,6 +71,7 @@ internal fun TaskDetailContent(
     rescheduleHistory: List<TaskReschedule>,
     isLoadingReschedules: Boolean,
     completionStats: CompletionStats?,
+    latestL1: io.payanam.domain.model.HabitL1Summary? = null,
     onComplete: () -> Unit,
     onSkip: () -> Unit,
     onMiss: () -> Unit,
@@ -320,10 +321,11 @@ internal fun TaskDetailContent(
             // Score and Completion Stats Card
             if (FeatureFlags.scoringEnabled) {
                 RecurrenceScoreCard(
-                    currentScore = task.currentScore,
+                    currentScore = latestL1?.runningAvg ?: 0.0,
                     completionStats = completionStats,
                     occurrenceHistory = occurrenceHistory,
                     recurrenceRule = recurrenceRule,
+                    latestL1 = latestL1,
                 )
             }
 

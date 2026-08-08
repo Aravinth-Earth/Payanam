@@ -170,6 +170,7 @@ internal fun RecurrenceScoreCard(
     completionStats: CompletionStats?,
     occurrenceHistory: List<TaskOccurrence>,
     recurrenceRule: String?,
+    latestL1: io.payanam.domain.model.HabitL1Summary? = null,
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -273,46 +274,25 @@ internal fun RecurrenceScoreCard(
                     StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_30_days), "${(stats.completionRate30Days * 100).toInt()}%")
                     StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_90_days), "${(stats.completionRate90Days * 100).toInt()}%")
                 }
+            }
 
-                // Streak info
-                if (stats.currentStreak > 0 || stats.longestStreak > 0) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceEvenly,
-                    ) {
-                        if (stats.currentStreak > 0) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_text), style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    text = androidx.compose.ui.res.stringResource(
-                                        id = io.payanam.R.string.loc_day_streak_value,
-                                        stats.currentStreak,
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                    fontWeight = FontWeight.Medium,
-                                )
-                            }
-                        }
-                        if (stats.longestStreak > stats.currentStreak) {
-                            Row(
-                                verticalAlignment = Alignment.CenterVertically,
-                                horizontalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_text_2), style = MaterialTheme.typography.titleMedium)
-                                Text(
-                                    text = androidx.compose.ui.res.stringResource(
-                                        id = io.payanam.R.string.loc_best_streak,
-                                        stats.longestStreak,
-                                    ),
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                            }
-                        }
-                    }
+            // Score roll-up metrics (Inc 4) — the 6 self-gov metrics
+            latestL1?.let { l1 ->
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_metric_running_avg), "${(l1.runningAvg * 100).toInt()}%")
+                    StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_lens_time_progress_label), formatProgress(l1.progress))
+                    StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_lens_time_streak_label), "${l1.streakPos}d")
+                }
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceEvenly,
+                ) {
+                    StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_metric_net_streak), "${l1.streakNet}d")
+                    StatColumn(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_metric_consistency), "${l1.posContinue}d")
                 }
             }
 
@@ -323,6 +303,12 @@ internal fun RecurrenceScoreCard(
             )
         }
     }
+}
+
+@Composable
+private fun formatProgress(progress: Double): String {
+    val pct = (progress * 100).toInt()
+    return if (pct > 0) "+$pct%" else "$pct%"
 }
 
 @Composable

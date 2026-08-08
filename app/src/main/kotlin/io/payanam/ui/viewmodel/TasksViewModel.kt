@@ -45,6 +45,7 @@ class TasksViewModel @Inject constructor(
     private val recurrenceManager: RecurrenceManager,
     private val createTimeEntryForHabitUseCase: io.payanam.usecase.CreateTimeEntryForHabitUseCase,
     private val scoreRollupCascadeService: ScoreRollupCascadeService,
+    private val habitMetricRepository: io.payanam.domain.repository.HabitMetricRepository,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TasksUiState())
@@ -207,6 +208,10 @@ class TasksViewModel @Inject constructor(
                     )
                     val checkmarkBuildStart = System.currentTimeMillis()
                     val taskIds = recurringSource.map { it.id }
+                    // Inc 4: latest L1 score roll-up state per habit (sort + card ring).
+                    // Fetched on the real load path (loadTasks), not the dead
+                    // refreshRecurringTasksList path.
+                    val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
                     val occurrencesMap = if (taskIds.isNotEmpty()) {
                         PerfBaselineTelemetry.incrementQuery(screen = "habits", source = "getOccurrencesForTasksInLastNDays")
                         taskOccurrenceRepository.getOccurrencesForTasksInLastNDays(taskIds, 14)
@@ -232,6 +237,7 @@ class TasksViewModel @Inject constructor(
                             state.habitSortOption,
                             checkmarkPayload.taskCheckmarks,
                             checkmarkPayload.todayStatusByTaskId,
+                            latestL1,
                         )
                         val visibleRecurring = visibleHabitsForDisplay(
                             habits = sortedRecurring,
@@ -246,6 +252,7 @@ class TasksViewModel @Inject constructor(
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             showCompletedHabits = state.showCompletedHabits,
                             hideAllMarkedToday = state.hideAllMarkedToday,
+                            latestL1ByHabit = latestL1,
                         )
                         val filteredTaskRows = TasksRowCacheManager.buildTaskRows(filteredOneTime)
                         val filterCounts = buildTaskFilterCounts(
@@ -294,6 +301,7 @@ class TasksViewModel @Inject constructor(
                             filteredTaskRows = preparedState.filteredTaskRows,
                             taskFilterCounts = preparedState.filterCounts,
                             taskCheckmarks = checkmarkPayload.taskCheckmarks,
+                            latestL1ByHabit = latestL1,
                             todayHabitStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             isLoading = false,
                             error = null,
@@ -525,6 +533,10 @@ class TasksViewModel @Inject constructor(
             val occurrences = taskOccurrenceRepository.getOccurrencesForLastNDays(taskId, 14)
             val checkmarks = buildCheckmarksForTask(occurrences = occurrences, today = today, days = 14)
             val todayStatus = checkmarks.firstOrNull()?.status ?: CheckmarkStatus.UNKNOWN
+            // Inc 4: refresh the L1 map after a toggle so the ring/sort follow
+            // the just-updated metric.
+            val fallbackL1 = _uiState.value.latestL1ByHabit
+            val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(fallbackL1)
             _uiState.update { state ->
                 val updatedCheckmarks = state.taskCheckmarks + (taskId to checkmarks)
                 val updatedTodayStatus = state.todayHabitStatusByTaskId + (taskId to todayStatus)
@@ -533,8 +545,10 @@ class TasksViewModel @Inject constructor(
                     state.habitSortOption,
                     updatedCheckmarks,
                     updatedTodayStatus,
+                    latestL1,
                 )
                 state.copy(
+                    latestL1ByHabit = latestL1,
                     taskCheckmarks = updatedCheckmarks,
                     todayHabitStatusByTaskId = updatedTodayStatus,
                     recurringTasks = sortedRecurring,
@@ -566,14 +580,18 @@ class TasksViewModel @Inject constructor(
             } else {
                 allTasks.filter { it.status != "archived" && it.recurrenceEnabled }
             }
+            // Inc 4: latest L1 score roll-up state per habit (sort + card ring)
+            val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
             _uiState.update { state ->
                 val sortedRecurring = sortHabits(
                     recurring,
                     state.habitSortOption,
                     state.taskCheckmarks,
                     state.todayHabitStatusByTaskId,
+                    latestL1,
                 )
                 state.copy(
+                    latestL1ByHabit = latestL1,
                     recurringTasks = sortedRecurring,
                     visibleRecurringTasks = visibleHabitsForDisplay(
                         habits = sortedRecurring,
@@ -587,6 +605,7 @@ class TasksViewModel @Inject constructor(
                         todayStatusByTaskId = state.todayHabitStatusByTaskId,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        latestL1ByHabit = latestL1,
                     ),
                 )
             }
@@ -714,7 +733,7 @@ class TasksViewModel @Inject constructor(
             }
         }
         _uiState.update { state ->
-            val sorted = sortHabits(state.recurringTasks, option, state.taskCheckmarks, state.todayHabitStatusByTaskId)
+            val sorted = sortHabits(state.recurringTasks, option, state.taskCheckmarks, state.todayHabitStatusByTaskId, state.latestL1ByHabit)
             state.copy(
                 habitSortOption = option,
                 recurringTasks = sorted,
