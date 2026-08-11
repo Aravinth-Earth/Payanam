@@ -1,6 +1,7 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Publish latest (or specified) APK to GitHub as a rolling release on a channel.
 # Channels: dev (default, 10+ builds/day), beta (2/week), stable (2/month).
+# Channel auto-detects from the current git branch when -Channel is omitted.
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
 #   .\build-tools\scripts\publish-release.ps1 -Channel beta
@@ -9,18 +10,10 @@
 param(
     [string]$ApkPath = "",
     [string]$OutputDir = "output/apks",
-    [ValidateSet("dev", "beta", "stable")] [string]$Channel = "dev"
+    [ValidateSet("auto", "dev", "beta", "stable")] [string]$Channel = "auto"
 )
 
 $ErrorActionPreference = "Stop"
-
-# Channel → display title + prerelease flag mapping.
-# dev/beta roll as prereleases; stable is a full release.
-$ChannelTitle = switch ($Channel) {
-    "dev"    { "Dev" }
-    "beta"   { "Beta" }
-    "stable" { "Stable" }
-}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
@@ -76,6 +69,26 @@ $branch     = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
 
 if ([string]::IsNullOrEmpty($commitHash)) { $commitHash = "unknown" }
 if ([string]::IsNullOrEmpty($branch))     { $branch = "unknown" }
+
+# ── 4. Resolve channel (explicit -Channel wins; else auto-detect from branch) ──
+
+if ($Channel -eq "auto") {
+    $Channel = switch -Wildcard ($branch) {
+        "feature/*" { "dev" }
+        "dev"       { "beta" }
+        "main"      { "stable" }
+        default     { "dev" }
+    }
+    Write-LogWithTime "Auto-detected channel '$Channel' from branch '$branch'" "Cyan"
+}
+
+# Channel → display title + prerelease flag mapping.
+# dev/beta roll as prereleases; stable is a full release.
+$ChannelTitle = switch ($Channel) {
+    "dev"    { "Dev" }
+    "beta"   { "Beta" }
+    "stable" { "Stable" }
+}
 
 # ── 5. Generate SHA256 checksum ───────────────────────────────────────────────
 
