@@ -1,15 +1,26 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Publish latest (or specified) APK to GitHub as a rolling "latest-dev" release.
+# Publish latest (or specified) APK to GitHub as a rolling release on a channel.
+# Channels: dev (default, 10+ builds/day), beta (2/week), stable (2/month).
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
-#   .\build-tools\scripts\publish-release.ps1 -ApkPath output/apks/Payanam_Android_1027_20260226_222417.apk
+#   .\build-tools\scripts\publish-release.ps1 -Channel beta
+#   .\build-tools\scripts\publish-release.ps1 -ApkPath output/apks/Payanam_Android_1027_20260226_222417.apk -Channel stable
 
 param(
     [string]$ApkPath = "",
-    [string]$OutputDir = "output/apks"
+    [string]$OutputDir = "output/apks",
+    [ValidateSet("dev", "beta", "stable")] [string]$Channel = "dev"
 )
 
 $ErrorActionPreference = "Stop"
+
+# Channel → display title + prerelease flag mapping.
+# dev/beta roll as prereleases; stable is a full release.
+$ChannelTitle = switch ($Channel) {
+    "dev"    { "Dev" }
+    "beta"   { "Beta" }
+    "stable" { "Stable" }
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
@@ -78,9 +89,10 @@ Write-LogWithTime "SHA256: $hash" "Gray"
 # ── 6. Build release notes ────────────────────────────────────────────────────
 
 $releaseNotes = @"
-Payanam Dev Build
+Payanam $ChannelTitle Build
 
 Build: #$buildNumber | $buildDate $buildTime
+Channel: $Channel
 
 Commit: $commitHash
 Branch: $branch
@@ -89,15 +101,15 @@ SHA256: $hash
 
 Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Payanam/blob/main/INSTALL.md) for checksum verification and sideload steps.
 
-⚠️ Development build — not for production use
+⚠️ $ChannelTitle build — not for production use
 "@
 
-# ── 7. Delete existing latest-dev release + tag (rolling release) ─────────────
+# ── 7. Delete existing channel release + tag (rolling release) ────────────────
 
-$tag = "latest-dev"
+$tag = "latest-$Channel"
 $existingRelease = gh release view $tag 2>$null
 if ($LASTEXITCODE -eq 0) {
-    Write-LogWithTime "Deleting existing latest-dev release..." "Yellow"
+    Write-LogWithTime "Deleting existing $tag release..." "Yellow"
     gh release delete $tag --yes 2>$null
 }
 
@@ -120,10 +132,13 @@ if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
 
 Write-LogWithTime "Creating GitHub release: $tag ..." "Cyan"
 
+# dev/beta roll as prereleases; stable is a full (non-prerelease) release.
+$prereleaseFlag = if ($Channel -eq "stable") { @() } else { @("--prerelease") }
+
 gh release create $tag `
-    --title "Latest Dev Build (#$buildNumber)" `
+    --title "Latest $ChannelTitle Build (#$buildNumber)" `
     --notes $releaseNotes `
-    --prerelease `
+    @prereleaseFlag `
     "$($apkFile.FullName)#$($apkFile.Name)" `
     "$sha256FilePath#$sha256FileName"
 
