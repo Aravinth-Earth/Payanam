@@ -12,6 +12,7 @@ param(
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$SizeOptimized,
+    [switch]$Publish,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1665,6 +1666,22 @@ Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 if ($Release)
 {
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
+}
+
+# ── Publish to channel (unified build+publish flow) ──────────────────────────
+# -Publish chains publish-release.ps1 with the just-built APK. Channel is
+# auto-detected from the current branch inside publish-release.ps1 (A2):
+# feature/* → dev, dev → beta, main → stable.
+if ($Publish)
+{
+    Write-LogWithTime "Publishing APK to channel (auto-detect from branch)..." "Magenta"
+    & "$PSScriptRoot/publish-release.ps1" -ApkPath $apkFinalPath
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-LogWithTime "❌ Publish failed!" "Red"
+        Exit-WithCleanup 1
+    }
+    Write-LogWithTime "✅ Published to channel." "Green"
 }
 
 # Preserve R8 mapping file (debug when SizeOptimized, release always) for
