@@ -1,6 +1,12 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 # Publish latest (or specified) APK to GitHub as a rolling release on a channel.
-# Channels: dev (default, 10+ builds/day), beta (2/week), stable (2/month).
+#
+# Channel matrix (rolling tags, one release per channel at a time):
+#   channel  branch       tag            prerelease  cadence
+#   dev      feature/*    latest-dev     yes         10+ builds/day
+#   beta     dev          latest-beta    yes         2 builds/week
+#   stable   main         latest-stable  no          2 builds/month
+#
 # Channel auto-detects from the current git branch when -Channel is omitted.
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
@@ -10,7 +16,8 @@
 param(
     [string]$ApkPath = "",
     [string]$OutputDir = "output/apks",
-    [ValidateSet("auto", "dev", "beta", "stable")] [string]$Channel = "auto"
+    [ValidateSet("auto", "dev", "beta", "stable")] [string]$Channel = "auto",
+    [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
@@ -119,26 +126,38 @@ Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Pay
 
 # ── 7. Delete existing channel release + tag (rolling release) ────────────────
 
+# Guard: gh CLI must exist. Without this, $LASTEXITCODE below would be stale
+# from a previous native command and the script could misbehave silently.
+$ghCmd = Get-Command gh -ErrorAction SilentlyContinue
+if (-not $ghCmd) {
+    Write-LogWithTime "❌ 'gh' (GitHub CLI) not found. Install it (https://cli.github.com) or run with -DryRun." "Red"
+    exit 1
+}
+
 $tag = "latest-$Channel"
-$existingRelease = gh release view $tag 2>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-LogWithTime "Deleting existing $tag release..." "Yellow"
-    gh release delete $tag --yes 2>$null
-}
+if ($DryRun) {
+    Write-LogWithTime "[DRY RUN] Would delete existing $tag release + tag (if present)" "Yellow"
+} else {
+    $existingRelease = gh release view $tag 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-LogWithTime "Deleting existing $tag release..." "Yellow"
+        gh release delete $tag --yes 2>$null
+    }
 
-# Always ensure local tag is deleted (even if release doesn't exist)
-# This prevents "tag exists locally but not pushed" errors
-$localTagExists = git rev-parse $tag 2>$null
-if ($LASTEXITCODE -eq 0) {
-    Write-LogWithTime "Removing stale local tag..." "Yellow"
-    git tag -d $tag
-}
+    # Always ensure local tag is deleted (even if release doesn't exist)
+    # This prevents "tag exists locally but not pushed" errors
+    $localTagExists = git rev-parse $tag 2>$null
+    if ($LASTEXITCODE -eq 0) {
+        Write-LogWithTime "Removing stale local tag..." "Yellow"
+        git tag -d $tag
+    }
 
-# Also delete remote tag to prevent stale commit reference
-$remoteTagExists = git ls-remote origin "refs/tags/$tag" 2>$null
-if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
-    Write-LogWithTime "Removing stale remote tag..." "Yellow"
-    git push origin ":refs/tags/$tag" 2>$null
+    # Also delete remote tag to prevent stale commit reference
+    $remoteTagExists = git ls-remote origin "refs/tags/$tag" 2>$null
+    if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
+        Write-LogWithTime "Removing stale remote tag..." "Yellow"
+        git push origin ":refs/tags/$tag" 2>$null
+    }
 }
 
 # ── 8. Create new release ─────────────────────────────────────────────────────
@@ -148,21 +167,33 @@ Write-LogWithTime "Creating GitHub release: $tag ..." "Cyan"
 # dev/beta roll as prereleases; stable is a full (non-prerelease) release.
 $prereleaseFlag = if ($Channel -eq "stable") { @() } else { @("--prerelease") }
 
-gh release create $tag `
-    --title "Latest $ChannelTitle Build (#$buildNumber)" `
-    --notes $releaseNotes `
-    @prereleaseFlag `
-    "$($apkFile.FullName)#$($apkFile.Name)" `
-    "$sha256FilePath#$sha256FileName"
+if ($DryRun) {
+    Write-LogWithTime "[DRY RUN] Would create release: $tag" "Yellow"
+    Write-LogWithTime "[DRY RUN]   title  : Latest $ChannelTitle Build (#$buildNumber)" "Yellow"
+    Write-LogWithTime "[DRY RUN]   flags  : $($prereleaseFlag -join ' ')" "Yellow"
+    Write-LogWithTime "[DRY RUN]   assets : $($apkFile.Name) + $sha256FileName" "Yellow"
+    Write-LogWithTime "[DRY RUN]   notes  : Payanam $ChannelTitle Build, build #$buildNumber, channel $Channel, commit $commitHash, branch $branch" "Yellow"
+} else {
+    gh release create $tag `
+        --title "Latest $ChannelTitle Build (#$buildNumber)" `
+        --notes $releaseNotes `
+        @prereleaseFlag `
+        "$($apkFile.FullName)#$($apkFile.Name)" `
+        "$sha256FilePath#$sha256FileName"
 
-if ($LASTEXITCODE -ne 0) {
-    Write-LogWithTime "Release creation failed." "Red"
-    exit 1
+    if ($LASTEXITCODE -ne 0) {
+        Write-LogWithTime "Release creation failed." "Red"
+        exit 1
+    }
 }
 
 # ── 9. Print release URL ──────────────────────────────────────────────────────
 
-$releaseUrl = gh release view $tag --json url --jq ".url" 2>$null
-Write-LogWithTime "Release published: $releaseUrl" "Green"
+if ($DryRun) {
+    Write-LogWithTime "[DRY RUN] Complete — nothing was published." "Green"
+} else {
+    $releaseUrl = gh release view $tag --json url --jq ".url" 2>$null
+    Write-LogWithTime "Release published: $releaseUrl" "Green"
+}
 Write-LogWithTime "APK : $($apkFile.Name)" "Green"
 Write-LogWithTime "SHA256 file: $sha256FileName" "Green"
