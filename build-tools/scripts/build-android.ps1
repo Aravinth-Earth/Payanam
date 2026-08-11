@@ -11,6 +11,7 @@ param(
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
+    [switch]$SizeOptimized,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1608,6 +1609,18 @@ $gradleTask = if ($Release)
 } else
 { "assembleDebug"
 }
+
+# SizeOptimized: shrink + obfuscate the debug APK for on-the-move downloads.
+# -PdebugMinify=true makes the debug buildType enable R8 (minify + obfuscate).
+# Mapping file is preserved after build for stack-trace retrace.
+if ($SizeOptimized)
+{
+    $gradleTask += " -PdebugMinify=true"
+    if (-not $Release)
+    {
+        Write-LogWithTime "SizeOptimized: R8 minify+obfuscate enabled for debug APK" "Yellow"
+    }
+}
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
@@ -1652,6 +1665,29 @@ Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 if ($Release)
 {
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
+}
+
+# Preserve R8 mapping file (debug when SizeOptimized, release always) for
+# stack-trace retrace: java -jar retrace.jar mapping.txt stacktrace.txt
+if ($SizeOptimized -or $Release)
+{
+    # AGP 9.x writes mapping to build/intermediates; fall back to outputs for older AGP.
+    $mappingCandidates = if ($Release)
+    { @("app/build/intermediates/mapping/release/minifyReleaseWithR8/mapping.txt", "app/build/outputs/mapping/release/mapping.txt") }
+    else
+    { @("app/build/intermediates/mapping/debug/minifyDebugWithR8/mapping.txt", "app/build/outputs/mapping/debug/mapping.txt") }
+    $mappingSourcePath = $mappingCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($mappingSourcePath)
+    {
+        $mappingFinalName = "$buildName.mapping.txt"
+        $mappingFinalPath = Join-Path $OutputDir $mappingFinalName
+        Copy-Item $mappingSourcePath $mappingFinalPath -Force
+        Write-LogWithTime "Mapping: $mappingFinalPath (for stack-trace retrace)" "Cyan"
+    }
+    else
+    {
+        Write-LogWithTime "⚠️ Mapping file not found (searched: $($mappingCandidates -join ', '))" "Yellow"
+    }
 }
 
 # ============================================
@@ -1818,6 +1854,7 @@ Write-LogWithTime "=== ARTIFACT RETENTION ===" "Magenta"
 try
 {
     Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.apk" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
+    Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.mapping.txt" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/smoke" -ItemType Directory -KeepCount $MaxSmokeArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/androidtest-failures" -ItemType Directory -KeepCount $MaxAndroidTestFailureArtifacts -CurrentBuildName $buildName
 } catch

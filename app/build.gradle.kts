@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1549
-          versionName = "#1549 (20260808_221016)"
+          versionCode = 1559
+          versionName = "#1559 (20260809_114243)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -105,6 +105,22 @@ android {
             resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
+            }
+            // Dev/test builds target the user's arm64 device only — drops
+            // x86/x86_64/armeabi-v7a native libs (~10 MB smaller APK).
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
+            // -SizeOptimized (script flag) passes -PdebugMinify=true:
+            // enables R8 minify+obfuscate for a smaller debug APK (on-the-move
+            // downloads). build-android.ps1 preserves mapping.txt for retrace.
+            val debugMinify = (project.findProperty("debugMinify") as String?)?.toBoolean() ?: false
+            if (debugMinify) {
+                isMinifyEnabled = true
+                proguardFiles(
+                    getDefaultProguardFile("proguard-android-optimize.txt"),
+                    "proguard-rules.pro"
+                )
             }
         }
         release {
