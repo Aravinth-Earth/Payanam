@@ -272,6 +272,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 color = it.color,
                                 isVisible = it.isVisible,
                                 iconKey = it.iconKey,
+                                weight = it.weight,
                                 hasCustomLabelOverride = it.hasCustomLabelOverride,
                             )
                         } + prefsState.dynamicDimensionOptions
@@ -319,6 +320,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                     "SettingsScreen.dimensionIcon",
                                     "Dimension icon updated",
                                     mapOf("dimensionId" to preference.id, "iconKey" to iconKey),
+                                )
+                            },
+                            onWeightCommit = { weight ->
+                                prefsViewModel.setDimensionWeight(preference.id, weight)
+                                logger.i(
+                                    "SettingsScreen.dimensionWeight",
+                                    "Dimension weight updated",
+                                    mapOf("dimensionId" to preference.id, "weight" to weight),
                                 )
                             },
                             onVisibilityToggleRequested = {

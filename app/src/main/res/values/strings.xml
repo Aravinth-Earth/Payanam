@@ -110,6 +110,7 @@
     <string name="settings_dimension_edit">Edit dimension</string>
     <string name="settings_dimension_cancel">Cancel edit</string>
     <string name="settings_dimension_save">Save name</string>
+    <string name="settings_dimension_weight_label">Weight</string>
     <string name="settings_dimension_hide">Hide dimension</string>
     <string name="settings_action_collapse">Collapse</string>
     <string name="settings_action_expand">Expand</string>
@@ -1123,4 +1124,16 @@
     <string name="settings_update_view_release">View release</string>
 
     <!-- Settings About additions -->
- </resources>
+<string name="activity_detail_no_data">No data in this window</string>
+<string name="activity_detail_earlier">Earlier window</string>
+<string name="activity_detail_later">Later window</string>
+<string name="activity_detail_chart_view">Chart</string>
+<string name="activity_detail_table_view">Table</string>
+<string name="activity_detail_chart_running_avg">Running Avg</string>
+<string name="activity_detail_chart_streak_pos">Streak+</string>
+<string name="activity_detail_col_date">Date</string>
+<string name="activity_detail_col_raw">Raw</string>
+<string name="activity_detail_col_streak_pos">S+</string>
+<string name="activity_detail_col_continue">Cont</string>
+     <string name="activity_detail_loading">Loading…</string>
+</resources>

@@ -1169,3 +1169,52 @@ val MIGRATION_18_19 =
             }
         }
     }
+
+/**
+ * 19 → 20: add user-editable `weight` to life_dimensions (C2, Inc 4 Part C).
+ * SQLite ADD COLUMN with a NOT NULL DEFAULT keeps existing rows at 1.0
+ * (equal weights — the pre-C2 behavior). L3 day scores become a weighted
+ * average of dimension scores once weights are set; changing a weight
+ * triggers an L3-only recalc (self-gov `dim_weight_change` path).
+ */
+val MIGRATION_19_20 =
+    object : Migration(19, 20) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.19_20", "Adding weight column to life_dimensions")
+
+            try {
+                database.execSQL("ALTER TABLE life_dimensions ADD COLUMN weight REAL NOT NULL DEFAULT 1.0")
+
+                // Post-migration verification: weight must exist
+                val columns = mutableListOf<String>()
+                database.query("PRAGMA table_info(life_dimensions)").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        columns += cursor.getString(1)
+                    }
+                }
+                if ("weight" !in columns) {
+                    throw IllegalStateException("Migration 19→20 failed: weight column missing in life_dimensions")
+                }
+
+                logger.i(
+                    "Migration.19_20",
+                    "life_dimensions.weight added",
+                    mapOf(
+                        "columnCount" to columns.size,
+                        "weightAdded" to true,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.19_20",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }

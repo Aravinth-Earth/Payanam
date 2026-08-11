@@ -22,7 +22,14 @@ interface HabitMetricDao {
     suspend fun deleteFrom(habitId: String, fromDay: String)
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
+    suspend fun getForHabit(habitId: String): List<HabitMetricEntity>
+
+    @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     fun observeForHabit(habitId: String): Flow<List<HabitMetricEntity>>
+
+    /** Window query for the activity detail view (Part C). */
+    @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :start AND dayKey <= :end ORDER BY dayKey ASC")
+    suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics")
     suspend fun getAll(): List<HabitMetricEntity>

@@ -96,5 +96,21 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        override suspend fun updateDimensionWeight(
+            dimensionId: String,
+            weight: Double,
+        ) {
+            sessionManager.requireDatabase().lifeDimensionDao().updateWeight(
+                dimensionId = dimensionId,
+                weight = weight,
+                updatedAt = now(),
+            )
+            logger.i(
+                "LifeDimensionCatalogRepositoryImpl.updateDimensionWeight",
+                "Updated life dimension weight",
+                mapOf("dimensionId" to dimensionId, "weight" to weight),
+            )
+        }
+
         private fun now(): String = LocalDateTime.now().format(dateTimeFormatter)
     }

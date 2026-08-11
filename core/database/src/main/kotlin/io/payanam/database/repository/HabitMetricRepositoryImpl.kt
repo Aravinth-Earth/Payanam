@@ -34,6 +34,17 @@ class HabitMetricRepositoryImpl
             val rows = db.habitMetricDao().getLatestPerHabit()
             return rows.firstOrNull { it.habitId == habitId }?.toSummary()
         }
+
+        override suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitL1Summary> {
+            val db = sessionManager.requireDatabase()
+            val rows = db.habitMetricDao().getForHabitRange(habitId, start, end)
+            logger.d(
+                "HabitMetricRepositoryImpl.getForHabitRange",
+                "Fetched L1 rows for window",
+                mapOf("habitId" to habitId, "start" to start, "end" to end, "rows" to rows.size),
+            )
+            return rows.map { it.toSummary() }
+        }
     }
 
 private fun io.payanam.database.entity.HabitMetricEntity.toSummary() = HabitL1Summary(

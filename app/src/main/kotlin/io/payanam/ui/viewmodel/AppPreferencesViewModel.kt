@@ -15,6 +15,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.model.DimensionTaxonomyCatalog
@@ -44,6 +45,7 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.Locale
 import javax.inject.Inject
 
@@ -117,6 +119,7 @@ data class DimensionPreference(
     val hasCustomLabelOverride: Boolean = false,
     val canonicalId: String = key,
     val description: String? = null,
+    val weight: Double = 1.0,
 )
 data class DimensionOption(
     val id: String,
@@ -127,6 +130,7 @@ data class DimensionOption(
     val hasCustomLabelOverride: Boolean = false,
     val canonicalId: String = id,
     val description: String? = null,
+    val weight: Double = 1.0,
 )
 
 data class LaunchDestination(
@@ -414,6 +418,7 @@ class AppPreferencesViewModel @Inject constructor(
     private val sessionManager: DatabaseSessionManager,
     private val backupStatusStore: BackupStatusStore,
     private val databaseBackupCoordinator: DatabaseBackupCoordinator,
+    private val scoreRollupCascadeService: ScoreRollupCascadeService,
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
@@ -688,6 +693,38 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    fun setDimensionWeight(dimension: LifeDimension, weight: Double) {
+        setDimensionWeight(dimension.id, weight)
+    }
+
+    /**
+     * C2: user-editable dimension weight. Weighted L3 aggregation kicks in on
+     * the NEXT day-score recalc; this edit triggers an immediate L3-only
+     * recalc (self-gov `dim_weight_change` path — L1/L2 untouched).
+     */
+    fun setDimensionWeight(dimensionId: String, weight: Double) {
+        val clamped = weight.coerceIn(0.1, 10.0)
+        viewModelScope.launch {
+            try {
+                lifeDimensionCatalogRepository.updateDimensionWeight(dimensionId, clamped)
+                logger.i(
+                    "AppPreferencesViewModel.setDimensionWeight",
+                    "Dimension weight updated",
+                    mapOf("dimensionId" to dimensionId, "weight" to clamped),
+                )
+                // L3-only recalc: day scores re-aggregate with new weights.
+                scoreRollupCascadeService.recalcDayOnly(LocalDate.now())
+            } catch (e: Exception) {
+                logger.e(
+                    "AppPreferencesViewModel.setDimensionWeight",
+                    "Failed to update dimension weight / recalc day layer",
+                    e,
+                    mapOf("dimensionId" to dimensionId, "weight" to clamped),
+                )
+            }
+        }
+    }
+
     fun setDimensionColor(dimension: LifeDimension, color: Color) {
         setDimensionColor(dimension.id, color)
     }
@@ -1371,6 +1408,7 @@ class AppPreferencesViewModel @Inject constructor(
                 color = option.color,
                 isVisible = option.isVisible,
                 iconKey = option.iconKey,
+                weight = option.weight,
                 hasCustomLabelOverride = option.hasCustomLabelOverride,
             )
         }
@@ -1424,6 +1462,7 @@ class AppPreferencesViewModel @Inject constructor(
             color = parseColor(resolvedColorHex),
             isVisible = dimension.isActive,
             iconKey = resolvedIconKey,
+            weight = dimension.weight,
             hasCustomLabelOverride = canonicalId == null ||
                 hasCustomDbBackedLabel(
                     canonicalId = canonicalId,

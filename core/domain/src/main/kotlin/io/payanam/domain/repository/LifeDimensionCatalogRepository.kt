@@ -18,4 +18,7 @@ interface LifeDimensionCatalogRepository {
     suspend fun updateDimensionIcon(dimensionId: String, iconKey: String)
 
     suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean)
+
+    /** C2: user-editable dimension weight → L3-only recalc downstream. */
+    suspend fun updateDimensionWeight(dimensionId: String, weight: Double)
 }

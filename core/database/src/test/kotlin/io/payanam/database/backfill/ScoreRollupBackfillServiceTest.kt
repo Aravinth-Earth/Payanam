@@ -111,12 +111,17 @@ class ScoreRollupBackfillServiceTest {
         assertEquals(LocalDate.of(2026, 8, 1), firstDue)
         assertEquals("CONFIG:type=DAILY", rule) // num/den 1/1 → DAILY conversion
         assertTrue(rows.isNotEmpty())
-        // 7 days before today (today excluded) — if today is 2026-08-08, days 1..7 = 7 rows
+        // Days 1..N before today (today excluded). The fixture starts 2026-08-01
+        // with 7 completions; every due day since then gets a row, so the count
+        // advances with the real calendar — no hardcoded expectation.
         val today = LocalDate.now()
-        val expectedRows = 7L.coerceAtMost(today.toEpochDay() - start.toEpochDay())
+        val expectedRows = today.toEpochDay() - start.toEpochDay()
         assertEquals(expectedRows, rows.size.toLong())
-        assertEquals(1.0, rows.last().runningAvg, 1e-9)
-        assertEquals(1.0, rows.last().score, 1e-9)
+        // Last completed fixture day (start + 6) still scores 1.0; days after it
+        // (gap through yesterday) are 0.0 missed rows.
+        val lastCompleted = rows.firstOrNull { it.dayKey == start.plusDays(6).toString() }
+        assertEquals(1.0, lastCompleted?.score ?: -1.0, 1e-9)
+        assertEquals(1.0, lastCompleted?.runningAvg ?: -1.0, 1e-9)
     }
 
     @Test

@@ -35,6 +35,15 @@ data class TaskDetailUiState(
     val completionStats: CompletionStats? = null,
     val latestL1: io.payanam.domain.model.HabitL1Summary? = null,
 
+    // Activity detail window (Part C): range switcher + pagination
+    val windowSizeDays: Int = 7,
+    val windowEnd: java.time.LocalDate = java.time.LocalDate.now(),
+    val windowRows: List<io.payanam.domain.model.HabitL1Summary> = emptyList(),
+    val windowOccurrences: Map<String, io.payanam.domain.model.TaskOccurrence> = emptyMap(),
+    val isLoadingWindow: Boolean = false,
+    // true = chart view, false = table view
+    val showChartView: Boolean = true,
+
     // Dialog states
     val showStatusNoteDialog: Boolean = false,
     // "complete", "skip", "miss"
@@ -83,6 +92,7 @@ class TaskDetailViewModel @Inject constructor(
                 if (task?.recurrenceEnabled == true) {
                     loadOccurrenceHistory(taskId)
                     loadCompletionStats(task)
+                    loadActivityWindow(taskId)
                 }
 
                 loadRescheduleHistory(taskId)
@@ -149,6 +159,89 @@ class TaskDetailViewModel @Inject constructor(
                 logger.e("TaskDetailViewModel.loadOccurrenceHistory", "Error loading occurrences", e)
                 _uiState.update { it.copy(isLoadingOccurrences = false) }
             }
+        }
+    }
+
+    // ── Activity detail window (Part C) ──────────────────────────────────
+
+    /** Range options (days): 7d / 30d / 90d / 180d / 365d / all-time. */
+    fun setWindowSizeDays(days: Int) {
+        _uiState.update { it.copy(windowSizeDays = days, windowEnd = java.time.LocalDate.now()) }
+        loadActivityWindow(currentTaskId ?: return)
+    }
+
+    fun shiftWindowBack() {
+        val s = _uiState.value
+        _uiState.update {
+            it.copy(windowEnd = it.windowEnd.minusDays(it.windowSizeDays.toLong()))
+        }
+        loadActivityWindow(currentTaskId ?: return)
+    }
+
+    fun shiftWindowForward() {
+        val s = _uiState.value
+        if (s.windowEnd >= java.time.LocalDate.now()) return // cannot go past today
+        _uiState.update {
+            it.copy(windowEnd = it.windowEnd.plusDays(it.windowSizeDays.toLong()).let { end ->
+                if (end > java.time.LocalDate.now()) java.time.LocalDate.now() else end
+            })
+        }
+        loadActivityWindow(currentTaskId ?: return)
+    }
+
+    fun jumpWindowToToday() {
+        _uiState.update { it.copy(windowEnd = java.time.LocalDate.now()) }
+        loadActivityWindow(currentTaskId ?: return)
+    }
+
+    fun setChartView(chart: Boolean) {
+        _uiState.update { it.copy(showChartView = chart) }
+    }
+
+    private fun loadActivityWindow(taskId: String) {
+        viewModelScope.launch {
+            val s = _uiState.value
+            _uiState.update { it.copy(isLoadingWindow = true) }
+            try {
+                val (start, end) = windowBounds(s.windowSizeDays, s.windowEnd)
+                val rows = runCatching {
+                    habitMetricRepository.getForHabitRange(taskId, start.toString(), end.toString())
+                }.getOrDefault(emptyList())
+                // Occurrences in window keyed by dayKey — raw status for the table.
+                val occs = taskOccurrenceRepository.getOccurrencesByTaskId(taskId)
+                    .filter { it.occurrenceDate.take(10) in start.toString()..end.toString() }
+                    .associateBy { it.occurrenceDate.take(10) }
+                _uiState.update {
+                    it.copy(
+                        windowRows = rows,
+                        windowOccurrences = occs,
+                        isLoadingWindow = false,
+                    )
+                }
+                logger.d(
+                    "TaskDetailViewModel.loadActivityWindow",
+                    "Loaded activity window",
+                    mapOf(
+                        "taskId" to taskId,
+                        "start" to start.toString(),
+                        "end" to end.toString(),
+                        "sizeDays" to s.windowSizeDays,
+                        "metricRows" to rows.size,
+                        "occurrences" to occs.size,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e("TaskDetailViewModel.loadActivityWindow", "Error loading activity window", e)
+                _uiState.update { it.copy(isLoadingWindow = false) }
+            }
+        }
+    }
+
+    /** Window bounds: [sizeDays] days ending at [end]; sizeDays <= 0 = all-time. */
+    internal companion object {
+        fun windowBounds(sizeDays: Int, end: java.time.LocalDate): Pair<java.time.LocalDate, java.time.LocalDate> {
+            val start = if (sizeDays > 0) end.minusDays((sizeDays - 1).toLong()) else java.time.LocalDate.of(2020, 1, 1)
+            return start to end
         }
     }
 

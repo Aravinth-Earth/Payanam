@@ -53,7 +53,7 @@ import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
 
-const val PAYANAM_DATABASE_SCHEMA_VERSION = 19
+const val PAYANAM_DATABASE_SCHEMA_VERSION = 20
 
 /**
  * Room Database for Payanam.

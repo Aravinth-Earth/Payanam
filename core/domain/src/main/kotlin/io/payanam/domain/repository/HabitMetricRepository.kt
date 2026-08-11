@@ -15,4 +15,7 @@ interface HabitMetricRepository {
 
     /** Latest L1 row for one habit, or null when no metrics yet. */
     suspend fun getLatestForHabit(habitId: String): HabitL1Summary?
+
+    /** L1 rows for one habit within [start]..[end] (inclusive), ascending — activity detail window. */
+    suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitL1Summary>
 }

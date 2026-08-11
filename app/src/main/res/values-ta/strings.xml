@@ -110,6 +110,7 @@
     <string name="settings_dimension_edit">பரிமாணம் திருத்து</string>
     <string name="settings_dimension_cancel">திருத்தம் ரத்து</string>
     <string name="settings_dimension_save">பெயர் சேமி</string>
+    <string name="settings_dimension_weight_label">எடை</string>
     <string name="settings_dimension_hide">பரிமாணம் மறை</string>
     <string name="settings_action_collapse">சுருக்கு</string>
     <string name="settings_action_expand">விரி</string>
@@ -1122,4 +1123,17 @@
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
 
     <!-- Settings About additions -->
+<string name="activity_detail_no_data">இந்த காலகட்டத்தில் தரவு இல்லை</string>
+<string name="activity_detail_earlier">முந்தைய காலகட்டம்</string>
+<string name="activity_detail_later">அடுத்த காலகட்டம்</string>
+<string name="activity_detail_range_all">அனைத்தும்</string>
+<string name="activity_detail_chart_view">விளக்கப்படம்</string>
+<string name="activity_detail_table_view">அட்டவணை</string>
+<string name="activity_detail_chart_running_avg">இயங்கு சராசரி</string>
+<string name="activity_detail_chart_streak_pos">தொடர்+</string>
+<string name="activity_detail_chart_continue">தொடர்ச்சி</string>
+<string name="activity_detail_col_date">தேதி</string>
+<string name="activity_detail_col_progress">முன்னேற்</string>
+<string name="activity_detail_col_streak_pos">தொ+</string>
+     <string name="activity_detail_loading">ஏற்றுகிறது…</string>
 </resources>

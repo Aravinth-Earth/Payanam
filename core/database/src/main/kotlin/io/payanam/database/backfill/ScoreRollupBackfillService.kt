@@ -24,6 +24,69 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
+ * Cumulative rolling state before a change date — C1 baseline (self-gov ss/cs/pa).
+ * Seeded from existing metric rows strictly BEFORE a change day so tail builds
+ * (O(gap days)) reproduce the same math as a full rebuild (O(history)).
+ */
+internal data class MetricBaseline(
+    val sumScores: Double,
+    val count: Int,
+    val prevAvg: Double?,
+    val streakPos: Int,
+    val streakNet: Int,
+    val posContinue: Int,
+) {
+    companion object {
+        fun empty(): MetricBaseline = MetricBaseline(0.0, 0, null, 0, 0, 0)
+
+        /** Derive from rows strictly BEFORE the change day (L1 shape). */
+        fun fromHabitRows(rows: List<HabitMetricEntity>): MetricBaseline =
+            if (rows.isEmpty()) {
+                empty()
+            } else {
+                MetricBaseline(
+                    sumScores = rows.sumOf { it.score },
+                    count = rows.size,
+                    prevAvg = rows.last().runningAvg,
+                    streakPos = rows.last().streakPos,
+                    streakNet = rows.last().streakNet,
+                    posContinue = rows.last().posContinue,
+                )
+            }
+
+        /** Derive from rows strictly BEFORE the change day (L2 shape). */
+        fun fromDimensionRows(rows: List<DimensionMetricEntity>): MetricBaseline =
+            if (rows.isEmpty()) {
+                empty()
+            } else {
+                MetricBaseline(
+                    sumScores = rows.sumOf { it.score },
+                    count = rows.size,
+                    prevAvg = rows.last().runningAvg,
+                    streakPos = rows.last().streakPos,
+                    streakNet = rows.last().streakNet,
+                    posContinue = rows.last().posContinue,
+                )
+            }
+
+        /** Derive from rows strictly BEFORE the change day (L3 shape). */
+        fun fromDayRows(rows: List<DayMetricEntity>): MetricBaseline =
+            if (rows.isEmpty()) {
+                empty()
+            } else {
+                MetricBaseline(
+                    sumScores = rows.sumOf { it.dayScore },
+                    count = rows.size,
+                    prevAvg = rows.last().runningAvg,
+                    streakPos = rows.last().streakPos,
+                    streakNet = rows.last().streakNet,
+                    posContinue = rows.last().posContinue,
+                )
+            }
+    }
+}
+
+/**
  * One-time post-migration backfill for the self-governance score roll-up
  * (Inc 2). Runs after schema v18 migration on first launch:
  *
@@ -102,6 +165,32 @@ class ScoreRollupBackfillService
                 occurrences: List<TaskOccurrenceEntity>,
                 includeToday: Boolean = false,
             ): Triple<List<HabitMetricEntity>, LocalDate?, String?> {
+                // Full build = tail build from the first due day with an empty baseline.
+                val (firstDue, convertedRule) = habitTimelineStart(task, occurrences)
+                if (firstDue == null) {
+                    return Triple(emptyList(), null, convertedRule)
+                }
+                return buildHabitMetricsFrom(
+                    task = task,
+                    occurrences = occurrences,
+                    fromDay = firstDue,
+                    includeToday = includeToday,
+                    baseline = MetricBaseline.empty(),
+                )
+            }
+
+            /**
+             * L1 tail: sparse due-day rows for one habit starting at [fromDay],
+             * seeded from a cumulative [baseline] (rows before fromDay). O(gap days)
+             * — cost is constant over the habit's lifetime (C1 baseline carry-forward).
+             */
+            internal fun buildHabitMetricsFrom(
+                task: TaskEntity,
+                occurrences: List<TaskOccurrenceEntity>,
+                fromDay: LocalDate,
+                includeToday: Boolean = false,
+                baseline: MetricBaseline = MetricBaseline.empty(),
+            ): Triple<List<HabitMetricEntity>, LocalDate?, String?> {
                 if (task.recurrenceEnabled != 1) return Triple(emptyList(), null, null)
 
                 val occByDate = occurrences
@@ -125,14 +214,14 @@ class ScoreRollupBackfillService
 
                 val today = LocalDate.now()
                 val rows = mutableListOf<HabitMetricEntity>()
-                var sumScores = 0.0
-                var count = 0
-                var prevAvg: Double? = null
-                var streakPos = 0
-                var streakNet = 0
-                var posContinue = 0
+                var sumScores = baseline.sumScores
+                var count = baseline.count
+                var prevAvg = baseline.prevAvg
+                var streakPos = baseline.streakPos
+                var streakNet = baseline.streakNet
+                var posContinue = baseline.posContinue
 
-                var day = firstDueDay
+                var day = if (fromDay.isAfter(firstDueDay)) fromDay else firstDueDay
                 val loopEnd = if (includeToday && todayLogged) today.plusDays(1) else today
                 while (day.isBefore(loopEnd)) { // today stays pending unless logged (cascade)
                     if (config.isScheduledDay(day)) {
@@ -162,6 +251,20 @@ class ScoreRollupBackfillService
                 return Triple(rows, firstDue, convertedRule)
             }
 
+            /** Shared L1 timeline start: (firstDue, convertedRule). */
+            private fun habitTimelineStart(
+                task: TaskEntity,
+                occurrences: List<TaskOccurrenceEntity>,
+            ): Pair<LocalDate?, String?> {
+                if (task.recurrenceEnabled != 1) return null to null
+                val firstDue = occurrences
+                    .mapNotNull { parseLocalDate(it.dueDate) }
+                    .minOrNull()
+                val anchor = firstDue ?: parseLocalDate(task.createdAt) ?: LocalDate.now()
+                val convertedRule = convertRule(task, anchor)
+                return firstDue to convertedRule
+            }
+
             /** num/den → CONFIG with anchor = first due date (fallback: createdAt).
              *  Already-canonical rules (CONFIG: / FREQ= RRULE) pass through untouched —
              *  both are deterministic and must never be re-mapped. */
@@ -185,6 +288,35 @@ class ScoreRollupBackfillService
                 habitRows: List<HabitMetricEntity>,
                 includeToday: Boolean = false,
             ): List<DimensionMetricEntity> {
+                val earliest = recurring
+                    .mapNotNull { firstDuePerHabit[it.id] }
+                    .minOrNull() ?: return emptyList()
+                return buildDimensionMetricsFrom(
+                    recurring = recurring,
+                    firstDuePerHabit = firstDuePerHabit,
+                    habitRows = habitRows,
+                    fromDay = earliest,
+                    includeToday = includeToday,
+                    baseline = MetricBaseline.empty(),
+                    lastScores = emptyMap(),
+                )
+            }
+
+            /**
+             * L2 tail: dense per-dimension rows from [fromDay] onward, seeded from a
+             * cumulative [baseline] (dimension rows before fromDay) and a carry-forward
+             * [lastScores] map (each habit's last known L1 score before fromDay).
+             * O(gap days × dimension members) — C1 baseline carry-forward.
+             */
+            internal fun buildDimensionMetricsFrom(
+                recurring: List<TaskEntity>,
+                firstDuePerHabit: Map<String, LocalDate>,
+                habitRows: List<HabitMetricEntity>,
+                fromDay: LocalDate,
+                includeToday: Boolean = false,
+                baseline: MetricBaseline = MetricBaseline.empty(),
+                lastScores: Map<String, Double> = emptyMap(),
+            ): List<DimensionMetricEntity> {
                 if (habitRows.isEmpty()) return emptyList()
 
                 val byDim = recurring
@@ -205,13 +337,16 @@ class ScoreRollupBackfillService
                     val today = LocalDate.now()
                     val loopEnd = if (includeToday) today.plusDays(1) else today
 
-                    var day = earliest
-                    var sumScores = 0.0
-                    var count = 0
-                    var prevAvg: Double? = null
-                    var streakPos = 0
-                    var streakNet = 0
-                    var posContinue = 0
+                    // C1: start at the later of (fromDay, earliest); seed rolling state
+                    // from the dimension baseline and the carry-forward lastScores map.
+                    var day = if (fromDay.isAfter(earliest)) fromDay else earliest
+                    var sumScores = baseline.sumScores
+                    var count = baseline.count
+                    var prevAvg = baseline.prevAvg
+                    var streakPos = baseline.streakPos
+                    var streakNet = baseline.streakNet
+                    var posContinue = baseline.posContinue
+                    val carryScores = lastScores.toMutableMap()
 
                     while (day.isBefore(loopEnd)) {
                         var dimScoreNumerator = 0.0
@@ -222,10 +357,20 @@ class ScoreRollupBackfillService
                             // carry-forward: last L1 row on-or-before this day
                             val idx = timeline.binarySearchBy(day.toString()) { it.dayKey }
                             val last = if (idx >= 0) timeline[idx] else timeline.getOrNull(-idx - 2)
-                            if (last != null) {
-                                dimScoreNumerator += last.score * weight
-                                weightSum += weight
+                            val score = when {
+                                // exact row today — authoritative, refresh carry map
+                                idx >= 0 -> {
+                                    carryScores[habit.id] = last!!.score
+                                    last.score
+                                }
+                                // no row today — fall back to carry-forward map (seeded
+                                // from rows before fromDay), else to binarySearch result
+                                carryScores.containsKey(habit.id) -> carryScores.getValue(habit.id)
+                                last != null -> last.score
+                                else -> continue
                             }
+                            dimScoreNumerator += score * weight
+                            weightSum += weight
                         }
                         if (weightSum > 0.0) {
                             val dimScore = dimScoreNumerator / weightSum
@@ -256,28 +401,64 @@ class ScoreRollupBackfillService
             }
 
             /**
-             * L3: dense per-day rows from dimension rows (equal dimension weights;
-             * carry-forward across days with no dimension activity).
+             * L3: dense per-day rows from dimension rows (weighted dimension
+             * aggregation; carry-forward across days with no dimension activity).
+             * [dimWeights] — dimensionId → weight (C2, default 1.0 = equal weights).
              */
-            internal fun buildDayMetrics(dimensionRows: List<DimensionMetricEntity>): List<DayMetricEntity> {
+            internal fun buildDayMetrics(
+                dimensionRows: List<DimensionMetricEntity>,
+                dimWeights: Map<String, Double> = emptyMap(),
+            ): List<DayMetricEntity> {
                 if (dimensionRows.isEmpty()) return emptyList()
 
                 val byDay = dimensionRows.groupBy { it.dayKey }
                 val allDays = byDay.keys.sorted()
                 if (allDays.isEmpty()) return emptyList()
 
+                val firstDay = LocalDate.parse(allDays.first())
+                return buildDayMetricsFrom(
+                    dimensionRows = dimensionRows,
+                    fromDay = firstDay,
+                    baseline = MetricBaseline.empty(),
+                    dimWeights = dimWeights,
+                )
+            }
+
+            /**
+             * L3 tail: dense per-day rows from [fromDay] onward, seeded from a
+             * cumulative [baseline] (day rows before fromDay). Iterates the days
+             * present in [dimensionRows] (sparse-safe: skips days with no
+             * dimension activity). O(gap days) — C1 baseline carry-forward.
+             * [dimWeights] — dimensionId → weight (C2; missing dim → 1.0).
+             */
+            internal fun buildDayMetricsFrom(
+                dimensionRows: List<DimensionMetricEntity>,
+                fromDay: LocalDate,
+                baseline: MetricBaseline = MetricBaseline.empty(),
+                dimWeights: Map<String, Double> = emptyMap(),
+            ): List<DayMetricEntity> {
+                if (dimensionRows.isEmpty()) return emptyList()
+
+                val byDay = dimensionRows.groupBy { it.dayKey }
+                val allDays = byDay.keys.sorted().filter { !LocalDate.parse(it).isBefore(fromDay) }
+                if (allDays.isEmpty()) return emptyList()
+
                 val rows = mutableListOf<DayMetricEntity>()
-                var sumScores = 0.0
-                var count = 0
-                var prevAvg: Double? = null
-                var streakPos = 0
-                var streakNet = 0
-                var posContinue = 0
+                var sumScores = baseline.sumScores
+                var count = baseline.count
+                var prevAvg = baseline.prevAvg
+                var streakPos = baseline.streakPos
+                var streakNet = baseline.streakNet
+                var posContinue = baseline.posContinue
 
                 for (dayKey in allDays) {
                     val dims = byDay[dayKey].orEmpty()
                     val dayScore = if (dims.isNotEmpty()) {
-                        dims.map { it.score }.average()
+                        // C2: weighted average of dimension scores. Unknown dims
+                        // (no weight row) fall back to 1.0 — equal-weights legacy.
+                        val weightedSum = dims.sumOf { it.score * (dimWeights[it.dimensionId] ?: 1.0) }
+                        val weightSum = dims.sumOf { dimWeights[it.dimensionId] ?: 1.0 }
+                        if (weightSum <= 0.0) 0.0 else weightedSum / weightSum
                     } else {
                         continue // skip days with no dimension rows at all
                     }
@@ -444,7 +625,9 @@ class ScoreRollupBackfillService
             logger.i("ScoreRollupBackfillService.backfill", "L2 dimension_metrics written", mapOf("rows" to dimRows.size))
 
             // ── L3: per-day dense metrics (from L2 rows) ──────────────────
-            val dayRows = buildDayMetrics(dimRows)
+            val dimWeights = sessionManager.requireDatabase().lifeDimensionDao()
+                .allWeights().associate { it.id to it.weight }
+            val dayRows = buildDayMetrics(dimRows, dimWeights)
             if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
             logger.i("ScoreRollupBackfillService.backfill", "L3 day_metrics written", mapOf("rows" to dayRows.size))
         }

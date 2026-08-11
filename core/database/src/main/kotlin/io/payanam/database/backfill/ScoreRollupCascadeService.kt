@@ -66,23 +66,43 @@ class ScoreRollupCascadeService
                 val dimDao = db.dimensionMetricDao()
                 val dayDao = db.dayMetricDao()
                 val occDao = db.taskOccurrenceDao()
+                val dateStr = date.toString()
 
-                // ── L1: habit tail ───────────────────────────────────────
+                // ── L1: habit tail (C1 baseline carry-forward) ────────────
+                // Baseline = cumulative state from rows strictly BEFORE the
+                // change day; tail loop runs changeDay → today only, so toggle
+                // cost stays O(gap) regardless of habit history length.
+                val existingHabitRows = habitDao.getForHabit(taskId).filter { it.dayKey < dateStr }
+                val l1Baseline = MetricBaseline.fromHabitRows(existingHabitRows)
+                logger.d(
+                    tag,
+                    "CASCADE_BASELINE_L1",
+                    mapOf(
+                        "taskId" to taskId,
+                        "rowsBefore" to existingHabitRows.size,
+                        "sumScores" to l1Baseline.sumScores,
+                        "count" to l1Baseline.count,
+                        "prevAvg" to (l1Baseline.prevAvg ?: "null"),
+                        "streaks" to "${l1Baseline.streakPos}/${l1Baseline.streakNet}/${l1Baseline.posContinue}",
+                    ),
+                )
                 val occurrences = occDao.getOccurrencesForTaskForBackfill(taskId)
-                val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences, includeToday = true)
-                if (rows.isNotEmpty()) {
-                    habitDao.deleteFrom(taskId, date.toString())
-                    habitDao.upsertAll(rows.filter { it.dayKey >= date.toString() })
-                } else {
-                    habitDao.deleteFrom(taskId, date.toString())
-                }
+                val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
+                    task = task,
+                    occurrences = occurrences,
+                    fromDay = date,
+                    includeToday = true,
+                    baseline = l1Baseline,
+                )
+                habitDao.deleteFrom(taskId, dateStr)
+                if (rows.isNotEmpty()) habitDao.upsertAll(rows)
                 logger.i(
                     tag,
                     "CASCADE_L1_HABIT",
-                    mapOf("taskId" to taskId, "tailRows" to rows.count { it.dayKey >= date.toString() }),
+                    mapOf("taskId" to taskId, "fromDay" to dateStr, "tailRows" to rows.size),
                 )
 
-                // ── L2: affected dimension tail ──────────────────────────
+                // ── L2: affected dimension tail (C1 baseline) ─────────────
                 val dimensionId = task.dimensionId ?: "dim_unassigned"
                 val members = taskDao.getRecurringTasks()
                     .filter { it.status != "archived" && it.recurrenceEnabled == 1 && (it.dimensionId ?: "dim_unassigned") == dimensionId }
@@ -91,25 +111,70 @@ class ScoreRollupCascadeService
                     .mapValues { (_, rows) -> rows.minOfOrNull { parseDate(it.dayKey) } }
                     .filterValues { it != null }
                     .mapValues { it.value!! }
-                val dimRows = ScoreRollupBackfillService.buildDimensionMetrics(members, firstDuePerHabit, memberRows, includeToday = true)
-                    .filter { it.dayKey >= date.toString() }
-                dimDao.deleteFrom(dimensionId, date.toString())
+                val existingDimRows = dimDao.getAll()
+                    .filter { it.dimensionId == dimensionId && it.dayKey < dateStr }
+                    .sortedBy { it.dayKey }
+                val dimBaseline = MetricBaseline.fromDimensionRows(existingDimRows)
+                // Carry-forward seed: each member habit's last L1 score BEFORE the change day.
+                val lastScores = memberRows
+                    .groupBy { it.habitId }
+                    .mapValues { (_, rs) -> rs.filter { it.dayKey < dateStr }.maxByOrNull { it.dayKey } }
+                    .filterValues { it != null }
+                    .mapValues { it.value!!.score }
+                logger.d(
+                    tag,
+                    "CASCADE_BASELINE_L2",
+                    mapOf(
+                        "dimensionId" to dimensionId,
+                        "rowsBefore" to existingDimRows.size,
+                        "carryForwardHabits" to lastScores.size,
+                        "count" to dimBaseline.count,
+                        "prevAvg" to (dimBaseline.prevAvg ?: "null"),
+                    ),
+                )
+                val dimRows = ScoreRollupBackfillService.buildDimensionMetricsFrom(
+                    recurring = members,
+                    firstDuePerHabit = firstDuePerHabit,
+                    habitRows = memberRows,
+                    fromDay = date,
+                    includeToday = true,
+                    baseline = dimBaseline,
+                    lastScores = lastScores,
+                )
+                dimDao.deleteFrom(dimensionId, dateStr)
                 if (dimRows.isNotEmpty()) dimDao.upsertAll(dimRows)
                 logger.i(
                     tag,
                     "CASCADE_L2_DIMENSION",
-                    mapOf("dimensionId" to dimensionId, "tailRows" to dimRows.size),
+                    mapOf("dimensionId" to dimensionId, "fromDay" to dateStr, "tailRows" to dimRows.size),
                 )
 
-                // ── L3: day tail ─────────────────────────────────────────
-                val dayRows = ScoreRollupBackfillService.buildDayMetrics(dimDao.getAll())
-                    .filter { it.dayKey >= date.toString() }
-                dayDao.deleteFrom(date.toString())
+                // ── L3: day tail (C1 baseline, C2 dimension weights) ──────
+                val existingDayRows = dayDao.getAll().filter { it.dayKey < dateStr }.sortedBy { it.dayKey }
+                val dayBaseline = MetricBaseline.fromDayRows(existingDayRows)
+                val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                logger.d(
+                    tag,
+                    "CASCADE_BASELINE_L3",
+                    mapOf(
+                        "rowsBefore" to existingDayRows.size,
+                        "count" to dayBaseline.count,
+                        "prevAvg" to (dayBaseline.prevAvg ?: "null"),
+                        "weightedDims" to dimWeights.size,
+                    ),
+                )
+                val dayRows = ScoreRollupBackfillService.buildDayMetricsFrom(
+                    dimensionRows = dimDao.getAll(),
+                    fromDay = date,
+                    baseline = dayBaseline,
+                    dimWeights = dimWeights,
+                )
+                dayDao.deleteFrom(dateStr)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
                 logger.i(
                     tag,
                     "CASCADE_L3_DAY",
-                    mapOf("tailRows" to dayRows.size, "elapsedMs" to (System.currentTimeMillis() - started)),
+                    mapOf("fromDay" to dateStr, "tailRows" to dayRows.size, "elapsedMs" to (System.currentTimeMillis() - started)),
                 )
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
             } catch (e: Exception) {
@@ -160,7 +225,8 @@ class ScoreRollupCascadeService
                 if (dimRows.isNotEmpty()) dimDao.upsertAll(dimRows)
 
                 // L3: rebuild the day tail from the earliest affected day.
-                val dayRows = ScoreRollupBackfillService.buildDayMetrics(dimDao.getAll())
+                val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                val dayRows = ScoreRollupBackfillService.buildDayMetrics(dimDao.getAll(), dimWeights)
                     .filter { it.dayKey >= earliest }
                 dayDao.deleteFrom(earliest)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
@@ -177,6 +243,60 @@ class ScoreRollupCascadeService
                 )
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
+            }
+        }
+
+        /**
+         * L3-only recalc after a dimension-weight change (C2, self-gov
+         * `dim_weight_change` path: Skip L1+L2 → only L3). L1/L2 rows are
+         * weight-independent; only the day score aggregation changes.
+         *
+         * Rebuilds from the EARLIEST available dimension day (full L3 pass):
+         * weights apply to every day's aggregation, so a weight edit must
+         * re-aggregate ALL history — not just from today onward. Cost is
+         * O(days × dimensions), which stays small even for decade-long
+         * histories (day rows are dense by design).
+         */
+        suspend fun recalcDayOnly(changeDate: LocalDate) {
+            val db = sessionManager.requireDatabase()
+            val tag = "ScoreRollupCascadeService.recalcDayOnly"
+            val started = System.currentTimeMillis()
+            try {
+                val dayDao = db.dayMetricDao()
+                val dimDao = db.dimensionMetricDao()
+                val allDimRows = dimDao.getAll()
+                val fromDay = allDimRows.minOfOrNull { parseDate(it.dayKey) } ?: changeDate
+                val dateStr = fromDay.toString()
+
+                // Full L3 pass: empty baseline — every day re-aggregates with
+                // the new weights (cumulative running avg recomputed).
+                val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                logger.i(
+                    tag,
+                    "CASCADE_DAY_ONLY_START",
+                    mapOf(
+                        "changeDate" to changeDate.toString(),
+                        "fromDay" to dateStr,
+                        "rowsBefore" to dayDao.getAll().size,
+                        "weightedDims" to dimWeights.size,
+                        "weights" to dimWeights.toString(),
+                    ),
+                )
+                val dayRows = ScoreRollupBackfillService.buildDayMetricsFrom(
+                    dimensionRows = allDimRows,
+                    fromDay = fromDay,
+                    baseline = MetricBaseline.empty(),
+                    dimWeights = dimWeights,
+                )
+                dayDao.deleteFrom(dateStr)
+                if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
+                logger.i(
+                    tag,
+                    "CASCADE_DAY_ONLY_END",
+                    mapOf("fromDay" to dateStr, "tailRows" to dayRows.size, "elapsedMs" to (System.currentTimeMillis() - started)),
+                )
+            } catch (e: Exception) {
+                logger.e(tag, "CASCADE_DAY_ONLY_FAILED", e, mapOf("fromDay" to changeDate.toString()))
             }
         }
 
@@ -197,10 +317,11 @@ class ScoreRollupCascadeService
                 val yesterday = LocalDate.now().minusDays(1)
 
                 // ── Phase 1: extend L1 tails for habits lagging behind ────
-                // Compare the DB's actual max dayKey per habit against the
-                // computed timeline (firstDue → yesterday). A habit "lags"
-                // when its stored rows end before yesterday — e.g. the app was
-                // unused for days/weeks. Missed gap days get 0.0 rows.
+                // Compare the DB's actual max dayKey per habit against
+                // yesterday. A habit "lags" when its stored rows end before
+                // yesterday — e.g. the app was unused for days/weeks. Missed
+                // gap days get 0.0 rows. C1: tail build seeded from the
+                // cumulative baseline of existing rows (O(gap) per habit).
                 val dbMaxByHabit = habitDao.getAll()
                     .groupBy { it.habitId }
                     .mapValues { (_, rows) -> rows.maxOfOrNull { it.dayKey } }
@@ -211,26 +332,48 @@ class ScoreRollupCascadeService
                 for (task in recurring) {
                     val dbMax = dbMaxByHabit[task.id]
                     // Fast path: habit already current (rows through yesterday or
-                    // later) — skip occurrence fetch + full timeline compute.
+                    // later) — skip occurrence fetch + timeline compute.
                     if (dbMax != null && dbMax >= yesterday.toString()) continue
                     val occurrences = occDao.getOccurrencesForTaskForBackfill(task.id)
                     computedHabits++
-                    val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences)
+                    // Baseline = all existing rows (they end at dbMax < fromDay).
+                    val fromDay = dbMax?.let { parseDate(it).plusDays(1) } ?: run {
+                        val firstOccurrence = occurrences.mapNotNull { runCatching { LocalDate.parse(it.dueDate.take(10)) }.getOrNull() }.minOrNull()
+                            ?: continue
+                        firstOccurrence
+                    }
+                    val existing = habitDao.getForHabit(task.id).filter { it.dayKey < fromDay.toString() }
+                    val baseline = MetricBaseline.fromHabitRows(existing)
+                    logger.d(
+                        tag,
+                        "CATCHUP_BASELINE_L1",
+                        mapOf(
+                            "taskId" to task.id,
+                            "fromDay" to fromDay.toString(),
+                            "rowsBefore" to existing.size,
+                            "count" to baseline.count,
+                            "prevAvg" to (baseline.prevAvg ?: "null"),
+                        ),
+                    )
+                    val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
+                        task = task,
+                        occurrences = occurrences,
+                        fromDay = fromDay,
+                        includeToday = false,
+                        baseline = baseline,
+                    )
                     if (rows.isEmpty()) continue
-                    // Strictly newer rows only: interval habits have dbMax <
-                    // yesterday as NORMAL (last due was days ago, next due today
-                    // or later) — their stored tail is already complete, so a
-                    // no-op rewrite must not be reported as an extension.
-                    val tail = if (dbMax == null) rows else rows.filter { it.dayKey > dbMax }
-                    if (tail.isEmpty()) continue
-                    habitDao.deleteFrom(task.id, tail.first().dayKey)
-                    habitDao.upsertAll(tail)
-                    extendedRows += tail.size
-                    gapStarts[task.id] = tail.first().dayKey
+                    // Rows from fromDay are strictly newer than dbMax — no-op
+                    // rewrites impossible; interval habits with next-due in the
+                    // future simply produce an empty tail and are skipped.
+                    habitDao.deleteFrom(task.id, fromDay.toString())
+                    habitDao.upsertAll(rows)
+                    extendedRows += rows.size
+                    gapStarts[task.id] = fromDay.toString()
                     logger.i(
                         tag,
                         "CATCHUP_HABIT_EXTENDED",
-                        mapOf("taskId" to task.id, "fromDay" to tail.first().dayKey, "rows" to tail.size),
+                        mapOf("taskId" to task.id, "fromDay" to fromDay.toString(), "rows" to rows.size),
                     )
                 }
                 if (gapStarts.isEmpty()) {
@@ -266,8 +409,33 @@ class ScoreRollupCascadeService
                     val members = recurring.filter { (it.dimensionId ?: "dim_unassigned") == dimId }
                     if (members.isEmpty()) continue
                     val memberRows = allHabitRows.filter { row -> members.any { it.id == row.habitId } }
-                    val dimRows = ScoreRollupBackfillService.buildDimensionMetrics(members, firstDuePerHabit, memberRows)
-                        .filter { it.dayKey >= fromDay }
+                    val dimBaseline = MetricBaseline.fromDimensionRows(
+                        dimDao.getAll().filter { it.dimensionId == dimId && it.dayKey < fromDay }.sortedBy { it.dayKey },
+                    )
+                    val lastScores = memberRows
+                        .groupBy { it.habitId }
+                        .mapValues { (_, rs) -> rs.filter { it.dayKey < fromDay }.maxByOrNull { it.dayKey } }
+                        .filterValues { it != null }
+                        .mapValues { it.value!!.score }
+                    logger.d(
+                        tag,
+                        "CATCHUP_BASELINE_L2",
+                        mapOf(
+                            "dimensionId" to dimId,
+                            "fromDay" to fromDay,
+                            "carryForwardHabits" to lastScores.size,
+                            "count" to dimBaseline.count,
+                        ),
+                    )
+                    val dimRows = ScoreRollupBackfillService.buildDimensionMetricsFrom(
+                        recurring = members,
+                        firstDuePerHabit = firstDuePerHabit,
+                        habitRows = memberRows,
+                        fromDay = parseDate(fromDay),
+                        includeToday = false,
+                        baseline = dimBaseline,
+                        lastScores = lastScores,
+                    )
                     dimDao.deleteFrom(dimId, fromDay)
                     if (dimRows.isNotEmpty()) {
                         dimDao.upsertAll(dimRows)
@@ -278,8 +446,21 @@ class ScoreRollupCascadeService
 
                 // ── Phase 3: refresh day tail ──────────────────────────────
                 val globalFromDay = affectedDimFromDay.values.minOrNull() ?: yesterday.toString()
-                val dayRows = ScoreRollupBackfillService.buildDayMetrics(dimDao.getAll())
-                    .filter { it.dayKey >= globalFromDay }
+                val dayBaseline = MetricBaseline.fromDayRows(
+                    dayDao.getAll().filter { it.dayKey < globalFromDay }.sortedBy { it.dayKey },
+                )
+                val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                logger.d(
+                    tag,
+                    "CATCHUP_BASELINE_L3",
+                    mapOf("fromDay" to globalFromDay, "count" to dayBaseline.count, "prevAvg" to (dayBaseline.prevAvg ?: "null"), "weightedDims" to dimWeights.size),
+                )
+                val dayRows = ScoreRollupBackfillService.buildDayMetricsFrom(
+                    dimensionRows = dimDao.getAll(),
+                    fromDay = parseDate(globalFromDay),
+                    baseline = dayBaseline,
+                    dimWeights = dimWeights,
+                )
                 dayDao.deleteFrom(globalFromDay)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
                 logger.i(

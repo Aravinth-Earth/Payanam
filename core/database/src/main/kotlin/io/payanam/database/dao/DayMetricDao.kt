@@ -21,6 +21,9 @@ interface DayMetricDao {
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     fun observeAll(): Flow<List<DayMetricEntity>>
 
+    @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
+    suspend fun getAll(): List<DayMetricEntity>
+
     @Query("SELECT * FROM day_metrics WHERE dayKey = :dayKey")
     suspend fun forDay(dayKey: String): DayMetricEntity?
 
