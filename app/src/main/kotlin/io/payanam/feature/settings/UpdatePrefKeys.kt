@@ -12,6 +12,7 @@ internal object UpdatePrefKeys {
     const val AUTO_DOWNLOAD = "auto_download_enabled"
     const val PROMPT_INSTALL = "prompt_install_enabled"
     const val WIFI_ONLY = "wifi_only_enabled"
+    const val AUTO_CHECK = "auto_check_enabled"
     const val ACTIVE_DOWNLOAD_ID = "active_download_id"
     const val ACTIVE_DOWNLOAD_FILE = "active_download_file"
     const val ACTIVE_DOWNLOAD_URL = "active_download_url"

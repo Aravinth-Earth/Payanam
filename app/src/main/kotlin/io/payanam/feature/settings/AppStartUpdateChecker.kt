@@ -42,9 +42,12 @@ class AppStartUpdateChecker @Inject constructor(
                 val isOpen = sessionManager.isOpen.first { it }
                 if (!isOpen) return@launch
 
-                // Only meaningful when the user opted into auto-downloads.
-                val autoDownload = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD) == "true"
-                if (!autoDownload) return@launch
+                // Only run when the user opted into the post-unlock auto check.
+                val autoCheck = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_CHECK) == "true"
+                if (!autoCheck) {
+                    logger.d("AppStartUpdateChecker.onAppStart", "Auto-check disabled, skipping start check")
+                    return@launch
+                }
 
                 val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
                 val channel = UpdateChannel.fromStorage(channelRaw)
@@ -55,6 +58,14 @@ class AppStartUpdateChecker @Inject constructor(
                 }
                 if (!result.isUpdateAvailable) {
                     logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
+                    return@launch
+                }
+
+                // Check found an update. Enqueue only when auto-download is ON;
+                // otherwise just trace — the Settings UI surfaces the result.
+                val autoDownload = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD) == "true"
+                if (!autoDownload) {
+                    logger.d("AppStartUpdateChecker.onAppStart", "Update available on start check, auto-download off", mapOf("latestBuild" to (result.latestBuildNumber ?: -1)))
                     return@launch
                 }
 

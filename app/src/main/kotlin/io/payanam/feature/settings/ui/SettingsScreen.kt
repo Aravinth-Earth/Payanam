@@ -545,6 +545,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.ABOUT)
                 },
                 uiState = uiState,
+                logger = logger,
                 onViewGithub = {
                     logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "github"))
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
@@ -554,6 +555,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 onAutoDownloadToggled = viewModel::onAutoDownloadToggled,
                 onPromptInstallToggled = viewModel::onPromptInstallToggled,
                 onWifiOnlyToggled = viewModel::onWifiOnlyToggled,
+                onAutoCheckToggled = viewModel::onAutoCheckToggled,
                 onDownloadOrRetry = viewModel::downloadOrRetry,
                 onInstallNow = viewModel::onInstallNow,
                 onInstallLater = viewModel::onInstallLater,

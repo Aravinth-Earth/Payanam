@@ -22,6 +22,7 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -370,12 +371,14 @@ internal fun AboutSettingsSection(
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     uiState: SettingsUiState,
+    logger: UnifiedLogger,
     onViewGithub: () -> Unit,
     onCheckForUpdate: () -> Unit = {},
     onUpdateChannelSelected: (UpdateChannel) -> Unit = {},
     onAutoDownloadToggled: (Boolean) -> Unit = {},
     onPromptInstallToggled: (Boolean) -> Unit = {},
     onWifiOnlyToggled: (Boolean) -> Unit = {},
+    onAutoCheckToggled: (Boolean) -> Unit = {},
     onDownloadOrRetry: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
@@ -520,6 +523,23 @@ internal fun AboutSettingsSection(
                 modifier = Modifier.weight(1f),
             )
         }
+
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = uiState.autoCheckEnabled,
+                onCheckedChange = { onAutoCheckToggled(it) },
+                enabled = !uiState.isCheckingForUpdate,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_auto_check),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
 
         // Update check
@@ -557,8 +577,11 @@ internal fun AboutSettingsSection(
                 buttonEnabled = true
                 buttonAction = onDownloadOrRetry
             }
-            // Update available but not downloading yet (manual download path)
-            uiState.updateCheckResult?.isUpdateAvailable == true && !uiState.autoDownloadEnabled -> {
+            // Update available but not downloading yet (manual download path).
+            // A stale result (>15 min) reverts to "Check for update" so the
+            // user always has a fresh-check exit from a stale state.
+            uiState.updateCheckResult?.isUpdateAvailable == true && !uiState.autoDownloadEnabled &&
+                !uiState.isUpdateResultStale() -> {
                 buttonLabel = stringResource(id = R.string.settings_update_download_button)
                 buttonEnabled = true
                 buttonAction = onDownloadOrRetry
@@ -570,7 +593,26 @@ internal fun AboutSettingsSection(
             }
         }
         Button(
-            onClick = buttonAction,
+            onClick = {
+                logger.d(
+                    "SettingsScreen.updateButtonTapped",
+                    "Update button tapped",
+                    mapOf(
+                        "label" to buttonLabel,
+                        "action" to when (buttonAction) {
+                            onCheckForUpdate -> "checkForUpdate"
+                            onDownloadOrRetry -> "downloadOrRetry"
+                            onInstallNow -> "installNow"
+                            else -> "unknown"
+                        },
+                        "checking" to uiState.isCheckingForUpdate,
+                        "updateAvailable" to (uiState.updateCheckResult?.isUpdateAvailable ?: false),
+                        "autoDownload" to uiState.autoDownloadEnabled,
+                        "downloadState" to uiState.downloadState::class.simpleName,
+                    ),
+                )
+                buttonAction()
+            },
             modifier = Modifier.fillMaxWidth(),
             enabled = buttonEnabled,
         ) {
@@ -583,6 +625,23 @@ internal fun AboutSettingsSection(
                 Spacer(modifier = Modifier.width(8.dp))
             }
             Text(text = buttonLabel)
+        }
+
+        // Secondary "Check again" affordance: shown whenever a manual download
+        // path is active, so a fresh check is always one tap away.
+        if (buttonAction == onDownloadOrRetry) {
+            TextButton(
+                onClick = {
+                    logger.d("SettingsScreen.updateCheckAgainTapped", "Check again tapped", mapOf("label" to buttonLabel))
+                    onCheckForUpdate()
+                },
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Text(
+                    text = stringResource(id = R.string.settings_update_check_again_button),
+                    style = MaterialTheme.typography.bodyMedium,
+                )
+            }
         }
 
         val result = uiState.updateCheckResult

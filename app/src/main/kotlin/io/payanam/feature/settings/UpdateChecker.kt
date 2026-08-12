@@ -22,8 +22,10 @@ data class UpdateCheckResult(
     val latestBuildNumber: Int?,
     val releaseUrl: String?,
     val error: UpdateCheckError?,
-    /** Status of every channel parsed from the list call (for the channel rows UI). */
+    /** Status of every channel parsed from the list endpoint. */
     val channelStatuses: List<ChannelStatus> = emptyList(),
+    /** Epoch millis when this result was produced — staleness for the UI. */
+    val checkedAtMs: Long = System.currentTimeMillis(),
 )
 
 /**

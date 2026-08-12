@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.biometric.BiometricManager
+import io.payanam.BuildConfig
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -73,7 +74,27 @@ class SettingsViewModel @Inject constructor(
     private var activeDownloadId: Long? = null
 
     internal fun updateUiState(transform: (SettingsUiState) -> SettingsUiState) {
-        _uiState.update(transform)
+        val from = _uiState.value
+        val to = transform(from)
+        _uiState.update { to }
+        // Trace update-flow state transitions (only when download/channel/check fields change).
+        if (from.downloadState != to.downloadState ||
+            from.isCheckingForUpdate != to.isCheckingForUpdate ||
+            from.updateCheckResult != to.updateCheckResult ||
+            from.updateChannel != to.updateChannel
+        ) {
+            logger.d(
+                "SettingsViewModel.updateState",
+                "Update-flow state transition",
+                mapOf(
+                    "downloadState" to (from.downloadState::class.simpleName + " -> " + to.downloadState::class.simpleName),
+                    "checking" to (from.isCheckingForUpdate.toString() + " -> " + to.isCheckingForUpdate.toString()),
+                    "updateAvailable" to ((from.updateCheckResult?.isUpdateAvailable ?: false).toString() + " -> " + (to.updateCheckResult?.isUpdateAvailable ?: false).toString()),
+                    "channel" to (from.updateChannel.name + " -> " + to.updateChannel.name),
+                    "latestBuild" to (to.updateCheckResult?.latestBuildNumber ?: -1),
+                ),
+            )
+        }
     }
 
     init {
@@ -84,6 +105,7 @@ class SettingsViewModel @Inject constructor(
         loadPromptInstall()
         loadAutoDownload()
         loadWifiOnly()
+        loadAutoCheck()
     }
 
     /** Load the persisted update channel (defaults to DEV). */
@@ -183,6 +205,25 @@ class SettingsViewModel @Inject constructor(
             appSettingsRepository.setSetting(UpdatePrefKeys.WIFI_ONLY, enabled.toString())
             logger.i("SettingsViewModel.onWifiOnlyToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
+        }
+    }
+
+    /** Load the persisted auto-check-on-start setting (defaults OFF — opt-in). */
+    private fun loadAutoCheck() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_CHECK)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadAutoCheck", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(autoCheckEnabled = enabled) }
+        }
+    }
+
+    /** Toggle the post-unlock auto update check on/off. */
+    internal fun onAutoCheckToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_CHECK, enabled.toString())
+            logger.i("SettingsViewModel.onAutoCheckToggled", "Toggle saved", mapOf("enabled" to enabled))
+            _uiState.update { it.copy(autoCheckEnabled = enabled) }
         }
     }
 
@@ -816,7 +857,40 @@ class SettingsViewModel @Inject constructor(
         val result = _uiState.value.updateCheckResult ?: return
         val build = result.latestBuildNumber ?: return
         if (result.isUpdateAvailable && activeDownloadId == null) {
-            startAutoDownload(build)
+            // STALE-URL GUARD: the cached check result can be minutes/hours old
+            // (rolling channel moves on). Re-fetch the channel's current
+            // release so we always download what is latest NOW, never a
+            // superseded build. The retry path above uses the persisted URL
+            // because a restart may have no cached result at all.
+            viewModelScope.launch {
+                val channel = _uiState.value.updateChannel
+                val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
+                if (fresh.error != null) {
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
+                    return@launch
+                }
+                val selected = fresh.channelStatuses.firstOrNull { it.channel == channel }
+                val url = selected?.apkDownloadUrl
+                if (url.isNullOrEmpty()) {
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("no_download_url")) }
+                    return@launch
+                }
+                logger.i(
+                    "SettingsViewModel.downloadOrRetry",
+                    "Manual download re-fetched channel",
+                    mapOf(
+                        "cachedBuild" to build,
+                        "freshBuild" to (fresh.latestBuildNumber ?: -1),
+                        "file" to url.substringAfterLast('/'),
+                    ),
+                )
+                if (fresh.isUpdateAvailable) {
+                    startAutoDownload(fresh.latestBuildNumber ?: build)
+                } else {
+                    // Channel moved past us: no update to download anymore.
+                    _uiState.update { it.copy(updateCheckResult = fresh) }
+                }
+            }
         }
     }
 
