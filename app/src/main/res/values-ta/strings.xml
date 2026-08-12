@@ -1122,9 +1122,14 @@
     <string name="settings_update_channel_build">பில்ட் #%1$d</string>
     <string name="settings_update_channel_no_build">இன்னும் பில்ட் இல்லை</string>
     <string name="settings_update_auto_download">புதுப்பிப்புகளை தானாக பதிவிறக்கு</string>
+    <string name="settings_update_prompt_install">பதிவிறக்கிய பின் நிறுவ கேள்வி கேள்</string>
     <string name="settings_update_downloading">பதிவிறக்குகிறது… %1$d%%</string>
     <string name="settings_update_downloaded">பதிவிறக்கம் முடிந்தது — நிறுவ தயார்</string>
     <string name="settings_update_download_failed">பதிவிறக்கம் தோல்வி. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
+    <string name="settings_update_install_title">புதுப்பிப்பு கிடைக்கிறது</string>
+    <string name="settings_update_install_message">புதிய பில்ட் பதிவிறக்கப்பட்டது. இப்போது நிறுவவா?</string>
+    <string name="settings_update_install_now">இப்போது புதுப்பி</string>
+    <string name="settings_update_install_later">பின்னர்</string>
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
     <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>

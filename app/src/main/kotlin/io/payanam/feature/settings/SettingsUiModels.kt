@@ -33,7 +33,10 @@ data class SettingsUiState(
     val updateCheckResult: UpdateCheckResult? = null,
     val updateChannel: UpdateChannel = UpdateChannel.DEV,
     val autoDownloadEnabled: Boolean = false,
+    val promptInstallEnabled: Boolean = false,
     val downloadState: DownloadUiState = DownloadUiState.Idle,
+    /** Pending install file path — non-null shows the update popup. */
+    val pendingInstallPath: String? = null,
 )
 sealed class ExportResult {
     data class Success(val fileName: String) : ExportResult()

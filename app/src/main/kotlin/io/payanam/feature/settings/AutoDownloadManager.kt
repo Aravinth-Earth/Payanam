@@ -19,7 +19,7 @@ sealed class DownloadUiState {
         val progressPercent: Int
             get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt() else 0
     }
-    data class Downloaded(val fileName: String) : DownloadUiState()
+    data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
     data class Failed(val message: String) : DownloadUiState()
 }
 
@@ -75,7 +75,10 @@ object AutoDownloadManager {
                     DownloadManager.STATUS_SUCCESSFUL -> {
                         val uri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
                         logger.d("AutoDownloadManager.queryProgress", "Download complete", mapOf("uri" to (uri ?: "unknown")))
-                        DownloadUiState.Downloaded(uri ?: "unknown")
+                        DownloadUiState.Downloaded(
+                            fileName = uri?.substringAfterLast('/') ?: "unknown",
+                            localPath = uri?.removePrefix("file://"),
+                        )
                     }
                     DownloadManager.STATUS_FAILED -> {
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))

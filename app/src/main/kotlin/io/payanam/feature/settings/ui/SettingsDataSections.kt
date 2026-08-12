@@ -23,6 +23,7 @@ import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
@@ -38,6 +39,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -372,6 +374,9 @@ internal fun AboutSettingsSection(
     onCheckForUpdate: () -> Unit = {},
     onUpdateChannelSelected: (UpdateChannel) -> Unit = {},
     onAutoDownloadToggled: (Boolean) -> Unit = {},
+    onPromptInstallToggled: (Boolean) -> Unit = {},
+    onInstallNow: () -> Unit = {},
+    onInstallLater: () -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
@@ -477,6 +482,22 @@ internal fun AboutSettingsSection(
             Spacer(modifier = Modifier.width(8.dp))
             Text(
                 text = stringResource(id = R.string.settings_update_auto_download),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = uiState.promptInstallEnabled,
+                onCheckedChange = { onPromptInstallToggled(it) },
+                enabled = uiState.autoDownloadEnabled && !uiState.isCheckingForUpdate,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_prompt_install),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
@@ -632,6 +653,26 @@ internal fun AboutSettingsSection(
                 )
             }
             DownloadUiState.Idle -> Unit
+        }
+
+        // Update-install popup (shown when a download finished and prompt-install is ON)
+        val pendingPath = uiState.pendingInstallPath
+        if (pendingPath != null) {
+            AlertDialog(
+                onDismissRequest = onInstallLater,
+                title = { Text(stringResource(id = R.string.settings_update_install_title)) },
+                text = { Text(stringResource(id = R.string.settings_update_install_message)) },
+                confirmButton = {
+                    TextButton(onClick = onInstallNow) {
+                        Text(stringResource(id = R.string.settings_update_install_now))
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = onInstallLater) {
+                        Text(stringResource(id = R.string.settings_update_install_later))
+                    }
+                },
+            )
         }
     }
 }

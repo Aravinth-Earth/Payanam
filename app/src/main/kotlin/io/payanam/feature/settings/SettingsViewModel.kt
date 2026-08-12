@@ -3,6 +3,7 @@
 package io.payanam.feature.settings
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.biometric.BiometricManager
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
@@ -81,6 +82,7 @@ class SettingsViewModel @Inject constructor(
         syncTimeoutFromDb()
         loadUpdateChannel()
         loadAutoDownload()
+        loadPromptInstall()
     }
 
     /** Load the persisted update channel (defaults to DEV). */
@@ -139,6 +141,58 @@ class SettingsViewModel @Inject constructor(
                 pollDownloadProgress()
             }
         }
+    }
+
+    /** Load the persisted prompt-install toggle (defaults to OFF). */
+    private fun loadPromptInstall() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(PROMPT_INSTALL_KEY)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadPromptInstall", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(promptInstallEnabled = enabled) }
+        }
+    }
+
+    /** Toggle prompt-install on/off (only meaningful when auto-download is ON). */
+    internal fun onPromptInstallToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(PROMPT_INSTALL_KEY, enabled.toString())
+            logger.i("SettingsViewModel.onPromptInstallToggled", "Toggle saved", mapOf("enabled" to enabled))
+            _uiState.update { it.copy(promptInstallEnabled = enabled) }
+        }
+    }
+
+    /** User tapped "Update now" in the popup → launch the system installer. */
+    internal fun onInstallNow() {
+        val path = _uiState.value.pendingInstallPath ?: return
+        val file = File(path)
+        if (!file.exists()) {
+            _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("file_missing")) }
+            return
+        }
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            // Install flow handed off to the system; clear pending state.
+            _uiState.update { it.copy(pendingInstallPath = null) }
+        } catch (e: Exception) {
+            logger.e("SettingsViewModel.onInstallNow", "Install launch failed", e)
+            _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("install_launch_failed")) }
+        }
+    }
+
+    /** User dismissed the update popup ("Later") — keep the downloaded file. */
+    internal fun onInstallLater() {
+        _uiState.update { it.copy(pendingInstallPath = null) }
     }
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
@@ -694,6 +748,11 @@ class SettingsViewModel @Inject constructor(
                     }
                     is DownloadUiState.Downloaded -> {
                         appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                        // Prompt to install only when the opt-in toggle is ON;
+                        // otherwise just show the "ready" state (tap to install).
+                        if (_uiState.value.promptInstallEnabled) {
+                            _uiState.update { it.copy(pendingInstallPath = state.localPath) }
+                        }
                         terminal = true
                     }
                     is DownloadUiState.Failed -> {
@@ -714,6 +773,7 @@ class SettingsViewModel @Inject constructor(
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
         private const val UPDATE_CHANNEL_KEY = "update_channel"
         private const val AUTO_DOWNLOAD_KEY = "auto_download_enabled"
+        private const val PROMPT_INSTALL_KEY = "prompt_install_enabled"
         private const val DOWNLOAD_ID_KEY = "active_download_id"
         private const val DOWNLOAD_FILE_KEY = "active_download_file"
         private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
