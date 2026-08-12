@@ -141,6 +141,20 @@ class SettingsViewModel @Inject constructor(
         }
     }
 
+    /** User tapped Cancel while a download is in flight — cancel + clean persisted state. */
+    internal fun onCancelDownload() {
+        val id = activeDownloadId ?: return
+        viewModelScope.launch {
+            AutoDownloadManager.cancel(context, id)
+            activeDownloadId = null
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, null)
+            logger.i("SettingsViewModel.onCancelDownload", "Download cancelled", mapOf("downloadId" to id))
+            _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
+        }
+    }
+
     /** Toggle auto-download on/off; toggling off cancels any in-flight download. */
     internal fun onAutoDownloadToggled(enabled: Boolean) {
         viewModelScope.launch {
@@ -905,7 +919,16 @@ class SettingsViewModel @Inject constructor(
             while (!terminal && activeDownloadId == id && polls < MAX_POLLS) {
                 polls++
                 val state = AutoDownloadManager.queryProgress(context, id)
-                _uiState.update { it.copy(downloadState = state) }
+                // Enrich Downloading with channel + full build name for the UI.
+                val enriched = if (state is DownloadUiState.Downloading) {
+                    state.copy(
+                        channelName = _uiState.value.updateChannel.name.lowercase(),
+                        buildName = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE) ?: state.fileName,
+                    )
+                } else {
+                    state
+                }
+                _uiState.update { it.copy(downloadState = enriched) }
                 when (state) {
                     is DownloadUiState.Downloading, is DownloadUiState.Paused -> {
                         // keep polling (Paused is transient — system resumes)

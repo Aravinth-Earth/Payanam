@@ -65,6 +65,15 @@ class UpdateCheckerTest {
         assertFalse(latest > current)
     }
 
+    // ── Download filename → build label ───────────────────────────────────
+
+    @Test
+    fun `build number extracted from apk filename`() {
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))
+        assertEquals("update", buildNumberFromFileName("Payanam update"))
+        assertEquals("update", buildNumberFromFileName(""))
+    }
+
     // ── Error enum coverage ───────────────────────────────────────────────
 
     @Test

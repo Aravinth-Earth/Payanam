@@ -1127,6 +1127,7 @@
     <string name="settings_update_auto_check">திறந்த பின் புதுப்பிப்புகளைச் சரிபார்</string>
     <string name="settings_update_check_again_button">மீண்டும் சரிபார்</string>
     <string name="settings_update_downloading">பதிவிறக்குகிறது… %1$d%%</string>
+    <string name="settings_update_downloading_header">%1$s · %2$s</string>
     <string name="settings_update_downloaded">பதிவிறக்கம் முடிந்தது — நிறுவ தயார்</string>
     <string name="settings_update_download_failed">பதிவிறக்கம் தோல்வி. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_update_download_button">புதுப்பிப்பை பதிவிறக்கு</string>

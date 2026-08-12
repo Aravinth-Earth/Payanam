@@ -16,7 +16,15 @@ import java.io.File
 /** States surfaced to the Settings UI for the auto-download flow. */
 sealed class DownloadUiState {
     data object Idle : DownloadUiState()
-    data class Downloading(val bytesDownloaded: Long, val totalBytes: Long) : DownloadUiState() {
+    data class Downloading(
+        val fileName: String,
+        val bytesDownloaded: Long,
+        val totalBytes: Long,
+        /** Channel this download belongs to (enriched by the ViewModel). */
+        val channelName: String = "",
+        /** Full APK build name, e.g. "Payanam_Android_1568_20260812_193754.apk" (enriched). */
+        val buildName: String = "",
+    ) : DownloadUiState() {
         val progressPercent: Int
             get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt() else 0
     }
@@ -51,7 +59,7 @@ object AutoDownloadManager {
         return try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("Payanam $fileName")
+                .setTitle("Payanam #${buildNumberFromFileName(fileName)}")
                 .setDescription("Downloading update APK")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "$SUBDIR/$fileName")
@@ -95,7 +103,11 @@ object AutoDownloadManager {
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         DownloadUiState.Paused(pausedMessage(reason))
                     }
-                    else -> DownloadUiState.Downloading(bytesDownloaded = bytes, totalBytes = total)
+                    else -> DownloadUiState.Downloading(
+                        fileName = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE)),
+                        bytesDownloaded = bytes,
+                        totalBytes = total,
+                    )
                 }
             } else {
                 DownloadUiState.Failed("download_not_found")
@@ -168,6 +180,10 @@ object AutoDownloadManager {
         return receiver
     }
 }
+
+/** Extract the build number from an APK filename ("Payanam_Android_1568_..." → "1568"). */
+internal fun buildNumberFromFileName(fileName: String): String =
+    Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1) ?: "update"
 
 /** Pure mapper (no object init) — unit-testable on plain JVM. */
 internal fun downloadFailureMessage(reason: Int): String = when (reason) {

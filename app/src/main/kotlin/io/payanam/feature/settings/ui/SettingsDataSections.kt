@@ -49,11 +49,13 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
+import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.SettingsUiState
@@ -380,6 +382,7 @@ internal fun AboutSettingsSection(
     onWifiOnlyToggled: (Boolean) -> Unit = {},
     onAutoCheckToggled: (Boolean) -> Unit = {},
     onDownloadOrRetry: () -> Unit = {},
+    onCancelDownload: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
 ) {
@@ -740,17 +743,45 @@ internal fun AboutSettingsSection(
         when (val dl = uiState.downloadState) {
             is DownloadUiState.Downloading -> {
                 Spacer(modifier = Modifier.height(12.dp))
-                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                    CircularProgressIndicator(
-                        progress = { dl.progressPercent / 100f },
-                        modifier = Modifier.size(20.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
+                Column(modifier = Modifier.fillMaxWidth()) {
+                    // Line 1: channel · build label
                     Text(
-                        text = stringResource(id = R.string.settings_update_downloading, dl.progressPercent),
-                        style = MaterialTheme.typography.bodySmall,
+                        text = stringResource(
+                            id = R.string.settings_update_downloading_header,
+                            dl.channelName.ifEmpty { "dev" },
+                            downloadBuildLabel(dl.buildName.ifEmpty { dl.fileName }),
+                        ),
+                        style = MaterialTheme.typography.bodyMedium,
                     )
+                    // Line 2: full build name (small, muted)
+                    Text(
+                        text = dl.buildName.ifEmpty { dl.fileName },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis,
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        CircularProgressIndicator(
+                            progress = { dl.progressPercent / 100f },
+                            modifier = Modifier.size(20.dp),
+                            strokeWidth = 2.dp,
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(id = R.string.loc_percent_value, dl.progressPercent),
+                            style = MaterialTheme.typography.bodySmall,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = onCancelDownload) {
+                            Text(
+                                text = stringResource(id = R.string.settings_action_cancel),
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error,
+                            )
+                        }
+                    }
                 }
             }
             is DownloadUiState.Paused -> {
@@ -801,6 +832,9 @@ internal fun AboutSettingsSection(
         }
     }
 }
+
+/** Extract "Payanam #1568" from a DownloadManager title/filename. */
+private fun downloadBuildLabel(fileName: String): String = "Payanam #${buildNumberFromFileName(fileName)}"
 
 /** Map a DownloadManager failure key to a user-friendly string resource. */
 private fun failedMessageRes(key: String): Int = when (key) {

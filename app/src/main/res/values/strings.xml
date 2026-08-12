@@ -1128,6 +1128,7 @@
     <string name="settings_update_auto_check">Check for updates after unlock</string>
     <string name="settings_update_check_again_button">Check again</string>
     <string name="settings_update_downloading">Downloading… %1$d%%</string>
+    <string name="settings_update_downloading_header">%1$s · %2$s</string>
     <string name="settings_update_downloaded">Downloaded — ready to install</string>
     <string name="settings_update_download_failed">Download failed. Check connection and retry.</string>
     <string name="settings_update_download_button">Download update</string>
