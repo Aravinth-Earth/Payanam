@@ -174,12 +174,20 @@ if ($DryRun) {
     Write-LogWithTime "[DRY RUN]   assets : $($apkFile.Name) + $sha256FileName" "Yellow"
     Write-LogWithTime "[DRY RUN]   notes  : Payanam $ChannelTitle Build, build #$buildNumber, channel $Channel, commit $commitHash, branch $branch" "Yellow"
 } else {
-    gh release create $tag `
-        --title "Latest $ChannelTitle Build (#$buildNumber)" `
-        --notes $releaseNotes `
-        @prereleaseFlag `
-        "$($apkFile.FullName)#$($apkFile.Name)" `
-        "$sha256FilePath#$sha256FileName"
+    # Build the full argument list first, then splat once — splatting
+    # mid-command with backtick continuations misparses in PowerShell.
+    $ghArgs = @(
+        $tag
+        "--title", "Latest $ChannelTitle Build (#$buildNumber)"
+        "--notes", $releaseNotes
+    )
+    if ($Channel -ne "stable") {
+        $ghArgs += "--prerelease"
+    }
+    $ghArgs += "$($apkFile.FullName)#$($apkFile.Name)"
+    $ghArgs += "$sha256FilePath#$sha256FileName"
+
+    gh release create @ghArgs
 
     if ($LASTEXITCODE -ne 0) {
         Write-LogWithTime "Release creation failed." "Red"
