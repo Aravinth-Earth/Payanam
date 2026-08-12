@@ -63,6 +63,46 @@ data class ChannelStatus(
 internal fun channelFromTag(tagName: String): UpdateChannel? =
     UpdateChannel.entries.firstOrNull { tagName == "latest-${it.tagSuffix}" }
 
+private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
+
+/**
+ * Parse the GitHub releases list JSON body into per-channel statuses.
+ * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
+ * malformed entries are skipped. Returns an empty list for garbage bodies.
+ */
+internal fun parseReleases(body: String): List<ChannelStatus> {
+    val releases = try {
+        JSONArray(body)
+    } catch (e: Exception) {
+        return emptyList()
+    }
+    val statuses = mutableListOf<ChannelStatus>()
+    for (i in 0 until releases.length()) {
+        val release = releases.optJSONObject(i) ?: continue
+        val tagName = release.optString("tag_name", "")
+        val channel = channelFromTag(tagName) ?: continue
+        val htmlUrl = release.optString("html_url", "")
+        val title = release.optString("name", tagName)
+        val match = BUILD_NUMBER_REGEX.find(title)
+        val buildNumber = match?.groupValues?.get(1)?.toIntOrNull()
+        // Direct APK asset URL: assets[].browser_download_url (first .apk).
+        val assets = release.optJSONArray("assets")
+        var apkUrl: String? = null
+        if (assets != null) {
+            for (a in 0 until assets.length()) {
+                val asset = assets.optJSONObject(a) ?: continue
+                val assetName = asset.optString("name", "")
+                if (assetName.endsWith(".apk")) {
+                    apkUrl = asset.optString("browser_download_url", "")
+                    break
+                }
+            }
+        }
+        statuses.add(ChannelStatus(channel = channel, buildNumber = buildNumber, releaseUrl = htmlUrl, apkDownloadUrl = apkUrl))
+    }
+    return statuses
+}
+
 enum class UpdateCheckError {
     NO_INTERNET,
     TIMEOUT,
@@ -79,7 +119,6 @@ object UpdateChecker {
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
     private const val MAX_RESPONSE_BYTES = 1_048_576 // 1MB safety cap
-    private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
     private val logger = UnifiedLogger.getInstance()
 
     /**
@@ -139,31 +178,7 @@ object UpdateChecker {
 
                 // List endpoint → JSON array of release objects. Pick out the
                 // rolling channel tags (latest-*) we own; ignore everything else.
-                val releases = JSONArray(body)
-                val statuses = mutableListOf<ChannelStatus>()
-                for (i in 0 until releases.length()) {
-                    val release = releases.optJSONObject(i) ?: continue
-                    val tagName = release.optString("tag_name", "")
-                    val channel = channelFromTag(tagName) ?: continue
-                    val htmlUrl = release.optString("html_url", "")
-                    val title = release.optString("name", tagName)
-                    val match = BUILD_NUMBER_REGEX.find(title)
-                    val buildNumber = match?.groupValues?.get(1)?.toIntOrNull()
-                    // Direct APK asset URL: assets[].browser_download_url (first .apk).
-                    val assets = release.optJSONArray("assets")
-                    var apkUrl: String? = null
-                    if (assets != null) {
-                        for (a in 0 until assets.length()) {
-                            val asset = assets.optJSONObject(a) ?: continue
-                            val assetName = asset.optString("name", "")
-                            if (assetName.endsWith(".apk")) {
-                                apkUrl = asset.optString("browser_download_url", "")
-                                break
-                            }
-                        }
-                    }
-                    statuses.add(ChannelStatus(channel = channel, buildNumber = buildNumber, releaseUrl = htmlUrl, apkDownloadUrl = apkUrl))
-                }
+                val statuses = parseReleases(body)
 
                 val selected = statuses.firstOrNull { it.channel == channel }
                 val latestBuild = selected?.buildNumber

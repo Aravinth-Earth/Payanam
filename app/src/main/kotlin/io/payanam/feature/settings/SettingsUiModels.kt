@@ -34,6 +34,7 @@ data class SettingsUiState(
     val updateChannel: UpdateChannel = UpdateChannel.DEV,
     val autoDownloadEnabled: Boolean = false,
     val promptInstallEnabled: Boolean = false,
+    val wifiOnlyEnabled: Boolean = false,
     val downloadState: DownloadUiState = DownloadUiState.Idle,
     /** Pending install file path — non-null shows the update popup. */
     val pendingInstallPath: String? = null,

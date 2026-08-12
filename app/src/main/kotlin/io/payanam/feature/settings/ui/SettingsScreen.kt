@@ -553,6 +553,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 onUpdateChannelSelected = viewModel::onUpdateChannelSelected,
                 onAutoDownloadToggled = viewModel::onAutoDownloadToggled,
                 onPromptInstallToggled = viewModel::onPromptInstallToggled,
+                onWifiOnlyToggled = viewModel::onWifiOnlyToggled,
+                onDownloadOrRetry = viewModel::downloadOrRetry,
                 onInstallNow = viewModel::onInstallNow,
                 onInstallLater = viewModel::onInstallLater,
             )

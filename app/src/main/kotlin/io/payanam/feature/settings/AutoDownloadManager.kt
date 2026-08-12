@@ -11,6 +11,7 @@ import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
 import io.payanam.common.logging.UnifiedLogger
+import java.io.File
 
 /** States surfaced to the Settings UI for the auto-download flow. */
 sealed class DownloadUiState {
@@ -19,6 +20,8 @@ sealed class DownloadUiState {
         val progressPercent: Int
             get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt() else 0
     }
+    /** Paused by the system (e.g. waiting for Wi-Fi) — not an error. */
+    data class Paused(val message: String) : DownloadUiState()
     data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
     data class Failed(val message: String) : DownloadUiState()
 }
@@ -35,12 +38,15 @@ object AutoDownloadManager {
 
     /**
      * Enqueue the APK download. [url] is the GitHub release asset URL.
+     * [wifiOnly] restricts the download to unmetered networks (system
+     * pauses/resumes automatically when network changes).
      * Returns the download ID, or null if enqueue failed.
      */
     fun enqueue(
         context: Context,
         url: String,
         fileName: String,
+        wifiOnly: Boolean = false,
     ): Long? {
         return try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -49,10 +55,10 @@ object AutoDownloadManager {
                 .setDescription("Downloading update APK")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "$SUBDIR/$fileName")
-                .setAllowedOverMetered(true)
-                .setAllowedOverRoaming(true)
+                .setAllowedOverMetered(!wifiOnly)
+                .setAllowedOverRoaming(!wifiOnly)
             val id = manager.enqueue(request)
-            logger.d("AutoDownloadManager.enqueue", "Download enqueued", mapOf("downloadId" to id, "file" to fileName))
+            logger.d("AutoDownloadManager.enqueue", "Download enqueued", mapOf("downloadId" to id, "file" to fileName, "wifiOnly" to wifiOnly))
             id
         } catch (e: Exception) {
             logger.e("AutoDownloadManager.enqueue", "Enqueue failed", e)
@@ -83,7 +89,11 @@ object AutoDownloadManager {
                     DownloadManager.STATUS_FAILED -> {
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         logger.w("AutoDownloadManager.queryProgress", "Download failed", mapOf("reason" to reason))
-                        DownloadUiState.Failed("download_failed_$reason")
+                        DownloadUiState.Failed(failureMessage(reason))
+                    }
+                    DownloadManager.STATUS_PAUSED -> {
+                        val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                        DownloadUiState.Paused(pausedMessage(reason))
                     }
                     else -> DownloadUiState.Downloading(bytesDownloaded = bytes, totalBytes = total)
                 }
@@ -109,6 +119,36 @@ object AutoDownloadManager {
         }
     }
 
+    /**
+     * Keep only the [keepCount] newest APKs in the downloads dir, deleting older
+     * ones. Skips files that don't exist or are not .apk. Best-effort; failures
+     * are logged, not thrown.
+     */
+    fun cleanupOldApks(context: Context, keepCount: Int = 2) {
+        try {
+            val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { File(it, SUBDIR) } ?: return
+            if (!dir.exists()) return
+            val apks = dir.listFiles { f -> f.isFile && f.name.endsWith(".apk") }?.toList() ?: return
+            if (apks.size <= keepCount) return
+            val toDelete = apks.sortedByDescending { it.lastModified() }.drop(keepCount)
+            toDelete.forEach { f ->
+                if (f.delete()) {
+                    logger.d("AutoDownloadManager.cleanupOldApks", "Deleted old APK", mapOf("file" to f.name))
+                } else {
+                    logger.w("AutoDownloadManager.cleanupOldApks", "Could not delete", mapOf("file" to f.name))
+                }
+            }
+        } catch (e: Exception) {
+            logger.e("AutoDownloadManager.cleanupOldApks", "Cleanup failed", e)
+        }
+    }
+
+    /** Map a DownloadManager failure reason to a user-friendly message key. */
+    internal fun failureMessage(reason: Int): String = downloadFailureMessage(reason)
+
+    /** Map a DownloadManager paused reason to a user-friendly message key. */
+    internal fun pausedMessage(reason: Int): String = downloadPausedMessage(reason)
+
     /** Register a completion receiver; returns the receiver for later unregister. */
     fun registerCompletionReceiver(
         context: Context,
@@ -127,4 +167,26 @@ object AutoDownloadManager {
         context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
         return receiver
     }
+}
+
+/** Pure mapper (no object init) — unit-testable on plain JVM. */
+internal fun downloadFailureMessage(reason: Int): String = when (reason) {
+    DownloadManager.ERROR_UNKNOWN -> "download_failed"
+    DownloadManager.ERROR_FILE_ERROR -> "download_error_file"
+    DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "download_error_http"
+    DownloadManager.ERROR_HTTP_DATA_ERROR -> "download_error_http_data"
+    DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "download_error_redirects"
+    DownloadManager.ERROR_INSUFFICIENT_SPACE -> "download_error_space"
+    DownloadManager.ERROR_DEVICE_NOT_FOUND -> "download_error_device"
+    DownloadManager.ERROR_CANNOT_RESUME -> "download_error_resume"
+    DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "download_error_exists"
+    else -> "download_failed"
+}
+
+/** Pure mapper (no object init) — unit-testable on plain JVM. */
+internal fun downloadPausedMessage(reason: Int): String = when (reason) {
+    DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "download_paused_wifi"
+    DownloadManager.PAUSED_WAITING_TO_RETRY -> "download_paused_retry"
+    DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "download_paused_wifi"
+    else -> "download_paused"
 }

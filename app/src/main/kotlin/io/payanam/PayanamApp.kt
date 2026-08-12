@@ -13,10 +13,14 @@ import android.os.Looper
 import dagger.hilt.android.HiltAndroidApp
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.AppStartUpdateChecker
 import timber.log.Timber
+import javax.inject.Inject
 
 @HiltAndroidApp
 class PayanamApp : Application() {
+
+    @Inject lateinit var appStartUpdateChecker: AppStartUpdateChecker
 
     override fun onCreate() {
         super.onCreate()
@@ -45,6 +49,9 @@ class PayanamApp : Application() {
         // Create notification channels
         createNotificationChannels()
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
+
+        // App-start update check (only fires when auto-download is opted in)
+        appStartUpdateChecker.onAppStart()
     }
 
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {

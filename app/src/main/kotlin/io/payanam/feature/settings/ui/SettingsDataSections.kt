@@ -375,6 +375,8 @@ internal fun AboutSettingsSection(
     onUpdateChannelSelected: (UpdateChannel) -> Unit = {},
     onAutoDownloadToggled: (Boolean) -> Unit = {},
     onPromptInstallToggled: (Boolean) -> Unit = {},
+    onWifiOnlyToggled: (Boolean) -> Unit = {},
+    onDownloadOrRetry: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
 ) {
@@ -502,13 +504,75 @@ internal fun AboutSettingsSection(
                 modifier = Modifier.weight(1f),
             )
         }
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = uiState.wifiOnlyEnabled,
+                onCheckedChange = { onWifiOnlyToggled(it) },
+                enabled = !uiState.isCheckingForUpdate,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_wifi_only),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
         Spacer(modifier = Modifier.height(4.dp))
 
         // Update check
+        // Single state-driven action button (never two actions at once):
+        //   Idle           → Check for update
+        //   Checking       → disabled spinner "Checking…"
+        //   Downloading    → disabled "Downloading… N%"
+        //   Downloaded     → Install now
+        //   Failed         → Retry
+        //   Up to date     → Check for update (re-check allowed, cooldown guards)
+        val buttonLabel: String
+        val buttonEnabled: Boolean
+        val buttonAction: () -> Unit
+        when {
+            uiState.isCheckingForUpdate -> {
+                buttonLabel = stringResource(id = R.string.settings_update_checking)
+                buttonEnabled = false
+                buttonAction = onCheckForUpdate
+            }
+            uiState.downloadState is DownloadUiState.Downloading -> {
+                buttonLabel = stringResource(
+                    id = R.string.settings_update_downloading,
+                    (uiState.downloadState as DownloadUiState.Downloading).progressPercent,
+                )
+                buttonEnabled = false
+                buttonAction = onCheckForUpdate
+            }
+            uiState.downloadState is DownloadUiState.Downloaded -> {
+                buttonLabel = stringResource(id = R.string.settings_update_install_now_button)
+                buttonEnabled = true
+                buttonAction = onInstallNow
+            }
+            uiState.downloadState is DownloadUiState.Failed -> {
+                buttonLabel = stringResource(id = R.string.settings_update_retry_button)
+                buttonEnabled = true
+                buttonAction = onDownloadOrRetry
+            }
+            // Update available but not downloading yet (manual download path)
+            uiState.updateCheckResult?.isUpdateAvailable == true && !uiState.autoDownloadEnabled -> {
+                buttonLabel = stringResource(id = R.string.settings_update_download_button)
+                buttonEnabled = true
+                buttonAction = onDownloadOrRetry
+            }
+            else -> {
+                buttonLabel = stringResource(id = R.string.settings_update_check_button)
+                buttonEnabled = true
+                buttonAction = onCheckForUpdate
+            }
+        }
         Button(
-            onClick = onCheckForUpdate,
+            onClick = buttonAction,
             modifier = Modifier.fillMaxWidth(),
-            enabled = !uiState.isCheckingForUpdate,
+            enabled = buttonEnabled,
         ) {
             if (uiState.isCheckingForUpdate) {
                 CircularProgressIndicator(
@@ -518,13 +582,7 @@ internal fun AboutSettingsSection(
                 )
                 Spacer(modifier = Modifier.width(8.dp))
             }
-            Text(
-                text = if (uiState.isCheckingForUpdate) {
-                    stringResource(id = R.string.settings_update_checking)
-                } else {
-                    stringResource(id = R.string.settings_update_check_button)
-                },
-            )
+            Text(text = buttonLabel)
         }
 
         val result = uiState.updateCheckResult
@@ -636,6 +694,14 @@ internal fun AboutSettingsSection(
                     )
                 }
             }
+            is DownloadUiState.Paused -> {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(id = pausedMessageRes(dl.message)),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+            }
             is DownloadUiState.Downloaded -> {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
@@ -647,7 +713,7 @@ internal fun AboutSettingsSection(
             is DownloadUiState.Failed -> {
                 Spacer(modifier = Modifier.height(12.dp))
                 Text(
-                    text = stringResource(id = R.string.settings_update_download_failed),
+                    text = stringResource(id = failedMessageRes(dl.message)),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
@@ -675,6 +741,31 @@ internal fun AboutSettingsSection(
             )
         }
     }
+}
+
+/** Map a DownloadManager failure key to a user-friendly string resource. */
+private fun failedMessageRes(key: String): Int = when (key) {
+    "no_download_url" -> R.string.settings_update_error_no_url
+    "enqueue_failed" -> R.string.settings_update_error_enqueue
+    "file_missing" -> R.string.settings_update_error_file_missing
+    "install_launch_failed" -> R.string.settings_update_error_install_launch
+    "retry_available" -> R.string.settings_update_error_retry_later
+    "download_error_file" -> R.string.settings_update_error_file
+    "download_error_http" -> R.string.settings_update_error_http
+    "download_error_http_data" -> R.string.settings_update_error_http
+    "download_error_redirects" -> R.string.settings_update_error_http
+    "download_error_space" -> R.string.settings_update_error_space
+    "download_error_device" -> R.string.settings_update_error_network
+    "download_error_resume" -> R.string.settings_update_error_retry_later
+    "download_error_exists" -> R.string.settings_update_error_exists
+    else -> R.string.settings_update_download_failed
+}
+
+/** Map a DownloadManager paused key to a user-friendly string resource. */
+private fun pausedMessageRes(key: String): Int = when (key) {
+    "download_paused_wifi" -> R.string.settings_update_paused_wifi
+    "download_paused_retry" -> R.string.settings_update_paused_retry
+    else -> R.string.settings_update_paused
 }
 
 @Composable
