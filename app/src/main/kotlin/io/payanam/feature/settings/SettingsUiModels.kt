@@ -32,6 +32,8 @@ data class SettingsUiState(
     val isCheckingForUpdate: Boolean = false,
     val updateCheckResult: UpdateCheckResult? = null,
     val updateChannel: UpdateChannel = UpdateChannel.DEV,
+    val autoDownloadEnabled: Boolean = false,
+    val downloadState: DownloadUiState = DownloadUiState.Idle,
 )
 sealed class ExportResult {
     data class Success(val fileName: String) : ExportResult()

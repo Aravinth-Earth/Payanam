@@ -55,6 +55,8 @@ data class ChannelStatus(
     val channel: UpdateChannel,
     val buildNumber: Int?,
     val releaseUrl: String?,
+    /** Direct download URL of the APK asset (from the release's assets list). */
+    val apkDownloadUrl: String? = null,
 )
 
 /** Map a GitHub tag name to a channel, or null for non-channel tags. */
@@ -147,7 +149,20 @@ object UpdateChecker {
                     val title = release.optString("name", tagName)
                     val match = BUILD_NUMBER_REGEX.find(title)
                     val buildNumber = match?.groupValues?.get(1)?.toIntOrNull()
-                    statuses.add(ChannelStatus(channel = channel, buildNumber = buildNumber, releaseUrl = htmlUrl))
+                    // Direct APK asset URL: assets[].browser_download_url (first .apk).
+                    val assets = release.optJSONArray("assets")
+                    var apkUrl: String? = null
+                    if (assets != null) {
+                        for (a in 0 until assets.length()) {
+                            val asset = assets.optJSONObject(a) ?: continue
+                            val assetName = asset.optString("name", "")
+                            if (assetName.endsWith(".apk")) {
+                                apkUrl = asset.optString("browser_download_url", "")
+                                break
+                            }
+                        }
+                    }
+                    statuses.add(ChannelStatus(channel = channel, buildNumber = buildNumber, releaseUrl = htmlUrl, apkDownloadUrl = apkUrl))
                 }
 
                 val selected = statuses.firstOrNull { it.channel == channel }

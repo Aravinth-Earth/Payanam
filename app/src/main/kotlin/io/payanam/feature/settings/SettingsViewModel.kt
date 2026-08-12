@@ -26,6 +26,7 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.ui.viewmodel.BackupInterval
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -67,6 +68,9 @@ class SettingsViewModel @Inject constructor(
     internal var pendingEncryptedImportDbFile: File? = null
     internal var pendingEncryptedImportBackupMappings: List<Pair<File, File>> = emptyList()
 
+    // Auto-download state
+    private var activeDownloadId: Long? = null
+
     internal fun updateUiState(transform: (SettingsUiState) -> SettingsUiState) {
         _uiState.update(transform)
     }
@@ -76,6 +80,7 @@ class SettingsViewModel @Inject constructor(
         loadDatabaseStats()
         syncTimeoutFromDb()
         loadUpdateChannel()
+        loadAutoDownload()
     }
 
     /** Load the persisted update channel (defaults to DEV). */
@@ -96,6 +101,43 @@ class SettingsViewModel @Inject constructor(
             lastCheckTimestampMs = 0L
             checkCountInWindow = 0
             _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null) }
+        }
+    }
+
+    /** Load the persisted auto-download toggle (defaults to OFF). */
+    private fun loadAutoDownload() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(AUTO_DOWNLOAD_KEY)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadAutoDownload", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(autoDownloadEnabled = enabled) }
+            // If a download was in-flight from a previous session, restore its state.
+            if (enabled) restoreDownloadState()
+        }
+    }
+
+    /** Toggle auto-download on/off; toggling off cancels any in-flight download. */
+    internal fun onAutoDownloadToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(AUTO_DOWNLOAD_KEY, enabled.toString())
+            logger.i("SettingsViewModel.onAutoDownloadToggled", "Toggle saved", mapOf("enabled" to enabled))
+            if (!enabled && activeDownloadId != null) {
+                AutoDownloadManager.cancel(context, activeDownloadId!!)
+                activeDownloadId = null
+                appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+            }
+            _uiState.update { it.copy(autoDownloadEnabled = enabled, downloadState = DownloadUiState.Idle) }
+        }
+    }
+
+    /** If a download ID was persisted, resume polling its status on app start. */
+    private fun restoreDownloadState() {
+        viewModelScope.launch {
+            val storedId = appSettingsRepository.getSetting(DOWNLOAD_ID_KEY)?.toLongOrNull()
+            if (storedId != null) {
+                activeDownloadId = storedId
+                pollDownloadProgress()
+            }
         }
     }
     private fun loadDatabaseStats() {
@@ -608,6 +650,60 @@ class SettingsViewModel @Inject constructor(
             _uiState.update {
                 it.copy(isCheckingForUpdate = false, updateCheckResult = result)
             }
+            // Auto-download when update available + toggle ON + no active download.
+            if (result.isUpdateAvailable && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
+                val latest = result.latestBuildNumber ?: return@launch
+                startAutoDownload(latest)
+            }
+        }
+    }
+
+    /** Enqueue the APK download for the given build and start progress polling. */
+    private fun startAutoDownload(buildNumber: Int) {
+        val channel = _uiState.value.updateChannel
+        // Real asset URL + filename come from the release's assets list.
+        val selected = _uiState.value.updateCheckResult?.channelStatuses
+            ?.firstOrNull { it.channel == channel }
+        val downloadUrl = selected?.apkDownloadUrl ?: return
+        val fileName = downloadUrl.substringAfterLast('/')
+        val id = AutoDownloadManager.enqueue(context, downloadUrl, fileName)
+        if (id == null) {
+            _uiState.update { it.copy(downloadState = DownloadUiState.Failed("enqueue_failed")) }
+            return
+        }
+        activeDownloadId = id
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, id.toString())
+            appSettingsRepository.setSetting(DOWNLOAD_FILE_KEY, fileName)
+        }
+        logger.i("SettingsViewModel.startAutoDownload", "Auto-download started", mapOf("build" to buildNumber, "file" to fileName, "downloadId" to id))
+        pollDownloadProgress()
+    }
+
+    /** Poll DownloadManager progress and surface state; stops on terminal state. */
+    private fun pollDownloadProgress() {
+        val id = activeDownloadId ?: return
+        viewModelScope.launch {
+            var terminal = false
+            while (!terminal && activeDownloadId == id) {
+                val state = AutoDownloadManager.queryProgress(context, id)
+                _uiState.update { it.copy(downloadState = state) }
+                when (state) {
+                    is DownloadUiState.Downloading -> {
+                        // keep polling
+                    }
+                    is DownloadUiState.Downloaded -> {
+                        appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                        terminal = true
+                    }
+                    is DownloadUiState.Failed -> {
+                        appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                        terminal = true
+                    }
+                    DownloadUiState.Idle -> terminal = true
+                }
+                if (!terminal) delay(POLL_INTERVAL_MS)
+            }
         }
     }
 
@@ -617,5 +713,9 @@ class SettingsViewModel @Inject constructor(
         private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
         private const val UPDATE_CHANNEL_KEY = "update_channel"
+        private const val AUTO_DOWNLOAD_KEY = "auto_download_enabled"
+        private const val DOWNLOAD_ID_KEY = "active_download_id"
+        private const val DOWNLOAD_FILE_KEY = "active_download_file"
+        private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
     }
 }

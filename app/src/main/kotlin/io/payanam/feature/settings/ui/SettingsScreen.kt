@@ -551,6 +551,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 },
                 onCheckForUpdate = viewModel::checkForUpdate,
                 onUpdateChannelSelected = viewModel::onUpdateChannelSelected,
+                onAutoDownloadToggled = viewModel::onAutoDownloadToggled,
             )
         }
     }

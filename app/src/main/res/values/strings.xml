@@ -1122,6 +1122,10 @@
     <string name="settings_update_channel_statuses_title">Channel status</string>
     <string name="settings_update_channel_build">build #%1$d</string>
     <string name="settings_update_channel_no_build">no build yet</string>
+    <string name="settings_update_auto_download">Auto-download updates</string>
+    <string name="settings_update_downloading">Downloading… %1$d%%</string>
+    <string name="settings_update_downloaded">Downloaded — ready to install</string>
+    <string name="settings_update_download_failed">Download failed. Check connection and retry.</string>
     <string name="settings_update_available">Update available: build #%1$d</string>
     <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
     <string name="settings_update_error_network">Could not check for updates. Try again later.</string>

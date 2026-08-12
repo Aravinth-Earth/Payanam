@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
+import androidx.compose.material3.Checkbox
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -47,6 +48,7 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.R
+import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.labelResId
@@ -369,6 +371,7 @@ internal fun AboutSettingsSection(
     onViewGithub: () -> Unit,
     onCheckForUpdate: () -> Unit = {},
     onUpdateChannelSelected: (UpdateChannel) -> Unit = {},
+    onAutoDownloadToggled: (Boolean) -> Unit = {},
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
@@ -460,6 +463,25 @@ internal fun AboutSettingsSection(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
+
+        // Auto-download opt-in + check button
+        Row(
+            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Checkbox(
+                checked = uiState.autoDownloadEnabled,
+                onCheckedChange = { onAutoDownloadToggled(it) },
+                enabled = !uiState.isCheckingForUpdate,
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_auto_download),
+                style = MaterialTheme.typography.bodyMedium,
+                modifier = Modifier.weight(1f),
+            )
+        }
+        Spacer(modifier = Modifier.height(4.dp))
 
         // Update check
         Button(
@@ -574,6 +596,42 @@ internal fun AboutSettingsSection(
                     )
                 }
             }
+        }
+
+        // Auto-download progress/state
+        when (val dl = uiState.downloadState) {
+            is DownloadUiState.Downloading -> {
+                Spacer(modifier = Modifier.height(12.dp))
+                Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                    CircularProgressIndicator(
+                        progress = { dl.progressPercent / 100f },
+                        modifier = Modifier.size(20.dp),
+                        strokeWidth = 2.dp,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = stringResource(id = R.string.settings_update_downloading, dl.progressPercent),
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
+            }
+            is DownloadUiState.Downloaded -> {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_downloaded),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            is DownloadUiState.Failed -> {
+                Spacer(modifier = Modifier.height(12.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_download_failed),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.error,
+                )
+            }
+            DownloadUiState.Idle -> Unit
         }
     }
 }
