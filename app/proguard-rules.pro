@@ -67,9 +67,12 @@
 -dontwarn com.patrykandpatrick.vico.**
 
 # ---- Timber (logging — strip debug logs in release) ----
+# NOTE: the parameter types must be explicit — an unqualified "d(...)"
+# wildcard made R8 match java.lang.Object methods (equals/hashCode/
+# toString) and strip them app-wide, crashing the app at startup.
 -assumenosideeffects class timber.log.Timber {
-    public static *** d(...);
-    public static *** v(...);
+    public static *** d(Ljava/lang/String;...) ;
+    public static *** v(Ljava/lang/String;...) ;
 }
 
 # ---- Kotlin serialization (future-proofing) ----

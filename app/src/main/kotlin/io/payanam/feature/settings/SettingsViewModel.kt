@@ -89,7 +89,7 @@ class SettingsViewModel @Inject constructor(
     /** Load the persisted update channel (defaults to DEV). */
     private fun loadUpdateChannel() {
         viewModelScope.launch {
-            val raw = appSettingsRepository.getSetting(UPDATE_CHANNEL_KEY)
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
             val channel = UpdateChannel.fromStorage(raw)
             logger.d("SettingsViewModel.loadUpdateChannel", "Loaded channel", mapOf("channel" to channel.name, "raw" to (raw ?: "null")))
             _uiState.update { it.copy(updateChannel = channel) }
@@ -99,7 +99,7 @@ class SettingsViewModel @Inject constructor(
     /** Persist the user's channel selection; resets the check cooldown so a fresh check is allowed. */
     internal fun onUpdateChannelSelected(channel: UpdateChannel) {
         viewModelScope.launch {
-            appSettingsRepository.setSetting(UPDATE_CHANNEL_KEY, channel.name)
+            appSettingsRepository.setSetting(UpdatePrefKeys.UPDATE_CHANNEL, channel.name)
             logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
             lastCheckTimestampMs = 0L
             checkCountInWindow = 0
@@ -110,7 +110,7 @@ class SettingsViewModel @Inject constructor(
     /** Load the persisted auto-download toggle (defaults to OFF). */
     private fun loadAutoDownload() {
         viewModelScope.launch {
-            val raw = appSettingsRepository.getSetting(AUTO_DOWNLOAD_KEY)
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadAutoDownload", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
             _uiState.update { it.copy(autoDownloadEnabled = enabled) }
@@ -122,12 +122,12 @@ class SettingsViewModel @Inject constructor(
     /** Toggle auto-download on/off; toggling off cancels any in-flight download. */
     internal fun onAutoDownloadToggled(enabled: Boolean) {
         viewModelScope.launch {
-            appSettingsRepository.setSetting(AUTO_DOWNLOAD_KEY, enabled.toString())
+            appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_DOWNLOAD, enabled.toString())
             logger.i("SettingsViewModel.onAutoDownloadToggled", "Toggle saved", mapOf("enabled" to enabled))
             if (!enabled && activeDownloadId != null) {
                 AutoDownloadManager.cancel(context, activeDownloadId!!)
                 activeDownloadId = null
-                appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
             }
             _uiState.update { it.copy(autoDownloadEnabled = enabled, downloadState = DownloadUiState.Idle) }
         }
@@ -136,11 +136,11 @@ class SettingsViewModel @Inject constructor(
     /** If a download ID was persisted, resume polling its status on app start. */
     private fun restoreDownloadState() {
         viewModelScope.launch {
-            val storedId = appSettingsRepository.getSetting(DOWNLOAD_ID_KEY)?.toLongOrNull()
+            val storedId = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID)?.toLongOrNull()
             if (storedId != null) {
                 activeDownloadId = storedId
                 pollDownloadProgress()
-            } else if (!appSettingsRepository.getSetting(DOWNLOAD_URL_KEY).isNullOrEmpty()) {
+            } else if (!appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL).isNullOrEmpty()) {
                 // A previous download ended (failed/cancelled) but the URL is
                 // still stored → surface Retry so the user can re-attempt.
                 _uiState.update { it.copy(downloadState = DownloadUiState.Failed("retry_available")) }
@@ -151,7 +151,7 @@ class SettingsViewModel @Inject constructor(
     /** Load the persisted prompt-install toggle (defaults to OFF). */
     private fun loadPromptInstall() {
         viewModelScope.launch {
-            val raw = appSettingsRepository.getSetting(PROMPT_INSTALL_KEY)
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.PROMPT_INSTALL)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadPromptInstall", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
             _uiState.update { it.copy(promptInstallEnabled = enabled) }
@@ -161,7 +161,7 @@ class SettingsViewModel @Inject constructor(
     /** Toggle prompt-install on/off (only meaningful when auto-download is ON). */
     internal fun onPromptInstallToggled(enabled: Boolean) {
         viewModelScope.launch {
-            appSettingsRepository.setSetting(PROMPT_INSTALL_KEY, enabled.toString())
+            appSettingsRepository.setSetting(UpdatePrefKeys.PROMPT_INSTALL, enabled.toString())
             logger.i("SettingsViewModel.onPromptInstallToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(promptInstallEnabled = enabled) }
         }
@@ -170,7 +170,7 @@ class SettingsViewModel @Inject constructor(
     /** Load the persisted WiFi-only toggle (defaults to OFF). */
     private fun loadWifiOnly() {
         viewModelScope.launch {
-            val raw = appSettingsRepository.getSetting(WIFI_ONLY_KEY)
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.WIFI_ONLY)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadWifiOnly", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
             _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
@@ -180,7 +180,7 @@ class SettingsViewModel @Inject constructor(
     /** Toggle WiFi-only downloads on/off. */
     internal fun onWifiOnlyToggled(enabled: Boolean) {
         viewModelScope.launch {
-            appSettingsRepository.setSetting(WIFI_ONLY_KEY, enabled.toString())
+            appSettingsRepository.setSetting(UpdatePrefKeys.WIFI_ONLY, enabled.toString())
             logger.i("SettingsViewModel.onWifiOnlyToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
         }
@@ -766,10 +766,10 @@ class SettingsViewModel @Inject constructor(
         }
         activeDownloadId = id
         viewModelScope.launch {
-            appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, id.toString())
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
             // Persist the URL so a Retry survives app restarts.
-            appSettingsRepository.setSetting(DOWNLOAD_URL_KEY, downloadUrl)
-            appSettingsRepository.setSetting(DOWNLOAD_FILE_KEY, fileName)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, downloadUrl)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
         }
         logger.i("SettingsViewModel.startAutoDownload", "Auto-download started", mapOf("build" to buildNumber, "file" to fileName, "downloadId" to id))
         pollDownloadProgress()
@@ -781,7 +781,7 @@ class SettingsViewModel @Inject constructor(
         // Retry: reuse the last known URL if the check result is gone.
         if (state is DownloadUiState.Failed) {
             viewModelScope.launch {
-                val storedUrl = appSettingsRepository.getSetting(DOWNLOAD_URL_KEY)
+                val storedUrl = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL)
                 if (storedUrl.isNullOrEmpty()) return@launch
                 val fileName = storedUrl.substringAfterLast('/')
                 _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
@@ -803,7 +803,7 @@ class SettingsViewModel @Inject constructor(
                 )
                 if (id != null) {
                     activeDownloadId = id
-                    appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, id.toString())
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
                     logger.i("SettingsViewModel.downloadOrRetry", "Retry download enqueued", mapOf("file" to fileName, "downloadId" to id))
                     pollDownloadProgress()
                 } else {
@@ -837,7 +837,7 @@ class SettingsViewModel @Inject constructor(
                         // keep polling (Paused is transient — system resumes)
                     }
                     is DownloadUiState.Downloaded -> {
-                        appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                        appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
                         // Prompt to install only when the opt-in toggle is ON;
                         // otherwise just show the "ready" state (tap to install).
                         if (_uiState.value.promptInstallEnabled) {
@@ -846,7 +846,7 @@ class SettingsViewModel @Inject constructor(
                         terminal = true
                     }
                     is DownloadUiState.Failed -> {
-                        appSettingsRepository.setSetting(DOWNLOAD_ID_KEY, null)
+                        appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
                         terminal = true
                     }
                     DownloadUiState.Idle -> terminal = true
@@ -861,13 +861,6 @@ class SettingsViewModel @Inject constructor(
         private const val CHECK_COOLDOWN_MS = 60_000L        // 1 minute between checks
         private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
-        private const val UPDATE_CHANNEL_KEY = "update_channel"
-        private const val AUTO_DOWNLOAD_KEY = "auto_download_enabled"
-        private const val PROMPT_INSTALL_KEY = "prompt_install_enabled"
-        private const val WIFI_ONLY_KEY = "wifi_only_enabled"
-        private const val DOWNLOAD_ID_KEY = "active_download_id"
-        private const val DOWNLOAD_FILE_KEY = "active_download_file"
-        private const val DOWNLOAD_URL_KEY = "active_download_url"
         private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
         private const val MAX_POLLS = 600                    // 10 min cap (E4)
     }
