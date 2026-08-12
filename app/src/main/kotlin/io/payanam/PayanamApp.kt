@@ -10,17 +10,18 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Looper
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.AppStartUpdateChecker
 import timber.log.Timber
-import javax.inject.Inject
 
 @HiltAndroidApp
 class PayanamApp : Application() {
-
-    @Inject lateinit var appStartUpdateChecker: AppStartUpdateChecker
 
     override fun onCreate() {
         super.onCreate()
@@ -50,8 +51,25 @@ class PayanamApp : Application() {
         createNotificationChannels()
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
 
-        // App-start update check (only fires when auto-download is opted in)
-        appStartUpdateChecker.onAppStart()
+        // App-start update check — resolved LAZILY via EntryPoint so nothing
+        // extra is constructed during super.onCreate() (Hilt field injection
+        // there would eagerly build the DB-session chain before the crash
+        // handler is installed; a failure would crash with no log export).
+        try {
+            val checker = EntryPointAccessors.fromApplication(
+                this,
+                AppStartUpdateCheckerEntryPoint::class.java,
+            ).appStartUpdateChecker()
+            checker.onAppStart()
+        } catch (e: Exception) {
+            logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
+        }
+    }
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AppStartUpdateCheckerEntryPoint {
+        fun appStartUpdateChecker(): AppStartUpdateChecker
     }
 
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {
@@ -69,6 +87,23 @@ class PayanamApp : Application() {
                     "versionCode" to BuildConfig.VERSION_CODE,
                 ),
             )
+            // Auto-export the full log ZIP on crash — lands in
+            // Documents/payanam/exported-logs/ so it is reachable via the
+            // Files app even when the app itself cannot start (crash loop).
+            // Best-effort on a separate thread with a hard cap; never blocks.
+            val exportThread = Thread {
+                try {
+                    logger.exportAllLogs()
+                } catch (_: Exception) {
+                    // export must never mask the original crash
+                }
+            }
+            exportThread.start()
+            try {
+                exportThread.join(5_000)
+            } catch (_: InterruptedException) {
+                // give up waiting; original handler still runs below
+            }
             previousHandler?.uncaughtException(thread, throwable)
         }
         logger.i(
