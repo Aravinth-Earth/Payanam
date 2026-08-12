@@ -31,6 +31,7 @@ data class SettingsUiState(
     val importPassphraseError: String? = null,
     val isCheckingForUpdate: Boolean = false,
     val updateCheckResult: UpdateCheckResult? = null,
+    val updateChannel: UpdateChannel = UpdateChannel.DEV,
 )
 sealed class ExportResult {
     data class Success(val fileName: String) : ExportResult()

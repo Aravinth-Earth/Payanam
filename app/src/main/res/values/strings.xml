@@ -1115,6 +1115,13 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">Check for update</string>
     <string name="settings_update_checking">Checking…</string>
+    <string name="settings_update_channel_label">Update channel</string>
+    <string name="settings_update_channel_dev">Dev (daily)</string>
+    <string name="settings_update_channel_beta">Beta (weekly)</string>
+    <string name="settings_update_channel_stable">Stable (monthly)</string>
+    <string name="settings_update_channel_statuses_title">Channel status</string>
+    <string name="settings_update_channel_build">build #%1$d</string>
+    <string name="settings_update_channel_no_build">no build yet</string>
     <string name="settings_update_available">Update available: build #%1$d</string>
     <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
     <string name="settings_update_error_network">Could not check for updates. Try again later.</string>

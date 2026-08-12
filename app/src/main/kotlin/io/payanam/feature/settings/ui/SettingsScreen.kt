@@ -550,6 +550,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
                 },
                 onCheckForUpdate = viewModel::checkForUpdate,
+                onUpdateChannelSelected = viewModel::onUpdateChannelSelected,
             )
         }
     }

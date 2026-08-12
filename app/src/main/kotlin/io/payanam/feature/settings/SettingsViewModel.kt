@@ -75,6 +75,28 @@ class SettingsViewModel @Inject constructor(
         logger.i("SettingsViewModel.init", "ViewModel initialized")
         loadDatabaseStats()
         syncTimeoutFromDb()
+        loadUpdateChannel()
+    }
+
+    /** Load the persisted update channel (defaults to DEV). */
+    private fun loadUpdateChannel() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UPDATE_CHANNEL_KEY)
+            val channel = UpdateChannel.fromStorage(raw)
+            logger.d("SettingsViewModel.loadUpdateChannel", "Loaded channel", mapOf("channel" to channel.name, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(updateChannel = channel) }
+        }
+    }
+
+    /** Persist the user's channel selection; resets the check cooldown so a fresh check is allowed. */
+    internal fun onUpdateChannelSelected(channel: UpdateChannel) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UPDATE_CHANNEL_KEY, channel.name)
+            logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
+            lastCheckTimestampMs = 0L
+            checkCountInWindow = 0
+            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null) }
+        }
     }
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
@@ -574,10 +596,10 @@ class SettingsViewModel @Inject constructor(
         lastCheckTimestampMs = now
         checkCountInWindow++
 
-        logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber))
+        logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber, "channel" to _uiState.value.updateChannel.name))
         _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckResult = null) }
         viewModelScope.launch {
-            val result = UpdateChecker.check(_uiState.value.buildNumber)
+            val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
             logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
                 "updateAvailable" to result.isUpdateAvailable,
                 "latestBuild" to result.latestBuildNumber,
@@ -594,5 +616,6 @@ class SettingsViewModel @Inject constructor(
         private const val CHECK_COOLDOWN_MS = 60_000L        // 1 minute between checks
         private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
+        private const val UPDATE_CHANNEL_KEY = "update_channel"
     }
 }

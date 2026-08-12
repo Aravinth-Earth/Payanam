@@ -1114,6 +1114,13 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
     <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
+    <string name="settings_update_channel_label">புதுப்பிப்பு சேனல்</string>
+    <string name="settings_update_channel_dev">டெவ் (தினமும்)</string>
+    <string name="settings_update_channel_beta">பீட்டா (வாரந்தோறும்)</string>
+    <string name="settings_update_channel_stable">ஸ்டேபிள் (மாதந்தோறும்)</string>
+    <string name="settings_update_channel_statuses_title">சேனல் நிலை</string>
+    <string name="settings_update_channel_build">பில்ட் #%1$d</string>
+    <string name="settings_update_channel_no_build">இன்னும் பில்ட் இல்லை</string>
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
     <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
