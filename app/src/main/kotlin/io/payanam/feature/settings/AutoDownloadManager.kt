@@ -62,7 +62,7 @@ object AutoDownloadManager {
                 .setTitle("Payanam #${buildNumberFromFileName(fileName)}")
                 .setDescription("Downloading update APK")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
-                .setDestinationInExternalFilesDir(context, Environment.DIRECTORY_DOWNLOADS, "$SUBDIR/$fileName")
+                .setDestinationInExternalFilesDir(context, null, "$SUBDIR/$fileName")
                 .setAllowedOverMetered(!wifiOnly)
                 .setAllowedOverRoaming(!wifiOnly)
             val id = manager.enqueue(request)
@@ -138,7 +138,7 @@ object AutoDownloadManager {
      */
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
         try {
-            val dir = context.getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS)?.let { File(it, SUBDIR) } ?: return
+            val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
             if (!dir.exists()) return
             val apks = dir.listFiles { f -> f.isFile && f.name.endsWith(".apk") }?.toList() ?: return
             if (apks.size <= keepCount) return
