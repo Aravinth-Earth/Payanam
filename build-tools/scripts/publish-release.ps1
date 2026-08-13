@@ -6,6 +6,7 @@
 #   dev      feature/*    latest-dev     yes         10+ builds/day
 #   beta     dev          latest-beta    yes         2 builds/week
 #   stable   main         latest-stable  no          2 builds/month
+# Explicit -Channel beta/stable from the wrong branch hard-fails (guard below).
 #
 # Channel auto-detects from the current git branch when -Channel is omitted.
 # Usage:
@@ -87,6 +88,24 @@ if ($Channel -eq "auto") {
         default     { "dev" }
     }
     Write-LogWithTime "Auto-detected channel '$Channel' from branch '$branch'" "Cyan"
+}
+
+# ── 4b. Channel ↔ branch guard (hard fail, never a warning) ───────────────────
+# Only beta/stable are strict: they must be published from their owning
+# branches (dev → beta, main → stable). The dev channel is the throwaway
+# pre-release channel — publishing it from any branch is harmless, so no guard.
+# A guard that warns gets ignored; this one exits non-zero with a clear message.
+if ($Channel -eq "beta" -and $branch -ne "dev") {
+    Write-LogWithTime "❌ Channel 'beta' cannot be published from branch '$branch'." "Red"
+    Write-LogWithTime "   '-Channel beta' requires branch 'dev'." "Red"
+    Write-LogWithTime "   Switch to 'dev', or use '-Channel dev' for feature-branch builds." "Red"
+    exit 1
+}
+if ($Channel -eq "stable" -and $branch -ne "main") {
+    Write-LogWithTime "❌ Channel 'stable' cannot be published from branch '$branch'." "Red"
+    Write-LogWithTime "   '-Channel stable' requires branch 'main'." "Red"
+    Write-LogWithTime "   Switch to 'main', or use '-Channel dev' for feature-branch builds." "Red"
+    exit 1
 }
 
 # Channel → display title + prerelease flag mapping.
