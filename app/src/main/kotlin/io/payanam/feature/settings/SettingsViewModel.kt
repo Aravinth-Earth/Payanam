@@ -176,10 +176,43 @@ class SettingsViewModel @Inject constructor(
             if (storedId != null) {
                 activeDownloadId = storedId
                 pollDownloadProgress()
-            } else if (!appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL).isNullOrEmpty()) {
-                // A previous download ended (failed/cancelled) but the URL is
-                // still stored → surface Retry so the user can re-attempt.
-                _uiState.update { it.copy(downloadState = DownloadUiState.Failed("retry_available")) }
+                return@launch
+            }
+            // In-flight download done (or none): check for a previously COMPLETED
+            // download still on disk. If it's fresh (< 15 min) restore the
+            // "Downloaded — install now" state so the user never re-downloads
+            // what's already there. If stale, surface Retry/Check instead.
+            restoreCompletedDownload()
+        }
+    }
+
+    /** Offer a previously completed download from disk instead of re-downloading. */
+    private fun restoreCompletedDownload() {
+        viewModelScope.launch {
+            val build = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD)
+            val fileName = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE)
+            val atMs = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT)?.toLongOrNull()
+            if (build.isNullOrEmpty() || fileName.isNullOrEmpty()) return@launch
+
+            val localPath = AutoDownloadManager.findDownloadedApk(context, fileName)
+            if (localPath == null) {
+                // File was cleaned/removed — drop the stale markers.
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Completed download file missing; clearing markers", mapOf("fileName" to fileName))
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, null)
+                return@launch
+            }
+
+            val fresh = atMs != null && (System.currentTimeMillis() - atMs) < COMPLETED_DOWNLOAD_FRESH_MS
+            if (fresh) {
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Fresh completed download restored", mapOf("fileName" to fileName, "build" to build))
+                _uiState.update { it.copy(downloadState = DownloadUiState.Downloaded(fileName, localPath)) }
+            } else {
+                // Stale (>15 min): drop to Idle so the button shows "Check for update".
+                // A fresh check will re-discover the APK if it's still the latest.
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Completed download is stale; reverting to check", mapOf("fileName" to fileName, "build" to build))
+                appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
             }
         }
     }
@@ -935,6 +968,11 @@ class SettingsViewModel @Inject constructor(
                     }
                     is DownloadUiState.Downloaded -> {
                         appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+                        // Remember the completed download so a later restart can
+                        // offer "Install" without re-downloading (see restoreDownloadState).
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumberFromFileName(state.fileName))
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, state.fileName)
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
                         // Prompt to install only when the opt-in toggle is ON;
                         // otherwise just show the "ready" state (tap to install).
                         if (_uiState.value.promptInstallEnabled) {
@@ -960,5 +998,7 @@ class SettingsViewModel @Inject constructor(
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
         private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
         private const val MAX_POLLS = 600                    // 10 min cap (E4)
+        /** A completed download is "fresh" for 15 min — after that, re-check first. */
+        private const val COMPLETED_DOWNLOAD_FRESH_MS = 15 * 60 * 1_000L
     }
 }

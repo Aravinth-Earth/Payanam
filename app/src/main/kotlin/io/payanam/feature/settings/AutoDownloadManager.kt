@@ -41,7 +41,7 @@ sealed class DownloadUiState {
  */
 object AutoDownloadManager {
 
-    private const val SUBDIR = "downloads"
+    internal const val SUBDIR = "downloads"
     private val logger = UnifiedLogger.getInstance()
 
     /**
@@ -181,11 +181,30 @@ object AutoDownloadManager {
     }
 }
 
-/** Extract the build number from an APK filename ("Payanam_Android_1568_..." → "1568"). */
+/** Build-number extraction (pure, unit-testable on plain JVM). */
 internal fun buildNumberFromFileName(fileName: String): String =
-    Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1) ?: "update"
+    Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1).orEmpty()
 
-/** Pure mapper (no object init) — unit-testable on plain JVM. */
+/**
+ * Resolve the absolute path of a previously downloaded APK inside the
+ * app-private downloads dir, or null if it's no longer on disk.
+ */
+internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: String): String? {
+    val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
+    val file = File(dir, fileName)
+    return if (file.exists() && file.length() > 0) file.absolutePath else null
+}
+
+/**
+ * Scan the app-private downloads dir for an already-downloaded APK of the
+ * given build number. Returns the absolute path, or null if not present.
+ */
+internal fun AutoDownloadManager.findApkForBuild(context: Context, buildNumber: String): String? {
+    val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
+    val files = dir.listFiles() ?: return null
+    return files.firstOrNull { it.isFile && it.name.contains("_${buildNumber}_") && it.length() > 0 }?.absolutePath
+}
+
 internal fun downloadFailureMessage(reason: Int): String = when (reason) {
     DownloadManager.ERROR_UNKNOWN -> "download_failed"
     DownloadManager.ERROR_FILE_ERROR -> "download_error_file"
