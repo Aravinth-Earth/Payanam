@@ -830,6 +830,20 @@ class SettingsViewModel @Inject constructor(
 
     /** Enqueue the APK download for the given build and start progress polling. */
     private fun startAutoDownload(buildNumber: Int) {
+        // Already on disk? Offer Install instead of re-downloading (avoids the
+        // duplicate-download case: check → downloaded → killed → re-check).
+        val existingPath = AutoDownloadManager.findApkForBuild(context, buildNumber.toString())
+        if (existingPath != null) {
+            val fileName = File(existingPath).name
+            logger.d("SettingsViewModel.startAutoDownload", "APK already downloaded; offering install", mapOf("build" to buildNumber, "file" to fileName))
+            viewModelScope.launch {
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumber.toString())
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, fileName)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
+            }
+            _uiState.update { it.copy(downloadState = DownloadUiState.Downloaded(fileName, existingPath)) }
+            return
+        }
         val channel = _uiState.value.updateChannel
         // Real asset URL + filename come from the release's assets list.
         val selected = _uiState.value.updateCheckResult?.channelStatuses
