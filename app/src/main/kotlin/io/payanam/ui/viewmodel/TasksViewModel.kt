@@ -99,7 +99,40 @@ class TasksViewModel @Inject constructor(
         loadSavedSortOption()
         loadSavedFilterOption()
         loadSavedHabitSortOption()
+        loadSavedVisibilityToggles()
         loadTasks()
+    }
+
+    /** Persisted visibility toggles: showArchived / showCompleted / hideAllMarked. */
+    private fun loadSavedVisibilityToggles() {
+        viewModelScope.launch {
+            try {
+                val showArchived = appSettingsRepository
+                    .getSetting(AppPreferencesViewModel.KEY_SHOW_ARCHIVED_HABITS) == "true"
+                val showCompleted = appSettingsRepository
+                    .getSetting(AppPreferencesViewModel.KEY_SHOW_COMPLETED_HABITS) == "true"
+                val hideAllMarked = appSettingsRepository
+                    .getSetting(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) == "true"
+                logger.d(
+                    "TasksViewModel.loadSavedVisibilityToggles",
+                    "Loaded persisted visibility toggles",
+                    mapOf(
+                        "showArchived" to showArchived,
+                        "showCompleted" to showCompleted,
+                        "hideAllMarked" to hideAllMarked,
+                    ),
+                )
+                _uiState.update { state ->
+                    state.copy(
+                        showArchivedHabits = showArchived,
+                        showCompletedHabits = showCompleted,
+                        hideAllMarkedToday = hideAllMarked,
+                    )
+                }
+            } catch (e: Exception) {
+                logger.e("TasksViewModel.loadSavedVisibilityToggles", "Failed to load visibility toggles", e)
+            }
+        }
     }
     private fun loadSavedSortOption() {
         viewModelScope.launch {
@@ -414,8 +447,10 @@ class TasksViewModel @Inject constructor(
                         "newStatus" to newStatus,
                     ),
                 )
-                refreshCheckmarksForTask(taskId)
+                // Recompute L1/L2/L3 FIRST so refreshed rows carry the
+                // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
+                refreshCheckmarksForTask(taskId)
             } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.toggleCheckmark",
@@ -520,8 +555,10 @@ class TasksViewModel @Inject constructor(
                         ),
                     )
                 }
-                refreshCheckmarksForTask(taskId)
+                // Recompute L1/L2/L3 FIRST so refreshed rows carry the
+                // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
+                refreshCheckmarksForTask(taskId)
             } catch (e: Exception) {
                 logger.e("TasksViewModel.updateCheckmark", "Failed to update checkmark", e)
             }
@@ -564,6 +601,7 @@ class TasksViewModel @Inject constructor(
                         todayStatusByTaskId = updatedTodayStatus,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        latestL1ByHabit = latestL1,
                     ),
                 )
             }
@@ -749,6 +787,7 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    latestL1ByHabit = state.latestL1ByHabit,
                 ),
             )
         }
@@ -759,6 +798,7 @@ class TasksViewModel @Inject constructor(
             logger.d("TasksViewModel.toggleShowArchivedHabits", "Toggled", mapOf("showArchived" to newValue))
             state.copy(showArchivedHabits = newValue)
         }
+        persistVisibilityToggle(AppPreferencesViewModel.KEY_SHOW_ARCHIVED_HABITS) { it.showArchivedHabits }
         loadTasks()
     }
     fun toggleShowCompletedHabits() {
@@ -779,8 +819,22 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = newValue,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    latestL1ByHabit = state.latestL1ByHabit,
                 ),
             )
+        }
+        persistVisibilityToggle(AppPreferencesViewModel.KEY_SHOW_COMPLETED_HABITS) { it.showCompletedHabits }
+    }
+
+    /** Persist one visibility toggle value as "true"/"false". */
+    private fun persistVisibilityToggle(key: String, valueOf: (TasksUiState) -> Boolean) {
+        viewModelScope.launch {
+            try {
+                appSettingsRepository.setSetting(key, valueOf(_uiState.value).toString())
+                logger.d("TasksViewModel.persistVisibilityToggle", "Visibility toggle saved", mapOf("key" to key))
+            } catch (e: Exception) {
+                logger.e("TasksViewModel.persistVisibilityToggle", "Failed to save visibility toggle", e, mapOf("key" to key))
+            }
         }
     }
     fun toggleHideAllMarkedToday() {
@@ -801,9 +855,11 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
                     hideAllMarkedToday = newValue,
+                    latestL1ByHabit = state.latestL1ByHabit,
                 ),
             )
         }
+        persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
     fun completeTask(taskId: String, note: String? = null) {
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))

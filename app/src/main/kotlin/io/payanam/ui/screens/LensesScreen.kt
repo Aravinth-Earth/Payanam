@@ -643,32 +643,9 @@ private fun ModuleSections(
             Text(stringResource(id = R.string.loc_planned_habits_count, planned))
             Text(stringResource(id = R.string.loc_completed_habits_ratio, completed, total))
             Text(stringResource(id = R.string.loc_lens_missed_habits_line, missed))
-            Text(stringResource(id = R.string.loc_lens_group_by_dimension), fontWeight = FontWeight.Medium)
-            if (dimensionIds.isEmpty()) {
-                Text(stringResource(id = R.string.loc_lens_no_dimension_distribution))
-            } else {
-                val plannedMap = summary?.plannedHabitsByDimension ?: emptyMap()
-                val completedMap = summary?.completedHabitsByDimension ?: emptyMap()
-                val missedMap = summary?.missedHabitsByDimension ?: emptyMap()
-                dimensionIds.forEach { id ->
-                    val label = appPrefs.labelForDimensionId(id)
-                        ?: appPrefs.labelForDimension(id, null)
-                        ?: stringResource(id = R.string.loc_dimension_fallback_unassigned)
-                    val color = appPrefs.colorForDimensionId(id)
-                        ?: appPrefs.colorForDimension(id, null)
-                        ?: MaterialTheme.colorScheme.primary
-                    val plannedByDimension = plannedMap[id] ?: 0
-                    val completedByDimension = completedMap[id] ?: 0
-                    val missedByDimension = missedMap[id] ?: 0
-                    val line = stringResource(
-                        id = R.string.loc_tagged_title,
-                        label,
-                        stringResource(id = R.string.loc_completed_habits_ratio, completedByDimension, plannedByDimension),
-                    )
-                    Text(text = taggedDimensionLine(line = line, dimensionLabel = label, dimensionColor = color))
-                    Text(stringResource(id = R.string.loc_lens_missed_habits_line, missedByDimension))
-                }
-            }
+            // Per-dimension text lines removed — the score matrix below now
+            // renders per-dimension rows with colors/sparklines, making the
+            // duplicate text block redundant.
             Spacer(modifier = Modifier.height(8.dp))
             LensHabitScoreMatrixSection(
                 onRowSelected = { isDay, key ->
