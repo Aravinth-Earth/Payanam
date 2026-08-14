@@ -8,11 +8,14 @@ package io.payanam.domain.model
  */
 data class HabitL1Summary(
     val habitId: String,
-    val dayKey: String,
-    val score: Double,
-    val runningAvg: Double,
-    val progress: Double,
-    val streakPos: Int,
-    val streakNet: Int,
-    val posContinue: Int,
-)
+    override val dayKey: String,
+    override val score: Double,
+    override val runningAvg: Double,
+    override val progress: Double,
+    override val streakPos: Int,
+    override val streakNet: Int,
+    override val posContinue: Int,
+) : MetricWindowRow {
+    override val key: String get() = habitId
+    override val label: String get() = habitId
+}
