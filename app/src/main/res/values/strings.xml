@@ -1191,4 +1191,6 @@
 
 
     <string name="loc_lens_metric_streak_net">Net</string>
+
+    <string name="loc_lens_summary_avg_score">Avg score</string>
 </resources>

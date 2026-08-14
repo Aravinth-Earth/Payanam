@@ -12,8 +12,11 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -122,7 +125,7 @@ internal fun HabitActivityDetailSection(
             showChartView -> {
                 ActivitySummaryBar(rows = rows, occurrences = occurrences)
                 Spacer(modifier = Modifier.height(12.dp))
-                ChartView(rows = rows)
+                ChartView(rows = rows, windowSizeDays = windowSizeDays)
             }
             else -> {
                 ActivityTable(rows = rows, occurrences = occurrences)
@@ -279,16 +282,16 @@ private fun ActivitySummaryBar(
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
             SummaryStat(
-                label = androidx.compose.ui.res.stringResource(id = R.string.loc_metric_running_avg),
-                value = String.format(java.util.Locale.US, "%.2f", avgScore),
+                label = androidx.compose.ui.res.stringResource(id = R.string.loc_lens_summary_avg_score),
+                value = String.format(java.util.Locale.US, "%.5f", avgScore),
             )
             SummaryStat(
-                label = androidx.compose.ui.res.stringResource(id = R.string.loc_metric_running_avg),
-                value = String.format(java.util.Locale.US, "%.2f", last.runningAvg),
+                label = androidx.compose.ui.res.stringResource(id = R.string.activity_detail_chart_running_avg),
+                value = String.format(java.util.Locale.US, "%.5f", last.runningAvg),
             )
             SummaryStat(
                 label = androidx.compose.ui.res.stringResource(id = R.string.loc_lens_time_progress_label),
-                value = if (last.progress >= 0) "▲ %.2f".format(java.util.Locale.US, last.progress) else "▼ %.2f".format(java.util.Locale.US, last.progress),
+                value = if (last.progress >= 0) "+%.5f".format(java.util.Locale.US, last.progress) else "%.5f".format(java.util.Locale.US, last.progress),
                 color = if (last.progress >= 0) Color(0xFF2E7D32) else Color(0xFFC62828),
             )
             SummaryStat(
@@ -319,7 +322,7 @@ private fun SummaryStat(label: String, value: String, color: Color = MaterialThe
 // ── Chart view (6 Vico line charts) ───────────────────────────────────────
 
 @Composable
-private fun ChartView(rows: List<MetricWindowRow>) {
+private fun ChartView(rows: List<MetricWindowRow>, windowSizeDays: Int) {
     // Each chart gets its own full-width row — no horizontal space sharing.
     // Y-axis per self-gov: Score/RunningAvg pad 20% clamped to [0,1];
     // Progress symmetric around 0 (±absMax + 20%); streaks auto-scale.
@@ -330,6 +333,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.score },
             yOverrider = { values -> clampedUnitRange(values) },
             color = Color(0xFF1565C0),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
         MetricLineChart(
@@ -338,6 +342,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.runningAvg },
             yOverrider = { values -> clampedUnitRange(values) },
             color = Color(0xFF6A1B9A),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
         MetricLineChart(
@@ -346,6 +351,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.progress },
             yOverrider = { values -> symmetricAroundZero(values) },
             color = Color(0xFF2E7D32),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
         MetricLineChart(
@@ -354,6 +360,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.streakPos.toDouble() },
             yOverrider = { values -> paddedIntRange(values) },
             color = Color(0xFFEF6C00),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
         MetricLineChart(
@@ -362,6 +369,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.streakNet.toDouble() },
             yOverrider = { values -> paddedIntRange(values) },
             color = Color(0xFFC62828),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
         MetricLineChart(
@@ -370,6 +378,7 @@ private fun ChartView(rows: List<MetricWindowRow>) {
             metric = { it.posContinue.toDouble() },
             yOverrider = { values -> paddedIntRange(values) },
             color = Color(0xFF00838F),
+            windowSizeDays = windowSizeDays,
             modifier = Modifier.fillMaxWidth(),
         )
     }
@@ -413,6 +422,7 @@ private fun MetricLineChart(
     color: Color,
     modifier: Modifier = Modifier,
     yOverrider: ((List<Double>) -> Pair<Double, Double>?)? = null,
+    windowSizeDays: Int = 30,
 ) {
     // x = epoch day so the line's horizontal scale reflects REAL time gaps
     // (interval habits with non-due days stay visually honest) and the axis
@@ -421,6 +431,10 @@ private fun MetricLineChart(
     // Y-scale: per-chart dynamic bounds from the window's own data (self-gov
     // parity) so each window/range shows its variants clearly.
     val yBounds = yOverrider?.invoke(points.map { it.second })
+    // X-axis: auto label placement (maxCount=0 lets Vico decide spacing from
+    // available width — the same pattern as LensesTimeInsights). Forcing a
+    // fixed count collapsed the 7-day window to one label; auto keeps every
+    // day labeled on short windows and evenly-spaced dates on wide ones.
     val axisOverrider = remember(yBounds) {
         if (yBounds != null) {
             AxisValueOverrider.fixed(
@@ -444,11 +458,15 @@ private fun MetricLineChart(
             ),
         ),
         startAxis = rememberStartAxis(),
-        bottomAxis = rememberBottomAxis(
-            valueFormatter = CartesianValueFormatter { value, _, _ ->
-                epochDayToLabel(value)
-            },
-        ),
+        bottomAxis =
+            rememberBottomAxis(
+                valueFormatter = CartesianValueFormatter { value, _, _ ->
+                    epochDayToLabel(value)
+                },
+                itemPlacer =
+                    com.patrykandpatrick.vico.core.cartesian.axis.HorizontalAxis.ItemPlacer
+                        .default(1, 0, true, true),
+            ),
     )
     val producer = remember { CartesianChartModelProducer() }
     LaunchedEffect(points) {
@@ -496,14 +514,22 @@ private fun ActivityTable(
     val ordered = rows.sortedByDescending { it.dayKey }
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)) {
+            // Fixed header: stays put while ONLY the row body scrolls.
             TableHeaderRow()
             HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-            // Plain Column, NOT LazyColumn: this table renders inside the
-            // detail screen's vertically scrollable parent. A LazyColumn would
-            // be measured with infinite height → IllegalStateException crash.
-            ordered.forEach { row ->
-                ActivityTableRow(row = row, occurrence = occurrences[row.dayKey])
-                HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+            // Bounded-height LazyColumn so the table rows scroll independently
+            // of the page (the page itself is scrollable for charts/header).
+            // Bounded height keeps this legal inside the outer verticalScroll.
+            LazyColumn(
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .heightIn(max = 320.dp),
+            ) {
+                items(ordered, key = { it.dayKey }) { row ->
+                    ActivityTableRow(row = row, occurrence = occurrences[row.dayKey])
+                    HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.4f))
+                }
             }
         }
     }
