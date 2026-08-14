@@ -48,6 +48,7 @@ import io.payanam.ui.viewmodel.LensHabitScoreUiState
 import io.payanam.ui.viewmodel.LensHabitScoreViewModel
 import io.payanam.ui.viewmodel.ScoreMatrixRow
 import io.payanam.ui.viewmodel.ScoreMetricColumn
+import io.payanam.ui.viewmodel.labelForDimensionId
 import java.util.Locale
 
 /**
@@ -90,7 +91,10 @@ fun LensHabitScoreMatrixSection(
                 },
             )
             Spacer(modifier = Modifier.height(10.dp))
-            LensDimensionRadarSection(axes = uiState.radarAxes)
+            LensDimensionRadarSection(
+                axes = uiState.radarAxes,
+                selectedMetric = uiState.selectedMetric,
+            )
         }
     }
 }
@@ -216,6 +220,9 @@ private fun MatrixRow(
     onClick: () -> Unit,
 ) {
     val logger = remember { UnifiedLogger.getInstance() }
+    // User-custom dimension labels win; taxonomy fallback otherwise.
+    val appPrefs = io.payanam.ui.viewmodel.LocalAppPreferences.current
+    val displayLabel = if (isDay) row.label else appPrefs.labelForDimensionId(row.key) ?: row.label
     val value = row.values[selectedMetric]
     Row(
         modifier =
@@ -244,7 +251,7 @@ private fun MatrixRow(
         )
         Spacer(modifier = Modifier.width(6.dp))
         Text(
-            text = row.label,
+            text = displayLabel,
             style = MaterialTheme.typography.labelMedium,
             fontWeight = if (isDay) FontWeight.Bold else FontWeight.Normal,
             color =

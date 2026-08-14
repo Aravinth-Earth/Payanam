@@ -37,6 +37,9 @@ class LensHabitScoreViewModelTest {
     ) : ScoreWindowRepository {
         override suspend fun getDimensionWindow(start: String, end: String): List<MetricWindowRow> = dims
         override suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow> = days
+        override suspend fun earliestDayKey(): String? = days.minByOrNull { it.dayKey }?.dayKey
+        override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
+            dims.filter { it.key == dimensionId }.minByOrNull { it.dayKey }?.dayKey
     }
 
     @Before
@@ -101,5 +104,40 @@ class LensHabitScoreViewModelTest {
         vm.selectMetric(ScoreMetricColumn.PROGRESS)
 
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
+    }
+
+    @Test
+    fun `default metric is progress`() = runTest(dispatcher) {
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+
+        assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
+    }
+
+    @Test
+    fun `radar axes carry all metric pairs with today values`() = runTest(dispatcher) {
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val axes = vm.uiState.value.radarAxes
+        assertEquals(2, axes.size)
+        val physical = axes.first { it.key == "dim_physical_health" }
+        assertEquals(0.85, physical.today(ScoreMetricColumn.SCORE)!!, 0.0)
+        assertEquals(0.87, physical.runningAvg(ScoreMetricColumn.SCORE)!!, 0.0)
+        assertEquals(0.05, physical.today(ScoreMetricColumn.PROGRESS)!!, 0.0)
+        assertEquals(27.0, physical.today(ScoreMetricColumn.STREAK_POS)!!, 0.0)
+        assertEquals(41.0, physical.today(ScoreMetricColumn.STREAK_NET)!!, 0.0)
+        assertEquals(152.0, physical.today(ScoreMetricColumn.POS_CONTINUE)!!, 0.0)
+    }
+
+    @Test
+    fun `dimension labels fall back to taxonomy names`() = runTest(dispatcher) {
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+        dispatcher.scheduler.advanceUntilIdle()
+
+        val labels = vm.uiState.value.rows.map { it.label }
+        assertTrue(labels.any { it.contains("Physical", ignoreCase = true) })
+        assertTrue(labels.none { it == "dim_physical_health" })
     }
 }

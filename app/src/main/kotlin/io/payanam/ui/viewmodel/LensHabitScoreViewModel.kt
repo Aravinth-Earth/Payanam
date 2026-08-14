@@ -44,16 +44,21 @@ data class RadarAxis(
     val key: String,
     val label: String,
     val colorHex: String,
-    val today: Double?,
-    val runningAvg: Double?,
-)
+    /** Values per metric column: today's value + running avg for that metric. */
+    val values: Map<ScoreMetricColumn, Pair<Double?, Double?>>,
+    /** Resolved display label (user-custom or taxonomy fallback). */
+    val displayLabel: String = label,
+) {
+    fun today(metric: ScoreMetricColumn): Double? = values[metric]?.first
+    fun runningAvg(metric: ScoreMetricColumn): Double? = values[metric]?.second
+}
 
 /** Immutable state for the Lenses score matrix. */
 data class LensHabitScoreUiState(
     val isLoading: Boolean = false,
     val windowStart: String = "",
     val windowEnd: String = "",
-    val selectedMetric: ScoreMetricColumn = ScoreMetricColumn.SCORE,
+    val selectedMetric: ScoreMetricColumn = ScoreMetricColumn.PROGRESS,
     val rows: List<ScoreMatrixRow> = emptyList(),
     val dayRow: ScoreMatrixRow? = null,
     val radarAxes: List<RadarAxis> = emptyList(),
@@ -126,7 +131,7 @@ class LensHabitScoreViewModel
                 val latest = rows.maxByOrNull { it.dayKey } ?: return@map null
                 ScoreMatrixRow(
                     key = key,
-                    label = latest.label,
+                    label = dimensionLabel(key),
                     colorHex = dimensionColorHex(key),
                     isDay = false,
                     values = metricValues(latest),
@@ -173,7 +178,9 @@ class LensHabitScoreViewModel
             return out
         }
 
-        /** Latest row per dimension → radar axis (today's score vs running avg). */
+        /** Latest row per dimension → radar axis with ALL metric pairs
+         *  (today + running avg per column) so the radar can follow the
+         *  matrix's selected metric. */
         private fun buildRadarAxes(dims: List<MetricWindowRow>): List<RadarAxis> =
             dims
                 .groupBy { it.key }
@@ -181,13 +188,24 @@ class LensHabitScoreViewModel
                     val latest = rows.maxByOrNull { it.dayKey } ?: return@map null
                     RadarAxis(
                         key = key,
-                        label = latest.label,
+                        label = dimensionLabel(key),
                         colorHex = dimensionColorHex(key),
-                        today = latest.score,
-                        runningAvg = latest.runningAvg,
+                        values =
+                            mapOf(
+                                ScoreMetricColumn.SCORE to (latest.score to latest.runningAvg),
+                                ScoreMetricColumn.RUNNING_AVG to (latest.runningAvg to null),
+                                ScoreMetricColumn.PROGRESS to (latest.progress to null),
+                                ScoreMetricColumn.STREAK_POS to (latest.streakPos.toDouble() to null),
+                                ScoreMetricColumn.STREAK_NET to (latest.streakNet.toDouble() to null),
+                                ScoreMetricColumn.POS_CONTINUE to (latest.posContinue.toDouble() to null),
+                            ),
                     )
                 }
                 .filterNotNull()
+
+        /** Taxonomy fallback label; user-custom labels are layered at the UI. */
+        private fun dimensionLabel(dimensionId: String): String =
+            DimensionTaxonomyCatalog.fromAnyId(dimensionId)?.fallbackLabel ?: dimensionId
 
         private fun dimensionColorHex(dimensionId: String): String =
             DimensionTaxonomyCatalog.fromAnyId(dimensionId)?.defaultColorHex ?: "#9AA0AA"

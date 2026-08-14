@@ -33,13 +33,22 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.ui.viewmodel.LocalAppPreferences
 import io.payanam.ui.viewmodel.RadarAxis
+import io.payanam.ui.viewmodel.ScoreMetricColumn
+import io.payanam.ui.viewmodel.labelForDimensionId
+import kotlin.math.abs
 import kotlin.math.cos
 import kotlin.math.min
 import kotlin.math.sin
 
 private val TODAY_COLOR = Color(0xFF34D399)
 private val AVG_COLOR = Color(0xFF818CF8)
+
+/** Score/Running-avg metrics have a meaningful running average; progress and
+ *  streaks do not (their "avg" would be a fixed, misleading line). */
+private fun hasAverageMetric(metric: ScoreMetricColumn): Boolean =
+    metric == ScoreMetricColumn.SCORE || metric == ScoreMetricColumn.RUNNING_AVG
 
 /**
  * Dimension spread radar: one spoke per dimension, today's scores (solid) vs
@@ -49,6 +58,7 @@ private val AVG_COLOR = Color(0xFF818CF8)
 @Composable
 fun LensDimensionRadarSection(
     axes: List<RadarAxis>,
+    selectedMetric: ScoreMetricColumn = ScoreMetricColumn.PROGRESS,
     modifier: Modifier = Modifier,
 ) {
     val logger = remember { UnifiedLogger.getInstance() }
@@ -66,8 +76,10 @@ fun LensDimensionRadarSection(
                 )
                 Spacer(modifier = Modifier.weight(1f))
                 LegendDot(color = TODAY_COLOR, label = stringResource(id = R.string.loc_today))
-                Spacer(modifier = Modifier.width(10.dp))
-                LegendDot(color = AVG_COLOR, label = stringResource(id = R.string.activity_detail_chart_running_avg))
+                if (hasAverageMetric(selectedMetric)) {
+                    Spacer(modifier = Modifier.width(10.dp))
+                    LegendDot(color = AVG_COLOR, label = stringResource(id = R.string.activity_detail_chart_running_avg))
+                }
             }
             Spacer(modifier = Modifier.height(8.dp))
             if (axes.isEmpty()) {
@@ -80,9 +92,9 @@ fun LensDimensionRadarSection(
                 logger.d(
                     "LensDimensionRadarSection.rendered",
                     "Radar rendered",
-                    mapOf("dimensions" to axes.size),
+                    mapOf("dimensions" to axes.size, "metric" to selectedMetric.key),
                 )
-                RadarCanvas(axes = axes, modifier = Modifier.fillMaxWidth())
+                RadarCanvas(axes = axes, selectedMetric = selectedMetric, modifier = Modifier.fillMaxWidth())
             }
         }
     }
@@ -109,28 +121,61 @@ private fun LegendDot(color: Color, label: String) {
 @Composable
 private fun RadarCanvas(
     axes: List<RadarAxis>,
+    selectedMetric: ScoreMetricColumn,
     modifier: Modifier = Modifier,
 ) {
     val radiusFraction = 0.36f
+    // User-custom dimension labels win; taxonomy fallback otherwise.
+    val appPrefs = io.payanam.ui.viewmodel.LocalAppPreferences.current
+    val displayAxes =
+        axes.map { axis ->
+            axis.copy(displayLabel = appPrefs.labelForDimensionId(axis.key) ?: axis.label)
+        }
+    // Score and Running-avg share the SAME radar: solid = today's score,
+    // dashed = running avg. The matrix toggle between them must not change
+    // what the radar plots.
+    val radarMetric =
+        if (selectedMetric == ScoreMetricColumn.RUNNING_AVG) ScoreMetricColumn.SCORE
+        else selectedMetric
     Canvas(modifier = modifier.height(230.dp)) {
         if (axes.isEmpty()) return@Canvas
         val cx = size.width / 2f
         val cy = size.height / 2f
         val radius = min(size.width, size.height) * radiusFraction
-        val n = axes.size
+        val n = displayAxes.size
         val angleStep = (2.0 * Math.PI) / n
+
+        // Normalize the selected metric across axes so the polygon is readable
+        // regardless of unit (0..1 scores, ± progress, large streak counts).
+        val todayValues = displayAxes.map { it.today(radarMetric) }.filterNotNull()
+        val avgValues = displayAxes.map { it.runningAvg(radarMetric) }.filterNotNull()
+        val scaleMax =
+            maxOf(
+                todayValues.maxOrNull()?.let { abs(it) } ?: 0.0,
+                avgValues.maxOrNull()?.let { abs(it) } ?: 0.0,
+                1e-6,
+            )
+        // Non-negative metrics (score, streaks, continue): 0 = CENTER, max = edge.
+        // Signed metrics (progress, net): 0 = mid-ring, ±max = edge.
+        val signedMetric =
+            radarMetric == ScoreMetricColumn.PROGRESS ||
+                radarMetric == ScoreMetricColumn.STREAK_NET
+        fun scale(v: Double?): Float {
+            val n = ((v ?: 0.0) / scaleMax).coerceIn(-1.0, 1.0)
+            return (if (signedMetric) n else n * 2.0 - 1.0).toFloat()
+        }
 
         fun point(index: Int, value: Float): Offset {
             val angle = -Math.PI / 2 + angleStep * index
-            val r = radius * value.coerceIn(0f, 1.05f)
+            val r = radius * (0.5f + value * 0.5f).coerceIn(0.05f, 1.0f)
             return Offset(cx + (cos(angle) * r).toFloat(), cy + (sin(angle) * r).toFloat())
         }
 
         // Rings
         listOf(0.25f, 0.5f, 0.75f, 1.0f).forEach { ring ->
             val ringPath = Path()
-            axes.indices.forEach { i ->
-                val p = point(i, ring)
+            displayAxes.indices.forEach { i ->
+                val p = point(i, ring * 2f - 1f)
                 if (i == 0) ringPath.moveTo(p.x, p.y) else ringPath.lineTo(p.x, p.y)
             }
             ringPath.close()
@@ -142,7 +187,7 @@ private fun RadarCanvas(
         }
 
         // Spokes + labels
-        axes.forEachIndexed { i, axis ->
+        displayAxes.forEachIndexed { i, axis ->
             val p = point(i, 1f)
             drawLine(
                 color = Color.White.copy(alpha = 0.06f),
@@ -151,8 +196,9 @@ private fun RadarCanvas(
                 strokeWidth = 1f,
             )
             val labelP = point(i, 1.22f)
+            val label = axis.displayLabel
             drawContext.canvas.nativeCanvas.drawText(
-                axis.label.take(10),
+                label.take(10),
                 labelP.x,
                 labelP.y,
                 android.graphics.Paint().apply {
@@ -163,26 +209,29 @@ private fun RadarCanvas(
             )
         }
 
-        // Running avg polygon (dashed)
-        val avgPath = Path()
-        axes.forEachIndexed { i, axis ->
-            val value = (axis.runningAvg ?: 0.0).toFloat()
-            val p = point(i, value)
-            if (i == 0) avgPath.moveTo(p.x, p.y) else avgPath.lineTo(p.x, p.y)
+        // Running avg polygon (dashed) — ONLY when the selected metric has a
+        // meaningful average (Score / Running avg). Progress and streaks have
+        // no average in the model, so showing a fixed second polygon would
+        // be misleading — today-only for those.
+        if (hasAverageMetric(radarMetric)) {
+            val avgPath = Path()
+            displayAxes.forEachIndexed { i, axis ->
+                val p = point(i, scale(axis.runningAvg(radarMetric)))
+                if (i == 0) avgPath.moveTo(p.x, p.y) else avgPath.lineTo(p.x, p.y)
+            }
+            avgPath.close()
+            drawPath(
+                path = avgPath,
+                color = AVG_COLOR.copy(alpha = 0.15f),
+                style = Stroke(width = 1.5f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))),
+            )
+            drawPath(path = avgPath, color = AVG_COLOR, style = Stroke(width = 1.5f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))))
         }
-        avgPath.close()
-        drawPath(
-            path = avgPath,
-            color = AVG_COLOR.copy(alpha = 0.15f),
-            style = Stroke(width = 1.5f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))),
-        )
-        drawPath(path = avgPath, color = AVG_COLOR, style = Stroke(width = 1.5f, pathEffect = androidx.compose.ui.graphics.PathEffect.dashPathEffect(floatArrayOf(8f, 6f))))
 
         // Today polygon (solid)
         val todayPath = Path()
-        axes.forEachIndexed { i, axis ->
-            val value = (axis.today ?: 0.0).toFloat()
-            val p = point(i, value)
+        displayAxes.forEachIndexed { i, axis ->
+            val p = point(i, scale(axis.today(radarMetric)))
             if (i == 0) todayPath.moveTo(p.x, p.y) else todayPath.lineTo(p.x, p.y)
         }
         todayPath.close()
