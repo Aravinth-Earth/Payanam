@@ -1189,4 +1189,9 @@
     <string name="loc_lens_metric_pos_continue">தொடர்வு</string>
     <string name="loc_lens_dimension">பரிமாணம்</string>
 
+
+    <string name="loc_lens_radar_title">பரிமாணப் பரவல்</string>
+    <string name="loc_lens_radar_today">இன்று</string>
+    <string name="loc_lens_radar_running_avg">சராசரி</string>
+
 </resources>

@@ -1189,4 +1189,9 @@
     <string name="loc_lens_metric_pos_continue">Continue</string>
     <string name="loc_lens_dimension">Dimension</string>
 
+
+    <string name="loc_lens_radar_title">Dimension spread</string>
+    <string name="loc_lens_radar_today">Today</string>
+    <string name="loc_lens_radar_running_avg">Running avg</string>
+
 </resources>

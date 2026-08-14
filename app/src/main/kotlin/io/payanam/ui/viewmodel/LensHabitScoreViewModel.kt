@@ -39,6 +39,15 @@ data class ScoreMatrixRow(
     val sparkline: List<Double?>,
 )
 
+/** One radar axis: dimension with today's score and running average. */
+data class RadarAxis(
+    val key: String,
+    val label: String,
+    val colorHex: String,
+    val today: Double?,
+    val runningAvg: Double?,
+)
+
 /** Immutable state for the Lenses score matrix. */
 data class LensHabitScoreUiState(
     val isLoading: Boolean = false,
@@ -47,6 +56,7 @@ data class LensHabitScoreUiState(
     val selectedMetric: ScoreMetricColumn = ScoreMetricColumn.SCORE,
     val rows: List<ScoreMatrixRow> = emptyList(),
     val dayRow: ScoreMatrixRow? = null,
+    val radarAxes: List<RadarAxis> = emptyList(),
     val error: String? = null,
 )
 
@@ -85,6 +95,7 @@ class LensHabitScoreViewModel
                             windowEnd = end,
                             rows = rows,
                             dayRow = dayRow,
+                            radarAxes = buildRadarAxes(dims),
                         )
                     }
                     logger.d(
@@ -161,6 +172,22 @@ class LensHabitScoreViewModel
             }
             return out
         }
+
+        /** Latest row per dimension → radar axis (today's score vs running avg). */
+        private fun buildRadarAxes(dims: List<MetricWindowRow>): List<RadarAxis> =
+            dims
+                .groupBy { it.key }
+                .map { (key, rows) ->
+                    val latest = rows.maxByOrNull { it.dayKey } ?: return@map null
+                    RadarAxis(
+                        key = key,
+                        label = latest.label,
+                        colorHex = dimensionColorHex(key),
+                        today = latest.score,
+                        runningAvg = latest.runningAvg,
+                    )
+                }
+                .filterNotNull()
 
         private fun dimensionColorHex(dimensionId: String): String =
             DimensionTaxonomyCatalog.fromAnyId(dimensionId)?.defaultColorHex ?: "#9AA0AA"

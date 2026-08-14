@@ -91,6 +91,8 @@ fun LensHabitScoreMatrixSection(
                     onRowSelected(isDay, key)
                 },
             )
+            Spacer(modifier = Modifier.height(10.dp))
+            LensDimensionRadarSection(axes = uiState.radarAxes)
         }
     }
 }
