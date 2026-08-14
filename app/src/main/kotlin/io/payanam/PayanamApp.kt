@@ -18,6 +18,7 @@ import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.AppStartUpdateChecker
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
 @HiltAndroidApp
@@ -93,14 +94,19 @@ class PayanamApp : Application() {
             // Best-effort on a separate thread with a hard cap; never blocks.
             val exportThread = Thread {
                 try {
-                    logger.exportAllLogs()
+                    // Explicit final flush so the crash line (eSync above) and
+                    // any sibling lines reach the file before the zip runs.
+                    runBlocking { logger.flush() }
+                    runBlocking { logger.exportAllLogs() }
                 } catch (_: Exception) {
                     // export must never mask the original crash
                 }
             }
             exportThread.start()
             try {
-                exportThread.join(5_000)
+                // 15s budget: flush + zip of the full history must fit before
+                // Android kills the process after the handler returns.
+                exportThread.join(15_000)
             } catch (_: InterruptedException) {
                 // give up waiting; original handler still runs below
             }

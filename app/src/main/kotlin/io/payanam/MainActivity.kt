@@ -567,6 +567,9 @@ class MainActivity : FragmentActivity() {
         }
         // Flush WAL journal so data is durable if process dies while backgrounded
         sessionManager.checkpoint()
+        // Flush the log buffer so a background kill loses at most the lines
+        // written between here and process death (async; buffer is small).
+        logger.flush()
     }
 
     override fun onDestroy() {

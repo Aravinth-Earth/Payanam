@@ -119,7 +119,7 @@
     <string name="settings_action_import_uhabits">uHabits இறக்குமதி</string>
     <string name="settings_action_map_imported_habits">இறக்குமதி பழக்கங்களை ஒதுக்கு</string>
     <string name="settings_action_change_passphrase">பயன்பாட்டு கடவுச்சொல் மாற்று</string>
-    <string name="settings_action_export_latest_log">அண்மை பதிவு ஏற்றுமதி</string>
+    <string name="settings_action_export_latest_log">தற்போதைய அமர்வு பதிவு ஏற்றுமதி</string>
     <string name="settings_action_export_all_logs">அனைத்து பதிவுகளும் ஏற்றுமதி</string>
     <string name="settings_action_run_habit_score_diagnostics">பழக்க மதிப்பெண் கண்டறிதலை இயக்கு</string>
     <string name="settings_action_run_habit_score_diagnostics_in_progress">பழக்க மதிப்பெண் கண்டறிதல் இயங்குகிறது…</string>
@@ -172,8 +172,8 @@
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_habit_mapping_success">%2$s-க்கு %1$d இறக்குமதி பழக்கங்கள் ஒதுக்கப்பட்டன</string>
     <string name="settings_snackbar_habit_mapping_failed">பழக்க ஒதுக்கீடு தோல்வி: %1$s</string>
-    <string name="settings_snackbar_latest_log_exported">அண்மை பதிவு ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
-    <string name="settings_snackbar_latest_log_export_failed">அண்மை பதிவு ஏற்றுமதி தோல்வி</string>
+    <string name="settings_snackbar_latest_log_exported">தற்போதைய அமர்வு பதிவு ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
+    <string name="settings_snackbar_latest_log_export_failed">தற்போதைய அமர்வு பதிவு ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_all_logs_exported">அனைத்து பதிவுகளும் ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_habit_score_diagnostics_complete">பழக்க மதிப்பெண் கண்டறிதல் பதிவானது. பழக்கங்கள்: %1$d, நிகழ்வுகளுடன்: %2$d</string>

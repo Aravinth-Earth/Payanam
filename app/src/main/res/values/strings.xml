@@ -119,7 +119,7 @@
     <string name="settings_action_import_uhabits">Import uHabits</string>
     <string name="settings_action_map_imported_habits">Map Imported Habits</string>
     <string name="settings_action_change_passphrase">Update Passphrase</string>
-    <string name="settings_action_export_latest_log">Export Latest Log</string>
+    <string name="settings_action_export_latest_log">Export Current Session Log</string>
     <string name="settings_action_export_all_logs">Export All Logs</string>
     <string name="settings_action_run_habit_score_diagnostics">Run Habit Score Diagnostics</string>
     <string name="settings_action_run_habit_score_diagnostics_in_progress">Running Habit Score Diagnostics…</string>
@@ -173,8 +173,8 @@
     <string name="settings_snackbar_uhabits_import_failed">uHabits import failed: %1$s</string>
     <string name="settings_snackbar_habit_mapping_success">Mapped %1$d imported habits to %2$s</string>
     <string name="settings_snackbar_habit_mapping_failed">Habit mapping failed: %1$s</string>
-    <string name="settings_snackbar_latest_log_exported">Latest log exported to: %1$s</string>
-    <string name="settings_snackbar_latest_log_export_failed">Failed to export latest log</string>
+    <string name="settings_snackbar_latest_log_exported">Current session log exported to: %1$s</string>
+    <string name="settings_snackbar_latest_log_export_failed">Failed to export current session log</string>
     <string name="settings_snackbar_all_logs_exported">All logs exported to: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">Failed to export all logs</string>
     <string name="settings_snackbar_habit_score_diagnostics_complete">Habit score diagnostics logged. Habits: %1$d, with occurrences: %2$d</string>
