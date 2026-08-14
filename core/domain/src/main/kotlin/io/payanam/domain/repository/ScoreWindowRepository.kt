@@ -19,4 +19,10 @@ interface ScoreWindowRepository {
 
     /** DAY rows (one per day) for [start]..[end] (inclusive). */
     suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow>
+
+    /** Earliest logged day across ALL habits (DAY layer, "All" range start). */
+    suspend fun earliestDayKey(): String?
+
+    /** Earliest logged day for one dimension's mapped habits (dimension layer). */
+    suspend fun earliestDimensionDayKey(dimensionId: String): String?
 }

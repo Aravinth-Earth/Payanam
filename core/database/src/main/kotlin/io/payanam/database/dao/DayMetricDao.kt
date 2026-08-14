@@ -24,6 +24,9 @@ interface DayMetricDao {
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     suspend fun getAll(): List<DayMetricEntity>
 
+    @Query("SELECT MIN(dayKey) FROM day_metrics")
+    suspend fun earliestDayKey(): String?
+
     @Query("SELECT * FROM day_metrics WHERE dayKey = :dayKey")
     suspend fun forDay(dayKey: String): DayMetricEntity?
 

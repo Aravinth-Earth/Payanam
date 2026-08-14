@@ -61,4 +61,10 @@ class ScoreWindowRepositoryImpl
                 )
             }
         }
+
+        override suspend fun earliestDayKey(): String? =
+            sessionManager.requireDatabase().dayMetricDao().earliestDayKey()
+
+        override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
+            sessionManager.requireDatabase().dimensionMetricDao().earliestDayKey(dimensionId)
     }

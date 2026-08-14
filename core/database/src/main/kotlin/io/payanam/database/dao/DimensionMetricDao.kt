@@ -15,6 +15,9 @@ interface DimensionMetricDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<DimensionMetricEntity>)
 
+    @Query("SELECT MIN(dayKey) FROM dimension_metrics WHERE dimensionId = :dimensionId")
+    suspend fun earliestDayKey(dimensionId: String): String?
+
     @Query("DELETE FROM dimension_metrics WHERE dimensionId = :dimensionId AND dayKey >= :fromDay")
     suspend fun deleteFrom(dimensionId: String, fromDay: String)
 

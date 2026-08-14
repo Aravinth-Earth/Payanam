@@ -5,6 +5,8 @@ package io.payanam.ui.screens
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.CircularProgressIndicator
@@ -50,9 +52,9 @@ enum class ScoreDetailType { DAY, DIMENSION }
 data class ScoreDetailUiState(
     val isLoading: Boolean = true,
     val rows: List<MetricWindowRow> = emptyList(),
-    val windowSizeDays: Int = 14,
+    val windowSizeDays: Int = 7,
     val windowEnd: LocalDate = LocalDate.now(),
-    val showChartView: Boolean = false,
+    val showChartView: Boolean = true,
     val error: String? = null,
 )
 
@@ -71,7 +73,7 @@ class ScoreDetailViewModel
             viewModelScope.launch {
                 val state = _uiState.value
                 val end = state.windowEnd
-                val start = end.minusDays((state.windowSizeDays - 1).toLong())
+                val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
                 val startStr = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 val endStr = end.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 _uiState.update { it.copy(isLoading = true, error = null) }
@@ -111,12 +113,17 @@ class ScoreDetailViewModel
         }
 
         fun shiftWindow(days: Int) {
+            logger.d(
+                "ScoreDetailViewModel.shiftWindow",
+                "Window shifted",
+                mapOf("days" to days, "type" to currentType.name, "key" to currentKey),
+            )
             _uiState.update { it.copy(windowEnd = it.windowEnd.plusDays(days.toLong())) }
             // Reload with the new end date: re-enter load with current state
             viewModelScope.launch {
                 val state = _uiState.value
                 val end = state.windowEnd
-                val start = end.minusDays((state.windowSizeDays - 1).toLong())
+                val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
                 val rows =
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
@@ -135,11 +142,16 @@ class ScoreDetailViewModel
         }
 
         fun setWindowSize(days: Int) {
+            logger.d(
+                "ScoreDetailViewModel.setWindowSize",
+                "Range size selected",
+                mapOf("days" to days, "type" to currentType.name, "key" to currentKey),
+            )
             _uiState.update { it.copy(windowSizeDays = days) }
             viewModelScope.launch {
                 val state = _uiState.value
                 val end = state.windowEnd
-                val start = end.minusDays((state.windowSizeDays - 1).toLong())
+                val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
                 val rows =
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
@@ -162,11 +174,16 @@ class ScoreDetailViewModel
         }
 
         fun goToday() {
+            logger.d(
+                "ScoreDetailViewModel.goToday",
+                "Window reset to today",
+                mapOf("type" to currentType.name, "key" to currentKey),
+            )
             _uiState.update { it.copy(windowEnd = LocalDate.now()) }
             viewModelScope.launch {
                 val state = _uiState.value
                 val end = state.windowEnd
-                val start = end.minusDays((state.windowSizeDays - 1).toLong())
+                val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
                 val rows =
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
@@ -188,6 +205,26 @@ class ScoreDetailViewModel
         var currentType: ScoreDetailType = ScoreDetailType.DAY
         var currentKey: String = "DAY"
     }
+
+/** Window start: 0 days = "All" → earliest logged day for the layer
+ *  (resolved from the repository — per-dimension mapped habits for the
+ *  dimension layer, all habits for the DAY layer); otherwise end minus
+ *  (days-1). Hard date fallback only when no metrics exist at all. */
+private suspend fun ScoreWindowRepository.resolveWindowStart(
+    end: LocalDate,
+    windowSizeDays: Int,
+    type: ScoreDetailType,
+    key: String,
+): LocalDate {
+    if (windowSizeDays > 0) return end.minusDays((windowSizeDays - 1).toLong())
+    val earliest =
+        when (type) {
+            ScoreDetailType.DAY -> earliestDayKey()
+            ScoreDetailType.DIMENSION -> earliestDimensionDayKey(key)
+        }
+    return earliest?.take(10)?.let { runCatching { LocalDate.parse(it) }.getOrNull() }
+        ?: LocalDate.of(2020, 1, 1)
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -228,7 +265,15 @@ fun ScoreDetailScreen(
             )
         },
     ) { padding ->
-        Box(modifier = Modifier.fillMaxSize().padding(padding)) {
+        Box(
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    // Side margins: content must not touch screen edges.
+                    .padding(horizontal = 16.dp)
+                    .verticalScroll(rememberScrollState()),
+        ) {
             when {
                 uiState.isLoading && uiState.rows.isEmpty() -> {
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
