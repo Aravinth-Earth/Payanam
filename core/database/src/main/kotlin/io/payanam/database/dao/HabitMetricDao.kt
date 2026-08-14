@@ -12,6 +12,12 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface HabitMetricDao {
 
+    /** Projection for MAX(dayKey) GROUP BY habitId — avoids loading all rows. */
+    data class HabitIdDayKey(
+        val habitId: String,
+        val maxDayKey: String,
+    )
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(rows: List<HabitMetricEntity>)
 
@@ -33,6 +39,10 @@ interface HabitMetricDao {
 
     @Query("SELECT * FROM habit_metrics")
     suspend fun getAll(): List<HabitMetricEntity>
+
+    /** Max dayKey per habit — O(rows) GROUP BY instead of loading every row. */
+    @Query("SELECT habitId, MAX(dayKey) AS maxDayKey FROM habit_metrics GROUP BY habitId")
+    suspend fun maxDayKeyPerHabit(): List<HabitIdDayKey>
 
     /**
      * Latest metric row per habit (one row per habitId — the current L1 state).

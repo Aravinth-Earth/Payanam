@@ -9,6 +9,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.entity.DayMetricEntity
 import io.payanam.database.entity.DimensionMetricEntity
+import io.payanam.database.entity.HabitMetricEntity
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -122,5 +123,23 @@ class ScoreWindowQueriesTest {
 
         assertThat(dao.earliestDayKey("dim_health")).isEqualTo("2026-08-10")
         assertThat(dao.earliestDayKey("dim_money")).isEqualTo("2026-08-01")
+    }
+
+    @Test
+    fun maxDayKeyPerHabit_returnsLatestPerHabitOnly() = runBlocking {
+        val dao = database.habitMetricDao()
+        dao.upsertAll(
+            listOf(
+                HabitMetricEntity("h1", "2026-08-01", 0.4, 0.4, 0.0, 0, 0, 5),
+                HabitMetricEntity("h1", "2026-08-10", 0.7, 0.55, 0.15, 1, 2, 8),
+                HabitMetricEntity("h1", "2026-08-14", 0.82, 0.62, 0.07, 2, 3, 9),
+                HabitMetricEntity("h2", "2026-08-02", 0.5, 0.5, 0.0, 0, 0, 2),
+            ),
+        )
+
+        val result = dao.maxDayKeyPerHabit().associate { it.habitId to it.maxDayKey }
+
+        assertThat(result).containsExactly("h1", "2026-08-14", "h2", "2026-08-02")
+        Unit
     }
 }

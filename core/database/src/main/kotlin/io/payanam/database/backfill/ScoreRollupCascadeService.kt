@@ -322,9 +322,9 @@ class ScoreRollupCascadeService
                 // yesterday — e.g. the app was unused for days/weeks. Missed
                 // gap days get 0.0 rows. C1: tail build seeded from the
                 // cumulative baseline of existing rows (O(gap) per habit).
-                val dbMaxByHabit = habitDao.getAll()
-                    .groupBy { it.habitId }
-                    .mapValues { (_, rows) -> rows.maxOfOrNull { it.dayKey } }
+                // GROUP BY aggregate — O(rows) not O(all rows in memory).
+                val dbMaxByHabit = habitDao.maxDayKeyPerHabit()
+                    .associate { it.habitId to it.maxDayKey }
 
                 val gapStarts = mutableMapOf<String, String>() // habitId → first missing dayKey
                 var extendedRows = 0
