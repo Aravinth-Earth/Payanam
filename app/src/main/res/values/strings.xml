@@ -1179,4 +1179,14 @@
     <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
     <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
     <string name="pre_unlock_update_hint">Manual only — never automatic. Uses the dev channel.</string>
+
+    <string name="loc_lens_metric_label">Metric: %1$s</string>
+    <string name="loc_lens_metric_score">Score</string>
+    <string name="loc_lens_metric_running_avg">Running avg</string>
+    <string name="loc_lens_metric_progress">Progress</string>
+    <string name="loc_lens_metric_streak_pos">Streak+</string>
+    <string name="loc_lens_metric_streak_net">Net</string>
+    <string name="loc_lens_metric_pos_continue">Continue</string>
+    <string name="loc_lens_dimension">Dimension</string>
+
 </resources>
