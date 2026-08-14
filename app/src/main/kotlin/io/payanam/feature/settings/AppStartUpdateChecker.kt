@@ -74,6 +74,26 @@ class AppStartUpdateChecker @Inject constructor(
                 val url = selected?.apkDownloadUrl ?: return@launch
                 val fileName = url.substringAfterLast('/')
                 val wifiOnly = appSettingsRepository.getSetting(UpdatePrefKeys.WIFI_ONLY) == "true"
+                // Trace-only diagnostics: what does the start path actually see
+                // before enqueueing (disk state, markers, target presence)?
+                AutoDownloadManager.logDownloadsDirState(context, "start_check_pre_enqueue")
+                val targetOnDisk = AutoDownloadManager.findApkForBuild(
+                    context,
+                    (result.latestBuildNumber ?: -1).toString(),
+                )
+                val lastBuild = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD)
+                val lastAtMs = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT)
+                logger.d(
+                    "AppStartUpdateChecker.onAppStart",
+                    "Pre-enqueue probe",
+                    mapOf(
+                        "latestBuild" to (result.latestBuildNumber ?: -1),
+                        "targetOnDisk" to (targetOnDisk != null),
+                        "targetPath" to (targetOnDisk ?: "none"),
+                        "lastDownloadedBuild" to (lastBuild ?: "none"),
+                        "lastDownloadedAtMs" to (lastAtMs ?: "none"),
+                    ),
+                )
                 val id = AutoDownloadManager.enqueue(context, url, fileName, wifiOnly = wifiOnly)
                 if (id != null) {
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())

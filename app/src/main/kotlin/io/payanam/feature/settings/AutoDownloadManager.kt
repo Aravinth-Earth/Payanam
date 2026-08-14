@@ -56,6 +56,7 @@ object AutoDownloadManager {
         fileName: String,
         wifiOnly: Boolean = false,
     ): Long? {
+        logDownloadsDirState(context, "enqueue_before")
         return try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
@@ -89,6 +90,7 @@ object AutoDownloadManager {
                     DownloadManager.STATUS_SUCCESSFUL -> {
                         val uri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
                         logger.d("AutoDownloadManager.queryProgress", "Download complete", mapOf("uri" to (uri ?: "unknown")))
+                        logDownloadsDirState(context, "after_complete")
                         DownloadUiState.Downloaded(
                             fileName = uri?.substringAfterLast('/') ?: "unknown",
                             localPath = uri?.removePrefix("file://"),
@@ -137,6 +139,7 @@ object AutoDownloadManager {
      * are logged, not thrown.
      */
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
+        logDownloadsDirState(context, "cleanup_before")
         try {
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
             if (!dir.exists()) return
@@ -152,6 +155,29 @@ object AutoDownloadManager {
             }
         } catch (e: Exception) {
             logger.e("AutoDownloadManager.cleanupOldApks", "Cleanup failed", e)
+        }
+        logDownloadsDirState(context, "cleanup_after")
+    }
+
+    /**
+     * Trace-only: log the current downloads-dir state (per-file name+size,
+     * total bytes, count) under a caller-supplied tag. No behavior change —
+     * diagnostics for the re-download/accumulation investigation.
+     */
+    internal fun logDownloadsDirState(context: Context, tag: String) {
+        try {
+            val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
+            val apks = dir.listFiles { f -> f.isFile && f.name.endsWith(".apk") }?.toList() ?: emptyList()
+            val totalBytes = apks.sumOf { it.length() }
+            val files = apks.sortedByDescending { it.lastModified() }
+                .joinToString(" | ") { "${it.name} (${it.length() / 1024 / 1024}MB)" }
+            logger.d(
+                "AutoDownloadManager.logDownloadsDirState",
+                "Downloads dir state",
+                mapOf("tag" to tag, "count" to apks.size, "totalMB" to (totalBytes / 1024 / 1024), "files" to files),
+            )
+        } catch (e: Exception) {
+            logger.e("AutoDownloadManager.logDownloadsDirState", "Dir state log failed", e)
         }
     }
 
