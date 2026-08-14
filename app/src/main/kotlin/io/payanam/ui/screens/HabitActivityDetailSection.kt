@@ -53,7 +53,7 @@ import com.patrykandpatrick.vico.core.cartesian.data.lineSeries
 import com.patrykandpatrick.vico.core.cartesian.layer.LineCartesianLayer
 import com.patrykandpatrick.vico.core.common.Fill
 import io.payanam.R
-import io.payanam.domain.model.HabitL1Summary
+import io.payanam.domain.model.MetricWindowRow
 import io.payanam.domain.model.TaskOccurrence
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -68,7 +68,7 @@ import java.time.format.DateTimeFormatter
 internal fun HabitActivityDetailSection(
     windowSizeDays: Int,
     windowEnd: LocalDate,
-    rows: List<HabitL1Summary>,
+    rows: List<MetricWindowRow>,
     occurrences: Map<String, TaskOccurrence>,
     isLoading: Boolean,
     showChartView: Boolean,
@@ -262,7 +262,7 @@ private fun ViewToggle(
 
 @Composable
 private fun ActivitySummaryBar(
-    rows: List<HabitL1Summary>,
+    rows: List<MetricWindowRow>,
     occurrences: Map<String, TaskOccurrence>,
 ) {
     val avgScore = rows.map { it.score }.average()
@@ -319,7 +319,7 @@ private fun SummaryStat(label: String, value: String, color: Color = MaterialThe
 // ── Chart view (6 Vico line charts) ───────────────────────────────────────
 
 @Composable
-private fun ChartView(rows: List<HabitL1Summary>) {
+private fun ChartView(rows: List<MetricWindowRow>) {
     // Each chart gets its own full-width row — no horizontal space sharing.
     // Y-axis per self-gov: Score/RunningAvg pad 20% clamped to [0,1];
     // Progress symmetric around 0 (±absMax + 20%); streaks auto-scale.
@@ -408,8 +408,8 @@ internal fun paddedIntRange(values: List<Double>): Pair<Double, Double>? {
 @Composable
 private fun MetricLineChart(
     title: String,
-    rows: List<HabitL1Summary>,
-    metric: (HabitL1Summary) -> Double,
+    rows: List<MetricWindowRow>,
+    metric: (MetricWindowRow) -> Double,
     color: Color,
     modifier: Modifier = Modifier,
     yOverrider: ((List<Double>) -> Pair<Double, Double>?)? = null,
@@ -490,7 +490,7 @@ private fun epochDayToLabel(epochDay: Double): CharSequence {
 
 @Composable
 private fun ActivityTable(
-    rows: List<HabitL1Summary>,
+    rows: List<MetricWindowRow>,
     occurrences: Map<String, TaskOccurrence>,
 ) {
     val ordered = rows.sortedByDescending { it.dayKey }
@@ -528,7 +528,7 @@ private fun TableHeaderRow() {
 }
 
 @Composable
-private fun ActivityTableRow(row: HabitL1Summary, occurrence: TaskOccurrence?) {
+private fun ActivityTableRow(row: MetricWindowRow, occurrence: TaskOccurrence?) {
     Row(
         modifier = Modifier
             .fillMaxWidth()

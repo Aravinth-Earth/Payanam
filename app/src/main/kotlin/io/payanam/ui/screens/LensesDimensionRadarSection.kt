@@ -65,9 +65,9 @@ fun LensDimensionRadarSection(
                     color = MaterialTheme.colorScheme.onSurface,
                 )
                 Spacer(modifier = Modifier.weight(1f))
-                LegendDot(color = TODAY_COLOR, label = stringResource(id = R.string.loc_lens_radar_today))
+                LegendDot(color = TODAY_COLOR, label = stringResource(id = R.string.loc_today))
                 Spacer(modifier = Modifier.width(10.dp))
-                LegendDot(color = AVG_COLOR, label = stringResource(id = R.string.loc_lens_radar_running_avg))
+                LegendDot(color = AVG_COLOR, label = stringResource(id = R.string.activity_detail_chart_running_avg))
             }
             Spacer(modifier = Modifier.height(8.dp))
             if (axes.isEmpty()) {

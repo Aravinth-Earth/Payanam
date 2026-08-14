@@ -151,12 +151,12 @@ private fun MetricDropdown(
 
 @Composable
 private fun metricLabel(metric: ScoreMetricColumn): Int = when (metric) {
-    ScoreMetricColumn.SCORE -> R.string.loc_lens_metric_score
-    ScoreMetricColumn.RUNNING_AVG -> R.string.loc_lens_metric_running_avg
-    ScoreMetricColumn.PROGRESS -> R.string.loc_lens_metric_progress
-    ScoreMetricColumn.STREAK_POS -> R.string.loc_lens_metric_streak_pos
+    ScoreMetricColumn.SCORE -> R.string.loc_score
+    ScoreMetricColumn.RUNNING_AVG -> R.string.activity_detail_chart_running_avg
+    ScoreMetricColumn.PROGRESS -> R.string.loc_lens_time_progress_label
+    ScoreMetricColumn.STREAK_POS -> R.string.activity_detail_chart_streak_pos
     ScoreMetricColumn.STREAK_NET -> R.string.loc_lens_metric_streak_net
-    ScoreMetricColumn.POS_CONTINUE -> R.string.loc_lens_metric_pos_continue
+    ScoreMetricColumn.POS_CONTINUE -> R.string.loc_continue
 }
 
 @Composable
@@ -175,7 +175,7 @@ private fun ScoreMatrixTable(
                     .padding(horizontal = 10.dp, vertical = 8.dp),
         ) {
             Text(
-                text = stringResource(id = R.string.loc_lens_dimension),
+                text = stringResource(id = R.string.loc_dimension),
                 style = MaterialTheme.typography.labelSmall,
                 color = headerColor,
                 modifier = Modifier.weight(1f),

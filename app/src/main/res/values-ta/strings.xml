@@ -1181,17 +1181,14 @@
     <string name="pre_unlock_update_hint">கைமுறை மட்டுமே — தானாக ஒருபோதும் இல்லை. Dev சேனல் பயன்படுத்துகிறது.</string>
 
     <string name="loc_lens_metric_label">அளவீடு: %1$s</string>
-    <string name="loc_lens_metric_score">மதிப்பெண்</string>
-    <string name="loc_lens_metric_running_avg">சராசரி</string>
-    <string name="loc_lens_metric_progress">முன்னேற்றம்</string>
-    <string name="loc_lens_metric_streak_pos">தொடர்+</string>
-    <string name="loc_lens_metric_streak_net">நிகரம்</string>
-    <string name="loc_lens_metric_pos_continue">தொடர்வு</string>
-    <string name="loc_lens_dimension">பரிமாணம்</string>
 
 
     <string name="loc_lens_radar_title">பரிமாணப் பரவல்</string>
-    <string name="loc_lens_radar_today">இன்று</string>
-    <string name="loc_lens_radar_running_avg">சராசரி</string>
 
+
+    <string name="loc_lens_score_detail_day">நாள் · %1$s</string>
+    <string name="loc_lens_score_detail_dimension">பரிமாணம் · %1$s</string>
+
+
+    <string name="loc_lens_metric_streak_net">நிகரம்</string>
 </resources>

@@ -65,6 +65,7 @@ fun LensesScreen(
     onOpenHabits: () -> Unit = {},
     onOpenJournal: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
+    onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val logger = remember { UnifiedLogger.getInstance() }
@@ -265,6 +266,10 @@ fun LensesScreen(
                     logger.d("LensesScreen.ctaTapped", "CTA button tapped", mapOf("section" to "notes"))
                     onOpenNotes()
                 },
+                onOpenScoreDetail = { type, key ->
+                    logger.d("LensesScreen.scoreDetailOpened", "Score detail opened", mapOf("type" to type, "key" to key))
+                    onOpenScoreDetail(type, key)
+                },
                 onDimensionSplitWindowSelect = { viewModel.selectDimensionSplitWindow(it) },
                 onDimensionSplitShiftLeft = { viewModel.shiftDimensionSplitLeft() },
                 onDimensionSplitShiftRight = { viewModel.shiftDimensionSplitRight() },
@@ -348,6 +353,7 @@ private fun ModuleSections(
     onOpenHabits: () -> Unit,
     onOpenJournal: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
     onDimensionSplitWindowSelect: (DimensionSplitWindow) -> Unit = {},
     onDimensionSplitShiftLeft: () -> Unit = {},
     onDimensionSplitShiftRight: () -> Unit = {},
@@ -665,7 +671,9 @@ private fun ModuleSections(
             }
             Spacer(modifier = Modifier.height(8.dp))
             LensHabitScoreMatrixSection(
-                onRowSelected = { _, _ -> },
+                onRowSelected = { isDay, key ->
+                    onOpenScoreDetail(if (isDay) "DAY" else "DIMENSION", key)
+                },
             )
         }
     }
