@@ -78,6 +78,25 @@ $branch     = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
 if ([string]::IsNullOrEmpty($commitHash)) { $commitHash = "unknown" }
 if ([string]::IsNullOrEmpty($branch))     { $branch = "unknown" }
 
+# ── 3b. Stale-APK warning (never a block) ─────────────────────────────────────
+# The publish flow is "commit tested code, then publish the SAME tested APK".
+# If the APK was built BEFORE the latest commit, it may not contain the just-
+# pushed changes. This is usually a mistake (publishing an old artifact) —
+# warn loudly, but the user may still intend it (e.g. publishing a known-good
+# rollback), so this is a warning, never an exit.
+$apkBuildTime = [DateTime]::ParseExact(
+    "$datePart $timePart", "yyyyMMdd HHmmss",
+    [System.Globalization.CultureInfo]::InvariantCulture)
+$latestCommitTime = git log -1 --format=%cI 2>$null
+if (-not [string]::IsNullOrWhiteSpace($latestCommitTime)) {
+    $commitTime = [DateTimeOffset]::Parse($latestCommitTime, [System.Globalization.CultureInfo]::InvariantCulture).LocalDateTime
+    if ($apkBuildTime -lt $commitTime) {
+        Write-LogWithTime "⚠️  WARNING: APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is OLDER than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss')))." "Yellow"
+        Write-LogWithTime "   The APK may NOT contain the latest committed changes." "Yellow"
+        Write-LogWithTime "   Publish anyway? (This is a warning only — proceeding.)" "Yellow"
+    }
+}
+
 # ── 4. Resolve channel (explicit -Channel wins; else auto-detect from branch) ──
 
 if ($Channel -eq "auto") {

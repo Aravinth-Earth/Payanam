@@ -12,7 +12,7 @@ param(
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$SizeOptimized,
-    [switch]$SkipPublish,
+    [switch]$Publish,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1668,12 +1668,13 @@ if ($Release)
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
 }
 
-# ── Publish to channel (default ON; -SkipPublish opts out) ───────────────────
-# Every build publishes automatically. Channel is auto-detected from the
-# current branch inside publish-release.ps1: feature/* → dev, dev → beta,
-# main → stable. Beta/stable require their owning branch (guard in
-# publish-release.ps1); dev is permissive. -SkipPublish builds locally only.
-if (-not $SkipPublish)
+# ── Publish to channel (default OFF; -Publish opts in) ────────────────────────
+# Local iteration builds never publish: the home loop is edit → build → USB
+# install → test → logs → repeat, and publish happens only AFTER the tested
+# code is committed (publish-release.ps1 -ApkPath <tested.apk>, no rebuild).
+# -Publish makes THIS build go to the channel too; branch guards inside
+# publish-release.ps1 (feature/* → dev, dev → beta, main → stable) still apply.
+if ($Publish)
 {
     Write-LogWithTime "Publishing APK to channel (auto-detect from branch)..." "Magenta"
     & "$PSScriptRoot/publish-release.ps1" -ApkPath $apkFinalPath
@@ -1685,7 +1686,7 @@ if (-not $SkipPublish)
     Write-LogWithTime "✅ Published to channel." "Green"
 } else
 {
-    Write-LogWithTime "Skipping channel publish (-SkipPublish)." "Yellow"
+    Write-LogWithTime "Skipping channel publish (local-only build; use -Publish to ship)." "Yellow"
 }
 
 # Preserve R8 mapping file (debug when SizeOptimized, release always) for
