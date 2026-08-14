@@ -33,6 +33,9 @@ interface DimensionMetricDao {
     @Query("SELECT * FROM dimension_metrics WHERE dayKey = :dayKey")
     suspend fun forDay(dayKey: String): List<DimensionMetricEntity>
 
+    @Query("SELECT * FROM dimension_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
+    suspend fun getForWindow(start: String, end: String): List<DimensionMetricEntity>
+
     @Query("SELECT COUNT(*) FROM dimension_metrics")
     suspend fun count(): Int
 }

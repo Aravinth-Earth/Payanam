@@ -27,6 +27,9 @@ interface DayMetricDao {
     @Query("SELECT * FROM day_metrics WHERE dayKey = :dayKey")
     suspend fun forDay(dayKey: String): DayMetricEntity?
 
+    @Query("SELECT * FROM day_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
+    suspend fun getForWindow(start: String, end: String): List<DayMetricEntity>
+
     @Query("SELECT * FROM day_metrics WHERE dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     suspend fun latestBefore(dayKey: String): DayMetricEntity?
 
