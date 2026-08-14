@@ -481,6 +481,7 @@ window.addEventListener('load',function(){
   homeSc=fitSc*9;
   goHome();
 });
+})();
 </script>
 </body></html>
 "@

@@ -166,6 +166,18 @@ flowchart TD
     CATCHUP_NO_GAP["No lagging habits - catch-up skipped"]
     CATCHUP_DONE["Catch-up complete - return to app runtime"]
     CATCHUP_FAILED["Catch-up failed - log error, retry next launch"]
+    OCC_USER_TOGGLE["User toggles occurrence (done/missed/skip)"]
+    OCC_AUTO_MISS["Auto-advance marks overdue day missed"]
+    OCC_CHECK_EXISTING{"Check for existing occurrence row (taskId, day)"}
+    OCC_UPDATE_USER_ROW["Update existing user row (user data wins)"]
+    OCC_CREATE_USER_ROW["Insert new user row"]
+    OCC_SKIP_AUTO["Skip auto-miss (user row exists)"]
+    OCC_CREATE_AUTO["Insert auto-missed row (gap fill only)"]
+    OCC_DUP_DETECTED{"Duplicate rows for same (taskId, day)?"}
+    OCC_MIGRATE_DEDUPE["Migration dedupe (keep newest/user rows)"]
+    OCC_UNIQUE_INDEX["Add UNIQUE index (taskId, dueDate)"]
+    OCC_WRITE_DONE["Occurrence write complete"]
+    OCC_FAILED(["Occurrence write failed"])
     end
     subgraph SG_SHARED_RESET["Shared Reset Flow"]
         direction TB
@@ -684,6 +696,26 @@ flowchart TD
     CATCHUP_NO_GAP -->|complete| APP_RUNTIME_READY
     CATCHUP_DONE -->|complete| APP_RUNTIME_READY
     CATCHUP_FAILED -->|complete| STARTUP_MAINTENANCE
+    OCC_USER_TOGGLE -->|user taps checkmark / recurring task| OCC_CHECK_EXISTING
+    OCC_AUTO_MISS -->|auto-advance fires / task overdue| OCC_CHECK_EXISTING
+    OCC_CHECK_EXISTING -->|row found / user path| OCC_UPDATE_USER_ROW
+    OCC_CHECK_EXISTING -->|no row / user path| OCC_CREATE_USER_ROW
+    OCC_CHECK_EXISTING -->|row found / auto path| OCC_SKIP_AUTO
+    OCC_CHECK_EXISTING -->|no row / auto path| OCC_CREATE_AUTO
+    OCC_UPDATE_USER_ROW -->|complete / none| OCC_WRITE_DONE
+    OCC_CREATE_USER_ROW -->|complete / none| OCC_WRITE_DONE
+    OCC_SKIP_AUTO -->|complete / none| OCC_WRITE_DONE
+    OCC_CREATE_AUTO -->|complete / none| OCC_WRITE_DONE
+    OCC_CREATE_AUTO -->|duplicate present / legacy data| OCC_DUP_DETECTED
+    OCC_DUP_DETECTED -->|yes / migration 20 to 21| OCC_MIGRATE_DEDUPE
+    OCC_DUP_DETECTED -->|no / none| OCC_WRITE_DONE
+    OCC_MIGRATE_DEDUPE -->|complete / none| OCC_UNIQUE_INDEX
+    OCC_UNIQUE_INDEX -->|complete / none| OCC_WRITE_DONE
+    OCC_UPDATE_USER_ROW -->|failure / none| OCC_FAILED
+    OCC_CREATE_USER_ROW -->|failure / none| OCC_FAILED
+    OCC_CREATE_AUTO -->|failure / none| OCC_FAILED
+    OCC_FAILED -->|complete / none| APP_RUNTIME_READY
+    OCC_WRITE_DONE -->|complete / none| APP_RUNTIME_READY
     linkStyle 4 stroke:#C62828,stroke-width:2px
     linkStyle 6 stroke:#1565C0,stroke-width:2px
     linkStyle 7 stroke:#EF6C00,stroke-width:2px
@@ -812,4 +844,7 @@ flowchart TD
     linkStyle 376 stroke:#EF6C00,stroke-width:2px
     linkStyle 398 stroke:#1565C0,stroke-width:2px
     linkStyle 399 stroke:#EF6C00,stroke-width:2px
+    linkStyle 418 stroke:#1565C0,stroke-width:2px
+    linkStyle 419 stroke:#EF6C00,stroke-width:2px
     style APP_UPDATE_REQUIRED fill:#B71C1C,color:#FFFFFF,stroke:#FFCDD2,stroke-width:2px
+    style OCC_FAILED fill:#B71C1C,color:#FFFFFF,stroke:#FFCDD2,stroke-width:2px

@@ -1,7 +1,7 @@
 {
  "spec_version": 2,
  "name": "db-flow-boot-entry-flows",
- "last_updated": "2026-08-08",
+ "last_updated": "2026-08-13",
  "description": "DB flow boot-entry routes covering successful paths (retained data, new DB, import, migration to schema v18, auth, runtime) plus the score roll-up backfill runtime flow and its positive, negative and edge outcomes.",
  "entry_states": [
   "UPGRADE_RETAINED_DATA"
@@ -1307,6 +1307,66 @@
    "id": "CATCHUP_FAILED",
    "label": "Catch-up failed - log error, retry next launch",
    "type": "process"
+  },
+  {
+   "id": "OCC_USER_TOGGLE",
+   "label": "User toggles occurrence (done/missed/skip)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_AUTO_MISS",
+   "label": "Auto-advance marks overdue day missed",
+   "type": "process"
+  },
+  {
+   "id": "OCC_CHECK_EXISTING",
+   "label": "Check for existing occurrence row (taskId, day)",
+   "type": "decision"
+  },
+  {
+   "id": "OCC_UPDATE_USER_ROW",
+   "label": "Update existing user row (user data wins)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_CREATE_USER_ROW",
+   "label": "Insert new user row",
+   "type": "process"
+  },
+  {
+   "id": "OCC_SKIP_AUTO",
+   "label": "Skip auto-miss (user row exists)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_CREATE_AUTO",
+   "label": "Insert auto-missed row (gap fill only)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_DUP_DETECTED",
+   "label": "Duplicate rows for same (taskId, day)?",
+   "type": "decision"
+  },
+  {
+   "id": "OCC_MIGRATE_DEDUPE",
+   "label": "Migration dedupe (keep newest/user rows)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_UNIQUE_INDEX",
+   "label": "Add UNIQUE index (taskId, dueDate)",
+   "type": "process"
+  },
+  {
+   "id": "OCC_WRITE_DONE",
+   "label": "Occurrence write complete",
+   "type": "process"
+  },
+  {
+   "id": "OCC_FAILED",
+   "label": "Occurrence write failed",
+   "type": "terminal_error"
   }
  ],
  "transitions": [
@@ -4565,6 +4625,166 @@
    "guard": "",
    "action": "Return to runtime, retry next launch",
    "to": "STARTUP_MAINTENANCE"
+  },
+  {
+   "id": "TOCC001",
+   "from": "OCC_USER_TOGGLE",
+   "trigger": "user taps checkmark",
+   "guard": "recurring task",
+   "action": "start write path",
+   "to": "OCC_CHECK_EXISTING"
+  },
+  {
+   "id": "TOCC002",
+   "from": "OCC_AUTO_MISS",
+   "trigger": "auto-advance fires",
+   "guard": "task overdue",
+   "action": "start write path",
+   "to": "OCC_CHECK_EXISTING"
+  },
+  {
+   "id": "TOCC003",
+   "from": "OCC_CHECK_EXISTING",
+   "trigger": "row found",
+   "guard": "user path",
+   "action": "update row",
+   "to": "OCC_UPDATE_USER_ROW"
+  },
+  {
+   "id": "TOCC004",
+   "from": "OCC_CHECK_EXISTING",
+   "trigger": "no row",
+   "guard": "user path",
+   "action": "insert row",
+   "to": "OCC_CREATE_USER_ROW"
+  },
+  {
+   "id": "TOCC005",
+   "from": "OCC_CHECK_EXISTING",
+   "trigger": "row found",
+   "guard": "auto path",
+   "action": "skip auto-miss",
+   "to": "OCC_SKIP_AUTO"
+  },
+  {
+   "id": "TOCC006",
+   "from": "OCC_CHECK_EXISTING",
+   "trigger": "no row",
+   "guard": "auto path",
+   "action": "gap-fill insert",
+   "to": "OCC_CREATE_AUTO"
+  },
+  {
+   "id": "TOCC007",
+   "from": "OCC_UPDATE_USER_ROW",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "cascade",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC008",
+   "from": "OCC_CREATE_USER_ROW",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "cascade",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC009",
+   "from": "OCC_SKIP_AUTO",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "trace only",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC010",
+   "from": "OCC_CREATE_AUTO",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "cascade",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC011",
+   "from": "OCC_CREATE_AUTO",
+   "trigger": "duplicate present",
+   "guard": "legacy data",
+   "action": "flag duplicates",
+   "to": "OCC_DUP_DETECTED"
+  },
+  {
+   "id": "TOCC012",
+   "from": "OCC_DUP_DETECTED",
+   "trigger": "yes",
+   "guard": "migration 20 to 21",
+   "action": "dedupe rows",
+   "to": "OCC_MIGRATE_DEDUPE"
+  },
+  {
+   "id": "TOCC013",
+   "from": "OCC_DUP_DETECTED",
+   "trigger": "no",
+   "guard": "none",
+   "action": "proceed",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC014",
+   "from": "OCC_MIGRATE_DEDUPE",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "create unique index",
+   "to": "OCC_UNIQUE_INDEX"
+  },
+  {
+   "id": "TOCC015",
+   "from": "OCC_UNIQUE_INDEX",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "schema v21",
+   "to": "OCC_WRITE_DONE"
+  },
+  {
+   "id": "TOCC016",
+   "from": "OCC_UPDATE_USER_ROW",
+   "trigger": "failure",
+   "guard": "none",
+   "action": "log + trace",
+   "to": "OCC_FAILED"
+  },
+  {
+   "id": "TOCC017",
+   "from": "OCC_CREATE_USER_ROW",
+   "trigger": "failure",
+   "guard": "none",
+   "action": "log + trace",
+   "to": "OCC_FAILED"
+  },
+  {
+   "id": "TOCC018",
+   "from": "OCC_CREATE_AUTO",
+   "trigger": "failure",
+   "guard": "none",
+   "action": "log + trace",
+   "to": "OCC_FAILED"
+  },
+  {
+   "id": "TOCC019",
+   "from": "OCC_FAILED",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "return to runtime",
+   "to": "APP_RUNTIME_READY"
+  },
+  {
+   "id": "TOCC020",
+   "from": "OCC_WRITE_DONE",
+   "trigger": "complete",
+   "guard": "none",
+   "action": "return to runtime",
+   "to": "APP_RUNTIME_READY"
   }
  ]
 }
