@@ -1171,4 +1171,12 @@
 <string name="activity_detail_col_streak_pos">S+</string>
 <string name="activity_detail_col_continue">Cont</string>
      <string name="activity_detail_loading">Loading…</string>
+
+    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
+    <string name="pre_unlock_update_download_install">Download &amp; install</string>
+    <string name="pre_unlock_update_downloading">Downloading %1$d%%</string>
+    <string name="pre_unlock_update_up_to_date">You are on the latest build</string>
+    <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
+    <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
+    <string name="pre_unlock_update_hint">Manual only — never automatic. Uses the dev channel.</string>
 </resources>

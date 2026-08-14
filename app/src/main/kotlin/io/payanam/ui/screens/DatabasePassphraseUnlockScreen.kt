@@ -73,6 +73,7 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.theme.LifeDimensionColors
 import io.payanam.ui.viewmodel.DatabasePassphraseUnlockViewModel
+import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -84,6 +85,7 @@ fun DatabasePassphraseUnlockScreen(
     onForgotPassphraseReset: () -> Unit,
     isImportMode: Boolean = false,
     viewModel: DatabasePassphraseUnlockViewModel = hiltViewModel(),
+    preUnlockUpdateViewModel: PreUnlockUpdateViewModel = hiltViewModel(),
 ) {
     val logger = UnifiedLogger.getInstance()
     val context = LocalContext.current
@@ -484,6 +486,11 @@ fun DatabasePassphraseUnlockScreen(
                     )
                 }
             }
+
+            // Pre-unlock update hatch (manual check → download → install).
+            // Lives in the Diagnostics zone; works with the DB locked.
+            Spacer(modifier = Modifier.height(4.dp))
+            PreUnlockUpdateSection(viewModel = preUnlockUpdateViewModel)
 
             // Privacy Footer
             Text(
