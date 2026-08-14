@@ -281,8 +281,34 @@ class RecurrenceManager @Inject constructor(
 
     /**
      * Create a missed occurrence entry for a specific date.
+     *
+     * Skips when a user row already exists for (task, day) — auto-writes never
+     * touch rows that exist (user data wins). Mirrors the self-governance
+     * gap-fill rule; without this, the unconditional insert could duplicate a
+     * user's row (see OCC_CHECK_EXISTING / OCC_SKIP_AUTO in the DB flow spec).
      */
     private suspend fun createMissedOccurrence(taskId: String, date: LocalDate) {
+        val existing = taskOccurrenceRepository.getOccurrenceForDate(taskId, date)
+        if (existing != null) {
+            logger.d(
+                "RecurrenceManager.createMissedOccurrence",
+                "SKIP auto-miss — user row exists",
+                mapOf(
+                    "taskId" to taskId,
+                    "date" to date.toString(),
+                    "existingStatus" to existing.status,
+                ),
+            )
+            return
+        }
+        logger.d(
+            "RecurrenceManager.createMissedOccurrence",
+            "CREATE auto-miss — gap fill",
+            mapOf(
+                "taskId" to taskId,
+                "date" to date.toString(),
+            ),
+        )
         taskOccurrenceRepository.recordOccurrence(
             taskId = taskId,
             dueDate = date.atStartOfDay(),

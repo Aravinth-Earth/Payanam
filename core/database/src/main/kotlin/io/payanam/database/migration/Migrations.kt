@@ -1218,3 +1218,145 @@ val MIGRATION_19_20 =
             }
         }
     }
+
+/**
+ * Migration 20 → 21: guard task_occurrences against duplicate rows.
+ *
+ * Background: the auto-miss path (RecurrenceManager.createMissedOccurrence)
+ * previously inserted a fresh row unconditionally, while the user path
+ * (toggleOccurrence) checks-then-updates. A habit marked by the user on a day
+ * could end up with TWO rows for that (taskId, dueDate) — the user's row and
+ * an auto "Auto-detected missed" twin — and the LIMIT-1 read could surface
+ * the auto row, making the previous day appear "not done".
+ *
+ * Fix (mirrors the self-governance ledger rule):
+ *   1. Dedupe: for each (taskId, day) with multiple rows, keep the user row
+ *      (non-auto note) and delete the auto-missed twins. If a day somehow has
+ *      only auto rows, keep the newest and drop older duplicates.
+ *   2. Add a unique index on (taskId, date(dueDate)) so duplicates are
+ *      impossible at the DB level from now on.
+ *   3. Post-migration verification: no remaining duplicates, index exists.
+ */
+val MIGRATION_20_21 =
+    object : Migration(20, 21) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.20_21", "Deduplicating task_occurrences and adding unique (taskId, day) index")
+
+            try {
+                // ── 0. Count duplicates before (for the log) ──
+                val dupBefore = database.query(
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT taskId, date(dueDate) AS d, COUNT(*) AS c
+                        FROM task_occurrences
+                        GROUP BY taskId, date(dueDate)
+                        HAVING c > 1
+                    )
+                    """.trimIndent(),
+                ).use { cursor ->
+                    var count = 0L
+                    if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    count
+                }
+
+                // ── 1. Dedupe: delete auto-missed twins where a user row exists ──
+                database.execSQL(
+                    """
+                    DELETE FROM task_occurrences
+                    WHERE id IN (
+                        SELECT o.id
+                        FROM task_occurrences o
+                        JOIN task_occurrences u
+                          ON u.taskId = o.taskId
+                         AND date(u.dueDate) = date(o.dueDate)
+                         AND u.id != o.id
+                        WHERE o.note = 'Auto-detected missed'
+                          AND (u.note IS NULL OR u.note != 'Auto-detected missed')
+                    )
+                    """.trimIndent(),
+                )
+
+                // ── 2. Any remaining duplicates per (taskId, day): keep the
+                // newest row (most recent write wins). Step 1 already removed
+                // auto twins where a user row exists, so groups left here are
+                // all-auto or all-user (e.g. different dueDate string formats
+                // from different write paths) — newest is the safe survivor.
+                database.execSQL(
+                    """
+                    DELETE FROM task_occurrences
+                    WHERE id IN (
+                        SELECT o.id
+                        FROM task_occurrences o
+                        JOIN task_occurrences u
+                          ON u.taskId = o.taskId
+                         AND date(u.dueDate) = date(o.dueDate)
+                         AND u.id != o.id
+                        WHERE o.createdAt < u.createdAt
+                    )
+                    """.trimIndent(),
+                )
+
+                // ── 3. Unique index on (taskId, dueDate) ──
+                // Room requires this index to be declared in the entity and
+                // created with Room's generated name (index_<table>_<col>_<col>)
+                // or schema validation fails after migration. Both the user
+                // toggle path and the auto-miss path write dueDate as
+                // yyyy-MM-ddTHH:mm:ss (atStartOfDay), so plain-column
+                // uniqueness catches the duplicate pair.
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_task_occurrences_taskId_dueDate " +
+                        "ON task_occurrences(taskId, dueDate)",
+                )
+
+                // ── 4. Post-migration verification ──
+                val dupCount = database.query(
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT taskId, date(dueDate) AS d, COUNT(*) AS c
+                        FROM task_occurrences
+                        GROUP BY taskId, date(dueDate)
+                        HAVING c > 1
+                    )
+                    """.trimIndent(),
+                ).use { cursor ->
+                    var count = -1L
+                    if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    count
+                }
+                if (dupCount != 0L) {
+                    throw IllegalStateException("Migration 20→21 failed: $dupCount duplicate rows remain")
+                }
+
+                val indexExists = database.query("PRAGMA index_list(task_occurrences)").use { cursor ->
+                    var found = false
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(1) == "index_task_occurrences_taskId_dueDate") found = true
+                    }
+                    found
+                }
+                if (!indexExists) {
+                    throw IllegalStateException("Migration 20→21 failed: unique index not created")
+                }
+
+                logger.i(
+                    "Migration.20_21",
+                    "task_occurrences deduped and unique index added",
+                    mapOf(
+                        "duplicatesBefore" to dupBefore,
+                        "remainingDuplicates" to dupCount,
+                        "uniqueIndexCreated" to indexExists,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.20_21",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }
