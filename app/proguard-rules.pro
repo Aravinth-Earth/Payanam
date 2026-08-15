@@ -71,8 +71,8 @@
 # wildcard made R8 match java.lang.Object methods (equals/hashCode/
 # toString) and strip them app-wide, crashing the app at startup.
 -assumenosideeffects class timber.log.Timber {
-    public static *** d(Ljava/lang/String;...) ;
-    public static *** v(Ljava/lang/String;...) ;
+    public static *** d(java.lang.String, ...) ;
+    public static *** v(java.lang.String, ...) ;
 }
 
 # ---- Kotlin serialization (future-proofing) ----
