@@ -18,10 +18,10 @@
 
 # ---- Room ----
 # Entities (used via reflection by Room)
--keep class io.payanam.core.database.entities.** { *; }
+-keep class io.payanam.database.entity.** { *; }
 # DAOs (accessed via generated implementations)
--keep interface io.payanam.core.database.dao.** { *; }
--keep class io.payanam.core.database.dao.**_Impl { *; }
+-keep interface io.payanam.database.dao.** { *; }
+-keep class io.payanam.database.dao.**_Impl { *; }
 # Room generated _Impl classes
 -keep class **_Impl extends androidx.room.RoomDatabase { *; }
 -keep class **_Impl { *; }
