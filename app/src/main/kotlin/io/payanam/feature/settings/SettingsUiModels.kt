@@ -31,7 +31,25 @@ data class SettingsUiState(
     val importPassphraseError: String? = null,
     val isCheckingForUpdate: Boolean = false,
     val updateCheckResult: UpdateCheckResult? = null,
-)
+    val updateChannel: UpdateChannel = UpdateChannel.DEV,
+    val autoDownloadEnabled: Boolean = false,
+    val promptInstallEnabled: Boolean = false,
+    val wifiOnlyEnabled: Boolean = false,
+    val autoCheckEnabled: Boolean = false,
+    val downloadState: DownloadUiState = DownloadUiState.Idle,
+    /** Pending install file path — non-null when the install popup should show. */
+    val pendingInstallPath: String? = null,
+) {
+    /** A check result older than 15 minutes is stale — UI should re-check first. */
+    fun isUpdateResultStale(): Boolean {
+        val checkedAt = updateCheckResult?.checkedAtMs ?: return true
+        return System.currentTimeMillis() - checkedAt > UPDATE_RESULT_STALE_MS
+    }
+
+    companion object {
+        private const val UPDATE_RESULT_STALE_MS = 15 * 60 * 1000L
+    }
+}
 sealed class ExportResult {
     data class Success(val fileName: String) : ExportResult()
     data class Error(val message: String) : ExportResult()

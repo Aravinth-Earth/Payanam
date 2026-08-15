@@ -947,3 +947,416 @@ val MIGRATION_16_17 =
             logger.d("Migration.16_17", "Retaining task_reschedules table for schema compatibility")
         }
     }
+
+/**
+ * Schema v18 — self-governance score roll-up foundation.
+ *
+ * Adds three metric tables (SQL only — no data backfill here):
+ *   habit_metrics      (L1: sparse due-day rows per habit)
+ *   dimension_metrics  (L2: dense per-dimension rows)
+ *   day_metrics        (L3: dense per-day rows)
+ *
+ * Rule conversion (num/den → CONFIG) and backfill happen in the
+ * post-open backfill service (Inc 3), not inside this migration.
+ */
+val MIGRATION_17_18 =
+    object : Migration(17, 18) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.17_18", "Creating score roll-up metric tables")
+
+            try {
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS habit_metrics (
+                        habitId TEXT NOT NULL,
+                        dayKey TEXT NOT NULL,
+                        score REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL,
+                        PRIMARY KEY (habitId, dayKey)
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_habit_metrics_habitId ON habit_metrics(habitId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_habit_metrics_dayKey ON habit_metrics(dayKey)")
+
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS dimension_metrics (
+                        dimensionId TEXT NOT NULL,
+                        dayKey TEXT NOT NULL,
+                        score REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL,
+                        PRIMARY KEY (dimensionId, dayKey)
+                    )
+                    """.trimIndent(),
+                )
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_dimension_metrics_dimensionId ON dimension_metrics(dimensionId)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_dimension_metrics_dayKey ON dimension_metrics(dayKey)")
+
+                database.execSQL(
+                    """
+                    CREATE TABLE IF NOT EXISTS day_metrics (
+                        dayKey TEXT NOT NULL PRIMARY KEY,
+                        dayScore REAL NOT NULL,
+                        runningAvg REAL NOT NULL,
+                        progress REAL NOT NULL,
+                        streakPos INTEGER NOT NULL,
+                        streakNet INTEGER NOT NULL,
+                        posContinue INTEGER NOT NULL
+                    )
+                    """.trimIndent(),
+                )
+
+                // Post-migration verification: confirm all three tables exist
+                val tables = mutableListOf<String>()
+                database.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('habit_metrics', 'dimension_metrics', 'day_metrics') ORDER BY name").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        tables += cursor.getString(0)
+                    }
+                }
+                val expected = listOf("day_metrics", "dimension_metrics", "habit_metrics")
+                if (tables != expected) {
+                    throw IllegalStateException(
+                        "Migration 17→18 table verification failed: expected $expected, found $tables",
+                    )
+                }
+
+                logger.i(
+                    "Migration.17_18",
+                    "Metric tables created and verified",
+                    mapOf(
+                        "tables" to tables,
+                        "expected" to expected,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.17_18",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }
+
+/**
+ * 18 → 19: drop the decay `currentScore` column from tasks.
+ * The score roll-up (Inc 3/4) replaced decay; consumers read L1 metrics
+ * directly (HabitMetricRepository). SQLite < 3.35 lacks DROP COLUMN, so
+ * rebuild the tasks table without the column (16→17 pattern).
+ */
+val MIGRATION_18_19 =
+    object : Migration(18, 19) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.18_19", "Dropping decay currentScore column from tasks")
+
+            try {
+                database.execSQL(
+                    """
+                    CREATE TABLE tasks_new (
+                        id TEXT NOT NULL PRIMARY KEY,
+                        title TEXT NOT NULL,
+                        description TEXT,
+                        status TEXT NOT NULL DEFAULT 'pending',
+                        dueDate TEXT,
+                        createdAt TEXT NOT NULL,
+                        updatedAt TEXT NOT NULL,
+                        completedAt TEXT,
+                        archivedAt TEXT,
+                        recurrenceEnabled INTEGER NOT NULL DEFAULT 0,
+                        recurrenceRule TEXT,
+                        recurrenceStrategy TEXT,
+                        durationMinutes INTEGER NOT NULL DEFAULT 60,
+                        impactLevel TEXT NOT NULL DEFAULT 'Moderate Impact',
+                        goalAlignment TEXT NOT NULL DEFAULT 'Moderate Alignment',
+                        energyLevel TEXT NOT NULL DEFAULT 'Moderate',
+                        controlLevel TEXT NOT NULL DEFAULT 'Office/Colleagues Dependent',
+                        lifeIntentionCategory TEXT NOT NULL DEFAULT 'Career & Work',
+                        dimension_id TEXT,
+                        day_key TEXT,
+                        explicitUrgency REAL,
+                        focusRequired REAL,
+                        blockedReason TEXT,
+                        completionRate REAL,
+                        externalDependency TEXT,
+                        notificationMode TEXT,
+                        customNotificationMinutes INTEGER,
+                        taskScore REAL,
+                        lastOccurrenceDate TEXT,
+                        dayBoundaryHour INTEGER NOT NULL DEFAULT 0,
+                        import_source TEXT,
+                        import_id TEXT,
+                        imported_at TEXT,
+                        import_batch_id TEXT,
+                        FOREIGN KEY(dimension_id) REFERENCES life_dimensions(id),
+                        FOREIGN KEY(import_batch_id) REFERENCES import_batches(id)
+                    )
+                    """.trimIndent(),
+                )
+
+                database.execSQL(
+                    """
+                    INSERT INTO tasks_new
+                        (id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
+                         recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
+                         energyLevel, controlLevel, lifeIntentionCategory, dimension_id, day_key,
+                         explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
+                         notificationMode, customNotificationMinutes, taskScore,
+                         lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id)
+                    SELECT
+                        id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
+                        recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
+                        energyLevel, controlLevel, lifeIntentionCategory, dimension_id, day_key,
+                        explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
+                        notificationMode, customNotificationMinutes, taskScore,
+                        lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id
+                    FROM tasks
+                    """.trimIndent(),
+                )
+
+                database.execSQL("DROP TABLE tasks")
+                database.execSQL("ALTER TABLE tasks_new RENAME TO tasks")
+
+                // Recreate indexes lost during the rename
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_dimension_id ON tasks(dimension_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_day_key ON tasks(day_key)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_import_batch_id ON tasks(import_batch_id)")
+                database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_import_source_import_id ON tasks(import_source, import_id)")
+
+                // Post-migration verification: currentScore must be gone
+                val columns = mutableListOf<String>()
+                database.query("PRAGMA table_info(tasks)").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        columns += cursor.getString(1)
+                    }
+                }
+                if ("currentScore" in columns) {
+                    throw IllegalStateException("Migration 18→19 failed: currentScore column still present in tasks")
+                }
+
+                logger.i(
+                    "Migration.18_19",
+                    "tasks rebuilt without currentScore",
+                    mapOf(
+                        "columnCount" to columns.size,
+                        "currentScoreDropped" to true,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.18_19",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }
+
+/**
+ * 19 → 20: add user-editable `weight` to life_dimensions (C2, Inc 4 Part C).
+ * SQLite ADD COLUMN with a NOT NULL DEFAULT keeps existing rows at 1.0
+ * (equal weights — the pre-C2 behavior). L3 day scores become a weighted
+ * average of dimension scores once weights are set; changing a weight
+ * triggers an L3-only recalc (self-gov `dim_weight_change` path).
+ */
+val MIGRATION_19_20 =
+    object : Migration(19, 20) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.19_20", "Adding weight column to life_dimensions")
+
+            try {
+                database.execSQL("ALTER TABLE life_dimensions ADD COLUMN weight REAL NOT NULL DEFAULT 1.0")
+
+                // Post-migration verification: weight must exist
+                val columns = mutableListOf<String>()
+                database.query("PRAGMA table_info(life_dimensions)").use { cursor ->
+                    while (cursor.moveToNext()) {
+                        columns += cursor.getString(1)
+                    }
+                }
+                if ("weight" !in columns) {
+                    throw IllegalStateException("Migration 19→20 failed: weight column missing in life_dimensions")
+                }
+
+                logger.i(
+                    "Migration.19_20",
+                    "life_dimensions.weight added",
+                    mapOf(
+                        "columnCount" to columns.size,
+                        "weightAdded" to true,
+                        "verified" to true,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.19_20",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }
+
+/**
+ * Migration 20 → 21: guard task_occurrences against duplicate rows.
+ *
+ * Background: the auto-miss path (RecurrenceManager.createMissedOccurrence)
+ * previously inserted a fresh row unconditionally, while the user path
+ * (toggleOccurrence) checks-then-updates. A habit marked by the user on a day
+ * could end up with TWO rows for that (taskId, dueDate) — the user's row and
+ * an auto "Auto-detected missed" twin — and the LIMIT-1 read could surface
+ * the auto row, making the previous day appear "not done".
+ *
+ * Fix (mirrors the self-governance ledger rule):
+ *   1. Dedupe: for each (taskId, day) with multiple rows, keep the user row
+ *      (non-auto note) and delete the auto-missed twins. If a day somehow has
+ *      only auto rows, keep the newest and drop older duplicates.
+ *   2. Add a unique index on (taskId, date(dueDate)) so duplicates are
+ *      impossible at the DB level from now on.
+ *   3. Post-migration verification: no remaining duplicates, index exists.
+ */
+val MIGRATION_20_21 =
+    object : Migration(20, 21) {
+        private val logger = UnifiedLogger.getInstance()
+
+        override fun migrate(database: SupportSQLiteDatabase) {
+            logger.i("Migration.20_21", "Deduplicating task_occurrences and adding unique (taskId, day) index")
+
+            try {
+                // ── 0. Count duplicates before (for the log) ──
+                val dupBefore = database.query(
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT taskId, date(dueDate) AS d, COUNT(*) AS c
+                        FROM task_occurrences
+                        GROUP BY taskId, date(dueDate)
+                        HAVING c > 1
+                    )
+                    """.trimIndent(),
+                ).use { cursor ->
+                    var count = 0L
+                    if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    count
+                }
+
+                // ── 1. Dedupe: delete auto-missed twins where a user row exists ──
+                database.execSQL(
+                    """
+                    DELETE FROM task_occurrences
+                    WHERE id IN (
+                        SELECT o.id
+                        FROM task_occurrences o
+                        JOIN task_occurrences u
+                          ON u.taskId = o.taskId
+                         AND date(u.dueDate) = date(o.dueDate)
+                         AND u.id != o.id
+                        WHERE o.note = 'Auto-detected missed'
+                          AND (u.note IS NULL OR u.note != 'Auto-detected missed')
+                    )
+                    """.trimIndent(),
+                )
+
+                // ── 2. Any remaining duplicates per (taskId, day): keep the
+                // newest row (most recent write wins). Step 1 already removed
+                // auto twins where a user row exists, so groups left here are
+                // all-auto or all-user (e.g. different dueDate string formats
+                // from different write paths) — newest is the safe survivor.
+                database.execSQL(
+                    """
+                    DELETE FROM task_occurrences
+                    WHERE id IN (
+                        SELECT o.id
+                        FROM task_occurrences o
+                        JOIN task_occurrences u
+                          ON u.taskId = o.taskId
+                         AND date(u.dueDate) = date(o.dueDate)
+                         AND u.id != o.id
+                        WHERE o.createdAt < u.createdAt
+                    )
+                    """.trimIndent(),
+                )
+
+                // ── 3. Unique index on (taskId, dueDate) ──
+                // Room requires this index to be declared in the entity and
+                // created with Room's generated name (index_<table>_<col>_<col>)
+                // or schema validation fails after migration. Both the user
+                // toggle path and the auto-miss path write dueDate as
+                // yyyy-MM-ddTHH:mm:ss (atStartOfDay), so plain-column
+                // uniqueness catches the duplicate pair.
+                database.execSQL(
+                    "CREATE UNIQUE INDEX IF NOT EXISTS index_task_occurrences_taskId_dueDate " +
+                        "ON task_occurrences(taskId, dueDate)",
+                )
+
+                // ── 4. Post-migration verification ──
+                val dupCount = database.query(
+                    """
+                    SELECT COUNT(*) FROM (
+                        SELECT taskId, date(dueDate) AS d, COUNT(*) AS c
+                        FROM task_occurrences
+                        GROUP BY taskId, date(dueDate)
+                        HAVING c > 1
+                    )
+                    """.trimIndent(),
+                ).use { cursor ->
+                    var count = -1L
+                    if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    count
+                }
+                if (dupCount != 0L) {
+                    throw IllegalStateException("Migration 20→21 failed: $dupCount duplicate rows remain")
+                }
+
+                val indexExists = database.query("PRAGMA index_list(task_occurrences)").use { cursor ->
+                    var found = false
+                    while (cursor.moveToNext()) {
+                        if (cursor.getString(1) == "index_task_occurrences_taskId_dueDate") found = true
+                    }
+                    found
+                }
+                if (!indexExists) {
+                    throw IllegalStateException("Migration 20→21 failed: unique index not created")
+                }
+
+                logger.i(
+                    "Migration.20_21",
+                    "task_occurrences deduped and unique index added",
+                    mapOf(
+                        "duplicatesBefore" to dupBefore,
+                        "remainingDuplicates" to dupCount,
+                        "uniqueIndexCreated" to indexExists,
+                    ),
+                )
+            } catch (e: Exception) {
+                logger.e(
+                    "Migration.20_21",
+                    "Migration failed",
+                    e,
+                    mapOf("error" to (e.message ?: "unknown")),
+                )
+                throw e
+            }
+        }
+    }

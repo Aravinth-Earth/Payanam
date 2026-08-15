@@ -44,6 +44,20 @@ enum class TaskSortOption(val key: String) {
 }
 
 enum class HabitSortOption(val key: String) {
+    // Score roll-up metric sorts (Inc 4): 6 metrics × asc/desc
+    RUNNING_AVG_DESC("running_avg_desc"),
+    RUNNING_AVG_ASC("running_avg_asc"),
+    SCORE_DESC("score_desc"),
+    SCORE_ASC("score_asc"),
+    PROGRESS_DESC("progress_desc"),
+    PROGRESS_ASC("progress_asc"),
+    STREAK_POS_DESC("streak_pos_desc"),
+    STREAK_POS_ASC("streak_pos_asc"),
+    STREAK_NET_DESC("streak_net_desc"),
+    STREAK_NET_ASC("streak_net_asc"),
+    POS_CONTINUE_DESC("pos_continue_desc"),
+    POS_CONTINUE_ASC("pos_continue_asc"),
+    // Legacy options (kept for backward compat)
     BY_SCORE("by_score"),
     BY_NAME("by_name"),
     BY_STATUS("by_status"),
@@ -53,8 +67,13 @@ enum class HabitSortOption(val key: String) {
     ;
 
     companion object {
-        fun fromKey(key: String?): HabitSortOption = entries.find { it.key == key } ?: BY_SCORE
+        fun fromKey(key: String?): HabitSortOption = entries.find { it.key == key } ?: RUNNING_AVG_DESC
     }
+
+    /** Legacy (non-metric) options stay visible even when scoring is disabled. */
+    fun legacyCategory(): Boolean =
+        this == BY_NAME || this == BY_STATUS || this == BY_DUE_TIME ||
+            this == BY_LIFE_DIMENSION || this == BY_POSITION
 }
 
 val TaskFilter.displayName: String
@@ -137,6 +156,7 @@ data class TasksUiState(
     val taskFilterCounts: TaskFilterCounts = TaskFilterCounts(),
     val taskCheckmarks: Map<String, List<DayCheckmark>> = emptyMap(),
     val todayHabitStatusByTaskId: Map<String, CheckmarkStatus> = emptyMap(),
+    val latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
     val isLoading: Boolean = true,
     val error: String? = null,
     val currentFilter: TaskFilter = TaskFilter.TODAY,

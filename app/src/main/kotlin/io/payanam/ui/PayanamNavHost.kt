@@ -70,6 +70,8 @@ import io.payanam.ui.screens.FocusModeSelectionScreen
 import io.payanam.ui.screens.LensesScreen
 import io.payanam.ui.screens.NotesScreen
 import io.payanam.ui.screens.ScoringConfigScreen
+import io.payanam.ui.screens.ScoreDetailScreen
+import io.payanam.ui.screens.ScoreDetailType
 import io.payanam.ui.screens.TaskDetailScreen
 import io.payanam.ui.screens.TasksScreen
 import io.payanam.ui.screens.TasksScreenMode
@@ -143,10 +145,12 @@ object Routes {
     const val ADD_TASK = "add_task"
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val EDIT_TASK = "edit_task/{taskId}"
+    const val SCORE_DETAIL = "score_detail/{type}/{key}"
     const val SCORING_CONFIG = "scoring_config"
 
     fun taskDetail(taskId: String) = "task_detail/$taskId"
     fun editTask(taskId: String) = "edit_task/$taskId"
+    fun scoreDetail(type: String, key: String) = "score_detail/$type/$key"
 }
 
 val bottomNavItems = listOf(
@@ -596,6 +600,10 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to notes from unified lenses", mapOf())
                         navigateToTopLevel(Screen.Notes.route)
                     },
+                    onOpenScoreDetail = { type, key ->
+                        logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
+                        navController.navigate(Routes.scoreDetail(type, key))
+                    },
                 )
             }
             composable(Screen.Settings.route) {
@@ -635,6 +643,27 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to edit task", mapOf("taskId" to taskId))
                         navController.navigate(Routes.editTask(taskId))
                     },
+                )
+            }
+
+            composable(
+                route = Routes.SCORE_DETAIL,
+                arguments =
+                    listOf(
+                        navArgument("type") { type = NavType.StringType },
+                        navArgument("key") { type = NavType.StringType },
+                    ),
+            ) { backStackEntry ->
+                val typeName = backStackEntry.arguments?.getString("type") ?: return@composable
+                val key = backStackEntry.arguments?.getString("key") ?: return@composable
+                val type =
+                    if (typeName == "DAY") ScoreDetailType.DAY
+                    else ScoreDetailType.DIMENSION
+                logger.i("PayanamNavHost", "Opening score detail", mapOf("type" to typeName, "key" to key))
+                ScoreDetailScreen(
+                    type = type,
+                    key = key,
+                    onNavigateBack = { navController.popBackStack() },
                 )
             }
 

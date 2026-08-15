@@ -70,4 +70,67 @@ class TasksViewModelSortingRegressionTest {
         createdAt = baseTime,
         updatedAt = baseTime,
     )
+
+    // ── Inc 4: metric sorts (latest L1 runningAvg) ────────────────────────
+
+    @Test
+    fun running_avg_desc_sorts_by_latest_l1_running_avg() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val t3 = task("c", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.9, 0.0, 3, 2, 3),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.4, 0.0, 1, 1, 1),
+            "c" to io.payanam.domain.model.HabitL1Summary("c", "2026-08-07", 1.0, 0.7, 0.0, 2, 2, 2),
+        )
+        val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.RUNNING_AVG_DESC, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("a", "c", "b"), sorted.map { it.id })
+    }
+
+    @Test
+    fun running_avg_asc_sorts_lowest_first() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.2, 0.0, 0, 0, 0),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.8, 0.0, 2, 2, 2),
+        )
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.RUNNING_AVG_ASC, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("a", "b"), sorted.map { it.id })
+    }
+
+    @Test
+    fun streak_pos_desc_sorts_by_streak() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.5, 0.0, 1, 1, 1),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.5, 0.0, 9, 9, 9),
+        )
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.STREAK_POS_DESC, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("b", "a"), sorted.map { it.id })
+    }
+
+    @Test
+    fun habits_without_l1_metrics_sort_last_desc() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.9, 0.0, 3, 3, 3),
+        )
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.RUNNING_AVG_DESC, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("a", "b"), sorted.map { it.id })
+    }
+
+    @Test
+    fun by_score_aliases_running_avg_desc() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.3, 0.0, 0, 0, 0),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.9, 0.0, 0, 0, 0),
+        )
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.BY_SCORE, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("b", "a"), sorted.map { it.id })
+    }
 }

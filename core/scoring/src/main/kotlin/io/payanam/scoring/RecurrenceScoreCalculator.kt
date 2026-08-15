@@ -46,8 +46,6 @@ object RecurrenceScoreCalculator {
     
     private val logger = UnifiedLogger.getInstance()
     
-    private const val DECAY_CONSTANT = 13.0
-    
     /**
      * Represents frequency as "X times per Y days".
      */
@@ -87,121 +85,6 @@ object RecurrenceScoreCalculator {
     fun fromRule(rule: String?): Frequency = fromFrequency(DomainFrequency.legacyParse(rule))
     
     fun parseRRuleToFrequency(rrule: String?): Frequency = fromRule(rrule)
-    
-    fun calculateDecayMultiplier(frequency: Frequency): Double {
-        return 0.5.pow(sqrt(frequency.toDouble()) / DECAY_CONSTANT)
-    }
-    
-    fun calculateDecayedScore(
-        previousScore: Double,
-        daysMissed: Int,
-        frequency: Frequency
-    ): Double {
-        if (daysMissed <= 0) return previousScore
-        
-        val multiplier = calculateDecayMultiplier(frequency)
-        var score = previousScore
-        
-        repeat(daysMissed) {
-            score *= multiplier
-        }
-        
-        return score.coerceIn(0.0, 1.0)
-    }
-    
-    fun calculateNewScore(
-        previousScore: Double,
-        completed: Boolean,
-        frequency: Frequency
-    ): Double {
-        val multiplier = calculateDecayMultiplier(frequency)
-        val checkValue = if (completed) 1.0 else 0.0
-        
-        val newScore = previousScore * multiplier + checkValue * (1 - multiplier)
-        
-        logger.d("RecurrenceScoreCalculator.calculateNewScore", "Score update", mapOf(
-            "previousScore" to String.format(Locale.getDefault(), "%.3f", previousScore),
-            "completed" to completed,
-            "frequency" to "${frequency.numerator}/${frequency.denominator}",
-            "multiplier" to String.format(Locale.getDefault(), "%.4f", multiplier),
-            "newScore" to String.format(Locale.getDefault(), "%.3f", newScore)
-        ))
-        
-        return newScore.coerceIn(0.0, 1.0)
-    }
-    
-    fun calculateSkippedScore(previousScore: Double): Double {
-        return previousScore
-    }
-
-    fun calculateDerivedFrequencyScore(
-        occurrences: Map<LocalDate, String>,
-        frequency: DomainFrequency,
-        anchorDate: LocalDate,
-        today: LocalDate = LocalDate.now(),
-        seedScore: Double = 1.0,
-    ): Double {
-        if (today.isBefore(anchorDate)) return seedScore
-
-        val scoringFrequency = scoringFrequency(frequency)
-        val windows = buildFrequencyWindows(
-            occurrences = occurrences,
-            frequency = frequency,
-            anchorDate = anchorDate,
-            rangeStart = anchorDate,
-            rangeEnd = today,
-        )
-
-        var score = seedScore.coerceIn(0.0, 1.0)
-        windows.forEach { window ->
-            repeat(window.completedCount) {
-                score = calculateNewScore(score, completed = true, frequency = scoringFrequency)
-            }
-            val missedCount = max(0, window.effectiveTargetCount - window.completedCount)
-            repeat(missedCount) {
-                score = calculateNewScore(score, completed = false, frequency = scoringFrequency)
-            }
-        }
-
-        logger.d(
-            "RecurrenceScoreCalculator.calculateDerivedFrequencyScore",
-            "Derived frequency habit score",
-            mapOf(
-                "frequency" to frequency.serialize(),
-                "anchorDate" to anchorDate.toString(),
-                "windows" to windows.size,
-                "seedScore" to String.format(Locale.getDefault(), "%.3f", seedScore),
-                "derivedScore" to String.format(Locale.getDefault(), "%.3f", score),
-            ),
-        )
-
-        return score.coerceIn(0.0, 1.0)
-    }
-    
-    fun calculateScoreAfterGap(
-        previousScore: Double,
-        daysMissed: Int,
-        frequency: Frequency
-    ): Double {
-        if (daysMissed <= 0) return previousScore
-        
-        val multiplier = calculateDecayMultiplier(frequency)
-        
-        // Apply decay for each missed day
-        // newScore = previousScore * (multiplier ^ daysMissed)
-        val compoundMultiplier = multiplier.pow(daysMissed.toDouble())
-        val newScore = previousScore * compoundMultiplier
-        
-        logger.i("RecurrenceScoreCalculator.calculateScoreAfterGap", "Gap decay applied", mapOf(
-            "previousScore" to String.format(Locale.getDefault(), "%.3f", previousScore),
-            "daysMissed" to daysMissed,
-            "frequency" to "${frequency.numerator}/${frequency.denominator}",
-            "compoundMultiplier" to String.format(Locale.getDefault(), "%.6f", compoundMultiplier),
-            "newScore" to String.format(Locale.getDefault(), "%.3f", newScore)
-        ))
-        
-        return newScore.coerceIn(0.0, 1.0)
-    }
     
     /**
      * Calculate completion statistics from a list of occurrence statuses.
@@ -537,14 +420,4 @@ object RecurrenceScoreCalculator {
 
         return windows
     }
-
-    private fun scoringFrequency(frequency: DomainFrequency): Frequency =
-        if (frequency.denominator <= 1) {
-            fromFrequency(frequency)
-        } else {
-            Frequency(
-                numerator = (frequency.numerator * 2).coerceAtLeast(1),
-                denominator = (frequency.denominator * 2).coerceAtLeast(1),
-            )
-        }
 }

@@ -65,6 +65,15 @@ class UpdateCheckerTest {
         assertFalse(latest > current)
     }
 
+    // ── Download filename → build label ───────────────────────────────────
+
+    @Test
+    fun `build number extracted from apk filename`() {
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))
+        assertEquals("", buildNumberFromFileName("Payanam update"))   // no build number → empty
+        assertEquals("", buildNumberFromFileName(""))                  // empty input → empty
+    }
+
     // ── Error enum coverage ───────────────────────────────────────────────
 
     @Test
@@ -81,6 +90,46 @@ class UpdateCheckerTest {
         assertTrue(UpdateCheckError.RATE_LIMITED in UpdateCheckError.entries)
         assertTrue(UpdateCheckError.PARSE_ERROR in UpdateCheckError.entries)
         assertTrue(UpdateCheckError.UNKNOWN in UpdateCheckError.entries)
+    }
+
+    // ── Channel mapping ───────────────────────────────────────────────────
+
+    @Test
+    fun `channel from tag maps correctly`() {
+        assertEquals(UpdateChannel.DEV, channelFromTag("latest-dev"))
+        assertEquals(UpdateChannel.BETA, channelFromTag("latest-beta"))
+        assertEquals(UpdateChannel.STABLE, channelFromTag("latest-stable"))
+    }
+
+    @Test
+    fun `channel from tag ignores non-channel tags`() {
+        assertNull(channelFromTag("v1.2.3"))
+        assertNull(channelFromTag("latest"))
+        assertNull(channelFromTag(""))
+        assertNull(channelFromTag("latest-nightly"))
+    }
+
+    @Test
+    fun `channel from storage parses valid values`() {
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("DEV"))
+        assertEquals(UpdateChannel.BETA, UpdateChannel.fromStorage("BETA"))
+        assertEquals(UpdateChannel.STABLE, UpdateChannel.fromStorage("STABLE"))
+    }
+
+    @Test
+    fun `channel from storage falls back to DEV for garbage`() {
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(null))
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(""))
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("nightly"))
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("dev"))  // lowercase is invalid storage
+    }
+
+    @Test
+    fun `channel tag suffixes match storage names`() {
+        // Storage stores enum .name (uppercase); tags use tagSuffix (lowercase).
+        assertEquals("dev", UpdateChannel.DEV.tagSuffix)
+        assertEquals("beta", UpdateChannel.BETA.tagSuffix)
+        assertEquals("stable", UpdateChannel.STABLE.tagSuffix)
     }
 
     // ── UpdateCheckResult construction ────────────────────────────────────

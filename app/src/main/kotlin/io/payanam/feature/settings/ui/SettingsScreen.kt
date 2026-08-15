@@ -88,9 +88,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
     LaunchedEffect(Unit) { prefsViewModel.refreshAutoBackupStatusFromStorage() }
     LaunchedEffect(viewModel.navigateToDatabaseInit) { viewModel.navigateToDatabaseInit.collect { onNavigateToDatabaseInit() } }
     val manualBackupInProgress by prefsViewModel.manualBackupInProgress.collectAsState()
-    val legacyDimensionDiagnosticsInProgress by prefsViewModel.legacyDimensionDiagnosticsInProgress.collectAsState()
-    LaunchedEffect(Unit) { prefsViewModel.manualBackupResultMessage.collect { snackbarHostState.showSnackbar(it) } }
-    LaunchedEffect(Unit) { prefsViewModel.legacyDimensionDiagnosticsMessage.collect { snackbarHostState.showSnackbar(it) } }
+    val habitScoreDiagnosticsInProgress by prefsViewModel.habitScoreDiagnosticsInProgress.collectAsState()
+    LaunchedEffect(Unit) { prefsViewModel.habitScoreDiagnosticsMessage.collect { snackbarHostState.showSnackbar(it) } }
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
@@ -273,6 +272,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 color = it.color,
                                 isVisible = it.isVisible,
                                 iconKey = it.iconKey,
+                                weight = it.weight,
                                 hasCustomLabelOverride = it.hasCustomLabelOverride,
                             )
                         } + prefsState.dynamicDimensionOptions
@@ -320,6 +320,14 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                     "SettingsScreen.dimensionIcon",
                                     "Dimension icon updated",
                                     mapOf("dimensionId" to preference.id, "iconKey" to iconKey),
+                                )
+                            },
+                            onWeightCommit = { weight ->
+                                prefsViewModel.setDimensionWeight(preference.id, weight)
+                                logger.i(
+                                    "SettingsScreen.dimensionWeight",
+                                    "Dimension weight updated",
+                                    mapOf("dimensionId" to preference.id, "weight" to weight),
                                 )
                             },
                             onVisibilityToggleRequested = {
@@ -446,8 +454,8 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         scope = scope,
                         snackbarHostState = snackbarHostState,
                         context = context,
-                        legacyDimensionDiagnosticsInProgress = legacyDimensionDiagnosticsInProgress,
-                        onRunLegacyDimensionDiagnostics = prefsViewModel::runLegacyDimensionDiagnostics,
+                        habitScoreDiagnosticsInProgress = habitScoreDiagnosticsInProgress,
+                        onRunHabitScoreDiagnostics = prefsViewModel::runHabitScoreDiagnostics,
                     )
                 }
             }
@@ -537,11 +545,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.ABOUT)
                 },
                 uiState = uiState,
+                logger = logger,
                 onViewGithub = {
                     logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "github"))
                     context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
                 },
                 onCheckForUpdate = viewModel::checkForUpdate,
+                onUpdateChannelSelected = viewModel::onUpdateChannelSelected,
+                onAutoDownloadToggled = viewModel::onAutoDownloadToggled,
+                onPromptInstallToggled = viewModel::onPromptInstallToggled,
+                onWifiOnlyToggled = viewModel::onWifiOnlyToggled,
+                onAutoCheckToggled = viewModel::onAutoCheckToggled,
+                onDownloadOrRetry = viewModel::downloadOrRetry,
+                onCancelDownload = viewModel::onCancelDownload,
+                onInstallNow = viewModel::onInstallNow,
+                onInstallLater = viewModel::onInstallLater,
             )
         }
     }

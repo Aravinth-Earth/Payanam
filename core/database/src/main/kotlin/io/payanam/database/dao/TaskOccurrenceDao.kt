@@ -15,6 +15,12 @@ interface TaskOccurrenceDao {
     @Query("SELECT * FROM task_occurrences")
     suspend fun getAllOccurrences(): List<TaskOccurrenceEntity>
 
+    @Query("SELECT COUNT(*) FROM task_occurrences")
+    suspend fun countAllOccurrences(): Int
+
+    @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate ASC")
+    suspend fun getOccurrencesForTaskForBackfill(taskId: String): List<TaskOccurrenceEntity>
+
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate DESC")
     fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrenceEntity>>
 

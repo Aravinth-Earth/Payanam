@@ -10,9 +10,15 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Looper
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.AppStartUpdateChecker
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
 @HiltAndroidApp
@@ -45,6 +51,26 @@ class PayanamApp : Application() {
         // Create notification channels
         createNotificationChannels()
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
+
+        // App-start update check — resolved LAZILY via EntryPoint so nothing
+        // extra is constructed during super.onCreate() (Hilt field injection
+        // there would eagerly build the DB-session chain before the crash
+        // handler is installed; a failure would crash with no log export).
+        try {
+            val checker = EntryPointAccessors.fromApplication(
+                this,
+                AppStartUpdateCheckerEntryPoint::class.java,
+            ).appStartUpdateChecker()
+            checker.onAppStart()
+        } catch (e: Exception) {
+            logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
+        }
+    }
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AppStartUpdateCheckerEntryPoint {
+        fun appStartUpdateChecker(): AppStartUpdateChecker
     }
 
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {
@@ -62,6 +88,28 @@ class PayanamApp : Application() {
                     "versionCode" to BuildConfig.VERSION_CODE,
                 ),
             )
+            // Auto-export the full log ZIP on crash — lands in
+            // Documents/payanam/exported-logs/ so it is reachable via the
+            // Files app even when the app itself cannot start (crash loop).
+            // Best-effort on a separate thread with a hard cap; never blocks.
+            val exportThread = Thread {
+                try {
+                    // Explicit final flush so the crash line (eSync above) and
+                    // any sibling lines reach the file before the zip runs.
+                    runBlocking { logger.flush() }
+                    runBlocking { logger.exportAllLogs() }
+                } catch (_: Exception) {
+                    // export must never mask the original crash
+                }
+            }
+            exportThread.start()
+            try {
+                // 15s budget: flush + zip of the full history must fit before
+                // Android kills the process after the handler returns.
+                exportThread.join(15_000)
+            } catch (_: InterruptedException) {
+                // give up waiting; original handler still runs below
+            }
             previousHandler?.uncaughtException(thread, throwable)
         }
         logger.i(

@@ -13,5 +13,7 @@ data class ConfiguredLifeDimension(
     val colorHex: String,
     val iconKey: String?,
     val sortOrder: Int,
-    val isActive: Boolean
+    val isActive: Boolean,
+    /** User-editable relative weight for L3 day-score aggregation (C2, v20). */
+    val weight: Double = 1.0,
 )

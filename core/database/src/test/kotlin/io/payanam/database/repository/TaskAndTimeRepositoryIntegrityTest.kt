@@ -244,7 +244,6 @@ class TaskAndTimeRepositoryIntegrityTest {
                     notificationMode = "default",
                     customNotificationMinutes = null,
                     taskScore = 0.5,
-                    currentScore = 0.5,
                     lastOccurrenceDate = null,
                 )
             database.taskDao().insert(task)

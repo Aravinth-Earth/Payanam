@@ -11,12 +11,15 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import android.os.SystemClock
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
 @Suppress("TooManyFunctions")
@@ -277,72 +280,178 @@ class UnifiedLogger private constructor(
             "Error reading logs: ${e.message}"
         }
 
-    fun exportLatestLog(): File? =
-        try {
-            runBlocking {
-                mutex.withLock { flushInternal() }
-            }
-            val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-            val exportDir = File(externalDir, "payanam/exported-logs")
-            if (!exportDir.exists()) {
-                exportDir.mkdirs()
-            }
+    /**
+     * Export the current session log file. Runs on the IO dispatcher; atomic
+     * publish via .tmp + rename so the final name never holds a partial copy.
+     */
+    suspend fun exportLatestLog(): File? =
+        withContext(Dispatchers.IO) {
+            val startedAtMs = SystemClock.elapsedRealtime()
+            try {
+                val snapshot = snapshotLogState()
+                val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val exportDir = File(externalDir, "payanam/exported-logs")
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
 
-            val exportFile = File(exportDir, logFile.name)
-            logFile.copyTo(exportFile, overwrite = true)
+                val exportFile = File(exportDir, logFile.name)
+                val tmpFile = File(exportDir, "${logFile.name}.tmp")
+                try {
+                    snapshot.file.copyTo(tmpFile, overwrite = true)
+                    if (tmpFile.length() != snapshot.file.length()) {
+                        throw IOException("Copy verification failed: ${snapshot.file.length()} != ${tmpFile.length()}")
+                    }
+                    if (!tmpFile.renameTo(exportFile)) {
+                        throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
+                    }
+                } catch (e: Exception) {
+                    tmpFile.delete()
+                    throw e
+                }
 
-            i(
-                "UnifiedLogger.exportLatestLog",
-                "Latest log exported",
-                mapOf(
-                    "fileName" to exportFile.name,
-                ),
+                val durationMs = SystemClock.elapsedRealtime() - startedAtMs
+                i(
+                    "UnifiedLogger.exportLatestLog",
+                    "Current session log exported",
+                    mapOf(
+                        "fileName" to exportFile.name,
+                        "sizeBytes" to exportFile.length(),
+                        "durationMs" to durationMs,
+                    ),
+                )
+                exportFile
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                e("UnifiedLogger.exportLatestLog", "Failed to export current session log", e)
+                null
+            }
+        }
+
+    /**
+     * Export ALL log files as one zip. Runs on the IO dispatcher; atomic
+     * publish via .tmp + rename; the in-memory buffer snapshot is included as
+     * a session-live.log entry so the zip always carries the newest lines;
+     * old exports are pruned to [EXPORT_RETENTION_KEEP].
+     */
+    suspend fun exportAllLogs(): File? =
+        withContext(Dispatchers.IO) {
+            val startedAtMs = SystemClock.elapsedRealtime()
+            try {
+                val snapshot = snapshotLogState()
+                val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val exportDir = File(externalDir, "payanam/exported-logs")
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
+
+                val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+                val tmpZip = File(exportDir, "${zipFile.name}.tmp")
+
+                try {
+                    createZipFileAtomic(tmpZip, snapshot)
+                    if (!tmpZip.renameTo(zipFile)) {
+                        throw IOException("Atomic rename failed: ${tmpZip.name} → ${zipFile.name}")
+                    }
+                    cleanupOldExports(exportDir, keepLast = EXPORT_RETENTION_KEEP)
+                } catch (e: Exception) {
+                    tmpZip.delete()
+                    throw e
+                }
+
+                val durationMs = SystemClock.elapsedRealtime() - startedAtMs
+                i(
+                    "UnifiedLogger.exportAllLogs",
+                    "All logs exported",
+                    mapOf(
+                        "fileName" to zipFile.name,
+                        "fileCount" to snapshot.files.size,
+                        "bufferedDuringExport" to snapshot.bufferSnapshot.size,
+                        "sizeBytes" to zipFile.length(),
+                        "durationMs" to durationMs,
+                    ),
+                )
+                zipFile
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                e("UnifiedLogger.exportAllLogs", "Failed to export all logs", e)
+                null
+            }
+        }
+
+    /** Capture the buffer snapshot FIRST, then flush — so session-live.log
+     *  carries the not-yet-flushed lines (flush would empty the buffer). */
+    private suspend fun snapshotLogState(): LogSnapshot =
+        mutex.withLock {
+            val bufferSnapshot = logBuffer.toList()
+            flushInternal()
+            LogSnapshot(
+                file = logFile,
+                files = getLogFiles(),
+                bufferSnapshot = bufferSnapshot,
             )
-
-            exportFile
-        } catch (e: IOException) {
-            e("UnifiedLogger.exportLatestLog", "Failed to export latest log", e)
-            null
         }
 
-    fun exportAllLogs(): File? {
-        runBlocking {
-            mutex.withLock { flushInternal() }
-        }
-        val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val exportDir = File(externalDir, "payanam/exported-logs")
-        if (!exportDir.exists()) {
-            exportDir.mkdirs()
-        }
+    private data class LogSnapshot(
+        val file: File,
+        val files: List<File>,
+        val bufferSnapshot: List<String>,
+    )
 
-        val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+    /**
+     * Zip [snapshot.files] + a session-live.log entry with the buffered lines.
+     * Writes to [tmpZip] so the caller can rename atomically afterwards.
+     */
+    private fun createZipFileAtomic(tmpZip: File, snapshot: LogSnapshot) {
+        java.util.zip.ZipOutputStream(java.io.FileOutputStream(tmpZip)).use { zos ->
+            snapshot.files.forEach { file ->
+                addFileToZip(zos, file)
+            }
+            if (snapshot.bufferSnapshot.isNotEmpty()) {
+                zos.putNextEntry(java.util.zip.ZipEntry("session-live.log"))
+                zos.write(snapshot.bufferSnapshot.joinToString(separator = "").toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+            }
+        }
+        verifyZipIntegrity(tmpZip, expectedEntries = snapshot.files.size + if (snapshot.bufferSnapshot.isNotEmpty()) 1 else 0)
+    }
 
-        return try {
-            createZipFile(zipFile)
-        } catch (e: IOException) {
-            e("UnifiedLogger.exportAllLogs", "Failed to export all logs", e)
-            null
+    /** Re-open the zip and confirm entry count + EOCD magic before it is renamed into place. */
+    private fun verifyZipIntegrity(zipFile: File, expectedEntries: Int) {
+        java.util.zip.ZipFile(zipFile).use { zip ->
+            val actual = zip.size()
+            if (actual != expectedEntries) {
+                throw IOException("Zip verification failed: expected $expectedEntries entries, found $actual")
+            }
+        }
+        // EOCD magic (PK\x05\x06) must be the last bytes of a complete zip.
+        val tail = zipFile.readBytes().takeLast(22).toByteArray()
+        val eocdMagic = byteArrayOf(0x50, 0x4B, 0x05, 0x06)
+        if (tail.size < 22 || !tail.copyOfRange(0, 4).contentEquals(eocdMagic)) {
+            throw IOException("Zip verification failed: EOCD record missing")
         }
     }
 
-    private fun createZipFile(zipFile: File): File {
-        java.util.zip.ZipOutputStream(java.io.FileOutputStream(zipFile)).use { zos ->
-            getLogFiles().forEach { file ->
-                addFileToZip(zos, file)
+    /** Prune the exported-logs dir to the newest [keepLast] payanam artifacts. */
+    private fun cleanupOldExports(exportDir: File, keepLast: Int) {
+        val artifacts =
+            exportDir
+                .listFiles()
+                ?.filter { it.name.startsWith("payanam_") }
+                ?.sortedByDescending { it.lastModified() }
+                ?: return
+        artifacts.drop(keepLast).forEach { file ->
+            if (file.delete()) {
+                i(
+                    "UnifiedLogger.cleanupOldExports",
+                    "Deleted old export artifact",
+                    mapOf("fileName" to file.name),
+                )
             }
         }
-
-        i(
-            "UnifiedLogger.exportAllLogs",
-            "All logs exported",
-            mapOf(
-                "fileName" to zipFile.name,
-                "fileCount" to getLogFiles().size,
-            ),
-        )
-
-        return zipFile
     }
 
     private fun addFileToZip(
@@ -410,6 +519,7 @@ class UnifiedLogger private constructor(
         private const val MAX_CAUSE_DEPTH = 8
         private const val LOG_LEVEL_WIDTH = 5
         private const val MAX_BUFFER_SIZE = 100
+        private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
         private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
 

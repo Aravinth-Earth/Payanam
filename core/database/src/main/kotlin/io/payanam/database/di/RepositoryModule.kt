@@ -8,6 +8,8 @@ import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.payanam.database.repository.AppSettingsRepositoryImpl
 import io.payanam.database.repository.DayPlanRepositoryImpl
+import io.payanam.database.repository.HabitMetricRepositoryImpl
+import io.payanam.database.repository.ScoreWindowRepositoryImpl
 import io.payanam.database.repository.JournalRepositoryImpl
 import io.payanam.database.repository.LifeDimensionCatalogRepositoryImpl
 import io.payanam.database.repository.NoteRepositoryImpl
@@ -20,6 +22,8 @@ import io.payanam.database.repository.TaskRescheduleRepositoryImpl
 import io.payanam.database.repository.TimeEntryRepositoryImpl
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.DayPlanRepository
+import io.payanam.domain.repository.HabitMetricRepository
+import io.payanam.domain.repository.ScoreWindowRepository
 import io.payanam.domain.repository.JournalRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.NoteRepository
@@ -38,6 +42,14 @@ abstract class RepositoryModule {
     @Binds
     @Singleton
     abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindHabitMetricRepository(impl: HabitMetricRepositoryImpl): HabitMetricRepository
+
+    @Binds
+    @Singleton
+    abstract fun bindScoreWindowRepository(impl: ScoreWindowRepositoryImpl): ScoreWindowRepository
 
     @Binds
     @Singleton

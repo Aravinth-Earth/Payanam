@@ -3,8 +3,10 @@
 package io.payanam.feature.settings
 
 import android.content.Context
+import android.content.Intent
 import android.net.Uri
 import androidx.biometric.BiometricManager
+import io.payanam.BuildConfig
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -26,6 +28,7 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.ui.viewmodel.BackupInterval
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -67,14 +70,245 @@ class SettingsViewModel @Inject constructor(
     internal var pendingEncryptedImportDbFile: File? = null
     internal var pendingEncryptedImportBackupMappings: List<Pair<File, File>> = emptyList()
 
+    // Auto-download state
+    private var activeDownloadId: Long? = null
+
     internal fun updateUiState(transform: (SettingsUiState) -> SettingsUiState) {
-        _uiState.update(transform)
+        val from = _uiState.value
+        val to = transform(from)
+        _uiState.update { to }
+        // Trace update-flow state transitions (only when download/channel/check fields change).
+        if (from.downloadState != to.downloadState ||
+            from.isCheckingForUpdate != to.isCheckingForUpdate ||
+            from.updateCheckResult != to.updateCheckResult ||
+            from.updateChannel != to.updateChannel
+        ) {
+            logger.d(
+                "SettingsViewModel.updateState",
+                "Update-flow state transition",
+                mapOf(
+                    "downloadState" to (from.downloadState::class.simpleName + " -> " + to.downloadState::class.simpleName),
+                    "checking" to (from.isCheckingForUpdate.toString() + " -> " + to.isCheckingForUpdate.toString()),
+                    "updateAvailable" to ((from.updateCheckResult?.isUpdateAvailable ?: false).toString() + " -> " + (to.updateCheckResult?.isUpdateAvailable ?: false).toString()),
+                    "channel" to (from.updateChannel.name + " -> " + to.updateChannel.name),
+                    "latestBuild" to (to.updateCheckResult?.latestBuildNumber ?: -1),
+                ),
+            )
+        }
     }
 
     init {
         logger.i("SettingsViewModel.init", "ViewModel initialized")
         loadDatabaseStats()
         syncTimeoutFromDb()
+        loadUpdateChannel()
+        loadPromptInstall()
+        loadAutoDownload()
+        loadWifiOnly()
+        loadAutoCheck()
+    }
+
+    /** Load the persisted update channel (defaults to DEV). */
+    private fun loadUpdateChannel() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
+            val channel = UpdateChannel.fromStorage(raw)
+            logger.d("SettingsViewModel.loadUpdateChannel", "Loaded channel", mapOf("channel" to channel.name, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(updateChannel = channel) }
+        }
+    }
+
+    /** Persist the user's channel selection; resets the check cooldown so a fresh check is allowed. */
+    internal fun onUpdateChannelSelected(channel: UpdateChannel) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.UPDATE_CHANNEL, channel.name)
+            logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
+            lastCheckTimestampMs = 0L
+            checkCountInWindow = 0
+            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null) }
+        }
+    }
+
+    /** Load the persisted auto-download toggle (defaults to OFF). */
+    private fun loadAutoDownload() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadAutoDownload", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(autoDownloadEnabled = enabled) }
+            // If a download was in-flight from a previous session, restore its state.
+            if (enabled) restoreDownloadState()
+        }
+    }
+
+    /** User tapped Cancel while a download is in flight — cancel + clean persisted state. */
+    internal fun onCancelDownload() {
+        val id = activeDownloadId ?: return
+        viewModelScope.launch {
+            AutoDownloadManager.cancel(context, id)
+            activeDownloadId = null
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, null)
+            logger.i("SettingsViewModel.onCancelDownload", "Download cancelled", mapOf("downloadId" to id))
+            _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
+        }
+    }
+
+    /** Toggle auto-download on/off; toggling off cancels any in-flight download. */
+    internal fun onAutoDownloadToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_DOWNLOAD, enabled.toString())
+            logger.i("SettingsViewModel.onAutoDownloadToggled", "Toggle saved", mapOf("enabled" to enabled))
+            if (!enabled && activeDownloadId != null) {
+                AutoDownloadManager.cancel(context, activeDownloadId!!)
+                activeDownloadId = null
+                appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+            }
+            _uiState.update { it.copy(autoDownloadEnabled = enabled, downloadState = DownloadUiState.Idle) }
+        }
+    }
+
+    /** If a download ID was persisted, resume polling its status on app start. */
+    private fun restoreDownloadState() {
+        viewModelScope.launch {
+            val storedId = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID)?.toLongOrNull()
+            if (storedId != null) {
+                activeDownloadId = storedId
+                pollDownloadProgress()
+                return@launch
+            }
+            // In-flight download done (or none): check for a previously COMPLETED
+            // download still on disk. If it's fresh (< 15 min) restore the
+            // "Downloaded — install now" state so the user never re-downloads
+            // what's already there. If stale, surface Retry/Check instead.
+            restoreCompletedDownload()
+        }
+    }
+
+    /** Offer a previously completed download from disk instead of re-downloading. */
+    private fun restoreCompletedDownload() {
+        viewModelScope.launch {
+            val build = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD)
+            val fileName = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE)
+            val atMs = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT)?.toLongOrNull()
+            if (build.isNullOrEmpty() || fileName.isNullOrEmpty()) return@launch
+
+            val localPath = AutoDownloadManager.findDownloadedApk(context, fileName)
+            if (localPath == null) {
+                // File was cleaned/removed — drop the stale markers.
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Completed download file missing; clearing markers", mapOf("fileName" to fileName))
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, null)
+                return@launch
+            }
+
+            val fresh = atMs != null && (System.currentTimeMillis() - atMs) < COMPLETED_DOWNLOAD_FRESH_MS
+            if (fresh) {
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Fresh completed download restored", mapOf("fileName" to fileName, "build" to build))
+                _uiState.update { it.copy(downloadState = DownloadUiState.Downloaded(fileName, localPath)) }
+            } else {
+                // Stale (>15 min): drop to Idle so the button shows "Check for update".
+                // A fresh check will re-discover the APK if it's still the latest.
+                logger.d("SettingsViewModel.restoreCompletedDownload", "Completed download is stale; reverting to check", mapOf("fileName" to fileName, "build" to build))
+                appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+            }
+        }
+    }
+
+    /** Load the persisted prompt-install toggle (defaults to OFF). */
+    private fun loadPromptInstall() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.PROMPT_INSTALL)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadPromptInstall", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(promptInstallEnabled = enabled) }
+        }
+    }
+
+    /** Toggle prompt-install on/off (only meaningful when auto-download is ON). */
+    internal fun onPromptInstallToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.PROMPT_INSTALL, enabled.toString())
+            logger.i("SettingsViewModel.onPromptInstallToggled", "Toggle saved", mapOf("enabled" to enabled))
+            _uiState.update { it.copy(promptInstallEnabled = enabled) }
+        }
+    }
+
+    /** Load the persisted WiFi-only toggle (defaults to OFF). */
+    private fun loadWifiOnly() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.WIFI_ONLY)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadWifiOnly", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
+        }
+    }
+
+    /** Toggle WiFi-only downloads on/off. */
+    internal fun onWifiOnlyToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.WIFI_ONLY, enabled.toString())
+            logger.i("SettingsViewModel.onWifiOnlyToggled", "Toggle saved", mapOf("enabled" to enabled))
+            _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
+        }
+    }
+
+    /** Load the persisted auto-check-on-start setting (defaults OFF — opt-in). */
+    private fun loadAutoCheck() {
+        viewModelScope.launch {
+            val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_CHECK)
+            val enabled = raw == "true"
+            logger.d("SettingsViewModel.loadAutoCheck", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
+            _uiState.update { it.copy(autoCheckEnabled = enabled) }
+        }
+    }
+
+    /** Toggle the post-unlock auto update check on/off. */
+    internal fun onAutoCheckToggled(enabled: Boolean) {
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_CHECK, enabled.toString())
+            logger.i("SettingsViewModel.onAutoCheckToggled", "Toggle saved", mapOf("enabled" to enabled))
+            _uiState.update { it.copy(autoCheckEnabled = enabled) }
+        }
+    }
+
+    /** User tapped "Update now" in the popup → launch the system installer. */
+    internal fun onInstallNow() {
+        // Button path (Downloaded state) may not have a pending popup — derive
+        // the file from the download state when that's the case.
+        val path = _uiState.value.pendingInstallPath
+            ?: (_uiState.value.downloadState as? DownloadUiState.Downloaded)?.localPath
+            ?: return
+        val file = File(path)
+        if (!file.exists()) {
+            _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("file_missing")) }
+            return
+        }
+        try {
+            val uri = androidx.core.content.FileProvider.getUriForFile(
+                context,
+                "${context.packageName}.fileprovider",
+                file,
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            context.startActivity(intent)
+            // Install flow handed off to the system; clear pending state.
+            _uiState.update { it.copy(pendingInstallPath = null) }
+        } catch (e: Exception) {
+            logger.e("SettingsViewModel.onInstallNow", "Install launch failed", e)
+            _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("install_launch_failed")) }
+        }
+    }
+
+    /** User dismissed the update popup ("Later") — keep the downloaded file. */
+    internal fun onInstallLater() {
+        _uiState.update { it.copy(pendingInstallPath = null) }
     }
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
@@ -574,10 +808,10 @@ class SettingsViewModel @Inject constructor(
         lastCheckTimestampMs = now
         checkCountInWindow++
 
-        logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber))
+        logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber, "channel" to _uiState.value.updateChannel.name))
         _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckResult = null) }
         viewModelScope.launch {
-            val result = UpdateChecker.check(_uiState.value.buildNumber)
+            val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
             logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
                 "updateAvailable" to result.isUpdateAvailable,
                 "latestBuild" to result.latestBuildNumber,
@@ -585,6 +819,188 @@ class SettingsViewModel @Inject constructor(
             ))
             _uiState.update {
                 it.copy(isCheckingForUpdate = false, updateCheckResult = result)
+            }
+            // Auto-download when update available + toggle ON + no active download.
+            if (result.isUpdateAvailable && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
+                val latest = result.latestBuildNumber ?: return@launch
+                startAutoDownload(latest)
+            }
+        }
+    }
+
+    /** Enqueue the APK download for the given build and start progress polling. */
+    private fun startAutoDownload(buildNumber: Int) {
+        // Already on disk? Offer Install instead of re-downloading (avoids the
+        // duplicate-download case: check → downloaded → killed → re-check).
+        val existingPath = AutoDownloadManager.findApkForBuild(context, buildNumber.toString())
+        if (existingPath != null) {
+            val fileName = File(existingPath).name
+            logger.d("SettingsViewModel.startAutoDownload", "APK already downloaded; offering install", mapOf("build" to buildNumber, "file" to fileName))
+            viewModelScope.launch {
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumber.toString())
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, fileName)
+                appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
+            }
+            _uiState.update { it.copy(downloadState = DownloadUiState.Downloaded(fileName, existingPath)) }
+            return
+        }
+        val channel = _uiState.value.updateChannel
+        // Real asset URL + filename come from the release's assets list.
+        val selected = _uiState.value.updateCheckResult?.channelStatuses
+            ?.firstOrNull { it.channel == channel }
+        val downloadUrl = selected?.apkDownloadUrl
+        if (downloadUrl.isNullOrEmpty()) {
+            // E1: no silent failure — surface a state so the user knows why
+            // the download did not start.
+            logger.w("SettingsViewModel.startAutoDownload", "No APK asset URL in check result", mapOf("channel" to channel.name))
+            _uiState.update { it.copy(downloadState = DownloadUiState.Failed("no_download_url")) }
+            return
+        }
+        val fileName = downloadUrl.substringAfterLast('/')
+
+        // Keep only the last 2 APKs (rollback safety), never during this enqueue.
+        AutoDownloadManager.cleanupOldApks(context, keepCount = 2)
+
+        val id = AutoDownloadManager.enqueue(context, downloadUrl, fileName, wifiOnly = _uiState.value.wifiOnlyEnabled)
+        if (id == null) {
+            _uiState.update { it.copy(downloadState = DownloadUiState.Failed("enqueue_failed")) }
+            return
+        }
+        activeDownloadId = id
+        viewModelScope.launch {
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
+            // Persist the URL so a Retry survives app restarts.
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, downloadUrl)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
+        }
+        logger.i("SettingsViewModel.startAutoDownload", "Auto-download started", mapOf("build" to buildNumber, "file" to fileName, "downloadId" to id))
+        pollDownloadProgress()
+    }
+
+    /** Manual "Download update" / Retry entry point (single-button state machine). */
+    internal fun downloadOrRetry() {
+        val state = _uiState.value.downloadState
+        // Retry: reuse the last known URL if the check result is gone.
+        if (state is DownloadUiState.Failed) {
+            viewModelScope.launch {
+                val storedUrl = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL)
+                if (storedUrl.isNullOrEmpty()) return@launch
+                val fileName = storedUrl.substringAfterLast('/')
+                _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
+                // Rebuild a check-result-like state so startAutoDownload can proceed.
+                val selected = _uiState.value.updateCheckResult?.channelStatuses
+                    ?.firstOrNull { it.channel == _uiState.value.updateChannel }
+                if (selected != null) {
+                    val patched = _uiState.value.updateCheckResult?.copy(
+                        channelStatuses = listOf(selected.copy(apkDownloadUrl = storedUrl)),
+                    )
+                    _uiState.update { it.copy(updateCheckResult = patched) }
+                }
+                // Direct enqueue — works even when the check result is gone (app restart).
+                val id = AutoDownloadManager.enqueue(
+                    context,
+                    storedUrl,
+                    fileName,
+                    wifiOnly = _uiState.value.wifiOnlyEnabled,
+                )
+                if (id != null) {
+                    activeDownloadId = id
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
+                    logger.i("SettingsViewModel.downloadOrRetry", "Retry download enqueued", mapOf("file" to fileName, "downloadId" to id))
+                    pollDownloadProgress()
+                } else {
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("enqueue_failed")) }
+                }
+            }
+            return
+        }
+        // Plain manual download: only valid when an update is available.
+        val result = _uiState.value.updateCheckResult ?: return
+        val build = result.latestBuildNumber ?: return
+        if (result.isUpdateAvailable && activeDownloadId == null) {
+            // STALE-URL GUARD: the cached check result can be minutes/hours old
+            // (rolling channel moves on). Re-fetch the channel's current
+            // release so we always download what is latest NOW, never a
+            // superseded build. The retry path above uses the persisted URL
+            // because a restart may have no cached result at all.
+            viewModelScope.launch {
+                val channel = _uiState.value.updateChannel
+                val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
+                if (fresh.error != null) {
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
+                    return@launch
+                }
+                val selected = fresh.channelStatuses.firstOrNull { it.channel == channel }
+                val url = selected?.apkDownloadUrl
+                if (url.isNullOrEmpty()) {
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("no_download_url")) }
+                    return@launch
+                }
+                logger.i(
+                    "SettingsViewModel.downloadOrRetry",
+                    "Manual download re-fetched channel",
+                    mapOf(
+                        "cachedBuild" to build,
+                        "freshBuild" to (fresh.latestBuildNumber ?: -1),
+                        "file" to url.substringAfterLast('/'),
+                    ),
+                )
+                if (fresh.isUpdateAvailable) {
+                    startAutoDownload(fresh.latestBuildNumber ?: build)
+                } else {
+                    // Channel moved past us: no update to download anymore.
+                    _uiState.update { it.copy(updateCheckResult = fresh) }
+                }
+            }
+        }
+    }
+
+    /** Poll DownloadManager progress and surface state; stops on terminal state. */
+    private fun pollDownloadProgress() {
+        val id = activeDownloadId ?: return
+        viewModelScope.launch {
+            var terminal = false
+            var polls = 0
+            // E4: bounded polling — stop after 10 minutes even if the system
+            // never reports a terminal state (avoids infinite battery drain).
+            while (!terminal && activeDownloadId == id && polls < MAX_POLLS) {
+                polls++
+                val state = AutoDownloadManager.queryProgress(context, id)
+                // Enrich Downloading with channel + full build name for the UI.
+                val enriched = if (state is DownloadUiState.Downloading) {
+                    state.copy(
+                        channelName = _uiState.value.updateChannel.name.lowercase(),
+                        buildName = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE) ?: state.fileName,
+                    )
+                } else {
+                    state
+                }
+                _uiState.update { it.copy(downloadState = enriched) }
+                when (state) {
+                    is DownloadUiState.Downloading, is DownloadUiState.Paused -> {
+                        // keep polling (Paused is transient — system resumes)
+                    }
+                    is DownloadUiState.Downloaded -> {
+                        appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+                        // Remember the completed download so a later restart can
+                        // offer "Install" without re-downloading (see restoreDownloadState).
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumberFromFileName(state.fileName))
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, state.fileName)
+                        appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
+                        // Prompt to install only when the opt-in toggle is ON;
+                        // otherwise just show the "ready" state (tap to install).
+                        if (_uiState.value.promptInstallEnabled) {
+                            _uiState.update { it.copy(pendingInstallPath = state.localPath) }
+                        }
+                        terminal = true
+                    }
+                    is DownloadUiState.Failed -> {
+                        appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
+                        terminal = true
+                    }
+                    DownloadUiState.Idle -> terminal = true
+                }
+                if (!terminal) delay(POLL_INTERVAL_MS)
             }
         }
     }
@@ -594,5 +1010,9 @@ class SettingsViewModel @Inject constructor(
         private const val CHECK_COOLDOWN_MS = 60_000L        // 1 minute between checks
         private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
         private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
+        private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
+        private const val MAX_POLLS = 600                    // 10 min cap (E4)
+        /** A completed download is "fresh" for 15 min — after that, re-check first. */
+        private const val COMPLETED_DOWNLOAD_FRESH_MS = 15 * 60 * 1_000L
     }
 }

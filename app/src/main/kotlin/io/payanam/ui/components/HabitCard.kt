@@ -340,6 +340,7 @@ fun HabitCard(
     modifier: Modifier = Modifier,
     buttonCount: Int = calculateButtonCount(),
     shortToggleEnabled: Boolean = true,
+    latestL1RunningAvg: Double? = null,
 ) {
     val logger = UnifiedLogger.getInstance()
     val displayCheckmarks = remember(checkmarks, buttonCount) {
@@ -378,9 +379,10 @@ fun HabitCard(
                 Spacer(modifier = Modifier.width(4.dp)) // Reduced from 8dp
             }
 
-            // Score Ring
+            // Score Ring — Inc 4: shows the habit's latest L1 runningAvg as a
+            // percentage (ScoreRing renders 0..1; text shows score*100).
             ScoreRing(
-                score = task.currentScore,
+                score = latestL1RunningAvg ?: 0.0,
                 modifier = Modifier.padding(end = 4.dp),
             )
 

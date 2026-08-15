@@ -15,6 +15,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
@@ -32,10 +33,12 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -67,10 +70,12 @@ internal fun DimensionPreferenceCard(
     onLabelReset: () -> Unit,
     onColorSelected: (Color) -> Unit,
     onIconSelected: (String) -> Unit,
+    onWeightCommit: (Double) -> Unit,
     onVisibilityToggleRequested: () -> Unit,
 ) {
     var isEditing by remember(preference.id) { mutableStateOf(false) }
     var editLabel by remember(preference.id) { mutableStateOf(preference.label) }
+    var editWeight by remember(preference.id) { mutableFloatStateOf(preference.weight.toFloat()) }
     val logger = remember { UnifiedLogger.getInstance() }
 
     Column(modifier = Modifier.fillMaxWidth()) {
@@ -190,6 +195,53 @@ internal fun DimensionPreferenceCard(
                     usedIconKeys = usedIconKeys,
                     onSelect = onIconSelected,
                 )
+
+                // C2: user-editable dimension weight (relative importance in the
+                // L3 day-score aggregation). 1.0 = equal weighting (legacy).
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(10.dp),
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.settings_dimension_weight_label),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                    Slider(
+                        value = editWeight,
+                        onValueChange = { editWeight = it },
+                        valueRange = 0.1f..10f,
+                        steps = 17,
+                        modifier = Modifier.weight(1f),
+                    )
+                    Text(
+                        text = String.format(java.util.Locale.US, "%.1f", editWeight),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface,
+                        modifier = Modifier.widthIn(min = 34.dp),
+                    )
+                    IconButton(
+                        onClick = {
+                            if (Math.abs(editWeight - preference.weight.toFloat()) > 0.01f) {
+                                onWeightCommit(editWeight.toDouble())
+                            }
+                            isEditing = false
+                            logger.i(
+                                "DimensionPreferenceCard",
+                                "Dimension weight committed",
+                                mapOf("dimensionId" to preference.id, "weight" to editWeight),
+                            )
+                        },
+                        modifier = Modifier.size(32.dp),
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Check,
+                            contentDescription = stringResource(id = R.string.settings_dimension_save),
+                            modifier = Modifier.size(16.dp),
+                        )
+                    }
+                }
 
                 TextButton(
                     onClick = {

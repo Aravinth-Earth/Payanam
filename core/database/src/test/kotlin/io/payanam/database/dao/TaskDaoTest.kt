@@ -149,7 +149,6 @@ class TaskDaoTest {
         notificationMode = "default",
         customNotificationMinutes = null,
         taskScore = 0.5,
-        currentScore = 0.5,
         lastOccurrenceDate = null,
     )
 }

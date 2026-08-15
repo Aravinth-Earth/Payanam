@@ -42,8 +42,8 @@ class DayPlanDaoTest {
         val dims = listOf("career_work", "health_wellness", "learning", "relationships", "personal_growth")
         dims.forEachIndexed { index, id ->
             db.execSQL(
-                """INSERT OR IGNORE INTO life_dimensions (id, key, label, color, sortOrder, isActive, createdAt, updatedAt)
-                   VALUES ('$id', '$id', '$id', '#FF5722', $index, 1, '$now', '$now')""",
+                """INSERT OR IGNORE INTO life_dimensions (id, key, label, color, sortOrder, isActive, weight, createdAt, updatedAt)
+                   VALUES ('$id', '$id', '$id', '#FF5722', $index, 1, 1.0, '$now', '$now')""",
             )
         }
     }

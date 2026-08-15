@@ -20,7 +20,15 @@ import androidx.room.PrimaryKey
             onDelete = ForeignKey.CASCADE,
         ),
     ],
-    indices = [Index("taskId"), Index("dueDate")],
+    indices = [
+        Index("taskId"),
+        Index("dueDate"),
+        // Day-level duplicate guard (migration 20→21): one row per (task, day).
+        // The code paths (toggle/recordOccurrence) check-then-update, so this
+        // index is the DB-level backstop — Room requires it declared here to
+        // match the migration's CREATE UNIQUE INDEX.
+        Index(value = ["taskId", "dueDate"], unique = true),
+    ],
 )
 data class TaskOccurrenceEntity(
     @PrimaryKey

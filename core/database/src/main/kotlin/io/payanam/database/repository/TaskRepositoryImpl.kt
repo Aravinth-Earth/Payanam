@@ -343,7 +343,6 @@ class TaskRepositoryImpl
         override suspend fun updateRecurrenceState(
             taskId: String,
             newDueDate: LocalDateTime,
-            newScore: Double,
             lastOccurrenceDate: LocalDateTime,
         ) {
             val now = LocalDateTime.now()
@@ -351,7 +350,6 @@ class TaskRepositoryImpl
                 id = taskId,
                 newDueDate = PersistedDateTime.format(newDueDate),
                 dayKey = newDueDate.toLocalDate().format(dateFormatter),
-                newScore = newScore,
                 lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
                 updatedAt = PersistedDateTime.format(now),
             )
@@ -362,7 +360,6 @@ class TaskRepositoryImpl
                 mapOf(
                     "taskId" to taskId,
                     "newDueDate" to newDueDate.toString(),
-                    "newScore" to String.format(Locale.getDefault(), "%.3f", newScore),
                 ),
             )
         }

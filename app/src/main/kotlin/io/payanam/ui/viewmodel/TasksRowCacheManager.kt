@@ -15,6 +15,7 @@ data class HabitRowUiModel(
     val checkmarks: List<DayCheckmark>,
     val todayStatus: CheckmarkStatus,
     val fingerprint: Int,
+    val latestL1: io.payanam.domain.model.HabitL1Summary? = null,
 )
 
 @Immutable
@@ -36,6 +37,7 @@ internal object TasksRowCacheManager {
         todayStatusByTaskId: Map<String, CheckmarkStatus>,
         showCompletedHabits: Boolean,
         hideAllMarkedToday: Boolean = false,
+        latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
     ): List<HabitRowUiModel> {
         val activeTaskIds = tasks.map { it.id }.toSet()
         habitRowsById.keys.retainAll(activeTaskIds)
@@ -44,6 +46,7 @@ internal object TasksRowCacheManager {
         tasks.forEach { task ->
             val checkmarks = checkmarksByTaskId[task.id] ?: emptyList()
             val todayStatus = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
+            val latestL1 = latestL1ByHabit[task.id]
             val shouldHide = when {
                 hideAllMarkedToday -> todayStatus in setOf(CheckmarkStatus.COMPLETED, CheckmarkStatus.SKIPPED, CheckmarkStatus.MISSED)
                 !showCompletedHabits -> todayStatus == CheckmarkStatus.COMPLETED
@@ -52,7 +55,7 @@ internal object TasksRowCacheManager {
             if (shouldHide) {
                 return@forEach
             }
-            val fingerprint = habitFingerprint(task, checkmarks, todayStatus)
+            val fingerprint = habitFingerprint(task, checkmarks, todayStatus, latestL1?.runningAvg)
             val existing = habitRowsById[task.id]
             val row = if (existing != null && existing.fingerprint == fingerprint) {
                 existing
@@ -64,6 +67,7 @@ internal object TasksRowCacheManager {
                     checkmarks = checkmarks,
                     todayStatus = todayStatus,
                     fingerprint = fingerprint,
+                    latestL1 = latestL1,
                 )
             }
             habitRowsById[task.id] = row
@@ -108,10 +112,9 @@ internal object TasksRowCacheManager {
         task.status,
         task.dueDate?.toString(),
         task.taskScore,
-        task.currentScore,
         task.lifeIntentionCategory,
         task.recurrenceEnabled,
     ).contentHashCode()
 
-    private fun habitFingerprint(task: Task, checkmarks: List<DayCheckmark>, todayStatus: CheckmarkStatus): Int = 31 * taskFingerprint(task) + 17 * checkmarks.hashCode() + todayStatus.hashCode()
+    private fun habitFingerprint(task: Task, checkmarks: List<DayCheckmark>, todayStatus: CheckmarkStatus, latestL1RunningAvg: Double? = null): Int = 31 * taskFingerprint(task) + 17 * checkmarks.hashCode() + todayStatus.hashCode() + (latestL1RunningAvg?.hashCode() ?: 0)
 }

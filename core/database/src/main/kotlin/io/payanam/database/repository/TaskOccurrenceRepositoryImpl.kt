@@ -335,6 +335,66 @@ class TaskOccurrenceRepositoryImpl
             completionRate: Double?,
         ): TaskOccurrence {
             val now = LocalDateTime.now()
+            val dateStr = dueDate.toLocalDate().format(dateFormatter)
+
+            // UPSERT: update the existing row for (task, day) if present,
+            // otherwise insert. Mirrors toggleOccurrence and the
+            // self-governance ledger rule — auto/missed writes must never
+            // duplicate a user row (see OCC_CHECK_EXISTING in the DB flow spec).
+            val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
+            if (existing != null) {
+                logger.d(
+                    "TaskOccurrenceRepositoryImpl.recordOccurrence",
+                    "UPDATING existing occurrence (UPSERT)",
+                    mapOf(
+                        "taskId" to taskId,
+                        "date" to dateStr,
+                        "existingStatus" to existing.status,
+                        "newStatus" to status,
+                        "existingId" to existing.id,
+                    ),
+                )
+                sessionManager.requireDatabase().taskOccurrenceDao().updateOccurrence(
+                    id = existing.id,
+                    status = status,
+                    statusReason = existing.statusReason,
+                    note = note,
+                    completedAt = if (status == "completed") now.format(dateTimeFormatter) else null,
+                    actualCompletedAt = existing.actualCompletedAt,
+                    actualDurationMinutes = existing.actualDurationMinutes,
+                )
+                markDirtyForDay(dueDate.toLocalDate(), "habit_occurrence_recorded")
+                logger.i(
+                    "TaskOccurrenceRepositoryImpl.recordOccurrence",
+                    "Existing occurrence updated (UPSERT)",
+                    mapOf(
+                        "id" to existing.id,
+                        "taskId" to taskId,
+                        "date" to dateStr,
+                        "oldStatus" to existing.status,
+                        "newStatus" to status,
+                    ),
+                )
+                return TaskOccurrence(
+                    id = existing.id,
+                    taskId = taskId,
+                    occurrenceDate = dateStr,
+                    status = status,
+                    statusNote = note,
+                    statusReason = existing.statusReason,
+                    completedAt = if (status == "completed") now.format(dateTimeFormatter) else null,
+                    actualCompletedAt = existing.actualCompletedAt?.let {
+                        runCatching { LocalDateTime.parse(it, dateTimeFormatter) }.getOrNull()
+                    },
+                    actualDurationMinutes = existing.actualDurationMinutes,
+                    skippedAt = if (status == "skipped" || status == "missed") now.format(dateTimeFormatter) else null,
+                    dueDate = null,
+                    createdAt = null,
+                    completionRate = existing.completionRate,
+                    note = note,
+                )
+            }
+
             val id = UUID.randomUUID().toString()
 
             val entity =

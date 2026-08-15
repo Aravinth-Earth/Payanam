@@ -110,6 +110,7 @@
     <string name="settings_dimension_edit">Edit dimension</string>
     <string name="settings_dimension_cancel">Cancel edit</string>
     <string name="settings_dimension_save">Save name</string>
+    <string name="settings_dimension_weight_label">Weight</string>
     <string name="settings_dimension_hide">Hide dimension</string>
     <string name="settings_action_collapse">Collapse</string>
     <string name="settings_action_expand">Expand</string>
@@ -118,10 +119,10 @@
     <string name="settings_action_import_uhabits">Import uHabits</string>
     <string name="settings_action_map_imported_habits">Map Imported Habits</string>
     <string name="settings_action_change_passphrase">Update Passphrase</string>
-    <string name="settings_action_export_latest_log">Export Latest Log</string>
+    <string name="settings_action_export_latest_log">Export Current Session Log</string>
     <string name="settings_action_export_all_logs">Export All Logs</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics">Run Legacy Dimension Diagnostics</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics_in_progress">Running Legacy Dimension Diagnostics…</string>
+    <string name="settings_action_run_habit_score_diagnostics">Run Habit Score Diagnostics</string>
+    <string name="settings_action_run_habit_score_diagnostics_in_progress">Running Habit Score Diagnostics…</string>
     <string name="settings_action_delete_all_data">Delete All Data</string>
     <string name="settings_action_delete_file">Delete file</string>
     <string name="settings_action_delete_import">Delete &amp; Import</string>
@@ -172,12 +173,12 @@
     <string name="settings_snackbar_uhabits_import_failed">uHabits import failed: %1$s</string>
     <string name="settings_snackbar_habit_mapping_success">Mapped %1$d imported habits to %2$s</string>
     <string name="settings_snackbar_habit_mapping_failed">Habit mapping failed: %1$s</string>
-    <string name="settings_snackbar_latest_log_exported">Latest log exported to: %1$s</string>
-    <string name="settings_snackbar_latest_log_export_failed">Failed to export latest log</string>
+    <string name="settings_snackbar_latest_log_exported">Current session log exported to: %1$s</string>
+    <string name="settings_snackbar_latest_log_export_failed">Failed to export current session log</string>
     <string name="settings_snackbar_all_logs_exported">All logs exported to: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">Failed to export all logs</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_complete">Legacy dimension diagnostics logged. Rows: %1$d, tables: %2$d</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_failed">Legacy dimension diagnostics failed: %1$s</string>
+    <string name="settings_snackbar_habit_score_diagnostics_complete">Habit score diagnostics logged. Habits: %1$d, with occurrences: %2$d</string>
+    <string name="settings_snackbar_habit_score_diagnostics_failed">Habit score diagnostics failed: %1$s</string>
     <string name="settings_action_run_legacy_label_fix">Fix Legacy Labels</string>
     <string name="settings_action_run_legacy_label_fix_in_progress">Fixing Legacy Labels…</string>
     <string name="settings_action_run_legacy_label_verify">Verify Label Fix</string>
@@ -635,6 +636,9 @@
     <string name="loc_database_schema_errors">Database Schema Errors</string>
     <string name="loc_day">Day</string>
     <string name="loc_day_streak_value">%1$d-day streak</string>
+    <string name="loc_metric_running_avg">Avg</string>
+    <string name="loc_metric_net_streak">Net streak</string>
+    <string name="loc_metric_consistency">Consistency</string>
     <string name="loc_default_duration_minutes_planned">Default Duration: %1$d min (planned)</string>
     <string name="loc_default_time_with_label">Default Time: %1$s</string>
     <string name="loc_dimension">Dimension</string>
@@ -833,6 +837,18 @@
     <string name="loc_manual">Manual</string>
     <string name="loc_name">Name</string>
     <string name="loc_score">Score</string>
+    <string name="loc_habit_sort_running_avg_desc">Average (high to low)</string>
+    <string name="loc_habit_sort_running_avg_asc">Average (low to high)</string>
+    <string name="loc_habit_sort_score_desc">Today (high to low)</string>
+    <string name="loc_habit_sort_score_asc">Today (low to high)</string>
+    <string name="loc_habit_sort_progress_desc">Progress (high to low)</string>
+    <string name="loc_habit_sort_progress_asc">Progress (low to high)</string>
+    <string name="loc_habit_sort_streak_pos_desc">Streak (high to low)</string>
+    <string name="loc_habit_sort_streak_pos_asc">Streak (low to high)</string>
+    <string name="loc_habit_sort_streak_net_desc">Net streak (high to low)</string>
+    <string name="loc_habit_sort_streak_net_asc">Net streak (low to high)</string>
+    <string name="loc_habit_sort_pos_continue_desc">Consistency (high to low)</string>
+    <string name="loc_habit_sort_pos_continue_asc">Consistency (low to high)</string>
     <string name="loc_score_high_to_low">Score High To Low</string>
     <string name="loc_score_low_to_high">Score Low To High</string>
     <string name="loc_title_a_to_z">Title A To Z</string>
@@ -1099,6 +1115,41 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">Check for update</string>
     <string name="settings_update_checking">Checking…</string>
+    <string name="settings_update_channel_label">Update channel</string>
+    <string name="settings_update_channel_dev">Dev (daily)</string>
+    <string name="settings_update_channel_beta">Beta (weekly)</string>
+    <string name="settings_update_channel_stable">Stable (monthly)</string>
+    <string name="settings_update_channel_statuses_title">Channel status</string>
+    <string name="settings_update_channel_build">build #%1$d</string>
+    <string name="settings_update_channel_no_build">no build yet</string>
+    <string name="settings_update_auto_download">Auto-download updates</string>
+    <string name="settings_update_prompt_install">Prompt to install after download</string>
+    <string name="settings_update_wifi_only">Download only on Wi-Fi</string>
+    <string name="settings_update_auto_check">Check for updates after unlock</string>
+    <string name="settings_update_check_again_button">Check again</string>
+    <string name="settings_update_downloading">Downloading… %1$d%%</string>
+    <string name="settings_update_downloading_header">%1$s · %2$s</string>
+    <string name="settings_update_downloaded">Downloaded — ready to install</string>
+    <string name="settings_update_download_failed">Download failed. Check connection and retry.</string>
+    <string name="settings_update_download_button">Download update</string>
+    <string name="settings_update_install_now_button">Install now</string>
+    <string name="settings_update_retry_button">Retry</string>
+    <string name="settings_update_paused_wifi">Waiting for Wi-Fi — download will resume automatically</string>
+    <string name="settings_update_paused_retry">Paused — will retry automatically</string>
+    <string name="settings_update_paused">Download paused</string>
+    <string name="settings_update_error_no_url">Update found but download link unavailable. Try again later.</string>
+    <string name="settings_update_error_enqueue">Could not start the download. Try again.</string>
+    <string name="settings_update_error_file_missing">Downloaded file is missing. Download again.</string>
+    <string name="settings_update_error_install_launch">Could not open the installer. Check install permissions in Settings.</string>
+    <string name="settings_update_error_file">Could not save the download file.</string>
+    <string name="settings_update_error_http">Download failed — server error. Try again later.</string>
+    <string name="settings_update_error_space">Not enough storage space for the update.</string>
+    <string name="settings_update_error_retry_later">Download interrupted — will need a fresh attempt.</string>
+    <string name="settings_update_error_exists">File conflict — download again.</string>
+    <string name="settings_update_install_title">Update available</string>
+    <string name="settings_update_install_message">A new build has been downloaded. Install it now?</string>
+    <string name="settings_update_install_now">Update now</string>
+    <string name="settings_update_install_later">Later</string>
     <string name="settings_update_available">Update available: build #%1$d</string>
     <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
     <string name="settings_update_error_network">Could not check for updates. Try again later.</string>
@@ -1108,4 +1159,38 @@
     <string name="settings_update_view_release">View release</string>
 
     <!-- Settings About additions -->
- </resources>
+<string name="activity_detail_no_data">No data in this window</string>
+<string name="activity_detail_earlier">Earlier window</string>
+<string name="activity_detail_later">Later window</string>
+<string name="activity_detail_chart_view">Chart</string>
+<string name="activity_detail_table_view">Table</string>
+<string name="activity_detail_chart_running_avg">Running Avg</string>
+<string name="activity_detail_chart_streak_pos">Streak+</string>
+<string name="activity_detail_col_date">Date</string>
+<string name="activity_detail_col_raw">Raw</string>
+<string name="activity_detail_col_streak_pos">S+</string>
+<string name="activity_detail_col_continue">Cont</string>
+     <string name="activity_detail_loading">Loading…</string>
+
+    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
+    <string name="pre_unlock_update_download_install">Download &amp; install</string>
+    <string name="pre_unlock_update_downloading">Downloading %1$d%%</string>
+    <string name="pre_unlock_update_up_to_date">You are on the latest build</string>
+    <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
+    <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
+    <string name="pre_unlock_update_hint">Manual only — never automatic. Uses the dev channel.</string>
+
+    <string name="loc_lens_metric_label">Metric: %1$s</string>
+
+
+    <string name="loc_lens_radar_title">Dimension spread</string>
+
+
+    <string name="loc_lens_score_detail_day">Day · %1$s</string>
+    <string name="loc_lens_score_detail_dimension">Dimension · %1$s</string>
+
+
+    <string name="loc_lens_metric_streak_net">Net</string>
+
+    <string name="loc_lens_summary_avg_score">Avg score</string>
+</resources>

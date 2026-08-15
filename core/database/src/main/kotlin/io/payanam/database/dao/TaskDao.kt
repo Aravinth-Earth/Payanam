@@ -35,6 +35,9 @@ interface TaskDao {
     @Query("SELECT * FROM tasks WHERE id = :id")
     suspend fun getTaskById(id: String): TaskEntity?
 
+    @Query("UPDATE tasks SET recurrenceRule = :rule, updatedAt = :updatedAt WHERE id = :id")
+    suspend fun updateRecurrenceRule(id: String, rule: String, updatedAt: String = java.time.LocalDateTime.now().toString())
+
     @Query("SELECT * FROM tasks WHERE import_source = :source AND import_id = :importId LIMIT 1")
     suspend fun getTaskByImportRef(
         source: String,
@@ -134,7 +137,6 @@ interface TaskDao {
             dueDate = :newDueDate,
             day_key = :dayKey,
             status = 'pending',
-            currentScore = :newScore,
             lastOccurrenceDate = :lastOccurrenceDate,
             updatedAt = :updatedAt
         WHERE id = :id
@@ -144,7 +146,6 @@ interface TaskDao {
         id: String,
         newDueDate: String,
         dayKey: String,
-        newScore: Double,
         lastOccurrenceDate: String,
         updatedAt: String,
     )

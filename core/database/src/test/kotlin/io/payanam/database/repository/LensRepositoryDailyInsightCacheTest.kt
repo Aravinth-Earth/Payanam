@@ -344,7 +344,6 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun updateRecurrenceState(
             taskId: String,
             newDueDate: LocalDateTime,
-            newScore: Double,
             lastOccurrenceDate: LocalDateTime,
         ) = unused("updateRecurrenceState")
     }

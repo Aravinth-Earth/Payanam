@@ -72,4 +72,29 @@ interface LifeDimensionDao {
         isActive: Int,
         updatedAt: String,
     )
+
+    @Query(
+        """
+        UPDATE life_dimensions
+        SET weight = :weight,
+            updatedAt = :updatedAt
+        WHERE id = :dimensionId
+        """,
+    )
+    suspend fun updateWeight(
+        dimensionId: String,
+        weight: Double,
+        updatedAt: String,
+    )
+
+    @Query("SELECT weight FROM life_dimensions WHERE id = :dimensionId")
+    suspend fun weightFor(dimensionId: String): Double?
+
+    @Query("SELECT id, weight FROM life_dimensions")
+    suspend fun allWeights(): List<WeightRow>
+
+    data class WeightRow(
+        val id: String,
+        val weight: Double,
+    )
 }

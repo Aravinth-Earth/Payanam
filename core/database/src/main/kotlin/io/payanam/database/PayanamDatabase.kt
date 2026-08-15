@@ -7,6 +7,9 @@ import androidx.room.RoomDatabase
 import io.payanam.database.dao.AppSettingsDao
 import io.payanam.database.dao.DailyInsightDao
 import io.payanam.database.dao.DayPlanDao
+import io.payanam.database.dao.DayMetricDao
+import io.payanam.database.dao.HabitMetricDao
+import io.payanam.database.dao.DimensionMetricDao
 import io.payanam.database.dao.ImportBatchDao
 import io.payanam.database.dao.JournalDao
 import io.payanam.database.dao.LensReflectionDao
@@ -27,7 +30,10 @@ import io.payanam.database.entity.DayPlanAllocationEntity
 import io.payanam.database.entity.DayPlanPolicyEntity
 import io.payanam.database.entity.DayPlanTemplateAllocationEntity
 import io.payanam.database.entity.DayPlanTemplateEntity
+import io.payanam.database.entity.DayMetricEntity
 import io.payanam.database.entity.DayTypeTemplatePreferenceEntity
+import io.payanam.database.entity.HabitMetricEntity
+import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.ImportBatchEntity
 import io.payanam.database.entity.JournalNoteEntity
 import io.payanam.database.entity.LensReflectionEntity
@@ -47,7 +53,7 @@ import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
 
-const val PAYANAM_DATABASE_SCHEMA_VERSION = 17
+const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
 
 /**
  * Room Database for Payanam.
@@ -128,6 +134,9 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 17
         TaskTagEntity::class,
         NoteTagEntity::class,
         TimeEntryTagEntity::class,
+        HabitMetricEntity::class,
+        DimensionMetricEntity::class,
+        DayMetricEntity::class,
         TimeGoalEntity::class,
         TimeRuleEntity::class,
         LensReflectionEntity::class,
@@ -170,6 +179,12 @@ abstract class PayanamDatabase : RoomDatabase() {
     abstract fun dayPlanDao(): DayPlanDao
 
     abstract fun importBatchDao(): ImportBatchDao
+
+    abstract fun habitMetricDao(): HabitMetricDao
+
+    abstract fun dimensionMetricDao(): DimensionMetricDao
+
+    abstract fun dayMetricDao(): DayMetricDao
 
     companion object {
         const val DATABASE_NAME = "payanam.db"

@@ -78,6 +78,7 @@ opencode.json
 **/AGENTS.md
 **/CLAUDE.md
 AGENTS-REFERENCE.md
+.agents/skills/
 build-tools/scripts/assert-ghpo-cache-fresh.ps1
 build-tools/scripts/install-git-hooks.ps1
 build-tools/scripts/pre-commit.ps1
@@ -108,3 +109,4 @@ user-logged-error/
 build-tools/scripts/scroll-jank-analyze.sh
 build-tools/scripts/scroll-jank-report.py
 output/scroll-jank/
+docs/db/node_modules/

@@ -15,4 +15,5 @@ internal fun LifeDimensionEntity.toConfiguredLifeDimension(): ConfiguredLifeDime
         iconKey = icon,
         sortOrder = sortOrder,
         isActive = isActive != 0,
+        weight = weight,
     )

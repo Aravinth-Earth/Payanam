@@ -580,7 +580,7 @@ private fun TasksTopBar(
                         onDismissRequest = { onShowHabitSortMenuChange(false) },
                     ) {
                         HabitSortOption.entries
-                            .filter { FeatureFlags.scoringEnabled || it != HabitSortOption.BY_SCORE }
+                            .filter { FeatureFlags.scoringEnabled || it.legacyCategory() }
                             .forEach { option ->
                                 DropdownMenuItem(
                                     text = {
@@ -955,6 +955,7 @@ private fun HabitsTabContent(
                                 onCheckmarkLongClick(row.id, checkmark)
                             },
                             buttonCount = buttonCount,
+                            latestL1RunningAvg = row.latestL1?.runningAvg,
                         )
                     }
                 }
@@ -1203,7 +1204,18 @@ private fun taskSortLabel(option: TaskSortOption): String = when (option) {
 
 @Composable
 private fun habitSortLabel(option: HabitSortOption): String = when (option) {
-    HabitSortOption.BY_SCORE -> stringResource(id = io.payanam.R.string.loc_score)
+    HabitSortOption.BY_SCORE, HabitSortOption.RUNNING_AVG_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_running_avg_desc)
+    HabitSortOption.RUNNING_AVG_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_running_avg_asc)
+    HabitSortOption.SCORE_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_score_desc)
+    HabitSortOption.SCORE_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_score_asc)
+    HabitSortOption.PROGRESS_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_progress_desc)
+    HabitSortOption.PROGRESS_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_progress_asc)
+    HabitSortOption.STREAK_POS_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_pos_desc)
+    HabitSortOption.STREAK_POS_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_pos_asc)
+    HabitSortOption.STREAK_NET_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_net_desc)
+    HabitSortOption.STREAK_NET_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_net_asc)
+    HabitSortOption.POS_CONTINUE_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_pos_continue_desc)
+    HabitSortOption.POS_CONTINUE_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_pos_continue_asc)
     HabitSortOption.BY_NAME -> stringResource(id = io.payanam.R.string.loc_name)
     HabitSortOption.BY_STATUS -> stringResource(id = io.payanam.R.string.loc_status)
     HabitSortOption.BY_DUE_TIME -> stringResource(id = io.payanam.R.string.loc_due_time)

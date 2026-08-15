@@ -110,6 +110,7 @@
     <string name="settings_dimension_edit">பரிமாணம் திருத்து</string>
     <string name="settings_dimension_cancel">திருத்தம் ரத்து</string>
     <string name="settings_dimension_save">பெயர் சேமி</string>
+    <string name="settings_dimension_weight_label">எடை</string>
     <string name="settings_dimension_hide">பரிமாணம் மறை</string>
     <string name="settings_action_collapse">சுருக்கு</string>
     <string name="settings_action_expand">விரி</string>
@@ -118,10 +119,10 @@
     <string name="settings_action_import_uhabits">uHabits இறக்குமதி</string>
     <string name="settings_action_map_imported_habits">இறக்குமதி பழக்கங்களை ஒதுக்கு</string>
     <string name="settings_action_change_passphrase">பயன்பாட்டு கடவுச்சொல் மாற்று</string>
-    <string name="settings_action_export_latest_log">அண்மை பதிவு ஏற்றுமதி</string>
+    <string name="settings_action_export_latest_log">தற்போதைய அமர்வு பதிவு ஏற்றுமதி</string>
     <string name="settings_action_export_all_logs">அனைத்து பதிவுகளும் ஏற்றுமதி</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics">பழைய பரிமாண கண்டறிதலை இயக்கு</string>
-    <string name="settings_action_run_legacy_dimension_diagnostics_in_progress">பழைய பரிமாண கண்டறிதல் இயங்குகிறது…</string>
+    <string name="settings_action_run_habit_score_diagnostics">பழக்க மதிப்பெண் கண்டறிதலை இயக்கு</string>
+    <string name="settings_action_run_habit_score_diagnostics_in_progress">பழக்க மதிப்பெண் கண்டறிதல் இயங்குகிறது…</string>
     <string name="settings_action_delete_all_data">அனைத்து தரவையும் அழி</string>
     <string name="settings_action_delete_file">கோப்பை அழி</string>
     <string name="settings_action_delete_import">அழித்து இறக்குமதி செய்</string>
@@ -171,12 +172,12 @@
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_habit_mapping_success">%2$s-க்கு %1$d இறக்குமதி பழக்கங்கள் ஒதுக்கப்பட்டன</string>
     <string name="settings_snackbar_habit_mapping_failed">பழக்க ஒதுக்கீடு தோல்வி: %1$s</string>
-    <string name="settings_snackbar_latest_log_exported">அண்மை பதிவு ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
-    <string name="settings_snackbar_latest_log_export_failed">அண்மை பதிவு ஏற்றுமதி தோல்வி</string>
+    <string name="settings_snackbar_latest_log_exported">தற்போதைய அமர்வு பதிவு ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
+    <string name="settings_snackbar_latest_log_export_failed">தற்போதைய அமர்வு பதிவு ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_all_logs_exported">அனைத்து பதிவுகளும் ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
     <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_complete">பழைய பரிமாண கண்டறிதல் பதிவானது. வரிகள்: %1$d, அட்டவணைகள்: %2$d</string>
-    <string name="settings_snackbar_legacy_dimension_diagnostics_failed">பழைய பரிமாண கண்டறிதல் தோல்வி: %1$s</string>
+    <string name="settings_snackbar_habit_score_diagnostics_complete">பழக்க மதிப்பெண் கண்டறிதல் பதிவானது. பழக்கங்கள்: %1$d, நிகழ்வுகளுடன்: %2$d</string>
+    <string name="settings_snackbar_habit_score_diagnostics_failed">பழக்க மதிப்பெண் கண்டறிதல் தோல்வி: %1$s</string>
     <string name="settings_action_run_legacy_label_fix">பழைய பெயர்களை சரிசெய்</string>
     <string name="settings_action_run_legacy_label_fix_in_progress">பழைய பெயர்கள் சரிசெய்யப்படுகின்றன…</string>
     <string name="settings_action_run_legacy_label_verify">சரிசெய்தலை சரிபார்</string>
@@ -634,6 +635,9 @@
     <string name="loc_database_schema_errors">தரவுத்தள திட்டப் பிழைகள்</string>
     <string name="loc_day">நாள்</string>
     <string name="loc_day_streak_value">%1$d-நாள் ஸ்ட்ரீக்</string>
+    <string name="loc_metric_running_avg">சராசரி</string>
+    <string name="loc_metric_net_streak">நிகர தொடர்</string>
+    <string name="loc_metric_consistency">நிலைத்தன்மை</string>
     <string name="loc_default_duration_minutes_planned">இயல்புநிலை காலம்: %1$d நிமிடம் (திட்டமிடப்பட்டது)</string>
     <string name="loc_default_time_with_label">இயல்பு நேரம்: %1$s</string>
     <string name="loc_dimension">பரிமாணம்</string>
@@ -832,6 +836,18 @@
     <string name="loc_manual">கையேடு</string>
     <string name="loc_name">பெயர்படி</string>
     <string name="loc_score">மதிப்பெண்</string>
+    <string name="loc_habit_sort_running_avg_desc">சராசரி (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_running_avg_asc">சராசரி (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_habit_sort_score_desc">இன்று (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_score_asc">இன்று (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_habit_sort_progress_desc">முன்னேற்றம் (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_progress_asc">முன்னேற்றம் (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_habit_sort_streak_pos_desc">தொடர் (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_streak_pos_asc">தொடர் (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_habit_sort_streak_net_desc">நிகர தொடர் (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_streak_net_asc">நிகர தொடர் (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_habit_sort_pos_continue_desc">நிலைத்தன்மை (அதிகம் முதல் குறைவு)</string>
+    <string name="loc_habit_sort_pos_continue_asc">நிலைத்தன்மை (குறைவு முதல் அதிகம்)</string>
     <string name="loc_score_high_to_low">அதிக மதிப்பெண்</string>
     <string name="loc_score_low_to_high">குறைந்த முதல் அதிக மதிப்பெண்</string>
     <string name="loc_title_a_to_z">தலைப்பு A முதல் Z வரை</string>
@@ -1098,6 +1114,41 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
     <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
+    <string name="settings_update_channel_label">புதுப்பிப்பு சேனல்</string>
+    <string name="settings_update_channel_dev">டெவ் (தினமும்)</string>
+    <string name="settings_update_channel_beta">பீட்டா (வாரந்தோறும்)</string>
+    <string name="settings_update_channel_stable">ஸ்டேபிள் (மாதந்தோறும்)</string>
+    <string name="settings_update_channel_statuses_title">சேனல் நிலை</string>
+    <string name="settings_update_channel_build">பில்ட் #%1$d</string>
+    <string name="settings_update_channel_no_build">இன்னும் பில்ட் இல்லை</string>
+    <string name="settings_update_auto_download">புதுப்பிப்புகளை தானாக பதிவிறக்கு</string>
+    <string name="settings_update_prompt_install">பதிவிறக்கிய பின் நிறுவ கேள்வி கேள்</string>
+    <string name="settings_update_wifi_only">வைஃபையில் மட்டும் பதிவிறக்கு</string>
+    <string name="settings_update_auto_check">திறந்த பின் புதுப்பிப்புகளைச் சரிபார்</string>
+    <string name="settings_update_check_again_button">மீண்டும் சரிபார்</string>
+    <string name="settings_update_downloading">பதிவிறக்குகிறது… %1$d%%</string>
+    <string name="settings_update_downloading_header">%1$s · %2$s</string>
+    <string name="settings_update_downloaded">பதிவிறக்கம் முடிந்தது — நிறுவ தயார்</string>
+    <string name="settings_update_download_failed">பதிவிறக்கம் தோல்வி. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
+    <string name="settings_update_download_button">புதுப்பிப்பை பதிவிறக்கு</string>
+    <string name="settings_update_install_now_button">இப்போது நிறுவு</string>
+    <string name="settings_update_retry_button">மீண்டும் முயற்சி</string>
+    <string name="settings_update_paused_wifi">வைஃபைக்காக காத்திருக்கிறது — பதிவிறக்கம் தானாக தொடரும்</string>
+    <string name="settings_update_paused_retry">இடைநிறுத்தப்பட்டது — தானாக மீண்டும் முயற்சிக்கும்</string>
+    <string name="settings_update_paused">பதிவிறக்கம் இடைநிறுத்தப்பட்டது</string>
+    <string name="settings_update_error_no_url">புதுப்பிப்பு கிடைத்தது ஆனால் பதிவிறக்க இணைப்பு இல்லை. பின்னர் முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_enqueue">பதிவிறக்கத்தை தொடங்க முடியவில்லை. மீண்டும் முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_file_missing">பதிவிறக்கிய கோப்பு இல்லை. மீண்டும் பதிவிறக்கவும்.</string>
+    <string name="settings_update_error_install_launch">நிறுவியை திறக்க முடியவில்லை. அமைப்புகளில் நிறுவ அனுமதியை சரிபார்க்கவும்.</string>
+    <string name="settings_update_error_file">பதிவிறக்க கோப்பை சேமிக்க முடியவில்லை.</string>
+    <string name="settings_update_error_http">பதிவிறக்கம் தோல்வி — சேவையக பிழை. பின்னர் முயற்சிக்கவும்.</string>
+    <string name="settings_update_error_space">புதுப்பிப்புக்கு போதுமான சேமிப்பு இடம் இல்லை.</string>
+    <string name="settings_update_error_retry_later">பதிவிறக்கம் தடைபட்டது — மீண்டும் முயற்சிக்க வேண்டும்.</string>
+    <string name="settings_update_error_exists">கோப்பு முரண்பாடு — மீண்டும் பதிவிறக்கவும்.</string>
+    <string name="settings_update_install_title">புதுப்பிப்பு கிடைக்கிறது</string>
+    <string name="settings_update_install_message">புதிய பில்ட் பதிவிறக்கப்பட்டது. இப்போது நிறுவவா?</string>
+    <string name="settings_update_install_now">இப்போது புதுப்பி</string>
+    <string name="settings_update_install_later">பின்னர்</string>
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
     <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
@@ -1107,4 +1158,39 @@
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
 
     <!-- Settings About additions -->
+<string name="activity_detail_no_data">இந்த காலகட்டத்தில் தரவு இல்லை</string>
+<string name="activity_detail_earlier">முந்தைய காலகட்டம்</string>
+<string name="activity_detail_later">அடுத்த காலகட்டம்</string>
+<string name="activity_detail_range_all">அனைத்தும்</string>
+<string name="activity_detail_chart_view">விளக்கப்படம்</string>
+<string name="activity_detail_table_view">அட்டவணை</string>
+<string name="activity_detail_chart_running_avg">இயங்கு சராசரி</string>
+<string name="activity_detail_chart_streak_pos">தொடர்+</string>
+<string name="activity_detail_chart_continue">தொடர்ச்சி</string>
+<string name="activity_detail_col_date">தேதி</string>
+<string name="activity_detail_col_progress">முன்னேற்</string>
+<string name="activity_detail_col_streak_pos">தொ+</string>
+     <string name="activity_detail_loading">ஏற்றுகிறது…</string>
+
+    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
+    <string name="pre_unlock_update_download_install">பதிவிறக்கி நிறுவு</string>
+    <string name="pre_unlock_update_downloading">பதிவிறக்குகிறது %1$d%%</string>
+    <string name="pre_unlock_update_up_to_date">சமீபத்திய பதிப்பில்தான் உள்ளீர்கள்</string>
+    <string name="pre_unlock_update_check_failed">சரிபார்ப்பு தோல்வி — இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்</string>
+    <string name="pre_unlock_update_download_failed">பதிவிறக்கம் தோல்வி — மீண்டும் முயற்சிக்கவும்</string>
+    <string name="pre_unlock_update_hint">கைமுறை மட்டுமே — தானாக ஒருபோதும் இல்லை. Dev சேனல் பயன்படுத்துகிறது.</string>
+
+    <string name="loc_lens_metric_label">அளவீடு: %1$s</string>
+
+
+    <string name="loc_lens_radar_title">பரிமாணப் பரவல்</string>
+
+
+    <string name="loc_lens_score_detail_day">நாள் · %1$s</string>
+    <string name="loc_lens_score_detail_dimension">பரிமாணம் · %1$s</string>
+
+
+    <string name="loc_lens_metric_streak_net">நிகரம்</string>
+
+    <string name="loc_lens_summary_avg_score">சராசரி மதிப்பெண்</string>
 </resources>
