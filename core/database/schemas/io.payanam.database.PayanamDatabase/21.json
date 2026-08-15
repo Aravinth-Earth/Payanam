@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 21,
-    "identityHash": "0e6717743aed71c26f9ed484085c7e2a",
+    "identityHash": "f426179f3cb2a15c7e441d1562c65df5",
     "entities": [
       {
         "tableName": "tasks",
@@ -1599,7 +1599,7 @@
       },
       {
         "tableName": "life_dimensions",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `key` TEXT NOT NULL, `label` TEXT NOT NULL, `description` TEXT, `color` TEXT NOT NULL, `icon` TEXT, `sortOrder` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, `weight` REAL NOT NULL, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `key` TEXT NOT NULL, `label` TEXT NOT NULL, `description` TEXT, `color` TEXT NOT NULL, `icon` TEXT, `sortOrder` INTEGER NOT NULL, `isActive` INTEGER NOT NULL, `weight` REAL NOT NULL DEFAULT 1.0, `createdAt` TEXT NOT NULL, `updatedAt` TEXT NOT NULL, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -1651,7 +1651,8 @@
             "fieldPath": "weight",
             "columnName": "weight",
             "affinity": "REAL",
-            "notNull": true
+            "notNull": true,
+            "defaultValue": "1.0"
           },
           {
             "fieldPath": "createdAt",
@@ -2926,7 +2927,7 @@
     ],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '0e6717743aed71c26f9ed484085c7e2a')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'f426179f3cb2a15c7e441d1562c65df5')"
     ]
   }
 }
