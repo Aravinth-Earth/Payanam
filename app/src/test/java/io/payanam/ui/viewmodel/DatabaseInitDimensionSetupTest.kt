@@ -5,10 +5,15 @@ package io.payanam.ui.viewmodel
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.PayanamDatabase
+import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.repository.AppSettingsRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -143,5 +148,49 @@ class DatabaseInitDimensionSetupTest {
             "வீடு & சூழல்",
             tamilDefaults.first { it.id == DimensionTaxonomyCatalog.HOME_ENVIRONMENT.id }.label,
         )
+    }
+
+    @Test
+    fun `persistNewDatabaseDimensionSetup writes all NOT NULL columns including weight`() {
+        testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying seed insert against real Room schema")
+        val db =
+            Room
+                .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
+                .fallbackToDestructiveMigration()
+                .allowMainThreadQueries()
+                .build()
+        try {
+            val sessionManager = mock<DatabaseSessionManager>()
+            whenever(sessionManager.requireDatabase()).thenReturn(db)
+            val settingsRepository = mock<AppSettingsRepository>()
+            runBlocking {
+                whenever(settingsRepository.setSetting(any(), any())).thenReturn(Unit)
+
+                persistNewDatabaseDimensionSetup(
+                    context = mockDimensionLabelContext(),
+                    databaseSessionManager = sessionManager,
+                    appSettingsRepository = settingsRepository,
+                    dimensionInputs = defaultNewDatabaseDimensionInputs(mockDimensionLabelContext()),
+                )
+            }
+
+            val rows =
+                db.query(
+                    "SELECT id, key, label, color, icon, sortOrder, isActive, weight FROM life_dimensions",
+                    null,
+                )
+            try {
+                assertTrue(rows.moveToFirst())
+                assertTrue(rows.count > 0)
+                val weightColumn = rows.getColumnIndexOrThrow("weight")
+                do {
+                    assertEquals(1.0, rows.getDouble(weightColumn), 0.0)
+                } while (rows.moveToNext())
+            } finally {
+                rows.close()
+            }
+        } finally {
+            db.close()
+        }
     }
 }

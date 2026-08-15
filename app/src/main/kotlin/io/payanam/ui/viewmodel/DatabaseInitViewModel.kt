@@ -319,7 +319,11 @@ class DatabaseInitViewModel @Inject constructor(
         logger.i(
             "DatabaseInitViewModel.completeNewDatabaseDimensionSetup",
             "Persisting mandatory life-dimension setup",
-            mapOf("inputCount" to dimensionInputs.size),
+            mapOf(
+                "inputCount" to dimensionInputs.size,
+                "hasPendingPassphrase" to (pendingCreatePassphrase != null),
+                "pendingNeedsWipe" to pendingCreateNeedsWipe,
+            ),
         )
         viewModelScope.launch {
             _uiState.update { it.copy(isCreating = true, errorMessage = null) }
@@ -374,7 +378,16 @@ class DatabaseInitViewModel @Inject constructor(
                     val dir = tempBackupDir
                     if (dir != null) restoreFromTempBackup(dir) else false
                 }
-                clearPendingCreate()
+                // Keep the pending create passphrase so the user can retry the
+                // dimension setup without re-entering the passphrase flow.
+                logger.i(
+                    "DatabaseInitViewModel.completeNewDatabaseDimensionSetup",
+                    "Dimension setup failed; pending passphrase retained for retry",
+                    mapOf(
+                        "restoredFromBackup" to restored,
+                        "pendingPassphraseRetained" to (pendingCreatePassphrase != null),
+                    ),
+                )
                 _uiState.update { it.copy(isCreating = false, errorMessage = e.message) }
                 if (tempBackupDir != null) {
                     _uiState.update {
