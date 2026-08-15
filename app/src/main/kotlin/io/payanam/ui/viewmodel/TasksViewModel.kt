@@ -96,17 +96,23 @@ class TasksViewModel @Inject constructor(
         )
     private var tasksLoadJob: Job? = null
     init {
-        loadSavedSortOption()
-        loadSavedFilterOption()
-        loadSavedHabitSortOption()
-        loadSavedVisibilityToggles()
-        loadTasks()
+        // Sequenced: persisted preferences must be in state BEFORE the first
+        // list shaping. Parallel launches raced loadTasks' shaping snapshot
+        // against the visibility-toggle load, leaving the persisted
+        // hide-all-marked filter unapplied on launch (rows were shaped with
+        // the default flags and clobbered the flag-only update).
+        viewModelScope.launch {
+            loadSavedSortOption()
+            loadSavedFilterOption()
+            loadSavedHabitSortOption()
+            loadSavedVisibilityToggles()
+            loadTasks()
+        }
     }
 
     /** Persisted visibility toggles: showArchived / showCompleted / hideAllMarked. */
-    private fun loadSavedVisibilityToggles() {
-        viewModelScope.launch {
-            try {
+    private suspend fun loadSavedVisibilityToggles() {
+        try {
                 val showArchived = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_SHOW_ARCHIVED_HABITS) == "true"
                 val showCompleted = appSettingsRepository
@@ -127,16 +133,14 @@ class TasksViewModel @Inject constructor(
                         showArchivedHabits = showArchived,
                         showCompletedHabits = showCompleted,
                         hideAllMarkedToday = hideAllMarked,
-                    )
+                    ).applyVisibilityRows()
                 }
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedVisibilityToggles", "Failed to load visibility toggles", e)
             }
-        }
     }
-    private fun loadSavedSortOption() {
-        viewModelScope.launch {
-            try {
+    private suspend fun loadSavedSortOption() {
+        try {
                 val savedSortKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_TASK_SORT_OPTION)
                 val sortOption = TaskSortOption.fromKey(savedSortKey)
                 _uiState.update { state ->
@@ -155,11 +159,9 @@ class TasksViewModel @Inject constructor(
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedSortOption", "Failed to load sort option", e)
             }
-        }
     }
-    private fun loadSavedFilterOption() {
-        viewModelScope.launch {
-            try {
+    private suspend fun loadSavedFilterOption() {
+        try {
                 val savedFilterKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_TASK_FILTER_OPTION)
                 val filterOption = TaskFilter.fromKey(savedFilterKey)
                 _uiState.update { state ->
@@ -178,18 +180,15 @@ class TasksViewModel @Inject constructor(
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedFilterOption", "Failed to load filter option", e)
             }
-        }
     }
-    private fun loadSavedHabitSortOption() {
-        viewModelScope.launch {
-            try {
+    private suspend fun loadSavedHabitSortOption() {
+        try {
                 val savedHabitSortKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_HABIT_SORT_OPTION)
                 val habitSortOption = HabitSortOption.fromKey(savedHabitSortKey)
                 _uiState.update { it.copy(habitSortOption = habitSortOption) }
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedHabitSortOption", "Failed to load habit sort option", e)
             }
-        }
     }
     private fun loadTasks() {
         tasksLoadJob?.cancel()
@@ -264,10 +263,14 @@ class TasksViewModel @Inject constructor(
                     )
                     val listShapingStart = System.currentTimeMillis()
                     val preparedState = withContext(Dispatchers.Default) {
-                        val filteredSorted = filterAndSortTasks(tasks, state.currentFilter, state.currentSort)
+                        // Fresh read: the pre-suspension snapshot (`state`) may
+                        // predate persisted-preference updates applied while the
+                        // DB queries above were in flight.
+                        val shapingState = _uiState.value
+                        val filteredSorted = filterAndSortTasks(tasks, shapingState.currentFilter, shapingState.currentSort)
                         val sortedRecurring = sortHabits(
                             recurringSource,
-                            state.habitSortOption,
+                            shapingState.habitSortOption,
                             checkmarkPayload.taskCheckmarks,
                             checkmarkPayload.todayStatusByTaskId,
                             latestL1,
@@ -275,16 +278,16 @@ class TasksViewModel @Inject constructor(
                         val visibleRecurring = visibleHabitsForDisplay(
                             habits = sortedRecurring,
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
-                            showCompletedHabits = state.showCompletedHabits,
-                            hideAllMarkedToday = state.hideAllMarkedToday,
+                            showCompletedHabits = shapingState.showCompletedHabits,
+                            hideAllMarkedToday = shapingState.hideAllMarkedToday,
                         )
                         val filteredOneTime = filteredSorted.filterNot { it.recurrenceEnabled }
                         val visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                             tasks = sortedRecurring,
                             checkmarksByTaskId = checkmarkPayload.taskCheckmarks,
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
-                            showCompletedHabits = state.showCompletedHabits,
-                            hideAllMarkedToday = state.hideAllMarkedToday,
+                            showCompletedHabits = shapingState.showCompletedHabits,
+                            hideAllMarkedToday = shapingState.hideAllMarkedToday,
                             latestL1ByHabit = latestL1,
                         )
                         val filteredTaskRows = TasksRowCacheManager.buildTaskRows(filteredOneTime)
@@ -340,7 +343,7 @@ class TasksViewModel @Inject constructor(
                             error = null,
                             todayCount = todayCount,
                             overdueCount = overdueCount,
-                        )
+                        ).applyVisibilityRows()
                     }
                     val endTime = System.currentTimeMillis()
                     logger.i(
@@ -841,26 +844,37 @@ class TasksViewModel @Inject constructor(
         _uiState.update { state ->
             val newValue = !state.hideAllMarkedToday
             logger.d("TasksViewModel.toggleHideAllMarkedToday", "Toggled", mapOf("hideAllMarked" to newValue))
-            state.copy(
-                hideAllMarkedToday = newValue,
-                visibleRecurringTasks = visibleHabitsForDisplay(
-                    habits = state.recurringTasks,
-                    todayStatusByTaskId = state.todayHabitStatusByTaskId,
-                    showCompletedHabits = state.showCompletedHabits,
-                    hideAllMarkedToday = newValue,
-                ),
-                visibleHabitRows = TasksRowCacheManager.buildHabitRows(
-                    tasks = state.recurringTasks,
-                    checkmarksByTaskId = state.taskCheckmarks,
-                    todayStatusByTaskId = state.todayHabitStatusByTaskId,
-                    showCompletedHabits = state.showCompletedHabits,
-                    hideAllMarkedToday = newValue,
-                    latestL1ByHabit = state.latestL1ByHabit,
-                ),
-            )
+            state.copy(hideAllMarkedToday = newValue).applyVisibilityRows()
         }
         persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
+
+    /**
+     * Recomputes the flag-dependent habit visibility rows (visibleRecurringTasks
+     * + visibleHabitRows) from the current state. Must only run inside a
+     * non-suspending _uiState.update lambda — MutableStateFlow.update retries
+     * with the latest value on contention, so the rows always derive from the
+     * current flags. Never compute these from a snapshot captured before a
+     * suspension (that was the launch race: persisted hide-all-marked loaded
+     * after list shaping captured the default flags and got clobbered).
+     */
+    private fun TasksUiState.applyVisibilityRows(): TasksUiState =
+        copy(
+            visibleRecurringTasks = visibleHabitsForDisplay(
+                habits = recurringTasks,
+                todayStatusByTaskId = todayHabitStatusByTaskId,
+                showCompletedHabits = showCompletedHabits,
+                hideAllMarkedToday = hideAllMarkedToday,
+            ),
+            visibleHabitRows = TasksRowCacheManager.buildHabitRows(
+                tasks = recurringTasks,
+                checkmarksByTaskId = taskCheckmarks,
+                todayStatusByTaskId = todayHabitStatusByTaskId,
+                showCompletedHabits = showCompletedHabits,
+                hideAllMarkedToday = hideAllMarkedToday,
+                latestL1ByHabit = latestL1ByHabit,
+            ),
+        )
     fun completeTask(taskId: String, note: String? = null) {
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))
         viewModelScope.launch {
