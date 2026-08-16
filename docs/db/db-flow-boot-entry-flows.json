@@ -1254,18 +1254,8 @@
    "type": "process"
   },
   {
-   "id": "CASCADE_L1_HABIT",
-   "label": "Rebuild habit L1 tail from toggled day onward, bridge currentScore to latest runningAvg",
-   "type": "process"
-  },
-  {
-   "id": "CASCADE_L2_DIMENSION",
-   "label": "Rebuild affected dimension L2 tail with equal-weight carry-forward",
-   "type": "process"
-  },
-  {
-   "id": "CASCADE_L3_DAY",
-   "label": "Rebuild day L3 tail",
+   "id": "CASCADE_TRACE",
+   "label": "Emit CASCADE_TRACE - single-line old→new for all 6 metrics across L1/L2/L3 (L1/L2/L3 tails rebuilt inside CASCADE_RECALC)",
    "type": "process"
   },
   {
@@ -4479,35 +4469,19 @@
    "from": "CASCADE_RECALC",
    "trigger": "start",
    "guard": "",
-   "action": "Rebuild habit L1 tail from toggled day onward",
-   "to": "CASCADE_L1_HABIT"
+   "action": "Rebuild habit L1 tail, dimension L2 tail, day L3 tail (delete+upsert), then emit CASCADE_TRACE value line",
+   "to": "CASCADE_TRACE"
   },
   {
    "id": "TCS003",
-   "from": "CASCADE_L1_HABIT",
+   "from": "CASCADE_TRACE",
    "trigger": "complete",
    "guard": "",
-   "action": "Bridge currentScore to latest L1 runningAvg, rebuild dimension tail",
-   "to": "CASCADE_L2_DIMENSION"
-  },
-  {
-   "id": "TCS004",
-   "from": "CASCADE_L2_DIMENSION",
-   "trigger": "complete",
-   "guard": "",
-   "action": "Rebuild day L3 tail",
-   "to": "CASCADE_L3_DAY"
-  },
-  {
-   "id": "TCS005",
-   "from": "CASCADE_L3_DAY",
-   "trigger": "complete",
-   "guard": "",
-   "action": "Log CASCADE_END",
+   "action": "Log CASCADE_END, cascade complete",
    "to": "CASCADE_DONE"
   },
   {
-   "id": "TCS006",
+   "id": "TCS004",
    "from": "CASCADE_DONE",
    "trigger": "complete",
    "guard": "",
@@ -4515,35 +4489,19 @@
    "to": "APP_RUNTIME_READY"
   },
   {
-   "id": "TCS007",
-   "from": "CASCADE_L1_HABIT",
+   "id": "TCS005",
+   "from": "CASCADE_RECALC",
    "trigger": "failure",
    "guard": "Exception",
    "action": "Log CASCADE_FAILED, no guard, UI unaffected",
    "to": "CASCADE_FAILED"
   },
   {
-   "id": "TCS008",
-   "from": "CASCADE_L2_DIMENSION",
-   "trigger": "failure",
-   "guard": "Exception",
-   "action": "Log CASCADE_FAILED, no guard, UI unaffected",
-   "to": "CASCADE_FAILED"
-  },
-  {
-   "id": "TCS009",
-   "from": "CASCADE_L3_DAY",
-   "trigger": "failure",
-   "guard": "Exception",
-   "action": "Log CASCADE_FAILED, no guard, UI unaffected",
-   "to": "CASCADE_FAILED"
-  },
-  {
-   "id": "TCS010",
+   "id": "TCS006",
    "from": "CASCADE_FAILED",
    "trigger": "complete",
    "guard": "",
-   "action": "Return to runtime",
+   "action": "Return to app runtime",
    "to": "APP_RUNTIME_READY"
   },
   {

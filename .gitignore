@@ -110,3 +110,4 @@ build-tools/scripts/scroll-jank-analyze.sh
 build-tools/scripts/scroll-jank-report.py
 output/scroll-jank/
 docs/db/node_modules/
+docs/db/generated/

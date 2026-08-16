@@ -432,6 +432,7 @@
     <string name="loc_gist">Gist</string>
     <string name="loc_hide_completed_today">Hide completed today</string>
     <string name="loc_hide_all_marked_today">Hide all marked today</string>
+    <string name="loc_due_today_only">Due today only</string>
     <string name="loc_hours">Hours</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
@@ -784,6 +785,7 @@
     <string name="loc_search_habits_placeholder">Search across all habits</string>
     <string name="loc_no_tasks_match_search">No tasks match your search</string>
     <string name="loc_no_habits_match_search">No habits match your search</string>
+    <string name="loc_no_habits_due_today">No habits due today</string>
     <string name="loc_tasks_count">Tasks (%1$d)</string>
     <string name="loc_tasks_due_today">Tasks Due Today</string>
     <string name="loc_tasks_per_life_dimension">Tasks Per Life Dimension</string>

@@ -17,6 +17,7 @@ import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.RecurrenceConfig
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -39,6 +40,12 @@ import javax.inject.Singleton
  *
  * Inc 4b: the currentScore bridge is removed — consumers read the L1
  * metrics directly (HabitMetricRepository.getLatestPerHabit).
+ *
+ * Inc 5: single-line value traces (CASCADE_TRACE / CASCADE_RULE_TRACE /
+ * CASCADE_DAY_ONLY_TRACE / CATCHUP_TRACE) replace the per-layer count-only
+ * lines: one line carries old→new for all 6 metrics (S/A/P/sp/sn/pc, ∅ = no
+ * row, %.4f doubles) across the affected layers, so a toggle's effect is
+ * diagnosable from the log without re-deriving the math.
  *
  * Fully trace-logged: CASCADE_* and CATCHUP_* events for every
  * positive/edge/error outcome.
@@ -72,7 +79,8 @@ class ScoreRollupCascadeService
                 // Baseline = cumulative state from rows strictly BEFORE the
                 // change day; tail loop runs changeDay → today only, so toggle
                 // cost stays O(gap) regardless of habit history length.
-                val existingHabitRows = habitDao.getForHabit(taskId).filter { it.dayKey < dateStr }
+                val allHabitRows = habitDao.getForHabit(taskId)
+                val existingHabitRows = allHabitRows.filter { it.dayKey < dateStr }
                 val l1Baseline = MetricBaseline.fromHabitRows(existingHabitRows)
                 logger.d(
                     tag,
@@ -96,11 +104,6 @@ class ScoreRollupCascadeService
                 )
                 habitDao.deleteFrom(taskId, dateStr)
                 if (rows.isNotEmpty()) habitDao.upsertAll(rows)
-                logger.i(
-                    tag,
-                    "CASCADE_L1_HABIT",
-                    mapOf("taskId" to taskId, "fromDay" to dateStr, "tailRows" to rows.size),
-                )
 
                 // ── L2: affected dimension tail (C1 baseline) ─────────────
                 val dimensionId = task.dimensionId ?: "dim_unassigned"
@@ -111,7 +114,8 @@ class ScoreRollupCascadeService
                     .mapValues { (_, rows) -> rows.minOfOrNull { parseDate(it.dayKey) } }
                     .filterValues { it != null }
                     .mapValues { it.value!! }
-                val existingDimRows = dimDao.getAll()
+                val allDimRows = dimDao.getAll()
+                val existingDimRows = allDimRows
                     .filter { it.dimensionId == dimensionId && it.dayKey < dateStr }
                     .sortedBy { it.dayKey }
                 val dimBaseline = MetricBaseline.fromDimensionRows(existingDimRows)
@@ -143,14 +147,10 @@ class ScoreRollupCascadeService
                 )
                 dimDao.deleteFrom(dimensionId, dateStr)
                 if (dimRows.isNotEmpty()) dimDao.upsertAll(dimRows)
-                logger.i(
-                    tag,
-                    "CASCADE_L2_DIMENSION",
-                    mapOf("dimensionId" to dimensionId, "fromDay" to dateStr, "tailRows" to dimRows.size),
-                )
 
                 // ── L3: day tail (C1 baseline, C2 dimension weights) ──────
-                val existingDayRows = dayDao.getAll().filter { it.dayKey < dateStr }.sortedBy { it.dayKey }
+                val allDayRows = dayDao.getAll()
+                val existingDayRows = allDayRows.filter { it.dayKey < dateStr }.sortedBy { it.dayKey }
                 val dayBaseline = MetricBaseline.fromDayRows(existingDayRows)
                 val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
                 logger.d(
@@ -171,10 +171,35 @@ class ScoreRollupCascadeService
                 )
                 dayDao.deleteFrom(dateStr)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
+
+                // ── Value trace: one line, old→new per metric per layer ──
+                // Old rows are the pre-rebuild tail (≥ change day) captured
+                // from the same queries that fed the baselines; ∅ = no row.
                 logger.i(
                     tag,
-                    "CASCADE_L3_DAY",
-                    mapOf("fromDay" to dateStr, "tailRows" to dayRows.size, "elapsedMs" to (System.currentTimeMillis() - started)),
+                    listOf(
+                        "CASCADE_TRACE | t=$taskId d=$dateStr",
+                        traceSection(
+                            "L1",
+                            allHabitRows.filter { it.dayKey >= dateStr }
+                                .associate { it.dayKey to it.toTraceValues() },
+                            rows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        traceSection(
+                            "L2",
+                            allDimRows
+                                .filter { it.dimensionId == dimensionId && it.dayKey >= dateStr }
+                                .associate { it.dayKey to it.toTraceValues() },
+                            dimRows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        traceSection(
+                            "L3",
+                            allDayRows.filter { it.dayKey >= dateStr }
+                                .associate { it.dayKey to it.toTraceValues() },
+                            dayRows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        "ms=${System.currentTimeMillis() - started}",
+                    ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
             } catch (e: Exception) {
@@ -208,6 +233,7 @@ class ScoreRollupCascadeService
 
                 // Full L1 rebuild for the habit (old grid rows removed).
                 val earliest = rows.minOfOrNull { it.dayKey } ?: LocalDate.now().toString()
+                val oldHabitRows = habitDao.getForHabit(taskId)
                 habitDao.deleteFrom(taskId, "0000-01-01")
                 if (rows.isNotEmpty()) habitDao.upsertAll(rows)
 
@@ -221,6 +247,8 @@ class ScoreRollupCascadeService
                     .filterValues { it != null }
                     .mapValues { it.value!! }
                 val dimRows = ScoreRollupBackfillService.buildDimensionMetrics(members, firstDuePerHabit, memberRows, includeToday = true)
+                val oldDimRows = dimDao.getAll()
+                    .filter { it.dimensionId == dimensionId && it.dayKey >= earliest }
                 dimDao.deleteFrom(dimensionId, earliest)
                 if (dimRows.isNotEmpty()) dimDao.upsertAll(dimRows)
 
@@ -228,18 +256,31 @@ class ScoreRollupCascadeService
                 val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
                 val dayRows = ScoreRollupBackfillService.buildDayMetrics(dimDao.getAll(), dimWeights)
                     .filter { it.dayKey >= earliest }
+                val oldDayRows = dayDao.getAll().filter { it.dayKey >= earliest }
                 dayDao.deleteFrom(earliest)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
 
                 logger.i(
                     tag,
-                    "CASCADE_RULE_CHANGE_END",
-                    mapOf(
-                        "habitL1Rows" to rows.size,
-                        "dimTailRows" to dimRows.size,
-                        "dayTailRows" to dayRows.size,
-                        "elapsedMs" to (System.currentTimeMillis() - started),
-                    ),
+                    listOf(
+                        "CASCADE_RULE_TRACE | t=$taskId",
+                        traceSection(
+                            "L1",
+                            oldHabitRows.associate { it.dayKey to it.toTraceValues() },
+                            rows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        traceSection(
+                            "L2",
+                            oldDimRows.associate { it.dayKey to it.toTraceValues() },
+                            dimRows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        traceSection(
+                            "L3",
+                            oldDayRows.associate { it.dayKey to it.toTraceValues() },
+                            dayRows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        "ms=${System.currentTimeMillis() - started}",
+                    ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
@@ -271,13 +312,14 @@ class ScoreRollupCascadeService
                 // Full L3 pass: empty baseline — every day re-aggregates with
                 // the new weights (cumulative running avg recomputed).
                 val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                val oldDayRows = dayDao.getAll()
                 logger.i(
                     tag,
                     "CASCADE_DAY_ONLY_START",
                     mapOf(
                         "changeDate" to changeDate.toString(),
                         "fromDay" to dateStr,
-                        "rowsBefore" to dayDao.getAll().size,
+                        "rowsBefore" to oldDayRows.size,
                         "weightedDims" to dimWeights.size,
                         "weights" to dimWeights.toString(),
                     ),
@@ -292,8 +334,16 @@ class ScoreRollupCascadeService
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
                 logger.i(
                     tag,
-                    "CASCADE_DAY_ONLY_END",
-                    mapOf("fromDay" to dateStr, "tailRows" to dayRows.size, "elapsedMs" to (System.currentTimeMillis() - started)),
+                    listOf(
+                        "CASCADE_DAY_ONLY_TRACE | d=$dateStr",
+                        traceSection(
+                            "L3",
+                            oldDayRows.filter { it.dayKey >= dateStr }
+                                .associate { it.dayKey to it.toTraceValues() },
+                            dayRows.associate { it.dayKey to it.toTraceValues() },
+                        ),
+                        "ms=${System.currentTimeMillis() - started}",
+                    ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_DAY_ONLY_FAILED", e, mapOf("fromDay" to changeDate.toString()))
@@ -342,7 +392,8 @@ class ScoreRollupCascadeService
                             ?: continue
                         firstOccurrence
                     }
-                    val existing = habitDao.getForHabit(task.id).filter { it.dayKey < fromDay.toString() }
+                    val allRows = habitDao.getForHabit(task.id)
+                    val existing = allRows.filter { it.dayKey < fromDay.toString() }
                     val baseline = MetricBaseline.fromHabitRows(existing)
                     logger.d(
                         tag,
@@ -372,8 +423,16 @@ class ScoreRollupCascadeService
                     gapStarts[task.id] = fromDay.toString()
                     logger.i(
                         tag,
-                        "CATCHUP_HABIT_EXTENDED",
-                        mapOf("taskId" to task.id, "fromDay" to fromDay.toString(), "rows" to rows.size),
+                        listOf(
+                            "CATCHUP_TRACE | t=${task.id} d=$fromDay",
+                            traceSection(
+                                "L1",
+                                allRows.filter { it.dayKey >= fromDay.toString() }
+                                    .associate { it.dayKey to it.toTraceValues() },
+                                rows.associate { it.dayKey to it.toTraceValues() },
+                            ),
+                            "ms=${System.currentTimeMillis() - started}",
+                        ).filter { it.isNotEmpty() }.joinToString(" | "),
                     )
                 }
                 if (gapStarts.isEmpty()) {
@@ -478,6 +537,66 @@ class ScoreRollupCascadeService
             } catch (e: Exception) {
                 logger.e(tag, "CATCHUP_FAILED", e)
             }
+        }
+
+        // ── Value trace helpers (Inc 5) ──────────────────────────────────
+        // One line per recalc: old→new for all 6 metrics per affected layer.
+        // ∅ = no row existed (row created/deleted); doubles at %.4f, streaks
+        // as ints; sub-0.0001 shifts round to .0000 — full precision stays in
+        // the CASCADE_BASELINE_* debug lines.
+
+        /** One row's 6 metric values; null = the row did not exist. */
+        private data class TraceValues(
+            val score: Double?,
+            val avg: Double?,
+            val progress: Double?,
+            val streakPos: Int?,
+            val streakNet: Int?,
+            val posContinue: Int?,
+        )
+
+        private fun HabitMetricEntity.toTraceValues() =
+            TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
+
+        private fun DimensionMetricEntity.toTraceValues() =
+            TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
+
+        private fun DayMetricEntity.toTraceValues() =
+            TraceValues(dayScore, runningAvg, progress, streakPos, streakNet, posContinue)
+
+        private fun traceValue(v: Double?): String =
+            v?.let { String.format(Locale.US, "%.4f", it) } ?: "∅"
+
+        private fun traceValue(v: Int?): String = v?.toString() ?: "∅"
+
+        /**
+         * Builds one layer section, e.g.
+         * `L1 d=2026-08-15 S:∅→1.0000 A:∅→1.0000 P:∅→1.0000 sp:∅→1 sn:∅→1 pc:∅→1`.
+         *
+         * Days = union of old/new rows. When more than 2 days changed, the
+         * section shows `[n=Xd]` plus first (edited) and last (today) day
+         * details only — middle days are cumulative shifts.
+         */
+        private fun traceSection(
+            label: String,
+            oldByDay: Map<String, TraceValues>,
+            newByDay: Map<String, TraceValues>,
+        ): String {
+            val days = (oldByDay.keys + newByDay.keys).sorted()
+            if (days.isEmpty()) return ""
+            val detail: (String) -> String = { day ->
+                val old = oldByDay[day]
+                val new = newByDay[day]
+                "d=$day S:${traceValue(old?.score)}→${traceValue(new?.score)} " +
+                    "A:${traceValue(old?.avg)}→${traceValue(new?.avg)} " +
+                    "P:${traceValue(old?.progress)}→${traceValue(new?.progress)} " +
+                    "sp:${traceValue(old?.streakPos)}→${traceValue(new?.streakPos)} " +
+                    "sn:${traceValue(old?.streakNet)}→${traceValue(new?.streakNet)} " +
+                    "pc:${traceValue(old?.posContinue)}→${traceValue(new?.posContinue)}"
+            }
+            val shown = if (days.size <= 2) days else listOf(days.first(), days.last())
+            val header = if (days.size <= 2) label else "$label[n=${days.size}d]"
+            return shown.joinToString(" , ", prefix = "$header ", transform = detail)
         }
 
         private fun parseDate(s: String): LocalDate =

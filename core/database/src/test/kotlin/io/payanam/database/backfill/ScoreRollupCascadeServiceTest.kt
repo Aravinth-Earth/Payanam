@@ -220,6 +220,19 @@ class ScoreRollupCascadeServiceTest {
         return d.dayOfWeek.value in 1..5
     }
 
+    private fun waitForLogSnippet(snippet: String): String {
+        val logger = UnifiedLogger.getInstance()
+        repeat(20) {
+            logger.flush()
+            Thread.sleep(25)
+            val logs = logger.getRecentLogs(40)
+            if (logs.contains(snippet)) {
+                return logs
+            }
+        }
+        return logger.getRecentLogs(40)
+    }
+
     @Test
     fun `recalcDayOnly re-aggregates day scores with weights and keeps L1 L2`() = runTest {
         insertTask("h8", dimensionId = "dim_x")
@@ -279,5 +292,46 @@ class ScoreRollupCascadeServiceTest {
         // weighted-average math itself is covered by unit tests.
         assertEquals(1.0, pastRow?.dayScore ?: -1.0, 1e-9)
         assertTrue("full history retained", dayAfter.size >= dayCountBefore)
+    }
+
+    @Test
+    fun `cascade trace line shows created rows as empty to new values`() = runTest {
+        insertTask("ht1")
+        val today = LocalDate.now()
+        insertOccurrence("ht1", today)
+
+        service.recalcForStatusChange("ht1", today)
+
+        // Wait for this test's own line (unique habit id), then read its tail.
+        val logs = waitForLogSnippet("t=ht1")
+        val lastTrace = logs.substringAfterLast("t=ht1")
+        assertTrue(
+            "L1 row created shows ∅→new for all 6 metrics",
+            lastTrace.contains(
+                "L1 d=$today S:∅→1.0000 A:∅→1.0000 P:∅→1.0000 sp:∅→1 sn:∅→1 pc:∅→1",
+            ),
+        )
+        assertTrue("L2 and L3 sections present", lastTrace.contains("L2 d=$today") && lastTrace.contains("L3 d=$today"))
+        assertTrue("elapsed ms present", lastTrace.contains("ms="))
+    }
+
+    @Test
+    fun `cascade trace line shows unchanged values as old to old on no-op recalc`() = runTest {
+        insertTask("ht2")
+        val today = LocalDate.now()
+        insertOccurrence("ht2", today)
+        service.recalcForStatusChange("ht2", today)
+        // Same state again: identical rebuild → trace must prove the no-op.
+        service.recalcForStatusChange("ht2", today)
+
+        // Wait for the no-op signature (only the second trace carries it).
+        val logs = waitForLogSnippet("S:1.0000→1.0000 A:1.0000→1.0000")
+        val lastTrace = logs.substringAfterLast("CASCADE_TRACE")
+        assertTrue(
+            "no-op shows old→old, not ∅→new",
+            lastTrace.contains(
+                "L1 d=$today S:1.0000→1.0000 A:1.0000→1.0000 P:1.0000→1.0000 sp:1→1 sn:1→1 pc:1→1",
+            ),
+        )
     }
 }

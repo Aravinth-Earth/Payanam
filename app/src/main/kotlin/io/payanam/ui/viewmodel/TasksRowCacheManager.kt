@@ -37,6 +37,8 @@ internal object TasksRowCacheManager {
         todayStatusByTaskId: Map<String, CheckmarkStatus>,
         showCompletedHabits: Boolean,
         hideAllMarkedToday: Boolean = false,
+        dueTodayOnly: Boolean = false,
+        dueTodayByTaskId: Map<String, Boolean> = emptyMap(),
         latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
     ): List<HabitRowUiModel> {
         val activeTaskIds = tasks.map { it.id }.toSet()
@@ -48,6 +50,7 @@ internal object TasksRowCacheManager {
             val todayStatus = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
             val latestL1 = latestL1ByHabit[task.id]
             val shouldHide = when {
+                dueTodayOnly && dueTodayByTaskId[task.id] == false -> true
                 hideAllMarkedToday -> todayStatus in setOf(CheckmarkStatus.COMPLETED, CheckmarkStatus.SKIPPED, CheckmarkStatus.MISSED)
                 !showCompletedHabits -> todayStatus == CheckmarkStatus.COMPLETED
                 else -> false
