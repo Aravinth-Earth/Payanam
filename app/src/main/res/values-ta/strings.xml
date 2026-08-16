@@ -431,6 +431,7 @@
     <string name="loc_gist">சாரம்</string>
     <string name="loc_hide_completed_today">மறை இன்று முடிந்தது</string>
     <string name="loc_hide_all_marked_today">இன்று குறிக்கப்பட்ட அனைத்தையும் மறை</string>
+    <string name="loc_due_today_only">இன்று மட்டும்</string>
     <string name="loc_hours">மணிநேரம்</string>
     <string name="loc_how_long_did_it_take">எவ்வளவு நேரம் எடுத்தது?</string>
     <string name="loc_how_was_it_any_observations">எப்படி இருந்தது? </string>
@@ -783,6 +784,7 @@
     <string name="loc_search_habits_placeholder">அனைத்து பழக்கங்களிலும் தேடவும்</string>
     <string name="loc_no_tasks_match_search">உங்கள் தேடலுக்கு பொருந்தும் பணிகள் இல்லை</string>
     <string name="loc_no_habits_match_search">உங்கள் தேடலுக்கு பொருந்தும் பழக்கங்கள் இல்லை</string>
+    <string name="loc_no_habits_due_today">இன்று நிலுவையில் பழக்கங்கள் இல்லை</string>
     <string name="loc_tasks_count">பணிகள் (%1$d)</string>
     <string name="loc_tasks_due_today">இன்று செய்ய வேண்டிய பணிகள்</string>
     <string name="loc_tasks_per_life_dimension">வாழ்க்கையின் அளவுக்கான பணிகள்</string>

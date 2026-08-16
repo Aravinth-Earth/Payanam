@@ -284,6 +284,7 @@ fun TasksScreen(
                 onToggleShowCompletedHabits = viewModel::toggleShowCompletedHabits,
                 onToggleShowArchivedHabits = viewModel::toggleShowArchivedHabits,
                 onToggleHideAllMarkedToday = viewModel::toggleHideAllMarkedToday,
+                onToggleDueTodayOnly = viewModel::toggleDueTodayOnly,
                 onSetTaskSortOption = viewModel::setSortOption,
                 habitVisibleCount = habitVisibleCount,
                 habitSearchQuery = habitSearchQuery,
@@ -517,6 +518,7 @@ private fun TasksTopBar(
     onToggleShowCompletedHabits: () -> Unit,
     onToggleShowArchivedHabits: () -> Unit,
     onToggleHideAllMarkedToday: () -> Unit,
+    onToggleDueTodayOnly: () -> Unit,
     onSetTaskSortOption: (TaskSortOption) -> Unit,
 ) {
     val logger = UnifiedLogger.getInstance()
@@ -530,7 +532,7 @@ private fun TasksTopBar(
                 }
                 Text(text = stringResource(id = titleRes))
                 val subtitle = if (effectiveTabIndex == 0) {
-                    val filterActive = !chromeState.showCompletedHabits || chromeState.hideAllMarkedToday || chromeState.showArchivedHabits
+                    val filterActive = !chromeState.showCompletedHabits || chromeState.hideAllMarkedToday || chromeState.showArchivedHabits || chromeState.dueTodayOnly
                     // Show "x of y" only when search/filter actually narrows the list;
                     // blank search query or no filters -> plain count.
                     val searchNarrows = habitSearchActive && habitSearchQuery.isNotBlank()
@@ -656,6 +658,22 @@ private fun TasksTopBar(
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
+                                        checked = chromeState.dueTodayOnly,
+                                        onCheckedChange = null,
+                                    )
+                                    Spacer(modifier = Modifier.width(8.dp))
+                                    Text(stringResource(id = io.payanam.R.string.loc_due_today_only))
+                                }
+                            },
+                            onClick = {
+                                logger.d("TasksScreen.dueTodayToggled", "Due today only toggled", mapOf("tab" to "habits", "value" to chromeState.dueTodayOnly))
+                                onToggleDueTodayOnly()
+                            },
+                        )
+                        DropdownMenuItem(
+                            text = {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    androidx.compose.material3.Checkbox(
                                         checked = chromeState.showArchivedHabits,
                                         onCheckedChange = null,
                                     )
@@ -734,9 +752,11 @@ private fun HabitsTabRoute(
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
 ) {
     val habitsTabState by viewModel.habitsTabUiState.collectAsState()
+    val chromeState by viewModel.chromeUiState.collectAsState()
     HabitsTabContent(
         rows = habitsTabState.rows,
         totalHabitCount = habitsTabState.totalHabitCount,
+        dueTodayOnly = chromeState.dueTodayOnly,
         searchActive = searchActive,
         searchQuery = searchQuery,
         onSearchQueryChange = onSearchQueryChange,
@@ -787,6 +807,7 @@ private fun TasksTabRoute(
 private fun HabitsTabContent(
     rows: List<HabitRowUiModel>,
     totalHabitCount: Int,
+    dueTodayOnly: Boolean,
     searchActive: Boolean,
     searchQuery: String,
     onSearchQueryChange: (String) -> Unit,
@@ -862,10 +883,10 @@ private fun HabitsTabContent(
         ) {
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
-                    text = if (totalHabitCount == 0) {
-                        androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_habits_yet)
-                    } else {
-                        androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_all_habits_completed_today)
+                    text = when {
+                        totalHabitCount == 0 -> androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_habits_yet)
+                        dueTodayOnly -> androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_habits_due_today)
+                        else -> androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_all_habits_completed_today)
                     },
                     style = MaterialTheme.typography.titleMedium,
                 )
