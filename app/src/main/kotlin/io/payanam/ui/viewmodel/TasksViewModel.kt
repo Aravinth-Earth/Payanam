@@ -61,6 +61,7 @@ class TasksViewModel @Inject constructor(
                 showArchivedHabits = state.showArchivedHabits,
                 showCompletedHabits = state.showCompletedHabits,
                 hideAllMarkedToday = state.hideAllMarkedToday,
+                dueTodayOnly = state.dueTodayOnly,
                 showCompletionDialog = state.showCompletionDialog,
                 completionDialogTask = state.completionDialogTask,
                 completionDialogDate = state.completionDialogDate,
@@ -119,6 +120,8 @@ class TasksViewModel @Inject constructor(
                     .getSetting(AppPreferencesViewModel.KEY_SHOW_COMPLETED_HABITS) == "true"
                 val hideAllMarked = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) == "true"
+                val dueTodayOnly = appSettingsRepository
+                    .getSetting(AppPreferencesViewModel.KEY_DUE_TODAY_ONLY) == "true"
                 logger.d(
                     "TasksViewModel.loadSavedVisibilityToggles",
                     "Loaded persisted visibility toggles",
@@ -126,6 +129,7 @@ class TasksViewModel @Inject constructor(
                         "showArchived" to showArchived,
                         "showCompleted" to showCompleted,
                         "hideAllMarked" to hideAllMarked,
+                        "dueTodayOnly" to dueTodayOnly,
                     ),
                 )
                 _uiState.update { state ->
@@ -133,6 +137,7 @@ class TasksViewModel @Inject constructor(
                         showArchivedHabits = showArchived,
                         showCompletedHabits = showCompleted,
                         hideAllMarkedToday = hideAllMarked,
+                        dueTodayOnly = dueTodayOnly,
                     ).applyVisibilityRows()
                 }
             } catch (e: Exception) {
@@ -246,7 +251,7 @@ class TasksViewModel @Inject constructor(
                     val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
                     val occurrencesMap = if (taskIds.isNotEmpty()) {
                         PerfBaselineTelemetry.incrementQuery(screen = "habits", source = "getOccurrencesForTasksInLastNDays")
-                        taskOccurrenceRepository.getOccurrencesForTasksInLastNDays(taskIds, 14)
+                        taskOccurrenceRepository.getOccurrencesForTasksInLastNDays(taskIds, HABIT_OCCURRENCE_LOOKBACK_DAYS)
                     } else {
                         emptyMap()
                     }
@@ -254,7 +259,15 @@ class TasksViewModel @Inject constructor(
                         tasks = recurringSource,
                         occurrencesMap = occurrencesMap,
                         today = today,
-                        days = 14,
+                        days = HABIT_CHECKMARK_HISTORY_DAYS,
+                    )
+                    // Due-today evaluation for the filter; frequency habits with
+                    // a denominator beyond the lookback window fetch full history.
+                    val dueTodayByTaskId = buildDueTodayByTaskId(
+                        tasks = recurringSource,
+                        occurrencesMap = occurrencesMap,
+                        today = today,
+                        fetchFullHistory = { taskOccurrenceRepository.getOccurrencesByTaskId(it.id) },
                     )
                     PerfBaselineTelemetry.markEvent(
                         screen = "habits",
@@ -280,6 +293,8 @@ class TasksViewModel @Inject constructor(
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             showCompletedHabits = shapingState.showCompletedHabits,
                             hideAllMarkedToday = shapingState.hideAllMarkedToday,
+                            dueTodayOnly = shapingState.dueTodayOnly,
+                            dueTodayByTaskId = dueTodayByTaskId,
                         )
                         val filteredOneTime = filteredSorted.filterNot { it.recurrenceEnabled }
                         val visibleHabitRows = TasksRowCacheManager.buildHabitRows(
@@ -288,6 +303,8 @@ class TasksViewModel @Inject constructor(
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
                             showCompletedHabits = shapingState.showCompletedHabits,
                             hideAllMarkedToday = shapingState.hideAllMarkedToday,
+                            dueTodayOnly = shapingState.dueTodayOnly,
+                            dueTodayByTaskId = dueTodayByTaskId,
                             latestL1ByHabit = latestL1,
                         )
                         val filteredTaskRows = TasksRowCacheManager.buildTaskRows(filteredOneTime)
@@ -339,6 +356,7 @@ class TasksViewModel @Inject constructor(
                             taskCheckmarks = checkmarkPayload.taskCheckmarks,
                             latestL1ByHabit = latestL1,
                             todayHabitStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
+                            dueTodayByTaskId = dueTodayByTaskId,
                             isLoading = false,
                             error = null,
                             todayCount = todayCount,
@@ -570,16 +588,30 @@ class TasksViewModel @Inject constructor(
     private suspend fun refreshCheckmarksForTask(taskId: String) {
         try {
             val today = LocalDate.now()
-            val occurrences = taskOccurrenceRepository.getOccurrencesForLastNDays(taskId, 14)
-            val checkmarks = buildCheckmarksForTask(occurrences = occurrences, today = today, days = 14)
+            val occurrences = taskOccurrenceRepository.getOccurrencesForLastNDays(taskId, HABIT_OCCURRENCE_LOOKBACK_DAYS)
+            val checkmarks = buildCheckmarksForTask(occurrences = occurrences, today = today, days = HABIT_CHECKMARK_HISTORY_DAYS)
             val todayStatus = checkmarks.firstOrNull()?.status ?: CheckmarkStatus.UNKNOWN
             // Inc 4: refresh the L1 map after a toggle so the ring/sort follow
             // the just-updated metric.
             val fallbackL1 = _uiState.value.latestL1ByHabit
             val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(fallbackL1)
+            // E1: recompute the due-today flag after every mark — a FREQUENCY
+            // habit whose quota just became satisfied is no longer due.
+            val task = _uiState.value.recurringTasks.find { it.id == taskId }
+            val dueToday = if (task != null) {
+                computeDueTodayForTask(
+                    task = task,
+                    occurrences = occurrences,
+                    today = today,
+                    fetchFullHistory = { taskOccurrenceRepository.getOccurrencesByTaskId(it.id) },
+                )
+            } else {
+                _uiState.value.dueTodayByTaskId[taskId] ?: true
+            }
             _uiState.update { state ->
                 val updatedCheckmarks = state.taskCheckmarks + (taskId to checkmarks)
                 val updatedTodayStatus = state.todayHabitStatusByTaskId + (taskId to todayStatus)
+                val updatedDueToday = state.dueTodayByTaskId + (taskId to dueToday)
                 val sortedRecurring = sortHabits(
                     state.recurringTasks,
                     state.habitSortOption,
@@ -591,12 +623,15 @@ class TasksViewModel @Inject constructor(
                     latestL1ByHabit = latestL1,
                     taskCheckmarks = updatedCheckmarks,
                     todayHabitStatusByTaskId = updatedTodayStatus,
+                    dueTodayByTaskId = updatedDueToday,
                     recurringTasks = sortedRecurring,
                     visibleRecurringTasks = visibleHabitsForDisplay(
                         habits = sortedRecurring,
                         todayStatusByTaskId = updatedTodayStatus,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        dueTodayOnly = state.dueTodayOnly,
+                        dueTodayByTaskId = updatedDueToday,
                     ),
                     visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                         tasks = sortedRecurring,
@@ -604,6 +639,8 @@ class TasksViewModel @Inject constructor(
                         todayStatusByTaskId = updatedTodayStatus,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        dueTodayOnly = state.dueTodayOnly,
+                        dueTodayByTaskId = updatedDueToday,
                         latestL1ByHabit = latestL1,
                     ),
                 )
@@ -639,6 +676,8 @@ class TasksViewModel @Inject constructor(
                         todayStatusByTaskId = state.todayHabitStatusByTaskId,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        dueTodayOnly = state.dueTodayOnly,
+                        dueTodayByTaskId = state.dueTodayByTaskId,
                     ),
                     visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                         tasks = sortedRecurring,
@@ -646,6 +685,8 @@ class TasksViewModel @Inject constructor(
                         todayStatusByTaskId = state.todayHabitStatusByTaskId,
                         showCompletedHabits = state.showCompletedHabits,
                         hideAllMarkedToday = state.hideAllMarkedToday,
+                        dueTodayOnly = state.dueTodayOnly,
+                        dueTodayByTaskId = state.dueTodayByTaskId,
                         latestL1ByHabit = latestL1,
                     ),
                 )
@@ -783,6 +824,8 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    dueTodayOnly = state.dueTodayOnly,
+                    dueTodayByTaskId = state.dueTodayByTaskId,
                 ),
                 visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                     tasks = sorted,
@@ -790,6 +833,8 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = state.showCompletedHabits,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    dueTodayOnly = state.dueTodayOnly,
+                    dueTodayByTaskId = state.dueTodayByTaskId,
                     latestL1ByHabit = state.latestL1ByHabit,
                 ),
             )
@@ -815,6 +860,8 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = newValue,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    dueTodayOnly = state.dueTodayOnly,
+                    dueTodayByTaskId = state.dueTodayByTaskId,
                 ),
                 visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                     tasks = state.recurringTasks,
@@ -822,6 +869,8 @@ class TasksViewModel @Inject constructor(
                     todayStatusByTaskId = state.todayHabitStatusByTaskId,
                     showCompletedHabits = newValue,
                     hideAllMarkedToday = state.hideAllMarkedToday,
+                    dueTodayOnly = state.dueTodayOnly,
+                    dueTodayByTaskId = state.dueTodayByTaskId,
                     latestL1ByHabit = state.latestL1ByHabit,
                 ),
             )
@@ -849,6 +898,15 @@ class TasksViewModel @Inject constructor(
         persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
 
+    fun toggleDueTodayOnly() {
+        _uiState.update { state ->
+            val newValue = !state.dueTodayOnly
+            logger.d("TasksViewModel.toggleDueTodayOnly", "Toggled", mapOf("dueTodayOnly" to newValue))
+            state.copy(dueTodayOnly = newValue).applyVisibilityRows()
+        }
+        persistVisibilityToggle(AppPreferencesViewModel.KEY_DUE_TODAY_ONLY) { it.dueTodayOnly }
+    }
+
     /**
      * Recomputes the flag-dependent habit visibility rows (visibleRecurringTasks
      * + visibleHabitRows) from the current state. Must only run inside a
@@ -865,6 +923,8 @@ class TasksViewModel @Inject constructor(
                 todayStatusByTaskId = todayHabitStatusByTaskId,
                 showCompletedHabits = showCompletedHabits,
                 hideAllMarkedToday = hideAllMarkedToday,
+                dueTodayOnly = dueTodayOnly,
+                dueTodayByTaskId = dueTodayByTaskId,
             ),
             visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                 tasks = recurringTasks,
@@ -872,6 +932,8 @@ class TasksViewModel @Inject constructor(
                 todayStatusByTaskId = todayHabitStatusByTaskId,
                 showCompletedHabits = showCompletedHabits,
                 hideAllMarkedToday = hideAllMarkedToday,
+                dueTodayOnly = dueTodayOnly,
+                dueTodayByTaskId = dueTodayByTaskId,
                 latestL1ByHabit = latestL1ByHabit,
             ),
         )

@@ -1648,6 +1648,7 @@ class AppPreferencesViewModel @Inject constructor(
         const val KEY_SHOW_ARCHIVED_HABITS = "show_archived_habits"
         const val KEY_SHOW_COMPLETED_HABITS = "show_completed_habits"
         const val KEY_HIDE_ALL_MARKED_TODAY = "hide_all_marked_today"
+        const val KEY_DUE_TODAY_ONLY = "due_today_only"
         const val KEY_DAY_BOUNDARY_HOUR = "day_boundary_hour"
         const val KEY_AUTO_TRACK_HABIT_TIME = "auto_track_habit_time_global"
         const val KEY_AUTO_TRACK_DIMENSION_PREFIX = "auto_track_dimension_"
