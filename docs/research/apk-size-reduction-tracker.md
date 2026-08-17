@@ -51,3 +51,26 @@
 ---
 
 *New experiments appended below as they are run.*
+
+---
+
+## Research Notes (Category 4: Kotlin/Compiler/Build System)
+
+### AGP 9.1+ Changes (already active for Payanam)
+- **R8 auto-repackageclasses**: AGP 9.1+ adds `-repackageclasses` by default → classes repackaged to unnamed package → smaller DEX. Already active.
+- **Optimized resource shrinking**: AGP 9.0+ has optimized pipeline by default. No need for `android.r8.optimizedResourceShrinking=true`.
+
+### AGP 9.3 Changes
+- **R8 Configuration Analyzer**: Dedicated Gradle task to analyze and optimize shrinking/obfuscation rules. Could help identify suboptimal proguard rules.
+
+### Compose APK Size Insights
+- **material-icons-extended**: Generates ImageVector constants for ALL icons → huge code bloat. Switching to individual icon imports saves显著 space.
+- **Compose compiler metrics**: Can identify unstable classes and optimization opportunities via `compose.compiler.metrics`.
+- **Compose stability config file**: Can mark types as stable to improve compiler optimizations.
+
+### Kotlin Compiler Flags
+- No major new size-specific flags in Kotlin 2.3 that would significantly reduce DEX size.
+- `-Xjvm-default=all` affects interface method generation but not significant for size.
+
+### Key Takeaway
+The biggest lever remains R8 minification in debug builds. Secondary levers: material-icons-extended subset, native lib ABI filtering, proguard rule optimization.
