@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1610
-          versionName = "#1610 (20260817_104907)"
+          versionCode = 1613
+          versionName = "#1613 (20260817_210808)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -117,6 +117,7 @@ android {
             val debugMinify = (project.findProperty("debugMinify") as String?)?.toBoolean() ?: false
             if (debugMinify) {
                 isMinifyEnabled = true
+                isShrinkResources = true
                 proguardFiles(
                     getDefaultProguardFile("proguard-android-optimize.txt"),
                     "proguard-rules.pro"

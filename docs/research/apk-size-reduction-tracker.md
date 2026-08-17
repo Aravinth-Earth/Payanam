@@ -61,6 +61,17 @@
 - **Learnings:** R8 works but ProGuard rules are too broad (R8 warns about Object methods). Resource shrinking not enabled for debug. Next: try R8 full mode + resource shrinking.
 - **Time:** 11 min
 
+### EXP-003: Add Resource Shrinking for Debug
+- **Hypothesis:** `isShrinkResources = true` will strip unused resources
+- **Category:** Build Configuration
+- **Change:** Added `isShrinkResources = true` in debug buildType when debugMinify is enabled
+- **Build command:** `build-android.ps1 -Profile full -SizeOptimized`
+- **Result:** 67.77 MB → 67.68 MB (**-0.09 MB, negligible**)
+- **Build time:** 11m06s
+- **Verdict:** ✅ keep (no harm, but negligible benefit)
+- **Learnings:** App already has minimal resources (32 XML drawables, standard mipmaps). Resource shrinking has nothing to strip. Focus should be on code/DEX optimization.
+- **Time:** 11 min
+
 ---
 
 *New experiments appended below as they are run.*
