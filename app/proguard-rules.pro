@@ -68,17 +68,14 @@
 -dontwarn kotlin.**
 
 # ---- Compose (narrowed — was: -keep class androidx.compose.** { *; }) ----
-# Keep runtime essentials and compiler-generated classes
+# Keep runtime essentials; let R8 strip unused material-icons-extended classes
 -keep class androidx.compose.runtime.** { *; }
 -keep class androidx.compose.ui.** { *; }
 -keep class androidx.compose.material3.** { *; }
--keep class androidx.compose.material.** { *; }
 -keep class androidx.compose.animation.** { *; }
 -keep class androidx.compose.foundation.** { *; }
--keep class androidx.compose.ui.graphics.** { *; }
--keep class androidx.compose.ui.platform.** { *; }
--keep class androidx.compose.ui.tooling.** { *; }
-# Keep Compose compiler-generated classes (composable function groups)
+# NOTE: intentionally NOT keeping androidx.compose.material.** to let R8 strip
+# unused material-icons-extended classes (46K seeds → ~40 used icons)
 -keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
