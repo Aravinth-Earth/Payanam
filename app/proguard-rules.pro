@@ -72,9 +72,7 @@
 -keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
-# ---- Vico charts (narrowed — was: -keep class com.patrykandpatrick.vico.** { *; }) ----
--keep class com.patrykandpatrick.vico.compose.** { *; }
--keep class com.patrykandpatrick.vico.core.** { *; }
+# ---- Vico charts (zero explicit keeps — R8 tracks references) ----
 -dontwarn com.patrykandpatrick.vico.**
 
 # ---- Timber (logging — strip debug logs in release) ----
