@@ -68,9 +68,8 @@
 -keepclassmembers class **$WhenMappings { <fields>; }
 -keepclassmembers class kotlin.Metadata { *; }
 -keep class kotlin.reflect.jvm.internal.** { *; }
--keep class kotlin.jvm.functions.** { *; }
--keep class kotlin.jvm.internal.** { *; }
--keep class kotlin.sequences.GeneratorSequence { *; }
+# NOTE: NOT keeping kotlin.jvm.functions.** or kotlin.jvm.internal.**
+# R8 tracks references via code analysis
 -dontwarn kotlin.**
 
 # ---- Compose (zero explicit keeps — let R8 strip everything via code analysis) ----
