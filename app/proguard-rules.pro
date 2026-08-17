@@ -32,8 +32,14 @@
 -dontwarn net.zetetic.**
 -dontwarn net.sqlcipher.**
 
-# ---- AndroidX Biometric ----
--keep class androidx.biometric.** { *; }
+# ---- AndroidX Biometric (narrowed) ----
+# Keep only the public API classes; R8 tracks internal references
+-keep class androidx.biometric.BiometricPrompt { *; }
+-keep class androidx.biometric.BiometricPrompt$PromptInfo { *; }
+-keep class androidx.biometric.BiometricPrompt$PromptInfo$Builder { *; }
+-keep class androidx.biometric.BiometricPrompt$AuthenticationCallback { *; }
+-keep class androidx.biometric.BiometricManager { *; }
+-keep class androidx.biometric.BiometricManager$Authenticator { *; }
 -dontwarn androidx.biometric.**
 
 # ---- WorkManager ----
