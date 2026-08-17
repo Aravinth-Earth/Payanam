@@ -71,11 +71,8 @@
 # Keep runtime essentials; let R8 strip unused material-icons-extended classes
 -keep class androidx.compose.runtime.** { *; }
 -keep class androidx.compose.ui.** { *; }
--keep class androidx.compose.material3.** { *; }
--keep class androidx.compose.animation.** { *; }
--keep class androidx.compose.foundation.** { *; }
-# NOTE: intentionally NOT keeping androidx.compose.material.** to let R8 strip
-# unused material-icons-extended classes (46K seeds → ~40 used icons)
+# NOTE: intentionally NOT keeping androidx.compose.material.**, foundation.**, animation.**
+# to let R8 strip unused classes from these large packages
 -keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
