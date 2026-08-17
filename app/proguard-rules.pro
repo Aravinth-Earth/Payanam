@@ -67,11 +67,8 @@
 -keep class kotlin.sequences.GeneratorSequence { *; }
 -dontwarn kotlin.**
 
-# ---- Compose (minimal keeps — let R8 strip aggressively) ----
-# Only keep runtime essentials; R8 will keep referenced classes automatically
--keep class androidx.compose.runtime.** { *; }
-# NOTE: NOT keeping ui.**, material.**, foundation.**, animation.**
-# R8 keeps referenced classes via code analysis
+# ---- Compose (zero explicit keeps — let R8 strip everything via code analysis) ----
+# R8 tracks which classes are referenced and keeps only those
 -keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
