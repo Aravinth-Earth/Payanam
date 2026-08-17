@@ -72,6 +72,17 @@
 - **Learnings:** App already has minimal resources (32 XML drawables, standard mipmaps). Resource shrinking has nothing to strip. Focus should be on code/DEX optimization.
 - **Time:** 11 min
 
+### EXP-004: Enable R8 Full Mode
+- **Hypothesis:** R8 full mode will strip more code aggressively
+- **Category:** R8 & ProGuard
+- **Change:** Added `android.enableR8.fullMode=true` to gradle.properties
+- **Build command:** `build-android.ps1 -Profile full -SizeOptimized`
+- **Result:** 67.68 MB → 67.68 MB (**0 MB change**)
+- **Build time:** 10m04s (slightly faster)
+- **Verdict:** ⚠️ revert (no benefit, but harmless)
+- **Learnings:** ProGuard rules are too broad — `-keep class kotlin.** { *; }`, `-keep class androidx.compose.** { *; }` etc. keep everything, so R8 full mode has nothing to optimize. **ProGuard rule tightening is the prerequisite before full mode can help.**
+- **Time:** 10 min
+
 ---
 
 *New experiments appended below as they are run.*
