@@ -50,6 +50,19 @@
 
 ---
 
+### EXP-002: Enable R8 Minification in Debug
+- **Hypothesis:** R8 will strip unused code from debug APK
+- **Category:** R8 & ProGuard
+- **Change:** Build with `-SizeOptimized` flag (passes `-PdebugMinify=true`)
+- **Build command:** `build-android.ps1 -Profile full -SizeOptimized`
+- **Result:** 76.93 MB → 67.77 MB (**-9.16 MB, 11.9% reduction**)
+- **Build time:** 10m55s (faster than baseline 14m54s — R8 strips before DEX)
+- **Verdict:** ✅ keep
+- **Learnings:** R8 works but ProGuard rules are too broad (R8 warns about Object methods). Resource shrinking not enabled for debug. Next: try R8 full mode + resource shrinking.
+- **Time:** 11 min
+
+---
+
 *New experiments appended below as they are run.*
 
 ---
