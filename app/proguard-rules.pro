@@ -1,8 +1,7 @@
 #  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 #  SPDX-License-Identifier: AGPL-3.0-or-later
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.kts.
+# R8/ProGuard rules — tightened for APK size research
+# Last updated: 2026-08-17 (research/apk-size-reduction branch)
 
 # ---- Annotations (must come first) ----
 -keepattributes *Annotation*, InnerClasses, Signature, Exceptions, EnclosingMethod
@@ -38,7 +37,6 @@
 -dontwarn androidx.biometric.**
 
 # ---- WorkManager ----
--keep class androidx.work.** { *; }
 -keep class * extends androidx.work.Worker { *; }
 -keep class * extends androidx.work.CoroutineWorker { *; }
 -keep class * extends androidx.work.ListenableWorker {
@@ -46,24 +44,47 @@
 }
 -dontwarn androidx.work.**
 
-# ---- Kotlin Coroutines ----
--keep class kotlinx.coroutines.** { *; }
+# ---- Kotlin Coroutines (narrowed) ----
+# Keep core runtime, strip debug infrastructure
+-keep class kotlinx.coroutines.CoroutineExceptionHandler { *; }
+-keep class kotlinx.coroutines.CoroutineScope { *; }
+-keep class kotlinx.coroutines.Dispatchers { *; }
+-keep class kotlinx.coroutines.Job { *; }
+-keep class kotlinx.coroutines.MainCoroutineDispatcher { *; }
+-keep class kotlinx.coroutines.android.AndroidExceptionPreHandler { *; }
+-keep class kotlinx.coroutines.android.AndroidDispatcherFactory { *; }
 -dontwarn kotlinx.coroutines.**
 # Coroutines debug infrastructure is not needed in release
 -assumenosideeffects class kotlinx.coroutines.debug.** { *; }
 
-# ---- Kotlin (general) ----
--keep class kotlin.** { *; }
--dontwarn kotlin.**
+# ---- Kotlin (narrowed — was: -keep class kotlin.** { *; }) ----
+# Keep only what's actually needed for runtime behavior
 -keepclassmembers class **$WhenMappings { <fields>; }
 -keepclassmembers class kotlin.Metadata { *; }
+-keep class kotlin.reflect.jvm.internal.** { *; }
+-keep class kotlin.jvm.functions.** { *; }
+-keep class kotlin.jvm.internal.** { *; }
+-keep class kotlin.sequences.GeneratorSequence { *; }
+-dontwarn kotlin.**
 
-# ---- Compose ----
--keep class androidx.compose.** { *; }
+# ---- Compose (narrowed — was: -keep class androidx.compose.** { *; }) ----
+# Keep runtime essentials and compiler-generated classes
+-keep class androidx.compose.runtime.** { *; }
+-keep class androidx.compose.ui.** { *; }
+-keep class androidx.compose.material3.** { *; }
+-keep class androidx.compose.material.** { *; }
+-keep class androidx.compose.animation.** { *; }
+-keep class androidx.compose.foundation.** { *; }
+-keep class androidx.compose.ui.graphics.** { *; }
+-keep class androidx.compose.ui.platform.** { *; }
+-keep class androidx.compose.ui.tooling.** { *; }
+# Keep Compose compiler-generated classes (composable function groups)
+-keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
-# ---- Vico charts ----
--keep class com.patrykandpatrick.vico.** { *; }
+# ---- Vico charts (narrowed — was: -keep class com.patrykandpatrick.vico.** { *; }) ----
+-keep class com.patrykandpatrick.vico.compose.** { *; }
+-keep class com.patrykandpatrick.vico.core.** { *; }
 -dontwarn com.patrykandpatrick.vico.**
 
 # ---- Timber (logging — strip debug logs in release) ----
