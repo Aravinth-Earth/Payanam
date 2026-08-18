@@ -1,8 +1,7 @@
 #  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 #  SPDX-License-Identifier: AGPL-3.0-or-later
-# Add project specific ProGuard rules here.
-# You can control the set of applied configuration files using the
-# proguardFiles setting in build.gradle.kts.
+# R8/ProGuard rules — tightened for APK size research
+# Last updated: 2026-08-17 (research/apk-size-reduction branch)
 
 # ---- Annotations (must come first) ----
 -keepattributes *Annotation*, InnerClasses, Signature, Exceptions, EnclosingMethod
@@ -33,12 +32,17 @@
 -dontwarn net.zetetic.**
 -dontwarn net.sqlcipher.**
 
-# ---- AndroidX Biometric ----
--keep class androidx.biometric.** { *; }
+# ---- AndroidX Biometric (narrowed) ----
+# Keep only the public API classes; R8 tracks internal references
+-keep class androidx.biometric.BiometricPrompt { *; }
+-keep class androidx.biometric.BiometricPrompt$PromptInfo { *; }
+-keep class androidx.biometric.BiometricPrompt$PromptInfo$Builder { *; }
+-keep class androidx.biometric.BiometricPrompt$AuthenticationCallback { *; }
+-keep class androidx.biometric.BiometricManager { *; }
+-keep class androidx.biometric.BiometricManager$Authenticator { *; }
 -dontwarn androidx.biometric.**
 
 # ---- WorkManager ----
--keep class androidx.work.** { *; }
 -keep class * extends androidx.work.Worker { *; }
 -keep class * extends androidx.work.CoroutineWorker { *; }
 -keep class * extends androidx.work.ListenableWorker {
@@ -46,24 +50,34 @@
 }
 -dontwarn androidx.work.**
 
-# ---- Kotlin Coroutines ----
--keep class kotlinx.coroutines.** { *; }
+# ---- Kotlin Coroutines (narrowed) ----
+# Keep core runtime, strip debug infrastructure
+-keep class kotlinx.coroutines.CoroutineExceptionHandler { *; }
+-keep class kotlinx.coroutines.CoroutineScope { *; }
+-keep class kotlinx.coroutines.Dispatchers { *; }
+-keep class kotlinx.coroutines.Job { *; }
+-keep class kotlinx.coroutines.MainCoroutineDispatcher { *; }
+-keep class kotlinx.coroutines.android.AndroidExceptionPreHandler { *; }
+-keep class kotlinx.coroutines.android.AndroidDispatcherFactory { *; }
 -dontwarn kotlinx.coroutines.**
 # Coroutines debug infrastructure is not needed in release
 -assumenosideeffects class kotlinx.coroutines.debug.** { *; }
 
-# ---- Kotlin (general) ----
--keep class kotlin.** { *; }
--dontwarn kotlin.**
+# ---- Kotlin (narrowed — was: -keep class kotlin.** { *; }) ----
+# Keep only what's actually needed for runtime behavior
 -keepclassmembers class **$WhenMappings { <fields>; }
 -keepclassmembers class kotlin.Metadata { *; }
+-keep class kotlin.reflect.jvm.internal.** { *; }
+# NOTE: NOT keeping kotlin.jvm.functions.** or kotlin.jvm.internal.**
+# R8 tracks references via code analysis
+-dontwarn kotlin.**
 
-# ---- Compose ----
--keep class androidx.compose.** { *; }
+# ---- Compose (zero explicit keeps — let R8 strip everything via code analysis) ----
+# R8 tracks which classes are referenced and keeps only those
+-keep class **ComposedClass { *; }
 -dontwarn androidx.compose.**
 
-# ---- Vico charts ----
--keep class com.patrykandpatrick.vico.** { *; }
+# ---- Vico charts (zero explicit keeps — R8 tracks references) ----
 -dontwarn com.patrykandpatrick.vico.**
 
 # ---- Timber (logging — strip debug logs in release) ----
