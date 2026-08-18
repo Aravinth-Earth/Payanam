@@ -11,7 +11,6 @@ param(
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
-    [switch]$SizeOptimized,
     [switch]$Publish,
     [switch]$Universal,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
@@ -1612,17 +1611,6 @@ $gradleTask = if ($Release)
 { "assembleDebug"
 }
 
-# SizeOptimized: shrink + obfuscate the debug APK for on-the-move downloads.
-# -PdebugMinify=true makes the debug buildType enable R8 (minify + obfuscate).
-# Mapping file is preserved after build for stack-trace retrace.
-if ($SizeOptimized)
-{
-    $gradleTask += " -PdebugMinify=true"
-    if (-not $Release)
-    {
-        Write-LogWithTime "SizeOptimized: R8 minify+obfuscate enabled for debug APK" "Yellow"
-    }
-}
 if ($Universal)
 {
     $gradleTask += " -PuniversalBuild=true"
@@ -1700,9 +1688,8 @@ if ($Publish)
     Write-LogWithTime "Skipping channel publish (local-only build; use -Publish to ship)." "Yellow"
 }
 
-# Preserve R8 mapping file (debug when SizeOptimized, release always) for
-# stack-trace retrace: java -jar retrace.jar mapping.txt stacktrace.txt
-if ($SizeOptimized -or $Release)
+# Preserve R8 mapping file for stack-trace retrace:
+# java -jar retrace.jar mapping.txt stacktrace.txt
 {
     # AGP 9.x writes mapping to build/intermediates; fall back to outputs for older AGP.
     $mappingCandidates = if ($Release)

@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1630
-          versionName = "#1630 (20260818_115530)"
+          versionCode = 1633
+          versionName = "#1633 (20260818_125221)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -109,24 +109,17 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             applicationIdSuffix = ".debug"
             resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
             }
-            // -SizeOptimized (script flag) passes -PdebugMinify=true:
-            // enables R8 minify+obfuscate for a smaller debug APK (on-the-move
-            // downloads). build-android.ps1 preserves mapping.txt for retrace.
-            val debugMinify = (project.findProperty("debugMinify") as String?)?.toBoolean() ?: false
-            if (debugMinify) {
-                isMinifyEnabled = true
-                isShrinkResources = true
-                proguardFiles(
-                    getDefaultProguardFile("proguard-android-optimize.txt"),
-                    "proguard-rules.pro"
-                )
-            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         release {
             resValue("string", "launcher_app_name", "@string/app_name")
