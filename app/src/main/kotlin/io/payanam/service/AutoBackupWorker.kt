@@ -225,7 +225,8 @@ class AutoBackupWorker(
          */
         fun getBackupDirectory(): File {
             val documentsDir = android.os.Environment.getExternalStoragePublicDirectory(android.os.Environment.DIRECTORY_DOCUMENTS)
-            return File(documentsDir, "Payanam/data/export")
+            val suffix = if (io.payanam.BuildConfig.DEBUG) "-debug" else ""
+            return File(documentsDir, "Payanam$suffix/data/export")
         }
 
         /**
