@@ -13,6 +13,7 @@ param(
     [switch]$Release,
     [switch]$SizeOptimized,
     [switch]$Publish,
+    [switch]$Universal,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1622,6 +1623,11 @@ if ($SizeOptimized)
         Write-LogWithTime "SizeOptimized: R8 minify+obfuscate enabled for debug APK" "Yellow"
     }
 }
+if ($Universal)
+{
+    $gradleTask += " -PuniversalBuild=true"
+    Write-LogWithTime "Universal: all ABIs included (arm64, arm32, x86, x86_64)" "Yellow"
+}
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
@@ -1632,6 +1638,11 @@ if ($buildRun.ExitCode -ne 0)
     Exit-WithCleanup 1
 }
 Write-LogWithTime "✅ APK build successful!" "Green"
+if ($Universal) {
+    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
+} else {
+    Write-LogWithTime "ABI filter: arm64-v8a only (~11 MB saved vs universal)" "Yellow"
+}
 
 # Find APK
 $apkDir = if ($Release)
