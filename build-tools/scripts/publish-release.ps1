@@ -146,6 +146,12 @@ Write-LogWithTime "SHA256: $hash" "Gray"
 
 # ── 6. Build release notes ────────────────────────────────────────────────────
 
+$channelWarning = switch ($Channel) {
+    "dev"    { "🔧 Development build — for testing only" }
+    "beta"   { "🧪 Beta build — feedback welcome" }
+    "stable" { "" }
+}
+
 $releaseNotes = @"
 Payanam $ChannelTitle Build
 
@@ -158,8 +164,7 @@ Branch: $branch
 SHA256: $hash
 
 Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Payanam/blob/main/INSTALL.md) for checksum verification and sideload steps.
-
-⚠️ $ChannelTitle build — not for production use
+$(if ($channelWarning) { "`n$channelWarning" })
 "@
 
 # ── 7. Delete existing channel release + tag (rolling release) ────────────────
