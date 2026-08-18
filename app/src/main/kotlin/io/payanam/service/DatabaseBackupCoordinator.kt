@@ -285,7 +285,8 @@ class DatabaseBackupCoordinator @Inject constructor(
 
     private fun getBackupDirectory(): File {
         val documentsDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        return File(documentsDir, "Payanam/data/export")
+        val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
+        return File(documentsDir, "Payanam$suffix/data/export")
     }
 
     private fun cleanupOldBackups(backupDir: File) {

@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1623
-          versionName = "#1623 (20260818_075329)"
+          versionCode = 1633
+          versionName = "#1633 (20260818_125221)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -58,6 +58,15 @@ android {
         // Room schema export for migrations
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
+        }
+
+        // ARM64-only default for all builds (debug + release).
+        // Pass -PuniversalBuild=true to include all ABIs (emulator, CI, Chromebook).
+        val universalBuild = (project.findProperty("universalBuild") as String?)?.toBoolean() ?: false
+        if (!universalBuild) {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
 
@@ -100,29 +109,17 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             applicationIdSuffix = ".debug"
             resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
             }
-            // Dev/test builds target the user's arm64 device only — drops
-            // x86/x86_64/armeabi-v7a native libs (~10 MB smaller APK).
-            ndk {
-                abiFilters += listOf("arm64-v8a")
-            }
-            // -SizeOptimized (script flag) passes -PdebugMinify=true:
-            // enables R8 minify+obfuscate for a smaller debug APK (on-the-move
-            // downloads). build-android.ps1 preserves mapping.txt for retrace.
-            val debugMinify = (project.findProperty("debugMinify") as String?)?.toBoolean() ?: false
-            if (debugMinify) {
-                isMinifyEnabled = true
-                isShrinkResources = true
-                proguardFiles(
-                    getDefaultProguardFile("proguard-android-optimize.txt"),
-                    "proguard-rules.pro"
-                )
-            }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         release {
             resValue("string", "launcher_app_name", "@string/app_name")
