@@ -71,6 +71,7 @@
 | 36 | 16:40 | A:Import-Cleanup | LensesScreenTimeModuleSection.kt | Remove 1 unused import | -1 line | -1 import | PASS | yes |
 | 37 | 16:40 | A:Import-Cleanup | TimeScreenEntryDialogs.kt | Remove 1 unused import | -1 line | -1 import | PASS | yes |
 | 38 | 16:40 | A:Import-Cleanup | TasksViewModel.kt | Remove 2 unused imports | -2 lines | -2 imports | PASS | yes |
+| 39 | 10:47 | B:Function-Extraction | TimeViewModel.kt | Extract launchTimeEntriesCollection/PlannedTasks/Occurrences helpers from loadEntriesForDate (141→12 lines) | 1040→1050 (+10) | N/A | PASS | yes |
 
 ## Summary
 
