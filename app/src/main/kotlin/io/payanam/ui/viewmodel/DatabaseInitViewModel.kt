@@ -123,6 +123,39 @@ class DatabaseInitViewModel @Inject constructor(
         checkDatabaseStatus()
     }
 
+    private suspend fun detectBootstrapPlaceholder(dbFile: java.io.File): Boolean {
+        val isEncrypted = databaseEncryptionManager.isEncryptionEnabled()
+        if (isEncrypted) return false
+        val databaseInitCompleted = readDatabaseInitCompletedFlag(dbFile)
+        val counts = withContext(Dispatchers.IO) {
+            val countMap = DatabaseEncryptionMigrationSupport.readTableCounts(
+                context = context,
+                databaseFile = dbFile,
+                passphrase = null,
+                tableNames = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes"),
+            )
+            DatabaseTableCounts(
+                taskCount = countMap["tasks"] ?: 0,
+                timeEntryCount = countMap["time_entries"] ?: 0,
+                journalEntryCount = (countMap["day_journal_entries"] ?: 0) + (countMap["journal_notes"] ?: 0),
+                noteCount = countMap["notes"] ?: 0,
+            )
+        }
+        logger.i(
+            "DatabaseInitViewModel.detectBootstrapPlaceholder",
+            "Database counts",
+            mapOf(
+                "taskCount" to counts.taskCount,
+                "timeEntryCount" to counts.timeEntryCount,
+                "journalEntryCount" to counts.journalEntryCount,
+                "noteCount" to counts.noteCount,
+            ),
+        )
+        val hasUserData = counts.taskCount > 0 || counts.timeEntryCount > 0 ||
+            counts.journalEntryCount > 0 || counts.noteCount > 0
+        return !databaseInitCompleted && !hasUserData
+    }
+
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -171,39 +204,7 @@ class DatabaseInitViewModel @Inject constructor(
                         mapOf("sizeKB" to sizeKB, "lastModified" to lastModified, "lastModifiedDate" to Date(lastModified).toString()),
                     )
 
-                    val isEncrypted = databaseEncryptionManager.isEncryptionEnabled()
-                    val isBootstrapPlaceholder = if (isEncrypted) {
-                        false
-                    } else {
-                        val databaseInitCompleted = readDatabaseInitCompletedFlag(dbFile)
-                        val counts = withContext(Dispatchers.IO) {
-                            val countMap = DatabaseEncryptionMigrationSupport.readTableCounts(
-                                context = context,
-                                databaseFile = dbFile,
-                                passphrase = null,
-                                tableNames = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes"),
-                            )
-                            DatabaseTableCounts(
-                                taskCount = countMap["tasks"] ?: 0,
-                                timeEntryCount = countMap["time_entries"] ?: 0,
-                                journalEntryCount = (countMap["day_journal_entries"] ?: 0) + (countMap["journal_notes"] ?: 0),
-                                noteCount = countMap["notes"] ?: 0,
-                            )
-                        }
-                        logger.i(
-                            "DatabaseInitViewModel.checkDatabaseStatus",
-                            "Database counts",
-                            mapOf(
-                                "taskCount" to counts.taskCount,
-                                "timeEntryCount" to counts.timeEntryCount,
-                                "journalEntryCount" to counts.journalEntryCount,
-                                "noteCount" to counts.noteCount,
-                            ),
-                        )
-                        val hasUserData = counts.taskCount > 0 || counts.timeEntryCount > 0 ||
-                            counts.journalEntryCount > 0 || counts.noteCount > 0
-                        !databaseInitCompleted && !hasUserData
-                    }
+                    val isBootstrapPlaceholder = detectBootstrapPlaceholder(dbFile)
                     if (isBootstrapPlaceholder) {
                         logger.w(
                             "DatabaseInitViewModel.checkDatabaseStatus",
