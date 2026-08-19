@@ -14,9 +14,7 @@ import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.notification.NotificationScheduler
-import io.payanam.scoring.RecurrenceScoreCalculator
 import io.payanam.ui.components.CheckmarkStatus
-import io.payanam.ui.components.DayCheckmark
 import io.payanam.ui.perf.PerfBaselineTelemetry
 import io.payanam.usecase.RecurrenceManager
 import kotlinx.coroutines.Dispatchers

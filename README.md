@@ -2,7 +2,10 @@
 
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
-**Current Build:** #1478 (Android) / #615 (Desktop)
+**Latest Builds:**
+- 🔧 **Dev** (rolling): [latest-dev](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev) — pre-release, multiple builds/day
+- 🧪 **Beta** (rolling): [latest-beta](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta) — pre-release, ~2 builds/week
+- 🚀 **Stable** (rolling): [latest-stable](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable) — stable, ~2 builds/month
 
 Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking.
 

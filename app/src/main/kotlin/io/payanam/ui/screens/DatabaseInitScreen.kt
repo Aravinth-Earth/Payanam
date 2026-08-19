@@ -59,7 +59,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.PassphrasePolicy
-import io.payanam.ui.viewmodel.DatabaseBootIssue
 import io.payanam.ui.viewmodel.DatabaseBootIssueType
 import io.payanam.ui.viewmodel.DatabaseInitViewModel
 import io.payanam.ui.viewmodel.RestoreResult

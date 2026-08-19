@@ -19,7 +19,6 @@ val Pink40 = Color(0xFFFF8F00)
 // Life Dimension Colors (matching original app)
 object LifeDimensionColors {
     private val fallbackLoggedDimensions = mutableSetOf<String>()
-    private val canonicalIdTraceLogged = mutableSetOf<String>()
 
     val CareerWork = Color(0xFF4CAF50) // Green
     val HealthWellness = Color(0xFF2196F3) // Blue

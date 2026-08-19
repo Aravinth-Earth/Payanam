@@ -51,7 +51,6 @@ import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
-import io.payanam.domain.model.LifeDimension
 import io.payanam.feature.settings.DatabaseArtifactUiModel
 import io.payanam.ui.components.DimensionBadgeLabelRow
 import io.payanam.ui.components.DimensionColorPicker

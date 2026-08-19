@@ -48,7 +48,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.ui.viewmodel.DayPlanViewModel
 import io.payanam.ui.viewmodel.LocalAppPreferences
-import io.payanam.ui.viewmodel.labelFor
 import io.payanam.ui.viewmodel.labelForDimension
 import io.payanam.ui.viewmodel.labelForDimensionId
 import io.payanam.ui.viewmodel.visibleDimensions

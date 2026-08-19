@@ -56,9 +56,7 @@ import io.payanam.FeatureFlags
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
-import io.payanam.domain.model.Task
-import io.payanam.domain.model.TaskOccurrence
-import io.payanam.domain.model.TimeEntry
+
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.viewmodel.DayPlanViewModel
 import io.payanam.ui.viewmodel.DimensionOption
@@ -76,7 +74,7 @@ import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
+
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale

@@ -117,27 +117,7 @@ class EditTaskViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
-                val taskInput = TaskInput(
-                    title = input.title,
-                    description = input.description,
-                    dueDate = input.dueDate,
-                    dimensionId = input.dimensionId,
-                    lifeIntentionCategory = input.dimensionLabel,
-                    impactLevel = input.impactLevel,
-                    goalAlignment = input.goalAlignment,
-                    energyLevel = input.energyLevel,
-                    controlLevel = input.controlLevel,
-                    durationMinutes = input.durationMinutes,
-                    recurrenceEnabled = input.recurrenceEnabled,
-                    recurrenceRule = input.recurrenceRule,
-                    notificationMode = input.notificationMode,
-                    customNotificationMinutes = input.customNotificationMinutes,
-                    explicitUrgency = input.explicitUrgency,
-                    focusRequired = input.focusRequired,
-                    blockedReason = input.blockedReason,
-                    externalDependency = input.externalDependency,
-                )
-
+                val taskInput = buildTaskInput(input)
                 val updatedTask = taskRepository.updateTask(taskId, taskInput)
                 tagRepository.replaceTaskTags(taskId, input.tags)
                 logger.i(
@@ -208,4 +188,25 @@ class EditTaskViewModel @Inject constructor(
             }
         }
     }
+
+    private fun buildTaskInput(input: EditTaskInput): TaskInput = TaskInput(
+        title = input.title,
+        description = input.description,
+        dueDate = input.dueDate,
+        dimensionId = input.dimensionId,
+        lifeIntentionCategory = input.dimensionLabel,
+        impactLevel = input.impactLevel,
+        goalAlignment = input.goalAlignment,
+        energyLevel = input.energyLevel,
+        controlLevel = input.controlLevel,
+        durationMinutes = input.durationMinutes,
+        recurrenceEnabled = input.recurrenceEnabled,
+        recurrenceRule = input.recurrenceRule,
+        notificationMode = input.notificationMode,
+        customNotificationMinutes = input.customNotificationMinutes,
+        explicitUrgency = input.explicitUrgency,
+        focusRequired = input.focusRequired,
+        blockedReason = input.blockedReason,
+        externalDependency = input.externalDependency,
+    )
 }

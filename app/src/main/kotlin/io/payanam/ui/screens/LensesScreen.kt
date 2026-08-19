@@ -5,7 +5,6 @@ package io.payanam.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -33,7 +32,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -297,39 +295,6 @@ private fun OverallCard(uiState: LensUiState) {
             Text(stringResource(id = R.string.loc_plan_reality_avg_score_line, averageCompleteness, averageAdherence))
             Text(momentHint(uiState.selectedMoment))
             LinearProgressIndicator(progress = { adherence }, modifier = Modifier.fillMaxWidth().height(8.dp))
-        }
-    }
-}
-
-@Composable
-private fun OverallModuleSnapshotCard(uiState: LensUiState) {
-    val summary = uiState.selectedRangeSummary
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(id = R.string.loc_lens_group_by_module), fontWeight = FontWeight.SemiBold)
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_time),
-                    stringResource(id = R.string.loc_plan_reality_totals_line, formatMinutes(summary?.totalPlannedMinutes ?: 0), formatMinutes(summary?.totalActualMinutes ?: 0)),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.settings_database_tasks),
-                    stringResource(id = R.string.loc_completed_tasks_ratio, summary?.completedTaskCount ?: 0, summary?.plannedTaskCount ?: 0),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_habits),
-                    stringResource(id = R.string.loc_completed_habits_ratio, summary?.completedHabitCount ?: 0, summary?.plannedHabitCount ?: 0),
-                ),
-            )
-            Text(stringResource(id = R.string.loc_journal_notes))
-            Text(stringResource(id = R.string.settings_database_notes))
         }
     }
 }

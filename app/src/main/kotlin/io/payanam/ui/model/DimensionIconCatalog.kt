@@ -18,7 +18,6 @@ data class DimensionIconOption(
 
 object DimensionIconCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
-    private val canonicalIdTraceLogged = mutableSetOf<String>()
 
     val options: List<DimensionIconOption> = listOf(
         DimensionIconOption("work", Icons.Outlined.WorkOutline),

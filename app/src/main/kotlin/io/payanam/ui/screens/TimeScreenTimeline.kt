@@ -39,7 +39,6 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
@@ -51,7 +50,6 @@ import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.colorFor
 import io.payanam.ui.viewmodel.colorForDimensionId
 import io.payanam.ui.viewmodel.iconOptionForDimensionId
-import io.payanam.ui.viewmodel.labelFor
 import io.payanam.ui.viewmodel.labelForDimensionId
 import java.time.Duration
 import java.time.LocalDate

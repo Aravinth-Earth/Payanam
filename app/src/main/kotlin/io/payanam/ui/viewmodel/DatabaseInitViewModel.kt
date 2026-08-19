@@ -123,6 +123,39 @@ class DatabaseInitViewModel @Inject constructor(
         checkDatabaseStatus()
     }
 
+    private suspend fun detectBootstrapPlaceholder(dbFile: java.io.File): Boolean {
+        val isEncrypted = databaseEncryptionManager.isEncryptionEnabled()
+        if (isEncrypted) return false
+        val databaseInitCompleted = readDatabaseInitCompletedFlag(dbFile)
+        val counts = withContext(Dispatchers.IO) {
+            val countMap = DatabaseEncryptionMigrationSupport.readTableCounts(
+                context = context,
+                databaseFile = dbFile,
+                passphrase = null,
+                tableNames = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes"),
+            )
+            DatabaseTableCounts(
+                taskCount = countMap["tasks"] ?: 0,
+                timeEntryCount = countMap["time_entries"] ?: 0,
+                journalEntryCount = (countMap["day_journal_entries"] ?: 0) + (countMap["journal_notes"] ?: 0),
+                noteCount = countMap["notes"] ?: 0,
+            )
+        }
+        logger.i(
+            "DatabaseInitViewModel.detectBootstrapPlaceholder",
+            "Database counts",
+            mapOf(
+                "taskCount" to counts.taskCount,
+                "timeEntryCount" to counts.timeEntryCount,
+                "journalEntryCount" to counts.journalEntryCount,
+                "noteCount" to counts.noteCount,
+            ),
+        )
+        val hasUserData = counts.taskCount > 0 || counts.timeEntryCount > 0 ||
+            counts.journalEntryCount > 0 || counts.noteCount > 0
+        return !databaseInitCompleted && !hasUserData
+    }
+
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -171,39 +204,7 @@ class DatabaseInitViewModel @Inject constructor(
                         mapOf("sizeKB" to sizeKB, "lastModified" to lastModified, "lastModifiedDate" to Date(lastModified).toString()),
                     )
 
-                    val isEncrypted = databaseEncryptionManager.isEncryptionEnabled()
-                    val isBootstrapPlaceholder = if (isEncrypted) {
-                        false
-                    } else {
-                        val databaseInitCompleted = readDatabaseInitCompletedFlag(dbFile)
-                        val counts = withContext(Dispatchers.IO) {
-                            val countMap = DatabaseEncryptionMigrationSupport.readTableCounts(
-                                context = context,
-                                databaseFile = dbFile,
-                                passphrase = null,
-                                tableNames = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes"),
-                            )
-                            DatabaseTableCounts(
-                                taskCount = countMap["tasks"] ?: 0,
-                                timeEntryCount = countMap["time_entries"] ?: 0,
-                                journalEntryCount = (countMap["day_journal_entries"] ?: 0) + (countMap["journal_notes"] ?: 0),
-                                noteCount = countMap["notes"] ?: 0,
-                            )
-                        }
-                        logger.i(
-                            "DatabaseInitViewModel.checkDatabaseStatus",
-                            "Database counts",
-                            mapOf(
-                                "taskCount" to counts.taskCount,
-                                "timeEntryCount" to counts.timeEntryCount,
-                                "journalEntryCount" to counts.journalEntryCount,
-                                "noteCount" to counts.noteCount,
-                            ),
-                        )
-                        val hasUserData = counts.taskCount > 0 || counts.timeEntryCount > 0 ||
-                            counts.journalEntryCount > 0 || counts.noteCount > 0
-                        !databaseInitCompleted && !hasUserData
-                    }
+                    val isBootstrapPlaceholder = detectBootstrapPlaceholder(dbFile)
                     if (isBootstrapPlaceholder) {
                         logger.w(
                             "DatabaseInitViewModel.checkDatabaseStatus",
@@ -440,6 +441,205 @@ class DatabaseInitViewModel @Inject constructor(
         _uiState.update { it.copy(showImportWipeConfirm = false) }
     }
 
+    private sealed class ImportIOResult {
+        data class NeedsPassphrase(val dbFile: File, val tempBackupDir: File?) : ImportIOResult()
+        data class Completed(val dbFile: File, val passphrase: String?) : ImportIOResult()
+        data class Failed(
+            val cause: Throwable,
+            val restoreAttempted: Boolean,
+            val restoreSucceeded: Boolean,
+        ) : ImportIOResult()
+    }
+
+    /**
+     * Performs the IO-intensive portion of database import: backup, copy, validate,
+     * optionally re-encrypt, health-check, and session-open.
+     * Returns a sealed result so the caller can update UI state without
+     * deeply-nested try/catch/finally control flow.
+     */
+    private suspend fun executeImportIO(
+        sourceUri: Uri,
+        dbFile: File,
+        existingDatabaseFiles: List<File>,
+    ): ImportIOResult = withContext(Dispatchers.IO) {
+        var tempBackupDir: File? = null
+        var result: ImportIOResult = ImportIOResult.Failed(IllegalStateException("unreachable"), false, false)
+        try {
+            if (existingDatabaseFiles.isNotEmpty()) {
+                tempBackupDir = createSidecarSafeTempBackup()
+                if (tempBackupDir == null) {
+                    throw IllegalStateException("Could not create a safe backup of the current database before importing.")
+                }
+                breadcrumb(
+                    stage = "temp_backup_created",
+                    data = mapOf("path" to tempBackupDir!!.absolutePath),
+                )
+                logger.i(
+                    "DatabaseInitViewModel.executeImportIO",
+                    "Temp backup created",
+                    mapOf("dir" to tempBackupDir!!.absolutePath),
+                )
+            }
+
+            databaseEncryptionManager.backupEncryptionPrefs()
+            breadcrumb(stage = "encryption_prefs_backed_up")
+            deleteAllDatabaseFiles()
+            breadcrumb(stage = "runtime_artifacts_deleted")
+
+            val copyResult = DatabaseImportSupport.copyDatabaseArtifacts(
+                context = context,
+                sourceUri = sourceUri,
+                targetDatabaseFile = dbFile,
+            )
+            breadcrumb(
+                stage = "import_artifacts_copied",
+                data = mapOf(
+                    "sourceKind" to copyResult.sourceKind,
+                    "primaryFileName" to copyResult.primaryFileName,
+                    "companionFilesCopied" to copyResult.companionFilesCopied,
+                ),
+            )
+            logger.i(
+                "DatabaseInitViewModel.executeImportIO",
+                "Database file copied",
+                mapOf(
+                    "bytesCopiedKB" to (copyResult.bytesCopied / 1024),
+                    "filePath" to dbFile.absolutePath,
+                    "sourceKind" to copyResult.sourceKind,
+                    "primaryFileName" to copyResult.primaryFileName,
+                    "companionFilesCopied" to copyResult.companionFilesCopied,
+                ),
+            )
+
+            if (!dbFile.exists() || dbFile.length() == 0L) {
+                throw Exception(context.getString(io.payanam.R.string.settings_import_error_empty_db))
+            }
+
+            DatabaseImportSupport.consolidateWalAfterImport(
+                dbFile = dbFile,
+                logTag = "DatabaseInitViewModel.executeImportIO",
+            )
+            breadcrumb(
+                stage = "wal_consolidation_done",
+                data = mapOf("dbSizeKB" to (dbFile.length() / 1024)),
+            )
+
+            val importedDbIsStandardSqlite = DatabaseImportSupport.isStandardSqliteFile(
+                databaseFile = dbFile,
+                logTag = "DatabaseInitViewModel.executeImportIO",
+            )
+            if (!importedDbIsStandardSqlite) {
+                val isEncrypted = DatabaseEncryptionMigrationSupport.isDetectablyEncrypted(
+                    context = context,
+                    databaseFile = dbFile,
+                    logTag = "DatabaseInitViewModel.executeImportIO",
+                )
+                if (isEncrypted) {
+                    logger.i(
+                        "DatabaseInitViewModel.executeImportIO",
+                        "Encrypted import detected; pausing and awaiting user passphrase",
+                    )
+                    breadcrumb(stage = "awaiting_import_passphrase")
+                    result = ImportIOResult.NeedsPassphrase(dbFile, tempBackupDir)
+                    return@withContext result
+                } else {
+                    throw IllegalStateException(
+                        context.getString(io.payanam.R.string.settings_import_error_unreadable_db),
+                    )
+                }
+            }
+
+            val importedSchemaVersion = DatabaseImportSupport.validateSupportedPlaintextImportSchema(
+                context = context,
+                databaseFile = dbFile,
+                logTag = "DatabaseInitViewModel.executeImportIO",
+            )
+            breadcrumb(
+                stage = "plaintext_schema_gate_done",
+                data = mapOf("dbVersion" to importedSchemaVersion),
+            )
+
+            val encryptionPassphraseForImport = if (databaseEncryptionManager.isEncryptionEnabled()) {
+                runCatching { databaseSessionManager.requireOpenPassphrase() }.getOrElse {
+                    throw IllegalStateException("Encrypted mode active but no open passphrase session is available.")
+                }
+            } else {
+                null
+            }
+            if (encryptionPassphraseForImport != null) {
+                DatabaseEncryptionMigrationSupport.ensureEncryptedWithPassphrase(
+                    context = context,
+                    databaseFile = dbFile,
+                    passphrase = encryptionPassphraseForImport,
+                    logTag = "DatabaseInitViewModel.executeImportIO",
+                )
+                breadcrumb(stage = "re_encrypted_with_session_passphrase")
+            }
+
+            val postImportHealth = DatabaseHealthChecker.checkDatabaseHealth(
+                context = context,
+                sqlCipherPassphrase = encryptionPassphraseForImport,
+            )
+            if (!postImportHealth.isHealthy) {
+                throw IllegalStateException(
+                    postImportHealth.errorMessage
+                        ?: context.getString(io.payanam.R.string.loc_database_needs_repair),
+                )
+            }
+
+            markDatabaseInitCompletedDirect(dbFile, encryptionPassphraseForImport)
+            breadcrumb(stage = "database_init_completed_marked")
+
+            val openPassphrase = encryptionPassphraseForImport ?: ""
+            val openResult = databaseSessionManager.openDatabase(openPassphrase)
+            openResult.getOrElse { openError ->
+                throw IllegalStateException(
+                    "Imported DB was finalized but session open failed: ${openError.message}",
+                    openError,
+                )
+            }
+            breadcrumb(
+                stage = "import_session_opened",
+                data = mapOf("passphraseLength" to openPassphrase.length),
+            )
+
+            result = ImportIOResult.Completed(dbFile, encryptionPassphraseForImport)
+        } catch (e: Exception) {
+            logger.e(
+                "DatabaseInitViewModel.executeImportIO",
+                "Import copy/conversion failed; restoring from temp backup",
+                e,
+            )
+            databaseEncryptionManager.restoreEncryptionPrefs()
+            breadcrumb(stage = "import_failure_encryption_prefs_restored")
+            val restoreAttempted = tempBackupDir != null
+            val restoreSucceeded = tempBackupDir?.let { dir -> restoreFromTempBackup(dir) } ?: false
+            breadcrumb(
+                stage = "import_failure_restore_attempted",
+                data = mapOf(
+                    "restoreAttempted" to restoreAttempted,
+                    "restoreSucceeded" to restoreSucceeded,
+                ),
+            )
+            logger.i(
+                "DatabaseInitViewModel.executeImportIO",
+                "Restore attempt completed after import failure",
+                mapOf(
+                    "restoreAttempted" to restoreAttempted,
+                    "restoreSucceeded" to restoreSucceeded,
+                ),
+            )
+            result = ImportIOResult.Failed(e, restoreAttempted, restoreSucceeded)
+        } finally {
+            if (result !is ImportIOResult.NeedsPassphrase) {
+                databaseEncryptionManager.clearEncryptionPrefsBackup()
+                tempBackupDir?.let { dir -> deleteTempBackup(dir) }
+                breadcrumb(stage = "import_cleanup_completed")
+            }
+        }
+        result
+    }
+
     private fun executeImportDatabase(sourceUri: Uri, onSuccess: () -> Unit) {
         logger.i(
             "DatabaseInitViewModel.executeImportDatabase",
@@ -455,239 +655,65 @@ class DatabaseInitViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isImporting = true, errorMessage = null, restoreResult = null) }
 
-            var pausedForPassphrase = false
-            var tempBackupDir: File? = null
-            var restoreAttempted = false
-            var restoreSucceeded = false
+            val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+            val existingDatabaseFiles = getDatabaseArtifactFiles().filter { it.exists() }
 
-            try {
-                withContext(Dispatchers.IO) {
-                    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-                    val existingDatabaseFiles = getDatabaseArtifactFiles().filter { it.exists() }
+            val result = executeImportIO(sourceUri, dbFile, existingDatabaseFiles)
 
-                    if (existingDatabaseFiles.isNotEmpty()) {
-                        tempBackupDir = createSidecarSafeTempBackup()
-                        if (tempBackupDir == null) {
-                            throw IllegalStateException("Could not create a safe backup of the current database before importing.")
-                        }
-                        breadcrumb(
-                            stage = "temp_backup_created",
-                            data = mapOf("path" to tempBackupDir!!.absolutePath),
-                        )
-                        logger.i(
-                            "DatabaseInitViewModel.executeImportDatabase",
-                            "Temp backup created",
-                            mapOf("dir" to tempBackupDir!!.absolutePath),
+            when (result) {
+                is ImportIOResult.NeedsPassphrase -> {
+                    pendingImportDbFile = result.dbFile
+                    pendingImportTempBackupDir = result.tempBackupDir
+                    _uiState.update {
+                        it.copy(
+                            isImporting = false,
+                            awaitingImportPassphrase = true,
+                            importPassphraseError = null,
                         )
                     }
-
-                    databaseEncryptionManager.backupEncryptionPrefs()
-                    breadcrumb(stage = "encryption_prefs_backed_up")
-                    deleteAllDatabaseFiles()
-                    breadcrumb(stage = "runtime_artifacts_deleted")
-                    try {
-                        val copyResult = DatabaseImportSupport.copyDatabaseArtifacts(
-                            context = context,
-                            sourceUri = sourceUri,
-                            targetDatabaseFile = dbFile,
-                        )
-                        breadcrumb(
-                            stage = "import_artifacts_copied",
-                            data = mapOf(
-                                "sourceKind" to copyResult.sourceKind,
-                                "primaryFileName" to copyResult.primaryFileName,
-                                "companionFilesCopied" to copyResult.companionFilesCopied,
-                            ),
-                        )
-
-                        logger.i(
-                            "DatabaseInitViewModel.importDatabase",
-                            "Database file copied",
-                            mapOf(
-                                "bytesCopiedKB" to (copyResult.bytesCopied / 1024),
-                                "filePath" to dbFile.absolutePath,
-                                "sourceKind" to copyResult.sourceKind,
-                                "primaryFileName" to copyResult.primaryFileName,
-                                "companionFilesCopied" to copyResult.companionFilesCopied,
-                            ),
-                        )
-
-                        if (!dbFile.exists() || dbFile.length() == 0L) {
-                            throw Exception(context.getString(io.payanam.R.string.settings_import_error_empty_db))
-                        }
-
-                        DatabaseImportSupport.consolidateWalAfterImport(
-                            dbFile = dbFile,
-                            logTag = "DatabaseInitViewModel.importDatabase",
-                        )
-                        breadcrumb(
-                            stage = "wal_consolidation_done",
-                            data = mapOf("dbSizeKB" to (dbFile.length() / 1024)),
-                        )
-
-                        val importedDbIsStandardSqlite = DatabaseImportSupport.isStandardSqliteFile(
-                            databaseFile = dbFile,
-                            logTag = "DatabaseInitViewModel.importDatabase",
-                        )
-                        if (!importedDbIsStandardSqlite) {
-                            val isEncrypted = DatabaseEncryptionMigrationSupport.isDetectablyEncrypted(
-                                context = context,
-                                databaseFile = dbFile,
-                                logTag = "DatabaseInitViewModel.importDatabase",
-                            )
-                            if (isEncrypted) {
-                                logger.i(
-                                    "DatabaseInitViewModel.importDatabase",
-                                    "Encrypted import detected; pausing and awaiting user passphrase",
-                                )
-                                breadcrumb(stage = "awaiting_import_passphrase")
-                                pausedForPassphrase = true
-                                pendingImportDbFile = dbFile
-                                pendingImportTempBackupDir = tempBackupDir
-                                _uiState.update {
-                                    it.copy(
-                                        isImporting = false,
-                                        awaitingImportPassphrase = true,
-                                        importPassphraseError = null,
-                                    )
-                                }
-                                return@withContext
-                            } else {
-                                throw IllegalStateException(
-                                    context.getString(io.payanam.R.string.settings_import_error_unreadable_db),
-                                )
-                            }
-                        }
-
-                        val importedSchemaVersion = DatabaseImportSupport.validateSupportedPlaintextImportSchema(
-                            context = context,
-                            databaseFile = dbFile,
-                            logTag = "DatabaseInitViewModel.importDatabase",
-                        )
-                        breadcrumb(
-                            stage = "plaintext_schema_gate_done",
-                            data = mapOf("dbVersion" to importedSchemaVersion),
-                        )
-
-                        val encryptionPassphraseForImport = if (databaseEncryptionManager.isEncryptionEnabled()) {
-                            runCatching { databaseSessionManager.requireOpenPassphrase() }.getOrElse {
-                                throw IllegalStateException("Encrypted mode active but no open passphrase session is available.")
-                            }
-                        } else {
-                            null
-                        }
-                        if (encryptionPassphraseForImport != null) {
-                            DatabaseEncryptionMigrationSupport.ensureEncryptedWithPassphrase(
-                                context = context,
-                                databaseFile = dbFile,
-                                passphrase = encryptionPassphraseForImport,
-                                logTag = "DatabaseInitViewModel.importDatabase",
-                            )
-                            breadcrumb(stage = "re_encrypted_with_session_passphrase")
-                        }
-
-                        val postImportHealth = DatabaseHealthChecker.checkDatabaseHealth(
-                            context = context,
-                            sqlCipherPassphrase = encryptionPassphraseForImport,
-                        )
-                        if (!postImportHealth.isHealthy) {
-                            throw IllegalStateException(
-                                postImportHealth.errorMessage
-                                    ?: context.getString(io.payanam.R.string.loc_database_needs_repair),
-                            )
-                        }
-
-                        markDatabaseInitCompletedDirect(dbFile, encryptionPassphraseForImport)
-                        breadcrumb(stage = "database_init_completed_marked")
-
-                        val openPassphrase = encryptionPassphraseForImport ?: ""
-                        val openResult = databaseSessionManager.openDatabase(openPassphrase)
-                        openResult.getOrElse { openError ->
-                            throw IllegalStateException(
-                                "Imported DB was finalized but session open failed: ${openError.message}",
-                                openError,
-                            )
-                        }
-                        breadcrumb(
-                            stage = "import_session_opened",
-                            data = mapOf("passphraseLength" to openPassphrase.length),
-                        )
-                    } catch (e: Exception) {
-                        if (!pausedForPassphrase) {
-                            logger.e(
-                                "DatabaseInitViewModel.executeImportDatabase",
-                                "Import copy/conversion failed; restoring from temp backup",
-                                e,
-                            )
-                            databaseEncryptionManager.restoreEncryptionPrefs()
-                            breadcrumb(stage = "import_failure_encryption_prefs_restored")
-                            restoreAttempted = tempBackupDir != null
-                            restoreSucceeded = tempBackupDir?.let { dir -> restoreFromTempBackup(dir) } ?: false
-                            breadcrumb(
-                                stage = "import_failure_restore_attempted",
-                                data = mapOf(
-                                    "restoreAttempted" to restoreAttempted,
-                                    "restoreSucceeded" to restoreSucceeded,
-                                ),
-                            )
-                            logger.i(
-                                "DatabaseInitViewModel.executeImportDatabase",
-                                "Restore attempt completed after import failure",
-                                mapOf(
-                                    "restoreAttempted" to restoreAttempted,
-                                    "restoreSucceeded" to restoreSucceeded,
-                                ),
-                            )
-                        }
-                        throw e
-                    } finally {
-                        if (!pausedForPassphrase) {
-                            databaseEncryptionManager.clearEncryptionPrefsBackup()
-                            tempBackupDir?.let { dir -> deleteTempBackup(dir) }
-                            breadcrumb(stage = "import_cleanup_completed")
-                        }
-                    }
                 }
-
-                if (pausedForPassphrase) return@launch
-                delay(500)
-                _uiState.update { it.copy(isImporting = false) }
-                breadcrumb(stage = "import_success_callback")
-                onSuccess()
-            } catch (e: Exception) {
-                logger.e("DatabaseInitViewModel.executeImportDatabase", "Import failed", e)
-                breadcrumb(
-                    stage = "import_failed",
-                    data = mapOf(
-                        "errorType" to e.javaClass.simpleName,
-                        "errorMessage" to (e.message ?: "unknown"),
-                    ),
-                )
-                clearPendingImport()
-                val rawMessage = e.message ?: "Unknown error"
-                val resolvedMessage = if (
-                    rawMessage.contains("unable to open database", ignoreCase = true) ||
-                    rawMessage.contains("cannot open database", ignoreCase = true)
-                ) {
-                    context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
-                } else {
-                    "Import failed: $rawMessage"
+                is ImportIOResult.Completed -> {
+                    delay(500)
+                    _uiState.update { it.copy(isImporting = false) }
+                    breadcrumb(stage = "import_success_callback")
+                    onSuccess()
                 }
-                val restoreResult = when {
-                    restoreAttempted && restoreSucceeded -> RestoreResult.RestoredOk
-                    restoreAttempted && !restoreSucceeded -> RestoreResult.RestoreFailed
-                    else -> null
-                }
-                _uiState.update {
-                    it.copy(
-                        isImporting = false,
-                        errorMessage = if (restoreAttempted && restoreSucceeded) null else resolvedMessage,
-                        restoreResult = restoreResult,
+                is ImportIOResult.Failed -> {
+                    logger.e("DatabaseInitViewModel.executeImportDatabase", "Import failed", result.cause)
+                    breadcrumb(
+                        stage = "import_failed",
+                        data = mapOf(
+                            "errorType" to result.cause.javaClass.simpleName,
+                            "errorMessage" to (result.cause.message ?: "unknown"),
+                        ),
                     )
+                    clearPendingImport()
+                    val rawMessage = result.cause.message ?: "Unknown error"
+                    val resolvedMessage = if (
+                        rawMessage.contains("unable to open database", ignoreCase = true) ||
+                        rawMessage.contains("cannot open database", ignoreCase = true)
+                    ) {
+                        context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
+                    } else {
+                        "Import failed: $rawMessage"
+                    }
+                    val restoreResult = when {
+                        result.restoreAttempted && result.restoreSucceeded -> RestoreResult.RestoredOk
+                        result.restoreAttempted && !result.restoreSucceeded -> RestoreResult.RestoreFailed
+                        else -> null
+                    }
+                    _uiState.update {
+                        it.copy(
+                            isImporting = false,
+                            errorMessage = if (result.restoreAttempted && result.restoreSucceeded) null else resolvedMessage,
+                            restoreResult = restoreResult,
+                        )
+                    }
                 }
             }
         }
     }
+
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
         breadcrumb(
