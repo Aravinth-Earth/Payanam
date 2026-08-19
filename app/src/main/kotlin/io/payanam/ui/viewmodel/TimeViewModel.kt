@@ -164,120 +164,11 @@ class TimeViewModel @Inject constructor(
             )
         }
         entriesJob?.cancel()
-        entriesJob = viewModelScope.launch {
-            var receivedInitialEntries = false
-            try {
-                timeEntryRepository.getTimeEntriesForDate(date).collect { entries ->
-                    _uiState.update {
-                        it.copy(
-                            timeEntries = entries.sortedBy { e -> e.startedAt },
-                        )
-                    }
-                    if (!receivedInitialEntries) {
-                        receivedInitialEntries = true
-                        logger.d(
-                            "TimeViewModel.loadEntriesForDate",
-                            "Initial time entries received",
-                            mapOf(
-                                "requestId" to requestId.toString(),
-                                "selectedDate" to date.toString(),
-                                "entryCount" to entries.size,
-                            ),
-                        )
-                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
-                _uiState.update { it.copy(error = e.message) }
-                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
-            }
-        }
+        entriesJob = launchTimeEntriesCollection(requestId, date)
         plannedTasksJob?.cancel()
-        plannedTasksJob = viewModelScope.launch {
-            var receivedInitialPlannedTasks = false
-            try {
-                val useTodaysTasks = shouldUseTodaysPlannedTasks(date)
-                val plannedTasksFlow = if (useTodaysTasks) {
-                    taskRepository.getTodaysTasks()
-                } else {
-                    taskRepository.getTasksDueOn(date)
-                }
-                plannedTasksFlow.collect { tasks ->
-                    val filtered = if (FeatureFlags.minimalModeEnabled) {
-                        tasks.filter { !it.recurrenceEnabled }
-                    } else {
-                        tasks
-                    }
-                    _uiState.update { state ->
-                        state.copy(
-                            plannedTasks = filtered,
-                            taskPickerTasks = buildTaskPickerTasks(filtered, state.tasks),
-                        )
-                    }
-                    if (!receivedInitialPlannedTasks) {
-                        receivedInitialPlannedTasks = true
-                        logger.d(
-                            "TimeViewModel.loadEntriesForDate",
-                            "Initial planned tasks received",
-                            mapOf(
-                                "requestId" to requestId.toString(),
-                                "selectedDate" to date.toString(),
-                                "plannedTasksSource" to if (useTodaysTasks) "today" else "due_on_date",
-                                "plannedTaskCount" to filtered.size,
-                            ),
-                        )
-                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
-                _uiState.update { it.copy(error = e.message) }
-                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
-            }
-        }
+        plannedTasksJob = launchPlannedTasksCollection(requestId, date)
         occurrencesJob?.cancel()
-        if (FeatureFlags.minimalModeEnabled) {
-            _uiState.update { it.copy(pastOccurrences = emptyList()) }
-            logger.d(
-                "TimeViewModel.loadEntriesForDate",
-                "Skipped occurrences load in minimal mode",
-                mapOf(
-                    "requestId" to requestId.toString(),
-                    "selectedDate" to date.toString(),
-                ),
-            )
-            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-        } else {
-            occurrencesJob = viewModelScope.launch {
-                var receivedInitialOccurrences = false
-                try {
-                    taskOccurrenceRepository.getOccurrencesForDate(date).collect { occurrences ->
-                        _uiState.update { it.copy(pastOccurrences = occurrences) }
-                        if (!receivedInitialOccurrences) {
-                            receivedInitialOccurrences = true
-                            logger.d(
-                                "TimeViewModel.loadEntriesForDate",
-                                "Initial occurrences received",
-                                mapOf(
-                                    "requestId" to requestId.toString(),
-                                    "selectedDate" to date.toString(),
-                                    "occurrenceCount" to occurrences.size,
-                                ),
-                            )
-                            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)
-                    _uiState.update { it.copy(error = e.message) }
-                    markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-                }
-            }
-        }
+        occurrencesJob = launchOccurrencesCollection(requestId, date)
     }
 
     private fun markSelectedDateSectionLoaded(requestId: Long, section: TimeScreenDateSection) {
@@ -1035,6 +926,125 @@ class TimeViewModel @Inject constructor(
             notificationScheduler.cancelForTask(taskId)
         } catch (e: Exception) {
             logger.e(source, "Failed to cancel one-time reminder", e, mapOf("taskId" to taskId))
+        }
+    }
+
+    private fun launchTimeEntriesCollection(requestId: Long, date: LocalDate): Job =
+        viewModelScope.launch {
+            var receivedInitialEntries = false
+            try {
+                timeEntryRepository.getTimeEntriesForDate(date).collect { entries ->
+                    _uiState.update {
+                        it.copy(
+                            timeEntries = entries.sortedBy { e -> e.startedAt },
+                        )
+                    }
+                    if (!receivedInitialEntries) {
+                        receivedInitialEntries = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial time entries received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "entryCount" to entries.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
+            }
+        }
+
+    private fun launchPlannedTasksCollection(requestId: Long, date: LocalDate): Job =
+        viewModelScope.launch {
+            var receivedInitialPlannedTasks = false
+            try {
+                val useTodaysTasks = shouldUseTodaysPlannedTasks(date)
+                val plannedTasksFlow = if (useTodaysTasks) {
+                    taskRepository.getTodaysTasks()
+                } else {
+                    taskRepository.getTasksDueOn(date)
+                }
+                plannedTasksFlow.collect { tasks ->
+                    val filtered = if (FeatureFlags.minimalModeEnabled) {
+                        tasks.filter { !it.recurrenceEnabled }
+                    } else {
+                        tasks
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            plannedTasks = filtered,
+                            taskPickerTasks = buildTaskPickerTasks(filtered, state.tasks),
+                        )
+                    }
+                    if (!receivedInitialPlannedTasks) {
+                        receivedInitialPlannedTasks = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial planned tasks received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "plannedTasksSource" to if (useTodaysTasks) "today" else "due_on_date",
+                                "plannedTaskCount" to filtered.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
+            }
+        }
+
+    private fun launchOccurrencesCollection(requestId: Long, date: LocalDate): Job? {
+        if (FeatureFlags.minimalModeEnabled) {
+            _uiState.update { it.copy(pastOccurrences = emptyList()) }
+            logger.d(
+                "TimeViewModel.loadEntriesForDate",
+                "Skipped occurrences load in minimal mode",
+                mapOf(
+                    "requestId" to requestId.toString(),
+                    "selectedDate" to date.toString(),
+                ),
+            )
+            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+            return null
+        }
+        return viewModelScope.launch {
+            var receivedInitialOccurrences = false
+            try {
+                taskOccurrenceRepository.getOccurrencesForDate(date).collect { occurrences ->
+                    _uiState.update { it.copy(pastOccurrences = occurrences) }
+                    if (!receivedInitialOccurrences) {
+                        receivedInitialOccurrences = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial occurrences received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "occurrenceCount" to occurrences.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+            }
         }
     }
 }
