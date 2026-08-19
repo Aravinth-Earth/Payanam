@@ -34,7 +34,6 @@ import io.payanam.ui.components.DimensionDropdownBadgeLabelRow
 import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.viewmodel.DimensionOption
 import java.time.LocalDateTime
-private val logger = UnifiedLogger.getInstance()
 
 @OptIn(ExperimentalMaterial3Api::class)
 data class EditTaskInput(
