@@ -16,7 +16,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
@@ -35,8 +34,6 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.FilterChipDefaults
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -84,10 +81,8 @@ import io.payanam.ui.viewmodel.TaskFilterCounts
 import io.payanam.ui.viewmodel.TaskRowUiModel
 import io.payanam.ui.viewmodel.TaskSortOption
 import io.payanam.ui.viewmodel.TasksChromeUiState
-import io.payanam.ui.viewmodel.TasksTabUiState
 import io.payanam.ui.viewmodel.matchesTaskSearch
 import io.payanam.ui.viewmodel.TasksViewModel
-import java.time.LocalDate
 
 enum class TasksScreenMode {
     COMBINED,
