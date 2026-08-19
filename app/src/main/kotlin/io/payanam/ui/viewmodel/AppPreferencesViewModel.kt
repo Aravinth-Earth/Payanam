@@ -458,184 +458,189 @@ class AppPreferencesViewModel @Inject constructor(
                     }
                 }
                 .collect { bundle ->
-                    val settings = bundle.settings
-                    val configuredDimensions = bundle.dimensions
-                    val systemLanguageTag = bundle.systemLanguageTag
-                    val backupStatus = bundle.backupStatus
-                    val themeMode = ThemeModeOption.fromKey(settings[KEY_THEME_MODE]) ?: ThemeModeOption.SYSTEM
-                    val appLanguage = AppLanguageOption.fromKey(settings[KEY_APP_LANGUAGE]) ?: AppLanguageOption.SYSTEM
-                    val effectiveLanguageTag = resolveEffectiveLanguageTag(appLanguage, systemLanguageTag)
-                    val fontFamily = FontFamilyOption.fromKey(settings[KEY_FONT_FAMILY]) ?: FontFamilyOption.SANS_SERIF
-                    val timeFormat = TimeFormatOption.fromKey(settings[KEY_TIME_FORMAT]) ?: TimeFormatOption.TWENTY_FOUR
-                    val timeHourHeightDp = resolveTimeHourHeightDp(settings)
-                    val (dimensionPrefs, dynamicDimensionOptions) = buildDimensionCatalogUiState(
-                        dimensions = configuredDimensions,
-                        effectiveLanguageTag = effectiveLanguageTag,
-                    )
-                    val dimensionSettingsLogSignature = buildString {
-                        append("appLanguage=")
-                        append(appLanguage.key)
-                        append("|effectiveLanguageTag=")
-                        append(effectiveLanguageTag)
-                        append("|systemLanguageTag=")
-                        append(systemLanguageTag)
-                        append("|catalogIds=")
-                        append(configuredDimensions.joinToString(",") { it.id })
-                        append("|defaultIds=")
-                        append(dimensionPrefs.joinToString(",") { it.id })
-                        append("|customIds=")
-                        append(dynamicDimensionOptions.joinToString(",") { it.id })
-                    }
-                    if (lastLoggedDimensionSettingsSignature != dimensionSettingsLogSignature) {
-                        logger.i(
-                            "AppPreferencesViewModel.observeSettings",
-                            "Dimension settings snapshot loaded",
-                            mapOf(
-                                "defaultDimensionCount" to dimensionPrefs.size,
-                                "dynamicDimensionCount" to dynamicDimensionOptions.size,
-                                "catalogDimensionCount" to configuredDimensions.size,
-                                "appLanguage" to appLanguage.key,
-                                "effectiveLanguageTag" to effectiveLanguageTag,
-                                "systemLanguageTag" to systemLanguageTag,
-                            ),
-                        )
-                        logger.i(
-                            "AppPreferencesViewModel.observeSettings",
-                            "Dimension trace catalogIds=${configuredDimensions.joinToString(",") { it.id }} defaultIds=${dimensionPrefs.joinToString(",") { it.id }} customIds=${dynamicDimensionOptions.joinToString(",") { it.id }}",
-                        )
-                        logger.i(
-                            "AppPreferencesViewModel.observeSettings",
-                            "Dimension label trace ${
-                                (
-                                    dimensionPrefs.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" } +
-                                        dynamicDimensionOptions.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" }
-                                    )
-                                    .joinToString(" | ")
-                            }",
-                        )
-                        logger.i(
-                            "AppPreferencesViewModel.observeSettings",
-                            "Dimension icon trace defaultIcons=${dimensionPrefs.joinToString(",") { "${it.id}:${it.iconKey}" }} customIcons=${dynamicDimensionOptions.joinToString(",") { "${it.id}:${it.iconKey}" }}",
-                        )
-                        lastLoggedDimensionSettingsSignature = dimensionSettingsLogSignature
-                    }
-                    val autoBackupEnabled = settings[KEY_AUTO_BACKUP_ENABLED]?.toBoolean() ?: false
-                    val autoBackupInterval = BackupInterval.fromKey(settings[KEY_AUTO_BACKUP_INTERVAL]) ?: BackupInterval.SIXTY_MIN
-                    val autoBackupLastRun = backupStatus.lastSuccessDisplay ?: settings[KEY_AUTO_BACKUP_LAST_RUN]
-                    val backupFailureStatus = backupStatus.latestFailure
-                    val backupRotationEnabled = settings[KEY_BACKUP_ROTATION_ENABLED]?.toBoolean() ?: false
-                    val backupRotationCount = settings[KEY_BACKUP_ROTATION_COUNT]?.toIntOrNull()?.coerceIn(1, 999) ?: 50
-                    val dayBoundaryHour = settings[KEY_DAY_BOUNDARY_HOUR]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
-                    val debugLoggingEnabled = settings[KEY_DEBUG_LOGGING_ENABLED]?.toBoolean() ?: BuildConfig.DEBUG
-                    val databaseInitCompleted = settings[KEY_DATABASE_INIT_COMPLETED]?.toBoolean() ?: false
-                    // Auto-tracking habit completion time preferences
-                    val autoTrackHabitTimeGlobal = settings[KEY_AUTO_TRACK_HABIT_TIME]?.toBoolean() ?: false
-                    val autoTrackDimensionIds = (dimensionPrefs.map { it.id } + dynamicDimensionOptions.map { it.id }).distinct()
-                    val autoTrackDimensionPrefs = autoTrackDimensionIds.associateWith { dimensionId ->
-                        settings["$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId"]?.toBoolean()
-                            ?: autoTrackHabitTimeGlobal
-                    }
-                    // Focus Mode preferences
-                    val activePreset = FocusModePreset.fromPresetId(settings[KEY_ACTIVE_PRESET])
-                    val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
-                    val tabVisibility = allTabs.associateWith { tabRoute ->
-                        if (tabRoute == "settings") {
-                            true // Settings tab is always visible
-                        } else {
-                            settings["$KEY_TAB_VISIBLE_PREFIX$tabRoute"]?.toBoolean()
-                                ?: activePreset.visibleTabs.contains(tabRoute)
-                        }
-                    }
-                    val focusModeOnboardingCompleted = settings[KEY_FOCUS_MODE_ONBOARDING_COMPLETED]?.toBoolean() ?: false
-                    val currentTaskFilter = TaskFilter.fromKey(settings[KEY_TASK_FILTER_OPTION])
-                    val launchDestinationRoute = settings[KEY_LAUNCH_DESTINATION_ROUTE] ?: "time"
-                    val launchDestinationTaskFilter = TaskFilter.fromKey(settings[KEY_LAUNCH_DESTINATION_TASK_FILTER])
-                    val launchDestination = LaunchDestination(
-                        route = launchDestinationRoute,
-                        taskFilter = launchDestinationTaskFilter,
-                    )
-                    // Insights charts visibility prefs
-                    val chartTimeModuleEnabled = settings[KEY_CHART_TIME_MODULE]?.toBoolean() ?: true
-                    val chartTimeOverallSnapshotEnabled = settings[KEY_CHART_TIME_OVERALL_SNAPSHOT]?.toBoolean() ?: false
-                    val chartTimeExecutionDetailsEnabled = settings[KEY_CHART_TIME_EXECUTION_DETAILS]?.toBoolean() ?: false
-                    val chartTimeScoreCardsEnabled = settings[KEY_CHART_TIME_SCORE_CARDS]?.toBoolean() ?: false
-                    val chartTimeOverallScoreCardEnabled = settings[KEY_CHART_TIME_OVERALL_SCORE_CARD]?.toBoolean() ?: false
-                    val chartTimeDimensionScoreCardsEnabled = settings[KEY_CHART_TIME_DIM_SCORE_CARDS]?.toBoolean() ?: false
-                    val chartTimeLineGraphsEnabled = settings[KEY_CHART_TIME_LINE_GRAPHS]?.toBoolean() ?: false
-                    val chartTimeDailyScoreTrendEnabled = settings[KEY_CHART_TIME_DAILY_SCORE_TREND]?.toBoolean() ?: false
-                    val chartTimeProgressTrendEnabled = settings[KEY_CHART_TIME_PROGRESS_TREND]?.toBoolean() ?: false
-                    val chartTimeHistoricalRankingEnabled = settings[KEY_CHART_TIME_HISTORICAL_RANKING]?.toBoolean() ?: false
-                    val chartTimeMomentumStreakEnabled = settings[KEY_CHART_TIME_MOMENTUM_STREAK]?.toBoolean() ?: false
-                    val chartTaskModuleEnabled = settings[KEY_CHART_TASK_MODULE]?.toBoolean() ?: false
-                    val chartHabitModuleEnabled = settings[KEY_CHART_HABIT_MODULE]?.toBoolean() ?: false
-                    val chartJournalModuleEnabled = settings[KEY_CHART_JOURNAL_MODULE]?.toBoolean() ?: false
-                    val chartNoteModuleEnabled = settings[KEY_CHART_NOTE_MODULE]?.toBoolean() ?: false
-                    val chartAverageDailyTimeEnabled = settings[KEY_CHART_AVERAGE_DAILY_TIME]?.toBoolean() ?: true
-                    val chartDimSplitEnabled = settings[KEY_CHART_DIM_SPLIT]?.toBoolean() ?: false
-                    val chartDimTrendEnabled = settings[KEY_CHART_DIM_TREND]?.toBoolean() ?: false
-                    val chartDailyTimelineEnabled = settings[KEY_CHART_DAILY_TIMELINE]?.toBoolean() ?: false
-                    val chartWeeklyPatternEnabled = settings[KEY_CHART_WEEKLY_PATTERN]?.toBoolean() ?: false
-                    val chartDailyRhythmEnabled = settings[KEY_CHART_DAILY_RHYTHM]?.toBoolean() ?: false
-                    val chartWeeklyPatternExclEmpty = settings[KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY]?.toBoolean() ?: false
-                    val chartDailyRhythmExclEmpty = settings[KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY]?.toBoolean() ?: false
-                    // Update UnifiedLogger debug logging
-                    io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(debugLoggingEnabled)
-                    _uiState.update {
-                        it.copy(
-                            themeMode = themeMode,
-                            appLanguage = appLanguage,
-                            effectiveLanguageTag = effectiveLanguageTag,
-                            fontFamily = fontFamily,
-                            timeFormat = timeFormat,
-                            timeHourHeightDp = timeHourHeightDp,
-                            dimensionPreferences = dimensionPrefs,
-                            dynamicDimensionOptions = dynamicDimensionOptions,
-                            autoBackupEnabled = autoBackupEnabled,
-                            autoBackupInterval = autoBackupInterval,
-                            autoBackupLastRun = autoBackupLastRun,
-                            autoBackupLastErrorMessage = backupFailureStatus?.message,
-                            autoBackupLastErrorAt = backupFailureStatus?.recordedAtDisplay,
-                            backupRotationEnabled = backupRotationEnabled,
-                            backupRotationCount = backupRotationCount,
-                            dayBoundaryHour = dayBoundaryHour,
-                            debugLoggingEnabled = debugLoggingEnabled,
-                            databaseInitCompleted = databaseInitCompleted,
-                            autoTrackHabitTimeGlobal = autoTrackHabitTimeGlobal,
-                            autoTrackDimensionPreferences = autoTrackDimensionPrefs,
-                            activePreset = activePreset,
-                            tabVisibility = tabVisibility,
-                            focusModeOnboardingCompleted = focusModeOnboardingCompleted,
-                            currentTaskFilter = currentTaskFilter,
-                            launchDestination = launchDestination,
-                            chartTimeModuleEnabled = chartTimeModuleEnabled,
-                            chartTimeOverallSnapshotEnabled = chartTimeOverallSnapshotEnabled,
-                            chartTimeExecutionDetailsEnabled = chartTimeExecutionDetailsEnabled,
-                            chartTimeScoreCardsEnabled = chartTimeScoreCardsEnabled,
-                            chartTimeOverallScoreCardEnabled = chartTimeOverallScoreCardEnabled,
-                            chartTimeDimensionScoreCardsEnabled = chartTimeDimensionScoreCardsEnabled,
-                            chartTimeLineGraphsEnabled = chartTimeLineGraphsEnabled,
-                            chartTimeDailyScoreTrendEnabled = chartTimeDailyScoreTrendEnabled,
-                            chartTimeProgressTrendEnabled = chartTimeProgressTrendEnabled,
-                            chartTimeHistoricalRankingEnabled = chartTimeHistoricalRankingEnabled,
-                            chartTimeMomentumStreakEnabled = chartTimeMomentumStreakEnabled,
-                            chartTaskModuleEnabled = chartTaskModuleEnabled,
-                            chartHabitModuleEnabled = chartHabitModuleEnabled,
-                            chartJournalModuleEnabled = chartJournalModuleEnabled,
-                            chartNoteModuleEnabled = chartNoteModuleEnabled,
-                            chartAverageDailyTimeEnabled = chartAverageDailyTimeEnabled,
-                            chartDimSplitEnabled = chartDimSplitEnabled,
-                            chartDimTrendEnabled = chartDimTrendEnabled,
-                            chartDailyTimelineEnabled = chartDailyTimelineEnabled,
-                            chartWeeklyPatternEnabled = chartWeeklyPatternEnabled,
-                            chartDailyRhythmEnabled = chartDailyRhythmEnabled,
-                            chartWeeklyPatternExclEmpty = chartWeeklyPatternExclEmpty,
-                            chartDailyRhythmExclEmpty = chartDailyRhythmExclEmpty,
-                            isLoading = false,
-                        )
-                    }
+                    applySettingsBundle(bundle)
                 }
         }
     }
+
+    private fun applySettingsBundle(bundle: BackupSettingsBundle) {
+        val settings = bundle.settings
+        val configuredDimensions = bundle.dimensions
+        val systemLanguageTag = bundle.systemLanguageTag
+        val backupStatus = bundle.backupStatus
+        val themeMode = ThemeModeOption.fromKey(settings[KEY_THEME_MODE]) ?: ThemeModeOption.SYSTEM
+        val appLanguage = AppLanguageOption.fromKey(settings[KEY_APP_LANGUAGE]) ?: AppLanguageOption.SYSTEM
+        val effectiveLanguageTag = resolveEffectiveLanguageTag(appLanguage, systemLanguageTag)
+        val fontFamily = FontFamilyOption.fromKey(settings[KEY_FONT_FAMILY]) ?: FontFamilyOption.SANS_SERIF
+        val timeFormat = TimeFormatOption.fromKey(settings[KEY_TIME_FORMAT]) ?: TimeFormatOption.TWENTY_FOUR
+        val timeHourHeightDp = resolveTimeHourHeightDp(settings)
+        val (dimensionPrefs, dynamicDimensionOptions) = buildDimensionCatalogUiState(
+            dimensions = configuredDimensions,
+            effectiveLanguageTag = effectiveLanguageTag,
+        )
+        val dimensionSettingsLogSignature = buildString {
+            append("appLanguage=")
+            append(appLanguage.key)
+            append("|effectiveLanguageTag=")
+            append(effectiveLanguageTag)
+            append("|systemLanguageTag=")
+            append(systemLanguageTag)
+            append("|catalogIds=")
+            append(configuredDimensions.joinToString(",") { it.id })
+            append("|defaultIds=")
+            append(dimensionPrefs.joinToString(",") { it.id })
+            append("|customIds=")
+            append(dynamicDimensionOptions.joinToString(",") { it.id })
+        }
+        if (lastLoggedDimensionSettingsSignature != dimensionSettingsLogSignature) {
+            logger.i(
+                "AppPreferencesViewModel.observeSettings",
+                "Dimension settings snapshot loaded",
+                mapOf(
+                    "defaultDimensionCount" to dimensionPrefs.size,
+                    "dynamicDimensionCount" to dynamicDimensionOptions.size,
+                    "catalogDimensionCount" to configuredDimensions.size,
+                    "appLanguage" to appLanguage.key,
+                    "effectiveLanguageTag" to effectiveLanguageTag,
+                    "systemLanguageTag" to systemLanguageTag,
+                ),
+            )
+            logger.i(
+                "AppPreferencesViewModel.observeSettings",
+                "Dimension trace catalogIds=${configuredDimensions.joinToString(",") { it.id }} defaultIds=${dimensionPrefs.joinToString(",") { it.id }} customIds=${dynamicDimensionOptions.joinToString(",") { it.id }}",
+            )
+            logger.i(
+                "AppPreferencesViewModel.observeSettings",
+                "Dimension label trace ${
+                    (
+                        dimensionPrefs.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" } +
+                            dynamicDimensionOptions.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" }
+                        )
+                        .joinToString(" | ")
+                }",
+            )
+            logger.i(
+                "AppPreferencesViewModel.observeSettings",
+                "Dimension icon trace defaultIcons=${dimensionPrefs.joinToString(",") { "${it.id}:${it.iconKey}" }} customIcons=${dynamicDimensionOptions.joinToString(",") { "${it.id}:${it.iconKey}" }}",
+            )
+            lastLoggedDimensionSettingsSignature = dimensionSettingsLogSignature
+        }
+        val autoBackupEnabled = settings[KEY_AUTO_BACKUP_ENABLED]?.toBoolean() ?: false
+        val autoBackupInterval = BackupInterval.fromKey(settings[KEY_AUTO_BACKUP_INTERVAL]) ?: BackupInterval.SIXTY_MIN
+        val autoBackupLastRun = backupStatus.lastSuccessDisplay ?: settings[KEY_AUTO_BACKUP_LAST_RUN]
+        val backupFailureStatus = backupStatus.latestFailure
+        val backupRotationEnabled = settings[KEY_BACKUP_ROTATION_ENABLED]?.toBoolean() ?: false
+        val backupRotationCount = settings[KEY_BACKUP_ROTATION_COUNT]?.toIntOrNull()?.coerceIn(1, 999) ?: 50
+        val dayBoundaryHour = settings[KEY_DAY_BOUNDARY_HOUR]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
+        val debugLoggingEnabled = settings[KEY_DEBUG_LOGGING_ENABLED]?.toBoolean() ?: BuildConfig.DEBUG
+        val databaseInitCompleted = settings[KEY_DATABASE_INIT_COMPLETED]?.toBoolean() ?: false
+        // Auto-tracking habit completion time preferences
+        val autoTrackHabitTimeGlobal = settings[KEY_AUTO_TRACK_HABIT_TIME]?.toBoolean() ?: false
+        val autoTrackDimensionIds = (dimensionPrefs.map { it.id } + dynamicDimensionOptions.map { it.id }).distinct()
+        val autoTrackDimensionPrefs = autoTrackDimensionIds.associateWith { dimensionId ->
+            settings["$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId"]?.toBoolean()
+                ?: autoTrackHabitTimeGlobal
+        }
+        // Focus Mode preferences
+        val activePreset = FocusModePreset.fromPresetId(settings[KEY_ACTIVE_PRESET])
+        val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
+        val tabVisibility = allTabs.associateWith { tabRoute ->
+            if (tabRoute == "settings") {
+                true // Settings tab is always visible
+            } else {
+                settings["$KEY_TAB_VISIBLE_PREFIX$tabRoute"]?.toBoolean()
+                    ?: activePreset.visibleTabs.contains(tabRoute)
+            }
+        }
+        val focusModeOnboardingCompleted = settings[KEY_FOCUS_MODE_ONBOARDING_COMPLETED]?.toBoolean() ?: false
+        val currentTaskFilter = TaskFilter.fromKey(settings[KEY_TASK_FILTER_OPTION])
+        val launchDestinationRoute = settings[KEY_LAUNCH_DESTINATION_ROUTE] ?: "time"
+        val launchDestinationTaskFilter = TaskFilter.fromKey(settings[KEY_LAUNCH_DESTINATION_TASK_FILTER])
+        val launchDestination = LaunchDestination(
+            route = launchDestinationRoute,
+            taskFilter = launchDestinationTaskFilter,
+        )
+        // Insights charts visibility prefs
+        val chartTimeModuleEnabled = settings[KEY_CHART_TIME_MODULE]?.toBoolean() ?: true
+        val chartTimeOverallSnapshotEnabled = settings[KEY_CHART_TIME_OVERALL_SNAPSHOT]?.toBoolean() ?: false
+        val chartTimeExecutionDetailsEnabled = settings[KEY_CHART_TIME_EXECUTION_DETAILS]?.toBoolean() ?: false
+        val chartTimeScoreCardsEnabled = settings[KEY_CHART_TIME_SCORE_CARDS]?.toBoolean() ?: false
+        val chartTimeOverallScoreCardEnabled = settings[KEY_CHART_TIME_OVERALL_SCORE_CARD]?.toBoolean() ?: false
+        val chartTimeDimensionScoreCardsEnabled = settings[KEY_CHART_TIME_DIM_SCORE_CARDS]?.toBoolean() ?: false
+        val chartTimeLineGraphsEnabled = settings[KEY_CHART_TIME_LINE_GRAPHS]?.toBoolean() ?: false
+        val chartTimeDailyScoreTrendEnabled = settings[KEY_CHART_TIME_DAILY_SCORE_TREND]?.toBoolean() ?: false
+        val chartTimeProgressTrendEnabled = settings[KEY_CHART_TIME_PROGRESS_TREND]?.toBoolean() ?: false
+        val chartTimeHistoricalRankingEnabled = settings[KEY_CHART_TIME_HISTORICAL_RANKING]?.toBoolean() ?: false
+        val chartTimeMomentumStreakEnabled = settings[KEY_CHART_TIME_MOMENTUM_STREAK]?.toBoolean() ?: false
+        val chartTaskModuleEnabled = settings[KEY_CHART_TASK_MODULE]?.toBoolean() ?: false
+        val chartHabitModuleEnabled = settings[KEY_CHART_HABIT_MODULE]?.toBoolean() ?: false
+        val chartJournalModuleEnabled = settings[KEY_CHART_JOURNAL_MODULE]?.toBoolean() ?: false
+        val chartNoteModuleEnabled = settings[KEY_CHART_NOTE_MODULE]?.toBoolean() ?: false
+        val chartAverageDailyTimeEnabled = settings[KEY_CHART_AVERAGE_DAILY_TIME]?.toBoolean() ?: true
+        val chartDimSplitEnabled = settings[KEY_CHART_DIM_SPLIT]?.toBoolean() ?: false
+        val chartDimTrendEnabled = settings[KEY_CHART_DIM_TREND]?.toBoolean() ?: false
+        val chartDailyTimelineEnabled = settings[KEY_CHART_DAILY_TIMELINE]?.toBoolean() ?: false
+        val chartWeeklyPatternEnabled = settings[KEY_CHART_WEEKLY_PATTERN]?.toBoolean() ?: false
+        val chartDailyRhythmEnabled = settings[KEY_CHART_DAILY_RHYTHM]?.toBoolean() ?: false
+        val chartWeeklyPatternExclEmpty = settings[KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY]?.toBoolean() ?: false
+        val chartDailyRhythmExclEmpty = settings[KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY]?.toBoolean() ?: false
+        // Update UnifiedLogger debug logging
+        io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(debugLoggingEnabled)
+        _uiState.update {
+            it.copy(
+                themeMode = themeMode,
+                appLanguage = appLanguage,
+                effectiveLanguageTag = effectiveLanguageTag,
+                fontFamily = fontFamily,
+                timeFormat = timeFormat,
+                timeHourHeightDp = timeHourHeightDp,
+                dimensionPreferences = dimensionPrefs,
+                dynamicDimensionOptions = dynamicDimensionOptions,
+                autoBackupEnabled = autoBackupEnabled,
+                autoBackupInterval = autoBackupInterval,
+                autoBackupLastRun = autoBackupLastRun,
+                autoBackupLastErrorMessage = backupFailureStatus?.message,
+                autoBackupLastErrorAt = backupFailureStatus?.recordedAtDisplay,
+                backupRotationEnabled = backupRotationEnabled,
+                backupRotationCount = backupRotationCount,
+                dayBoundaryHour = dayBoundaryHour,
+                debugLoggingEnabled = debugLoggingEnabled,
+                databaseInitCompleted = databaseInitCompleted,
+                autoTrackHabitTimeGlobal = autoTrackHabitTimeGlobal,
+                autoTrackDimensionPreferences = autoTrackDimensionPrefs,
+                activePreset = activePreset,
+                tabVisibility = tabVisibility,
+                focusModeOnboardingCompleted = focusModeOnboardingCompleted,
+                currentTaskFilter = currentTaskFilter,
+                launchDestination = launchDestination,
+                chartTimeModuleEnabled = chartTimeModuleEnabled,
+                chartTimeOverallSnapshotEnabled = chartTimeOverallSnapshotEnabled,
+                chartTimeExecutionDetailsEnabled = chartTimeExecutionDetailsEnabled,
+                chartTimeScoreCardsEnabled = chartTimeScoreCardsEnabled,
+                chartTimeOverallScoreCardEnabled = chartTimeOverallScoreCardEnabled,
+                chartTimeDimensionScoreCardsEnabled = chartTimeDimensionScoreCardsEnabled,
+                chartTimeLineGraphsEnabled = chartTimeLineGraphsEnabled,
+                chartTimeDailyScoreTrendEnabled = chartTimeDailyScoreTrendEnabled,
+                chartTimeProgressTrendEnabled = chartTimeProgressTrendEnabled,
+                chartTimeHistoricalRankingEnabled = chartTimeHistoricalRankingEnabled,
+                chartTimeMomentumStreakEnabled = chartTimeMomentumStreakEnabled,
+                chartTaskModuleEnabled = chartTaskModuleEnabled,
+                chartHabitModuleEnabled = chartHabitModuleEnabled,
+                chartJournalModuleEnabled = chartJournalModuleEnabled,
+                chartNoteModuleEnabled = chartNoteModuleEnabled,
+                chartAverageDailyTimeEnabled = chartAverageDailyTimeEnabled,
+                chartDimSplitEnabled = chartDimSplitEnabled,
+                chartDimTrendEnabled = chartDimTrendEnabled,
+                chartDailyTimelineEnabled = chartDailyTimelineEnabled,
+                chartWeeklyPatternEnabled = chartWeeklyPatternEnabled,
+                chartDailyRhythmEnabled = chartDailyRhythmEnabled,
+                chartWeeklyPatternExclEmpty = chartWeeklyPatternExclEmpty,
+                chartDailyRhythmExclEmpty = chartDailyRhythmExclEmpty,
+                isLoading = false,
+            )
+        }
+    }
+
     fun setThemeMode(mode: ThemeModeOption) {
         saveSetting(KEY_THEME_MODE, mode.key)
     }
