@@ -359,6 +359,23 @@ class LensViewModel @Inject constructor(
         historyBackfill.cancel()
         lensLoadJob = viewModelScope.launch {
             try {
+                executeLensDataLoad()
+            } catch (_: CancellationException) {
+                logger.d("LensViewModel.loadLensData", "Previous lens collector cancelled")
+            } catch (e: Exception) {
+                logger.e("LensViewModel.loadLensData", "Failed to load lens data", e)
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        hasError = true,
+                        errorMessage = "Failed to load lens data: ${e.message}",
+                    )
+                }
+            }
+        }
+    }
+
+    private suspend fun executeLensDataLoad() {
                 val state = _uiState.value
                 val resolvedRange = resolveDateRange(
                     anchorDate = state.selectedDate,
@@ -440,7 +457,7 @@ class LensViewModel @Inject constructor(
                 } else {
                     if (timeHistoryChartsEnabled) {
                         scheduleHistoryBackfill(
-                            context = backfillContext ?: return@launch,
+                            context = backfillContext ?: return,
                             maxHistoryLimit = INITIAL_BACKFILL_STAGE_LIMIT,
                         )
                     }
@@ -448,19 +465,6 @@ class LensViewModel @Inject constructor(
                         refreshReflections(dayKey)
                     }
                 }
-            } catch (_: CancellationException) {
-                logger.d("LensViewModel.loadLensData", "Previous lens collector cancelled")
-            } catch (e: Exception) {
-                logger.e("LensViewModel.loadLensData", "Failed to load lens data", e)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        hasError = true,
-                        errorMessage = "Failed to load lens data: ${e.message}",
-                    )
-                }
-            }
-        }
     }
 
     private fun loadMinimalFocusAverages() {
