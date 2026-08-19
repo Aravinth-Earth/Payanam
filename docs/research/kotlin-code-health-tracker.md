@@ -73,21 +73,26 @@
 | 38 | 16:40 | A:Import-Cleanup | TasksViewModel.kt | Remove 2 unused imports | -2 lines | -2 imports | PASS | yes |
 | 39 | 10:47 | B:Function-Extraction | TimeViewModel.kt | Extract launchTimeEntriesCollection/PlannedTasks/Occurrences helpers from loadEntriesForDate (141→12 lines) | 1040→1050 (+10) | N/A | PASS | yes |
 | 40 | 11:18 | B:Function-Extraction | LensViewModel.kt | Extract executeLensDataLoad helper from loadLensData (109→21 lines) | 1133→1137 (+4) | N/A | PASS | yes |
+| 41 | 11:53 | G:Dead-Code | LensesScreen.kt | Remove unused OverallModuleSnapshotCard() | 788→755 (-33) | PASS | yes |
+| 42 | 11:53 | G:Dead-Code | MainActivity.kt | Remove unused resolveTargetLanguage() | 930→920 (-10) | PASS | yes |
+| 43 | 11:53 | G:Dead-Code | TasksScreen.kt | Remove unused taskFilterLabel() | 1240→1228 (-12) | PASS | yes |
 
 ## Summary
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| Iterations | 0 | 38 | +38 |
-| Files modified | 0 | ~35 | ~35 |
+| Iterations | 0 | 43 | +43 |
+| Files modified | 0 | ~38 | ~38 |
 | Total imports removed | 0 | ~150 | -150 |
+| Dead functions removed | 0 | 3 | -3 |
 | Build failures | 0 | 0 | 0 |
 | Success rate | - | 100% | - |
 
 ### Category Breakdown
 
 - **A: Import Cleanup** — 37 iterations, ~150 unused imports removed across 35 files
-- **B: Function Extraction** — 1 iteration, extracted buildTaskInput helper in EditTaskViewModel.kt
+- **G: Dead Code Removal** — 3 iterations, 3 unused private functions removed (-55 lines)
+- **B: Function Extraction** — 3 iterations (prior phase), extracted buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad
 
 ### Key Findings
 
@@ -98,9 +103,10 @@
 
 ### Final Metrics
 
-- **36 files changed**
-- **24 insertions, 197 deletions** (net -173 lines)
+- **39 files changed**
+- **24 insertions, 252 deletions** (net -228 lines)
 - **~150 unused imports removed** across 35 files
-- **1 function extraction** (buildTaskInput helper in EditTaskViewModel.kt)
+- **3 function extractions** (buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad)
+- **3 dead functions removed** (OverallModuleSnapshotCard, resolveTargetLanguage, taskFilterLabel)
 - **0 build failures** — 100% success rate
 - **All work local only** — nothing pushed to remote
