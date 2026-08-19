@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import androidx.sqlite.db.SupportSQLiteDatabase
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
@@ -895,6 +896,88 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    private fun queryHabitInventory(readableDb: SupportSQLiteDatabase): List<Map<String, Any>> {
+        val rows = mutableListOf<Map<String, Any>>()
+        readableDb.query(
+            """
+            SELECT id, title, recurrenceRule, recurrenceEnabled, dimension_id,
+                   createdAt, updatedAt, status, archivedAt
+            FROM tasks
+            WHERE recurrenceEnabled = 1
+            ORDER BY createdAt
+            """.trimIndent(),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                rows += mapOf(
+                    "habitId" to cursor.getString(0),
+                    "title" to cursor.getString(1),
+                    "recurrenceRule" to (cursor.getString(2) ?: "null"),
+                    "recurrenceEnabled" to cursor.getInt(3),
+                    "dimensionId" to (cursor.getString(4) ?: "null"),
+                    "createdAt" to (cursor.getString(5) ?: "null"),
+                    "updatedAt" to (cursor.getString(6) ?: "null"),
+                    "status" to (cursor.getString(7) ?: "null"),
+                    "archivedAt" to (cursor.getString(8) ?: "null"),
+                )
+            }
+        }
+        return rows
+    }
+
+    private fun queryOccurrenceStats(readableDb: SupportSQLiteDatabase): List<Map<String, Any>> {
+        val rows = mutableListOf<Map<String, Any>>()
+        readableDb.query(
+            """
+            SELECT taskId,
+                   COUNT(*) AS total,
+                   MIN(dueDate) AS firstDue,
+                   MAX(dueDate) AS lastDue,
+                   SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
+                   SUM(CASE WHEN status = 'missed' THEN 1 ELSE 0 END) AS missed,
+                   SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped
+            FROM task_occurrences
+            GROUP BY taskId
+            """.trimIndent(),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                rows += mapOf(
+                    "habitId" to cursor.getString(0),
+                    "occurrenceTotal" to cursor.getLong(1),
+                    "firstDue" to (cursor.getString(2) ?: "null"),
+                    "lastDue" to (cursor.getString(3) ?: "null"),
+                    "completed" to cursor.getLong(4),
+                    "missed" to cursor.getLong(5),
+                    "skipped" to cursor.getLong(6),
+                )
+            }
+        }
+        return rows
+    }
+
+    private fun queryDimensionWeights(readableDb: SupportSQLiteDatabase): List<Map<String, Any>> {
+        val rows = mutableListOf<Map<String, Any>>()
+        readableDb.query(
+            """
+            SELECT id, key, label, sortOrder, isActive, color, icon
+            FROM life_dimensions
+            ORDER BY sortOrder
+            """.trimIndent(),
+        ).use { cursor ->
+            while (cursor.moveToNext()) {
+                rows += mapOf(
+                    "dimensionId" to cursor.getString(0),
+                    "key" to (cursor.getString(1) ?: "null"),
+                    "label" to (cursor.getString(2) ?: "null"),
+                    "sortOrder" to cursor.getInt(3),
+                    "isActive" to cursor.getInt(4),
+                    "color" to (cursor.getString(5) ?: "null"),
+                    "icon" to (cursor.getString(6) ?: "null"),
+                )
+            }
+        }
+        return rows
+    }
+
     fun runHabitScoreDiagnostics() {
         if (_habitScoreDiagnosticsInProgress.value) {
             return
@@ -907,30 +990,7 @@ class AppPreferencesViewModel @Inject constructor(
                 logger.i(logTag, "HABIT_SCORE_DIAGNOSTICS_START")
 
                 // ── 1. Habit inventory: raw recurrence rule formats ──────────
-                val habitRows = mutableListOf<Map<String, Any>>()
-                readableDb.query(
-                    """
-                    SELECT id, title, recurrenceRule, recurrenceEnabled, dimension_id,
-                           createdAt, updatedAt, status, archivedAt
-                    FROM tasks
-                    WHERE recurrenceEnabled = 1
-                    ORDER BY createdAt
-                    """.trimIndent(),
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        habitRows += mapOf(
-                            "habitId" to cursor.getString(0),
-                            "title" to cursor.getString(1),
-                            "recurrenceRule" to (cursor.getString(2) ?: "null"),
-                            "recurrenceEnabled" to cursor.getInt(3),
-                            "dimensionId" to (cursor.getString(4) ?: "null"),
-                            "createdAt" to (cursor.getString(5) ?: "null"),
-                            "updatedAt" to (cursor.getString(6) ?: "null"),
-                            "status" to (cursor.getString(7) ?: "null"),
-                            "archivedAt" to (cursor.getString(8) ?: "null"),
-                        )
-                    }
-                }
+                val habitRows = queryHabitInventory(readableDb)
                 logger.i(logTag, "HABIT_SCORE_DIAGNOSTICS_HABIT_COUNT", mapOf("count" to habitRows.size))
                 habitRows.forEach { row ->
                     // Classify the recurrence rule format for migration planning
@@ -968,58 +1028,14 @@ class AppPreferencesViewModel @Inject constructor(
                 )
 
                 // ── 3. Occurrence stats per habit ───────────────────────────
-                val occRows = mutableListOf<Map<String, Any>>()
-                readableDb.query(
-                    """
-                    SELECT taskId,
-                           COUNT(*) AS total,
-                           MIN(dueDate) AS firstDue,
-                           MAX(dueDate) AS lastDue,
-                           SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) AS completed,
-                           SUM(CASE WHEN status = 'missed' THEN 1 ELSE 0 END) AS missed,
-                           SUM(CASE WHEN status = 'skipped' THEN 1 ELSE 0 END) AS skipped
-                    FROM task_occurrences
-                    GROUP BY taskId
-                    """.trimIndent(),
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        occRows += mapOf(
-                            "habitId" to cursor.getString(0),
-                            "occurrenceTotal" to cursor.getLong(1),
-                            "firstDue" to (cursor.getString(2) ?: "null"),
-                            "lastDue" to (cursor.getString(3) ?: "null"),
-                            "completed" to cursor.getLong(4),
-                            "missed" to cursor.getLong(5),
-                            "skipped" to cursor.getLong(6),
-                        )
-                    }
-                }
+                val occRows = queryOccurrenceStats(readableDb)
                 logger.i(logTag, "HABIT_SCORE_DIAGNOSTICS_OCCURRENCE_COUNT", mapOf("habitsWithOccurrences" to occRows.size))
                 occRows.forEach { row ->
                     logger.i(logTag, "HABIT_SCORE_DIAGNOSTICS_OCCURRENCE", row)
                 }
 
                 // ── 4. Dimension weights (life_dimensions actuals) ──────────
-                val dimRows = mutableListOf<Map<String, Any>>()
-                readableDb.query(
-                    """
-                    SELECT id, key, label, sortOrder, isActive, color, icon
-                    FROM life_dimensions
-                    ORDER BY sortOrder
-                    """.trimIndent(),
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        dimRows += mapOf(
-                            "dimensionId" to cursor.getString(0),
-                            "key" to (cursor.getString(1) ?: "null"),
-                            "label" to (cursor.getString(2) ?: "null"),
-                            "sortOrder" to cursor.getInt(3),
-                            "isActive" to cursor.getInt(4),
-                            "color" to (cursor.getString(5) ?: "null"),
-                            "icon" to (cursor.getString(6) ?: "null"),
-                        )
-                    }
-                }
+                val dimRows = queryDimensionWeights(readableDb)
                 dimRows.forEach { row ->
                     logger.i(logTag, "HABIT_SCORE_DIAGNOSTICS_DIMENSION", row)
                 }
