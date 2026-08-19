@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.repository.DimensionTrendBlock
 import io.payanam.ui.components.DimensionCompactBadge
 import io.payanam.ui.components.DimensionIdentityRow
@@ -43,11 +41,7 @@ import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.DimensionTrendState
 import io.payanam.ui.viewmodel.DimensionTrendWindow
-import io.payanam.ui.viewmodel.colorFor
-import io.payanam.ui.viewmodel.iconKeyForDimensionId
-import io.payanam.ui.viewmodel.labelFor
 import io.payanam.ui.viewmodel.visibleDimensions
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 private val logger = UnifiedLogger.getInstance()
