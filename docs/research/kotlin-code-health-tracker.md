@@ -76,23 +76,30 @@
 | 41 | 11:53 | G:Dead-Code | LensesScreen.kt | Remove unused OverallModuleSnapshotCard() | 788→755 (-33) | PASS | yes |
 | 42 | 11:53 | G:Dead-Code | MainActivity.kt | Remove unused resolveTargetLanguage() | 930→920 (-10) | PASS | yes |
 | 43 | 11:53 | G:Dead-Code | TasksScreen.kt | Remove unused taskFilterLabel() | 1240→1228 (-12) | PASS | yes |
+| 44 | 12:00 | B:Function-Extraction | AppPreferencesViewModel.kt | Extract queryHabitInventory/queryOccurrenceStats/queryDimensionWeights from runHabitScoreDiagnostics | 1706→1722 (+16) | PASS | yes |
+| 45 | 12:08 | B:Function-Extraction | DatabaseInitViewModel.kt | Extract detectBootstrapPlaceholder from checkDatabaseStatus | 856→857 (+1) | PASS | yes |
+| 46 | 12:18 | C:File-Splitting | TasksScreen.kt | Extract TasksTopBar, taskSortLabel, habitSortLabel into TasksScreenParts.kt | 1228→952 (-276) | PASS | yes |
 
 ## Summary
 
 | Metric | Before | After | Change |
 |--------|--------|-------|--------|
-| Iterations | 0 | 43 | +43 |
-| Files modified | 0 | ~38 | ~38 |
+| Iterations | 0 | 46 | +46 |
+| Files modified | 0 | ~40 | ~40 |
+| Files created | 0 | 1 | +1 |
 | Total imports removed | 0 | ~150 | -150 |
 | Dead functions removed | 0 | 3 | -3 |
-| Build failures | 0 | 0 | 0 |
-| Success rate | - | 100% | - |
+| Functions extracted | 0 | 6 | +6 |
+| Files split | 0 | 1 | +1 |
+| Build failures | 0 | 1 | +1 |
+| Success rate | - | 98% | - |
 
 ### Category Breakdown
 
 - **A: Import Cleanup** — 37 iterations, ~150 unused imports removed across 35 files
 - **G: Dead Code Removal** — 3 iterations, 3 unused private functions removed (-55 lines)
-- **B: Function Extraction** — 3 iterations (prior phase), extracted buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad
+- **B: Function Extraction** — 5 iterations (2 new this session + 3 prior), extracted queryHabitInventory/queryOccurrenceStats/queryDimensionWeights, detectBootstrapPlaceholder, buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad
+- **C: File Splitting** — 1 iteration, extracted TasksTopBar/taskSortLabel/habitSortLabel from TasksScreen.kt into TasksScreenParts.kt (-276 lines from source)
 
 ### Key Findings
 
@@ -103,10 +110,15 @@
 
 ### Final Metrics
 
-- **39 files changed**
-- **24 insertions, 252 deletions** (net -228 lines)
+- **40 files changed, 1 file created**
+- **344 insertions, 528 deletions** (net -184 lines)
 - **~150 unused imports removed** across 35 files
-- **3 function extractions** (buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad)
+- **6 function extractions** (queryHabitInventory, queryOccurrenceStats, queryDimensionWeights, detectBootstrapPlaceholder, buildTaskInput, launchTimeEntriesCollection, executeLensDataLoad)
 - **3 dead functions removed** (OverallModuleSnapshotCard, resolveTargetLanguage, taskFilterLabel)
-- **0 build failures** — 100% success rate
+- **1 file split** (TasksScreen.kt → TasksScreenParts.kt, -276 lines from source)
+- **1 build failure** (wrong SupportSQLiteDatabase import, fixed immediately)
+- **~98% success rate** — all failures caught and fixed within same iteration
 - **All work local only** — nothing pushed to remote
+5. **SupportSQLiteDatabase import**: Room's SupportSQLiteDatabase lives at androidx.sqlite.db.SupportSQLiteDatabase, NOT android.database.sqlite.SupportSQLiteDatabase. The fully qualified name fails if the wrong package is used.
+6. **File splitting strategy**: Extracting parameter-based composables (like TasksTopBar) is the cleanest file splitting approach — no class member dependencies. ViewModel functions are harder to split because they reference _uiState, logger, etc.
+7. **Dead code detection**: taskFilterLabel() appeared in a test file but only as a string assertion (assertFalse(source.contains(...))), not an actual call — safe to remove.
