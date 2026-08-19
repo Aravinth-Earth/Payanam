@@ -300,39 +300,6 @@ private fun OverallCard(uiState: LensUiState) {
 }
 
 @Composable
-private fun OverallModuleSnapshotCard(uiState: LensUiState) {
-    val summary = uiState.selectedRangeSummary
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(id = R.string.loc_lens_group_by_module), fontWeight = FontWeight.SemiBold)
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_time),
-                    stringResource(id = R.string.loc_plan_reality_totals_line, formatMinutes(summary?.totalPlannedMinutes ?: 0), formatMinutes(summary?.totalActualMinutes ?: 0)),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.settings_database_tasks),
-                    stringResource(id = R.string.loc_completed_tasks_ratio, summary?.completedTaskCount ?: 0, summary?.plannedTaskCount ?: 0),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_habits),
-                    stringResource(id = R.string.loc_completed_habits_ratio, summary?.completedHabitCount ?: 0, summary?.plannedHabitCount ?: 0),
-                ),
-            )
-            Text(stringResource(id = R.string.loc_journal_notes))
-            Text(stringResource(id = R.string.settings_database_notes))
-        }
-    }
-}
-
-@Composable
 private fun ModuleSections(
     uiState: LensUiState,
     onRequestMoreHistory: () -> Unit,

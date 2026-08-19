@@ -1192,18 +1192,6 @@ private fun TasksTabContent(
 }
 
 @Composable
-private fun taskFilterLabel(filter: TaskFilter): String = when (filter) {
-    TaskFilter.ALL -> stringResource(id = io.payanam.R.string.loc_all)
-    TaskFilter.ACTIVE -> stringResource(id = io.payanam.R.string.widget_tracking_status_active)
-    TaskFilter.TODAY -> stringResource(id = io.payanam.R.string.loc_today)
-    TaskFilter.OVERDUE -> stringResource(id = io.payanam.R.string.loc_overdue)
-    TaskFilter.FUTURE -> stringResource(id = io.payanam.R.string.loc_future)
-    TaskFilter.COMPLETED -> stringResource(id = io.payanam.R.string.loc_completed)
-    TaskFilter.ARCHIVED -> stringResource(id = io.payanam.R.string.loc_archived)
-    TaskFilter.NOT_ACTIVE -> stringResource(id = io.payanam.R.string.loc_not_active)
-}
-
-@Composable
 private fun taskSortLabel(option: TaskSortOption): String = when (option) {
     TaskSortOption.SCORE_DESC -> stringResource(id = io.payanam.R.string.loc_score_high_to_low)
     TaskSortOption.SCORE_ASC -> stringResource(id = io.payanam.R.string.loc_score_low_to_high)

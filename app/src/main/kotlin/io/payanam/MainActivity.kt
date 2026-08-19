@@ -814,16 +814,6 @@ class MainActivity : FragmentActivity() {
             ?: Locale.getDefault().language.lowercase(Locale.ROOT)
     }
 
-    private fun resolveTargetLanguage(option: AppLanguageOption): String = when (option) {
-        AppLanguageOption.TAMIL -> "ta"
-
-        AppLanguageOption.ENGLISH -> "en"
-
-        AppLanguageOption.SYSTEM -> {
-            resolveSystemLanguageTag()
-        }
-    }
-
     private fun resolveSystemLanguageTag(): String {
         val systemLanguage = Resources.getSystem()
             .configuration
