@@ -1,0 +1,930 @@
+{
+  "total_files": 154,
+  "total_lines": 50189,
+  "files": [
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/AppPreferencesViewModel.kt",
+      "lines": 1709,
+      "imports": 47,
+      "functions": 108
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TasksScreen.kt",
+      "lines": 1246,
+      "imports": 86,
+      "functions": 12
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensViewModel.kt",
+      "lines": 1134,
+      "imports": 31,
+      "functions": 37
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TasksViewModel.kt",
+      "lines": 1052,
+      "imports": 35,
+      "functions": 18
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TimeViewModel.kt",
+      "lines": 1041,
+      "imports": 32,
+      "functions": 30
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/SettingsViewModel.kt",
+      "lines": 1019,
+      "imports": 43,
+      "functions": 41
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/MainActivity.kt",
+      "lines": 931,
+      "imports": 64,
+      "functions": 18
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDataSections.kt",
+      "lines": 902,
+      "imports": 57,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreen.kt",
+      "lines": 857,
+      "imports": 80,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseInitViewModel.kt",
+      "lines": 857,
+      "imports": 25,
+      "functions": 26
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesScreen.kt",
+      "lines": 791,
+      "imports": 50,
+      "functions": 10
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabaseInitScreen.kt",
+      "lines": 782,
+      "imports": 65,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesScreenTimeModuleSection.kt",
+      "lines": 774,
+      "imports": 49,
+      "functions": 19
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeBlockModalDialog.kt",
+      "lines": 742,
+      "imports": 64,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/AddTaskScreenComponents.kt",
+      "lines": 727,
+      "imports": 61,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeInsightsScreen.kt",
+      "lines": 721,
+      "imports": 73,
+      "functions": 24
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/DimensionVisuals.kt",
+      "lines": 717,
+      "imports": 64,
+      "functions": 13
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/PayanamNavHost.kt",
+      "lines": 716,
+      "imports": 74,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TaskDetailViewModel.kt",
+      "lines": 712,
+      "imports": 21,
+      "functions": 19
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/usecase/RecurrenceManager.kt",
+      "lines": 711,
+      "imports": 19,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseImportSupport.kt",
+      "lines": 702,
+      "imports": 14,
+      "functions": 12
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenTimeline.kt",
+      "lines": 690,
+      "imports": 58,
+      "functions": 10
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabasePassphraseUnlockScreen.kt",
+      "lines": 682,
+      "imports": 76,
+      "functions": 7
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/EditTaskScreen.kt",
+      "lines": 651,
+      "imports": 70,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/AddTaskScreen.kt",
+      "lines": 627,
+      "imports": 71,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/HabitActivityDetailSection.kt",
+      "lines": 601,
+      "imports": 58,
+      "functions": 18
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabaseInitDimensionSetupScreen.kt",
+      "lines": 576,
+      "imports": 60,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsScreen.kt",
+      "lines": 567,
+      "imports": 54,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/NotesScreen.kt",
+      "lines": 567,
+      "imports": 73,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenVisualPanels.kt",
+      "lines": 533,
+      "imports": 33,
+      "functions": 18
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsComponents.kt",
+      "lines": 496,
+      "imports": 55,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/widget/TimeTrackingWidgetProvider.kt",
+      "lines": 490,
+      "imports": 31,
+      "functions": 14
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/HabitCard.kt",
+      "lines": 485,
+      "imports": 56,
+      "functions": 7
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/SettingsEncryptedImportSupport.kt",
+      "lines": 483,
+      "imports": 11,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabasePassphraseUnlockViewModel.kt",
+      "lines": 471,
+      "imports": 24,
+      "functions": 10
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDialogs.kt",
+      "lines": 468,
+      "imports": 50,
+      "functions": 7
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsTimeInsightsSection.kt",
+      "lines": 442,
+      "imports": 20,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenEntryDialogs.kt",
+      "lines": 429,
+      "imports": 45,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DayPlanViewModel.kt",
+      "lines": 421,
+      "imports": 16,
+      "functions": 15
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/model/DimensionIconCatalog.kt",
+      "lines": 413,
+      "imports": 6,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/CheckmarkDialog.kt",
+      "lines": 410,
+      "imports": 39,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/service/DatabaseBackupCoordinator.kt",
+      "lines": 398,
+      "imports": 20,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DayViewModel.kt",
+      "lines": 395,
+      "imports": 22,
+      "functions": 11
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DayPlanTemplateScreen.kt",
+      "lines": 392,
+      "imports": 50,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TaskDetailComponents.kt",
+      "lines": 383,
+      "imports": 59,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeDimensionSplitSection.kt",
+      "lines": 376,
+      "imports": 52,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDatabaseSecuritySection.kt",
+      "lines": 368,
+      "imports": 43,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseInitTempBackupSupport.kt",
+      "lines": 359,
+      "imports": 8,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DayPlanDialog.kt",
+      "lines": 345,
+      "imports": 28,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeAverageDailySection.kt",
+      "lines": 345,
+      "imports": 42,
+      "functions": 11
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/service/TrackingService.kt",
+      "lines": 341,
+      "imports": 27,
+      "functions": 9
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/notification/NotificationScheduler.kt",
+      "lines": 336,
+      "imports": 22,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabasePassphraseSetupScreen.kt",
+      "lines": 335,
+      "imports": 44,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesHabitScoreMatrixSection.kt",
+      "lines": 329,
+      "imports": 48,
+      "functions": 9
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/ScoringConfigScreen.kt",
+      "lines": 312,
+      "imports": 37,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/service/AutoBackupWorker.kt",
+      "lines": 310,
+      "imports": 16,
+      "functions": 13
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabasePassphraseSetupViewModel.kt",
+      "lines": 310,
+      "imports": 19,
+      "functions": 10
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/StatusNoteDialog.kt",
+      "lines": 309,
+      "imports": 26,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/SettingsDatabaseArtifactSupport.kt",
+      "lines": 308,
+      "imports": 8,
+      "functions": 11
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/ScoreDetailScreen.kt",
+      "lines": 308,
+      "imports": 43,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/UhabitsImporter.kt",
+      "lines": 302,
+      "imports": 21,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/CompletionDialog.kt",
+      "lines": 291,
+      "imports": 33,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeStackedBarSection.kt",
+      "lines": 287,
+      "imports": 47,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/FocusModeSelectionScreen.kt",
+      "lines": 283,
+      "imports": 42,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesScreenDimensionSections.kt",
+      "lines": 278,
+      "imports": 39,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseInitDimensionSetupSupport.kt",
+      "lines": 274,
+      "imports": 9,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/receiver/NotificationActionReceiver.kt",
+      "lines": 271,
+      "imports": 19,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/PayanamApp.kt",
+      "lines": 265,
+      "imports": 18,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/AutoDownloadManager.kt",
+      "lines": 254,
+      "imports": 10,
+      "functions": 13
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/receiver/TaskReminderReceiver.kt",
+      "lines": 252,
+      "imports": 22,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesDimensionRadarSection.kt",
+      "lines": 246,
+      "imports": 39,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DayScreen.kt",
+      "lines": 240,
+      "imports": 46,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/EditTaskScreenComponents.kt",
+      "lines": 239,
+      "imports": 71,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensLoadPipeline.kt",
+      "lines": 239,
+      "imports": 11,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/UpdateChecker.kt",
+      "lines": 235,
+      "imports": 14,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/MinimalModeComponents.kt",
+      "lines": 231,
+      "imports": 18,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/CheckmarkPanelCanvas.kt",
+      "lines": 230,
+      "imports": 26,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenTimelineUtils.kt",
+      "lines": 227,
+      "imports": 10,
+      "functions": 8
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TaskDetailScreen.kt",
+      "lines": 226,
+      "imports": 31,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenTimelineOccurrenceBlock.kt",
+      "lines": 226,
+      "imports": 39,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TasksViewModelSorting.kt",
+      "lines": 226,
+      "imports": 6,
+      "functions": 9
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/AppOnboardingIntroScreen.kt",
+      "lines": 224,
+      "imports": 42,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/PreUnlockUpdateSection.kt",
+      "lines": 221,
+      "imports": 34,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/PreUnlockUpdateViewModel.kt",
+      "lines": 221,
+      "imports": 24,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DayScreenSummary.kt",
+      "lines": 213,
+      "imports": 37,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensHabitScoreViewModel.kt",
+      "lines": 213,
+      "imports": 15,
+      "functions": 11
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsAutoBackupSection.kt",
+      "lines": 212,
+      "imports": 32,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/EditTaskViewModel.kt",
+      "lines": 212,
+      "imports": 22,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensTimeHistoryMetrics.kt",
+      "lines": 212,
+      "imports": 7,
+      "functions": 7
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeWeekGridSection.kt",
+      "lines": 207,
+      "imports": 32,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDefaultLandingSection.kt",
+      "lines": 198,
+      "imports": 19,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TimeVisualsViewModel.kt",
+      "lines": 195,
+      "imports": 23,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenDialogs.kt",
+      "lines": 192,
+      "imports": 29,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseImportHelpers.kt",
+      "lines": 191,
+      "imports": 10,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeMinutePatternSection.kt",
+      "lines": 188,
+      "imports": 31,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/ScoringConfigViewModel.kt",
+      "lines": 185,
+      "imports": 13,
+      "functions": 17
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/usecase/TimeTrackingUseCase.kt",
+      "lines": 185,
+      "imports": 12,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/AddTaskViewModel.kt",
+      "lines": 184,
+      "imports": 21,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabasePassphraseChangeScreen.kt",
+      "lines": 181,
+      "imports": 35,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TasksScreenCards.kt",
+      "lines": 181,
+      "imports": 39,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/NotesViewModel.kt",
+      "lines": 181,
+      "imports": 16,
+      "functions": 9
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TasksViewModelModels.kt",
+      "lines": 177,
+      "imports": 5,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/HabitDueToday.kt",
+      "lines": 176,
+      "imports": 9,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabasePassphraseChangeViewModel.kt",
+      "lines": 173,
+      "imports": 23,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DatabaseInitScreenHelpers.kt",
+      "lines": 171,
+      "imports": 17,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TimeVisualsCalculator.kt",
+      "lines": 169,
+      "imports": 9,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TaskDetailHistoryAndScore.kt",
+      "lines": 166,
+      "imports": 55,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesTimeHeatmapSection.kt",
+      "lines": 165,
+      "imports": 35,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsAppearanceSection.kt",
+      "lines": 158,
+      "imports": 28,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesComponents.kt",
+      "lines": 157,
+      "imports": 28,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/usecase/CreateTimeEntryForHabitUseCase.kt",
+      "lines": 153,
+      "imports": 10,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TaskDetailDialogs.kt",
+      "lines": 151,
+      "imports": 25,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/FocusModeSettingsContent.kt",
+      "lines": 148,
+      "imports": 20,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsAutoTrackingSection.kt",
+      "lines": 143,
+      "imports": 25,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenModalContext.kt",
+      "lines": 136,
+      "imports": 10,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/DurationMinutesPickerField.kt",
+      "lines": 133,
+      "imports": 19,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TasksRowCacheManager.kt",
+      "lines": 124,
+      "imports": 5,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/service/BackupStatusStore.kt",
+      "lines": 118,
+      "imports": 11,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/model/DefaultDimensionLabels.kt",
+      "lines": 116,
+      "imports": 6,
+      "functions": 7
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/theme/Color.kt",
+      "lines": 115,
+      "imports": 2,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/AppStartUpdateChecker.kt",
+      "lines": 111,
+      "imports": 13,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensHistoryBackfillCoordinator.kt",
+      "lines": 106,
+      "imports": 11,
+      "functions": 3
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/LensesScreenTimeSplitSection.kt",
+      "lines": 105,
+      "imports": 22,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TimeTagEditorViewModel.kt",
+      "lines": 105,
+      "imports": 13,
+      "functions": 5
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenTimelineLayout.kt",
+      "lines": 102,
+      "imports": 4,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/perf/PerfBaselineTelemetry.kt",
+      "lines": 95,
+      "imports": 5,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensSnapshotCache.kt",
+      "lines": 89,
+      "imports": 5,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TasksHabitCache.kt",
+      "lines": 89,
+      "imports": 6,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/receiver/BootReceiver.kt",
+      "lines": 87,
+      "imports": 16,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenPlanningDialogs.kt",
+      "lines": 82,
+      "imports": 6,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/theme/Theme.kt",
+      "lines": 82,
+      "imports": 13,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/model/DimensionTextCatalog.kt",
+      "lines": 77,
+      "imports": 4,
+      "functions": 6
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/SettingsUiModels.kt",
+      "lines": 74,
+      "imports": 2,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/ui/AutoBackupFailureMessageCard.kt",
+      "lines": 74,
+      "imports": 16,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseImportIntegritySupport.kt",
+      "lines": 73,
+      "imports": 4,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/components/TagEditorField.kt",
+      "lines": 70,
+      "imports": 14,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenDatePickerDialog.kt",
+      "lines": 68,
+      "imports": 13,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/InsightsDimensionContract.kt",
+      "lines": 63,
+      "imports": 5,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/theme/Type.kt",
+      "lines": 58,
+      "imports": 6,
+      "functions": 4
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/NavRoutePolicy.kt",
+      "lines": 57,
+      "imports": 0,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenScaleSelector.kt",
+      "lines": 55,
+      "imports": 13,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenScalePresets.kt",
+      "lines": 51,
+      "imports": 4,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/FeatureFlags.kt",
+      "lines": 43,
+      "imports": 1,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenGapUtils.kt",
+      "lines": 42,
+      "imports": 5,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/TimeVisualsModels.kt",
+      "lines": 41,
+      "imports": 1,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/theme/InsightsVisualTokens.kt",
+      "lines": 40,
+      "imports": 7,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/LensRangeDateUtils.kt",
+      "lines": 39,
+      "imports": 3,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeEntryEditDialogLogic.kt",
+      "lines": 30,
+      "imports": 3,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/TimeScreenDayPlanLabel.kt",
+      "lines": 30,
+      "imports": 2,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/feature/settings/UpdatePrefKeys.kt",
+      "lines": 23,
+      "imports": 0,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/viewmodel/PreparedTaskState.kt",
+      "lines": 22,
+      "imports": 3,
+      "functions": 0
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/service/BackupWorkerEntryPoint.kt",
+      "lines": 15,
+      "imports": 3,
+      "functions": 2
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/screens/RecurrenceDateSuffix.kt",
+      "lines": 12,
+      "imports": 0,
+      "functions": 1
+    },
+    {
+      "path": "app/src/main/kotlin/io/payanam/ui/model/DimensionTaxonomyMigrationSupport.kt",
+      "lines": 8,
+      "imports": 0,
+      "functions": 1
+    }
+  ]
+}
