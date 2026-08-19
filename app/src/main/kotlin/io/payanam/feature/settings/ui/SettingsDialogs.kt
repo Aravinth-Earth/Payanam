@@ -50,9 +50,6 @@ import io.payanam.feature.settings.SettingsUiState
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.UhabitsImportResult
 import io.payanam.ui.viewmodel.DimensionPreference
-import io.payanam.ui.viewmodel.LocalAppPreferences
-import io.payanam.ui.viewmodel.labelFor
-import io.payanam.ui.viewmodel.labelForDimensionId
 import kotlin.system.exitProcess
 
 @Composable
