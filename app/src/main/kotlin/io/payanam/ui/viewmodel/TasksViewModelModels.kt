@@ -53,7 +53,14 @@ enum class HabitSortOption(val key: String) {
     ;
 
     companion object {
-        /** Map old (pre-simplification) keys to their new equivalent. */
+        /**
+         * Resolves a stored sort key (from preferences) back to a [HabitSortOption].
+         *
+         * New keys map directly. Legacy keys from the pre-simplification 18-option
+         * model (metric sorts, by_status, by_life_dimension, by_position) are mapped
+         * to the nearest simplified equivalent so previously saved preferences keep
+         * working. Unknown or null keys fall back to [SCORE_HIGH_LOW].
+         */
         private val legacyMigration = mapOf(
             "running_avg_desc" to SCORE_HIGH_LOW,
             "running_avg_asc" to SCORE_LOW_HIGH,
