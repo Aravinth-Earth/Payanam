@@ -642,6 +642,7 @@
     <string name="loc_default_duration_minutes_planned">இயல்புநிலை காலம்: %1$d நிமிடம் (திட்டமிடப்பட்டது)</string>
     <string name="loc_default_time_with_label">இயல்பு நேரம்: %1$s</string>
     <string name="loc_dimension">பரிமாணம்</string>
+    <string name="loc_rank">தரவரிசை</string>
     <string name="loc_dimension_reflections">பரிமாண பிரதிபலிப்புகள்</string>
     <string name="loc_due_date">இறுதி தேதி</string>
     <string name="loc_due_date_time">நிலுவைத் தேதி நேரம்</string>

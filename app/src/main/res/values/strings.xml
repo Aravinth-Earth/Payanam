@@ -643,6 +643,7 @@
     <string name="loc_default_duration_minutes_planned">Default Duration: %1$d min (planned)</string>
     <string name="loc_default_time_with_label">Default Time: %1$s</string>
     <string name="loc_dimension">Dimension</string>
+    <string name="loc_rank">Rank</string>
     <string name="loc_dimension_reflections">Dimension Reflections</string>
     <string name="loc_due_date">Due Date</string>
     <string name="loc_due_date_time">Due Date Time</string>

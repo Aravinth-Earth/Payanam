@@ -17,6 +17,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.DropdownMenu
@@ -165,6 +166,23 @@ private fun ScoreMatrixTable(
 ) {
     val selectedMetric = uiState.selectedMetric
     val headerColor = MaterialTheme.colorScheme.onSurfaceVariant
+    // Rank comes from the ViewModel (computed across each row's full history
+    // of unique values); DAY row also gets a rank, never "—".
+    val rankByKey: Map<String, String> = uiState.rankByKey
+    // Recomposition marker: fires when rank data settles into the matrix.
+    LaunchedEffect(rankByKey) {
+        if (rankByKey.isNotEmpty()) {
+            UnifiedLogger.getInstance().d(
+                "LensHabitScoreMatrixSection.ScoreMatrixTable",
+                "Score matrix rendered with rank",
+                mapOf(
+                    "rankKeys" to rankByKey.size,
+                    "sampleDay" to (rankByKey["DAY"] ?: "none"),
+                    "renderedAtMs" to System.currentTimeMillis(),
+                ),
+            )
+        }
+    }
     Column {
         Row(
             modifier =
@@ -184,6 +202,13 @@ private fun ScoreMatrixTable(
                 style = MaterialTheme.typography.labelSmall,
                 color = headerColor,
             )
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = stringResource(id = R.string.loc_rank),
+                style = MaterialTheme.typography.labelSmall,
+                color = headerColor,
+                modifier = Modifier.width(42.dp),
+            )
         }
         // Plain Column — NOT LazyColumn: this section lives inside
         // LensesScreen's verticalScroll parent; a nested scrollable would
@@ -194,6 +219,7 @@ private fun ScoreMatrixTable(
                     row = uiState.dayRow!!,
                     selectedMetric = selectedMetric,
                     isDay = true,
+                    rank = rankByKey["DAY"],
                     onClick = { onRowSelected(true, "DAY") },
                 )
             }
@@ -202,6 +228,7 @@ private fun ScoreMatrixTable(
                     row = row,
                     selectedMetric = selectedMetric,
                     isDay = false,
+                    rank = rankByKey[row.key],
                     onClick = { onRowSelected(false, row.key) },
                 )
             }
@@ -214,6 +241,7 @@ private fun MatrixRow(
     row: ScoreMatrixRow,
     selectedMetric: ScoreMetricColumn,
     isDay: Boolean,
+    rank: String?,
     onClick: () -> Unit,
 ) {
     val logger = remember { UnifiedLogger.getInstance() }
@@ -269,6 +297,15 @@ private fun MatrixRow(
                 modifier = Modifier.size(width = 78.dp, height = 16.dp),
             )
         }
+        Spacer(modifier = Modifier.width(8.dp))
+        Text(
+            text = rank ?: "—",
+            style = MaterialTheme.typography.labelMedium,
+            fontWeight = FontWeight.SemiBold,
+            color = if (rank == null) MaterialTheme.colorScheme.onSurfaceVariant else Color(0xFFC4B5FD),
+            modifier = Modifier.width(42.dp),
+            textAlign = androidx.compose.ui.text.style.TextAlign.End,
+        )
     }
 }
 
