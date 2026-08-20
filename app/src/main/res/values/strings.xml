@@ -851,6 +851,12 @@
     <string name="loc_habit_sort_streak_net_asc">Net streak (low to high)</string>
     <string name="loc_habit_sort_pos_continue_desc">Consistency (high to low)</string>
     <string name="loc_habit_sort_pos_continue_asc">Consistency (low to high)</string>
+    <string name="loc_sort_name_a_to_z">Name (A → Z)</string>
+    <string name="loc_sort_name_z_to_a">Name (Z → A)</string>
+    <string name="loc_sort_due_time_early">Due time (early → late)</string>
+    <string name="loc_sort_due_time_late">Due time (late → early)</string>
+    <string name="loc_sort_score_high_low">Score (high → low)</string>
+    <string name="loc_sort_score_low_high">Score (low → high)</string>
     <string name="loc_score_high_to_low">Score High To Low</string>
     <string name="loc_score_low_to_high">Score Low To High</string>
     <string name="loc_title_a_to_z">Title A To Z</string>

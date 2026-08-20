@@ -850,6 +850,12 @@
     <string name="loc_habit_sort_streak_net_asc">நிகர தொடர் (குறைவு முதல் அதிகம்)</string>
     <string name="loc_habit_sort_pos_continue_desc">நிலைத்தன்மை (அதிகம் முதல் குறைவு)</string>
     <string name="loc_habit_sort_pos_continue_asc">நிலைத்தன்மை (குறைவு முதல் அதிகம்)</string>
+    <string name="loc_sort_name_a_to_z">பெயர் (A → Z)</string>
+    <string name="loc_sort_name_z_to_a">பெயர் (Z → A)</string>
+    <string name="loc_sort_due_time_early">நேரம் (முன் → பின்)</string>
+    <string name="loc_sort_due_time_late">நேரம் (பின் → முன்)</string>
+    <string name="loc_sort_score_high_low">மதிப்பெண் (அதிகம் → குறைவு)</string>
+    <string name="loc_sort_score_low_high">மதிப்பெண் (குறைவு → அதிகம்)</string>
     <string name="loc_score_high_to_low">அதிக மதிப்பெண்</string>
     <string name="loc_score_low_to_high">குறைந்த முதல் அதிக மதிப்பெண்</string>
     <string name="loc_title_a_to_z">தலைப்பு A முதல் Z வரை</string>
