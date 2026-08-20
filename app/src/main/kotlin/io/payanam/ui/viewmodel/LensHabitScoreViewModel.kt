@@ -7,10 +7,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.domain.model.MetricWindowRow
 import io.payanam.domain.repository.ScoreWindowRepository
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -62,6 +64,10 @@ data class LensHabitScoreUiState(
     val rows: List<ScoreMatrixRow> = emptyList(),
     val dayRow: ScoreMatrixRow? = null,
     val radarAxes: List<RadarAxis> = emptyList(),
+    /** Ordinal rank of each row's selected-metric value across its OWN full
+     *  history of unique values. Keyed by row key ("DAY" for the day row).
+     *  Format "X/Y" where Y = count of distinct historical values. */
+    val rankByKey: Map<String, String> = emptyMap(),
     val error: String? = null,
 )
 
@@ -70,29 +76,76 @@ class LensHabitScoreViewModel
     @Inject
     constructor(
         private val scoreWindowRepository: ScoreWindowRepository,
+        private val scoreChangeEventBus: ScoreChangeEventBus,
     ) : ViewModel() {
         private val logger = UnifiedLogger.getInstance()
 
         private val _uiState = MutableStateFlow(LensHabitScoreUiState())
         val uiState: StateFlow<LensHabitScoreUiState> = _uiState.asStateFlow()
 
-        /** Load the matrix for the 14 days ending on [endDate] (default today). */
+        init {
+            viewModelScope.launch {
+                scoreChangeEventBus.events.collect { date ->
+                    logger.d(
+                        "LensHabitScoreViewModel",
+                        "Score change event received; refreshing matrix",
+                        mapOf("date" to date.toString()),
+                    )
+                    loadWindow()
+                }
+            }
+        }
+
+        /** Load the matrix for the 14 days ending on [endDate] (default today).
+         *  The 14-day window drives the displayed rows + sparklines; the full
+         *  history (from each row's earliest day) drives the ordinal rank. */
         fun loadWindow(endDate: LocalDate = LocalDate.now(), days: Int = 14) {
+            val t0 = System.currentTimeMillis()
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true, error = null) }
                 val end = endDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 val start = endDate.minusDays((days - 1).toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
                 logger.d(
                     "LensHabitScoreViewModel.loadWindow",
-                    "Loading score matrix window",
+                    "Score matrix load started",
                     mapOf("start" to start, "end" to end, "days" to days),
                 )
                 try {
+                    // 14-day window for display
+                    val tDispStart = System.currentTimeMillis()
                     val dims = scoreWindowRepository.getDimensionWindow(start, end)
                     val days = scoreWindowRepository.getDayWindow(start, end)
+                    val tDispEnd = System.currentTimeMillis()
+                    // Full history for ordinal rank (each row from its earliest day)
+                    val dimEarliest = scoreWindowRepository.earliestDimensionDayKey() ?: start
+                    val dayEarliest = scoreWindowRepository.earliestDayKey() ?: start
+                    val tHistStart = System.currentTimeMillis()
+                    val dimHist = scoreWindowRepository.getDimensionWindow(dimEarliest, end)
+                    val dayHist = scoreWindowRepository.getDayWindow(dayEarliest, end)
+                    val tHistEnd = System.currentTimeMillis()
+                    logger.d(
+                        "LensHabitScoreViewModel.loadWindow",
+                        "Rank history loaded from store",
+                        mapOf(
+                            "displayQueryMs" to (tDispEnd - tDispStart),
+                            "fullHistoryQueryMs" to (tHistEnd - tHistStart),
+                            "dimEarliest" to dimEarliest,
+                            "dayEarliest" to dayEarliest,
+                            "dimHistRows" to dimHist.size,
+                            "dayHistRows" to dayHist.size,
+                            "dimHistDays" to dimHist.map { it.dayKey }.distinct().size,
+                        ),
+                    )
+                    val history = buildRankHistory(dimHist, dayHist)
+                    rankHistory = history
                     val dayRows = days.associateBy { it.dayKey }
                     val rows = buildDimensionRows(dims, dayRows, start, end)
                     val dayRow = buildDayRow(days, start, end)
+                    val selected = _uiState.value.selectedMetric
+                    val tRankStart = System.currentTimeMillis()
+                    val rankByKey = computeRankMap(history, selected)
+                    val tRankEnd = System.currentTimeMillis()
+                    val tUpdateStart = System.currentTimeMillis()
                     _uiState.update {
                         it.copy(
                             isLoading = false,
@@ -101,12 +154,28 @@ class LensHabitScoreViewModel
                             rows = rows,
                             dayRow = dayRow,
                             radarAxes = buildRadarAxes(dims),
+                            rankByKey = rankByKey,
                         )
                     }
+                    val tUpdateEnd = System.currentTimeMillis()
                     logger.d(
                         "LensHabitScoreViewModel.loadWindow",
-                        "Score matrix loaded",
-                        mapOf("rows" to rows.size, "days" to days.size),
+                        "Rank recomputed for window",
+                        mapOf(
+                            "metric" to selected.key,
+                            "rankKeys" to rankByKey.size,
+                            "sampleDay" to (rankByKey["DAY"] ?: "none"),
+                        ),
+                    )
+                    logger.d(
+                        "LensHabitScoreViewModel.loadWindow",
+                        "Score matrix state published",
+                        mapOf(
+                            "computeRankMs" to (tRankEnd - tRankStart),
+                            "uiStateUpdateMs" to (tUpdateEnd - tUpdateStart),
+                            "totalLoadMs" to (tUpdateEnd - t0),
+                            "historyKeys" to history.size,
+                        ),
                     )
                 } catch (e: Exception) {
                     logger.e("LensHabitScoreViewModel.loadWindow", "Failed to load score matrix", e)
@@ -117,7 +186,71 @@ class LensHabitScoreViewModel
 
         fun selectMetric(metric: ScoreMetricColumn) {
             logger.d("LensHabitScoreViewModel.selectMetric", "Metric selected", mapOf("metric" to metric.key))
-            _uiState.update { it.copy(selectedMetric = metric) }
+            _uiState.update { it.copy(selectedMetric = metric, rankByKey = computeRankMap(rankHistory, metric)) }
+        }
+
+        /** Cached full-history values per row key, per metric. Populated in loadWindow. */
+        private var rankHistory: Map<String, Map<ScoreMetricColumn, List<Double>>> = emptyMap()
+
+        /** Group full-history rows into per-row, per-metric value lists. */
+        private fun buildRankHistory(
+            dimHist: List<MetricWindowRow>,
+            dayHist: List<MetricWindowRow>,
+        ): Map<String, Map<ScoreMetricColumn, List<Double>>> {
+            val out = mutableMapOf<String, MutableMap<ScoreMetricColumn, MutableList<Double>>>()
+            dimHist.forEach { row ->
+                val m = out.getOrPut(row.key) { mutableMapOf() }
+                m.accumulate(row)
+            }
+            dayHist.forEach { row ->
+                val m = out.getOrPut("DAY") { mutableMapOf() }
+                m.accumulate(row)
+            }
+            return out
+        }
+
+        private fun MutableMap<ScoreMetricColumn, MutableList<Double>>.accumulate(row: MetricWindowRow) {
+            this[ScoreMetricColumn.SCORE]?.add(row.score) ?: put(ScoreMetricColumn.SCORE, mutableListOf(row.score))
+            this[ScoreMetricColumn.RUNNING_AVG]?.add(row.runningAvg) ?: put(ScoreMetricColumn.RUNNING_AVG, mutableListOf(row.runningAvg))
+            this[ScoreMetricColumn.PROGRESS]?.add(row.progress) ?: put(ScoreMetricColumn.PROGRESS, mutableListOf(row.progress))
+            this[ScoreMetricColumn.STREAK_POS]?.add(row.streakPos.toDouble()) ?: put(ScoreMetricColumn.STREAK_POS, mutableListOf(row.streakPos.toDouble()))
+            this[ScoreMetricColumn.STREAK_NET]?.add(row.streakNet.toDouble()) ?: put(ScoreMetricColumn.STREAK_NET, mutableListOf(row.streakNet.toDouble()))
+            this[ScoreMetricColumn.POS_CONTINUE]?.add(row.posContinue.toDouble()) ?: put(ScoreMetricColumn.POS_CONTINUE, mutableListOf(row.posContinue.toDouble()))
+        }
+
+        /**
+         * Ordinal rank of each row's [metric] value across its OWN full history.
+         * Denominator = count of DISTINCT historical values (repeats collapsed).
+         * Highest value → #1. Ties share the same rank (dense).
+         * Returns "X/Y" keyed by row key.
+         */
+        private fun computeRankMap(
+            history: Map<String, Map<ScoreMetricColumn, List<Double>>>,
+            metric: ScoreMetricColumn,
+        ): Map<String, String> {
+            val result = mutableMapOf<String, String>()
+            history.forEach { (key, byMetric) ->
+                val series = byMetric[metric] ?: return@forEach
+                // Today = latest value in the chronological history list.
+                val today = series.lastOrNull() ?: return@forEach
+                val unique = series.distinct().sortedDescending()
+                val y = unique.size
+                val rank = unique.indexOfFirst { it == today }.let { if (it < 0) y else it + 1 }
+                result[key] = "$rank/$y"
+                logger.d(
+                    "LensHabitScoreViewModel.computeRankMap",
+                    "Ordinal rank derived",
+                    mapOf(
+                        "key" to key,
+                        "metric" to metric.key,
+                        "today" to String.format(Locale.US, "%.5f", today),
+                        "historySize" to series.size,
+                        "uniqueValues" to y,
+                        "rank" to "$rank/$y",
+                    ),
+                )
+            }
+            return result
         }
 
         private fun buildDimensionRows(

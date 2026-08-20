@@ -18,6 +18,9 @@ interface DimensionMetricDao {
     @Query("SELECT MIN(dayKey) FROM dimension_metrics WHERE dimensionId = :dimensionId")
     suspend fun earliestDayKey(dimensionId: String): String?
 
+    @Query("SELECT MIN(dayKey) FROM dimension_metrics")
+    suspend fun earliestDayKeyGlobal(): String?
+
     @Query("DELETE FROM dimension_metrics WHERE dimensionId = :dimensionId AND dayKey >= :fromDay")
     suspend fun deleteFrom(dimensionId: String, fromDay: String)
 

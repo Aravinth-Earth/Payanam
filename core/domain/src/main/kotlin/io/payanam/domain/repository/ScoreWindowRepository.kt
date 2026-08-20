@@ -25,4 +25,7 @@ interface ScoreWindowRepository {
 
     /** Earliest logged day for one dimension's mapped habits (dimension layer). */
     suspend fun earliestDimensionDayKey(dimensionId: String): String?
+
+    /** Earliest logged day across ALL dimensions (global dimension layer start). */
+    suspend fun earliestDimensionDayKey(): String?
 }
