@@ -143,6 +143,7 @@ class MainActivity : FragmentActivity() {
         )
         val encryptionManager = DatabaseEncryptionManager(this)
         var hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
+        logger.i("MainActivity.onCreate", "Encryption state resolved", mapOf("hasPassphraseConfigured" to hasPassphraseConfigured))
 
         // Detect and self-heal an invalid boot state: passphrase/Keystore state exists but no DB
         // file is present. This can happen if a previous session's backup worker corruption
@@ -162,6 +163,7 @@ class MainActivity : FragmentActivity() {
         // (Old design used a SharedPrefs timestamp; new design checks the live Room session state.)
         val shouldShowPassphraseUnlock =
             hasPassphraseConfigured && encryptionManager.isEncryptionEnabled() && !sessionManager.isOpen.value
+        logger.i("MainActivity.onCreate", "Startup gate resolved", mapOf("showPassphraseUnlock" to shouldShowPassphraseUnlock, "sessionOpen" to sessionManager.isOpen.value))
 
         // Health check is only meaningful when the DB is open (session already active).
         // For encrypted DBs at cold boot, shouldShowPassphraseUnlock=true so this block is skipped.
@@ -253,6 +255,7 @@ class MainActivity : FragmentActivity() {
             )
         }
         enableEdgeToEdge()
+        logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
             val startupGateScreenActive = showDatabaseInit || showPassphraseSetup || showPassphraseUnlock
 
