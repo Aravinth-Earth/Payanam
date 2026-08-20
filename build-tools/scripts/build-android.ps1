@@ -1550,6 +1550,25 @@ switch ($effectiveProfile)
 $buildNumber = $counter.androidBuilds
 Write-LogWithTime "Build #$buildNumber (Total: $($counter.totalBuilds))" "Cyan"
 
+# ── Build counter integrity guard ───────────────────────────────────────
+# Invariant: totalBuilds must equal androidBuilds + windowsBuilds. The counter
+# file is the only manual-edit-prone artifact in incremental builds, so a drift
+# here means a previous run left it inconsistent. We do NOT auto-fix — a human
+# must correct build-counter.json by hand (set totalBuilds = androidBuilds +
+# windowsBuilds) before the build can proceed. Blocking here prevents shipping a
+# release whose build metadata is internally inconsistent.
+$expectedTotal = [int]$counter.androidBuilds + [int]$counter.windowsBuilds
+if ([int]$counter.totalBuilds -ne $expectedTotal) {
+    Write-LogWithTime "" "White"
+    Write-LogWithTime "  ❌ BUILD COUNTER INTEGRITY CHECK FAILED" "Red"
+    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != androidBuilds ($($counter.androidBuilds)) + windowsBuilds ($($counter.windowsBuilds)) = $expectedTotal" "Red"
+    Write-LogWithTime "  Fix build-counter.json manually: set totalBuilds = $expectedTotal, then re-run the build." "Yellow"
+    Write-LogWithTime "  Build aborted — no counter file written, no APK produced." "Red"
+    exit 1
+} else {
+    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows = $expectedTotal)" "Green"
+}
+
 # Save counter
 Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
 Write-LogWithTime "Build counter saved" "Green"
