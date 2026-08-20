@@ -22,6 +22,9 @@ internal class DesktopSettingsStore(
         ),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Load snapshot.
+     */
     fun loadSnapshot(): DesktopSettingsSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -88,6 +91,9 @@ internal class DesktopSettingsStore(
         return snapshot
     }
 
+    /**
+     * Save snapshot.
+     */
     fun saveSnapshot(snapshot: DesktopSettingsSnapshot) {
         val properties =
             Properties().apply {
@@ -120,6 +126,9 @@ internal class DesktopSettingsStore(
         )
     }
 
+    /**
+     * Get settings file path.
+     */
     fun getSettingsFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun loadRouteVisibility(properties: Properties): Map<DesktopTopLevelRoute, Boolean> =

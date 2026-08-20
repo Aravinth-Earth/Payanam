@@ -11,6 +11,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Append-only desktop session logger that writes structured entries to a file
+ * and implements [AutoCloseable] so the underlying writer can be released.
+ */
 class DesktopSessionLogger private constructor(
     private val logFilePath: Path,
     private val openedAt: Instant,
@@ -22,6 +26,9 @@ class DesktopSessionLogger private constructor(
         writeHeader()
     }
 
+    /**
+     * I.
+     */
     fun i(
         source: String,
         message: String,
@@ -30,6 +37,9 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "INFO", source = source, message = message, data = data)
     }
 
+    /**
+     * W.
+     */
     fun w(
         source: String,
         message: String,
@@ -38,6 +48,9 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "WARN", source = source, message = message, data = data)
     }
 
+    /**
+     * E.
+     */
     fun e(
         source: String,
         message: String,
@@ -61,6 +74,9 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "ERROR", source = source, message = message, data = errorData)
     }
 
+    /**
+     * Get log path.
+     */
     fun getLogPath(): Path = logFilePath
 
     override fun close() {
@@ -159,6 +175,9 @@ class DesktopSessionLogger private constructor(
         private var instance: DesktopSessionLogger? = null
         private val companionLock = Any()
 
+        /**
+         * Initialize.
+         */
         fun initialize(
             logsDirectory: Path = DesktopAppPaths.resolveLogsDirectory(),
             clock: () -> Instant = { Instant.now() },
@@ -169,6 +188,9 @@ class DesktopSessionLogger private constructor(
                 }
             }
 
+        /**
+         * Get instance.
+         */
         fun getInstance(): DesktopSessionLogger =
             instance ?: error("DesktopSessionLogger not initialized. Call initialize() from desktop main().")
 

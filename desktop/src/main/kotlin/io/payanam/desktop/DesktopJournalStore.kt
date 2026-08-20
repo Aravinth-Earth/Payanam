@@ -11,10 +11,18 @@ import java.nio.file.Path
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+/**
+ * DesktopJournalState.
+
+ */
 data class DesktopJournalState(
+    /** Snapshot. */
     val snapshot: JournalSnapshot,
+    /** Selected date iso. */
     val selectedDateIso: String,
+    /** Last saved date iso. */
     val lastSavedDateIso: String? = null,
+    /** Error message. */
     val errorMessage: String? = null,
 )
 
@@ -31,6 +39,9 @@ internal class DesktopJournalStore(
     private val now: () -> LocalDateTime = { LocalDateTime.now() },
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Load state.
+     */
     fun loadState(): DesktopJournalState {
         val selectedDateIso = today().toString()
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -52,7 +63,7 @@ internal class DesktopJournalStore(
                 mapOf("dayCount" to snapshot.days.size),
             )
             DesktopJournalState(snapshot = snapshot, selectedDateIso = selectedDateIso)
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             logEvent(
                 "DesktopJournalStore.loadState",
                 "Failed to decode desktop journal snapshot",
@@ -66,6 +77,9 @@ internal class DesktopJournalStore(
         }
     }
 
+    /**
+     * Select date.
+     */
     fun selectDate(
         currentState: DesktopJournalState,
         requestedDateIso: String,
@@ -78,6 +92,9 @@ internal class DesktopJournalStore(
         return currentState.copy(selectedDateIso = boundedDate.toString(), errorMessage = null)
     }
 
+    /**
+     * Save overall response.
+     */
     fun saveOverallResponse(
         currentState: DesktopJournalState,
         promptKey: String,
@@ -101,6 +118,9 @@ internal class DesktopJournalStore(
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
 
+    /**
+     * Save dimension response.
+     */
     fun saveDimensionResponse(
         currentState: DesktopJournalState,
         dimensionId: String,
@@ -131,10 +151,16 @@ internal class DesktopJournalStore(
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
 
+    /**
+     * Save snapshot.
+     */
     fun saveSnapshot(snapshot: JournalSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
 
+    /**
+     * Get journal file path.
+     */
     fun getJournalFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     internal companion object {

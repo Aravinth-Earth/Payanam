@@ -10,10 +10,18 @@ import java.util.Properties
 
 private const val DESKTOP_BOOTSTRAP_SCHEMA_VERSION = 1
 
+/**
+ * DesktopBootstrapSnapshot.
+
+ */
 data class DesktopBootstrapSnapshot(
+    /** Schema version. */
     val schemaVersion: Int = DESKTOP_BOOTSTRAP_SCHEMA_VERSION,
+    /** Database lifecycle ready. */
     val databaseLifecycleReady: Boolean = false,
+    /** Last startup completed at epoch millis. */
     val lastStartupCompletedAtEpochMillis: Long? = null,
+    /** Last launch route storage key. */
     val lastLaunchRouteStorageKey: String? = null,
 )
 
@@ -27,6 +35,9 @@ internal class DesktopBootstrapStore(
     private val clock: () -> Long = System::currentTimeMillis,
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Ensure snapshot.
+     */
     fun ensureSnapshot(): DesktopBootstrapSnapshot {
         if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
             return loadSnapshot()
@@ -41,6 +52,9 @@ internal class DesktopBootstrapStore(
         return defaultSnapshot
     }
 
+    /**
+     * Load snapshot.
+     */
     fun loadSnapshot(): DesktopBootstrapSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -73,6 +87,9 @@ internal class DesktopBootstrapStore(
         return snapshot
     }
 
+    /**
+     * Record startup completed.
+     */
     fun recordStartupCompleted(route: DesktopTopLevelRoute): DesktopBootstrapSnapshot {
         val updatedSnapshot =
             loadSnapshot().copy(
@@ -90,6 +107,9 @@ internal class DesktopBootstrapStore(
         return updatedSnapshot
     }
 
+    /**
+     * Update database lifecycle ready.
+     */
     fun updateDatabaseLifecycleReady(isReady: Boolean): DesktopBootstrapSnapshot {
         val updatedSnapshot = loadSnapshot().copy(databaseLifecycleReady = isReady)
         saveSnapshot(updatedSnapshot)
@@ -103,6 +123,9 @@ internal class DesktopBootstrapStore(
         return updatedSnapshot
     }
 
+    /**
+     * Get bootstrap file path.
+     */
     fun getBootstrapFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun saveSnapshot(snapshot: DesktopBootstrapSnapshot) {

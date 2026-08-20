@@ -9,6 +9,9 @@ import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
 import java.time.Instant
 
+/**
+ * DesktopSessionLoggerTest.
+ */
 class DesktopSessionLoggerTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

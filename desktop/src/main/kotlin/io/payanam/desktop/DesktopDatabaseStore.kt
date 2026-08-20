@@ -5,11 +5,20 @@ package io.payanam.desktop
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * DesktopDatabaseSnapshot.
+
+ */
 data class DesktopDatabaseSnapshot(
+    /** Database file path. */
     val databaseFilePath: String,
+    /** Has artifacts. */
     val hasArtifacts: Boolean,
+    /** Init completed. */
     val initCompleted: Boolean,
+    /** Database size kb. */
     val databaseSizeKb: Long,
+    /** Database last modified ms. */
     val databaseLastModifiedMs: Long,
 )
 
@@ -21,6 +30,9 @@ internal class DesktopDatabaseStore(
 ) {
     private val databaseFilePath: Path = persistenceDatabase.getDatabaseFilePath()
 
+    /**
+     * Load snapshot.
+     */
     fun loadSnapshot(): DesktopDatabaseSnapshot =
         DesktopDatabaseSnapshot(
             databaseFilePath = databaseFilePath.toString(),
@@ -30,6 +42,9 @@ internal class DesktopDatabaseStore(
             databaseLastModifiedMs = databaseLastModifiedEpochMillis(),
         )
 
+    /**
+     * Ensure initialized.
+     */
     fun ensureInitialized(): DesktopDatabaseSnapshot {
         persistenceDatabase.markInitialized()
         logEvent(
@@ -40,6 +55,9 @@ internal class DesktopDatabaseStore(
         return loadSnapshot()
     }
 
+    /**
+     * Reset database artifact.
+     */
     fun resetDatabaseArtifact(): DesktopDatabaseSnapshot {
         persistenceDatabase.clearStateEntries()
         persistenceDatabase.clearInitializedMarker()
@@ -51,8 +69,12 @@ internal class DesktopDatabaseStore(
         return loadSnapshot()
     }
 
+    /**
+     * Get database file path.
+     */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
+    @Suppress("MagicNumber")
     private fun databaseFileSizeKb(): Long =
         if (Files.exists(databaseFilePath)) {
             Files.size(databaseFilePath) / 1024L

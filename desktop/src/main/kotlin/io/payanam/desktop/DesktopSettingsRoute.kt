@@ -39,7 +39,9 @@ import io.payanam.shared.settings.DesktopTopLevelRoute
 import io.payanam.shared.settings.SettingsFoundationSnapshot
 
 internal enum class DesktopSettingsSection(
+    /** Title. */
     val title: String,
+    /** Summary. */
     val summary: String,
 ) {
     APPEARANCE("Appearance", "Theme, language, and reading comfort"),
@@ -58,7 +60,9 @@ internal enum class DesktopSettingsSection(
 }
 
 internal data class DesktopDataManagementCallbacks(
+    /** On export local state. */
     val onExportLocalState: () -> DesktopDataHandoffSnapshot,
+    /** On import local state. */
     val onImportLocalState: () -> DesktopDataHandoffSnapshot,
 )
 
@@ -547,8 +551,11 @@ private fun desktopSettingsAccordionCard(
 }
 
 private data class DesktopSettingsOption(
+    /** Label. */
     val label: String,
+    /** Selected. */
     val selected: Boolean,
+    /** On select. */
     val onSelect: () -> Unit,
 )
 

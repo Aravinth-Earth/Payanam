@@ -30,6 +30,10 @@ import androidx.compose.ui.unit.dp
 import io.payanam.shared.notes.DesktopNoteContracts
 import io.payanam.shared.notes.DesktopNoteRecord
 
+/** Offset used to advance to the next dimension option in the filter cycle. */
+@Suppress("MagicNumber")
+private const val NEXT_INDEX_OFFSET = 1
+
 @Composable
 internal fun desktopNotesRoute(
     state: DesktopNotesState,
@@ -367,6 +371,7 @@ private fun desktopNoteCard(
     }
 }
 
+@Suppress("MagicNumber")
 private fun advanceDesktopNoteFilter(
     selectedDimensionId: String?,
     dimensionOptions: List<DesktopNoteDimensionOption>,
@@ -375,10 +380,10 @@ private fun advanceDesktopNoteFilter(
         dimensionOptions.firstOrNull()?.id
     } else {
         val currentIndex = dimensionOptions.indexOfFirst { it.id == selectedDimensionId }
-        if (currentIndex == -1 || currentIndex == dimensionOptions.lastIndex) {
+        if (currentIndex < 0 || currentIndex == dimensionOptions.lastIndex) {
             null
         } else {
-            dimensionOptions[currentIndex + 1].id
+            dimensionOptions[currentIndex + NEXT_INDEX_OFFSET].id
         }
     }
 
@@ -387,22 +392,31 @@ private fun advanceDesktopNoteDialogDimension(
     dimensionOptions: List<DesktopNoteDimensionOption>,
 ): String {
     val currentIndex = dimensionOptions.indexOfFirst { it.id == noteDimensionId }
-    return if (currentIndex == -1 || currentIndex == dimensionOptions.lastIndex) {
+    return if (currentIndex < 0 || currentIndex == dimensionOptions.lastIndex) {
         dimensionOptions.first().id
     } else {
-        dimensionOptions[currentIndex + 1].id
+        dimensionOptions[currentIndex + NEXT_INDEX_OFFSET].id
     }
 }
 
 private data class DesktopNoteDialogState(
+    /** Is visible. */
     val isVisible: Boolean,
+    /** Editing note id. */
     val editingNoteId: String?,
+    /** Title. */
     val title: String,
+    /** Details. */
     val details: String,
+    /** Tags raw. */
     val tagsRaw: String,
+    /** Dimension id. */
     val dimensionId: String,
 ) {
     companion object {
+        /**
+         * Hidden.
+         */
         fun hidden(): DesktopNoteDialogState =
             DesktopNoteDialogState(
                 isVisible = false,
@@ -413,8 +427,14 @@ private data class DesktopNoteDialogState(
                 dimensionId = DesktopNoteContracts.DEFAULT_DIMENSION_ID,
             )
 
+        /**
+         * Create.
+         */
         fun create(): DesktopNoteDialogState = hidden().copy(isVisible = true)
 
+        /**
+         * Edit.
+         */
         fun edit(note: DesktopNoteRecord): DesktopNoteDialogState =
             DesktopNoteDialogState(
                 isVisible = true,
@@ -428,7 +448,9 @@ private data class DesktopNoteDialogState(
 }
 
 private data class DesktopNoteDimensionOption(
+    /** Id. */
     val id: String,
+    /** Fallback label. */
     val fallbackLabel: String,
 )
 

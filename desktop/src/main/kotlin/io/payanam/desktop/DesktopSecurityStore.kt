@@ -17,26 +17,53 @@ private const val DESKTOP_SECURITY_SCHEMA_VERSION = 1
 private const val PBKDF2_ITERATIONS = 10_000
 private const val PBKDF2_KEY_LENGTH = 256
 
+/**
+ * DesktopSecuritySnapshot.
+
+ */
 data class DesktopSecuritySnapshot(
+    /** Schema version. */
     val schemaVersion: Int = DESKTOP_SECURITY_SCHEMA_VERSION,
+    /** Has passphrase configured. */
     val hasPassphraseConfigured: Boolean = false,
+    /** Failed unlock attempts. */
     val failedUnlockAttempts: Int = 0,
+    /** Locked until epoch millis. */
     val lockedUntilEpochMillis: Long? = null,
 )
 
+/**
+ * Result of a desktop passphrase action (setup, change, or unlock attempt).
+ */
 sealed interface DesktopPassphraseActionResult {
     data object Success : DesktopPassphraseActionResult
 
+    /**
+     * ValidationFailed.
+    
+     */
     data class ValidationFailed(
+        /** Reason code. */
         val reasonCode: String,
     ) : DesktopPassphraseActionResult
 
+    /**
+     * UnlockFailed.
+    
+     */
     data class UnlockFailed(
+        /** Failed attempts. */
         val failedAttempts: Int,
+        /** Lockout seconds remaining. */
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
 
+    /**
+     * Locked.
+    
+     */
     data class Locked(
+        /** Lockout seconds remaining. */
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
 }
@@ -53,6 +80,9 @@ internal class DesktopSecurityStore(
 ) {
     private val secureRandom = SecureRandom()
 
+    /**
+     * Ensure snapshot.
+     */
     fun ensureSnapshot(): DesktopSecuritySnapshot {
         if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
             return loadSnapshot()
@@ -62,6 +92,9 @@ internal class DesktopSecurityStore(
         return snapshot
     }
 
+    /**
+     * Load snapshot.
+     */
     fun loadSnapshot(): DesktopSecuritySnapshot {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (payload.isNullOrBlank()) {
@@ -78,6 +111,9 @@ internal class DesktopSecurityStore(
         )
     }
 
+    /**
+     * Configure passphrase.
+     */
     fun configurePassphrase(passphrase: String): DesktopPassphraseActionResult {
         val validation = SharedPassphrasePolicy.validate(passphrase)
         if (!validation.isValid) {
@@ -104,6 +140,9 @@ internal class DesktopSecurityStore(
         return DesktopPassphraseActionResult.Success
     }
 
+    /**
+     * Verify passphrase.
+     */
     fun verifyPassphrase(passphrase: String): DesktopPassphraseActionResult {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY).orEmpty()
         val properties = loadProperties(payload)
@@ -159,6 +198,9 @@ internal class DesktopSecurityStore(
         )
     }
 
+    /**
+     * Reset security state.
+     */
     fun resetSecurityState() {
         saveSnapshot(DesktopSecuritySnapshot(), saltBase64 = null, hashBase64 = null)
         logEvent(
@@ -168,6 +210,9 @@ internal class DesktopSecurityStore(
         )
     }
 
+    /**
+     * Get security file path.
+     */
     fun getSecurityFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun loadProperties(payload: String): Properties =

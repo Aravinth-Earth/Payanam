@@ -2,25 +2,48 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
+/**
+ * DesktopStartupRuntimeState.
+
+ */
 data class DesktopStartupRuntimeState(
+    /** Has passphrase configured. */
     val hasPassphraseConfigured: Boolean,
+    /** Has database artifacts. */
     val hasDatabaseArtifacts: Boolean,
+    /** Database lifecycle ready. */
     val databaseLifecycleReady: Boolean,
+    /** Session open. */
     val sessionOpen: Boolean,
+    /** Focus mode onboarding completed. */
     val focusModeOnboardingCompleted: Boolean,
+    /** Security file path. */
     val securityFilePath: String,
+    /** Database file path. */
     val databaseFilePath: String,
+    /** Lockout seconds remaining. */
     val lockoutSecondsRemaining: Long = 0L,
 )
 
+/**
+ * DesktopStartupMode.
+ */
 enum class DesktopStartupMode {
+    /** Passphrase has not been configured yet; user must set it up. */
     SetupPassphrase,
+    /** Passphrase is configured but the session is locked; user must unlock. */
     UnlockPassphrase,
+    /** Database lifecycle is not yet ready; initialization is required. */
     InitializeDatabase,
+    /** Passphrase and database ready; focus-mode onboarding remains. */
     FocusModeSelection,
+    /** All startup steps complete; the app is ready to use. */
     Ready,
 }
 
+/**
+ * Resolve desktop startup mode.
+ */
 fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): DesktopStartupMode =
     when {
         !runtimeState.hasPassphraseConfigured -> DesktopStartupMode.SetupPassphrase
@@ -30,6 +53,9 @@ fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): Desktop
         else -> DesktopStartupMode.Ready
     }
 
+/**
+ * Build desktop startup runtime state.
+ */
 fun buildDesktopStartupRuntimeState(
     settingsSnapshot: io.payanam.shared.settings.DesktopSettingsSnapshot,
     bootstrapSnapshot: DesktopBootstrapSnapshot,

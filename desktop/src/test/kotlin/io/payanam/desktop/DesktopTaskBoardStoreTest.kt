@@ -12,6 +12,9 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
 
+/**
+ * DesktopTaskBoardStoreTest.
+ */
 class DesktopTaskBoardStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

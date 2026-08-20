@@ -10,6 +10,9 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.LocalDateTime
 
+/**
+ * DesktopNoteStoreTest.
+ */
 class DesktopNoteStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

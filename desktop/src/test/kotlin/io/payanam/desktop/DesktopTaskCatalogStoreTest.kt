@@ -10,6 +10,9 @@ import org.junit.rules.TemporaryFolder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 
+/**
+ * DesktopTaskCatalogStoreTest.
+ */
 class DesktopTaskCatalogStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

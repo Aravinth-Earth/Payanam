@@ -7,6 +7,9 @@ import io.payanam.shared.settings.SettingsFoundationContracts
 import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Test
 
+/**
+ * DesktopFoundationSnapshotTest.
+ */
 class DesktopFoundationSnapshotTest {
     @Test
     fun `desktop foundation snapshot delegates to shared contracts`() {

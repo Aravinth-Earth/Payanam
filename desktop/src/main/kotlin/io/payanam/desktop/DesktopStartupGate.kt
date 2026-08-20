@@ -38,29 +38,47 @@ import io.payanam.shared.settings.FocusModePreset
 import io.payanam.shared.startup.DesktopStartupSnapshot
 
 private data class DesktopStartupGateInputState(
+    /** Passphrase. */
     val passphrase: String,
+    /** Confirm passphrase. */
     val confirmPassphrase: String,
+    /** Selected preset. */
     val selectedPreset: FocusModePreset,
+    /** Runtime state. */
     val runtimeState: DesktopStartupRuntimeState,
+    /** Database snapshot. */
     val databaseSnapshot: DesktopDatabaseSnapshot,
 )
 
 private data class DesktopStartupGateActions(
+    /** On passphrase changed. */
     val onPassphraseChanged: (String) -> Unit,
+    /** On confirm passphrase changed. */
     val onConfirmPassphraseChanged: (String) -> Unit,
+    /** On status message changed. */
     val onStatusMessageChanged: (String) -> Unit,
+    /** On passphrase cleared. */
     val onPassphraseCleared: () -> Unit,
+    /** On preset selected. */
     val onPresetSelected: (FocusModePreset) -> Unit,
+    /** On forgot reset requested. */
     val onForgotResetRequested: () -> Unit,
 )
 
 private data class DesktopPassphraseCardConfig(
+    /** Title. */
     val title: String,
+    /** Field label. */
     val fieldLabel: String,
+    /** Secondary field label. */
     val secondaryFieldLabel: String? = null,
+    /** Field description. */
     val fieldDescription: String,
+    /** Secondary field description. */
     val secondaryFieldDescription: String? = null,
+    /** Action label. */
     val actionLabel: String,
+    /** Helper text. */
     val helperText: String? = null,
 )
 

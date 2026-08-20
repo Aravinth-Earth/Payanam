@@ -639,4 +639,7 @@ internal fun desktopChoiceRow(
     }
 }
 
+/**
+ * Desktop foundation snapshot.
+ */
 fun desktopFoundationSnapshot(selection: DataModuleSelection): SettingsFoundationSnapshot = SettingsFoundationContracts.snapshot(selection)

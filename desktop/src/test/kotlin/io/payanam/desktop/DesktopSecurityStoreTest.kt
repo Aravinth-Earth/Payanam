@@ -7,6 +7,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 
+/**
+ * DesktopSecurityStoreTest.
+ */
 class DesktopSecurityStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

@@ -18,26 +18,44 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JOptionPane
 
 internal sealed interface DesktopSingleInstanceAcquireResult {
+    /**
+     * Acquired.
+    
+     */
     data class Acquired(
+        /** Lease. */
         val lease: DesktopSingleInstanceLease,
     ) : DesktopSingleInstanceAcquireResult
 
+    /**
+     * AlreadyRunning.
+    
+     */
     data class AlreadyRunning(
+        /** Details. */
         val details: DesktopRunningInstanceDetails,
     ) : DesktopSingleInstanceAcquireResult
 }
 
 internal data class DesktopRunningInstanceDetails(
+    /** Process id. */
     val processId: Long?,
+    /** Build name. */
     val buildName: String?,
+    /** Version display name. */
     val versionDisplayName: String?,
+    /** Acquired at. */
     val acquiredAt: String?,
+    /** Log file path. */
     val logFilePath: String?,
+    /** Executable path. */
     val executablePath: String?,
 )
 
 internal data class DesktopProcessInfo(
+    /** Executable path. */
     val executablePath: String?,
+    /** Started at. */
     val startedAt: String?,
 )
 
@@ -47,6 +65,9 @@ internal class DesktopSingleInstanceLease(
     private val channel: FileChannel,
     private val lock: FileLock,
 ) : AutoCloseable {
+    /**
+     * Record session log path.
+     */
     fun recordSessionLogPath(logFilePath: Path) {
         DesktopSingleInstanceGuard.writeMetadata(
             metadataFilePath = metadataFilePath,
@@ -78,6 +99,9 @@ internal object DesktopSingleInstanceGuard {
     private val trackedDetails = ConcurrentHashMap<Path, DesktopRunningInstanceDetails>()
     private val timestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
 
+    /**
+     * Acquire.
+     */
     fun acquire(
         runtimeDirectory: Path = DesktopAppPaths.resolveRuntimeDirectory(),
         processId: Long = ProcessHandle.current().pid(),
@@ -124,6 +148,9 @@ internal object DesktopSingleInstanceGuard {
         )
     }
 
+    /**
+     * Show already running dialog.
+     */
     fun showAlreadyRunningDialog(details: DesktopRunningInstanceDetails) {
         val processText = details.processId?.toString() ?: "unknown"
         val startedAtText = details.acquiredAt ?: "unknown"

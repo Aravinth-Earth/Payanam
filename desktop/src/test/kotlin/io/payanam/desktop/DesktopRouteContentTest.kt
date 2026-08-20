@@ -6,6 +6,9 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
 
+/**
+ * DesktopRouteContentTest.
+ */
 class DesktopRouteContentTest {
     @Test
     fun `settings route has no placeholder content`() {

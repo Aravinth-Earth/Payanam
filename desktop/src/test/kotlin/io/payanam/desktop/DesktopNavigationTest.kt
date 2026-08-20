@@ -8,6 +8,9 @@ import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
 
+/**
+ * DesktopNavigationTest.
+ */
 class DesktopNavigationTest {
     @Test
     fun `launch route follows preferred home surface`() {

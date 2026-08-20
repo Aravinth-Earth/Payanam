@@ -11,6 +11,9 @@ import java.nio.file.Files
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+/**
+ * DesktopJournalStoreTest.
+ */
 class DesktopJournalStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

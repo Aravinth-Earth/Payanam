@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.desktop
 
 import androidx.compose.material.Colors
@@ -9,11 +11,16 @@ import androidx.compose.ui.graphics.Color
 
 internal object DesktopTheme {
     internal data class Palette(
+        /** Material colors. */
         val materialColors: Colors,
+        /** Background. */
         val background: Color,
     )
 
     @Composable
+    /**
+     * Palette.
+     */
     fun palette(): Palette {
         val darkMaterial =
             darkColors(

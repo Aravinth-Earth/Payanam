@@ -26,9 +26,15 @@ internal class DesktopPersistenceDatabase(
         migrateLegacyFilesIfNeeded()
     }
 
+    /**
+     * Get database file path.
+     */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
     @Synchronized
+    /**
+     * Read entry.
+     */
     fun readEntry(entryKey: String): String? =
         withConnection { connection ->
             connection
@@ -46,6 +52,10 @@ internal class DesktopPersistenceDatabase(
         }
 
     @Synchronized
+    /**
+     * Write entry.
+     */
+    @Suppress("MagicNumber")
     fun writeEntry(
         entryKey: String,
         payload: String,
@@ -70,6 +80,9 @@ internal class DesktopPersistenceDatabase(
     }
 
     @Synchronized
+    /**
+     * Delete entry.
+     */
     fun deleteEntry(entryKey: String) {
         withConnection { connection ->
             connection
@@ -82,6 +95,9 @@ internal class DesktopPersistenceDatabase(
     }
 
     @Synchronized
+    /**
+     * Clear state entries.
+     */
     fun clearStateEntries() {
         withConnection { connection ->
             connection.createStatement().use { statement ->
@@ -91,22 +107,37 @@ internal class DesktopPersistenceDatabase(
     }
 
     @Synchronized
+    /**
+     * Has entry.
+     */
     fun hasEntry(entryKey: String): Boolean = readEntry(entryKey) != null
 
     @Synchronized
+    /**
+     * Mark initialized.
+     */
     fun markInitialized() {
         writeEntry(INITIALIZED_ENTRY_KEY, System.currentTimeMillis().toString())
     }
 
     @Synchronized
+    /**
+     * Clear initialized marker.
+     */
     fun clearInitializedMarker() {
         deleteEntry(INITIALIZED_ENTRY_KEY)
     }
 
     @Synchronized
+    /**
+     * Is initialized.
+     */
     fun isInitialized(): Boolean = hasEntry(INITIALIZED_ENTRY_KEY)
 
     @Synchronized
+    /**
+     * Database entry count.
+     */
     fun databaseEntryCount(): Int =
         withConnection { connection ->
             connection.createStatement().use { statement ->
@@ -118,6 +149,9 @@ internal class DesktopPersistenceDatabase(
         }
 
     @Synchronized
+    /**
+     * Import legacy files into database.
+     */
     fun importLegacyFilesIntoDatabase() {
         migrateLegacyFilesIfNeeded(force = true)
     }
@@ -236,7 +270,9 @@ internal class DesktopPersistenceDatabase(
     }
 
     private data class LegacyEntryLocation(
+        /** Entry key. */
         val entryKey: String,
+        /** Path. */
         val path: Path,
     )
 

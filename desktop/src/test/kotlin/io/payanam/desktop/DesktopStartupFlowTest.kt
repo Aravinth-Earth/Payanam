@@ -5,6 +5,9 @@ package io.payanam.desktop
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
+/**
+ * DesktopStartupFlowTest.
+ */
 class DesktopStartupFlowTest {
     @Test
     fun `resolve startup mode requests setup when passphrase is missing`() {

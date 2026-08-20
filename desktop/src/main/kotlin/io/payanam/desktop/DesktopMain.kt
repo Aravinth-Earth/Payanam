@@ -13,6 +13,9 @@ import androidx.compose.ui.window.rememberWindowState
 import java.awt.GraphicsEnvironment
 import kotlin.math.max
 
+/**
+ * Main.
+ */
 fun main() {
     val singleInstanceResult = DesktopSingleInstanceGuard.acquire()
     if (singleInstanceResult is DesktopSingleInstanceAcquireResult.AlreadyRunning) {
@@ -61,7 +64,7 @@ fun main() {
                 desktopApp()
             }
         }
-    } catch (error: Throwable) {
+    } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
         sessionLogger.e("DesktopMain.main", "Desktop application terminated with error", error)
         throw error
     } finally {

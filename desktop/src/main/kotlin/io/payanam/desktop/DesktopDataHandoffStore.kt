@@ -13,12 +13,22 @@ import java.util.zip.ZipEntry
 import java.util.zip.ZipInputStream
 import java.util.zip.ZipOutputStream
 
+/**
+ * DesktopDataHandoffSnapshot.
+
+ */
 data class DesktopDataHandoffSnapshot(
+    /** Export file path. */
     val exportFilePath: String,
+    /** Export completed. */
     val exportCompleted: Boolean,
+    /** Import completed. */
     val importCompleted: Boolean,
 )
 
+/**
+ * DesktopDataHandoffStore.
+ */
 class DesktopDataHandoffStore(
     private val exportDirectory: Path = DesktopAppPaths.resolveExportDirectory(),
     private val databaseDirectory: Path = DesktopAppPaths.resolveDatabaseDirectory(),
@@ -28,6 +38,9 @@ class DesktopDataHandoffStore(
     private val exportFileNamePattern =
         DateTimeFormatter.ofPattern("'Payanam_Desktop_Handoff_'yyyyMMdd_HHmmss'.zip'")
 
+    /**
+     * Export local state.
+     */
     fun exportLocalState(): DesktopDataHandoffSnapshot {
         Files.createDirectories(exportDirectory)
         val exportFilePath = exportDirectory.resolve(LocalDateTime.now().format(exportFileNamePattern))
@@ -47,6 +60,9 @@ class DesktopDataHandoffStore(
         )
     }
 
+    /**
+     * Import latest export.
+     */
     fun importLatestExport(): DesktopDataHandoffSnapshot {
         val exportFilePath =
             Files.list(exportDirectory).use { files ->

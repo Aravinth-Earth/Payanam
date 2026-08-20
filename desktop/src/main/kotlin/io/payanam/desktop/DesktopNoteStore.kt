@@ -12,8 +12,14 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID
 
+/**
+ * DesktopNotesState.
+
+ */
 data class DesktopNotesState(
+    /** Snapshot. */
     val snapshot: DesktopNotesSnapshot,
+    /** Error message. */
     val errorMessage: String? = null,
 )
 
@@ -30,6 +36,9 @@ internal class DesktopNoteStore(
     private val nextId: () -> String = { UUID.randomUUID().toString() },
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Load state.
+     */
     fun loadState(): DesktopNotesState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -50,7 +59,7 @@ internal class DesktopNoteStore(
                 mapOf("noteCount" to snapshot.notes.size),
             )
             DesktopNotesState(snapshot = snapshot)
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             logEvent(
                 "DesktopNoteStore.loadState",
                 "Failed to decode desktop notes snapshot",
@@ -63,6 +72,9 @@ internal class DesktopNoteStore(
         }
     }
 
+    /**
+     * Create note.
+     */
     fun createNote(
         title: String,
         details: String?,
@@ -94,6 +106,9 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
 
+    /**
+     * Update note.
+     */
     fun updateNote(
         noteId: String,
         title: String,
@@ -132,6 +147,9 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
 
+    /**
+     * Delete note.
+     */
     fun deleteNote(noteId: String): DesktopNotesState {
         val currentState = loadState()
         val nextSnapshot =
@@ -147,10 +165,16 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
 
+    /**
+     * Save snapshot.
+     */
     fun saveSnapshot(snapshot: DesktopNotesSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
 
+    /**
+     * Get notes file path.
+     */
     fun getNotesFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     internal companion object {

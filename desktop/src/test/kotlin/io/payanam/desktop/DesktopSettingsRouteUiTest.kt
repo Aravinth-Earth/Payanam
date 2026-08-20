@@ -22,6 +22,9 @@ import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Rule
 import org.junit.Test
 
+/**
+ * DesktopSettingsRouteUiTest.
+ */
 class DesktopSettingsRouteUiTest {
     @get:Rule
     val composeRule = createComposeRule()
