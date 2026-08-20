@@ -153,6 +153,36 @@ class TasksViewModelSortingRegressionTest {
         assertEquals(listOf("a", "b", "c"), sorted.map { it.id })
     }
 
+    @Test
+    fun by_due_time_sorts_early_to_late_with_nulls_last() {
+        val tEarly = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 8, 0))
+        val tLate = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 20, 0))
+        val tNone = task("c", "Moderate Impact", LocalDateTime.now()).copy(dueDate = null)
+        val sorted = sortHabits(listOf(tNone, tLate, tEarly), HabitSortOption.BY_DUE_TIME, emptyMap())
+        assertEquals(listOf("a", "b", "c"), sorted.map { it.id })
+    }
+
+    @Test
+    fun by_due_time_reverse_sorts_late_to_early_with_nulls_last() {
+        val tEarly = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 8, 0))
+        val tLate = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 20, 0))
+        val tNone = task("c", "Moderate Impact", LocalDateTime.now()).copy(dueDate = null)
+        val sorted = sortHabits(listOf(tEarly, tNone, tLate), HabitSortOption.BY_DUE_TIME_REVERSE, emptyMap())
+        assertEquals(listOf("b", "a", "c"), sorted.map { it.id })
+    }
+
+    @Test
+    fun by_due_time_tiebreaks_by_score_desc_when_times_equal() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.3, 0.0, 1, 1, 1),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.9, 0.0, 3, 3, 3),
+        )
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.BY_DUE_TIME, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("b", "a"), sorted.map { it.id })
+    }
+
     // ── fromKey migration ──────────────────────────────────────────────────
 
     @Test
