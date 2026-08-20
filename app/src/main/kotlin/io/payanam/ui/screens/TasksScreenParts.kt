@@ -293,22 +293,11 @@ internal fun taskSortLabel(option: TaskSortOption): String = when (option) {
 
 @Composable
 internal fun habitSortLabel(option: HabitSortOption): String = when (option) {
-    HabitSortOption.BY_SCORE, HabitSortOption.RUNNING_AVG_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_running_avg_desc)
-    HabitSortOption.RUNNING_AVG_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_running_avg_asc)
-    HabitSortOption.SCORE_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_score_desc)
-    HabitSortOption.SCORE_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_score_asc)
-    HabitSortOption.PROGRESS_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_progress_desc)
-    HabitSortOption.PROGRESS_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_progress_asc)
-    HabitSortOption.STREAK_POS_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_pos_desc)
-    HabitSortOption.STREAK_POS_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_pos_asc)
-    HabitSortOption.STREAK_NET_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_net_desc)
-    HabitSortOption.STREAK_NET_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_streak_net_asc)
-    HabitSortOption.POS_CONTINUE_DESC -> stringResource(id = io.payanam.R.string.loc_habit_sort_pos_continue_desc)
-    HabitSortOption.POS_CONTINUE_ASC -> stringResource(id = io.payanam.R.string.loc_habit_sort_pos_continue_asc)
-    HabitSortOption.BY_NAME -> stringResource(id = io.payanam.R.string.loc_name)
-    HabitSortOption.BY_STATUS -> stringResource(id = io.payanam.R.string.loc_status)
-    HabitSortOption.BY_DUE_TIME -> stringResource(id = io.payanam.R.string.loc_due_time)
-    HabitSortOption.BY_LIFE_DIMENSION -> stringResource(id = io.payanam.R.string.loc_life_dimension)
-    HabitSortOption.BY_POSITION -> stringResource(id = io.payanam.R.string.loc_manual)
+    HabitSortOption.BY_NAME -> stringResource(id = io.payanam.R.string.loc_sort_name_a_to_z)
+    HabitSortOption.BY_NAME_REVERSE -> stringResource(id = io.payanam.R.string.loc_sort_name_z_to_a)
+    HabitSortOption.BY_DUE_TIME -> stringResource(id = io.payanam.R.string.loc_sort_due_time_early)
+    HabitSortOption.BY_DUE_TIME_REVERSE -> stringResource(id = io.payanam.R.string.loc_sort_due_time_late)
+    HabitSortOption.SCORE_HIGH_LOW -> stringResource(id = io.payanam.R.string.loc_sort_score_high_low)
+    HabitSortOption.SCORE_LOW_HIGH -> stringResource(id = io.payanam.R.string.loc_sort_score_low_high)
 }
 
