@@ -13,6 +13,7 @@ import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.HabitMetricEntity
 import io.payanam.database.entity.TaskEntity
 import io.payanam.database.entity.TaskOccurrenceEntity
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.RecurrenceConfig
 import java.time.LocalDate
@@ -55,6 +56,7 @@ class ScoreRollupCascadeService
     @Inject
     constructor(
         private val sessionManager: DatabaseSessionManager,
+        private val scoreChangeEventBus: ScoreChangeEventBus,
     ) {
         private val logger = UnifiedLogger.getInstance()
 
@@ -202,6 +204,8 @@ class ScoreRollupCascadeService
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
+                scoreChangeEventBus.emit(date)
+                logger.i(tag, "Score change event emitted", mapOf("date" to date.toString()))
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_FAILED", e, mapOf("taskId" to taskId, "date" to date.toString()))
             }
@@ -282,6 +286,8 @@ class ScoreRollupCascadeService
                         "ms=${System.currentTimeMillis() - started}",
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
+                scoreChangeEventBus.emit(LocalDate.now())
+                logger.i(tag, "Score change event emitted", mapOf("date" to "rule-change"))
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
             }
@@ -565,7 +571,7 @@ class ScoreRollupCascadeService
             TraceValues(dayScore, runningAvg, progress, streakPos, streakNet, posContinue)
 
         private fun traceValue(v: Double?): String =
-            v?.let { String.format(Locale.US, "%.4f", it) } ?: "∅"
+            v?.let { String.format(Locale.US, "%.5f", it) } ?: "∅"
 
         private fun traceValue(v: Int?): String = v?.toString() ?: "∅"
 

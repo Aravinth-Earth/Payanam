@@ -12,6 +12,7 @@ import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.HabitMetricEntity
 import io.payanam.database.entity.TaskEntity
 import io.payanam.database.entity.TaskOccurrenceEntity
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.session.DatabaseSessionManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
@@ -48,7 +49,7 @@ class ScoreRollupCascadeServiceTest {
         val encryptionManager = io.payanam.database.security.DatabaseEncryptionManager(context)
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(db)
-        service = ScoreRollupCascadeService(sessionManager)
+        service = ScoreRollupCascadeService(sessionManager, ScoreChangeEventBus())
         seedLifeDimensions()
     }
 
@@ -308,7 +309,7 @@ class ScoreRollupCascadeServiceTest {
         assertTrue(
             "L1 row created shows ∅→new for all 6 metrics",
             lastTrace.contains(
-                "L1 d=$today S:∅→1.0000 A:∅→1.0000 P:∅→1.0000 sp:∅→1 sn:∅→1 pc:∅→1",
+                "L1 d=$today S:∅→1.00000 A:∅→1.00000 P:∅→1.00000 sp:∅→1 sn:∅→1 pc:∅→1",
             ),
         )
         assertTrue("L2 and L3 sections present", lastTrace.contains("L2 d=$today") && lastTrace.contains("L3 d=$today"))
@@ -325,12 +326,12 @@ class ScoreRollupCascadeServiceTest {
         service.recalcForStatusChange("ht2", today)
 
         // Wait for the no-op signature (only the second trace carries it).
-        val logs = waitForLogSnippet("S:1.0000→1.0000 A:1.0000→1.0000")
+        val logs = waitForLogSnippet("S:1.00000→1.00000 A:1.00000→1.00000")
         val lastTrace = logs.substringAfterLast("CASCADE_TRACE")
         assertTrue(
             "no-op shows old→old, not ∅→new",
             lastTrace.contains(
-                "L1 d=$today S:1.0000→1.0000 A:1.0000→1.0000 P:1.0000→1.0000 sp:1→1 sn:1→1 pc:1→1",
+                "L1 d=$today S:1.00000→1.00000 A:1.00000→1.00000 P:1.00000→1.00000 sp:1→1 sn:1→1 pc:1→1",
             ),
         )
     }
