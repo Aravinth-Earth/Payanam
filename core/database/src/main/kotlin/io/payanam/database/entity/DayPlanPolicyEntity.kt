@@ -14,6 +14,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "day_plan_policies",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = DayPlanTemplateEntity::class,
             parentColumns = ["id"],
@@ -22,20 +23,31 @@ import androidx.room.PrimaryKey
         ),
     ],
     indices = [
+        /** Index. */
         Index("template_id"),
+        /** Index. */
         Index("mode"),
+        /** Index. */
         Index("is_starred"),
     ],
 )
+/**
+ * DayPlanPolicyEntity.
+ */
 data class DayPlanPolicyEntity(
     @PrimaryKey
     @ColumnInfo(name = "day_key")
+    /** Day key. */
     val dayKey: String,
+    /** Mode. */
     val mode: String = "auto",
     @ColumnInfo(name = "template_id")
+    /** Template id. */
     val templateId: String? = null,
     @ColumnInfo(name = "is_starred")
+    /** Is starred. */
     val isStarred: Int = 0,
     @ColumnInfo(name = "updated_at")
+    /** Updated at. */
     val updatedAt: String,
 )

@@ -15,21 +15,33 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "day_plan_templates",
     indices = [
+        /** Index. */
         Index(value = ["name"], unique = true),
+        /** Index. */
         Index("is_active"),
     ],
 )
+/**
+ * DayPlanTemplateEntity.
+ */
 data class DayPlanTemplateEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Name. */
     val name: String,
+    /** Description. */
     val description: String? = null,
     @ColumnInfo(name = "is_active")
+    /** Is active. */
     val isActive: Int = 1,
     @ColumnInfo(name = "sort_order")
+    /** Sort order. */
     val sortOrder: Int = 0,
     @ColumnInfo(name = "created_at")
+    /** Created at. */
     val createdAt: String,
     @ColumnInfo(name = "updated_at")
+    /** Updated at. */
     val updatedAt: String,
 )

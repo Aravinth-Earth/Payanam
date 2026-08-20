@@ -14,8 +14,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * AppSettingsRepositoryImpl.
+ */
 class AppSettingsRepositoryImpl
     @Inject
+    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : AppSettingsRepository {
@@ -41,11 +45,15 @@ class AppSettingsRepositoryImpl
         }
 
         override suspend fun setSetting(
+            /** Key. */
             key: String,
             value: String?,
         ) {
+            /** Now. */
             val now = LocalDateTime.now()
+            /** Entity. */
             val entity =
+                /** App setting entity. */
                 AppSettingEntity(
                     key = key,
                     value = value,

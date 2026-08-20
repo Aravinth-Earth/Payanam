@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
 import androidx.room.migration.Migration
@@ -19,11 +22,14 @@ val MIGRATION_13_14 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.13_14", "Starting migration from version 13 to 14")
             try {
+                /** Create day plan templates table. */
                 createDayPlanTemplatesTable(database)
+                /** Create day plan template allocations table. */
                 createDayPlanTemplateAllocationsTable(database)
+                /** Create day plan allocations table. */
                 createDayPlanAllocationsTable(database)
                 logger.i("Migration.13_14", "Migration from 13 to 14 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("Migration.13_14", "Migration from 13 to 14 failed", e)
                 throw e
             }

@@ -20,34 +20,58 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+/**
+ * DatabaseModule.
+ */
 object DatabaseModule {
     @Provides
     @Singleton
+    /**
+     * Provide database encryption manager.
+     */
     fun provideDatabaseEncryptionManager(
         @ApplicationContext context: Context,
     ): DatabaseEncryptionManager = DatabaseEncryptionManager(context)
 
     @Provides
     @Singleton
+    /**
+     * Provide database session manager.
+     */
     fun provideDatabaseSessionManager(
         @ApplicationContext context: Context,
+        /** Encryption manager. */
         encryptionManager: DatabaseEncryptionManager,
     ): DatabaseSessionManager = DatabaseSessionManager(context, encryptionManager)
 
     @Provides
     @Singleton
+    /**
+     * Provide lens repository.
+     */
     fun provideLensRepository(
+        /** Session manager. */
         sessionManager: DatabaseSessionManager,
+        /** Task repository. */
         taskRepository: TaskRepository,
+        /** Time entry repository. */
         timeEntryRepository: TimeEntryRepository,
+        /** Task occurrence repository. */
         taskOccurrenceRepository: TaskOccurrenceRepository,
+        /** Day plan repository. */
         dayPlanRepository: DayPlanRepository,
     ): LensRepository =
+        /** Lens repository impl. */
         LensRepositoryImpl(
+            /** Session manager. */
             sessionManager,
+            /** Task repository. */
             taskRepository,
+            /** Time entry repository. */
             timeEntryRepository,
+            /** Task occurrence repository. */
             taskOccurrenceRepository,
+            /** Day plan repository. */
             dayPlanRepository,
         )
 }

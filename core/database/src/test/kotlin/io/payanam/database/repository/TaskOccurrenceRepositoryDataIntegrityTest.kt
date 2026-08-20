@@ -23,40 +23,61 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * TaskOccurrenceRepositoryDataIntegrityTest.
+ */
 class TaskOccurrenceRepositoryDataIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: TaskOccurrenceRepositoryImpl
 
     @Before
+    /**
+     * Setup.
+     */
     fun setup() {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
+        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
         database =
+            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .build()
+        /** Encryption manager. */
         val encryptionManager = DatabaseEncryptionManager(context)
+        /** Session manager. */
         val sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
         repository = TaskOccurrenceRepositoryImpl(sessionManager)
     }
 
     @After
+    /**
+     * Tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Record occurrence persists actual completion fields.
+     */
     fun recordOccurrence_persistsActualCompletionFields() =
         runBlocking {
+            /** Day. */
             val day = LocalDate.of(2026, 2, 21)
+            /** Now. */
             val now = day.atStartOfDay()
+            /** Task id. */
             val taskId = "habit_integrity_1"
             database.taskDao().insert(
+                /** Task entity. */
                 TaskEntity(
                     id = taskId,
                     title = "Hydration",
@@ -72,8 +93,10 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                 ),
             )
 
+            /** Actual completed at. */
             val actualCompletedAt = LocalDateTime.of(2026, 2, 21, 9, 12)
             repository.recordOccurrence(
+                /** Task occurrence. */
                 TaskOccurrence(
                     id = "occ_integrity_1",
                     taskId = taskId,
@@ -85,20 +108,32 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                 ),
             )
 
+            /** Stored. */
             val stored = database.taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, day.toString())
+            /** Assert that. */
             assertThat(stored).isNotNull()
+            /** Stored completed at. */
             val storedCompletedAt = stored?.actualCompletedAt?.let(LocalDateTime::parse)
+            /** Assert that. */
             assertThat(storedCompletedAt).isEqualTo(actualCompletedAt)
+            /** Assert that. */
             assertThat(stored?.actualDurationMinutes).isEqualTo(7)
         }
 
     @Test
+    /**
+     * Toggle occurrence completed clears stale status reason when not provided.
+     */
     fun toggleOccurrence_completed_clearsStaleStatusReasonWhenNotProvided() =
         runBlocking {
+            /** Day. */
             val day = LocalDate.of(2026, 2, 22)
+            /** Now. */
             val now = day.atStartOfDay()
+            /** Task id. */
             val taskId = "habit_integrity_2"
             database.taskDao().insert(
+                /** Task entity. */
                 TaskEntity(
                     id = taskId,
                     title = "Walk",
@@ -112,6 +147,7 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                     dayKey = day.toString(),
                 ),
             )
+            /** Existing id. */
             val existingId = UUID.randomUUID().toString()
             database.taskOccurrenceDao().insert(
                 io.payanam.database.entity.TaskOccurrenceEntity(
@@ -139,9 +175,13 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                 actualDurationMinutes = null,
             )
 
+            /** Stored. */
             val stored = database.taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, day.toString())
+            /** Assert that. */
             assertThat(stored).isNotNull()
+            /** Assert that. */
             assertThat(stored?.status).isEqualTo("completed")
+            /** Assert that. */
             assertThat(stored?.statusReason).isNull()
         }
 }

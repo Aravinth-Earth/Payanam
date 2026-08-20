@@ -4,10 +4,17 @@ package io.payanam.database.security
 
 import io.payanam.common.logging.UnifiedLogger
 
+/**
+ * PassphraseLockoutPolicy.
+ */
 object PassphraseLockoutPolicy {
     private val logger = UnifiedLogger.getInstance()
 
+    /**
+     * Delay seconds for attempt.
+     */
     fun delaySecondsForAttempt(attemptCount: Int): Long {
+        /** Delay. */
         val delay =
             when {
                 attemptCount <= 2 -> 0L
@@ -19,6 +26,7 @@ object PassphraseLockoutPolicy {
         logger.d(
             "PassphraseLockoutPolicy.delaySecondsForAttempt",
             "Computed lockout delay",
+            /** Map of. */
             mapOf("attemptCount" to attemptCount, "delaySeconds" to delay),
         )
         return delay

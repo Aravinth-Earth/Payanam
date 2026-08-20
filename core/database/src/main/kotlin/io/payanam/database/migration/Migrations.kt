@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:max-line-length", "LongMethod")
+@file:Suppress("ktlint:standard:max-line-length", "LongMethod", "MagicNumber", "UseCheckOrError")
+
 
 package io.payanam.database.migration
 
@@ -26,12 +27,18 @@ val MIGRATION_1_2 =
 
             try {
                 // Check if durationHours column exists (v0.0.2 database)
+                /** Cursor. */
                 val cursor = database.query("PRAGMA table_info(tasks)")
+                /** Has duration hours. */
                 var hasDurationHours = false
+                /** While. */
                 while (cursor.moveToNext()) {
+                    /** Column name. */
                     val columnName = cursor.getString(cursor.getColumnIndex("name"))
+                    /** If. */
                     if (columnName == "durationHours") {
                         hasDurationHours = true
+                        /** Break. */
                         break
                     }
                 }
@@ -39,6 +46,7 @@ val MIGRATION_1_2 =
 
                 logger.d("Migration.1_2", "Schema check", mapOf("hasDurationHours" to hasDurationHours))
 
+                /** If. */
                 if (hasDurationHours) {
                     logger.i("Migration.1_2", "Detected v0.0.2 database, converting schema")
 
@@ -83,6 +91,7 @@ val MIGRATION_1_2 =
                         """
                         INSERT INTO tasks_new (
                             id, title, description, status, dueDate, 
+                            /** Duration minutes. */
                             durationMinutes,
                             impactLevel, goalAlignment, energyLevel, controlLevel, lifeIntentionCategory,
                             taskScore, createdAt, updatedAt, completedAt, archivedAt,
@@ -91,18 +100,29 @@ val MIGRATION_1_2 =
                             blockedReason, completionRate, externalDependency,
                             notificationMode, customNotificationMinutes
                         )
+                        /** Select. */
                         SELECT 
                             id, title, description,
+                            /** Coalesce. */
                             COALESCE(status, 'pending'),
+                            /** Due date. */
                             dueDate,
+                            /** Cast. */
                             CAST(COALESCE(durationHours, 1.0) * 60 AS INTEGER),
+                            /** Coalesce. */
                             COALESCE(impactLevel, 'Moderate Impact'),
+                            /** Coalesce. */
                             COALESCE(goalAlignment, 'Moderate Alignment'),
+                            /** Coalesce. */
                             COALESCE(energyLevel, 'Moderate'),
+                            /** Coalesce. */
                             COALESCE(controlLevel, 'Office/Colleagues Dependent'),
+                            /** Coalesce. */
                             COALESCE(lifeIntentionCategory, 'Career & Work'),
                             taskScore, createdAt, updatedAt, completedAt, archivedAt,
+                            /** Coalesce. */
                             COALESCE(recurrenceEnabled, 0),
+                            /** Recurrence rule. */
                             recurrenceRule,
                             explicitUrgency, focusRequired, recurrenceStrategy,
                             blockedReason, completionRate, externalDependency,
@@ -112,8 +132,10 @@ val MIGRATION_1_2 =
                         """.trimIndent(),
                     )
 
+                    /** Row count. */
                     val rowCount =
                         database.query("SELECT COUNT(*) FROM tasks_new").use { cursor ->
+                            /** If. */
                             if (cursor.moveToFirst()) cursor.getInt(0) else 0
                         }
 
@@ -129,11 +151,13 @@ val MIGRATION_1_2 =
                 }
 
                 logger.i("Migration.1_2", "Migration from 1 to 2 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.1_2",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -251,11 +275,13 @@ val MIGRATION_2_3 =
                 )
 
                 logger.i("Migration.2_3", "Migration from 2 to 3 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.2_3",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -322,11 +348,13 @@ val MIGRATION_3_4 =
                 logger.d("Migration.3_4", "Created scoring_config table")
 
                 logger.i("Migration.3_4", "Migration from 3 to 4 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.3_4",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -381,11 +409,13 @@ val MIGRATION_4_5 =
                 logger.d("Migration.4_5", "Initialized lastOccurrenceDate from existing occurrences")
 
                 logger.i("Migration.4_5", "Migration from 4 to 5 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.4_5",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -428,11 +458,13 @@ val MIGRATION_5_6 =
                 logger.d("Migration.5_6", "Added actualDurationMinutes column")
 
                 logger.i("Migration.5_6", "Migration from 5 to 6 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.5_6",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -483,11 +515,13 @@ val MIGRATION_6_7 =
                 logger.d("Migration.6_7", "Added time_entries.focusRatedAt column")
 
                 logger.i("Migration.6_7", "Migration from 6 to 7 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.6_7",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -513,19 +547,27 @@ val MIGRATION_7_8 =
             logger.i("Migration.7_8", "Starting migration from version 7 to 8")
 
             try {
+                /** Create life dimensions table. */
                 createLifeDimensionsTable(database)
+                /** Seed default life dimensions. */
                 seedDefaultLifeDimensions(database)
+                /** Create user preferences table. */
                 createUserPreferencesTable(database)
+                /** Add dimension id columns. */
                 addDimensionIdColumns(database)
+                /** Backfill dimension ids. */
                 backfillDimensionIds(database)
+                /** Create dimension id indexes. */
                 createDimensionIdIndexes(database)
 
                 logger.i("Migration.7_8", "Migration from 7 to 8 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.7_8",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),
@@ -571,6 +613,7 @@ private fun seedDefaultLifeDimensions(database: SupportSQLiteDatabase) {
         """
         INSERT OR IGNORE INTO life_dimensions
         (id, key, label, description, color, icon, sortOrder, isActive, createdAt, updatedAt)
+        /** Values. */
         VALUES
         ('dim_career_work', 'career_work', 'Career & Work', 'Professional development and work-related tasks', '#3F51B5', 'work', 10, 1, strftime('%Y-%m-%dT%H:%M:%f','now'), strftime('%Y-%m-%dT%H:%M:%f','now')),
         ('dim_health_wellness', 'health_wellness', 'Health & Wellness', 'Physical and mental health activities', '#4CAF50', 'favorite', 20, 1, strftime('%Y-%m-%dT%H:%M:%f','now'), strftime('%Y-%m-%dT%H:%M:%f','now')),
@@ -624,6 +667,7 @@ private fun backfillDimensionIds(database: SupportSQLiteDatabase) {
             WHEN 'Learning' THEN 'dim_learning'
             WHEN 'Contribution' THEN 'dim_contribution'
             ELSE 'dim_unassigned'
+        /** End. */
         END
         WHERE dimension_id IS NULL
         """.trimIndent(),
@@ -642,6 +686,7 @@ private fun backfillDimensionIds(database: SupportSQLiteDatabase) {
             WHEN 'Learning' THEN 'dim_learning'
             WHEN 'Contribution' THEN 'dim_contribution'
             ELSE 'dim_unassigned'
+        /** End. */
         END
         WHERE dimension_id IS NULL
         """.trimIndent(),
@@ -660,6 +705,7 @@ private fun backfillDimensionIds(database: SupportSQLiteDatabase) {
             WHEN 'Learning' THEN 'dim_learning'
             WHEN 'Contribution' THEN 'dim_contribution'
             ELSE 'dim_unassigned'
+        /** End. */
         END
         WHERE dimension_id IS NULL
         """.trimIndent(),
@@ -687,6 +733,7 @@ private fun backfillDimensionIds(database: SupportSQLiteDatabase) {
             WHEN 'learning' THEN 'dim_learning'
             WHEN 'contribution' THEN 'dim_contribution'
             ELSE dimension_id
+        /** End. */
         END
         WHERE dimension_id IS NULL AND dimensionKey IS NOT NULL
         """.trimIndent(),
@@ -719,11 +766,14 @@ val MIGRATION_16_17 =
             logger.i("Migration.16_17", "Starting habit recurrence system migration")
 
             try {
+                /** Migrate task occurrences. */
                 migrateTaskOccurrences(database)
+                /** Migrate tasks recurrence. */
                 migrateTasksRecurrence(database)
+                /** Retain task reschedules. */
                 retainTaskReschedules(database)
                 logger.i("Migration.16_17", "Migration 16→17 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("Migration.16_17", "Migration failed", e, mapOf("error" to (e.message ?: "unknown")))
                 throw e
             }
@@ -753,6 +803,7 @@ val MIGRATION_16_17 =
                 INSERT INTO task_occurrences_new
                     (id, taskId, dueDate, completedAt, actualCompletedAt, actualDurationMinutes,
                      status, statusReason, createdAt, completionRate, note)
+                /** Select. */
                 SELECT
                     id, taskId, dueDate, completedAt, actualCompletedAt, actualDurationMinutes,
                     status, statusReason, createdAt, completionRate, note
@@ -773,6 +824,7 @@ val MIGRATION_16_17 =
 
             // First, convert recurrenceRule values in-place using a temp column
             // We'll use a cursor-based approach to convert each row
+            /** Convert recurrence rules. */
             convertRecurrenceRules(database)
 
             // Now rebuild the tasks table while retaining deprecated compatibility columns.
@@ -826,6 +878,7 @@ val MIGRATION_16_17 =
                      explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
                      notificationMode, customNotificationMinutes, taskScore, currentScore,
                      lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id)
+                /** Select. */
                 SELECT
                     id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
                     recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
@@ -852,32 +905,45 @@ val MIGRATION_16_17 =
             logger.d("Migration.16_17", "Converting recurrenceRule values to num/den format")
 
             // Helper: parse CONFIG: format
+            /**
+             * Parse config.
+             */
             fun parseConfig(config: String): String {
+                /** Parts. */
                 val parts = config.split("|").associate { part ->
+                    /** Kv. */
                     val kv = part.split("=", limit = 2)
+                    /** If. */
                     if (kv.size == 2) kv[0].trim() to kv[1].trim() else kv[0].trim() to ""
                 }
+                /** Type. */
                 val type = parts["type"] ?: return "1/1"
                 return when (type) {
                     "DAILY" -> "1/1"
                     "WEEKDAYS_ONLY" -> "5/7"
                     "SPECIFIC_WEEKDAYS" -> {
+                        /** Days. */
                         val days = parts["weekdays"]?.split(",")
                             ?.mapNotNull { it.toIntOrNull() }?.size ?: 1
                         "${days.coerceAtLeast(1)}/7"
                     }
                     "MONTHLY_DATES" -> {
+                        /** Dates. */
                         val dates = parts["monthlyDates"]?.split(",")
                             ?.mapNotNull { it.toIntOrNull() }?.size ?: 1
                         "${dates.coerceAtLeast(1)}/30"
                     }
                     "INTERVAL" -> {
+                        /** Interval. */
                         val interval = parts["interval"]?.toIntOrNull() ?: 1
                         "1/${interval.coerceAtLeast(1)}"
                     }
                     "FREQUENCY" -> {
+                        /** Freq. */
                         val freq = parts["freq"]?.split("/")
+                        /** Num. */
                         val num = freq?.getOrNull(0)?.toIntOrNull() ?: 1
+                        /** Den. */
                         val den = freq?.getOrNull(1)?.toIntOrNull() ?: 7
                         "${num.coerceAtLeast(1)}/${den.coerceAtLeast(1)}"
                     }
@@ -887,28 +953,42 @@ val MIGRATION_16_17 =
             }
 
             // Helper: parse RRULE format
+            /**
+             * Parse rrule.
+             */
             fun parseRRule(rrule: String): String {
+                /** Parts. */
                 val parts = rrule.uppercase().split(";").associate { part ->
+                    /** Kv. */
                     val kv = part.split("=", limit = 2)
+                    /** If. */
                     if (kv.size == 2) kv[0] to kv[1] else kv[0] to ""
                 }
+                /** Freq. */
                 val freq = parts["FREQ"] ?: "DAILY"
+                /** Interval. */
                 val interval = parts["INTERVAL"]?.toIntOrNull() ?: 1
+                /** By day. */
                 val byDay = parts["BYDAY"]
+                /** By month day. */
                 val byMonthDay = parts["BYMONTHDAY"]
 
                 return when {
                     byMonthDay != null -> {
+                        /** Dates. */
                         val dates = byMonthDay.split(",").mapNotNull { it.toIntOrNull() }.size
                         "${dates.coerceAtLeast(1)}/30"
                     }
                     byDay != null -> {
+                        /** Days. */
                         val days = byDay.split(",").mapNotNull { day ->
+                            /** When. */
                             when (day.trim()) {
                                 "MO" -> 1; "TU" -> 2; "WE" -> 3; "TH" -> 4
                                 "FR" -> 5; "SA" -> 6; "SU" -> 7; else -> null
                             }
                         }.toSet()
+                        /** If. */
                         if (days == setOf(1, 2, 3, 4, 5)) "5/7"
                         else "${days.size.coerceAtLeast(1)}/7"
                     }
@@ -921,18 +1001,25 @@ val MIGRATION_16_17 =
             }
 
             // Process each row with a recurrence rule
+            /** Cursor. */
             val cursor = database.query(
                 "SELECT id, recurrenceRule FROM tasks WHERE recurrenceEnabled = 1 AND recurrenceRule IS NOT NULL",
             )
+            /** Converted. */
             var converted = 0
+            /** While. */
             while (cursor.moveToNext()) {
+                /** Id. */
                 val id = cursor.getString(cursor.getColumnIndex("id"))
+                /** Rule. */
                 val rule = cursor.getString(cursor.getColumnIndex("recurrenceRule"))
+                /** New rule. */
                 val newRule = when {
                     rule.startsWith("CONFIG:") -> parseConfig(rule.removePrefix("CONFIG:"))
                     rule.startsWith("FREQ=") -> parseRRule(rule)
                     else -> rule // Already in num/den format or unknown
                 }
+                /** If. */
                 if (newRule != rule) {
                     database.execSQL("UPDATE tasks SET recurrenceRule = ? WHERE id = ?", arrayOf(newRule, id))
                     converted++
@@ -1018,13 +1105,17 @@ val MIGRATION_17_18 =
                 )
 
                 // Post-migration verification: confirm all three tables exist
+                /** Tables. */
                 val tables = mutableListOf<String>()
                 database.query("SELECT name FROM sqlite_master WHERE type = 'table' AND name IN ('habit_metrics', 'dimension_metrics', 'day_metrics') ORDER BY name").use { cursor ->
+                    /** While. */
                     while (cursor.moveToNext()) {
                         tables += cursor.getString(0)
                     }
                 }
+                /** Expected. */
                 val expected = listOf("day_metrics", "dimension_metrics", "habit_metrics")
+                /** If. */
                 if (tables != expected) {
                     throw IllegalStateException(
                         "Migration 17→18 table verification failed: expected $expected, found $tables",
@@ -1034,17 +1125,20 @@ val MIGRATION_17_18 =
                 logger.i(
                     "Migration.17_18",
                     "Metric tables created and verified",
+                    /** Map of. */
                     mapOf(
                         "tables" to tables,
                         "expected" to expected,
                         "verified" to true,
                     ),
                 )
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.17_18",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf("error" to (e.message ?: "unknown")),
                 )
                 throw e
@@ -1118,6 +1212,7 @@ val MIGRATION_18_19 =
                          explicitUrgency, focusRequired, blockedReason, completionRate, externalDependency,
                          notificationMode, customNotificationMinutes, taskScore,
                          lastOccurrenceDate, dayBoundaryHour, import_source, import_id, imported_at, import_batch_id)
+                    /** Select. */
                     SELECT
                         id, title, description, status, dueDate, createdAt, updatedAt, completedAt, archivedAt,
                         recurrenceEnabled, recurrenceRule, recurrenceStrategy, durationMinutes, impactLevel, goalAlignment,
@@ -1139,12 +1234,15 @@ val MIGRATION_18_19 =
                 database.execSQL("CREATE INDEX IF NOT EXISTS index_tasks_import_source_import_id ON tasks(import_source, import_id)")
 
                 // Post-migration verification: currentScore must be gone
+                /** Columns. */
                 val columns = mutableListOf<String>()
                 database.query("PRAGMA table_info(tasks)").use { cursor ->
+                    /** While. */
                     while (cursor.moveToNext()) {
                         columns += cursor.getString(1)
                     }
                 }
+                /** If. */
                 if ("currentScore" in columns) {
                     throw IllegalStateException("Migration 18→19 failed: currentScore column still present in tasks")
                 }
@@ -1152,17 +1250,20 @@ val MIGRATION_18_19 =
                 logger.i(
                     "Migration.18_19",
                     "tasks rebuilt without currentScore",
+                    /** Map of. */
                     mapOf(
                         "columnCount" to columns.size,
                         "currentScoreDropped" to true,
                         "verified" to true,
                     ),
                 )
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.18_19",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf("error" to (e.message ?: "unknown")),
                 )
                 throw e
@@ -1188,12 +1289,15 @@ val MIGRATION_19_20 =
                 database.execSQL("ALTER TABLE life_dimensions ADD COLUMN weight REAL NOT NULL DEFAULT 1.0")
 
                 // Post-migration verification: weight must exist
+                /** Columns. */
                 val columns = mutableListOf<String>()
                 database.query("PRAGMA table_info(life_dimensions)").use { cursor ->
+                    /** While. */
                     while (cursor.moveToNext()) {
                         columns += cursor.getString(1)
                     }
                 }
+                /** If. */
                 if ("weight" !in columns) {
                     throw IllegalStateException("Migration 19→20 failed: weight column missing in life_dimensions")
                 }
@@ -1201,17 +1305,20 @@ val MIGRATION_19_20 =
                 logger.i(
                     "Migration.19_20",
                     "life_dimensions.weight added",
+                    /** Map of. */
                     mapOf(
                         "columnCount" to columns.size,
                         "weightAdded" to true,
                         "verified" to true,
                     ),
                 )
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.19_20",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf("error" to (e.message ?: "unknown")),
                 )
                 throw e
@@ -1246,6 +1353,7 @@ val MIGRATION_20_21 =
 
             try {
                 // ── 0. Count duplicates before (for the log) ──
+                /** Dup before. */
                 val dupBefore = database.query(
                     """
                     SELECT COUNT(*) FROM (
@@ -1256,8 +1364,11 @@ val MIGRATION_20_21 =
                     )
                     """.trimIndent(),
                 ).use { cursor ->
+                    /** Count. */
                     var count = 0L
+                    /** If. */
                     if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    /** Count. */
                     count
                 }
 
@@ -1273,6 +1384,7 @@ val MIGRATION_20_21 =
                          AND date(u.dueDate) = date(o.dueDate)
                          AND u.id != o.id
                         WHERE o.note = 'Auto-detected missed'
+                          /** And. */
                           AND (u.note IS NULL OR u.note != 'Auto-detected missed')
                     )
                     """.trimIndent(),
@@ -1311,6 +1423,7 @@ val MIGRATION_20_21 =
                 )
 
                 // ── 4. Post-migration verification ──
+                /** Dup count. */
                 val dupCount = database.query(
                     """
                     SELECT COUNT(*) FROM (
@@ -1321,21 +1434,31 @@ val MIGRATION_20_21 =
                     )
                     """.trimIndent(),
                 ).use { cursor ->
+                    /** Count. */
                     var count = -1L
+                    /** If. */
                     if (cursor.moveToFirst()) count = cursor.getLong(0)
+                    /** Count. */
                     count
                 }
+                /** If. */
                 if (dupCount != 0L) {
                     throw IllegalStateException("Migration 20→21 failed: $dupCount duplicate rows remain")
                 }
 
+                /** Index exists. */
                 val indexExists = database.query("PRAGMA index_list(task_occurrences)").use { cursor ->
+                    /** Found. */
                     var found = false
+                    /** While. */
                     while (cursor.moveToNext()) {
+                        /** If. */
                         if (cursor.getString(1) == "index_task_occurrences_taskId_dueDate") found = true
                     }
+                    /** Found. */
                     found
                 }
+                /** If. */
                 if (!indexExists) {
                     throw IllegalStateException("Migration 20→21 failed: unique index not created")
                 }
@@ -1343,17 +1466,20 @@ val MIGRATION_20_21 =
                 logger.i(
                     "Migration.20_21",
                     "task_occurrences deduped and unique index added",
+                    /** Map of. */
                     mapOf(
                         "duplicatesBefore" to dupBefore,
                         "remainingDuplicates" to dupCount,
                         "uniqueIndexCreated" to indexExists,
                     ),
                 )
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "Migration.20_21",
                     "Migration failed",
+                    /** E. */
                     e,
+                    /** Map of. */
                     mapOf("error" to (e.message ?: "unknown")),
                 )
                 throw e

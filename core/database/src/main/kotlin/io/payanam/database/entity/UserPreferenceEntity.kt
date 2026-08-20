@@ -12,13 +12,23 @@ import androidx.room.PrimaryKey
  * untyped key-value settings to typed preference storage.
  */
 @Entity(tableName = "user_preferences")
+/**
+ * UserPreferenceEntity.
+ */
 data class UserPreferenceEntity(
     @PrimaryKey
+    /** Key. */
     val key: String,
+    /** Value type. */
     val valueType: String,
+    /** String value. */
     val stringValue: String? = null,
+    /** Int value. */
     val intValue: Int? = null,
+    /** Double value. */
     val doubleValue: Double? = null,
+    /** Bool value. */
     val boolValue: Int? = null,
+    /** Updated at. */
     val updatedAt: String,
 )

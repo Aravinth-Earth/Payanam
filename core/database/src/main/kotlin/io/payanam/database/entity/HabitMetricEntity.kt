@@ -16,8 +16,13 @@ import androidx.room.Index
     primaryKeys = ["habitId", "dayKey"],
     indices = [Index("habitId"), Index("dayKey")],
 )
+/**
+ * HabitMetricEntity.
+ */
 data class HabitMetricEntity(
+    /** Habit id. */
     val habitId: String,
+    /** Day key. */
     val dayKey: String,
     /** 1.0 done / 0.0 missed / 1.0 manual-skip (never null). */
     val score: Double,
@@ -25,7 +30,10 @@ data class HabitMetricEntity(
     val runningAvg: Double,
     /** runningAvg delta vs previous due-day row (first row: score). */
     val progress: Double,
+    /** Streak pos. */
     val streakPos: Int,
+    /** Streak net. */
     val streakNet: Int,
+    /** Pos continue. */
     val posContinue: Int,
 )

@@ -15,11 +15,18 @@ import androidx.room.PrimaryKey
     tableName = "day_journal_entries",
     indices = [Index("entryDate", unique = true)],
 )
+/**
+ * DayJournalEntryEntity.
+ */
 data class DayJournalEntryEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Entry date. */
     val entryDate: String,
+    /** Created at. */
     val createdAt: String,
+    /** Updated at. */
     val updatedAt: String,
 )
 
@@ -29,12 +36,14 @@ data class DayJournalEntryEntity(
 @Entity(
     tableName = "day_journal_responses",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = DayJournalEntryEntity::class,
             parentColumns = ["id"],
             childColumns = ["entryId"],
             onDelete = ForeignKey.CASCADE,
         ),
+        /** Foreign key. */
         ForeignKey(
             entity = LifeDimensionEntity::class,
             parentColumns = ["id"],
@@ -43,22 +52,37 @@ data class DayJournalEntryEntity(
         ),
     ],
     indices = [
+        /** Index. */
         Index("entryId"),
+        /** Index. */
         Index("dimension_id"),
+        /** Index. */
         Index(value = ["entryId", "scope", "dimensionKey", "promptKey"], unique = true),
     ],
 )
+/**
+ * DayJournalResponseEntity.
+ */
 data class DayJournalResponseEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Entry id. */
     val entryId: String,
+    /** Scope. */
     val scope: String,
+    /** Dimension key. */
     val dimensionKey: String?,
     @ColumnInfo(name = "dimension_id")
+    /** Dimension id. */
     val dimensionId: String? = null,
+    /** Prompt key. */
     val promptKey: String,
+    /** Response text. */
     val responseText: String?,
+    /** Created at. */
     val createdAt: String,
+    /** Updated at. */
     val updatedAt: String,
 )
 
@@ -68,6 +92,7 @@ data class DayJournalResponseEntity(
 @Entity(
     tableName = "journal_notes",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = LifeDimensionEntity::class,
             parentColumns = ["id"],
@@ -77,19 +102,30 @@ data class DayJournalResponseEntity(
     ],
     indices = [Index("day_key"), Index("dimension_id"), Index("updated_at")],
 )
+/**
+ * JournalNoteEntity.
+ */
 data class JournalNoteEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Title. */
     val title: String,
+    /** Details. */
     val details: String? = null,
+    /** Life intention category. */
     val lifeIntentionCategory: String,
     @ColumnInfo(name = "dimension_id")
+    /** Dimension id. */
     val dimensionId: String? = null,
     @ColumnInfo(name = "day_key")
+    /** Day key. */
     val dayKey: String,
     @ColumnInfo(name = "created_at")
+    /** Created at. */
     val createdAt: String,
     @ColumnInfo(name = "updated_at")
+    /** Updated at. */
     val updatedAt: String,
 )
 
@@ -100,10 +136,16 @@ data class JournalNoteEntity(
     tableName = "app_settings",
     indices = [Index("key", unique = true)],
 )
+/**
+ * AppSettingEntity.
+ */
 data class AppSettingEntity(
     @PrimaryKey
+    /** Key. */
     val key: String,
+    /** Value. */
     val value: String?,
+    /** Updated at. */
     val updatedAt: String,
 )
 
@@ -113,6 +155,7 @@ data class AppSettingEntity(
 @Entity(
     tableName = "scheduled_notifications",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = TaskEntity::class,
             parentColumns = ["id"],
@@ -122,14 +165,25 @@ data class AppSettingEntity(
     ],
     indices = [Index("taskId"), Index("scheduledAt")],
 )
+/**
+ * ScheduledNotificationEntity.
+ */
 data class ScheduledNotificationEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Task id. */
     val taskId: String,
+    /** Scheduled at. */
     val scheduledAt: String,
+    /** Notification type. */
     val notificationType: String,
+    /** Title. */
     val title: String,
+    /** Body. */
     val body: String,
+    /** Is delivered. */
     val isDelivered: Int = 0,
+    /** Created at. */
     val createdAt: String,
 )

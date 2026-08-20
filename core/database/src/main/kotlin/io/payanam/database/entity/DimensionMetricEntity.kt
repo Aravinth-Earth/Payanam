@@ -17,13 +17,24 @@ import androidx.room.Index
     primaryKeys = ["dimensionId", "dayKey"],
     indices = [Index("dimensionId"), Index("dayKey")],
 )
+/**
+ * DimensionMetricEntity.
+ */
 data class DimensionMetricEntity(
+    /** Dimension id. */
     val dimensionId: String,
+    /** Day key. */
     val dayKey: String,
+    /** Score. */
     val score: Double,
+    /** Running avg. */
     val runningAvg: Double,
+    /** Progress. */
     val progress: Double,
+    /** Streak pos. */
     val streakPos: Int,
+    /** Streak net. */
     val streakNet: Int,
+    /** Pos continue. */
     val posContinue: Int,
 )

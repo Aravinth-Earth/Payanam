@@ -14,7 +14,11 @@ import java.time.format.DateTimeFormatter
 object ScoringConfigMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+    /**
+     * To domain.
+     */
     fun toDomain(entity: ScoringConfigEntity): ScoringConfig =
+        /** Scoring config. */
         ScoringConfig(
             dimensionWeight = entity.dimensionWeight,
             impactWeight = entity.impactWeight,
@@ -23,6 +27,7 @@ object ScoringConfigMapper {
             controlWeight = entity.controlWeight,
             durationWeight = entity.durationWeight,
             impactLevelWeights =
+                /** Map of. */
                 mapOf(
                     "Critical Impact" to entity.impactCritical,
                     "High Impact" to entity.impactHigh,
@@ -31,6 +36,7 @@ object ScoringConfigMapper {
                     "Minimal Impact" to entity.impactMinimal,
                 ),
             alignmentWeights =
+                /** Map of. */
                 mapOf(
                     "Perfect Alignment" to entity.alignmentPerfect,
                     "Strong Alignment" to entity.alignmentStrong,
@@ -39,12 +45,14 @@ object ScoringConfigMapper {
                     "No Alignment" to entity.alignmentNone,
                 ),
             energyLevelWeights =
+                /** Map of. */
                 mapOf(
                     "High" to entity.energyHigh,
                     "Moderate" to entity.energyModerate,
                     "Low" to entity.energyLow,
                 ),
             controlLevelWeights =
+                /** Map of. */
                 mapOf(
                     "Full Control" to entity.controlFull,
                     "Mostly Controllable" to entity.controlMostly,
@@ -53,6 +61,7 @@ object ScoringConfigMapper {
                     "No Control" to entity.controlNone,
                 ),
             dimensionWeights =
+                /** Map of. */
                 mapOf(
                     LifeDimension.CAREER_WORK to entity.dimensionCareerWork,
                     LifeDimension.HEALTH_WELLNESS to entity.dimensionHealthWellness,
@@ -65,6 +74,7 @@ object ScoringConfigMapper {
                     LifeDimension.CONTRIBUTION to entity.dimensionContribution,
                 ),
             dimensionWeightsById =
+                /** Map of. */
                 mapOf(
                     LifeDimension.CAREER_WORK.id to entity.dimensionCareerWork,
                     LifeDimension.HEALTH_WELLNESS.id to entity.dimensionHealthWellness,
@@ -78,15 +88,27 @@ object ScoringConfigMapper {
                 ),
         )
 
+    /**
+     * To entity.
+     */
     fun toEntity(config: ScoringConfig): ScoringConfigEntity {
+        /** Dimension career work. */
         val dimensionCareerWork = resolveDimensionWeight(config, LifeDimension.CAREER_WORK, 0.8)
+        /** Dimension health wellness. */
         val dimensionHealthWellness = resolveDimensionWeight(config, LifeDimension.HEALTH_WELLNESS, 0.9)
+        /** Dimension relationships. */
         val dimensionRelationships = resolveDimensionWeight(config, LifeDimension.RELATIONSHIPS, 0.85)
+        /** Dimension personal growth. */
         val dimensionPersonalGrowth = resolveDimensionWeight(config, LifeDimension.PERSONAL_GROWTH, 0.8)
+        /** Dimension financial. */
         val dimensionFinancial = resolveDimensionWeight(config, LifeDimension.FINANCIAL, 0.75)
+        /** Dimension spiritual. */
         val dimensionSpiritual = resolveDimensionWeight(config, LifeDimension.SPIRITUAL, 0.6)
+        /** Dimension recreation. */
         val dimensionRecreation = resolveDimensionWeight(config, LifeDimension.RECREATION, 0.7)
+        /** Dimension learning. */
         val dimensionLearning = resolveDimensionWeight(config, LifeDimension.LEARNING, 0.8)
+        /** Dimension contribution. */
         val dimensionContribution = resolveDimensionWeight(config, LifeDimension.CONTRIBUTION, 0.65)
 
         return ScoringConfigEntity(
@@ -129,8 +151,11 @@ object ScoringConfigMapper {
     }
 
     private fun resolveDimensionWeight(
+        /** Config. */
         config: ScoringConfig,
+        /** Dimension. */
         dimension: LifeDimension,
+        /** Fallback value. */
         fallbackValue: Double,
     ): Double =
         config.dimensionWeightsById[dimension.id]

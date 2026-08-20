@@ -7,10 +7,17 @@ import io.payanam.domain.model.Tag
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
+/**
+ * TagMapper.
+ */
 object TagMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+    /**
+     * Tag entity.
+     */
     fun TagEntity.toDomain(): Tag =
+        /** Tag. */
         Tag(
             id = id,
             name = name,
@@ -22,10 +29,13 @@ object TagMapper {
         )
 
     private fun parseDateTime(isoString: String): LocalDateTime {
+        /** Normalized string. */
         val normalizedString =
+            /** If. */
             if (isoString.endsWith("Z")) {
                 isoString.dropLast(1)
             } else {
+                /** Iso string. */
                 isoString
             }
         return try {

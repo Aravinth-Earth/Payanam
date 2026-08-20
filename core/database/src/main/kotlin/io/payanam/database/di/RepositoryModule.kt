@@ -38,60 +38,105 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+/**
+ * RepositoryModule.
+ */
 abstract class RepositoryModule {
     @Binds
     @Singleton
+    /**
+     * Bind task repository.
+     */
     abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind habit metric repository.
+     */
     abstract fun bindHabitMetricRepository(impl: HabitMetricRepositoryImpl): HabitMetricRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind score window repository.
+     */
     abstract fun bindScoreWindowRepository(impl: ScoreWindowRepositoryImpl): ScoreWindowRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind time entry repository.
+     */
     abstract fun bindTimeEntryRepository(impl: TimeEntryRepositoryImpl): TimeEntryRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind note repository.
+     */
     abstract fun bindNoteRepository(impl: NoteRepositoryImpl): NoteRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind journal repository.
+     */
     abstract fun bindJournalRepository(impl: JournalRepositoryImpl): JournalRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind app settings repository.
+     */
     abstract fun bindAppSettingsRepository(impl: AppSettingsRepositoryImpl): AppSettingsRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind life dimension catalog repository.
+     */
     abstract fun bindLifeDimensionCatalogRepository(impl: LifeDimensionCatalogRepositoryImpl): LifeDimensionCatalogRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind task occurrence repository.
+     */
     abstract fun bindTaskOccurrenceRepository(impl: TaskOccurrenceRepositoryImpl): TaskOccurrenceRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind task reschedule repository.
+     */
     abstract fun bindTaskRescheduleRepository(impl: TaskRescheduleRepositoryImpl): TaskRescheduleRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind notification repository.
+     */
     abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind scoring config repository.
+     */
     abstract fun bindScoringConfigRepository(impl: ScoringConfigRepositoryImpl): ScoringConfigRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind tag repository.
+     */
     abstract fun bindTagRepository(impl: TagRepositoryImpl): TagRepository
 
     @Binds
     @Singleton
+    /**
+     * Bind day plan repository.
+     */
     abstract fun bindDayPlanRepository(impl: DayPlanRepositoryImpl): DayPlanRepository
 }

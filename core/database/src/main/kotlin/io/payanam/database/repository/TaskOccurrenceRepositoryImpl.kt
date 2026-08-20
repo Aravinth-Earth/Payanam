@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:max-line-length", "LongMethod")
+@file:Suppress("ktlint:standard:max-line-length", "LongMethod", "MagicNumber")
+
 
 package io.payanam.database.repository
 
@@ -20,8 +21,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * TaskOccurrenceRepositoryImpl.
+ */
 class TaskOccurrenceRepositoryImpl
     @Inject
+    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : TaskOccurrenceRepository {
@@ -30,6 +35,7 @@ class TaskOccurrenceRepositoryImpl
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> =
+            /** Session manager. */
             sessionManager
                 .requireDatabase()
                 .taskOccurrenceDao()
@@ -44,12 +50,17 @@ class TaskOccurrenceRepositoryImpl
             }
 
         override suspend fun getOccurrencesForLastNDays(
+            /** Task id. */
             taskId: String,
+            /** Days. */
             days: Int,
         ): List<TaskOccurrence> {
+            /** Today. */
             val today = LocalDate.now()
+            /** Start date. */
             val startDate = today.minusDays((days - 1).toLong())
 
+            /** Entities. */
             val entities =
                 sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTaskInRange(
                     taskId = taskId,
@@ -60,6 +71,7 @@ class TaskOccurrenceRepositoryImpl
             logger.d(
                 "TaskOccurrenceRepositoryImpl.getOccurrencesForLastNDays",
                 "Retrieved occurrences",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "days" to days,
@@ -74,13 +86,18 @@ class TaskOccurrenceRepositoryImpl
 
         override suspend fun getOccurrencesForTasksInLastNDays(
             taskIds: List<String>,
+            /** Days. */
             days: Int,
         ): Map<String, List<TaskOccurrence>> {
+            /** If. */
             if (taskIds.isEmpty()) return emptyMap()
 
+            /** Today. */
             val today = LocalDate.now()
+            /** Start date. */
             val startDate = today.minusDays((days - 1).toLong())
 
+            /** Entities. */
             val entities =
                 sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTasksInRange(
                     taskIds = taskIds,
@@ -91,6 +108,7 @@ class TaskOccurrenceRepositoryImpl
             logger.d(
                 "TaskOccurrenceRepositoryImpl.getOccurrencesForTasksInLastNDays",
                 "Retrieved bulk occurrences",
+                /** Map of. */
                 mapOf(
                     "taskIdsCount" to taskIds.size,
                     "days" to days,
@@ -106,9 +124,12 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override suspend fun getOccurrenceForDate(
+            /** Task id. */
             taskId: String,
+            /** Date. */
             date: LocalDate,
         ): TaskOccurrence? {
+            /** Entity. */
             val entity =
                 sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(
                     taskId = taskId,
@@ -118,6 +139,7 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> {
+            /** Date str. */
             val dateStr = date.format(dateFormatter)
             return sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForDate(dateStr).map { entities ->
                 entities.map { it.toDomain() }
@@ -125,8 +147,11 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override suspend fun toggleOccurrence(
+            /** Task id. */
             taskId: String,
+            /** Date. */
             date: LocalDate,
+            /** New status. */
             newStatus: String,
             note: String?,
             reason: String?,
@@ -136,6 +161,7 @@ class TaskOccurrenceRepositoryImpl
             logger.i(
                 "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                 "TOGGLE_OCCURRENCE_START",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "date" to date.toString(),
@@ -147,13 +173,17 @@ class TaskOccurrenceRepositoryImpl
                 ),
             )
 
+            /** Now. */
             val now = LocalDateTime.now()
+            /** Date str. */
             val dateStr = date.format(dateFormatter)
 
+            /** Existing. */
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
             logger.d(
                 "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                 "EXISTING_OCCURRENCE_CHECK",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "date" to dateStr,
@@ -164,8 +194,11 @@ class TaskOccurrenceRepositoryImpl
             )
 
             return if (existing != null) {
+                /** Completed at. */
                 val completedAt = if (newStatus == "completed") now.format(dateTimeFormatter) else null
+                /** Resolved status reason. */
                 val resolvedStatusReason =
+                    /** When. */
                     when (newStatus) {
                         "completed" -> reason
                         else -> reason ?: existing.statusReason
@@ -173,6 +206,7 @@ class TaskOccurrenceRepositoryImpl
                 logger.d(
                     "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                     "UPDATING_EXISTING_OCCURRENCE",
+                    /** Map of. */
                     mapOf(
                         "existingId" to existing.id,
                         "newStatus" to newStatus,
@@ -193,6 +227,7 @@ class TaskOccurrenceRepositoryImpl
                 logger.i(
                     "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                     "EXISTING_OCCURRENCE_UPDATED",
+                    /** Map of. */
                     mapOf(
                         "id" to existing.id,
                         "taskId" to taskId,
@@ -203,6 +238,7 @@ class TaskOccurrenceRepositoryImpl
                     ),
                 )
 
+                /** Task occurrence. */
                 TaskOccurrence(
                     id = existing.id,
                     taskId = taskId,
@@ -220,10 +256,12 @@ class TaskOccurrenceRepositoryImpl
                     note = note,
                 )
             } else {
+                /** Id. */
                 val id = UUID.randomUUID().toString()
                 logger.d(
                     "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                     "CREATING_NEW_OCCURRENCE",
+                    /** Map of. */
                     mapOf(
                         "newId" to id,
                         "taskId" to taskId,
@@ -231,7 +269,9 @@ class TaskOccurrenceRepositoryImpl
                         "status" to newStatus,
                     ),
                 )
+                /** Entity. */
                 val entity =
+                    /** Task occurrence entity. */
                     TaskOccurrenceEntity(
                         id = id,
                         taskId = taskId,
@@ -251,6 +291,7 @@ class TaskOccurrenceRepositoryImpl
                 logger.i(
                     "TaskOccurrenceRepositoryImpl.toggleOccurrence",
                     "NEW_OCCURRENCE_CREATED",
+                    /** Map of. */
                     mapOf(
                         "id" to id,
                         "taskId" to taskId,
@@ -265,16 +306,21 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate) {
+            /** Date str. */
             val dateStr = date.format(dateFormatter)
+            /** Existing. */
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
 
+            /** If. */
             if (existing != null) {
                 sessionManager.requireDatabase().taskOccurrenceDao().deleteById(existing.id)
+                /** Mark dirty for day. */
                 markDirtyForDay(date, "habit_occurrence_deleted")
 
                 logger.i(
                     "TaskOccurrenceRepositoryImpl.deleteOccurrence",
                     "Deleted occurrence",
+                    /** Map of. */
                     mapOf(
                         "id" to existing.id,
                         "taskId" to taskId,
@@ -286,6 +332,7 @@ class TaskOccurrenceRepositoryImpl
                 logger.d(
                     "TaskOccurrenceRepositoryImpl.deleteOccurrence",
                     "No occurrence to delete",
+                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "date" to dateStr,
@@ -295,7 +342,9 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
+            /** Entity. */
             val entity =
+                /** Task occurrence entity. */
                 TaskOccurrenceEntity(
                     id = occurrence.id,
                     taskId = occurrence.taskId,
@@ -316,6 +365,7 @@ class TaskOccurrenceRepositoryImpl
             logger.i(
                 "TaskOccurrenceRepositoryImpl.recordOccurrence",
                 "Recorded occurrence",
+                /** Map of. */
                 mapOf(
                     "id" to occurrence.id,
                     "taskId" to occurrence.taskId,
@@ -328,24 +378,32 @@ class TaskOccurrenceRepositoryImpl
         }
 
         override suspend fun recordOccurrence(
+            /** Task id. */
             taskId: String,
+            /** Due date. */
             dueDate: LocalDateTime,
+            /** Status. */
             status: String,
             note: String?,
             completionRate: Double?,
         ): TaskOccurrence {
+            /** Now. */
             val now = LocalDateTime.now()
+            /** Date str. */
             val dateStr = dueDate.toLocalDate().format(dateFormatter)
 
             // UPSERT: update the existing row for (task, day) if present,
             // otherwise insert. Mirrors toggleOccurrence and the
             // self-governance ledger rule — auto/missed writes must never
             // duplicate a user row (see OCC_CHECK_EXISTING in the DB flow spec).
+            /** Existing. */
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
+            /** If. */
             if (existing != null) {
                 logger.d(
                     "TaskOccurrenceRepositoryImpl.recordOccurrence",
                     "UPDATING existing occurrence (UPSERT)",
+                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "date" to dateStr,
@@ -363,10 +421,12 @@ class TaskOccurrenceRepositoryImpl
                     actualCompletedAt = existing.actualCompletedAt,
                     actualDurationMinutes = existing.actualDurationMinutes,
                 )
+                /** Mark dirty for day. */
                 markDirtyForDay(dueDate.toLocalDate(), "habit_occurrence_recorded")
                 logger.i(
                     "TaskOccurrenceRepositoryImpl.recordOccurrence",
                     "Existing occurrence updated (UPSERT)",
+                    /** Map of. */
                     mapOf(
                         "id" to existing.id,
                         "taskId" to taskId,
@@ -395,9 +455,12 @@ class TaskOccurrenceRepositoryImpl
                 )
             }
 
+            /** Id. */
             val id = UUID.randomUUID().toString()
 
+            /** Entity. */
             val entity =
+                /** Task occurrence entity. */
                 TaskOccurrenceEntity(
                     id = id,
                     taskId = taskId,
@@ -411,11 +474,13 @@ class TaskOccurrenceRepositoryImpl
                 )
 
             sessionManager.requireDatabase().taskOccurrenceDao().insert(entity)
+            /** Mark dirty for day. */
             markDirtyForDay(dueDate.toLocalDate(), "habit_occurrence_recorded")
 
             logger.i(
                 "TaskOccurrenceRepositoryImpl.recordOccurrence",
                 "Recorded occurrence",
+                /** Map of. */
                 mapOf(
                     "id" to id,
                     "taskId" to taskId,
@@ -433,6 +498,7 @@ class TaskOccurrenceRepositoryImpl
         }
 
         private fun TaskOccurrenceEntity.toDomain() =
+            /** Task occurrence. */
             TaskOccurrence(
                 id = id,
                 taskId = taskId,
@@ -451,9 +517,12 @@ class TaskOccurrenceRepositoryImpl
             )
 
         private suspend fun markDirtyForDay(
+            /** Day. */
             day: LocalDate,
+            /** Reason. */
             reason: String,
         ) {
+            /** Mark lens day dirty. */
             markLensDayDirty(
                 dailyInsightDao = sessionManager.requireDatabase().dailyInsightDao(),
                 logger = logger,

@@ -10,7 +10,11 @@ import io.payanam.domain.model.Note
  * Mapper functions between NoteEntity (Room) and Note (Domain).
  */
 object NoteMapper {
+    /**
+     * Note entity.
+     */
     fun NoteEntity.toDomain(): Note =
+        /** Note. */
         Note(
             id = id,
             title = title,
@@ -21,7 +25,11 @@ object NoteMapper {
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
 
+    /**
+     * Note.
+     */
     fun Note.toEntity(): NoteEntity =
+        /** Note entity. */
         NoteEntity(
             id = id,
             title = title,

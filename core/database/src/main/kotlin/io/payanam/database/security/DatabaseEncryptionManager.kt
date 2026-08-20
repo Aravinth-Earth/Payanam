@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("LargeClass")
+@file:Suppress("LargeClass", "MagicNumber")
+
 
 package io.payanam.database.security
 
@@ -24,7 +25,11 @@ import javax.crypto.spec.GCMParameterSpec
 import javax.crypto.spec.PBEKeySpec
 
 @Suppress("TooManyFunctions")
+/**
+ * DatabaseEncryptionManager.
+ */
 class DatabaseEncryptionManager(
+    /** Context. */
     context: Context,
 ) {
     private val appContext = context.applicationContext
@@ -35,6 +40,7 @@ class DatabaseEncryptionManager(
         logger.i(
             "DatabaseEncryptionManager.init",
             "Initializing encryption manager",
+            /** Map of. */
             mapOf(
                 "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
                 "hasVerifierHash" to !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank(),
@@ -43,68 +49,102 @@ class DatabaseEncryptionManager(
                 "hasBiometricWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
         )
+        /** Sanitize legacy security state. */
         sanitizeLegacySecurityState()
     }
 
+    /**
+     * Has passphrase configured.
+     */
     fun hasPassphraseConfigured(): Boolean =
         prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED &&
             !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
             !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank()
 
+    /**
+     * Is encryption enabled.
+     */
     fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
 
+    /**
+     * Get session timeout minutes.
+     */
     fun getSessionTimeoutMinutes(): Int {
+        /** Stored. */
         val stored = prefs.getInt(KEY_SESSION_TIMEOUT_MINUTES, DEFAULT_SESSION_TIMEOUT_MINUTES)
         return stored.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
     }
 
+    /**
+     * Set session timeout minutes.
+     */
     fun setSessionTimeoutMinutes(minutes: Int) {
+        /** Normalized. */
         val normalized = minutes.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
         prefs.edit().putInt(KEY_SESSION_TIMEOUT_MINUTES, normalized).apply()
         logger.i(
             "DatabaseEncryptionManager.setSessionTimeoutMinutes",
             "Updated passphrase session timeout",
+            /** Map of. */
             mapOf("sessionTimeoutMinutes" to normalized),
         )
     }
 
+    /**
+     * Is biometric unlock enabled.
+     */
     fun isBiometricUnlockEnabled(): Boolean {
+        /** Enabled. */
         val enabled = prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
         return enabled && hasBiometricWrappedPassphrase()
     }
 
+    /**
+     * Set biometric unlock enabled.
+     */
     fun setBiometricUnlockEnabled(enabled: Boolean) {
         logger.i(
             "DatabaseEncryptionManager.setBiometricUnlockEnabled",
             "Biometric unlock preference update requested",
+            /** Map of. */
             mapOf(
                 "enabled" to enabled,
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
         )
+        /** If. */
         if (!enabled) {
+            /** Disable biometric unlock. */
             disableBiometricUnlock()
+            /** Return. */
             return
         }
+        /** If. */
         if (!hasBiometricWrappedPassphrase()) {
             logger.w(
                 "DatabaseEncryptionManager.setBiometricUnlockEnabled",
                 "Ignoring biometric enable request because no biometric-wrapped passphrase exists",
             )
+            /** Return. */
             return
         }
         prefs.edit().putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, true).apply()
         logger.i(
             "DatabaseEncryptionManager.setBiometricUnlockEnabled",
             "Updated biometric unlock preference",
+            /** Map of. */
             mapOf("enabled" to true),
         )
     }
 
+    /**
+     * Disable biometric unlock.
+     */
     fun disableBiometricUnlock(): Boolean {
         logger.i(
             "DatabaseEncryptionManager.disableBiometricUnlock",
             "Disabling biometric unlock",
+            /** Map of. */
             mapOf(
                 "biometricPrefEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
@@ -115,12 +155,14 @@ class DatabaseEncryptionManager(
             source = "DatabaseEncryptionManager.disableBiometricUnlock",
             stage = "requested",
             data =
+                /** Map of. */
                 mapOf(
                     "biometricPrefEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
                     "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
                 ),
         )
         return runCatching {
+            /** Disable biometric unlock internal. */
             disableBiometricUnlockInternal()
             CrashSafeBreadcrumbs.record(
                 context = appContext,
@@ -131,11 +173,13 @@ class DatabaseEncryptionManager(
                 "DatabaseEncryptionManager.disableBiometricUnlock",
                 "Disabled biometric unlock and removed biometric material",
             )
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e(
                 "DatabaseEncryptionManager.disableBiometricUnlock",
                 "Failed to disable biometric unlock cleanly",
+                /** Error. */
                 error,
             )
             CrashSafeBreadcrumbs.record(
@@ -144,14 +188,19 @@ class DatabaseEncryptionManager(
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
             )
+            /** False. */
             false
         }
     }
 
+    /**
+     * Configure passphrase.
+     */
     fun configurePassphrase(passphrase: String): Boolean {
         logger.i(
             "DatabaseEncryptionManager.configurePassphrase",
             "Configuring database passphrase",
+            /** Map of. */
             mapOf(
                 "passphraseLength" to passphrase.length,
                 "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
@@ -162,25 +211,30 @@ class DatabaseEncryptionManager(
             source = "DatabaseEncryptionManager.configurePassphrase",
             stage = "started",
             data =
+                /** Map of. */
                 mapOf(
                     "passphraseLength" to passphrase.length,
                     "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
                 ),
         )
         return runCatching {
+            /** Persist verifier. */
             persistVerifier(passphrase)
             CrashSafeBreadcrumbs.record(
                 context = appContext,
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "verifier_persisted",
             )
+            /** Disable biometric unlock internal. */
             disableBiometricUnlockInternal()
             CrashSafeBreadcrumbs.record(
                 context = appContext,
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "biometric_state_cleared",
             )
+            /** Check. */
             check(
+                /** Prefs. */
                 prefs
                     .edit()
                     .putString(KEY_MODE, MODE_ENCRYPTED)
@@ -196,13 +250,16 @@ class DatabaseEncryptionManager(
             logger.i(
                 "DatabaseEncryptionManager.configurePassphrase",
                 "Database passphrase configured",
+                /** Map of. */
                 mapOf("mode" to MODE_ENCRYPTED),
             )
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e(
                 "DatabaseEncryptionManager.configurePassphrase",
                 "Failed to configure database passphrase",
+                /** Error. */
                 error,
             )
             CrashSafeBreadcrumbs.record(
@@ -211,40 +268,55 @@ class DatabaseEncryptionManager(
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
             )
+            /** False. */
             false
         }
     }
 
+    /**
+     * Update passphrase.
+     */
     fun updatePassphrase(
+        /** Current passphrase. */
         currentPassphrase: String,
+        /** New passphrase. */
         newPassphrase: String,
     ): Boolean {
         logger.i(
             "DatabaseEncryptionManager.updatePassphrase",
             "Updating database passphrase metadata",
+            /** Map of. */
             mapOf(
                 "currentLength" to currentPassphrase.length,
                 "newLength" to newPassphrase.length,
             ),
         )
+        /** If. */
         if (!verifyPassphrase(currentPassphrase)) {
             logger.w("DatabaseEncryptionManager.updatePassphrase", "Current passphrase verification failed")
             return false
         }
         return runCatching {
+            /** Persist verifier. */
             persistVerifier(newPassphrase)
+            /** Disable biometric unlock internal. */
             disableBiometricUnlockInternal()
             logger.i(
                 "DatabaseEncryptionManager.updatePassphrase",
                 "Database passphrase metadata updated; biometric unlock disabled for re-enrollment",
             )
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.updatePassphrase", "Failed to update passphrase metadata", error)
+            /** False. */
             false
         }
     }
 
+    /**
+     * Reset encryption state.
+     */
     fun resetEncryptionState(): Boolean {
         CrashSafeBreadcrumbs.record(
             context = appContext,
@@ -252,8 +324,11 @@ class DatabaseEncryptionManager(
             stage = "started",
         )
         return runCatching {
+            /** Check. */
             check(prefs.edit().clear().commit()) { "Failed to clear encryption prefs" }
+            /** Delete key alias. */
             deleteKeyAlias(BIOMETRIC_KEY_ALIAS)
+            /** Delete key alias. */
             deleteKeyAlias(LEGACY_WRAP_KEY_ALIAS)
             logger.w("DatabaseEncryptionManager.resetEncryptionState", "Encryption state reset and keystore keys cleared")
             CrashSafeBreadcrumbs.record(
@@ -261,6 +336,7 @@ class DatabaseEncryptionManager(
                 source = "DatabaseEncryptionManager.resetEncryptionState",
                 stage = "completed",
             )
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.resetEncryptionState", "Failed to reset encryption state", error)
@@ -270,74 +346,106 @@ class DatabaseEncryptionManager(
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
             )
+            /** False. */
             false
         }
     }
 
+    /**
+     * Backup encryption prefs.
+     */
     fun backupEncryptionPrefs(): Boolean {
         logger.i(
             "DatabaseEncryptionManager.backupEncryptionPrefs",
             "Backing up encryption preferences",
+            /** Map of. */
             mapOf(
                 "stringKeys" to BACKUP_STRING_KEYS.size,
                 "booleanKeys" to BACKUP_BOOLEAN_KEYS.size,
             ),
         )
         return runCatching {
+            /** Editor. */
             val editor = prefs.edit()
             BACKUP_STRING_KEYS.forEach { key ->
+                /** Value. */
                 val value = prefs.getString(key, null)
+                /** If. */
                 if (value != null) editor.putString("$BACKUP_PREFIX$key", value) else editor.remove("$BACKUP_PREFIX$key")
             }
             BACKUP_BOOLEAN_KEYS.forEach { key ->
+                /** Value. */
                 val value = prefs.getBoolean(key, false)
                 editor.putString("$BACKUP_PREFIX$key", value.toString())
             }
+            /** Check. */
             check(editor.commit()) { "Failed to backup encryption prefs" }
             logger.i("DatabaseEncryptionManager.backupEncryptionPrefs", "Encryption prefs backed up")
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.backupEncryptionPrefs", "Failed to backup encryption prefs", error)
+            /** False. */
             false
         }
     }
 
+    /**
+     * Restore encryption prefs.
+     */
     fun restoreEncryptionPrefs(): Boolean {
         logger.i(
             "DatabaseEncryptionManager.restoreEncryptionPrefs",
             "Restoring encryption preferences from backup",
         )
         return runCatching {
+            /** Editor. */
             val editor = prefs.edit()
             BACKUP_STRING_KEYS.forEach { key ->
+                /** Backup key. */
                 val backupKey = "$BACKUP_PREFIX$key"
+                /** Value. */
                 val value = prefs.getString(backupKey, null)
+                /** If. */
                 if (value != null) editor.putString(key, value) else editor.remove(key)
                 editor.remove(backupKey)
             }
             BACKUP_BOOLEAN_KEYS.forEach { key ->
+                /** Backup key. */
                 val backupKey = "$BACKUP_PREFIX$key"
+                /** Value. */
                 val value = prefs.getString(backupKey, null)
+                /** If. */
                 if (value != null) editor.putBoolean(key, value.toBoolean()) else editor.remove(key)
                 editor.remove(backupKey)
             }
+            /** Check. */
             check(editor.commit()) { "Failed to restore encryption prefs" }
+            /** Sanitize legacy security state. */
             sanitizeLegacySecurityState()
             logger.i("DatabaseEncryptionManager.restoreEncryptionPrefs", "Encryption prefs restored from backup")
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.restoreEncryptionPrefs", "Failed to restore encryption prefs", error)
+            /** False. */
             false
         }
     }
 
+    /**
+     * Clear encryption prefs backup.
+     */
     fun clearEncryptionPrefsBackup() {
+        /** Editor. */
         val editor = prefs.edit()
         (BACKUP_STRING_KEYS + BACKUP_BOOLEAN_KEYS).forEach { key -> editor.remove("$BACKUP_PREFIX$key") }
+        /** Committed. */
         val committed = editor.commit()
         logger.i(
             "DatabaseEncryptionManager.clearEncryptionPrefsBackup",
             "Cleared encryption preference backup keys",
+            /** Map of. */
             mapOf(
                 "committed" to committed,
                 "totalBackupKeys" to (BACKUP_STRING_KEYS.size + BACKUP_BOOLEAN_KEYS.size),
@@ -345,32 +453,49 @@ class DatabaseEncryptionManager(
         )
     }
 
+    /**
+     * Verify passphrase.
+     */
     fun verifyPassphrase(passphrase: String): Boolean {
+        /** Salt. */
         val salt = decodeOrNull(prefs.getString(KEY_VERIFIER_SALT, null))
+        /** If. */
         if (salt == null) {
             logger.w("DatabaseEncryptionManager.verifyPassphrase", "Passphrase verification blocked: missing verifier salt")
             return false
         }
+        /** Expected. */
         val expected = decodeOrNull(prefs.getString(KEY_VERIFIER_HASH, null))
+        /** If. */
         if (expected == null) {
             logger.w("DatabaseEncryptionManager.verifyPassphrase", "Passphrase verification blocked: missing verifier hash")
             return false
         }
+        /** Actual. */
         val actual = deriveVerifier(passphrase, salt)
+        /** Valid. */
         val valid = MessageDigest.isEqual(expected, actual)
         logger.i(
             "DatabaseEncryptionManager.verifyPassphrase",
             "Passphrase verification completed",
+            /** Map of. */
             mapOf("valid" to valid),
         )
         return valid
     }
 
+    /**
+     * Has biometric wrapped passphrase.
+     */
     fun hasBiometricWrappedPassphrase(): Boolean =
         !prefs.getString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, null).isNullOrBlank() &&
             !prefs.getString(KEY_BIOMETRIC_WRAPPED_IV, null).isNullOrBlank()
 
+    /**
+     * Get cipher for biometric enrollment.
+     */
     fun getCipherForBiometricEnrollment(): Cipher {
+        /** Cipher. */
         val cipher = Cipher.getInstance(TRANSFORMATION)
         cipher.init(Cipher.ENCRYPT_MODE, getOrCreateBiometricKey())
         logger.i(
@@ -380,25 +505,37 @@ class DatabaseEncryptionManager(
         return cipher
     }
 
+    /**
+     * Store biometric wrapped passphrase with cipher.
+     */
     fun storeBiometricWrappedPassphraseWithCipher(
+        /** Cipher. */
         cipher: Cipher,
+        /** Passphrase. */
         passphrase: String,
     ): Boolean =
         runCatching {
+            /** Passphrase bytes. */
             val passphraseBytes = passphrase.toByteArray(StandardCharsets.UTF_8)
+            /** Cipher text. */
             val cipherText = cipher.doFinal(passphraseBytes)
+            /** Iv. */
             val iv = checkNotNull(cipher.iv) { "Cipher returned empty IV for biometric wrap" }
             try {
+                /** Persisted. */
                 val persisted =
+                    /** Prefs. */
                     prefs
                         .edit()
                         .putString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, base64(cipherText))
                         .putString(KEY_BIOMETRIC_WRAPPED_IV, base64(iv))
                         .commit()
+                /** Check. */
                 check(persisted) { "Failed to persist biometric wrapped passphrase" }
                 logger.i(
                     "DatabaseEncryptionManager.storeBiometricWrappedPassphraseWithCipher",
                     "Stored biometric-wrapped passphrase",
+                    /** Map of. */
                     mapOf("persisted" to persisted, "wrappedBytes" to cipherText.size),
                 )
             } finally {
@@ -406,54 +543,80 @@ class DatabaseEncryptionManager(
                 cipherText.fill(0)
                 iv.fill(0)
             }
+            /** True. */
             true
         }.getOrElse { error ->
             logger.e(
                 "DatabaseEncryptionManager.storeBiometricWrappedPassphraseWithCipher",
                 "Failed to persist biometric wrapped passphrase",
+                /** Error. */
                 error,
             )
+            /** False. */
             false
         }
 
+    /**
+     * Get cipher for biometric unlock.
+     */
     fun getCipherForBiometricUnlock(): Cipher {
+        /** Encoded iv. */
         val encodedIv =
+            /** Check not null. */
             checkNotNull(prefs.getString(KEY_BIOMETRIC_WRAPPED_IV, null)) {
                 "No biometric wrapped IV; biometric unlock not configured"
             }
+        /** Iv. */
         val iv = checkNotNull(decodeOrNull(encodedIv)) { "Corrupt biometric wrapped IV" }
+        /** Cipher. */
         val cipher = Cipher.getInstance(TRANSFORMATION)
+        /** Gcm spec. */
         val gcmSpec = GCMParameterSpec(GCM_TAG_BITS, iv)
         cipher.init(Cipher.DECRYPT_MODE, getExistingBiometricKey(), gcmSpec)
         logger.i(
             "DatabaseEncryptionManager.getCipherForBiometricUnlock",
             "Initialized cipher for biometric unlock",
+            /** Map of. */
             mapOf("ivBytes" to iv.size),
         )
         return cipher
     }
 
+    /**
+     * Unwrap passphrase with cipher.
+     */
     fun unwrapPassphraseWithCipher(cipher: Cipher): String {
+        /** Encoded cipher text. */
         val encodedCipherText =
+            /** Check not null. */
             checkNotNull(prefs.getString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, null)) {
                 "No biometric wrapped passphrase stored"
             }
+        /** Cipher text. */
         val cipherText = checkNotNull(decodeOrNull(encodedCipherText)) { "Corrupt biometric wrapped passphrase" }
+        /** Clear. */
         val clear = cipher.doFinal(cipherText)
         return try {
             logger.i(
                 "DatabaseEncryptionManager.unwrapPassphraseWithCipher",
                 "Unwrapped biometric-protected passphrase",
+                /** Map of. */
                 mapOf("clearBytes" to clear.size),
             )
+            /** String. */
             String(clear, StandardCharsets.UTF_8)
         } finally {
             clear.fill(0)
         }
     }
 
+    /**
+     * Get unlock remaining seconds.
+     */
     fun getUnlockRemainingSeconds(): Long {
+        /** Lockout until. */
         val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)
+        /** Now. */
         val now = System.currentTimeMillis()
         return if (lockoutUntil > now) {
             ((lockoutUntil - now) + 999L) / 1000L
@@ -462,15 +625,23 @@ class DatabaseEncryptionManager(
         }
     }
 
+    /**
+     * Record failed unlock attempt.
+     */
     fun recordFailedUnlockAttempt(): Long {
+        /** Attempts. */
         val attempts = prefs.getInt(KEY_UNLOCK_FAILED_ATTEMPTS, 0) + 1
+        /** Delay seconds. */
         val delaySeconds = PassphraseLockoutPolicy.delaySecondsForAttempt(attempts)
+        /** Lockout until. */
         val lockoutUntil =
+            /** If. */
             if (delaySeconds > 0) {
                 System.currentTimeMillis() + (delaySeconds * 1000L)
             } else {
                 0L
             }
+        /** Prefs. */
         prefs
             .edit()
             .putInt(KEY_UNLOCK_FAILED_ATTEMPTS, attempts)
@@ -479,12 +650,17 @@ class DatabaseEncryptionManager(
         logger.w(
             "DatabaseEncryptionManager.recordFailedUnlockAttempt",
             "Invalid unlock attempt",
+            /** Map of. */
             mapOf("attempts" to attempts, "lockoutSeconds" to delaySeconds),
         )
         return delaySeconds
     }
 
+    /**
+     * Reset unlock attempts.
+     */
     fun resetUnlockAttempts() {
+        /** Prefs. */
         prefs
             .edit()
             .putInt(KEY_UNLOCK_FAILED_ATTEMPTS, 0)
@@ -494,10 +670,14 @@ class DatabaseEncryptionManager(
     }
 
     private fun persistVerifier(passphrase: String) {
+        /** Salt. */
         val salt = ByteArray(SALT_BYTES).also { secureRandom.nextBytes(it) }
+        /** Hash. */
         val hash = deriveVerifier(passphrase, salt)
         try {
+            /** Persisted. */
             val persisted =
+                /** Prefs. */
                 prefs
                     .edit()
                     .putString(KEY_VERIFIER_SALT, base64(salt))
@@ -505,10 +685,12 @@ class DatabaseEncryptionManager(
                     .remove(KEY_WRAPPED_PASSPHRASE_LEGACY)
                     .remove(KEY_WRAPPED_IV_LEGACY)
                     .commit()
+            /** Check. */
             check(persisted) { "Failed to persist passphrase verifier metadata" }
             logger.i(
                 "DatabaseEncryptionManager.persistVerifier",
                 "Persisted passphrase verifier metadata",
+                /** Map of. */
                 mapOf("persisted" to persisted, "saltBytes" to salt.size, "hashBytes" to hash.size),
             )
         } finally {
@@ -518,10 +700,14 @@ class DatabaseEncryptionManager(
     }
 
     private fun deriveVerifier(
+        /** Passphrase. */
         passphrase: String,
+        /** Salt. */
         salt: ByteArray,
     ): ByteArray {
+        /** Passphrase chars. */
         val passphraseChars = passphrase.toCharArray()
+        /** Key spec. */
         val keySpec = PBEKeySpec(passphraseChars, salt, PBKDF2_ITERATIONS, PBKDF2_BITS)
         return try {
             SecretKeyFactory.getInstance(PBKDF2_ALGORITHM).generateSecret(keySpec).encoded
@@ -532,8 +718,11 @@ class DatabaseEncryptionManager(
     }
 
     private fun getOrCreateBiometricKey(): SecretKey {
+        /** Keystore. */
         val keystore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        /** Existing. */
         val existing = keystore.getKey(BIOMETRIC_KEY_ALIAS, null) as? SecretKey
+        /** If. */
         if (existing != null) {
             logger.i(
                 "DatabaseEncryptionManager.getOrCreateBiometricKey",
@@ -542,15 +731,20 @@ class DatabaseEncryptionManager(
             return existing
         }
 
+        /** Key generator. */
         val keyGenerator = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, ANDROID_KEYSTORE)
+        /** Params builder. */
         val paramsBuilder =
+            /** Key gen parameter spec. */
             KeyGenParameterSpec
                 .Builder(
+                    /** Biometric key alias. */
                     BIOMETRIC_KEY_ALIAS,
                     KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT,
                 ).setBlockModes(KeyProperties.BLOCK_MODE_GCM)
                 .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
                 .setUserAuthenticationRequired(true)
+        /** If. */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N) {
             paramsBuilder.setInvalidatedByBiometricEnrollment(true)
         }
@@ -563,8 +757,11 @@ class DatabaseEncryptionManager(
     }
 
     private fun getExistingBiometricKey(): SecretKey {
+        /** Keystore. */
         val keystore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+        /** Key. */
         val key =
+            /** Check not null. */
             checkNotNull(keystore.getKey(BIOMETRIC_KEY_ALIAS, null) as? SecretKey) {
                 "Biometric key alias not found"
             }
@@ -579,12 +776,15 @@ class DatabaseEncryptionManager(
         logger.i(
             "DatabaseEncryptionManager.disableBiometricUnlockInternal",
             "Clearing biometric state in prefs and Keystore",
+            /** Map of. */
             mapOf(
                 "hadWrappedPassphrase" to hasBiometricWrappedPassphrase(),
                 "biometricPrefEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
             ),
         )
+        /** Persisted. */
         val persisted =
+            /** Prefs. */
             prefs
                 .edit()
                 .putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
@@ -593,16 +793,22 @@ class DatabaseEncryptionManager(
                 .remove(KEY_WRAPPED_PASSPHRASE_LEGACY)
                 .remove(KEY_WRAPPED_IV_LEGACY)
                 .commit()
+        /** Check. */
         check(persisted) { "Failed to clear biometric state from prefs" }
+        /** Delete key alias. */
         deleteKeyAlias(BIOMETRIC_KEY_ALIAS)
+        /** Delete key alias. */
         deleteKeyAlias(LEGACY_WRAP_KEY_ALIAS)
     }
 
     private fun sanitizeLegacySecurityState() {
+        /** Had legacy wrapped. */
         val hadLegacyWrapped =
             !prefs.getString(KEY_WRAPPED_PASSPHRASE_LEGACY, null).isNullOrBlank() ||
                 !prefs.getString(KEY_WRAPPED_IV_LEGACY, null).isNullOrBlank()
+        /** If. */
         if (hadLegacyWrapped) {
+            /** Prefs. */
             prefs
                 .edit()
                 .remove(KEY_WRAPPED_PASSPHRASE_LEGACY)
@@ -613,6 +819,7 @@ class DatabaseEncryptionManager(
                 "Removed legacy non-biometric wrapped passphrase artifacts",
             )
         }
+        /** If. */
         if (prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false) && !hasBiometricWrappedPassphrase()) {
             prefs.edit().putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false).apply()
             logger.w(
@@ -623,23 +830,28 @@ class DatabaseEncryptionManager(
         logger.i(
             "DatabaseEncryptionManager.sanitizeLegacySecurityState",
             "Security state sanitized",
+            /** Map of. */
             mapOf(
                 "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
                 "biometricEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
         )
+        /** Delete key alias. */
         deleteKeyAlias(LEGACY_WRAP_KEY_ALIAS)
     }
 
     private fun deleteKeyAlias(alias: String) {
         runCatching {
+            /** Keystore. */
             val keystore = KeyStore.getInstance(ANDROID_KEYSTORE).apply { load(null) }
+            /** If. */
             if (keystore.containsAlias(alias)) {
                 keystore.deleteEntry(alias)
                 logger.i(
                     "DatabaseEncryptionManager.deleteKeyAlias",
                     "Deleted keystore alias",
+                    /** Map of. */
                     mapOf("alias" to alias),
                 )
             }
@@ -647,6 +859,7 @@ class DatabaseEncryptionManager(
             logger.w(
                 "DatabaseEncryptionManager.deleteKeyAlias",
                 "Failed to delete keystore alias",
+                /** Map of. */
                 mapOf(
                     "alias" to alias,
                     "error" to (error.message ?: "unknown"),
@@ -658,13 +871,16 @@ class DatabaseEncryptionManager(
     private fun base64(value: ByteArray): String = Base64.encodeToString(value, Base64.NO_WRAP)
 
     private fun decodeOrNull(value: String?): ByteArray? {
+        /** If. */
         if (value.isNullOrBlank()) return null
         return runCatching { Base64.decode(value, Base64.NO_WRAP) }.getOrElse { error ->
             logger.w(
                 "DatabaseEncryptionManager.decodeOrNull",
                 "Failed to decode base64 value",
+                /** Map of. */
                 mapOf("error" to (error.message ?: "unknown")),
             )
+            /** Null. */
             null
         }
     }
@@ -694,13 +910,21 @@ class DatabaseEncryptionManager(
 
         private const val BACKUP_PREFIX = "_bak_"
         private val BACKUP_STRING_KEYS =
+            /** Array of. */
             arrayOf(
+                /** Key mode. */
                 KEY_MODE,
+                /** Key verifier hash. */
                 KEY_VERIFIER_HASH,
+                /** Key verifier salt. */
                 KEY_VERIFIER_SALT,
+                /** Key biometric wrapped passphrase. */
                 KEY_BIOMETRIC_WRAPPED_PASSPHRASE,
+                /** Key biometric wrapped iv. */
                 KEY_BIOMETRIC_WRAPPED_IV,
+                /** Key wrapped passphrase legacy. */
                 KEY_WRAPPED_PASSPHRASE_LEGACY,
+                /** Key wrapped iv legacy. */
                 KEY_WRAPPED_IV_LEGACY,
             )
         private val BACKUP_BOOLEAN_KEYS = arrayOf(KEY_BIOMETRIC_UNLOCK_ENABLED)

@@ -13,14 +13,25 @@ import io.payanam.database.entity.TaskTagEntity
 import io.payanam.database.entity.TimeEntryTagEntity
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * NoteTagNameRow.
+ */
 data class NoteTagNameRow(
+    /** Note id. */
     val noteId: String,
+    /** Tag name. */
     val tagName: String,
 )
 
 @Dao
+/**
+ * TagDao.
+ */
 interface TagDao {
     @Query("SELECT * FROM tags ORDER BY usage_count DESC, name ASC")
+    /**
+     * Observe all tags.
+     */
     fun observeAllTags(): Flow<List<TagEntity>>
 
     @Query(
@@ -28,21 +39,36 @@ interface TagDao {
         SELECT * FROM tags
         WHERE normalized_name LIKE :normalizedPrefix || '%'
         ORDER BY usage_count DESC, name ASC
+        /** Limit. */
         LIMIT :limit
         """,
     )
+    /**
+     * Search by prefix.
+     */
     fun searchByPrefix(
+        /** Normalized prefix. */
         normalizedPrefix: String,
+        /** Limit. */
         limit: Int,
     ): Flow<List<TagEntity>>
 
     @Query("SELECT * FROM tags WHERE normalized_name = :normalizedName LIMIT 1")
+    /**
+     * Get by normalized name.
+     */
     suspend fun getByNormalizedName(normalizedName: String): TagEntity?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
+    /**
+     * Insert.
+     */
     suspend fun insert(tag: TagEntity): Long
 
     @Update
+    /**
+     * Update.
+     */
     suspend fun update(tag: TagEntity)
 
     @Query(
@@ -54,9 +80,15 @@ interface TagDao {
         WHERE id = :tagId
         """,
     )
+    /**
+     * Mark used.
+     */
     suspend fun markUsed(
+        /** Tag id. */
         tagId: String,
+        /** Used at. */
         usedAt: String,
+        /** Updated at. */
         updatedAt: String,
     )
 
@@ -68,6 +100,9 @@ interface TagDao {
         ORDER BY tags.name ASC
         """,
     )
+    /**
+     * Observe tags for task.
+     */
     fun observeTagsForTask(taskId: String): Flow<List<TagEntity>>
 
     @Query(
@@ -78,6 +113,9 @@ interface TagDao {
         ORDER BY tags.name ASC
         """,
     )
+    /**
+     * Observe tags for note.
+     */
     fun observeTagsForNote(noteId: String): Flow<List<TagEntity>>
 
     @Query(
@@ -89,6 +127,9 @@ interface TagDao {
         ORDER BY note_tags.note_id ASC, tags.name ASC
         """,
     )
+    /**
+     * Get tag names for notes.
+     */
     suspend fun getTagNamesForNotes(noteIds: List<String>): List<NoteTagNameRow>
 
     @Query(
@@ -99,23 +140,44 @@ interface TagDao {
         ORDER BY tags.name ASC
         """,
     )
+    /**
+     * Observe tags for time entry.
+     */
     fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<TagEntity>>
 
     @Query("DELETE FROM task_tags WHERE task_id = :taskId")
+    /**
+     * Clear task tags.
+     */
     suspend fun clearTaskTags(taskId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert task tags.
+     */
     suspend fun insertTaskTags(links: List<TaskTagEntity>)
 
     @Query("DELETE FROM note_tags WHERE note_id = :noteId")
+    /**
+     * Clear note tags.
+     */
     suspend fun clearNoteTags(noteId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert note tags.
+     */
     suspend fun insertNoteTags(links: List<NoteTagEntity>)
 
     @Query("DELETE FROM time_entry_tags WHERE time_entry_id = :timeEntryId")
+    /**
+     * Clear time entry tags.
+     */
     suspend fun clearTimeEntryTags(timeEntryId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert time entry tags.
+     */
     suspend fun insertTimeEntryTags(links: List<TimeEntryTagEntity>)
 }

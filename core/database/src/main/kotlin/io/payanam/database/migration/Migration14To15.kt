@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
 import androidx.room.migration.Migration
@@ -18,10 +21,12 @@ val MIGRATION_14_15 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.14_15", "Starting migration from version 14 to 15")
             try {
+                /** Create journal notes table. */
                 createJournalNotesTable(database)
+                /** Backfill journal notes from legacy notes. */
                 backfillJournalNotesFromLegacyNotes(database)
                 logger.i("Migration.14_15", "Migration from version 14 to 15 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("Migration.14_15", "Migration from version 14 to 15 failed", e)
                 throw e
             }
@@ -53,23 +58,40 @@ private fun backfillJournalNotesFromLegacyNotes(database: SupportSQLiteDatabase)
     database.execSQL(
         """
         INSERT OR IGNORE INTO journal_notes (
+            /** Id. */
             id,
+            /** Title. */
             title,
+            /** Details. */
             details,
+            /** Life intention category. */
             lifeIntentionCategory,
+            /** Dimension id. */
             dimension_id,
+            /** Day key. */
             day_key,
+            /** Created at. */
             created_at,
+            /** Updated at. */
             updated_at
         )
+        /** Select. */
         SELECT
+            /** Id. */
             id,
+            /** Title. */
             title,
+            /** Details. */
             details,
+            /** Life intention category. */
             lifeIntentionCategory,
+            /** Dimension id. */
             dimension_id,
+            /** Coalesce. */
             COALESCE(day_key, substr(createdAt, 1, 10), strftime('%Y-%m-%d','now')),
+            /** Created at. */
             createdAt,
+            /** Updated at. */
             updatedAt
         FROM notes
         WHERE id IS NOT NULL

@@ -12,11 +12,20 @@ import io.payanam.database.entity.TimeEntryEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+/**
+ * TimeEntryDao.
+ */
 interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL LIMIT 1")
+    /**
+     * Get active time entry.
+     */
     suspend fun getActiveTimeEntry(): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL LIMIT 1")
+    /**
+     * Observe active time entry.
+     */
     fun observeActiveTimeEntry(): Flow<TimeEntryEntity?>
 
     @Query(
@@ -27,8 +36,13 @@ interface TimeEntryDao {
         ORDER BY startedAt ASC
     """,
     )
+    /**
+     * Get time entries for range.
+     */
     fun getTimeEntriesForRange(
+        /** Start. */
         start: String,
+        /** End. */
         end: String,
     ): Flow<List<TimeEntryEntity>>
 
@@ -40,37 +54,69 @@ interface TimeEntryDao {
         ORDER BY startedAt ASC
     """,
     )
+    /**
+     * Get time entries for date.
+     */
     fun getTimeEntriesForDate(
+        /** Day start. */
         dayStart: String,
+        /** Day end. */
         dayEnd: String,
+        /** Current time. */
         currentTime: String,
     ): Flow<List<TimeEntryEntity>>
 
     @Query("SELECT * FROM time_entries WHERE id = :id")
+    /**
+     * Get by id.
+     */
     suspend fun getById(id: String): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE import_source = :source AND import_id = :importId LIMIT 1")
+    /**
+     * Get by import ref.
+     */
     suspend fun getByImportRef(
+        /** Source. */
         source: String,
+        /** Import id. */
         importId: String,
     ): TimeEntryEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert.
+     */
     suspend fun insert(entry: TimeEntryEntity)
 
     @Update
+    /**
+     * Update.
+     */
     suspend fun update(entry: TimeEntryEntity)
 
     @Delete
+    /**
+     * Delete.
+     */
     suspend fun delete(entry: TimeEntryEntity)
 
     @Query("DELETE FROM time_entries WHERE id = :id")
+    /**
+     * Delete by id.
+     */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM time_entries")
+    /**
+     * Delete all.
+     */
     suspend fun deleteAll()
 
     @Query("UPDATE time_entries SET taskId = NULL WHERE taskId IS NOT NULL")
+    /**
+     * Clear all task links.
+     */
     suspend fun clearAllTaskLinks()
 
     @Query(
@@ -84,18 +130,30 @@ interface TimeEntryDao {
         WHERE id = :id
         """,
     )
+    /**
+     * Stop entry.
+     */
     suspend fun stopEntry(
+        /** Id. */
         id: String,
+        /** Ended at. */
         endedAt: String,
         focusRating: Double?,
         focusNote: String?,
         focusRatedAt: String?,
+        /** Updated at. */
         updatedAt: String,
     )
 
     @Query("SELECT * FROM time_entries ORDER BY startedAt DESC")
+    /**
+     * Get all.
+     */
     fun getAll(): Flow<List<TimeEntryEntity>>
 
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL ORDER BY startedAt DESC")
+    /**
+     * Get all active time entries.
+     */
     fun getAllActiveTimeEntries(): Flow<List<TimeEntryEntity>>
 }

@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
 import androidx.room.migration.Migration
@@ -17,9 +20,10 @@ val MIGRATION_12_13 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.12_13", "Starting migration from version 12 to 13")
             try {
+                /** Create lens reflections table. */
                 createLensReflectionsTable(database)
                 logger.i("Migration.12_13", "Migration from 12 to 13 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("Migration.12_13", "Migration from 12 to 13 failed", e)
                 throw e
             }

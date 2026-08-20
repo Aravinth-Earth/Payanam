@@ -12,22 +12,29 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 internal suspend fun loadSnapshotFromPersistentCache(
+    /** Daily insight dao. */
     dailyInsightDao: DailyInsightDao,
+    /** Day key. */
     dayKey: String,
 ): UnifiedLensSnapshot? {
+    /** Cached. */
     val cached =
         dailyInsightDao.getSummaryForDay(
             dayKey = dayKey,
             module = DAILY_INSIGHT_MODULE_UNIFIED_SNAPSHOT,
         ) ?: return null
+    /** Summary. */
     val summary = cached.summaryJson ?: return null
+    /** Decoded. */
     val decoded = decodeUnifiedLensSnapshot(dayKey, summary) ?: return null
+    /** Split total. */
     val splitTotal =
         decoded.reality.actualTimeOnlyMinutes +
             decoded.reality.actualTaskMinutes +
             decoded.reality.actualHabitMinutes
     // Backward-compat guard: older cached payloads did not include split fields.
     // In that case decode defaults to zero and would show incorrect Lens spent split.
+    /** If. */
     if (decoded.reality.totalActualMinutes > 0 && splitTotal <= 0) {
         return null
     }
@@ -35,14 +42,22 @@ internal suspend fun loadSnapshotFromPersistentCache(
 }
 
 internal suspend fun persistSnapshotToDailyInsightCache(
+    /** Daily insight dao. */
     dailyInsightDao: DailyInsightDao,
+    /** Logger. */
     logger: UnifiedLogger,
+    /** Day key. */
     dayKey: String,
+    /** Snapshot. */
     snapshot: UnifiedLensSnapshot,
 ) {
+    /** Now. */
     val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+    /** Encoded snapshot. */
     val encodedSnapshot = encodeUnifiedLensSnapshot(snapshot)
+    /** Cache entity. */
     val cacheEntity =
+        /** Daily insight entity. */
         DailyInsightEntity(
             id = "lens_snapshot_$dayKey",
             dayKey = dayKey,
@@ -60,11 +75,13 @@ internal suspend fun persistSnapshotToDailyInsightCache(
     logger.d(
         "LensRepository.persistSnapshotToDailyInsightCache",
         "Persisted unified snapshot to daily insights cache",
+        /** Map of. */
         mapOf("dayKey" to dayKey),
     )
 }
 
 internal fun LensReflectionEntity.toRecord(): LensReflectionRecord =
+    /** Lens reflection record. */
     LensReflectionRecord(
         id = id,
         dayKey = dayKey,

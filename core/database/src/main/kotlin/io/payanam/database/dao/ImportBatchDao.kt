@@ -8,7 +8,13 @@ import androidx.room.OnConflictStrategy
 import io.payanam.database.entity.ImportBatchEntity
 
 @Dao
+/**
+ * ImportBatchDao.
+ */
 interface ImportBatchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
+    /**
+     * Insert.
+     */
     suspend fun insert(batch: ImportBatchEntity)
 }

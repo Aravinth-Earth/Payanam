@@ -16,24 +16,37 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * NotificationRepositoryImpl.
+ */
 class NotificationRepositoryImpl
     @Inject
+    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : NotificationRepository {
         private val logger = UnifiedLogger.getInstance()
 
         override suspend fun scheduleNotification(
+            /** Task id. */
             taskId: String,
+            /** Scheduled at. */
             scheduledAt: LocalDateTime,
+            /** Notification type. */
             notificationType: String,
+            /** Title. */
             title: String,
+            /** Body. */
             body: String,
         ): String {
+            /** Id. */
             val id = UUID.randomUUID().toString()
+            /** Now. */
             val now = LocalDateTime.now()
 
+            /** Entity. */
             val entity =
+                /** Scheduled notification entity. */
                 ScheduledNotificationEntity(
                     id = id,
                     taskId = taskId,
@@ -50,6 +63,7 @@ class NotificationRepositoryImpl
             logger.i(
                 "NotificationRepositoryImpl.scheduleNotification",
                 "Scheduled notification",
+                /** Map of. */
                 mapOf(
                     "id" to id,
                     "taskId" to taskId,
@@ -63,7 +77,9 @@ class NotificationRepositoryImpl
 
         override suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getNotificationsForTask", "Fetching notifications for task", mapOf("taskId" to taskId))
+            /** Result. */
             val result =
+                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .scheduledNotificationDao()
@@ -72,6 +88,7 @@ class NotificationRepositoryImpl
             logger.d(
                 "NotificationRepositoryImpl.getNotificationsForTask",
                 "Fetched notifications",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "count" to result.size,
@@ -82,8 +99,11 @@ class NotificationRepositoryImpl
 
         override suspend fun getPendingNotifications(): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getPendingNotifications", "Fetching pending notifications")
+            /** Now. */
             val now = PersistedDateTime.format(LocalDateTime.now())
+            /** Result. */
             val result =
+                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .scheduledNotificationDao()
@@ -110,6 +130,7 @@ class NotificationRepositoryImpl
 
         // Mapper
         private fun ScheduledNotificationEntity.toDomain() =
+            /** Scheduled notification. */
             ScheduledNotification(
                 id = id,
                 taskId = taskId,

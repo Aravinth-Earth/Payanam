@@ -20,29 +20,45 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "lens_reflections",
     indices = [
+        /** Index. */
         Index(value = ["day_key", "dimension_id", "reflection_type"]),
+        /** Index. */
         Index("created_at"),
     ],
 )
+/**
+ * LensReflectionEntity.
+ */
 data class LensReflectionEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
     @ColumnInfo(name = "day_key")
+    /** Day key. */
     val dayKey: String,
     @ColumnInfo(name = "dimension_id")
+    /** Dimension id. */
     val dimensionId: String? = null,
     @ColumnInfo(name = "reflection_type")
+    /** Reflection type. */
     val reflectionType: String,
+    /** Title. */
     val title: String,
+    /** Description. */
     val description: String? = null,
     @ColumnInfo(name = "gap_minutes")
+    /** Gap minutes. */
     val gapMinutes: Int? = null,
     @ColumnInfo(name = "related_entity_id")
+    /** Related entity id. */
     val relatedEntityId: String? = null,
     @ColumnInfo(name = "is_addressed")
+    /** Is addressed. */
     val isAddressed: Int = 0,
     @ColumnInfo(name = "user_note")
+    /** User note. */
     val userNote: String? = null,
     @ColumnInfo(name = "created_at")
+    /** Created at. */
     val createdAt: String,
 )

@@ -15,12 +15,14 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "day_plan_template_allocations",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = DayPlanTemplateEntity::class,
             parentColumns = ["id"],
             childColumns = ["template_id"],
             onDelete = ForeignKey.CASCADE,
         ),
+        /** Foreign key. */
         ForeignKey(
             entity = LifeDimensionEntity::class,
             parentColumns = ["id"],
@@ -29,22 +31,34 @@ import androidx.room.PrimaryKey
         ),
     ],
     indices = [
+        /** Index. */
         Index(value = ["template_id", "dimension_id"], unique = true),
+        /** Index. */
         Index("template_id"),
+        /** Index. */
         Index("dimension_id"),
     ],
 )
+/**
+ * DayPlanTemplateAllocationEntity.
+ */
 data class DayPlanTemplateAllocationEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
     @ColumnInfo(name = "template_id")
+    /** Template id. */
     val templateId: String,
     @ColumnInfo(name = "dimension_id")
+    /** Dimension id. */
     val dimensionId: String,
     @ColumnInfo(name = "planned_minutes")
+    /** Planned minutes. */
     val plannedMinutes: Int,
     @ColumnInfo(name = "created_at")
+    /** Created at. */
     val createdAt: String,
     @ColumnInfo(name = "updated_at")
+    /** Updated at. */
     val updatedAt: String,
 )

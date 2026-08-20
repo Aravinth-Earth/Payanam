@@ -16,8 +16,12 @@ import javax.inject.Singleton
  * Room implementation of ScoringConfigRepository.
  */
 @Singleton
+/**
+ * ScoringConfigRepositoryImpl.
+ */
 class ScoringConfigRepositoryImpl
     @Inject
+    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : ScoringConfigRepository {
@@ -25,6 +29,7 @@ class ScoringConfigRepositoryImpl
 
         override suspend fun getConfig(): ScoringConfig {
             logger.d("ScoringConfigRepository.getConfig", "Fetching scoring config")
+            /** Entity. */
             val entity = sessionManager.requireDatabase().scoringConfigDao().getConfig()
             return if (entity != null) {
                 logger.i("ScoringConfigRepository.getConfig", "Loaded saved config")
@@ -38,6 +43,7 @@ class ScoringConfigRepositoryImpl
         override fun observeConfig(): Flow<ScoringConfig> {
             logger.d("ScoringConfigRepository.observeConfig", "Subscribing to scoring config")
             return sessionManager.requireDatabase().scoringConfigDao().observeConfig().map { entity ->
+                /** If. */
                 if (entity != null) {
                     ScoringConfigMapper.toDomain(entity)
                 } else {
@@ -50,11 +56,13 @@ class ScoringConfigRepositoryImpl
             logger.i(
                 "ScoringConfigRepository.saveConfig",
                 "Saving scoring config",
+                /** Map of. */
                 mapOf(
                     "dimensionWeight" to config.dimensionWeight,
                     "impactWeight" to config.impactWeight,
                 ),
             )
+            /** Entity. */
             val entity = ScoringConfigMapper.toEntity(config)
             sessionManager.requireDatabase().scoringConfigDao().upsertConfig(entity)
         }

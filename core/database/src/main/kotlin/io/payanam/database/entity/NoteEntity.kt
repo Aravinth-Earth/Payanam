@@ -14,6 +14,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "notes",
     foreignKeys = [
+        /** Foreign key. */
         ForeignKey(
             entity = LifeDimensionEntity::class,
             parentColumns = ["id"],
@@ -23,16 +24,27 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("dimension_id"), Index("day_key")],
 )
+/**
+ * NoteEntity.
+ */
 data class NoteEntity(
     @PrimaryKey
+    /** Id. */
     val id: String,
+    /** Title. */
     val title: String,
+    /** Details. */
     val details: String? = null,
+    /** Life intention category. */
     val lifeIntentionCategory: String,
     @ColumnInfo(name = "dimension_id")
+    /** Dimension id. */
     val dimensionId: String? = null,
     @ColumnInfo(name = "day_key")
+    /** Day key. */
     val dayKey: String? = null,
+    /** Created at. */
     val createdAt: String,
+    /** Updated at. */
     val updatedAt: String,
 )

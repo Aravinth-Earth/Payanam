@@ -53,6 +53,7 @@ import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
 
+/** Payanam database schema version. */
 const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
 
 /**
@@ -149,44 +150,102 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
     version = PAYANAM_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
 )
+/**
+ * PayanamDatabase.
+ */
 abstract class PayanamDatabase : RoomDatabase() {
+    /**
+     * Task dao.
+     */
     abstract fun taskDao(): TaskDao
 
+    /**
+     * Time entry dao.
+     */
     abstract fun timeEntryDao(): TimeEntryDao
 
+    /**
+     * Note dao.
+     */
     abstract fun noteDao(): NoteDao
 
+    /**
+     * Task occurrence dao.
+     */
     abstract fun taskOccurrenceDao(): TaskOccurrenceDao
 
+    /**
+     * Task reschedule dao.
+     */
     abstract fun taskRescheduleDao(): TaskRescheduleDao
 
+    /**
+     * Journal dao.
+     */
     abstract fun journalDao(): JournalDao
 
+    /**
+     * App settings dao.
+     */
     abstract fun appSettingsDao(): AppSettingsDao
 
+    /**
+     * Scheduled notification dao.
+     */
     abstract fun scheduledNotificationDao(): ScheduledNotificationDao
 
+    /**
+     * Scoring config dao.
+     */
     abstract fun scoringConfigDao(): ScoringConfigDao
 
+    /**
+     * Life dimension dao.
+     */
     abstract fun lifeDimensionDao(): LifeDimensionDao
 
+    /**
+     * Tag dao.
+     */
     abstract fun tagDao(): TagDao
 
+    /**
+     * Lens reflection dao.
+     */
     abstract fun lensReflectionDao(): LensReflectionDao
 
+    /**
+     * Daily insight dao.
+     */
     abstract fun dailyInsightDao(): DailyInsightDao
 
+    /**
+     * Day plan dao.
+     */
     abstract fun dayPlanDao(): DayPlanDao
 
+    /**
+     * Import batch dao.
+     */
     abstract fun importBatchDao(): ImportBatchDao
 
+    /**
+     * Habit metric dao.
+     */
     abstract fun habitMetricDao(): HabitMetricDao
 
+    /**
+     * Dimension metric dao.
+     */
     abstract fun dimensionMetricDao(): DimensionMetricDao
 
+    /**
+     * Day metric dao.
+     */
     abstract fun dayMetricDao(): DayMetricDao
 
     companion object {
+        /** Database name. */
         const val DATABASE_NAME = "payanam.db"
     }
 }

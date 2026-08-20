@@ -17,14 +17,22 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * ScoringConfigDaoTest.
+ */
 class ScoringConfigDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var scoringConfigDao: ScoringConfigDao
 
     @Before
+    /**
+     * Setup.
+     */
     fun setup() {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
+            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -34,62 +42,98 @@ class ScoringConfigDaoTest {
     }
 
     @After
+    /**
+     * Tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Upsert config and get config.
+     */
     fun upsertConfig_and_getConfig() =
         runBlocking {
+            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
 
+            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
+            /** Assert that. */
             assertThat(retrieved).isNotNull()
+            /** Assert that. */
             assertThat(retrieved?.dimensionWeight).isEqualTo(2.5)
+            /** Assert that. */
             assertThat(retrieved?.impactCritical).isEqualTo(1.0)
         }
 
     @Test
+    /**
+     * Observe config emits config.
+     */
     fun observeConfig_emitsConfig() =
         runBlocking {
+            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
 
+            /** Observed. */
             val observed = scoringConfigDao.observeConfig().first()
+            /** Assert that. */
             assertThat(observed).isNotNull()
+            /** Assert that. */
             assertThat(observed?.dimensionWeight).isEqualTo(2.5)
         }
 
     @Test
+    /**
+     * Get config returns null when no config.
+     */
     fun getConfig_returnsNullWhenNoConfig() =
         runBlocking {
+            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
+            /** Assert that. */
             assertThat(retrieved).isNull()
         }
 
     @Test
+    /**
+     * Upsert config replaces existing config.
+     */
     fun upsertConfig_replacesExistingConfig() =
         runBlocking {
+            /** Config1. */
             val config1 = createTestScoringConfig(dimensionWeight = 2.0)
+            /** Config2. */
             val config2 = createTestScoringConfig(dimensionWeight = 3.0)
 
             scoringConfigDao.upsertConfig(config1)
             scoringConfigDao.upsertConfig(config2)
 
+            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
+            /** Assert that. */
             assertThat(retrieved?.dimensionWeight).isEqualTo(3.0)
         }
 
     @Test
+    /**
+     * Delete config removes config.
+     */
     fun deleteConfig_removesConfig() =
         runBlocking {
+            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
 
             scoringConfigDao.deleteConfig()
 
+            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
+            /** Assert that. */
             assertThat(retrieved).isNull()
         }
 

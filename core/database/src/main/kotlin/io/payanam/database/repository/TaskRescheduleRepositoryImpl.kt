@@ -19,8 +19,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * TaskRescheduleRepositoryImpl.
+ */
 class TaskRescheduleRepositoryImpl
     @Inject
+    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : TaskRescheduleRepository {
@@ -28,7 +32,9 @@ class TaskRescheduleRepositoryImpl
 
         override suspend fun getReschedulesByTaskId(taskId: String): List<TaskReschedule> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesByTaskId", "Fetching reschedules", mapOf("taskId" to taskId))
+            /** Result. */
             val result =
+                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .taskRescheduleDao()
@@ -39,6 +45,7 @@ class TaskRescheduleRepositoryImpl
             logger.d(
                 "TaskRescheduleRepositoryImpl.getReschedulesByTaskId",
                 "Fetched reschedules",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "count" to result.size,
@@ -55,7 +62,9 @@ class TaskRescheduleRepositoryImpl
         }
 
         override suspend fun recordReschedule(reschedule: TaskReschedule) {
+            /** Entity. */
             val entity =
+                /** Task reschedule entity. */
                 TaskRescheduleEntity(
                     id = reschedule.id,
                     taskId = reschedule.taskId,
@@ -68,6 +77,7 @@ class TaskRescheduleRepositoryImpl
             logger.i(
                 "TaskRescheduleRepositoryImpl.recordReschedule",
                 "Recorded reschedule",
+                /** Map of. */
                 mapOf(
                     "id" to reschedule.id,
                     "taskId" to reschedule.taskId,
@@ -77,14 +87,22 @@ class TaskRescheduleRepositoryImpl
         }
 
         override suspend fun recordReschedule(
+            /** Task id. */
             taskId: String,
+            /** Previous due date. */
             previousDueDate: LocalDateTime,
+            /** New due date. */
             newDueDate: LocalDateTime,
+            /** Was overdue. */
             wasOverdue: Boolean,
         ): TaskReschedule {
+            /** Now. */
             val now = LocalDateTime.now()
+            /** Id. */
             val id = UUID.randomUUID().toString()
+            /** Entity. */
             val entity =
+                /** Task reschedule entity. */
                 TaskRescheduleEntity(
                     id = id,
                     taskId = taskId,
@@ -97,6 +115,7 @@ class TaskRescheduleRepositoryImpl
             logger.i(
                 "TaskRescheduleRepositoryImpl.recordReschedule",
                 "Recorded reschedule",
+                /** Map of. */
                 mapOf(
                     "id" to id,
                     "taskId" to taskId,
@@ -114,6 +133,7 @@ class TaskRescheduleRepositoryImpl
         }
 
         private fun TaskRescheduleEntity.toDomain(): TaskReschedule =
+            /** Task reschedule. */
             TaskReschedule(
                 id = id,
                 taskId = taskId,

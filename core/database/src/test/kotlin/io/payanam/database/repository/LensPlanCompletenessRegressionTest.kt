@@ -11,9 +11,16 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * LensPlanCompletenessRegressionTest.
+ */
 class LensPlanCompletenessRegressionTest {
     @Before
+    /**
+     * Set up.
+     */
     fun setUp() {
+        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(
                 ApplicationProvider.getApplicationContext(),
@@ -28,8 +35,13 @@ class LensPlanCompletenessRegressionTest {
     }
 
     @Test
+    /**
+     * Full structure with25hours planned is not perfect.
+     */
     fun fullStructure_with25HoursPlanned_isNotPerfect() {
+        /** Score. */
         val score =
+            /** Compute plan completeness score. */
             computePlanCompletenessScore(
                 totalPlannedMinutes = 25 * 60,
                 hasBudgetAllocations = true,
@@ -37,13 +49,20 @@ class LensPlanCompletenessRegressionTest {
                 hasPlannedHabits = true,
             )
 
+        /** Assert that. */
         assertThat(score).isLessThan(1f)
+        /** Assert that. */
         assertThat(score).isGreaterThan(0.95f)
     }
 
     @Test
+    /**
+     * Full structure with exact24hours planned is perfect.
+     */
     fun fullStructure_withExact24HoursPlanned_isPerfect() {
+        /** Score. */
         val score =
+            /** Compute plan completeness score. */
             computePlanCompletenessScore(
                 totalPlannedMinutes = 24 * 60,
                 hasBudgetAllocations = true,
@@ -51,12 +70,18 @@ class LensPlanCompletenessRegressionTest {
                 hasPlannedHabits = true,
             )
 
+        /** Assert that. */
         assertThat(score).isEqualTo(1f)
     }
 
     @Test
+    /**
+     * Full structure with23hours planned is not perfect.
+     */
     fun fullStructure_with23HoursPlanned_isNotPerfect() {
+        /** Score. */
         val score =
+            /** Compute plan completeness score. */
             computePlanCompletenessScore(
                 totalPlannedMinutes = 23 * 60,
                 hasBudgetAllocations = true,
@@ -64,7 +89,9 @@ class LensPlanCompletenessRegressionTest {
                 hasPlannedHabits = true,
             )
 
+        /** Assert that. */
         assertThat(score).isLessThan(1f)
+        /** Assert that. */
         assertThat(score).isGreaterThan(0.95f)
     }
 }

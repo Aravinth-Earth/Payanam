@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
 import androidx.room.migration.Migration
@@ -18,14 +21,20 @@ val MIGRATION_11_12 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.11_12", "Starting migration from version 11 to 12")
             try {
+                /** Create tags table. */
                 createTagsTable(database)
+                /** Create task tags table. */
                 createTaskTagsTable(database)
+                /** Create note tags table. */
                 createNoteTagsTable(database)
+                /** Create time entry tags table. */
                 createTimeEntryTagsTable(database)
+                /** Create time goals table. */
                 createTimeGoalsTable(database)
+                /** Create time rules table. */
                 createTimeRulesTable(database)
                 logger.i("Migration.11_12", "Migration from 11 to 12 completed successfully")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("Migration.11_12", "Migration from 11 to 12 failed", e)
                 throw e
             }
