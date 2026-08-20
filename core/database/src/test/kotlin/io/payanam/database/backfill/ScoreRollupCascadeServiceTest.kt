@@ -14,7 +14,13 @@ import io.payanam.database.entity.TaskEntity
 import io.payanam.database.entity.TaskOccurrenceEntity
 import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.session.DatabaseSessionManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.test.TestScope
+import kotlinx.coroutines.test.UnconfinedTestDispatcher
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -32,12 +38,15 @@ import java.time.LocalDateTime
  * catch-up fills 0.0 rows; no-gap launch skips; stale tail removal.
  */
 @RunWith(RobolectricTestRunner::class)
+@OptIn(ExperimentalCoroutinesApi::class)
 class ScoreRollupCascadeServiceTest {
 
     private lateinit var db: PayanamDatabase
     private lateinit var sessionManager: DatabaseSessionManager
     private lateinit var service: ScoreRollupCascadeService
     private lateinit var context: Context
+
+    private lateinit var eventBus: ScoreChangeEventBus
 
     @Before
     fun setUp() {
@@ -49,8 +58,21 @@ class ScoreRollupCascadeServiceTest {
         val encryptionManager = io.payanam.database.security.DatabaseEncryptionManager(context)
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(db)
-        service = ScoreRollupCascadeService(sessionManager, ScoreChangeEventBus())
+        eventBus = ScoreChangeEventBus()
+        service = ScoreRollupCascadeService(sessionManager, eventBus)
         seedLifeDimensions()
+    }
+
+    /** Collects score-change events emitted during [block] and returns them. */
+    private suspend fun <T> TestScope.captureEvents(block: suspend () -> T): Pair<T, List<LocalDate>> {
+        val events = mutableListOf<LocalDate>()
+        val collector = CoroutineScope(UnconfinedTestDispatcher()).launch {
+            eventBus.events.collect { events += it }
+        }
+        val result = block()
+        advanceUntilIdle()
+        collector.cancel()
+        return result to events
     }
 
     @After
@@ -104,12 +126,13 @@ class ScoreRollupCascadeServiceTest {
         val today = LocalDate.now()
         insertOccurrence("h1", today)
 
-        service.recalcForStatusChange("h1", today)
+        val (_, events) = captureEvents { service.recalcForStatusChange("h1", today) }
 
         val rows = db.habitMetricDao().observeForHabit("h1").first()
         assertTrue("L1 rows exist", rows.isNotEmpty())
         assertEquals(today.toString(), rows.last().dayKey)
         assertEquals(1.0, rows.last().score, 1e-9)
+        assertTrue("status recompute emits a score-change event", events.isNotEmpty())
     }
 
     @Test
@@ -121,11 +144,12 @@ class ScoreRollupCascadeServiceTest {
         insertOccurrence("h2", LocalDate.now().minusDays(2), status = "completed")
         insertOccurrence("h2", yesterday, status = "missed")
 
-        service.recalcForStatusChange("h2", yesterday)
+        val (_, events) = captureEvents { service.recalcForStatusChange("h2", yesterday) }
 
         val rows = db.habitMetricDao().observeForHabit("h2").first()
         val yRow = rows.firstOrNull { it.dayKey == yesterday.toString() }
         assertEquals(0.0, yRow?.score ?: -1.0, 1e-9)
+        assertTrue("status recompute emits a score-change event", events.isNotEmpty())
     }
 
     @Test
@@ -134,7 +158,7 @@ class ScoreRollupCascadeServiceTest {
         val today = LocalDate.now()
         insertOccurrence("h3", today)
 
-        service.recalcForStatusChange("h3", today)
+        val (_, events) = captureEvents { service.recalcForStatusChange("h3", today) }
 
         val dimRows = db.dimensionMetricDao().observeForDimension("dim_x").first()
         assertTrue("dimension rows exist", dimRows.isNotEmpty())
@@ -142,6 +166,7 @@ class ScoreRollupCascadeServiceTest {
         val dayRows = db.dayMetricDao().observeAll().first()
         assertTrue("day rows exist", dayRows.isNotEmpty())
         assertEquals(today.toString(), dayRows.last().dayKey)
+        assertTrue("rule/status recompute emits a score-change event", events.isNotEmpty())
     }
 
     @Test
@@ -158,12 +183,13 @@ class ScoreRollupCascadeServiceTest {
         // Simulate stale state: delete tail rows to mimic "no rows for recent days"
         db.habitMetricDao().deleteFrom("h4", LocalDate.now().minusDays(2).toString())
 
-        service.catchUpTail()
+        val (_, events) = captureEvents { service.catchUpTail() }
 
         val after = db.habitMetricDao().observeForHabit("h4").first()
         val afterMax = after.maxOfOrNull { it.dayKey }!!
         assertEquals(LocalDate.now().minusDays(1).toString(), afterMax) // extended through yesterday
         // gap days (not completed) score 0.0
+        assertTrue("catch-up recompute emits a score-change event", events.isNotEmpty())
         val gap = after.firstOrNull { it.dayKey == LocalDate.now().minusDays(3).toString() }
         assertEquals(0.0, gap?.score ?: -1.0, 1e-9)
     }
@@ -252,7 +278,7 @@ class ScoreRollupCascadeServiceTest {
         // but the weight row must be persisted and L1/L2 untouched.
         db.lifeDimensionDao().updateWeight("dim_health", 5.0, "2026-08-08T00:00:00")
 
-        service.recalcDayOnly(today)
+        val (_, events) = captureEvents { service.recalcDayOnly(today) }
 
         val l1After = db.habitMetricDao().getAll()
         val l2After = db.dimensionMetricDao().getAll()
@@ -264,6 +290,7 @@ class ScoreRollupCascadeServiceTest {
         // dim_x score 1.0 with weight 1.0 (weighted avg over present dims)
         val todayRow = dayAfter.firstOrNull { it.dayKey == today.toString() }
         assertEquals("weighted day score recomputed", 1.0, todayRow?.dayScore ?: -1.0, 1e-9)
+        assertTrue("day-only recompute emits a score-change event", events.isNotEmpty())
     }
 
     @Test
@@ -283,7 +310,7 @@ class ScoreRollupCascadeServiceTest {
         db.lifeDimensionDao().updateWeight("dim_health", 1.0, "2026-08-08T00:00:00")
         db.lifeDimensionDao().updateWeight("dim_x", 9.0, "2026-08-08T00:00:00")
         val dayCountBefore = db.dayMetricDao().getAll().size
-        service.recalcDayOnly(LocalDate.now())
+        val (_, events) = captureEvents { service.recalcDayOnly(LocalDate.now()) }
 
         val dayAfter = db.dayMetricDao().getAll()
         val pastRow = dayAfter.firstOrNull { it.dayKey == past.toString() }
@@ -293,6 +320,7 @@ class ScoreRollupCascadeServiceTest {
         // weighted-average math itself is covered by unit tests.
         assertEquals(1.0, pastRow?.dayScore ?: -1.0, 1e-9)
         assertTrue("full history retained", dayAfter.size >= dayCountBefore)
+        assertTrue("day-only recompute emits a score-change event", events.isNotEmpty())
     }
 
     @Test
