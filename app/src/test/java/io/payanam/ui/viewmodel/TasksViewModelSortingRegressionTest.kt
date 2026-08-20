@@ -79,9 +79,9 @@ class TasksViewModelSortingRegressionTest {
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val t3 = task("c", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.9, 0.0, 3, 2, 3),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.4, 0.0, 1, 1, 1),
-            "c" to io.payanam.domain.model.HabitL1Summary("c", "2026-08-07", 1.0, 0.7, 0.0, 2, 2, 2),
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.91234, 0.0, 3, 2, 3),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.41278, 0.0, 1, 1, 1),
+            "c" to io.payanam.domain.model.HabitL1Summary("c", "2026-08-07", 1.0, 0.72391, 0.0, 2, 2, 2),
         )
         val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "c", "b"), sorted.map { it.id })
@@ -92,8 +92,8 @@ class TasksViewModelSortingRegressionTest {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.2, 0.0, 0, 0, 0),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.8, 0.0, 2, 2, 2),
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.21345, 0.0, 0, 0, 0),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.82391, 0.0, 2, 2, 2),
         )
         val sorted = sortHabits(listOf(t1, t2), HabitSortOption.SCORE_LOW_HIGH, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "b"), sorted.map { it.id })
@@ -104,7 +104,7 @@ class TasksViewModelSortingRegressionTest {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.9, 0.0, 3, 3, 3),
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.91234, 0.0, 3, 3, 3),
         )
         val sorted = sortHabits(listOf(t1, t2), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "b"), sorted.map { it.id })
@@ -135,8 +135,8 @@ class TasksViewModelSortingRegressionTest {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.5, 0.0, 2, 2, 2),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.5, 0.0, 2, 2, 2),
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.50137, 0.0, 2, 2, 2),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.50137, 0.0, 2, 2, 2),
         )
         val sorted = sortHabits(listOf(t2, t1), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "b"), sorted.map { it.id })
@@ -176,8 +176,8 @@ class TasksViewModelSortingRegressionTest {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
         val t2 = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
         val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.3, 0.0, 1, 1, 1),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.9, 0.0, 3, 3, 3),
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.31278, 0.0, 1, 1, 1),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.91234, 0.0, 3, 3, 3),
         )
         val sorted = sortHabits(listOf(t1, t2), HabitSortOption.BY_DUE_TIME, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("b", "a"), sorted.map { it.id })
