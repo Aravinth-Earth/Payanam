@@ -432,6 +432,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Rotates the log session if the app was stopped long enough to warrant a fresh file. */
     private fun maybeStartNewLogSession() {
         val stoppedAtElapsedMs = lastStoppedAtElapsedMs
         lastStoppedAtElapsedMs = null
@@ -448,6 +449,7 @@ class MainActivity : FragmentActivity() {
         logger.startNewSession("main_activity_foreground")
     }
 
+    /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")
@@ -505,6 +507,8 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    /** Resolves and applies the post-unlock init/DB state once the database is open. */
     private fun handlePostUnlockInitState() {
         showPassphraseUnlock = false
         val initCompleted = runBlocking {
@@ -584,6 +588,7 @@ class MainActivity : FragmentActivity() {
     // scratch with the correct encryption state. Use after operations that replace the DB file on
     // disk (e.g. import), where activity.recreate() leaves a stale Room singleton pointing at the
     // old bootstrap file descriptor.
+    /** Forces a process restart (used after unrecoverable DB/init state). */
     private fun restartProcess() {
         logger.i("MainActivity.restartProcess", "Restarting process for clean Room/Hilt re-initialization")
         val snapshot = captureDbArtifactSnapshot()
@@ -601,6 +606,7 @@ class MainActivity : FragmentActivity() {
         Process.killProcess(Process.myPid())
     }
 
+    /** Attempts a silent (no-UI) unlock and navigates to [returnRoute] on success. */
     fun requestSilentUnlock(returnRoute: String?) {
         if (returnRoute.isNullOrBlank()) {
             return
@@ -617,6 +623,7 @@ class MainActivity : FragmentActivity() {
         intent?.putExtra(EXTRA_RETURN_ROUTE_AFTER_UNLOCK, returnRoute)
     }
 
+    /** Captures a snapshot of DB artifact state (db/wal/shm size + existence) for diagnostics. */
     private fun captureDbArtifactSnapshot(): DbArtifactSnapshot {
         val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
         val dbDir = dbFile.parentFile
@@ -639,6 +646,7 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /** Persists a restart marker so the next launch can log the pre-restart DB state. */
     private fun persistRestartMarker(snapshot: DbArtifactSnapshot) {
         runCatching {
             getSharedPreferences(PREFS_RESTART_MARKER, MODE_PRIVATE).edit()
@@ -660,6 +668,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Logs the pending restart marker (pre/post janitor DB snapshots) for startup diagnostics. */
     private fun logPendingRestartMarker(preJanitor: DbArtifactSnapshot, postJanitor: DbArtifactSnapshot) {
         val prefs = getSharedPreferences(PREFS_RESTART_MARKER, MODE_PRIVATE)
         val ts = prefs.getLong(KEY_RESTART_MARKER_TS, 0L)
@@ -693,6 +702,7 @@ class MainActivity : FragmentActivity() {
         val shmSize: Long,
         val dirListing: String,
     ) {
+        /** Serializes the snapshot to a logging map. */
         fun toLogMap(): Map<String, Any> = mapOf(
             "dbExists" to dbExists,
             "dbSize" to dbSize,
@@ -703,9 +713,11 @@ class MainActivity : FragmentActivity() {
             "dirListing" to dirListing,
         )
 
+        /** Compact single-line representation for quick log lines. */
         fun toCompactString(): String = "db=$dbExists:$dbSize,wal=$walExists:$walSize,shm=$shmExists:$shmSize"
     }
 
+    /** Handles an external navigation intent (deep link / route after unlock). */
     private fun handleExternalNavigationIntent(intent: Intent?) {
         if (intent == null) return
 
@@ -735,6 +747,8 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /** Applies the chosen [appLanguage] / [effectiveLanguageTag] to the base context.
+     *  @return true if the locale was actually changed. */
     private fun applyLanguagePreference(
         appLanguage: AppLanguageOption,
         effectiveLanguageTag: String,
@@ -757,6 +771,7 @@ class MainActivity : FragmentActivity() {
         return applyLanguageTag(effectiveLanguageTag)
     }
 
+    /** Sets the app locale to [targetLanguage] via AppCompat context wrapper. @return true if changed. */
     private fun applyLanguageTag(targetLanguage: String): Boolean {
         val currentLanguage = resolveCurrentAppLanguage()
         if (currentLanguage == targetLanguage) {
@@ -803,6 +818,7 @@ class MainActivity : FragmentActivity() {
         return true
     }
 
+    /** Returns the app's currently effective language tag. */
     private fun resolveCurrentAppLanguage(): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val localeManager = getSystemService(LocaleManager::class.java)
@@ -817,6 +833,7 @@ class MainActivity : FragmentActivity() {
             ?: Locale.getDefault().language.lowercase(Locale.ROOT)
     }
 
+    /** Returns the system (device) language tag. */
     private fun resolveSystemLanguageTag(): String {
         val systemLanguage = Resources.getSystem()
             .configuration
@@ -881,6 +898,7 @@ internal data class StartupHealthLogSummary(
     val errorMessage: String?,
 )
 
+/** Pure resolver: builds a startup health log summary from DB artifacts + passphrase + health check. */
 internal fun resolveStartupHealthLogSummary(
     hasDatabaseArtifacts: Boolean,
     shouldShowPassphraseUnlock: Boolean,

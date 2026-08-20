@@ -52,6 +52,7 @@ data class RadarAxis(
     val displayLabel: String = label,
 ) {
     fun today(metric: ScoreMetricColumn): Double? = values[metric]?.first
+    /** The running-average component of [metric] for this row. */
     fun runningAvg(metric: ScoreMetricColumn): Double? = values[metric]?.second
 }
 
@@ -218,6 +219,7 @@ class LensHabitScoreViewModel
             return out
         }
 
+        /** Appends a row's 6 metric values into this accumulator map (one list per metric). */
         private fun MutableMap<ScoreMetricColumn, MutableList<Double>>.accumulate(row: MetricWindowRow) {
             this[ScoreMetricColumn.SCORE]?.add(row.score) ?: put(ScoreMetricColumn.SCORE, mutableListOf(row.score))
             this[ScoreMetricColumn.RUNNING_AVG]?.add(row.runningAvg) ?: put(ScoreMetricColumn.RUNNING_AVG, mutableListOf(row.runningAvg))
@@ -262,6 +264,7 @@ class LensHabitScoreViewModel
             return result
         }
 
+        /** Builds display rows for each dimension in [dims], attaching the selected metric, sparkline, and rank. */
         private fun buildDimensionRows(
             dims: List<MetricWindowRow>,
             dayRows: Map<String, MetricWindowRow>,
@@ -282,6 +285,7 @@ class LensHabitScoreViewModel
             }.filterNotNull()
         }
 
+        /** Aggregates the DAY pseudo-row across all dimensions for the window. */
         private fun buildDayRow(
             days: List<MetricWindowRow>,
             start: String,
@@ -298,6 +302,7 @@ class LensHabitScoreViewModel
             )
         }
 
+        /** Extracts all 6 self-gov metric values from a row into a column→value map. */
         private fun metricValues(row: MetricWindowRow): Map<ScoreMetricColumn, Double?> = mapOf(
             ScoreMetricColumn.SCORE to row.score,
             ScoreMetricColumn.RUNNING_AVG to row.runningAvg,
@@ -349,6 +354,7 @@ class LensHabitScoreViewModel
         private fun dimensionLabel(dimensionId: String): String =
             DimensionTaxonomyCatalog.fromAnyId(dimensionId)?.fallbackLabel ?: dimensionId
 
+        /** Default color hex for a dimension (taxonomy or fallback gray). */
         private fun dimensionColorHex(dimensionId: String): String =
             DimensionTaxonomyCatalog.fromAnyId(dimensionId)?.defaultColorHex ?: "#9AA0AA"
     }

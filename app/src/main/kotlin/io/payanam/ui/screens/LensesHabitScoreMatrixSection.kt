@@ -97,6 +97,7 @@ fun LensHabitScoreMatrixSection(
     }
 }
 
+/** Metric selector dropdown; invokes [onSelect] with the chosen [ScoreMetricColumn]. */
 @Composable
 private fun MetricDropdown(
     selected: ScoreMetricColumn,
@@ -149,6 +150,7 @@ private fun MetricDropdown(
     }
 }
 
+/** Maps a [ScoreMetricColumn] to its localized string-resource id. */
 @Composable
 private fun metricLabel(metric: ScoreMetricColumn): Int = when (metric) {
     ScoreMetricColumn.SCORE -> R.string.loc_score
@@ -159,6 +161,7 @@ private fun metricLabel(metric: ScoreMetricColumn): Int = when (metric) {
     ScoreMetricColumn.POS_CONTINUE -> R.string.loc_continue
 }
 
+/** Renders the full matrix: header (metric + rank) + DAY + dimension rows. */
 @Composable
 private fun ScoreMatrixTable(
     uiState: LensHabitScoreUiState,
@@ -237,6 +240,7 @@ private fun ScoreMatrixTable(
 }
 
 @Composable
+/** One matrix row: label, metric value, 14-day sparkline, and rank (X/Y). */
 private fun MatrixRow(
     row: ScoreMatrixRow,
     selectedMetric: ScoreMetricColumn,
@@ -309,6 +313,7 @@ private fun MatrixRow(
     }
 }
 
+/** Formats a metric value for display: score/avg/progress to 5 decimals, streaks as ints, null → em dash. */
 private fun formatMetricValue(value: Double?, metric: ScoreMetricColumn): String {
     if (value == null) return "—"
     return when (metric) {
@@ -321,12 +326,14 @@ private fun formatMetricValue(value: Double?, metric: ScoreMetricColumn): String
     }
 }
 
+/** Color for a metric value: gray (null), red (negative), green (non-negative). */
 private fun valueColor(value: Double?): Color = when {
     value == null -> Color(0xFF64748B)
     value < 0.0 -> Color(0xFFF87171)
     else -> Color(0xFF34D399)
 }
 
+/** Draws a compact line sparkline from a numeric series (nulls skipped). */
 @Composable
 private fun Sparkline(
     series: List<Double?>,
@@ -356,6 +363,7 @@ private fun Sparkline(
     }
 }
 
+/** Parses a #RRGGBB / RRGGBB hex string to a Compose [Color]; falls back to gray on error. */
 private fun parseHexColor(hex: String): Color = runCatching {
     val normalized = hex.removePrefix("#")
     Color((0xFF000000 or normalized.toLong(16)).toInt())

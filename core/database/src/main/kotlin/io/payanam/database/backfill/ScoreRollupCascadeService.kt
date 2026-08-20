@@ -566,18 +566,23 @@ class ScoreRollupCascadeService
             val posContinue: Int?,
         )
 
+        /** Converts a habit metric row to trace values (all 6 metrics). */
         private fun HabitMetricEntity.toTraceValues() =
             TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Converts a dimension metric row to trace values (all 6 metrics). */
         private fun DimensionMetricEntity.toTraceValues() =
             TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Converts a day metric row to trace values (all 6 metrics). */
         private fun DayMetricEntity.toTraceValues() =
             TraceValues(dayScore, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Formats a nullable double for trace output at 5-decimal precision (∅ when null). */
         private fun traceValue(v: Double?): String =
             v?.let { String.format(Locale.US, "%.5f", it) } ?: "∅"
 
+        /** Formats a nullable int for trace output (∅ when null). */
         private fun traceValue(v: Int?): String = v?.toString() ?: "∅"
 
         /**
@@ -610,6 +615,7 @@ class ScoreRollupCascadeService
             return shown.joinToString(" , ", prefix = "$header ", transform = detail)
         }
 
+        /** Parses a dayKey (or longer timestamp) to a [LocalDate] via the first 10 chars. */
         private fun parseDate(s: String): LocalDate =
             try {
                 LocalDate.parse(s.take(10))
