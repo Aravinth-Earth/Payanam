@@ -20,7 +20,6 @@ detekt {
     toolVersion = libs.versions.detekt.get()
     config = files("${rootProject.projectDir}/config/detekt/detekt.yml")
     buildUponDefaultConfig = true
-    baseline = file("${rootProject.projectDir}/config/detekt/baseline-shared.xml")
 }
 
 spotless {

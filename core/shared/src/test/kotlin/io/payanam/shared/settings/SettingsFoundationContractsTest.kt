@@ -7,6 +7,9 @@ import io.payanam.shared.transfer.BackupJsonContract
 import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Test
 
+/**
+ * SettingsFoundationContractsTest.
+ */
 class SettingsFoundationContractsTest {
 
     @Test
@@ -15,7 +18,9 @@ class SettingsFoundationContractsTest {
 
         val snapshot = SettingsFoundationContracts.snapshot(moduleSelection = selection)
 
+        /** Assert that. */
         assertThat(snapshot.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
+        /** Assert that. */
         assertThat(snapshot.moduleSelection).isEqualTo(selection)
     }
 
@@ -23,14 +28,18 @@ class SettingsFoundationContractsTest {
     fun `default areas preserve the current desktop foundation order`() {
         val snapshot = SettingsFoundationContracts.snapshot()
 
+        /** Assert that. */
         assertThat(snapshot.areas.map { it.id }).containsExactly(
             "settings_transfer",
             "settings_structure",
             "tasks_time",
             "notes_lenses",
         ).inOrder()
+        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.SharedReady)).isEqualTo(1)
+        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.ExtractionNext)).isEqualTo(2)
+        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.AndroidOnly)).isEqualTo(1)
     }
 }

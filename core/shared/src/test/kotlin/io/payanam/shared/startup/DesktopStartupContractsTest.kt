@@ -6,6 +6,9 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
 
+/**
+ * DesktopStartupContractsTest.
+ */
 class DesktopStartupContractsTest {
     @Test
     fun `startup snapshot flags missing desktop database lifecycle attention`() {
@@ -13,6 +16,7 @@ class DesktopStartupContractsTest {
             DesktopStartupContracts.snapshot(
                 launchRoute = DesktopTopLevelRoute.SETTINGS,
                 paths =
+                    /** Desktop startup paths. */
                     DesktopStartupPaths(
                         settingsFilePath = "C:/Users/test/AppData/Local/Payanam/preferences.properties",
                         appDataRoot = "C:/Users/test/AppData/Local/Payanam",
@@ -21,15 +25,20 @@ class DesktopStartupContractsTest {
                         databaseFilePath = "C:/Users/test/AppData/Local/Payanam/database/payanam-desktop.db",
                     ),
                 state =
+                    /** Desktop startup state. */
                     DesktopStartupState(
                         passphraseConfigured = false,
                         sessionOpen = false,
                     ),
             )
 
+        /** Assert that. */
         assertThat(snapshot.schemaVersion).isEqualTo(DesktopStartupContracts.SCHEMA_VERSION)
+        /** Assert that. */
         assertThat(snapshot.requiresAttention()).isTrue()
+        /** Assert that. */
         assertThat(snapshot.readyChecks()).isEqualTo(3)
+        /** Assert that. */
         assertThat(snapshot.checks.last().status).isEqualTo(DesktopStartupCheckStatus.AttentionRequired)
     }
 
@@ -39,6 +48,7 @@ class DesktopStartupContractsTest {
             DesktopStartupContracts.snapshot(
                 launchRoute = DesktopTopLevelRoute.TIME,
                 paths =
+                    /** Desktop startup paths. */
                     DesktopStartupPaths(
                         settingsFilePath = "settings.properties",
                         appDataRoot = "appData",
@@ -47,6 +57,7 @@ class DesktopStartupContractsTest {
                         databaseFilePath = "database.db",
                     ),
                 state =
+                    /** Desktop startup state. */
                     DesktopStartupState(
                         passphraseConfigured = true,
                         sessionOpen = true,
@@ -54,8 +65,11 @@ class DesktopStartupContractsTest {
                     ),
             )
 
+        /** Assert that. */
         assertThat(snapshot.launchRoute).isEqualTo(DesktopTopLevelRoute.TIME)
+        /** Assert that. */
         assertThat(snapshot.requiresAttention()).isFalse()
+        /** Assert that. */
         assertThat(snapshot.readyChecks()).isEqualTo(6)
     }
 }

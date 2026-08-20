@@ -1,13 +1,18 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.shared.tasks
 
 import java.time.LocalDateTime
 
 internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSnapshot =
+    /** Desktop task catalog snapshot. */
     DesktopTaskCatalogSnapshot(
         tasks =
+            /** List of. */
             listOf(
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-task-plan-week",
                     title = "Plan weekly outcomes",
@@ -17,6 +22,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     lifeDimension = "Career & Work",
                     currentScore = 0.76,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-task-bill-pay",
                     title = "Pay utility bill",
@@ -26,6 +32,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     lifeDimension = "Finance",
                     currentScore = 0.42,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-task-reading",
                     title = "Read planning notes",
@@ -35,6 +42,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     lifeDimension = "Learning",
                     currentScore = 0.68,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-task-archive",
                     title = "Archive old receipts",
@@ -44,6 +52,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     lifeDimension = "Home",
                     currentScore = 0.20,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-habit-review",
                     title = "Review daily priorities",
@@ -55,6 +64,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     currentScore = 0.88,
                     completedToday = true,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-habit-walk",
                     title = "Evening walk",
@@ -65,6 +75,7 @@ internal fun seededDesktopTaskCatalog(now: LocalDateTime): DesktopTaskCatalogSna
                     lifeDimension = "Health",
                     currentScore = 0.64,
                 ),
+                /** Desktop task record. */
                 DesktopTaskRecord(
                     id = "desk-habit-journal",
                     title = "Journal reflection",
