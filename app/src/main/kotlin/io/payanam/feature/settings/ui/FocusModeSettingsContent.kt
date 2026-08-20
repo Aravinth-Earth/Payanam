@@ -30,44 +30,57 @@ import io.payanam.ui.viewmodel.AppPreferencesState
  * Allows users to select preset tab configurations and toggle individual tab visibility.
  */
 @Composable
+/**
+ * Focus mode settings content.
+ */
 fun focusModeSettingsContent(
+    /** Prefs state. */
     prefsState: AppPreferencesState,
     onSetActivePreset: (FocusModePreset) -> Unit,
     onSetTabVisibility: (String, Boolean) -> Unit,
 ) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
 
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Active Preset Selector
+        /** Text. */
         Text(
             text = stringResource(id = R.string.active_preset),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        /** Single choice segmented button row. */
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             FocusModePreset.entries.forEachIndexed { index, preset ->
+                /** Segmented button. */
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(
                         index = index,
                         count = FocusModePreset.entries.size,
                     ),
                     onClick = {
+                        /** On set active preset. */
                         onSetActivePreset(preset)
                         logger.d(
                             "FocusModeSettings",
                             "Focus mode preset changed",
+                            /** Map of. */
                             mapOf("preset" to preset.presetId),
                         )
                     },
                     selected = prefsState.activePreset == preset,
                 ) {
+                    /** Label res. */
                     val labelRes = when (preset) {
                         FocusModePreset.SIMPLE_TIME_HABITS -> R.string.preset_simple_time_habits
                         FocusModePreset.SIMPLE_JOURNAL -> R.string.preset_simple_journal
                         FocusModePreset.SIMPLE_TASKS -> R.string.preset_simple_tasks
                         FocusModePreset.FULL_SUITE -> R.string.preset_full_suite
                     }
+                    /** Text. */
                     Text(
                         text = stringResource(id = labelRes),
                         style = MaterialTheme.typography.labelSmall,
@@ -77,15 +90,18 @@ fun focusModeSettingsContent(
             }
         }
 
+        /** Horizontal divider. */
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         // Individual Tab Visibility Toggles
+        /** Text. */
         Text(
             text = stringResource(id = R.string.tab_visibility),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        /** Text. */
         Text(
             text = stringResource(id = R.string.tab_visibility_warning),
             style = MaterialTheme.typography.bodySmall,
@@ -93,6 +109,7 @@ fun focusModeSettingsContent(
         )
 
         // Tab toggles
+        /** Tabs. */
         val tabs = listOf(
             "tasks" to R.string.settings_database_tasks,
             "habits" to R.string.loc_habits,
@@ -104,31 +121,38 @@ fun focusModeSettingsContent(
         )
 
         tabs.forEach { (tabRoute, labelRes) ->
+            /** Row. */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
+                /** Text. */
                 Text(
                     text = stringResource(id = labelRes),
                     style = MaterialTheme.typography.bodyMedium,
                 )
 
+                /** If. */
                 if (tabRoute == "settings") {
                     // Settings tab is always visible (disabled switch)
+                    /** Switch. */
                     Switch(
                         checked = true,
                         onCheckedChange = null, // Disabled
                         enabled = false,
                     )
                 } else {
+                    /** Switch. */
                     Switch(
                         checked = prefsState.tabVisibility[tabRoute] != false,
                         onCheckedChange = { visible ->
+                            /** On set tab visibility. */
                             onSetTabVisibility(tabRoute, visible)
                             logger.d(
                                 "FocusModeSettings",
                                 "Tab visibility changed",
+                                /** Map of. */
                                 mapOf("tab" to tabRoute, "visible" to visible),
                             )
                         },
@@ -138,6 +162,7 @@ fun focusModeSettingsContent(
         }
 
         // Settings always visible note
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_always_visible),
             style = MaterialTheme.typography.bodySmall,

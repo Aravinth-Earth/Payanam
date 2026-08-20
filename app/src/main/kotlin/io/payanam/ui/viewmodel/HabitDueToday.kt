@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
@@ -13,6 +15,7 @@ import java.time.LocalDate
 import java.time.temporal.ChronoUnit
 
 private val habitDueTodayLogger: UnifiedLogger?
+    /** Get. */
     get() = if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance() else null
 
 /**
@@ -46,9 +49,11 @@ internal const val HABIT_CHECKMARK_HISTORY_DAYS = 14
 internal suspend fun buildDueTodayByTaskId(
     tasks: List<Task>,
     occurrencesMap: Map<String, List<TaskOccurrence>>,
+    /** Today. */
     today: LocalDate,
     fetchFullHistory: suspend (Task) -> List<TaskOccurrence> = { emptyList() },
 ): Map<String, Boolean> {
+    /** Due today. */
     val dueToday = linkedMapOf<String, Boolean>()
     tasks.forEach { task ->
         dueToday[task.id] = computeDueTodayForTask(
@@ -58,10 +63,12 @@ internal suspend fun buildDueTodayByTaskId(
             fetchFullHistory = fetchFullHistory,
         )
     }
+    /** Due count. */
     val dueCount = dueToday.values.count { it }
     habitDueTodayLogger?.d(
         "HabitDueToday.buildDueTodayByTaskId",
         "Due-today map built",
+        /** Map of. */
         mapOf("habitCount" to tasks.size, "dueTodayCount" to dueCount),
     )
     return dueToday
@@ -74,14 +81,20 @@ internal suspend fun buildDueTodayByTaskId(
  * full history so the current window's quota is counted exactly.
  */
 internal suspend fun computeDueTodayForTask(
+    /** Task. */
     task: Task,
     occurrences: List<TaskOccurrence>,
+    /** Today. */
     today: LocalDate,
     fetchFullHistory: suspend (Task) -> List<TaskOccurrence> = { emptyList() },
 ): Boolean {
+    /** If. */
     if (!task.recurrenceEnabled) return true
+    /** Rule. */
     val rule = task.recurrenceRule
+    /** If. */
     if (Frequency.isSerializedRule(rule)) {
+        /** Frequency. */
         val frequency = Frequency.parse(rule)
         return frequencyWindowDue(
             numerator = frequency.numerator,
@@ -93,6 +106,7 @@ internal suspend fun computeDueTodayForTask(
             today = today,
         )
     }
+    /** Config. */
     val config = RecurrenceConfig.parse(rule)
     return when (config.type) {
         RecurrenceType.FREQUENCY -> frequencyWindowDue(
@@ -108,21 +122,27 @@ internal suspend fun computeDueTodayForTask(
         RecurrenceType.DAILY -> true
 
         RecurrenceType.INTERVAL -> {
+            /** Start. */
             val start = config.startDate
+            /** If. */
             if (start != null) {
                 config.isScheduledDay(today)
             } else {
                 // Legacy rule without an anchor: anchor on the earliest logged
                 // occurrence. Occurrences land on scheduled days, so the
                 // earliest one is same-phase as the true anchor.
+                /** Anchor. */
                 val anchor = occurrences
                     .mapNotNull { occurrence ->
                         runCatching { LocalDate.parse(occurrence.occurrenceDate.take(10)) }.getOrNull()
                     }
                     .minOrNull()
+                /** If. */
                 if (anchor == null) {
+                    /** True. */
                     true // cannot determine the phase — keep the habit visible
                 } else {
+                    /** Days since anchor. */
                     val daysSinceAnchor = ChronoUnit.DAYS.between(anchor, today)
                     daysSinceAnchor >= 0 && daysSinceAnchor % config.intervalDays.coerceAtLeast(1) == 0L
                 }
@@ -141,23 +161,34 @@ internal suspend fun computeDueTodayForTask(
  * RecurrenceManager reminders and auto-miss.
  */
 private fun frequencyWindowDue(
+    /** Numerator. */
     numerator: Int,
+    /** Denominator. */
     denominator: Int,
+    /** Anchor date. */
     anchorDate: LocalDate,
     occurrences: List<TaskOccurrence>,
+    /** Today. */
     today: LocalDate,
 ): Boolean {
+    /** Denom. */
     val denom = denominator.coerceAtLeast(1)
+    /** Days since anchor. */
     val daysSinceAnchor = ChronoUnit.DAYS.between(anchorDate, today)
+    /** If. */
     if (daysSinceAnchor < 0) return false // window has not started yet
+    /** Window start. */
     val windowStart = anchorDate.plusDays((daysSinceAnchor / denom) * denom)
+    /** Window end. */
     val windowEnd = windowStart.plusDays((denom - 1).toLong())
+    /** Occurrence map. */
     val occurrenceMap = HashMap<LocalDate, String>(occurrences.size)
     occurrences.forEach { occurrence ->
         runCatching { LocalDate.parse(occurrence.occurrenceDate.take(10)) }
             .getOrNull()
             ?.let { occurrenceMap[it] = occurrence.status }
     }
+    /** Summary. */
     val summary = RecurrenceScoreCalculator.buildFrequencyWindows(
         occurrences = occurrenceMap,
         frequency = Frequency(

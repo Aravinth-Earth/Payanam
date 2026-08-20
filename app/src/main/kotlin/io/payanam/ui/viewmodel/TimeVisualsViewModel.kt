@@ -27,6 +27,9 @@ import java.time.LocalDate
 import javax.inject.Inject
 
 @HiltViewModel
+/**
+ * TimeVisualsViewModel.
+ */
 class TimeVisualsViewModel @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val taskRepository: TaskRepository,
@@ -35,32 +38,47 @@ class TimeVisualsViewModel @Inject constructor(
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TimeVisualsState())
+    /** Ui state. */
     val uiState: StateFlow<TimeVisualsState> = _uiState.asStateFlow()
     private val dayCache = mutableMapOf<LocalDate, CachedDayVisual>()
     private var taskLookup: Map<String, Task> = emptyMap()
     private var inFlightDate: LocalDate? = null
     private var loadJob: Job? = null
 
+    /**
+     * Load for date.
+     */
     fun loadForDate(date: LocalDate) {
+        /** If. */
         if (inFlightDate == date && loadJob?.isActive == true) {
             logger.d(
                 "TimeVisualsViewModel.loadForDate",
                 "Skipped duplicate in-flight visuals load",
+                /** Map of. */
                 mapOf("date" to date.toString()),
             )
+            /** Return. */
             return
         }
         loadJob = viewModelScope.launch {
             inFlightDate = date
             try {
+                /** Start ms. */
                 val startMs = SystemClock.elapsedRealtime()
                 _uiState.update { it.copy(isLoading = true, selectedDate = date) }
+                /** Invalidate rolling window. */
                 invalidateRollingWindow(date)
+                /** Has lookup. */
                 val hasLookup = taskLookup.isNotEmpty()
+                /** If. */
                 if (!hasLookup) {
+                    /** Quick today. */
                     val quickToday = getDayVisual(date = date, taskLookupSnapshot = emptyMap(), allowCache = false)
+                    /** Quick yesterday. */
                     val quickYesterday = getDayVisual(date = date.minusDays(1), taskLookupSnapshot = emptyMap(), allowCache = false)
+                    /** Quick rolling. */
                     val quickRolling = (0..6).map { offset ->
+                        /** Get day visual. */
                         getDayVisual(date = date.minusDays(offset.toLong()), taskLookupSnapshot = emptyMap(), allowCache = false)
                             .overall
                             .trackedMinutes
@@ -81,6 +99,7 @@ class TimeVisualsViewModel @Inject constructor(
                     logger.d(
                         "TimeVisualsViewModel.loadForDate",
                         "Rendered fast-path visuals before task lookup",
+                        /** Map of. */
                         mapOf(
                             "date" to date.toString(),
                             "durationMs" to (SystemClock.elapsedRealtime() - startMs).toString(),
@@ -88,22 +107,31 @@ class TimeVisualsViewModel @Inject constructor(
                     )
                 }
 
+                /** Task lookup deferred. */
                 val taskLookupDeferred = async {
+                    /** If. */
                     if (taskLookup.isEmpty()) {
                         taskRepository.getAllTasks().first().associateBy { it.id }
                     } else {
+                        /** Task lookup. */
                         taskLookup
                     }
                 }
+                /** Resolved task lookup. */
                 val resolvedTaskLookup = taskLookupDeferred.await()
+                /** If. */
                 if (resolvedTaskLookup !== taskLookup) {
                     taskLookup = resolvedTaskLookup
                     dayCache.clear()
                 }
 
+                /** Today summary. */
                 val todaySummary = getDayVisual(date)
+                /** Yesterday summary. */
                 val yesterdaySummary = getDayVisual(date.minusDays(1))
+                /** Rolling. */
                 val rolling = (0..6).map { offset -> getDayVisual(date.minusDays(offset.toLong())).overall.trackedMinutes }
+                /** Trend. */
                 val trend = TimeTrendStripSummary(
                     selectedDayMinutes = todaySummary.overall.trackedMinutes,
                     previousDayMinutes = yesterdaySummary.overall.trackedMinutes,
@@ -121,6 +149,7 @@ class TimeVisualsViewModel @Inject constructor(
                 logger.d(
                     "TimeVisualsViewModel.loadForDate",
                     "Rendered full visuals with task lookup",
+                    /** Map of. */
                     mapOf(
                         "date" to date.toString(),
                         "hasTaskLookup" to (taskLookup.isNotEmpty()).toString(),
@@ -133,6 +162,9 @@ class TimeVisualsViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Toggle dimension filter.
+     */
     fun toggleDimensionFilter(dimensionId: String) {
         _uiState.update { state ->
             state.copy(
@@ -142,17 +174,24 @@ class TimeVisualsViewModel @Inject constructor(
     }
 
     private suspend fun getDayVisual(
+        /** Date. */
         date: LocalDate,
         taskLookupSnapshot: Map<String, Task> = taskLookup,
         allowCache: Boolean = true,
     ): CachedDayVisual {
+        /** If. */
         if (allowCache) {
             dayCache[date]?.let { return it }
         }
+        /** Entries. */
         val entries = timeEntryRepository.getTimeEntriesForDate(date).first()
+        /** Occurrences. */
         val occurrences = taskOccurrenceRepository.getOccurrencesForDate(date).first()
+        /** Allocations. */
         val allocations = dayPlanRepository.getEffectiveAllocationsForDay(date.toString())
+        /** Overall. */
         val overall = TimeVisualsCalculator.computeDayOverall(selectedDate = date, entries = entries)
+        /** Per dimension. */
         val perDimension = TimeVisualsCalculator.computePerDimension(
             selectedDate = date,
             entries = entries,
@@ -160,13 +199,16 @@ class TimeVisualsViewModel @Inject constructor(
             taskLookup = taskLookupSnapshot,
             allocations = allocations,
         )
+        /** Cached. */
         val cached = CachedDayVisual(entries, occurrences, allocations, overall, perDimension)
+        /** If. */
         if (allowCache) {
             dayCache[date] = cached
         }
         logger.d(
             "TimeVisualsViewModel.getDayVisual",
             "Computed day-scoped time visuals with cache",
+            /** Map of. */
             mapOf(
                 "date" to date.toString(),
                 "allowCache" to allowCache.toString(),
@@ -179,10 +221,15 @@ class TimeVisualsViewModel @Inject constructor(
     }
 
     private data class CachedDayVisual(
+        /** Entries. */
         val entries: List<TimeEntry>,
+        /** Occurrences. */
         val occurrences: List<TaskOccurrence>,
+        /** Allocations. */
         val allocations: List<DayPlanAllocationRecord>,
+        /** Overall. */
         val overall: TimeDayOverallSummary,
+        /** Per dimension. */
         val perDimension: List<TimeDimensionDaySummary>,
     )
 

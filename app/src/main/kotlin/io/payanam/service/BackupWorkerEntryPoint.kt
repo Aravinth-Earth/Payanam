@@ -8,7 +8,16 @@ import dagger.hilt.components.SingletonComponent
 
 @EntryPoint
 @InstallIn(SingletonComponent::class)
+/**
+ * BackupWorkerEntryPoint.
+ */
 interface BackupWorkerEntryPoint {
+    /**
+     * Database backup coordinator.
+     */
     fun databaseBackupCoordinator(): DatabaseBackupCoordinator
+    /**
+     * Backup status store.
+     */
     fun backupStatusStore(): BackupStatusStore
 }

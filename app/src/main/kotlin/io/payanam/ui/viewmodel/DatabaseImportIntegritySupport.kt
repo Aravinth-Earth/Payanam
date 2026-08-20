@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -11,14 +13,20 @@ internal object DatabaseImportIntegritySupport {
     private val logger = UnifiedLogger.getInstance()
     private val trackedTables = listOf("tasks", "time_entries", "notes")
 
+    /**
+     * Read core counts.
+     */
     fun readCoreCounts(
+        /** Context. */
         context: Context,
+        /** Database file. */
         databaseFile: File,
         passphrase: String?,
     ): Map<String, Int> {
         logger.i(
             "DatabaseImportIntegritySupport.readCoreCounts",
             "Reading import integrity core counts",
+            /** Map of. */
             mapOf(
                 "dbFile" to databaseFile.absolutePath,
                 "dbExists" to databaseFile.exists(),
@@ -26,6 +34,7 @@ internal object DatabaseImportIntegritySupport {
                 "hasPassphrase" to (passphrase != null),
             ),
         )
+        /** Counts. */
         val counts = DatabaseEncryptionMigrationSupport.readTableCounts(
             context = context,
             databaseFile = databaseFile,
@@ -35,6 +44,7 @@ internal object DatabaseImportIntegritySupport {
         logger.i(
             "DatabaseImportIntegritySupport.readCoreCounts",
             "Read import integrity core counts",
+            /** Map of. */
             mapOf(
                 "tasks" to (counts["tasks"] ?: 0),
                 "timeEntries" to (counts["time_entries"] ?: 0),
@@ -44,19 +54,28 @@ internal object DatabaseImportIntegritySupport {
         return counts
     }
 
+    /**
+     * Validate counts preserved.
+     */
     fun validateCountsPreserved(
         beforeCounts: Map<String, Int>,
         afterCounts: Map<String, Int>,
+        /** Log tag. */
         logTag: String,
     ) {
+        /** Mismatch. */
         val mismatch = trackedTables.firstOrNull { table ->
             (beforeCounts[table] ?: 0) != (afterCounts[table] ?: 0)
         }
+        /** If. */
         if (mismatch != null) {
             logger.e(
+                /** Log tag. */
                 logTag,
                 "Import integrity check failed",
+                /** Illegal state exception. */
                 IllegalStateException("Counts mismatch for $mismatch"),
+                /** Map of. */
                 mapOf(
                     "table" to mismatch,
                     "before" to (beforeCounts[mismatch] ?: 0),

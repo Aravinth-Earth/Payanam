@@ -23,25 +23,41 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * CreateTimeEntryForHabitUseCaseTest.
+ */
 class CreateTimeEntryForHabitUseCaseTest {
     @Before
+    /**
+     * Set up.
+     */
     fun setUp() {
+        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         }
     }
 
     @Test
+    /**
+     * Invoke uses canonical dimension id before creating time entry.
+     */
     fun invoke_uses_canonical_dimension_id_before_creating_time_entry() = runTest {
+        /** Time entry repository. */
         val timeEntryRepository = FakeTimeEntryRepository()
+        /** App settings repository. */
         val appSettingsRepository = FakeAppSettingsRepository(
+            /** Map of. */
             mapOf(
                 "auto_track_habit_time_global" to "true",
                 "auto_track_dimension_dim_mental_health" to "true",
             ),
         )
+        /** Use case. */
         val useCase = CreateTimeEntryForHabitUseCase(timeEntryRepository, appSettingsRepository)
+        /** Completed at. */
         val completedAt = LocalDateTime.of(2026, 3, 16, 9, 0)
+        /** Task. */
         val task = Task(
             id = "task-1",
             title = "Meditation",
@@ -52,18 +68,27 @@ class CreateTimeEntryForHabitUseCaseTest {
             updatedAt = completedAt.minusDays(1),
         )
 
+        /** Use case. */
         useCase(task, completedAt, 20)
 
+        /** Created. */
         val created = timeEntryRepository.createdInput
+        /** Assert not null. */
         assertNotNull(created)
+        /** Assert equals. */
         assertEquals("dim_mental_health", created?.dimensionId)
+        /** Assert equals. */
         assertEquals("Mental Health", created?.lifeIntentionCategory)
+        /** Assert equals. */
         assertEquals("task-1", created?.taskId)
+        /** Assert equals. */
         assertEquals(completedAt.minusMinutes(20), created?.startedAt)
+        /** Assert equals. */
         assertEquals(completedAt, created?.endedAt)
     }
 
     private class FakeTimeEntryRepository : TimeEntryRepository {
+        /** Created input. */
         var createdInput: TimeEntryInput? = null
 
         override suspend fun getActiveTimeEntry(): TimeEntry? = null
@@ -86,6 +111,7 @@ class CreateTimeEntryForHabitUseCaseTest {
 
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry {
             createdInput = input
+            /** Now. */
             val now = input.endedAt ?: input.startedAt
             return TimeEntry(
                 id = "entry-1",

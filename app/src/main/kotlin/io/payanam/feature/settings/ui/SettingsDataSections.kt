@@ -64,8 +64,10 @@ import kotlinx.coroutines.launch
 
 @Composable
 internal fun DataManagementSettingsSection(
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    /** Ui state. */
     uiState: SettingsUiState,
     onExportClick: () -> Unit,
     onImportClick: () -> Unit,
@@ -74,97 +76,127 @@ internal fun DataManagementSettingsSection(
     onChangePassphraseClick: () -> Unit,
     onDeleteAllDataClick: () -> Unit,
 ) {
+    /** Settings card. */
     SettingsCard(
         title = stringResource(id = R.string.settings_data_management_title),
         icon = Icons.Default.CloudUpload,
         expanded = expanded,
         onToggleExpanded = onToggleExpanded,
     ) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_data_management_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            /** Outlined button. */
             OutlinedButton(
                 onClick = onExportClick,
                 enabled = !uiState.isExporting && !uiState.isImporting,
                 modifier = Modifier.weight(1f),
             ) {
+                /** If. */
                 if (uiState.isExporting) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 } else {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.CloudUpload,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 }
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_export))
             }
+            /** Outlined button. */
             OutlinedButton(
                 onClick = onImportClick,
                 enabled = !uiState.isExporting && !uiState.isImporting,
                 modifier = Modifier.weight(1f),
             ) {
+                /** If. */
                 if (uiState.isImporting) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 } else {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.CloudDownload,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 }
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_import))
             }
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            /** Outlined button. */
             OutlinedButton(
                 onClick = onImportUhabitsClick,
                 enabled = !uiState.isExporting && !uiState.isImporting && !uiState.isUhabitsImporting,
                 modifier = Modifier.weight(1f),
             ) {
+                /** If. */
                 if (uiState.isUhabitsImporting) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 } else {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.CloudDownload,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 }
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_import_uhabits))
             }
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            /** Outlined button. */
             OutlinedButton(
                 onClick = onMapImportedHabitsClick,
                 enabled = uiState.importedUhabitsHabitCount > 0 &&
@@ -172,24 +204,32 @@ internal fun DataManagementSettingsSection(
                     !uiState.isBulkMappingImportedHabits,
                 modifier = Modifier.weight(1f),
             ) {
+                /** If. */
                 if (uiState.isBulkMappingImportedHabits) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(
                         modifier = Modifier.size(16.dp),
                         strokeWidth = 2.dp,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 } else {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Link,
                         contentDescription = null,
                         modifier = Modifier.size(18.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 }
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_map_imported_habits))
             }
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Text. */
         Text(
             text = stringResource(
                 id = R.string.settings_imported_habits_count,
@@ -198,15 +238,20 @@ internal fun DataManagementSettingsSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Outlined button. */
         OutlinedButton(
             onClick = onChangePassphraseClick,
             enabled = !uiState.isExporting && !uiState.isImporting,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Text. */
             Text(stringResource(id = R.string.settings_action_change_passphrase))
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Outlined button. */
         OutlinedButton(
             onClick = onDeleteAllDataClick,
             enabled = !uiState.isExporting && !uiState.isImporting,
@@ -215,9 +260,12 @@ internal fun DataManagementSettingsSection(
                 contentColor = MaterialTheme.colorScheme.error,
             ),
         ) {
+            /** Text. */
             Text(stringResource(id = R.string.settings_action_delete_all_data))
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_imported_habits_count, uiState.importedUhabitsHabitCount),
             style = MaterialTheme.typography.bodySmall,
@@ -228,25 +276,35 @@ internal fun DataManagementSettingsSection(
 
 @Composable
 internal fun DebugLogExportActions(
+    /** Logger. */
     logger: UnifiedLogger,
+    /** Scope. */
     scope: CoroutineScope,
+    /** Snackbar host state. */
     snackbarHostState: SnackbarHostState,
+    /** Context. */
     context: Context,
+    /** Habit score diagnostics in progress. */
     habitScoreDiagnosticsInProgress: Boolean,
     onRunHabitScoreDiagnostics: () -> Unit,
 ) {
+    /** Column. */
     Column(
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(12.dp),
         ) {
+            /** Outlined button. */
             OutlinedButton(
                 onClick = {
                     logger.d("SettingsScreen.exportLogsButtonTapped", "Export logs button tapped")
                     scope.launch {
+                        /** Exported file. */
                         val exportedFile = logger.exportLatestLog()
+                        /** If. */
                         if (exportedFile != null) {
                             snackbarHostState.showSnackbar(
                                 context.getString(
@@ -263,19 +321,25 @@ internal fun DebugLogExportActions(
                 },
                 modifier = Modifier.weight(1f),
             ) {
+                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.CloudUpload,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
+                /** Spacer. */
                 Spacer(modifier = Modifier.width(8.dp))
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_export_latest_log))
             }
+            /** Outlined button. */
             OutlinedButton(
                 onClick = {
                     logger.d("SettingsScreen.exportLogsButtonTapped", "Export logs button tapped")
                     scope.launch {
+                        /** Exported file. */
                         val exportedFile = logger.exportAllLogs()
+                        /** If. */
                         if (exportedFile != null) {
                             snackbarHostState.showSnackbar(
                                 context.getString(
@@ -292,33 +356,42 @@ internal fun DebugLogExportActions(
                 },
                 modifier = Modifier.weight(1f),
             ) {
+                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Storage,
                     contentDescription = null,
                     modifier = Modifier.size(18.dp),
                 )
+                /** Spacer. */
                 Spacer(modifier = Modifier.width(8.dp))
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_export_all_logs))
             }
         }
+        /** Outlined button. */
         OutlinedButton(
             onClick = {
                 logger.i(
                     "SettingsScreen.habitScoreDiagnosticsTapped",
                     "Habit score diagnostics tapped",
                 )
+                /** On run habit score diagnostics. */
                 onRunHabitScoreDiagnostics()
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = !habitScoreDiagnosticsInProgress,
         ) {
+            /** Icon. */
             Icon(
                 imageVector = Icons.Default.Storage,
                 contentDescription = null,
                 modifier = Modifier.size(18.dp),
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
+            /** Text. */
             Text(
+                /** String resource. */
                 stringResource(
                     id = if (habitScoreDiagnosticsInProgress) {
                         R.string.settings_action_run_habit_score_diagnostics_in_progress
@@ -333,27 +406,35 @@ internal fun DebugLogExportActions(
 
 @Composable
 internal fun MinimalDataManagementSection(
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     onChangePassphraseClick: () -> Unit,
     onDeleteAllDataClick: () -> Unit,
+    /** Is exporting. */
     isExporting: Boolean,
+    /** Is importing. */
     isImporting: Boolean,
 ) {
+    /** Settings card. */
     SettingsCard(
         title = stringResource(id = R.string.settings_data_management_title),
         icon = Icons.Default.CloudUpload,
         expanded = expanded,
         onToggleExpanded = onToggleExpanded,
     ) {
+        /** Outlined button. */
         OutlinedButton(
             onClick = onChangePassphraseClick,
             enabled = !isExporting && !isImporting,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Text. */
             Text(stringResource(id = R.string.settings_action_change_passphrase))
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Outlined button. */
         OutlinedButton(
             onClick = onDeleteAllDataClick,
             enabled = !isExporting && !isImporting,
@@ -362,6 +443,7 @@ internal fun MinimalDataManagementSection(
                 contentColor = MaterialTheme.colorScheme.error,
             ),
         ) {
+            /** Text. */
             Text(stringResource(id = R.string.settings_action_delete_all_data))
         }
     }
@@ -370,9 +452,12 @@ internal fun MinimalDataManagementSection(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AboutSettingsSection(
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    /** Ui state. */
     uiState: SettingsUiState,
+    /** Logger. */
     logger: UnifiedLogger,
     onViewGithub: () -> Unit,
     onCheckForUpdate: () -> Unit = {},
@@ -386,13 +471,16 @@ internal fun AboutSettingsSection(
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
 ) {
+    /** Context. */
     val context = androidx.compose.ui.platform.LocalContext.current
+    /** Settings card. */
     SettingsCard(
         title = stringResource(id = R.string.settings_about_title),
         icon = Icons.Default.Info,
         expanded = expanded,
         onToggleExpanded = onToggleExpanded,
     ) {
+        /** Stat row. */
         StatRow(
             label = stringResource(id = R.string.settings_about_version_label),
             value = stringResource(
@@ -400,57 +488,75 @@ internal fun AboutSettingsSection(
                 uiState.appVersion,
             ),
         )
+        /** Stat row. */
         StatRow(
             label = stringResource(id = R.string.settings_about_codename_label),
             value = stringResource(id = R.string.settings_about_codename_value),
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(12.dp))
+        /** Text. */
         Text(
             text = stringResource(id = R.string.app_name),
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.Bold,
         )
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_about_tagline),
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.primary,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_about_description),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(12.dp))
+        /** Outlined button. */
         OutlinedButton(onClick = onViewGithub) {
+            /** Text. */
             Text(stringResource(id = R.string.settings_action_view_on_github))
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Text. */
         Text(
             text = stringResource(id = R.string.feedback_contact_email_value, stringResource(id = R.string.feedback_contact_email)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Text. */
         Text(
             text = stringResource(id = R.string.feedback_contact_signal_value, stringResource(id = R.string.feedback_contact_signal)),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(12.dp))
+        /** Horizontal divider. */
         HorizontalDivider()
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
 
         // Update channel selector
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_update_channel_label),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
         var channelMenuExpanded by remember { mutableStateOf(false) }
+        /** Exposed dropdown menu box. */
         ExposedDropdownMenuBox(
             expanded = channelMenuExpanded,
             onExpandedChange = { channelMenuExpanded = it },
         ) {
+            /** Outlined text field. */
             OutlinedTextField(
                 value = stringResource(id = uiState.updateChannel.labelResId()),
                 onValueChange = {},
@@ -460,66 +566,82 @@ internal fun AboutSettingsSection(
                     .fillMaxWidth()
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
+            /** Dropdown menu. */
             DropdownMenu(
                 expanded = channelMenuExpanded,
                 onDismissRequest = { channelMenuExpanded = false },
             ) {
                 UpdateChannel.entries.forEach { option ->
+                    /** Dropdown menu item. */
                     DropdownMenuItem(
                         text = { Text(stringResource(id = option.labelResId())) },
                         onClick = {
                             channelMenuExpanded = false
+                            /** On update channel selected. */
                             onUpdateChannelSelected(option)
                         },
                     )
                 }
             }
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
 
         // Auto-download opt-in + check button
+        /** Row. */
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Checkbox. */
             Checkbox(
                 checked = uiState.autoDownloadEnabled,
                 onCheckedChange = { onAutoDownloadToggled(it) },
                 enabled = !uiState.isCheckingForUpdate,
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_update_auto_download),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
         }
+        /** Row. */
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Checkbox. */
             Checkbox(
                 checked = uiState.promptInstallEnabled,
                 onCheckedChange = { onPromptInstallToggled(it) },
                 enabled = uiState.autoDownloadEnabled && !uiState.isCheckingForUpdate,
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_update_prompt_install),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
         }
+        /** Row. */
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Checkbox. */
             Checkbox(
                 checked = uiState.wifiOnlyEnabled,
                 onCheckedChange = { onWifiOnlyToggled(it) },
                 enabled = !uiState.isCheckingForUpdate,
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_update_wifi_only),
                 style = MaterialTheme.typography.bodyMedium,
@@ -527,22 +649,27 @@ internal fun AboutSettingsSection(
             )
         }
 
+        /** Row. */
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Checkbox. */
             Checkbox(
                 checked = uiState.autoCheckEnabled,
                 onCheckedChange = { onAutoCheckToggled(it) },
                 enabled = !uiState.isCheckingForUpdate,
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_update_auto_check),
                 style = MaterialTheme.typography.bodyMedium,
                 modifier = Modifier.weight(1f),
             )
         }
+        /** Spacer. */
         Spacer(modifier = Modifier.height(4.dp))
 
         // Update check
@@ -553,8 +680,11 @@ internal fun AboutSettingsSection(
         //   Downloaded     → Install now
         //   Failed         → Retry
         //   Up to date     → Check for update (re-check allowed, cooldown guards)
+        /** Button label. */
         val buttonLabel: String
+        /** Button enabled. */
         val buttonEnabled: Boolean
+        /** Button action. */
         val buttonAction: () -> Unit
         when {
             uiState.isCheckingForUpdate -> {
@@ -595,11 +725,13 @@ internal fun AboutSettingsSection(
                 buttonAction = onCheckForUpdate
             }
         }
+        /** Button. */
         Button(
             onClick = {
                 logger.d(
                     "SettingsScreen.updateButtonTapped",
                     "Update button tapped",
+                    /** Map of. */
                     mapOf(
                         "label" to buttonLabel,
                         "action" to when (buttonAction) {
@@ -614,32 +746,41 @@ internal fun AboutSettingsSection(
                         "downloadState" to uiState.downloadState::class.simpleName,
                     ),
                 )
+                /** Button action. */
                 buttonAction()
             },
             modifier = Modifier.fillMaxWidth(),
             enabled = buttonEnabled,
         ) {
+            /** If. */
             if (uiState.isCheckingForUpdate) {
+                /** Circular progress indicator. */
                 CircularProgressIndicator(
                     modifier = Modifier.size(16.dp),
                     strokeWidth = 2.dp,
                     color = MaterialTheme.colorScheme.onPrimary,
                 )
+                /** Spacer. */
                 Spacer(modifier = Modifier.width(8.dp))
             }
+            /** Text. */
             Text(text = buttonLabel)
         }
 
         // Secondary "Check again" affordance: shown whenever a manual download
         // path is active, so a fresh check is always one tap away.
+        /** If. */
         if (buttonAction == onDownloadOrRetry) {
+            /** Text button. */
             TextButton(
                 onClick = {
                     logger.d("SettingsScreen.updateCheckAgainTapped", "Check again tapped", mapOf("label" to buttonLabel))
+                    /** On check for update. */
                     onCheckForUpdate()
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_update_check_again_button),
                     style = MaterialTheme.typography.bodyMedium,
@@ -647,21 +788,30 @@ internal fun AboutSettingsSection(
             }
         }
 
+        /** Result. */
         val result = uiState.updateCheckResult
+        /** If. */
         if (result != null && !uiState.isCheckingForUpdate) {
+            /** Spacer. */
             Spacer(modifier = Modifier.height(8.dp))
             when {
                 result.error != null -> {
+                    /** Error text. */
                     val errorText = when (result.error) {
                         UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
+                            /** String resource. */
                             stringResource(id = R.string.settings_update_error_network)
                         UpdateCheckError.RATE_LIMITED ->
+                            /** String resource. */
                             stringResource(id = R.string.settings_update_error_rate_limited)
                         UpdateCheckError.GITHUB_UNAVAILABLE ->
+                            /** String resource. */
                             stringResource(id = R.string.settings_update_error_github)
                         UpdateCheckError.PARSE_ERROR, UpdateCheckError.UNKNOWN ->
+                            /** String resource. */
                             stringResource(id = R.string.settings_update_error_parse)
                     }
+                    /** Text. */
                     Text(
                         text = errorText,
                         color = MaterialTheme.colorScheme.error,
@@ -669,21 +819,26 @@ internal fun AboutSettingsSection(
                     )
                 }
                 result.isUpdateAvailable -> {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
                         color = MaterialTheme.colorScheme.primary,
                         style = MaterialTheme.typography.bodyMedium,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.height(4.dp))
+                    /** Outlined button. */
                     OutlinedButton(onClick = {
                         result.releaseUrl?.let { url ->
                             context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
                         }
                     }) {
+                        /** Text. */
                         Text(stringResource(id = R.string.settings_update_view_release))
                     }
                 }
                 else -> {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
                         style = MaterialTheme.typography.bodySmall,
@@ -694,37 +849,50 @@ internal fun AboutSettingsSection(
         }
 
         // All-channel status rows (populated from the same list fetch)
+        /** Statuses. */
         val statuses = result?.channelStatuses
+        /** If. */
         if (statuses != null && statuses.isNotEmpty()) {
+            /** Spacer. */
             Spacer(modifier = Modifier.height(12.dp))
+            /** Horizontal divider. */
             HorizontalDivider()
+            /** Spacer. */
             Spacer(modifier = Modifier.height(8.dp))
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_update_channel_statuses_title),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             UpdateChannel.entries.forEach { channel ->
+                /** Status. */
                 val status = statuses.firstOrNull { it.channel == channel }
+                /** Is selected. */
                 val isSelected = channel == uiState.updateChannel
+                /** Row. */
                 Row(
                     verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(vertical = 4.dp),
                 ) {
+                    /** Icon. */
                     Icon(
                         imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
                         contentDescription = null,
                         tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                         modifier = Modifier.size(16.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
+                    /** Text. */
                     Text(
                         text = stringResource(id = channel.labelResId()),
                         style = MaterialTheme.typography.bodyMedium,
                         modifier = Modifier.weight(1f),
                     )
+                    /** Text. */
                     Text(
                         text = status?.buildNumber?.let { stringResource(id = R.string.settings_update_channel_build, it) }
                             ?: stringResource(id = R.string.settings_update_channel_no_build),
@@ -740,20 +908,26 @@ internal fun AboutSettingsSection(
         }
 
         // Auto-download progress/state
+        /** When. */
         when (val dl = uiState.downloadState) {
             is DownloadUiState.Downloading -> {
+                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
+                /** Column. */
                 Column(modifier = Modifier.fillMaxWidth()) {
                     // Line 1: channel · build label
+                    /** Text. */
                     Text(
                         text = stringResource(
                             id = R.string.settings_update_downloading_header,
                             dl.channelName.ifEmpty { "dev" },
+                            /** Download build label. */
                             downloadBuildLabel(dl.buildName.ifEmpty { dl.fileName }),
                         ),
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     // Line 2: full build name (small, muted)
+                    /** Text. */
                     Text(
                         text = dl.buildName.ifEmpty { dl.fileName },
                         style = MaterialTheme.typography.bodySmall,
@@ -761,20 +935,27 @@ internal fun AboutSettingsSection(
                         maxLines = 1,
                         overflow = TextOverflow.Ellipsis,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.height(6.dp))
+                    /** Row. */
                     Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        /** Circular progress indicator. */
                         CircularProgressIndicator(
                             progress = { dl.progressPercent / 100f },
                             modifier = Modifier.size(20.dp),
                             strokeWidth = 2.dp,
                         )
+                        /** Spacer. */
                         Spacer(modifier = Modifier.width(8.dp))
+                        /** Text. */
                         Text(
                             text = stringResource(id = R.string.loc_percent_value, dl.progressPercent),
                             style = MaterialTheme.typography.bodySmall,
                             modifier = Modifier.weight(1f),
                         )
+                        /** Text button. */
                         TextButton(onClick = onCancelDownload) {
+                            /** Text. */
                             Text(
                                 text = stringResource(id = R.string.settings_action_cancel),
                                 style = MaterialTheme.typography.bodySmall,
@@ -785,7 +966,9 @@ internal fun AboutSettingsSection(
                 }
             }
             is DownloadUiState.Paused -> {
+                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
+                /** Text. */
                 Text(
                     text = stringResource(id = pausedMessageRes(dl.message)),
                     style = MaterialTheme.typography.bodySmall,
@@ -793,7 +976,9 @@ internal fun AboutSettingsSection(
                 )
             }
             is DownloadUiState.Downloaded -> {
+                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_update_downloaded),
                     style = MaterialTheme.typography.bodySmall,
@@ -801,7 +986,9 @@ internal fun AboutSettingsSection(
                 )
             }
             is DownloadUiState.Failed -> {
+                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
+                /** Text. */
                 Text(
                     text = stringResource(id = failedMessageRes(dl.message)),
                     style = MaterialTheme.typography.bodySmall,
@@ -812,19 +999,26 @@ internal fun AboutSettingsSection(
         }
 
         // Update-install popup (shown when a download finished and prompt-install is ON)
+        /** Pending path. */
         val pendingPath = uiState.pendingInstallPath
+        /** If. */
         if (pendingPath != null) {
+            /** Alert dialog. */
             AlertDialog(
                 onDismissRequest = onInstallLater,
                 title = { Text(stringResource(id = R.string.settings_update_install_title)) },
                 text = { Text(stringResource(id = R.string.settings_update_install_message)) },
                 confirmButton = {
+                    /** Text button. */
                     TextButton(onClick = onInstallNow) {
+                        /** Text. */
                         Text(stringResource(id = R.string.settings_update_install_now))
                     }
                 },
                 dismissButton = {
+                    /** Text button. */
                     TextButton(onClick = onInstallLater) {
+                        /** Text. */
                         Text(stringResource(id = R.string.settings_update_install_later))
                     }
                 },
@@ -863,35 +1057,47 @@ private fun pausedMessageRes(key: String): Int = when (key) {
 
 @Composable
 internal fun DatabaseStatsSettingsSection(
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    /** Ui state. */
     uiState: SettingsUiState,
     onDeleteArtifact: (String) -> Unit,
     onCleanStaleArtifacts: () -> Unit = {},
 ) {
+    /** Settings card. */
     SettingsCard(
         title = stringResource(id = R.string.settings_database_title),
         icon = Icons.Default.Storage,
         expanded = expanded,
         onToggleExpanded = onToggleExpanded,
     ) {
+        /** Stat row. */
         StatRow(label = stringResource(id = R.string.settings_database_tasks), value = uiState.taskCount.toString())
+        /** Stat row. */
         StatRow(label = stringResource(id = R.string.settings_database_time_entries), value = uiState.timeEntryCount.toString())
+        /** Stat row. */
         StatRow(label = stringResource(id = R.string.settings_database_notes), value = uiState.noteCount.toString())
+        /** Horizontal divider. */
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        /** Stat row. */
         StatRow(
             label = stringResource(id = R.string.settings_database_size),
             value = stringResource(id = R.string.settings_database_size_value, uiState.databaseSizeKb),
         )
+        /** Stat row. */
         StatRow(
             label = stringResource(id = R.string.settings_database_current_schema),
             value = uiState.currentDatabaseSchemaVersion.toString(),
         )
+        /** Stat row. */
         StatRow(
             label = stringResource(id = R.string.settings_database_min_supported_schema),
             value = uiState.minimumSupportedSchemaVersion.toString(),
         )
+        /** Horizontal divider. */
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
+        /** Database artifacts section. */
         DatabaseArtifactsSection(
             artifacts = uiState.databaseArtifacts,
             onDeleteArtifact = onDeleteArtifact,

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
@@ -21,20 +23,34 @@ internal class LensHistoryBackfillCoordinator(
 ) {
     private var backfillJob: Job? = null
 
+    /**
+     * Cancel.
+     */
     fun cancel() {
+        /** If. */
         if (backfillJob?.isActive == true) {
             logger.d("LensHistoryBackfillCoordinator.cancel", "Cancelling active backfill job")
         }
         backfillJob?.cancel()
     }
 
+    /**
+     * Next limit after.
+     */
     fun nextLimitAfter(currentDays: Int): Int? = PROGRESSIVE_HISTORY_LIMITS.firstOrNull { it > currentDays }
 
+    /**
+     * Schedule.
+     */
     fun schedule(
+        /** Scope. */
         scope: CoroutineScope,
+        /** Lens repository. */
         lensRepository: LensRepository,
+        /** Focus date. */
         focusDate: LocalDate,
         seededDataByDay: Map<String, UnifiedLensSnapshot>,
+        /** Expected range. */
         expectedRange: ResolvedLensWindowRange,
         maxHistoryLimit: Int = Int.MAX_VALUE,
         loadSnapshot: suspend (String, Map<String, UnifiedLensSnapshot>) -> UnifiedLensSnapshot,
@@ -44,15 +60,20 @@ internal class LensHistoryBackfillCoordinator(
         backfillJob?.cancel()
         backfillJob = scope.launch {
             try {
+                /** Last applied days. */
                 var lastAppliedDays = 0
+                /** For. */
                 for (historyLimit in PROGRESSIVE_HISTORY_LIMITS) {
+                    /** If. */
                     if (historyLimit > maxHistoryLimit) {
                         return@launch
                     }
+                    /** If. */
                     if (!isCurrentSelection()) {
                         logger.d(
                             "LensHistoryBackfillCoordinator.schedule",
                             "Ignoring stale time-history backfill",
+                            /** Map of. */
                             mapOf(
                                 "mode" to expectedRange.mode.name,
                                 "window" to expectedRange.window.name,
@@ -61,7 +82,9 @@ internal class LensHistoryBackfillCoordinator(
                         )
                         return@launch
                     }
+                    /** Summary. */
                     val summary = withContext(Dispatchers.Default) {
+                        /** Build time module history summary. */
                         buildTimeModuleHistorySummary(
                             lensRepository = lensRepository,
                             focusDate = focusDate,
@@ -71,17 +94,22 @@ internal class LensHistoryBackfillCoordinator(
                         )
                     } ?: return@launch
 
+                    /** If. */
                     if (summary.totalDays <= lastAppliedDays) {
+                        /** If. */
                         if (summary.totalDays < historyLimit || historyLimit == Int.MAX_VALUE) {
                             return@launch
                         }
+                        /** Continue. */
                         continue
                     }
+                    /** On backfill ready. */
                     onBackfillReady(summary)
                     lastAppliedDays = summary.totalDays
                     logger.d(
                         "LensHistoryBackfillCoordinator.schedule",
                         "Time-history backfill applied",
+                        /** Map of. */
                         mapOf(
                             "days" to summary.totalDays,
                             "historyLimit" to historyLimit,
@@ -90,14 +118,16 @@ internal class LensHistoryBackfillCoordinator(
                             "pageIndex" to expectedRange.pageIndex,
                         ),
                     )
+                    /** If. */
                     if (summary.totalDays < historyLimit || historyLimit == Int.MAX_VALUE) {
                         return@launch
                     }
+                    /** Yield. */
                     yield()
                 }
             } catch (_: CancellationException) {
                 logger.d("LensHistoryBackfillCoordinator.schedule", "Time-history backfill cancelled")
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("LensHistoryBackfillCoordinator.schedule", "Failed to backfill time history", e)
             }
         }

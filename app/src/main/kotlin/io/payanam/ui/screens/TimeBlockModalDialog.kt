@@ -67,7 +67,9 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 
 internal data class TaskBlockActionState(
+    /** Task. */
     val task: Task,
+    /** Is completed block. */
     val isCompletedBlock: Boolean,
 )
 
@@ -76,12 +78,16 @@ private enum class TimeBlockModalSection { CONTEXT, TIME, FOCUS }
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TimeBlockModalDialog(
+    /** Title. */
     title: String,
     tasks: List<Task>,
     dimensionOptions: List<DimensionOption>,
+    /** Initial dimension. */
     initialDimension: DimensionOption,
     initialTaskId: String?,
+    /** Initial start date. */
     initialStartDate: LocalDate,
+    /** Initial start time. */
     initialStartTime: LocalTime,
     initialEndDate: LocalDate?,
     initialEndTime: LocalTime?,
@@ -89,9 +95,13 @@ internal fun TimeBlockModalDialog(
     initialFocusNote: String?,
     initialTags: List<String>,
     tagSuggestions: List<String>,
+    /** Use24hour. */
     use24Hour: Boolean,
+    /** Is existing entry. */
     isExistingEntry: Boolean,
+    /** Is active entry. */
     isActiveEntry: Boolean,
+    /** Is gap create. */
     isGapCreate: Boolean,
     taskActionState: TaskBlockActionState?,
     onConfirmTimeEntry: (DimensionOption, String?, LocalDate, LocalTime, LocalDate?, LocalTime?, Double?, String?, List<String>) -> Unit,
@@ -107,6 +117,7 @@ internal fun TimeBlockModalDialog(
     onEditTask: (() -> Unit)?,
     onDismiss: () -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
     var selectedDimension by remember { mutableStateOf(initialDimension) }
     var selectedTaskId by remember { mutableStateOf(initialTaskId) }
@@ -123,7 +134,9 @@ internal fun TimeBlockModalDialog(
     var showEndTimePicker by remember { mutableStateOf(false) }
     var dimensionExpanded by remember { mutableStateOf(false) }
     var taskExpanded by remember { mutableStateOf(false) }
+    /** Scroll state. */
     val scrollState = rememberScrollState()
+    /** Default section. */
     val defaultSection = remember(isGapCreate, isActiveEntry, taskActionState, isExistingEntry) {
         when {
             isGapCreate -> TimeBlockModalSection.TIME
@@ -135,64 +148,98 @@ internal fun TimeBlockModalDialog(
     }
     var expandedSection by remember(defaultSection) { mutableStateOf(defaultSection) }
 
+    /** Selected label. */
     val selectedLabel = selectedDimension.label
+    /** Selected task title. */
     val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title
+    /** Time formatter. */
     val timeFormatter = DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a")
+    /** Date formatter. */
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
+    /** Live end date. */
     val liveEndDate = endDate ?: LocalDate.now()
+    /** Live end time. */
     val liveEndTime = endTime ?: LocalTime.now()
+    /** Live duration minutes. */
     val liveDurationMinutes = Duration.between(
         LocalDateTime.of(startDate, startTime),
         LocalDateTime.of(liveEndDate, liveEndTime),
     ).toMinutes().coerceAtLeast(0).toInt()
+    /** Can save. */
     val canSave = canSaveEditedTimeEntry(startDate, startTime, endDate, endTime)
+    /** Selected canonical dimension id. */
     val selectedCanonicalDimensionId = selectedDimension.canonicalId
+    /** Filtered tasks. */
     val filteredTasks = tasks.filter {
+        /** Task matches dimension. */
         taskMatchesDimension(it, selectedDimension) ||
             (
                 !selectedCanonicalDimensionId.isNullOrBlank() &&
                     DimensionTaxonomyCatalog.fromCanonicalId(it.dimensionId)?.id == selectedCanonicalDimensionId
                 )
     }
+    /** Task tags. */
     val taskTags = parseTagsInput(tagsRaw)
+    /** Is recurring task block. */
     val isRecurringTaskBlock = taskActionState?.task?.recurrenceEnabled == true
+    /** Is completed task block. */
     val isCompletedTaskBlock = taskActionState?.isCompletedBlock == true
+    /** Delete action. */
     val deleteAction = when {
         onDeleteTask != null -> ({ onDeleteTask.invoke(taskTags) })
         onDeleteEntry != null -> onDeleteEntry
         else -> null
     }
+    /** Primary action label. */
     val primaryActionLabel = when {
         isGapCreate || isActiveEntry || taskActionState != null -> io.payanam.R.string.loc_end
         isExistingEntry -> io.payanam.R.string.loc_save
         else -> io.payanam.R.string.loc_add
     }
 
+    /**
+     * Submit time entry.
+     */
     fun submitTimeEntry() {
+        /** Normalized focus note. */
         val normalizedFocusNote = focusNote.takeIf { it.isNotBlank() }
+        /** Resolved end date. */
         val resolvedEndDate = if (isActiveEntry && endDate == null && endTime == null) {
             LocalDate.now()
         } else {
+            /** End date. */
             endDate
         }
+        /** Resolved end time. */
         val resolvedEndTime = if (isActiveEntry && endDate == null && endTime == null) {
             LocalTime.now()
         } else {
+            /** End time. */
             endTime
         }
+        /** On confirm time entry. */
         onConfirmTimeEntry(
+            /** Selected dimension. */
             selectedDimension,
+            /** Selected task id. */
             selectedTaskId,
+            /** Start date. */
             startDate,
+            /** Start time. */
             startTime,
+            /** Resolved end date. */
             resolvedEndDate,
+            /** Resolved end time. */
             resolvedEndTime,
             focusRating.toDouble(),
+            /** Normalized focus note. */
             normalizedFocusNote,
+            /** Task tags. */
             taskTags,
         )
     }
 
+    /** Continue action. */
     val continueAction = resolveContinueAction(
         isGapCreate = isGapCreate,
         isActiveEntry = isActiveEntry,
@@ -203,10 +250,12 @@ internal fun TimeBlockModalDialog(
         startDate = startDate,
         startTime = startTime,
     )
+    /** Launched effect. */
     LaunchedEffect(isGapCreate, isActiveEntry, continueAction) {
         logger.d(
             "TimeBlockModalDialog.continueAction",
             "Continue button visibility resolved",
+            /** Map of. */
             mapOf(
                 "isGapCreate" to isGapCreate,
                 "isActiveEntry" to isActiveEntry,
@@ -218,36 +267,47 @@ internal fun TimeBlockModalDialog(
         )
     }
 
+    /** Context summary. */
     val contextSummary = selectedTaskTitle?.let { "$selectedLabel - $it" } ?: selectedLabel
+    /** Time summary. */
     val timeSummary = "${startTime.format(timeFormatter)} - ${liveEndTime.format(timeFormatter)}"
+    /** Focus summary. */
     val focusSummary = String.format(Locale.US, "%.2f", focusRating.toDouble())
 
+    /** Dialog. */
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
     ) {
+        /** Surface. */
         Surface(
             modifier = Modifier
                 .fillMaxSize()
                 .imePadding(),
             color = MaterialTheme.colorScheme.surface,
         ) {
+            /** Column. */
             Column(modifier = Modifier.fillMaxSize()) {
+                /** Column. */
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    /** Text. */
                     Text(text = title, style = MaterialTheme.typography.titleLarge)
+                    /** Text. */
                     Text(
                         text = stringResource(id = io.payanam.R.string.loc_duration_minutes_plain, liveDurationMinutes),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
+                /** Horizontal divider. */
                 HorizontalDivider()
 
+                /** Column. */
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -255,10 +315,12 @@ internal fun TimeBlockModalDialog(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    /** Time block modal section card. */
                     TimeBlockModalSectionCard(
                         titleRes = io.payanam.R.string.loc_life_dimension,
                         summary = contextSummary,
                         summaryContent = {
+                            /** Dimension badge label row. */
                             DimensionBadgeLabelRow(
                                 label = selectedLabel,
                                 color = selectedDimension.color,
@@ -267,6 +329,7 @@ internal fun TimeBlockModalDialog(
                                 badgeSize = 24.dp,
                             )
                             selectedTaskTitle?.let { taskTitle ->
+                                /** Text. */
                                 Text(
                                     text = taskTitle,
                                     style = MaterialTheme.typography.bodySmall,
@@ -277,19 +340,23 @@ internal fun TimeBlockModalDialog(
                         expanded = expandedSection == TimeBlockModalSection.CONTEXT,
                         onExpand = { expandedSection = TimeBlockModalSection.CONTEXT },
                     ) {
+                        /** Text. */
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_life_dimension),
                             style = MaterialTheme.typography.labelMedium,
                         )
+                        /** Exposed dropdown menu box. */
                         ExposedDropdownMenuBox(
                             expanded = dimensionExpanded,
                             onExpandedChange = { dimensionExpanded = it },
                         ) {
+                            /** Outlined text field. */
                             OutlinedTextField(
                                 value = selectedLabel,
                                 onValueChange = {},
                                 readOnly = true,
                                 leadingIcon = {
+                                    /** Dimension dropdown badge. */
                                     DimensionDropdownBadge(
                                         label = selectedDimension.label,
                                         color = selectedDimension.color,
@@ -302,13 +369,16 @@ internal fun TimeBlockModalDialog(
                                     .fillMaxWidth()
                                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                             )
+                            /** Dropdown menu. */
                             DropdownMenu(
                                 expanded = dimensionExpanded,
                                 onDismissRequest = { dimensionExpanded = false },
                             ) {
                                 dimensionOptions.forEach { dim ->
+                                    /** Dropdown menu item. */
                                     DropdownMenuItem(
                                         text = {
+                                            /** Dimension dropdown badge label row. */
                                             DimensionDropdownBadgeLabelRow(
                                                 label = dim.label,
                                                 color = dim.color,
@@ -318,6 +388,7 @@ internal fun TimeBlockModalDialog(
                                         },
                                         onClick = {
                                             selectedDimension = dim
+                                            /** If. */
                                             if (taskActionState == null) {
                                                 selectedTaskId = null
                                             }
@@ -328,14 +399,17 @@ internal fun TimeBlockModalDialog(
                             }
                         }
 
+                        /** Text. */
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_task_optional),
                             style = MaterialTheme.typography.labelMedium,
                         )
+                        /** Exposed dropdown menu box. */
                         ExposedDropdownMenuBox(
                             expanded = taskExpanded,
                             onExpandedChange = { taskExpanded = it },
                         ) {
+                            /** Outlined text field. */
                             OutlinedTextField(
                                 value = filteredTasks.find { it.id == selectedTaskId }?.title
                                     ?: stringResource(id = io.payanam.R.string.loc_none),
@@ -346,10 +420,12 @@ internal fun TimeBlockModalDialog(
                                     .fillMaxWidth()
                                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                             )
+                            /** Dropdown menu. */
                             DropdownMenu(
                                 expanded = taskExpanded,
                                 onDismissRequest = { taskExpanded = false },
                             ) {
+                                /** Dropdown menu item. */
                                 DropdownMenuItem(
                                     text = { Text(stringResource(id = io.payanam.R.string.loc_none)) },
                                     onClick = {
@@ -358,6 +434,7 @@ internal fun TimeBlockModalDialog(
                                     },
                                 )
                                 filteredTasks.forEach { task ->
+                                    /** Dropdown menu item. */
                                     DropdownMenuItem(
                                         text = { Text(task.title) },
                                         onClick = {
@@ -370,79 +447,103 @@ internal fun TimeBlockModalDialog(
                         }
                     }
 
+                    /** Time block modal section card. */
                     TimeBlockModalSectionCard(
                         titleRes = io.payanam.R.string.loc_time,
                         summary = timeSummary,
                         expanded = expandedSection == TimeBlockModalSection.TIME,
                         onExpand = { expandedSection = TimeBlockModalSection.TIME },
                     ) {
+                        /** Text. */
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_start),
                             style = MaterialTheme.typography.labelMedium,
                         )
+                        /** Row. */
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            /** Column. */
                             Column(modifier = Modifier.weight(1f)) {
+                                /** Text. */
                                 Text(
                                     text = stringResource(id = io.payanam.R.string.loc_start_date),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
+                                /** Text button. */
                                 TextButton(onClick = { showStartDatePicker = true }) {
+                                    /** Text. */
                                     Text(startDate.format(dateFormatter))
                                 }
                             }
+                            /** Column. */
                             Column(modifier = Modifier.weight(1f)) {
+                                /** Text. */
                                 Text(
                                     text = stringResource(id = io.payanam.R.string.loc_start_time),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
+                                /** Text button. */
                                 TextButton(onClick = { showStartTimePicker = true }) {
+                                    /** Text. */
                                     Text(startTime.format(timeFormatter))
                                 }
                             }
                         }
 
+                        /** Text. */
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_end),
                             style = MaterialTheme.typography.labelMedium,
                         )
+                        /** Row. */
                         Row(
                             modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
+                            /** Column. */
                             Column(modifier = Modifier.weight(1f)) {
+                                /** Text. */
                                 Text(
                                     text = stringResource(id = io.payanam.R.string.loc_end_date),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
+                                /** Text button. */
                                 TextButton(onClick = { showEndDatePicker = true }) {
+                                    /** Text. */
                                     Text(endDate?.format(dateFormatter) ?: stringResource(id = io.payanam.R.string.loc_now))
                                 }
                             }
+                            /** Column. */
                             Column(modifier = Modifier.weight(1f)) {
+                                /** Text. */
                                 Text(
                                     text = stringResource(id = io.payanam.R.string.loc_end_time),
                                     style = MaterialTheme.typography.labelSmall,
                                 )
+                                /** Text button. */
                                 TextButton(onClick = { showEndTimePicker = true }) {
+                                    /** Text. */
                                     Text(endTime?.format(timeFormatter) ?: stringResource(id = io.payanam.R.string.loc_now))
                                 }
                             }
                         }
                     }
 
+                    /** Time block modal section card. */
                     TimeBlockModalSectionCard(
                         titleRes = io.payanam.R.string.loc_focus,
                         summary = focusSummary,
                         expanded = expandedSection == TimeBlockModalSection.FOCUS,
                         onExpand = { expandedSection = TimeBlockModalSection.FOCUS },
                     ) {
+                        /** Text. */
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_focus_rating_0_1),
                             style = MaterialTheme.typography.labelMedium,
                         )
+                        /** Text. */
                         Text(
                             text = stringResource(
                                 id = io.payanam.R.string.loc_focus_rating_value,
@@ -450,11 +551,13 @@ internal fun TimeBlockModalDialog(
                             ),
                             style = MaterialTheme.typography.bodySmall,
                         )
+                        /** Slider. */
                         Slider(
                             value = focusRating,
                             onValueChange = { focusRating = it },
                             valueRange = 0f..1f,
                         )
+                        /** Outlined text field. */
                         OutlinedTextField(
                             value = focusNote,
                             onValueChange = { focusNote = it },
@@ -464,6 +567,7 @@ internal fun TimeBlockModalDialog(
                             minLines = 2,
                             maxLines = 3,
                         )
+                        /** Tag editor field. */
                         TagEditorField(
                             rawValue = tagsRaw,
                             onValueChange = { tagsRaw = it },
@@ -471,11 +575,14 @@ internal fun TimeBlockModalDialog(
                         )
 
                         taskActionState?.let {
+                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                /** If. */
                                 if (!isCompletedTaskBlock) {
+                                    /** Outlined button. */
                                     OutlinedButton(
                                         onClick = {
                                             logger.i("TimeBlockModalDialog", "Task start from modal", mapOf("taskId" to it.task.id))
@@ -483,14 +590,20 @@ internal fun TimeBlockModalDialog(
                                         },
                                         modifier = Modifier.weight(1f),
                                     ) {
+                                        /** Icon. */
                                         Icon(Icons.Default.PlayArrow, null, modifier = Modifier.size(16.dp))
+                                        /** Spacer. */
                                         Spacer(Modifier.width(4.dp))
+                                        /** Text. */
                                         Text(stringResource(id = io.payanam.R.string.loc_start))
                                     }
                                 }
+                                /** If. */
                                 if (isRecurringTaskBlock && !isCompletedTaskBlock) {
+                                    /** Outlined button. */
                                     OutlinedButton(
                                         onClick = {
+                                            /** Completion date time. */
                                             val completionDateTime = endDate?.let { selectedEndDate ->
                                                 endTime?.let { selectedEndTime ->
                                                     LocalDateTime.of(selectedEndDate, selectedEndTime)
@@ -498,57 +611,75 @@ internal fun TimeBlockModalDialog(
                                             }
                                             onCompleteTask?.invoke(
                                                 focusNote.takeIf { note -> note.isNotBlank() },
+                                                /** Completion date time. */
                                                 completionDateTime,
+                                                /** Live duration minutes. */
                                                 liveDurationMinutes,
+                                                /** Task tags. */
                                                 taskTags,
                                             )
                                         },
                                         modifier = Modifier.weight(1f),
                                     ) {
+                                        /** Text. */
                                         Text(stringResource(id = io.payanam.R.string.loc_done_2))
                                     }
                                 }
                             }
+                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                /** If. */
                                 if (isRecurringTaskBlock && !isCompletedTaskBlock) {
+                                    /** Outlined button. */
                                     OutlinedButton(
                                         onClick = {
                                             onSkipTask?.invoke(focusNote.takeIf { note -> note.isNotBlank() }, taskTags)
                                         },
                                         modifier = Modifier.weight(1f),
                                     ) {
+                                        /** Text. */
                                         Text(stringResource(id = io.payanam.R.string.task_notification_action_skip))
                                     }
+                                    /** Outlined button. */
                                     OutlinedButton(
                                         onClick = {
                                             onMissTask?.invoke(focusNote.takeIf { note -> note.isNotBlank() }, taskTags)
                                         },
                                         modifier = Modifier.weight(1f),
                                     ) {
+                                        /** Text. */
                                         Text(stringResource(id = io.payanam.R.string.loc_miss))
                                     }
                                 }
                             }
+                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.spacedBy(8.dp),
                             ) {
+                                /** Outlined button. */
                                 OutlinedButton(
                                     onClick = { onEditTask?.invoke() },
                                     modifier = Modifier.weight(1f),
                                 ) {
+                                    /** Icon. */
                                     Icon(Icons.Default.Edit, null, modifier = Modifier.size(16.dp))
+                                    /** Spacer. */
                                     Spacer(Modifier.width(4.dp))
+                                    /** Text. */
                                     Text(stringResource(id = io.payanam.R.string.loc_edit))
                                 }
+                                /** If. */
                                 if (isRecurringTaskBlock) {
+                                    /** Outlined button. */
                                     OutlinedButton(
                                         onClick = { onArchiveTask?.invoke(taskTags) },
                                         modifier = Modifier.weight(1f),
                                     ) {
+                                        /** Text. */
                                         Text(stringResource(id = io.payanam.R.string.loc_archive))
                                     }
                                 }
@@ -556,10 +687,13 @@ internal fun TimeBlockModalDialog(
                         }
                     }
 
+                    /** Spacer. */
                     Spacer(modifier = Modifier.height(120.dp))
                 }
 
+                /** Horizontal divider. */
                 HorizontalDivider()
+                /** Column. */
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -567,6 +701,7 @@ internal fun TimeBlockModalDialog(
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     deleteAction?.let { onDelete ->
+                        /** Outlined button. */
                         OutlinedButton(
                             onClick = onDelete,
                             modifier = Modifier.fillMaxWidth(),
@@ -574,30 +709,39 @@ internal fun TimeBlockModalDialog(
                                 contentColor = MaterialTheme.colorScheme.error,
                             ),
                         ) {
+                            /** Icon. */
                             Icon(Icons.Default.Delete, null, modifier = Modifier.size(16.dp))
+                            /** Spacer. */
                             Spacer(Modifier.width(4.dp))
+                            /** Text. */
                             Text(stringResource(id = io.payanam.R.string.loc_delete))
                         }
                     }
+                    /** Row. */
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        /** Outlined button. */
                         OutlinedButton(
                             onClick = onDismiss,
                             modifier = Modifier.weight(1f),
                         ) {
+                            /** Text. */
                             Text(stringResource(id = io.payanam.R.string.settings_action_cancel))
                         }
                         continueAction?.let { onContinue ->
+                            /** Outlined button. */
                             OutlinedButton(
                                 onClick = onContinue,
                                 modifier = Modifier.weight(1f),
                                 enabled = canSave,
                             ) {
+                                /** Text. */
                                 Text(stringResource(id = io.payanam.R.string.loc_continue))
                             }
                         }
+                        /** Button. */
                         Button(
                             modifier = Modifier
                                 .testTag(EDIT_TIME_ENTRY_CONFIRM_BUTTON_TAG)
@@ -605,6 +749,7 @@ internal fun TimeBlockModalDialog(
                             enabled = canSave,
                             onClick = { submitTimeEntry() },
                         ) {
+                            /** Text. */
                             Text(stringResource(id = primaryActionLabel))
                         }
                     }
@@ -613,11 +758,14 @@ internal fun TimeBlockModalDialog(
         }
     }
 
+    /** If. */
     if (showStartDatePicker) {
+        /** Date picker alert dialog. */
         DatePickerAlertDialog(
             initialDate = startDate,
             onConfirm = {
                 startDate = it
+                /** If. */
                 if (endDate == null && endTime != null) {
                     endDate = it
                 }
@@ -626,11 +774,14 @@ internal fun TimeBlockModalDialog(
             onDismiss = { showStartDatePicker = false },
         )
     }
+    /** If. */
     if (showEndDatePicker) {
+        /** Date picker alert dialog. */
         DatePickerAlertDialog(
             initialDate = endDate ?: startDate,
             onConfirm = {
                 endDate = it
+                /** If. */
                 if (endTime == null) {
                     showEndTimePicker = true
                 }
@@ -639,11 +790,14 @@ internal fun TimeBlockModalDialog(
             onDismiss = { showEndDatePicker = false },
         )
     }
+    /** If. */
     if (showStartTimePicker) {
+        /** Time picker alert dialog. */
         TimePickerAlertDialog(
             initialTime = startTime,
             onConfirm = {
                 startTime = it
+                /** If. */
                 if (endTime != null && endDate == startDate && endTime!! < it) {
                     endDate = startDate.plusDays(1)
                 }
@@ -652,20 +806,25 @@ internal fun TimeBlockModalDialog(
             onDismiss = { showStartTimePicker = false },
         )
     }
+    /** If. */
     if (showEndTimePicker) {
+        /** Time picker alert dialog. */
         TimePickerAlertDialog(
             initialTime = endTime ?: LocalTime.now(),
             onConfirm = {
                 endTime = it
+                /** If. */
                 if (endDate == null) {
                     endDate = startDate
                 }
+                /** If. */
                 if (endDate == startDate && it < startTime) {
                     endDate = startDate.plusDays(1)
                 }
                 showEndTimePicker = false
             },
             onDismiss = {
+                /** If. */
                 if (!isExistingEntry && endTime == null) {
                     endDate = null
                 }
@@ -676,13 +835,18 @@ internal fun TimeBlockModalDialog(
 }
 
 internal fun resolveContinueAction(
+    /** Is gap create. */
     isGapCreate: Boolean,
+    /** Is active entry. */
     isActiveEntry: Boolean,
     onSetAndContinue: ((DimensionOption, String?, LocalDate, LocalTime) -> Unit)?,
     onContinueEntry: (() -> Unit)?,
+    /** Selected dimension. */
     selectedDimension: DimensionOption,
     selectedTaskId: String?,
+    /** Start date. */
     startDate: LocalDate,
+    /** Start time. */
     startTime: LocalTime,
 ): (() -> Unit)? = when {
     isGapCreate && onSetAndContinue != null -> {
@@ -696,42 +860,58 @@ internal fun resolveContinueAction(
 
 @Composable
 private fun TimeBlockModalSectionCard(
+    /** Title res. */
     titleRes: Int,
+    /** Summary. */
     summary: String,
     summaryContent: @Composable ColumnScope.() -> Unit = {
+        /** Text. */
         Text(summary, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
     },
+    /** Expanded. */
     expanded: Boolean,
     onExpand: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    /** Surface. */
     Surface(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
         tonalElevation = if (expanded) 2.dp else 0.dp,
         color = MaterialTheme.colorScheme.surfaceContainerLowest,
     ) {
+        /** Column. */
         Column(modifier = Modifier.fillMaxWidth()) {
+            /** Outlined button. */
             OutlinedButton(
                 onClick = onExpand,
                 modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
             ) {
+                /** Row. */
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
+                    /** Column. */
                     Column(modifier = Modifier.weight(1f)) {
+                        /** Text. */
                         Text(stringResource(id = titleRes), style = MaterialTheme.typography.titleSmall)
+                        /** Summary content. */
                         summaryContent()
                     }
+                    /** Text. */
                     Text(if (expanded) "-" else "+")
                 }
             }
+            /** If. */
             if (expanded) {
+                /** Horizontal divider. */
                 HorizontalDivider()
+                /** Column. */
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 12.dp, vertical = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
+                    /** Content. */
                     content()
                 }
             }

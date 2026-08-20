@@ -19,6 +19,9 @@ import javax.inject.Singleton
  * Use case for time tracking operations that include task completion logic.
  */
 @Singleton
+/**
+ * TimeTrackingUseCase.
+ */
 class TimeTrackingUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val taskRepository: TaskRepository,
@@ -35,29 +38,35 @@ class TimeTrackingUseCase @Inject constructor(
         focusRating: Double = 0.0,
         focusNote: String? = null,
     ): TimeEntry? {
+        /** Safe focus rating. */
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
+        /** Normalized focus note. */
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
         logger.i(
             "TimeTrackingUseCase.stopTrackingAndCompleteTask",
             "Stopping tracking and checking for task completion",
+            /** Map of. */
             mapOf(
                 "focusRating" to safeFocusRating.toString(),
                 "hasFocusNote" to (normalizedFocusNote != null).toString(),
             ),
         )
 
+        /** Stopped entry. */
         val stoppedEntry = timeEntryRepository.stopActiveTimeEntryWithFocus(
             focusRating = safeFocusRating,
             focusNote = normalizedFocusNote,
         )
 
         stoppedEntry?.taskId?.let { taskId ->
+            /** Complete task from time entry. */
             completeTaskFromTimeEntry(taskId, stoppedEntry)
         }
 
         logger.i(
             "TimeTrackingUseCase.stopTrackingAndCompleteTask",
             "Tracking stopped",
+            /** Map of. */
             mapOf(
                 "entryId" to (stoppedEntry?.id ?: "none"),
                 "taskCompleted" to (stoppedEntry?.taskId != null).toString(),
@@ -75,6 +84,7 @@ class TimeTrackingUseCase @Inject constructor(
         logger.i(
             "TimeTrackingUseCase.completeTaskFromTimeEntry",
             "Completing task from time entry",
+            /** Map of. */
             mapOf(
                 "taskId" to taskId,
                 "timeEntryId" to timeEntry.id,
@@ -83,23 +93,32 @@ class TimeTrackingUseCase @Inject constructor(
         )
 
         try {
+            /** Task. */
             val task = taskRepository.getTaskById(taskId)
+            /** If. */
             if (task == null) {
                 logger.w("TimeTrackingUseCase.completeTaskFromTimeEntry", "Task not found", mapOf("taskId" to taskId))
+                /** Return. */
                 return
             }
 
+            /** Is frequency habit. */
             val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
+            /** If. */
             if (!isFrequencyHabit) {
                 taskRepository.completeTask(taskId, "Completed via time tracking")
             }
 
             // For recurring tasks, record occurrence and update recurrence state
+            /** If. */
             if (task.recurrenceEnabled) {
+                /** Occurrence date. */
                 val occurrenceDate = task.dueDate?.toLocalDate() ?: LocalDate.now()
+                /** Actual duration minutes. */
                 val actualDurationMinutes = timeEntry.durationMinutes().toInt()
 
                 // Record occurrence (simplified - using existing logic from TimeViewModel)
+                /** Record occurrence for task. */
                 recordOccurrenceForTask(
                     taskId = taskId,
                     dueDate = occurrenceDate,
@@ -116,16 +135,19 @@ class TimeTrackingUseCase @Inject constructor(
             logger.i(
                 "TimeTrackingUseCase.completeTaskFromTimeEntry",
                 "Task completed from time entry",
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "isRecurring" to task.recurrenceEnabled.toString(),
                 ),
             )
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e(
                 "TimeTrackingUseCase.completeTaskFromTimeEntry",
                 "Failed to complete task from time entry",
+                /** E. */
                 e,
+                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                 ),
@@ -137,8 +159,11 @@ class TimeTrackingUseCase @Inject constructor(
      * Record occurrence for a task (adapted from TimeViewModel logic)
      */
     private suspend fun recordOccurrenceForTask(
+        /** Task id. */
         taskId: String,
+        /** Due date. */
         dueDate: LocalDate,
+        /** Status. */
         status: String,
         note: String?,
         actualCompletedAt: LocalDateTime? = null,
@@ -147,6 +172,7 @@ class TimeTrackingUseCase @Inject constructor(
         logger.d(
             "TimeTrackingUseCase.recordOccurrenceForTask",
             "Recording occurrence",
+            /** Map of. */
             mapOf(
                 "taskId" to taskId,
                 "dueDate" to dueDate.toString(),
@@ -156,7 +182,9 @@ class TimeTrackingUseCase @Inject constructor(
             ),
         )
 
+        /** Now. */
         val now = LocalDateTime.now()
+        /** Occurrence. */
         val occurrence = TaskOccurrence(
             id = UUID.randomUUID().toString(),
             taskId = taskId,
@@ -175,6 +203,7 @@ class TimeTrackingUseCase @Inject constructor(
         logger.d(
             "TimeTrackingUseCase.recordOccurrenceForTask",
             "Occurrence recorded",
+            /** Map of. */
             mapOf(
                 "occurrenceId" to occurrence.id,
                 "taskId" to taskId,

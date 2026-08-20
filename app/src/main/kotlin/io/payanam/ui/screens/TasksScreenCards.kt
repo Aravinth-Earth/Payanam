@@ -47,6 +47,7 @@ private val taskDueFormatter12h: DateTimeFormatter = DateTimeFormatter.ofPattern
 
 @Composable
 internal fun TaskListRow(
+    /** Task. */
     task: Task,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
@@ -54,15 +55,21 @@ internal fun TaskListRow(
     traceTapMs: Long? = null,
     tracePosition: Int? = null,
 ) {
+    /** Prefs. */
     val prefs = LocalAppPreferences.current
+    /** Dimension color. */
     val dimensionColor = prefs.colorForDimensionId(task.dimensionId) ?: prefs.colorFor(task.lifeIntentionCategory)
+    /** Dimension label. */
     val dimensionLabel = prefs.labelForDimensionId(task.dimensionId) ?: prefs.labelFor(task.lifeIntentionCategory)
+    /** Due formatter. */
     val dueFormatter = remember(prefs.timeFormat.use24Hour) {
+        /** If. */
         if (prefs.timeFormat.use24Hour) taskDueFormatter24h else taskDueFormatter12h
     }
     var rowTraceSent by remember(traceInteractionId, task.id) { mutableStateOf(false) }
     var badgeTraceSent by remember(traceInteractionId, task.id) { mutableStateOf(false) }
 
+    /** Card. */
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -71,14 +78,18 @@ internal fun TaskListRow(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
+        /** Row. */
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(10.dp),
         ) {
+            /** If. */
             if (FeatureFlags.scoringEnabled) {
                 task.taskScore?.let { score ->
+                    /** Score label. */
                     val scoreLabel = remember(score) { String.format("%.0f", score * 100) }
+                    /** Text. */
                     Text(
                         text = scoreLabel,
                         style = MaterialTheme.typography.labelMedium,
@@ -88,10 +99,12 @@ internal fun TaskListRow(
                 }
             }
 
+            /** Column. */
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
+                /** Text. */
                 Text(
                     text = task.title,
                     style = MaterialTheme.typography.bodyMedium,
@@ -100,10 +113,12 @@ internal fun TaskListRow(
                     overflow = TextOverflow.Ellipsis,
                 )
 
+                /** Row. */
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
+                    /** Dimension identity row. */
                     DimensionIdentityRow(
                         prefs = prefs,
                         dimensionId = task.dimensionId,
@@ -115,14 +130,18 @@ internal fun TaskListRow(
                     )
 
                     task.dueDate?.let { dueDate ->
+                        /** Row. */
                         Row(verticalAlignment = Alignment.CenterVertically) {
+                            /** Icon. */
                             Icon(
                                 imageVector = Icons.Default.Schedule,
                                 contentDescription = null,
                                 modifier = Modifier.size(12.dp),
                                 tint = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
+                            /** Spacer. */
                             Spacer(modifier = Modifier.width(2.dp))
+                            /** Text. */
                             Text(
                                 text = dueDate.format(dueFormatter),
                                 style = MaterialTheme.typography.labelSmall,
@@ -135,7 +154,9 @@ internal fun TaskListRow(
                 }
             }
 
+            /** If. */
             if (task.status == "completed") {
+                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_completed),
@@ -147,7 +168,9 @@ internal fun TaskListRow(
     }
 
     SideEffect {
+        /** If. */
         if (traceInteractionId != null && traceTapMs != null && !rowTraceSent) {
+            /** Elapsed. */
             val elapsed = SystemClock.elapsedRealtime() - traceTapMs
             PerfBaselineTelemetry.markEvent(
                 screen = "tasks",
@@ -161,7 +184,9 @@ internal fun TaskListRow(
             )
             rowTraceSent = true
         }
+        /** If. */
         if (traceInteractionId != null && traceTapMs != null && !badgeTraceSent) {
+            /** Elapsed. */
             val elapsed = SystemClock.elapsedRealtime() - traceTapMs
             PerfBaselineTelemetry.markEvent(
                 screen = "tasks",

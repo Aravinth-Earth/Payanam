@@ -54,31 +54,39 @@ import kotlin.system.exitProcess
 
 @Composable
 internal fun ImportDatabaseConfirmDialog(
+    /** Show encrypted mode warning. */
     showEncryptedModeWarning: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_import_dialog_title)) },
         text = {
+            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_import_dialog_warning),
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.error,
                 )
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_import_dialog_data_loss),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_import_dialog_backup_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
+                /** If. */
                 if (showEncryptedModeWarning) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_import_dialog_encrypted_mode_hint),
                         style = MaterialTheme.typography.bodySmall,
@@ -88,17 +96,21 @@ internal fun ImportDatabaseConfirmDialog(
             }
         },
         confirmButton = {
+            /** Button. */
             Button(
                 onClick = onConfirm,
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                 ),
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_delete_import))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },
@@ -110,27 +122,33 @@ internal fun DeleteAllDataConfirmDialog(
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_delete_dialog_title)) },
         text = {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_delete_dialog_message),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
+            /** Button. */
             Button(
                 onClick = onConfirm,
                 colors = androidx.compose.material3.ButtonDefaults.buttonColors(
                     containerColor = MaterialTheme.colorScheme.error,
                 ),
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_delete_all_data))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },
@@ -143,24 +161,30 @@ internal fun DeleteExportPromptDialog(
     onSkipAndDelete: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_delete_export_prompt_title)) },
         text = {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_delete_export_prompt_body),
                 style = MaterialTheme.typography.bodyMedium,
             )
         },
         confirmButton = {
+            /** Button. */
             Button(onClick = onBackUpFirst) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_delete_export_prompt_yes))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(
                 onClick = onSkipAndDelete,
             ) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_delete_export_prompt_no),
                     color = MaterialTheme.colorScheme.error,
@@ -172,14 +196,20 @@ internal fun DeleteExportPromptDialog(
 
 @Composable
 internal fun SettingsImportFeedbackEffects(
+    /** Ui state. */
     uiState: SettingsUiState,
+    /** Snackbar host state. */
     snackbarHostState: SnackbarHostState,
+    /** Context. */
     context: Context,
     dimensionPreferences: List<DimensionPreference>,
+    /** View model. */
     viewModel: SettingsViewModel,
 ) {
+    /** Launched effect. */
     LaunchedEffect(uiState.exportResult) {
         uiState.exportResult?.let { result ->
+            /** When. */
             when (result) {
                 is ExportResult.Success -> {
                     snackbarHostState.showSnackbar(
@@ -204,10 +234,13 @@ internal fun SettingsImportFeedbackEffects(
         }
     }
 
+    /** Launched effect. */
     LaunchedEffect(uiState.importResult) {
         uiState.importResult?.let { result ->
+            /** When. */
             when (result) {
                 is ImportResult.Success -> {
+                    /** If. */
                     if (result.requiresAppRestart) {
                         snackbarHostState.showSnackbar(
                             context.getString(
@@ -218,6 +251,7 @@ internal fun SettingsImportFeedbackEffects(
                             ),
                         )
                         viewModel.clearImportResult()
+                        /** Restart app after database import. */
                         restartAppAfterDatabaseImport(context)
                         return@let
                     }
@@ -245,8 +279,10 @@ internal fun SettingsImportFeedbackEffects(
         }
     }
 
+    /** Launched effect. */
     LaunchedEffect(uiState.uhabitsImportResult) {
         uiState.uhabitsImportResult?.let { result ->
+            /** When. */
             when (result) {
                 is UhabitsImportResult.Success -> {
                     snackbarHostState.showSnackbar(
@@ -272,10 +308,13 @@ internal fun SettingsImportFeedbackEffects(
         }
     }
 
+    /** Launched effect. */
     LaunchedEffect(uiState.bulkHabitMappingResult) {
         uiState.bulkHabitMappingResult?.let { result ->
+            /** When. */
             when (result) {
                 is BulkHabitMappingResult.Success -> {
+                    /** Resolved label. */
                     val resolvedLabel = dimensionPreferences
                         .firstOrNull { it.id == result.dimensionId || it.canonicalId == result.dimensionId }
                         ?.label
@@ -284,6 +323,7 @@ internal fun SettingsImportFeedbackEffects(
                         context.getString(
                             R.string.settings_snackbar_habit_mapping_success,
                             result.mappedCount,
+                            /** Resolved label. */
                             resolvedLabel,
                         ),
                     )
@@ -305,13 +345,17 @@ internal fun SettingsImportFeedbackEffects(
 }
 
 private fun restartAppAfterDatabaseImport(context: Context) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
+    /** Launch intent. */
     val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
+    /** If. */
     if (launchIntent == null) {
         logger.e(
             "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
             "Failed to relaunch app after DB import: launch intent unavailable",
         )
+        /** Return. */
         return
     }
     logger.i(
@@ -327,27 +371,33 @@ private fun restartAppAfterDatabaseImport(context: Context) {
     launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
     context.startActivity(launchIntent)
     Process.killProcess(Process.myPid())
+    /** Exit process. */
     exitProcess(0)
 }
 
 @Composable
 internal fun ImportEncryptedDbPassphraseDialog(
     passphraseError: String?,
+    /** Is verifying. */
     isVerifying: Boolean,
     onConfirm: (String) -> Unit,
     onDismiss: () -> Unit,
 ) {
     var passphrase by remember { mutableStateOf("") }
     var showPassphrase by remember { mutableStateOf(false) }
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.db_import_passphrase_prompt_title)) },
         text = {
+            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_import_passphrase_prompt_desc),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                /** Outlined text field. */
                 OutlinedTextField(
                     value = passphrase,
                     onValueChange = { passphrase = it },
@@ -359,14 +409,18 @@ internal fun ImportEncryptedDbPassphraseDialog(
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = {
+                            /** If. */
                             if (passphrase.isNotBlank() && !isVerifying) {
+                                /** On confirm. */
                                 onConfirm(passphrase)
                             }
                         },
                     ),
                     visualTransformation = if (showPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
+                        /** Icon button. */
                         IconButton(onClick = { showPassphrase = !showPassphrase }) {
+                            /** Icon. */
                             Icon(
                                 imageVector = if (showPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = stringResource(
@@ -379,6 +433,7 @@ internal fun ImportEncryptedDbPassphraseDialog(
                     enabled = !isVerifying,
                 )
                 passphraseError?.let { err ->
+                    /** Text. */
                     Text(
                         text = err,
                         style = MaterialTheme.typography.bodySmall,
@@ -388,19 +443,25 @@ internal fun ImportEncryptedDbPassphraseDialog(
             }
         },
         confirmButton = {
+            /** Button. */
             Button(
                 onClick = { onConfirm(passphrase) },
                 enabled = passphrase.isNotBlank() && !isVerifying,
             ) {
+                /** If. */
                 if (isVerifying) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(modifier = Modifier.fillMaxWidth(0.5f), color = MaterialTheme.colorScheme.onPrimary)
                 } else {
+                    /** Text. */
                     Text(stringResource(id = R.string.db_import_passphrase_prompt_action))
                 }
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss, enabled = !isVerifying) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },
@@ -409,40 +470,53 @@ internal fun ImportEncryptedDbPassphraseDialog(
 
 @Composable
 internal fun BulkMapImportedHabitsDialog(
+    /** Selected dimension id. */
     selectedDimensionId: String,
     dimensionPreferences: List<DimensionPreference>,
     onSelectedDimensionChange: (String) -> Unit,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
 
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_bulk_map_dialog_title)) },
         text = {
+            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_bulk_map_dialog_message))
                 dimensionPreferences.forEach { dimension ->
+                    /** Label. */
                     val label = dimension.label
+                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.d(
                                 "BulkMapImportedHabitsDialog",
                                 "Bulk map dimension selected",
+                                /** Map of. */
                                 mapOf("dimensionId" to dimension.id),
                             )
+                            /** On selected dimension change. */
                             onSelectedDimensionChange(dimension.id)
                         },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
+                        /** Text. */
                         Text(
                             text = if (selectedDimensionId == dimension.id) {
+                                /** String resource. */
                                 stringResource(
                                     id = R.string.settings_bulk_map_dimension_selected,
+                                    /** Label. */
                                     label,
                                 )
                             } else {
+                                /** Label. */
                                 label
                             },
                         )
@@ -451,12 +525,16 @@ internal fun BulkMapImportedHabitsDialog(
             }
         },
         confirmButton = {
+            /** Text button. */
             TextButton(onClick = onConfirm) {
+                /** Text. */
                 Text(stringResource(id = R.string.loc_apply))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },

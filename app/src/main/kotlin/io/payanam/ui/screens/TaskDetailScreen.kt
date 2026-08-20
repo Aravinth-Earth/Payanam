@@ -38,29 +38,39 @@ import io.payanam.ui.viewmodel.TaskDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+/**
+ * Task detail screen.
+ */
 fun TaskDetailScreen(
+    /** Task id. */
     taskId: String,
     viewModel: TaskDetailViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
     var showDeleteDialog by remember { mutableStateOf(false) }
     var currentStatusAction by remember { mutableStateOf<StatusAction?>(null) }
     var showRescheduleDialog by remember { mutableStateOf(false) }
 
+    /** Launched effect. */
     LaunchedEffect(taskId) {
         logger.d("TaskDetailScreen.LaunchedEffect", "Loading task", mapOf("taskId" to taskId))
         viewModel.loadTask(taskId)
     }
 
+    /** Scaffold. */
     Scaffold(
         topBar = {
+            /** Top app bar. */
             TopAppBar(
                 title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_details)) },
                 navigationIcon = {
+                    /** Icon button. */
                     IconButton(onClick = onNavigateBack) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_back),
@@ -68,13 +78,17 @@ fun TaskDetailScreen(
                     }
                 },
                 actions = {
+                    /** Icon button. */
                     IconButton(onClick = onNavigateToEdit) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_edit),
                         )
                     }
+                    /** Icon button. */
                     IconButton(onClick = { showDeleteDialog = true }) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_delete),
@@ -87,28 +101,33 @@ fun TaskDetailScreen(
     ) { padding ->
         when {
             uiState.isLoading -> {
+                /** Box. */
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator()
                 }
             }
 
             uiState.task == null -> {
+                /** Box. */
                 Box(
                     modifier = Modifier
                         .fillMaxSize()
                         .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
+                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_not_found))
                 }
             }
 
             else -> {
+                /** Task detail content. */
                 TaskDetailContent(
                     task = uiState.task!!,
                     recurrenceRule = uiState.task!!.recurrenceRule,
@@ -135,6 +154,7 @@ fun TaskDetailScreen(
                     onReschedule = { showRescheduleDialog = true },
                     onArchive = {
                         viewModel.archiveTask()
+                        /** On navigate back. */
                         onNavigateBack()
                     },
                     modifier = Modifier.padding(padding),
@@ -144,12 +164,14 @@ fun TaskDetailScreen(
 
         // Status note dialog
         currentStatusAction?.let { action ->
+            /** Status note dialog. */
             StatusNoteDialog(
                 isVisible = true,
                 action = action,
                 taskTitle = uiState.task?.title ?: "",
                 isRecurring = uiState.task?.recurrenceEnabled == true,
                 onConfirm = { result ->
+                    /** When. */
                     when (result.action) {
                         StatusAction.COMPLETE -> {
                             viewModel.completeTask(
@@ -175,6 +197,7 @@ fun TaskDetailScreen(
                         }
                     }
                     currentStatusAction = null
+                    /** On navigate back. */
                     onNavigateBack()
                 },
                 onDismiss = { currentStatusAction = null },
@@ -182,33 +205,45 @@ fun TaskDetailScreen(
         }
 
         // Delete confirmation dialog
+        /** If. */
         if (showDeleteDialog) {
+            /** Alert dialog. */
             AlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_delete_task)) },
                 text = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_this_action_cannot_be_undone)) },
                 confirmButton = {
+                    /** Text button. */
                     TextButton(
                         onClick = {
                             viewModel.deleteTask()
+                            /** On navigate back. */
                             onNavigateBack()
                         },
                     ) {
+                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_delete), color = MaterialTheme.colorScheme.error)
                     }
                 },
                 dismissButton = {
+                    /** Text button. */
                     TextButton(onClick = { showDeleteDialog = false }) {
+                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
                     }
                 },
             )
         }
 
+        /** If. */
         if (showRescheduleDialog) {
+            /** Task. */
             val task = uiState.task
+            /** Due date. */
             val dueDate = task?.dueDate
+            /** If. */
             if (dueDate != null) {
+                /** Reschedule dialog. */
                 RescheduleDialog(
                     currentDueDate = dueDate,
                     onConfirm = { newDue ->

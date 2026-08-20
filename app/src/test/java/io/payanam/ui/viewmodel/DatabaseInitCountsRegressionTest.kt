@@ -13,18 +13,25 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * DatabaseInitCountsRegressionTest.
+ */
 class DatabaseInitCountsRegressionTest {
     private val logger: UnifiedLogger by lazy {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
     }
 
     @Test
     fun `readDatabaseTableCounts returns persisted table counts`() {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
+        /** Db file. */
         val dbFile = context.getDatabasePath("regression_counts_test.db")
         dbFile.parentFile?.mkdirs()
         dbFile.delete()
+        /** Database. */
         val database = SQLiteDatabase.openOrCreateDatabase(dbFile, null)
         database.execSQL("CREATE TABLE tasks (id TEXT PRIMARY KEY)")
         database.execSQL("CREATE TABLE time_entries (id TEXT PRIMARY KEY)")
@@ -38,14 +45,21 @@ class DatabaseInitCountsRegressionTest {
         database.execSQL("INSERT INTO notes(id) VALUES ('n1')")
         database.close()
 
+        /** Counts. */
         val counts = readDatabaseTableCounts(dbFile, logger)
 
+        /** Assert equals. */
         assertEquals(3, counts.taskCount)
+        /** Assert equals. */
         assertEquals(2, counts.timeEntryCount)
+        /** Assert equals. */
         assertEquals(3, counts.journalEntryCount)
+        /** Assert equals. */
         assertEquals(1, counts.noteCount)
         dbFile.delete()
+        /** File. */
         File(dbFile.parent, "regression_counts_test.db-wal").delete()
+        /** File. */
         File(dbFile.parent, "regression_counts_test.db-shm").delete()
     }
 }

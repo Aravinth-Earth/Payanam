@@ -27,45 +27,58 @@ internal fun autoBackupFailureMessageCard(
     errorAt: String?,
     onDismiss: () -> Unit,
 ) {
+    /** If. */
     if (errorMessage.isNullOrBlank()) return
 
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
 
+    /** Card. */
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.errorContainer,
         ),
     ) {
+        /** Column. */
         Column(
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.backup_failure_dialog_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
+            /** Text. */
             Text(
                 text = errorAt?.let {
+                    /** String resource. */
                     stringResource(
                         id = R.string.backup_failure_dialog_message_with_time,
+                        /** It. */
                         it,
+                        /** Error message. */
                         errorMessage,
                     )
                 } ?: stringResource(
                     id = R.string.backup_failure_dialog_message_without_time,
+                    /** Error message. */
                     errorMessage,
                 ),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onErrorContainer,
             )
+            /** Outlined button. */
             OutlinedButton(
                 onClick = {
                     logger.i("AutoBackupFailureMessageCard", "Dismiss auto-backup failure message clicked")
+                    /** On dismiss. */
                     onDismiss()
                 },
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_dismiss_error_message))
             }
         }

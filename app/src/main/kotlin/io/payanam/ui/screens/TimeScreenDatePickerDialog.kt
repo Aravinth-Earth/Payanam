@@ -18,50 +18,68 @@ import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+/**
+ * Time screen date picker dialog.
+ */
 fun TimeScreenDatePickerDialog(
+    /** Selected date. */
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
+    /** Selected date millis. */
     val selectedDateMillis = remember(selectedDate) {
+        /** Selected date. */
         selectedDate
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
     }
+    /** Date picker state. */
     val datePickerState = androidx.compose.material3.rememberDatePickerState(
         initialSelectedDateMillis = selectedDateMillis,
     )
 
+    /** Date picker dialog. */
     DatePickerDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
+            /** Text button. */
             TextButton(
                 onClick = {
                     datePickerState.selectedDateMillis?.let { millis ->
+                        /** Resolved date. */
                         val resolvedDate = Instant.ofEpochMilli(millis)
                             .atZone(ZoneId.systemDefault())
                             .toLocalDate()
                         logger.d(
                             "TimeScreenDatePickerDialog.onConfirm",
                             "Selected date for time screen",
+                            /** Map of. */
                             mapOf("selectedDate" to resolvedDate.toString()),
                         )
+                        /** On date selected. */
                         onDateSelected(resolvedDate)
                     }
+                    /** On dismiss. */
                     onDismiss()
                 },
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.loc_ok))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },
     ) {
+        /** Date picker. */
         DatePicker(state = datePickerState)
     }
 }

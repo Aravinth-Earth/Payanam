@@ -20,9 +20,13 @@ import javax.inject.Inject
  * UI state for Scoring Configuration screen.
  */
 data class ScoringConfigUiState(
+    /** Config. */
     val config: ScoringConfig = ScoringConfig.defaults(),
+    /** Is loading. */
     val isLoading: Boolean = true,
+    /** Is saving. */
     val isSaving: Boolean = false,
+    /** Has changes. */
     val hasChanges: Boolean = false,
 )
 
@@ -30,6 +34,9 @@ data class ScoringConfigUiState(
  * ViewModel for the Scoring Configuration screen.
  */
 @HiltViewModel
+/**
+ * ScoringConfigViewModel.
+ */
 class ScoringConfigViewModel @Inject constructor(
     private val scoringConfigRepository: ScoringConfigRepository,
 ) : ViewModel() {
@@ -37,17 +44,20 @@ class ScoringConfigViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
 
     private val _uiState = MutableStateFlow(ScoringConfigUiState())
+    /** Ui state. */
     val uiState: StateFlow<ScoringConfigUiState> = _uiState.asStateFlow()
 
     private var originalConfig: ScoringConfig = ScoringConfig.defaults()
 
     init {
+        /** Load config. */
         loadConfig()
     }
 
     private fun loadConfig() {
         viewModelScope.launch {
             logger.d("ScoringConfigViewModel.loadConfig", "Loading scoring config")
+            /** Config. */
             val config = scoringConfigRepository.getConfig()
             originalConfig = config
             _uiState.value = _uiState.value.copy(
@@ -61,32 +71,53 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Factor Weight Updates =====
 
+    /**
+     * Set dimension weight.
+     */
     fun setDimensionWeight(value: Double) {
         updateConfig { it.copy(dimensionWeight = value) }
     }
 
+    /**
+     * Set impact weight.
+     */
     fun setImpactWeight(value: Double) {
         updateConfig { it.copy(impactWeight = value) }
     }
 
+    /**
+     * Set alignment weight.
+     */
     fun setAlignmentWeight(value: Double) {
         updateConfig { it.copy(alignmentWeight = value) }
     }
 
+    /**
+     * Set energy weight.
+     */
     fun setEnergyWeight(value: Double) {
         updateConfig { it.copy(energyWeight = value) }
     }
 
+    /**
+     * Set control weight.
+     */
     fun setControlWeight(value: Double) {
         updateConfig { it.copy(controlWeight = value) }
     }
 
+    /**
+     * Set duration weight.
+     */
     fun setDurationWeight(value: Double) {
         updateConfig { it.copy(durationWeight = value) }
     }
 
     // ===== Impact Level Updates =====
 
+    /**
+     * Set impact level value.
+     */
     fun setImpactLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(impactLevelWeights = it.impactLevelWeights + (level to value))
@@ -95,6 +126,9 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Alignment Level Updates =====
 
+    /**
+     * Set alignment value.
+     */
     fun setAlignmentValue(level: String, value: Double) {
         updateConfig {
             it.copy(alignmentWeights = it.alignmentWeights + (level to value))
@@ -103,6 +137,9 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Energy Level Updates =====
 
+    /**
+     * Set energy level value.
+     */
     fun setEnergyLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(energyLevelWeights = it.energyLevelWeights + (level to value))
@@ -111,6 +148,9 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Control Level Updates =====
 
+    /**
+     * Set control level value.
+     */
     fun setControlLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(controlLevelWeights = it.controlLevelWeights + (level to value))
@@ -119,7 +159,11 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Dimension Weight Updates =====
 
+    /**
+     * Set dimension value.
+     */
     fun setDimensionValue(dimensionId: String, value: Double) {
+        /** Canonical id. */
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: dimensionId
         updateConfig {
             it.copy(
@@ -128,12 +172,19 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Set dimension value.
+     */
     fun setDimensionValue(dimension: LifeDimension, value: Double) {
+        /** Set dimension value. */
         setDimensionValue(dimension.id, value)
     }
 
     // ===== Actions =====
 
+    /**
+     * Save config.
+     */
     fun saveConfig() {
         viewModelScope.launch {
             logger.i("ScoringConfigViewModel.saveConfig", "Saving scoring config")
@@ -150,11 +201,15 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Reset to defaults.
+     */
     fun resetToDefaults() {
         viewModelScope.launch {
             logger.i("ScoringConfigViewModel.resetToDefaults", "Resetting to defaults")
             scoringConfigRepository.resetToDefaults()
 
+            /** Defaults. */
             val defaults = ScoringConfig.defaults()
             originalConfig = defaults
             _uiState.value = _uiState.value.copy(
@@ -164,6 +219,9 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Discard changes.
+     */
     fun discardChanges() {
         logger.i("ScoringConfigViewModel.discardChanges", "Discarding config changes")
         _uiState.value = _uiState.value.copy(
@@ -173,7 +231,9 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     private fun updateConfig(update: (ScoringConfig) -> ScoringConfig) {
+        /** New config. */
         val newConfig = update(_uiState.value.config)
+        /** Has changes. */
         val hasChanges = newConfig != originalConfig
         logger.d("ScoringConfigViewModel.updateConfig", "Config updated", mapOf("hasChanges" to hasChanges))
         _uiState.value = _uiState.value.copy(

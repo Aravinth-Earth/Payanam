@@ -46,12 +46,19 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 
+/**
+ * DayScreenMode.
+ */
 enum class DayScreenMode {
+    /** Journal only. */
     JOURNAL_ONLY,
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+/**
+ * Day screen.
+ */
 fun DayScreen(
     mode: DayScreenMode = DayScreenMode.JOURNAL_ONLY,
     viewModel: DayViewModel = hiltViewModel(),
@@ -59,12 +66,16 @@ fun DayScreen(
     val uiState by viewModel.uiState.collectAsState()
     remember { UnifiedLogger.getInstance() }
     var showDatePicker by remember { mutableStateOf(false) }
+    /** Journal only. */
     val journalOnly = mode == DayScreenMode.JOURNAL_ONLY
 
+    /** Scaffold. */
     Scaffold(
         topBar = {
+            /** Top app bar. */
             TopAppBar(
                 title = {
+                    /** Text. */
                     Text(
                         androidx.compose.ui.res.stringResource(
                             id = if (journalOnly) io.payanam.R.string.loc_journal else io.payanam.R.string.loc_day_view,
@@ -72,8 +83,11 @@ fun DayScreen(
                     )
                 },
                 actions = {
+                    /** If. */
                     if (!viewModel.isToday()) {
+                        /** Text button. */
                         TextButton(onClick = { viewModel.goToToday() }) {
+                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_today))
                         }
                     }
@@ -81,12 +95,14 @@ fun DayScreen(
             )
         },
     ) { paddingValues ->
+        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(paddingValues),
         ) {
             // Date navigation bar
+            /** Date navigation bar. */
             DateNavigationBar(
                 dateText = viewModel.getFormattedDate(),
                 isToday = viewModel.isToday(),
@@ -95,14 +111,18 @@ fun DayScreen(
                 onDateClick = { showDatePicker = true },
             )
 
+            /** If. */
             if (uiState.isLoading) {
+                /** Box. */
                 Box(
                     modifier = Modifier.fillMaxSize(),
                     contentAlignment = Alignment.Center,
                 ) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator()
                 }
             } else {
+                /** Summary tab content. */
                 SummaryTabContent(
                     uiState = uiState,
                     onOverallResponseChange = { promptKey ->
@@ -123,15 +143,20 @@ fun DayScreen(
         }
     }
 
+    /** If. */
     if (showDatePicker) {
+        /** Selected date millis. */
         val selectedDateMillis = uiState.selectedDate
             .atStartOfDay(ZoneId.systemDefault())
             .toInstant()
             .toEpochMilli()
+        /** Today. */
         val today = LocalDate.now()
+        /** Selectable dates. */
         val selectableDates = remember(today) {
             object : SelectableDates {
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
+                    /** Candidate. */
                     val candidate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.systemDefault())
                         .toLocalDate()
@@ -141,16 +166,20 @@ fun DayScreen(
                 override fun isSelectableYear(year: Int): Boolean = year <= today.year
             }
         }
+        /** Date picker state. */
         val datePickerState = androidx.compose.material3.rememberDatePickerState(
             initialSelectedDateMillis = selectedDateMillis,
             selectableDates = selectableDates,
         )
+        /** Date picker dialog. */
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
+                /** Text button. */
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
+                            /** Selected date. */
                             val selectedDate = Instant.ofEpochMilli(millis)
                                 .atZone(ZoneId.systemDefault())
                                 .toLocalDate()
@@ -159,15 +188,19 @@ fun DayScreen(
                         showDatePicker = false
                     },
                 ) {
+                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_ok))
                 }
             },
             dismissButton = {
+                /** Text button. */
                 TextButton(onClick = { showDatePicker = false }) {
+                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
                 }
             },
         ) {
+            /** Date picker. */
             DatePicker(state = datePickerState)
         }
     }
@@ -175,12 +208,15 @@ fun DayScreen(
 
 @Composable
 private fun DateNavigationBar(
+    /** Date text. */
     dateText: String,
+    /** Is today. */
     isToday: Boolean,
     onPreviousDay: () -> Unit,
     onNextDay: () -> Unit,
     onDateClick: () -> Unit,
 ) {
+    /** Row. */
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -188,32 +224,40 @@ private fun DateNavigationBar(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        /** Icon button. */
         IconButton(onClick = onPreviousDay) {
+            /** Icon. */
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                 contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_previous_day),
             )
         }
 
+        /** Row. */
         Row(
             modifier = Modifier
                 .clickable { onDateClick() }
                 .padding(horizontal = 12.dp, vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            /** Icon. */
             Icon(
                 imageVector = Icons.Default.DateRange,
                 contentDescription = null,
                 modifier = Modifier.size(20.dp),
             )
+            /** Spacer. */
             Spacer(modifier = Modifier.width(8.dp))
             Column {
+                /** Text. */
                 Text(
                     text = dateText,
                     style = MaterialTheme.typography.titleMedium,
                     fontWeight = FontWeight.Medium,
                 )
+                /** If. */
                 if (isToday) {
+                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_today),
                         style = MaterialTheme.typography.labelSmall,
@@ -223,10 +267,12 @@ private fun DateNavigationBar(
             }
         }
 
+        /** Icon button. */
         IconButton(
             onClick = onNextDay,
             enabled = !isToday,
         ) {
+            /** Icon. */
             Icon(
                 imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                 contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_next_day),

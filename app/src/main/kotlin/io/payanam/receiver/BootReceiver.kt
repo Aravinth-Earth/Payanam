@@ -23,33 +23,44 @@ import javax.inject.Inject
  * Restores active tracking notification after device boot.
  */
 @AndroidEntryPoint
+/**
+ * BootReceiver.
+ */
 class BootReceiver : BroadcastReceiver() {
 
     @Inject
+    /** Time entry repository. */
     lateinit var timeEntryRepository: TimeEntryRepository
 
     @Inject
+    /** Notification scheduler. */
     lateinit var notificationScheduler: NotificationScheduler
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     override fun onReceive(context: Context, intent: Intent) {
+        /** If. */
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
+            /** Logger. */
             val logger = UnifiedLogger.getInstance()
             logger.i("BootReceiver.onReceive", "Device boot completed, checking for active tracking")
 
             scope.launch {
                 try {
                     // Check for active time entries
+                    /** Active entries. */
                     val activeEntries = timeEntryRepository.getActiveTimeEntries().first()
 
+                    /** If. */
                     if (activeEntries.isNotEmpty()) {
                         // Restore the most recent active entry's notification
+                        /** Entry. */
                         val entry = activeEntries.first()
 
                         logger.i(
                             "BootReceiver.onReceive",
                             "Restoring active tracking notification",
+                            /** Map of. */
                             mapOf(
                                 "entryId" to entry.id,
                                 "dimensionId" to (entry.dimensionId ?: "unknown"),
@@ -71,13 +82,14 @@ class BootReceiver : BroadcastReceiver() {
                         logger.d("BootReceiver.onReceive", "Requested widget refresh with idle state after boot")
                     }
 
+                    /** If. */
                     if (FeatureFlags.remindersEnabled) {
                         notificationScheduler.scheduleAllPendingTasks()
                         logger.i("BootReceiver.onReceive", "Scheduled task reminders after boot")
                     } else {
                         logger.i("BootReceiver.onReceive", "Skipped reminder schedule after boot; reminders disabled")
                     }
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                     logger.e("BootReceiver.onReceive", "Failed to restore tracking after boot", e)
                 }
             }

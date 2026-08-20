@@ -19,18 +19,32 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
+/**
+ * NotesScreenUiState.
+ */
 data class NotesScreenUiState(
+    /** Notes. */
     val notes: List<Note> = emptyList(),
+    /** Filtered notes. */
     val filteredNotes: List<Note> = emptyList(),
+    /** Note tags by id. */
     val noteTagsById: Map<String, List<String>> = emptyMap(),
+    /** Tag suggestions. */
     val tagSuggestions: List<String> = emptyList(),
+    /** Search query. */
     val searchQuery: String = "",
+    /** Selected dimension id. */
     val selectedDimensionId: String? = null,
+    /** Is loading. */
     val isLoading: Boolean = true,
+    /** Error. */
     val error: String? = null,
 )
 
 @HiltViewModel
+/**
+ * NotesViewModel.
+ */
 class NotesViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val tagRepository: TagRepository,
@@ -38,10 +52,13 @@ class NotesViewModel @Inject constructor(
 
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(NotesScreenUiState())
+    /** Ui state. */
     val uiState: StateFlow<NotesScreenUiState> = _uiState.asStateFlow()
 
     init {
+        /** Observe tag suggestions. */
         observeTagSuggestions()
+        /** Load notes. */
         loadNotes()
     }
 
@@ -62,6 +79,7 @@ class NotesViewModel @Inject constructor(
             _uiState.update { it.copy(isLoading = true) }
             try {
                 noteRepository.getAllNotes().collect { notes ->
+                    /** Note tags by id. */
                     val noteTagsById = tagRepository.getTagNamesForNotes(notes.map { it.id })
                     _uiState.update { state ->
                         state.copy(
@@ -72,13 +90,16 @@ class NotesViewModel @Inject constructor(
                         )
                     }
                 }
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("NotesViewModel.loadNotes", "Error loading notes", e, null)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }
 
+    /**
+     * Update search query.
+     */
     fun updateSearchQuery(query: String) {
         _uiState.update { state ->
             state.copy(
@@ -88,6 +109,9 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Set dimension filter.
+     */
     fun setDimensionFilter(dimensionId: String?) {
         _uiState.update { state ->
             state.copy(
@@ -99,15 +123,20 @@ class NotesViewModel @Inject constructor(
 
     private fun filterNotes(
         notes: List<Note>,
+        /** Query. */
         query: String,
         dimensionId: String?,
     ): List<Note> = notes.filter { note ->
+        /** Matches query. */
         val matchesQuery = query.isBlank() ||
             note.title.contains(query, ignoreCase = true) ||
             note.details?.contains(query, ignoreCase = true) == true
 
+        /** Selected canonical id. */
         val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id
+        /** Note canonical id. */
         val noteCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(note.dimensionId)?.id
+        /** Matches dimension. */
         val matchesDimension = dimensionId == null ||
             note.dimensionId == dimensionId ||
             (selectedCanonicalId != null && selectedCanonicalId == noteCanonicalId)
@@ -115,30 +144,40 @@ class NotesViewModel @Inject constructor(
         matchesQuery && matchesDimension
     }
 
+    /**
+     * Create note.
+     */
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
+                /** Input. */
                 val input = NoteInput(
                     title = title,
                     details = details,
                     dimensionId = dimensionId,
                     lifeIntentionCategory = dimensionLabel,
                 )
+                /** Note. */
                 val note = noteRepository.createNote(input)
+                /** If. */
                 if (tags.isNotEmpty()) {
                     tagRepository.replaceNoteTags(note.id, tags)
                 }
                 logger.i("NotesViewModel.createNote", "Note created", mapOf("tagCount" to tags.size))
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("NotesViewModel.createNote", "Error creating note", e)
                 _uiState.update { it.copy(error = e.message) }
             }
         }
     }
 
+    /**
+     * Update note.
+     */
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
+                /** Input. */
                 val input = NoteInput(
                     title = title,
                     details = details,
@@ -150,30 +189,37 @@ class NotesViewModel @Inject constructor(
                 logger.i(
                     "NotesViewModel.updateNote",
                     "Note updated",
+                    /** Map of. */
                     mapOf(
                         "noteId" to noteId,
                         "tagCount" to tags.size,
                     ),
                 )
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("NotesViewModel.updateNote", "Error updating note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }
             }
         }
     }
 
+    /**
+     * Delete note.
+     */
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
             try {
                 noteRepository.deleteNote(noteId)
                 logger.i("NotesViewModel.deleteNote", "Note deleted", mapOf("noteId" to noteId))
-            } catch (e: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("NotesViewModel.deleteNote", "Error deleting note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }
             }
         }
     }
 
+    /**
+     * Clear error.
+     */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }

@@ -80,6 +80,9 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
+/**
+ * Database passphrase unlock screen.
+ */
 fun DatabasePassphraseUnlockScreen(
     onPassphraseUnlocked: () -> Unit,
     onForgotPassphraseReset: () -> Unit,
@@ -87,13 +90,18 @@ fun DatabasePassphraseUnlockScreen(
     viewModel: DatabasePassphraseUnlockViewModel = hiltViewModel(),
     preUnlockUpdateViewModel: PreUnlockUpdateViewModel = hiltViewModel(),
 ) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
+    /** Context. */
     val context = LocalContext.current
+    /** Host activity. */
     val hostActivity = remember(context) { context.findFragmentActivity() }
+    /** Launched effect. */
     LaunchedEffect(hostActivity) {
         logger.i(
             "DatabasePassphraseUnlockScreen.activityResolution",
             "Resolved host activity for biometric prompt",
+            /** Map of. */
             mapOf(
                 "hostActivityPresent" to (hostActivity != null),
                 "hostActivityClass" to (hostActivity?.javaClass?.name ?: "null"),
@@ -106,25 +114,35 @@ fun DatabasePassphraseUnlockScreen(
     var localErrorReasonCode by rememberSaveable { mutableStateOf<String?>(null) }
     var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     var debugExportMessage by rememberSaveable { mutableStateOf<String?>(null) }
+    /** Scope. */
     val scope = rememberCoroutineScope()
+    /** Biometric can authenticate. */
     val biometricCanAuthenticate = biometricCanAuthenticate(context)
+    /** Can use biometric. */
     val canUseBiometric = biometricCanAuthenticate == BiometricManager.BIOMETRIC_SUCCESS
+    /** Biometric enabled. */
     val biometricEnabled = viewModel.isBiometricUnlockEnabled()
     var biometricPromptLaunched by rememberSaveable { mutableStateOf(false) }
+    /** Launched effect. */
     LaunchedEffect(uiState.errorReasonCode, localErrorReasonCode) {
+        /** Reason. */
         val reason = localErrorReasonCode ?: uiState.errorReasonCode
+        /** If. */
         if (!reason.isNullOrBlank()) {
             logger.w(
                 "DatabasePassphraseUnlockScreen.errorState",
                 "Unlock screen error surfaced",
+                /** Map of. */
                 mapOf("reasonCode" to reason),
             )
         }
     }
+    /** Launched effect. */
     LaunchedEffect(canUseBiometric, biometricEnabled, biometricCanAuthenticate) {
         logger.i(
             "DatabasePassphraseUnlockScreen.biometricAvailability",
             "Biometric availability resolved for unlock screen",
+            /** Map of. */
             mapOf(
                 "canUseBiometric" to canUseBiometric,
                 "biometricEnabledPreference" to biometricEnabled,
@@ -132,6 +150,7 @@ fun DatabasePassphraseUnlockScreen(
             ),
         )
     }
+    /** Submit unlock. */
     val submitUnlock: () -> Unit = {
         logger.i("DatabasePassphraseUnlockScreen", "Submitting passphrase unlock", mapOf("isImportMode" to isImportMode.toString()))
         localErrorReasonCode = null
@@ -139,16 +158,19 @@ fun DatabasePassphraseUnlockScreen(
             passphrase = passphrase,
             onSuccess = {
                 passphrase = ""
+                /** On passphrase unlocked. */
                 onPassphraseUnlocked()
             },
         )
     }
 
     // Surface uses the deep matte black from Design #2
+    /** Surface. */
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = Color(0xFF121212),
     ) {
+        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -158,12 +180,14 @@ fun DatabasePassphraseUnlockScreen(
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
             // Header Section
+            /** Column. */
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
                 verticalArrangement = Arrangement.spacedBy(4.dp),
                 modifier = Modifier.padding(top = 32.dp),
             ) {
                 Box {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.app_name),
                         style = MaterialTheme.typography.headlineLarge.copy(
@@ -173,15 +197,18 @@ fun DatabasePassphraseUnlockScreen(
                         color = Color.White,
                     )
                     // The Pink Dot from Design #2
+                    /** Canvas. */
                     Canvas(
                         modifier = Modifier
                             .size(4.dp)
                             .align(Alignment.BottomEnd)
                             .padding(bottom = 8.dp, end = 2.dp),
                     ) {
+                        /** Draw circle. */
                         drawCircle(color = LifeDimensionColors.Relationships)
                     }
                 }
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_about_tagline),
                     style = MaterialTheme.typography.bodySmall,
@@ -190,6 +217,7 @@ fun DatabasePassphraseUnlockScreen(
             }
 
             // Database Summary (Glassmorphism Card)
+            /** If. */
             if (uiState.hasLocalDatabase) {
                 androidx.compose.material3.Card(
                     colors = androidx.compose.material3.CardDefaults.cardColors(
@@ -202,28 +230,36 @@ fun DatabasePassphraseUnlockScreen(
                     ),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    /** Column. */
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
+                        /** Last updated. */
                         val lastUpdated = if (uiState.databaseLastModifiedMs > 0L) {
+                            /** Simple date format. */
                             SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
                                 .format(Date(uiState.databaseLastModifiedMs))
                         } else {
                             "-"
                         }
+                        /** Summary row. */
                         SummaryRow(
                             label = stringResource(id = R.string.db_passphrase_db_summary_storage_mode, ""),
                             value = if (uiState.storageModeLabelKey == "encrypted") {
+                                /** String resource. */
                                 stringResource(id = R.string.db_passphrase_storage_mode_encrypted)
                             } else {
+                                /** String resource. */
                                 stringResource(id = R.string.db_passphrase_storage_mode_plaintext)
                             },
                         )
+                        /** Summary row. */
                         SummaryRow(
                             label = stringResource(id = R.string.loc_size),
                             value = "${uiState.databaseSizeKb} KB",
                         )
+                        /** Summary row. */
                         SummaryRow(
                             label = stringResource(id = R.string.loc_last_modified),
                             value = lastUpdated,
@@ -233,10 +269,12 @@ fun DatabasePassphraseUnlockScreen(
             }
 
             // Password Input Section
+            /** Column. */
             Column(
                 modifier = Modifier.fillMaxWidth(),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                /** Outlined text field. */
                 OutlinedTextField(
                     value = passphrase,
                     onValueChange = { passphrase = it },
@@ -248,7 +286,9 @@ fun DatabasePassphraseUnlockScreen(
                     ),
                     keyboardActions = KeyboardActions(
                         onDone = {
+                            /** If. */
                             if (!uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank()) {
+                                /** Submit unlock. */
                                 submitUnlock()
                             }
                         },
@@ -262,7 +302,9 @@ fun DatabasePassphraseUnlockScreen(
                         )
                     },
                     trailingIcon = {
+                        /** Icon button. */
                         IconButton(onClick = { showPassphrase = !showPassphrase }) {
+                            /** Icon. */
                             Icon(
                                 imageVector = if (showPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                 contentDescription = stringResource(
@@ -282,6 +324,7 @@ fun DatabasePassphraseUnlockScreen(
                 )
 
                 // Error Text Area (Soft Coral)
+                /** Error text. */
                 val errorText = when (localErrorReasonCode ?: uiState.errorReasonCode) {
                     "invalid" -> stringResource(id = R.string.db_passphrase_unlock_error_invalid)
 
@@ -309,7 +352,9 @@ fun DatabasePassphraseUnlockScreen(
 
                     else -> null
                 }
+                /** If. */
                 if (errorText != null) {
+                    /** Text. */
                     Text(
                         text = errorText,
                         style = MaterialTheme.typography.bodySmall,
@@ -320,10 +365,13 @@ fun DatabasePassphraseUnlockScreen(
             }
 
             // Primary Unlock Button (Gradient)
+            /** Gradient button. */
             GradientButton(
                 text = if (uiState.isUnlocking) {
+                    /** String resource. */
                     stringResource(id = R.string.db_passphrase_unlocking)
                 } else {
+                    /** String resource. */
                     stringResource(id = R.string.db_passphrase_unlock_action)
                 },
                 onClick = submitUnlock,
@@ -331,17 +379,21 @@ fun DatabasePassphraseUnlockScreen(
                 modifier = Modifier.fillMaxWidth(),
             )
 
+            /** If. */
             if (canUseBiometric && biometricEnabled) {
+                /** Text button. */
                 TextButton(
                     onClick = {
                         logger.i(
                             "DatabasePassphraseUnlockScreen.biometricAction",
                             "Biometric unlock action tapped",
+                            /** Map of. */
                             mapOf(
                                 "hostActivityPresent" to (hostActivity != null),
                                 "isUnlocking" to uiState.isUnlocking,
                             ),
                         )
+                        /** If. */
                         if (hostActivity != null && !uiState.isUnlocking) {
                             biometricPromptLaunched = true
                             viewModel.startBiometricUnlock(hostActivity, onSuccess = onPassphraseUnlocked)
@@ -359,46 +411,58 @@ fun DatabasePassphraseUnlockScreen(
                     },
                     enabled = hostActivity != null && !uiState.isUnlocking,
                 ) {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Fingerprint,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.75f),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.db_passphrase_unlock_biometric_action),
                         color = Color.White.copy(alpha = 0.75f),
                     )
                 }
             }
+            /** If. */
             if (!canUseBiometric) {
+                /** Text button. */
                 TextButton(
                     onClick = {
                         logger.i(
                             "DatabasePassphraseUnlockScreen.biometricSetup",
                             "Biometric setup action tapped",
+                            /** Map of. */
                             mapOf(
                                 "canAuthenticate" to biometricCanAuthenticate,
                                 "biometricEnabledPreference" to biometricEnabled,
                             ),
                         )
+                        /** Open biometric enrollment. */
                         openBiometricEnrollment(context)
                     },
                     enabled = !uiState.isUnlocking,
                 ) {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Fingerprint,
                         contentDescription = null,
                         tint = Color.White.copy(alpha = 0.75f),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.db_passphrase_unlock_biometric_setup_action),
                         color = Color.White.copy(alpha = 0.75f),
                     )
                 }
             }
+            /** If. */
             if (canUseBiometric && !biometricEnabled) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_passphrase_unlock_biometric_enable_hint),
                     style = MaterialTheme.typography.bodySmall,
@@ -407,10 +471,12 @@ fun DatabasePassphraseUnlockScreen(
             }
 
             // Forgot Password Link
+            /** Text button. */
             TextButton(
                 onClick = { showResetConfirmDialog = true },
                 enabled = !uiState.isUnlocking,
             ) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_passphrase_unlock_forgot_action),
                     color = Color.White.copy(alpha = 0.6f),
@@ -419,12 +485,14 @@ fun DatabasePassphraseUnlockScreen(
             }
 
             // Diagnostics Section (Muted)
+            /** Column. */
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
+                /** Box. */
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -432,6 +500,7 @@ fun DatabasePassphraseUnlockScreen(
                         .background(Color.White.copy(alpha = 0.1f)),
                 )
 
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_passphrase_diagnostics_title).uppercase(java.util.Locale.ROOT),
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -441,34 +510,41 @@ fun DatabasePassphraseUnlockScreen(
                     color = Color.White.copy(alpha = 0.4f),
                 )
 
+                /** Row. */
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
+                    /** Diagnostic button. */
                     DiagnosticButton(
                         text = stringResource(id = R.string.settings_action_export_latest_log),
                         onClick = {
                             scope.launch {
+                                /** Exported file. */
                                 val exportedFile = logger.exportLatestLog()
                                 debugExportMessage = exportedFile?.absolutePath ?: "Export failed"
                                 logger.i(
                                     "DatabasePassphraseUnlockScreen.diagnostics",
                                     "Export latest log action completed",
+                                    /** Map of. */
                                     mapOf("success" to (exportedFile != null)),
                                 )
                             }
                         },
                         modifier = Modifier.weight(1f),
                     )
+                    /** Diagnostic button. */
                     DiagnosticButton(
                         text = stringResource(id = R.string.settings_action_export_all_logs),
                         onClick = {
                             scope.launch {
+                                /** Exported file. */
                                 val exportedFile = logger.exportAllLogs()
                                 debugExportMessage = exportedFile?.absolutePath ?: "Export failed"
                                 logger.i(
                                     "DatabasePassphraseUnlockScreen.diagnostics",
                                     "Export all logs action completed",
+                                    /** Map of. */
                                     mapOf("success" to (exportedFile != null)),
                                 )
                             }
@@ -477,7 +553,9 @@ fun DatabasePassphraseUnlockScreen(
                     )
                 }
 
+                /** If. */
                 if (debugExportMessage != null) {
+                    /** Text. */
                     Text(
                         text = debugExportMessage!!,
                         style = MaterialTheme.typography.bodySmall,
@@ -489,10 +567,13 @@ fun DatabasePassphraseUnlockScreen(
 
             // Pre-unlock update hatch (manual check → download → install).
             // Lives in the Diagnostics zone; works with the DB locked.
+            /** Spacer. */
             Spacer(modifier = Modifier.height(4.dp))
+            /** Pre unlock update section. */
             PreUnlockUpdateSection(viewModel = preUnlockUpdateViewModel)
 
             // Privacy Footer
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_about_description),
                 style = MaterialTheme.typography.labelSmall,
@@ -503,8 +584,11 @@ fun DatabasePassphraseUnlockScreen(
     }
 
     // Biometric Auto-Trigger
+    /** If. */
     if (canUseBiometric && biometricEnabled && hostActivity != null) {
+        /** Launched effect. */
         LaunchedEffect(canUseBiometric, biometricEnabled, uiState.isUnlocking, biometricPromptLaunched) {
+            /** If. */
             if (!uiState.isUnlocking && !biometricPromptLaunched) {
                 logger.i(
                     "DatabasePassphraseUnlockScreen.biometricAutoPrompt",
@@ -516,6 +600,7 @@ fun DatabasePassphraseUnlockScreen(
                 logger.d(
                     "DatabasePassphraseUnlockScreen.biometricAutoPrompt",
                     "Auto-prompt skipped",
+                    /** Map of. */
                     mapOf(
                         "isUnlocking" to uiState.isUnlocking,
                         "biometricPromptLaunched" to biometricPromptLaunched,
@@ -525,12 +610,15 @@ fun DatabasePassphraseUnlockScreen(
         }
     }
 
+    /** If. */
     if (showResetConfirmDialog) {
+        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },
             title = { Text(stringResource(id = R.string.db_passphrase_unlock_reset_title)) },
             text = { Text(stringResource(id = R.string.db_passphrase_unlock_reset_message)) },
             confirmButton = {
+                /** Button. */
                 Button(
                     onClick = {
                         logger.w(
@@ -542,11 +630,14 @@ fun DatabasePassphraseUnlockScreen(
                         viewModel.forgotPassphraseReset(onSuccess = onForgotPassphraseReset)
                     },
                 ) {
+                    /** Text. */
                     Text(stringResource(id = R.string.db_passphrase_unlock_reset_confirm))
                 }
             },
             dismissButton = {
+                /** Text button. */
                 TextButton(onClick = { showResetConfirmDialog = false }) {
+                    /** Text. */
                     Text(stringResource(id = R.string.settings_action_cancel))
                 }
             },
@@ -556,28 +647,36 @@ fun DatabasePassphraseUnlockScreen(
 
 @Composable
 private fun SummaryRow(label: String, value: String) {
+    /** Row. */
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        /** Text. */
         Text(text = label, style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.6f))
+        /** Text. */
         Text(text = value, style = MaterialTheme.typography.bodySmall, color = Color.White)
     }
 }
 
 @Composable
 private fun GradientButton(
+    /** Text. */
     text: String,
     onClick: () -> Unit,
+    /** Enabled. */
     enabled: Boolean,
     modifier: Modifier = Modifier,
 ) {
+    /** Alpha. */
     val alpha = if (enabled) 1f else 0.5f
+    /** Box. */
     Box(
         modifier = modifier
             .height(56.dp)
             .clip(RoundedCornerShape(12.dp))
             .then(
+                /** If. */
                 if (enabled) {
                     Modifier.background(
                         brush = Brush.horizontalGradient(
@@ -591,6 +690,7 @@ private fun GradientButton(
             .clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        /** Text. */
         Text(
             text = text,
             color = Color.White.copy(alpha = alpha),
@@ -602,21 +702,25 @@ private fun GradientButton(
 
 @Composable
 private fun DiagnosticButton(
+    /** Text. */
     text: String,
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
+    /** Box. */
     Box(
         modifier = modifier
             .height(40.dp)
             .border(
                 1.dp,
                 Color.White.copy(alpha = 0.2f),
+                /** Rounded corner shape. */
                 RoundedCornerShape(8.dp),
             )
             .clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
+        /** Text. */
         Text(
             text = text,
             color = Color.White.copy(alpha = 0.6f),
@@ -628,13 +732,17 @@ private fun DiagnosticButton(
 private fun biometricCanAuthenticate(context: Context): Int = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
 
 private fun openBiometricEnrollment(context: Context) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
+    /** Intent. */
     val intent = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R ->
+            /** Intent. */
             Intent(Settings.ACTION_BIOMETRIC_ENROLL)
 
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ->
             @Suppress("DEPRECATION")
+            /** Intent. */
             Intent(Settings.ACTION_FINGERPRINT_ENROLL)
 
         else -> Intent(Settings.ACTION_SECURITY_SETTINGS)
@@ -643,6 +751,7 @@ private fun openBiometricEnrollment(context: Context) {
         logger.i(
             "DatabasePassphraseUnlockScreen.openBiometricEnrollment",
             "Launching biometric enrollment/settings intent",
+            /** Map of. */
             mapOf("action" to (intent.action ?: "null")),
         )
         context.startActivity(intent)
@@ -650,6 +759,7 @@ private fun openBiometricEnrollment(context: Context) {
         logger.w(
             "DatabasePassphraseUnlockScreen.openBiometricEnrollment",
             "Primary biometric enrollment intent failed; attempting generic settings fallback",
+            /** Map of. */
             mapOf(
                 "action" to (intent.action ?: "null"),
                 "error" to (firstError.message ?: "unknown"),
@@ -665,6 +775,7 @@ private fun openBiometricEnrollment(context: Context) {
             logger.e(
                 "DatabasePassphraseUnlockScreen.openBiometricEnrollment",
                 "Failed to open biometric enrollment and fallback settings",
+                /** Fallback error. */
                 fallbackError,
             )
         }
@@ -672,8 +783,11 @@ private fun openBiometricEnrollment(context: Context) {
 }
 
 private fun Context.findFragmentActivity(): FragmentActivity? {
+    /** Current. */
     var current: Context? = this
+    /** While. */
     while (current is ContextWrapper) {
+        /** If. */
         if (current is FragmentActivity) return current
         current = current.baseContext
     }

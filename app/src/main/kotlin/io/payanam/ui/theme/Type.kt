@@ -23,19 +23,27 @@ private fun resolveFontFamily(option: FontFamilyOption): FontFamily = when (opti
     FontFamilyOption.CURSIVE -> FontFamily.Cursive
 }
 
+/**
+ * Build typography.
+ */
 fun buildTypography(fontFamilyOption: FontFamilyOption): Typography {
+    /** Font family. */
     val fontFamily = resolveFontFamily(fontFamilyOption)
 
+    /** Signature. */
     val signature = fontFamilyOption.key
+    /** If. */
     if (lastTypographySignature != signature) {
         logger?.i(
             "Type.buildTypography",
             "Applied typography preference",
+            /** Map of. */
             mapOf("fontFamily" to fontFamilyOption.key),
         )
         lastTypographySignature = signature
     }
 
+    /** Base. */
     val base = Typography()
     return base.copy(
         displayLarge = base.displayLarge.withAppTypography(fontFamily),

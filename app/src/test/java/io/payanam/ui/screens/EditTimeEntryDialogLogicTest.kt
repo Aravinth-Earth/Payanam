@@ -14,81 +14,100 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * EditTimeEntryDialogLogicTest.
+ */
 class EditTimeEntryDialogLogicTest {
     private val logger: UnifiedLogger by lazy {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Application>()
         UnifiedLogger.initialize(context, "test", 0)
     }
 
     @Test
     fun `end date picker opens when end time is null`() {
+        /** Should open. */
         val shouldOpen = shouldOpenEditDialogEndDatePicker(null)
         logger.i(
             "EditTimeEntryDialogLogicTest",
             "Validated end-date picker behavior for active entry",
+            /** Map of. */
             mapOf("endTimeNull" to "true", "shouldOpen" to shouldOpen.toString()),
         )
+        /** Assert true. */
         assertTrue(shouldOpen)
     }
 
     @Test
     fun `end date picker opens when end time exists`() {
+        /** Should open. */
         val shouldOpen = shouldOpenEditDialogEndDatePicker(LocalTime.of(12, 30))
+        /** Assert true. */
         assertTrue(shouldOpen)
     }
 
     @Test
     fun `save blocked when only end date is set`() {
+        /** Can save. */
         val canSave = canSaveEditedTimeEntry(
             startDate = LocalDate.of(2026, 2, 14),
             startTime = LocalTime.of(10, 0),
             endDate = LocalDate.of(2026, 2, 14),
             endTime = null,
         )
+        /** Assert false. */
         assertFalse(canSave)
     }
 
     @Test
     fun `save blocked when only end time is set`() {
+        /** Can save. */
         val canSave = canSaveEditedTimeEntry(
             startDate = LocalDate.of(2026, 2, 14),
             startTime = LocalTime.of(10, 0),
             endDate = null,
             endTime = LocalTime.of(11, 0),
         )
+        /** Assert false. */
         assertFalse(canSave)
     }
 
     @Test
     fun `save allowed when end is unset for active edit`() {
+        /** Can save. */
         val canSave = canSaveEditedTimeEntry(
             startDate = LocalDate.of(2026, 2, 14),
             startTime = LocalTime.of(10, 0),
             endDate = null,
             endTime = null,
         )
+        /** Assert true. */
         assertTrue(canSave)
     }
 
     @Test
     fun `save allowed when complete end is after start`() {
+        /** Can save. */
         val canSave = canSaveEditedTimeEntry(
             startDate = LocalDate.of(2026, 2, 14),
             startTime = LocalTime.of(10, 0),
             endDate = LocalDate.of(2026, 2, 14),
             endTime = LocalTime.of(11, 0),
         )
+        /** Assert true. */
         assertTrue(canSave)
     }
 
     @Test
     fun `save blocked when complete end is not after start`() {
+        /** Can save. */
         val canSave = canSaveEditedTimeEntry(
             startDate = LocalDate.of(2026, 2, 14),
             startTime = LocalTime.of(10, 0),
             endDate = LocalDate.of(2026, 2, 14),
             endTime = LocalTime.of(9, 59),
         )
+        /** Assert false. */
         assertFalse(canSave)
     }
 }

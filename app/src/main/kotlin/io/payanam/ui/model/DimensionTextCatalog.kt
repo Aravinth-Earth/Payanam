@@ -7,6 +7,9 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 
+/**
+ * DimensionTextCatalog.
+ */
 object DimensionTextCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
@@ -36,36 +39,56 @@ object DimensionTextCatalog {
         DimensionTaxonomyCatalog.UNASSIGNED.id to R.string.loc_dimension_desc_unassigned,
     )
 
+    /**
+     * Label res id for canonical id.
+     */
     fun labelResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(labelResIds::get)
 
+    /**
+     * Description res id for canonical id.
+     */
     fun descriptionResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(descriptionResIds::get)
 
+    /**
+     * Localized label.
+     */
     fun localizedLabel(context: Context, canonicalId: String?): String? {
+        /** Res id. */
         val resId = labelResIdForCanonicalId(canonicalId) ?: return null
         return resolveLocalizedString(context, resId, null).also {
+            /** Logger or null. */
             loggerOrNull()?.d(
                 "DimensionTextCatalog.localizedLabel",
                 "Resolved localized canonical dimension label",
+                /** Map of. */
                 mapOf("canonicalId" to (canonicalId ?: "none")),
             )
         }
     }
 
+    /**
+     * Localized description.
+     */
     fun localizedDescription(context: Context, canonicalId: String?): String? {
+        /** Res id. */
         val resId = descriptionResIdForCanonicalId(canonicalId) ?: return null
         return resolveLocalizedString(context, resId, null).also {
+            /** Logger or null. */
             loggerOrNull()?.d(
                 "DimensionTextCatalog.localizedDescription",
                 "Resolved localized canonical dimension description",
+                /** Map of. */
                 mapOf("canonicalId" to (canonicalId ?: "none")),
             )
         }
     }
 
     private fun resolveLocalizedString(context: Context, resId: Int, languageTag: String?): String? = runCatching {
+        /** If. */
         if (languageTag.isNullOrBlank()) {
             context.getString(resId)
         } else {
+            /** Config. */
             val config = android.content.res.Configuration(context.resources.configuration)
             config.setLocale(java.util.Locale.forLanguageTag(languageTag))
             context.createConfigurationContext(config).getString(resId)

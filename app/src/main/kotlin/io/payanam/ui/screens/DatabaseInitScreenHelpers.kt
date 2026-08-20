@@ -54,34 +54,42 @@ internal fun bootIssueHeadlineRes(type: DatabaseBootIssueType): Int = when (type
 
 @Composable
 internal fun bootIssueBodyText(
+    /** Boot issue. */
     bootIssue: DatabaseBootIssue,
     fallbackCorruptionMessage: String?,
 ): String {
+    /** Detail. */
     val detail = bootIssue.detailMessage ?: fallbackCorruptionMessage
     return when (bootIssue.type) {
         DatabaseBootIssueType.DB_TOO_NEW ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = R.string.db_init_issue_body_update_app_required_default)
 
         DatabaseBootIssueType.DB_TOO_OLD ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = R.string.db_init_issue_body_db_too_old_default)
 
         DatabaseBootIssueType.SIDECAR_PRIMARY_MISSING ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = R.string.db_init_issue_body_incomplete_db_files_default)
 
         DatabaseBootIssueType.SCHEMA_INVALID ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = R.string.db_init_issue_body_schema_invalid_default)
 
         DatabaseBootIssueType.OPEN_FAILED ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = R.string.db_init_issue_body_open_failed_default)
 
         DatabaseBootIssueType.REPAIRABLE_GENERIC,
         DatabaseBootIssueType.NON_REPAIRABLE_GENERIC,
         ->
+            /** Detail. */
             detail
                 ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_database_schema_errors)
     }
@@ -89,31 +97,42 @@ internal fun bootIssueBodyText(
 
 @Composable
 internal fun DatabaseInitLogExportActions(
+    /** Logger. */
     logger: UnifiedLogger,
     context: android.content.Context,
+    /** Scope. */
     scope: CoroutineScope,
     debugExportMessage: String?,
     onDebugExportMessageChange: (String?) -> Unit,
+    /** Show hint. */
     showHint: Boolean,
 ) {
+    /** If. */
     if (showHint) {
+        /** Text. */
         Text(
             text = androidx.compose.ui.res.stringResource(id = R.string.db_init_error_export_logs_hint),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
     }
 
+    /** Row. */
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        /** Outlined button. */
         OutlinedButton(
             onClick = {
                 scope.launch {
+                    /** Exported file. */
                     val exportedFile = logger.exportLatestLog()
+                    /** On debug export message change. */
                     onDebugExportMessageChange(
+                        /** If. */
                         if (exportedFile != null) {
                             context.getString(
                                 R.string.settings_snackbar_latest_log_exported,
@@ -127,13 +146,18 @@ internal fun DatabaseInitLogExportActions(
             },
             modifier = Modifier.weight(1f),
         ) {
+            /** Text. */
             Text(androidx.compose.ui.res.stringResource(id = R.string.settings_action_export_latest_log))
         }
+        /** Outlined button. */
         OutlinedButton(
             onClick = {
                 scope.launch {
+                    /** Exported file. */
                     val exportedFile = logger.exportAllLogs()
+                    /** On debug export message change. */
                     onDebugExportMessageChange(
+                        /** If. */
                         if (exportedFile != null) {
                             context.getString(
                                 R.string.settings_snackbar_all_logs_exported,
@@ -147,11 +171,15 @@ internal fun DatabaseInitLogExportActions(
             },
             modifier = Modifier.weight(1f),
         ) {
+            /** Text. */
             Text(androidx.compose.ui.res.stringResource(id = R.string.settings_action_export_all_logs))
         }
     }
+    /** If. */
     if (debugExportMessage != null) {
+        /** Spacer. */
         Spacer(modifier = Modifier.height(8.dp))
+        /** Text. */
         Text(
             text = debugExportMessage,
             style = MaterialTheme.typography.bodySmall,

@@ -37,7 +37,9 @@ internal fun StartTrackingDialog(
     onStart: (DimensionOption, String?) -> Unit,
     onDismiss: () -> Unit,
 ) {
+    /** Fallback dimension definition. */
     val fallbackDimensionDefinition = DimensionTaxonomyCatalog.WORK_LIVELIHOOD
+    /** Default dimension. */
     val defaultDimension = dimensionOptions.firstOrNull()
         ?: DimensionOption(
             id = fallbackDimensionDefinition.id,
@@ -51,27 +53,35 @@ internal fun StartTrackingDialog(
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
     var dimensionExpanded by remember { mutableStateOf(false) }
     var taskExpanded by remember { mutableStateOf(false) }
+    /** Selected label. */
     val selectedLabel = selectedDimension.label
+    /** Filtered tasks. */
     val filteredTasks = tasks.filter { taskMatchesDimension(it, selectedDimension) }
 
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_start_tracking)) },
         text = {
+            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                /** Text. */
                 Text(
                     androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_life_dimension),
                     style = MaterialTheme.typography.labelMedium,
                 )
+                /** Exposed dropdown menu box. */
                 ExposedDropdownMenuBox(
                     expanded = dimensionExpanded,
                     onExpandedChange = { dimensionExpanded = it },
                 ) {
+                    /** Outlined text field. */
                     OutlinedTextField(
                         value = selectedLabel,
                         onValueChange = {},
                         readOnly = true,
                         leadingIcon = {
+                            /** Dimension dropdown badge. */
                             DimensionDropdownBadge(
                                 label = selectedDimension.label,
                                 color = selectedDimension.color,
@@ -84,13 +94,16 @@ internal fun StartTrackingDialog(
                             .fillMaxWidth()
                             .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                     )
+                    /** Exposed dropdown menu. */
                     ExposedDropdownMenu(
                         expanded = dimensionExpanded,
                         onDismissRequest = { dimensionExpanded = false },
                     ) {
                         dimensionOptions.forEach { dim ->
+                            /** Dropdown menu item. */
                             DropdownMenuItem(
                                 text = {
+                                    /** Dimension dropdown badge label row. */
                                     DimensionDropdownBadgeLabelRow(
                                         label = dim.label,
                                         color = dim.color,
@@ -108,15 +121,19 @@ internal fun StartTrackingDialog(
                     }
                 }
 
+                /** If. */
                 if (filteredTasks.isNotEmpty()) {
+                    /** Text. */
                     Text(
                         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_optional),
                         style = MaterialTheme.typography.labelMedium,
                     )
+                    /** Exposed dropdown menu box. */
                     ExposedDropdownMenuBox(
                         expanded = taskExpanded,
                         onExpandedChange = { taskExpanded = it },
                     ) {
+                        /** Outlined text field. */
                         OutlinedTextField(
                             value = filteredTasks.find { it.id == selectedTaskId }?.title
                                 ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_none),
@@ -127,10 +144,12 @@ internal fun StartTrackingDialog(
                                 .fillMaxWidth()
                                 .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                         )
+                        /** Exposed dropdown menu. */
                         ExposedDropdownMenu(
                             expanded = taskExpanded,
                             onDismissRequest = { taskExpanded = false },
                         ) {
+                            /** Dropdown menu item. */
                             DropdownMenuItem(
                                 text = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_none)) },
                                 onClick = {
@@ -139,16 +158,20 @@ internal fun StartTrackingDialog(
                                 },
                             )
                             filteredTasks.forEach { task ->
+                                /** Task type. */
                                 val taskType = if (task.recurrenceEnabled) {
                                     androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_habit)
                                 } else {
                                     androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_database_tasks)
                                 }
+                                /** Dropdown menu item. */
                                 DropdownMenuItem(
                                     text = {
+                                        /** Text. */
                                         Text(
                                             androidx.compose.ui.res.stringResource(
                                                 id = io.payanam.R.string.loc_tagged_title,
+                                                /** Task type. */
                                                 taskType,
                                                 task.title,
                                             ),
@@ -166,12 +189,16 @@ internal fun StartTrackingDialog(
             }
         },
         confirmButton = {
+            /** Text button. */
             TextButton(onClick = { onStart(selectedDimension, selectedTaskId) }) {
+                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_start))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
             }
         },
@@ -179,8 +206,10 @@ internal fun StartTrackingDialog(
 }
 
 internal fun taskMatchesDimension(task: Task, selectedDimension: DimensionOption): Boolean {
+    /** Selected canonical id. */
     val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(selectedDimension.id)?.id
         ?: selectedDimension.canonicalId
+    /** Task canonical id. */
     val taskCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(task.dimensionId)?.id
     return task.dimensionId == selectedDimension.id ||
         (!selectedCanonicalId.isNullOrBlank() && taskCanonicalId == selectedCanonicalId) ||

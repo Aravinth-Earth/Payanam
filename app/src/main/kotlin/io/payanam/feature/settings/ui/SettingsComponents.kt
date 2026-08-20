@@ -62,6 +62,7 @@ import io.payanam.ui.viewmodel.DimensionOption
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun DimensionPreferenceCard(
+    /** Preference. */
     preference: DimensionOption,
     usedColorHexes: Set<String>,
     usedIconKeys: Set<String>,
@@ -75,19 +76,24 @@ internal fun DimensionPreferenceCard(
     var isEditing by remember(preference.id) { mutableStateOf(false) }
     var editLabel by remember(preference.id) { mutableStateOf(preference.label) }
     var editWeight by remember(preference.id) { mutableFloatStateOf(preference.weight.toFloat()) }
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
 
+    /** Column. */
     Column(modifier = Modifier.fillMaxWidth()) {
+        /** Row. */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(vertical = 8.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            /** Column. */
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(2.dp),
             ) {
+                /** Dimension badge label row. */
                 DimensionBadgeLabelRow(
                     label = preference.label,
                     color = preference.color,
@@ -95,6 +101,7 @@ internal fun DimensionPreferenceCard(
                     labelColor = MaterialTheme.colorScheme.onSurface,
                 )
                 preference.description?.takeIf { it.isNotBlank() }?.let { description ->
+                    /** Text. */
                     Text(
                         text = description,
                         style = MaterialTheme.typography.bodySmall,
@@ -103,23 +110,30 @@ internal fun DimensionPreferenceCard(
                     )
                 }
             }
+            /** Icon button. */
             IconButton(
                 onClick = {
+                    /** If. */
                     if (!isEditing) editLabel = preference.label
                     isEditing = !isEditing
                     logger.d(
                         "DimensionPreferenceCard",
+                        /** If. */
                         if (!isEditing) "Dimension edit closed" else "Dimension edit opened",
+                        /** Map of. */
                         mapOf("dimensionId" to preference.id),
                     )
                 },
                 modifier = Modifier.size(32.dp),
             ) {
+                /** Icon. */
                 Icon(
                     imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,
                     contentDescription = if (isEditing) {
+                        /** String resource. */
                         stringResource(id = R.string.settings_dimension_cancel)
                     } else {
+                        /** String resource. */
                         stringResource(id = R.string.settings_dimension_edit)
                     },
                     modifier = Modifier.size(16.dp),
@@ -132,30 +146,39 @@ internal fun DimensionPreferenceCard(
             }
         }
 
+        /** Animated visibility. */
         AnimatedVisibility(visible = isEditing) {
+            /** Column. */
             Column(
                 modifier = Modifier
                     .fillMaxWidth()
                     .padding(start = 22.dp, bottom = 10.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
+                /** Row. */
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    /** Outlined text field. */
                     OutlinedTextField(
                         value = editLabel,
                         onValueChange = { editLabel = it },
                         singleLine = true,
                         modifier = Modifier.weight(1f),
                     )
+                    /** Icon button. */
                     IconButton(onClick = {
+                        /** Trimmed. */
                         val trimmed = editLabel.trim()
+                        /** If. */
                         if (trimmed.isNotBlank() && trimmed != preference.label) {
+                            /** On label commit. */
                             onLabelCommit(trimmed)
                         }
                         isEditing = false
                     }) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = stringResource(id = R.string.settings_dimension_save),
@@ -163,32 +186,39 @@ internal fun DimensionPreferenceCard(
                     }
                 }
 
+                /** If. */
                 if (preference.hasCustomLabelOverride &&
                     preference.id != "dim_unassigned" &&
                     DimensionTaxonomyCatalog.fromCanonicalId(preference.id) != null
                 ) {
+                    /** Text button. */
                     TextButton(
                         onClick = {
+                            /** On label reset. */
                             onLabelReset()
                             editLabel = preference.label
                             isEditing = false
                             logger.i(
                                 "DimensionPreferenceCard",
                                 "Dimension label reset requested",
+                                /** Map of. */
                                 mapOf("dimensionId" to preference.id),
                             )
                         },
                     ) {
+                        /** Text. */
                         Text(text = stringResource(id = R.string.loc_reset_to_defaults))
                     }
                 }
 
+                /** Dimension color picker. */
                 DimensionColorPicker(
                     selectedColorHex = preference.color.toDimensionHexString(),
                     usedColorHexes = usedColorHexes,
                     onSelect = { colorHex -> onColorSelected(io.payanam.ui.components.colorFromHex(colorHex)) },
                 )
 
+                /** Dimension icon picker. */
                 DimensionIconPicker(
                     selectedIconKey = preference.iconKey,
                     usedIconKeys = usedIconKeys,
@@ -197,16 +227,19 @@ internal fun DimensionPreferenceCard(
 
                 // C2: user-editable dimension weight (relative importance in the
                 // L3 day-score aggregation). 1.0 = equal weighting (legacy).
+                /** Row. */
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_dimension_weight_label),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    /** Slider. */
                     Slider(
                         value = editWeight,
                         onValueChange = { editWeight = it },
@@ -214,26 +247,32 @@ internal fun DimensionPreferenceCard(
                         steps = 17,
                         modifier = Modifier.weight(1f),
                     )
+                    /** Text. */
                     Text(
                         text = String.format(java.util.Locale.US, "%.1f", editWeight),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface,
                         modifier = Modifier.widthIn(min = 34.dp),
                     )
+                    /** Icon button. */
                     IconButton(
                         onClick = {
+                            /** If. */
                             if (Math.abs(editWeight - preference.weight.toFloat()) > 0.01f) {
+                                /** On weight commit. */
                                 onWeightCommit(editWeight.toDouble())
                             }
                             isEditing = false
                             logger.i(
                                 "DimensionPreferenceCard",
                                 "Dimension weight committed",
+                                /** Map of. */
                                 mapOf("dimensionId" to preference.id, "weight" to editWeight),
                             )
                         },
                         modifier = Modifier.size(32.dp),
                     ) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Check,
                             contentDescription = stringResource(id = R.string.settings_dimension_save),
@@ -242,21 +281,26 @@ internal fun DimensionPreferenceCard(
                     }
                 }
 
+                /** Text button. */
                 TextButton(
                     onClick = {
                         isEditing = false
+                        /** On visibility toggle requested. */
                         onVisibilityToggleRequested()
                     },
                     colors = ButtonDefaults.textButtonColors(
                         contentColor = MaterialTheme.colorScheme.error,
                     ),
                 ) {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Delete,
                         contentDescription = null,
                         modifier = Modifier.size(14.dp),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(4.dp))
+                    /** Text. */
                     Text(
                         text = stringResource(
                             id = if (preference.isVisible) {
@@ -271,6 +315,7 @@ internal fun DimensionPreferenceCard(
             }
         }
 
+        /** Horizontal divider. */
         HorizontalDivider(
             thickness = 0.5.dp,
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -280,21 +325,26 @@ internal fun DimensionPreferenceCard(
 
 @Composable
 internal fun SettingsCard(
+    /** Title. */
     title: String,
     icon: androidx.compose.ui.graphics.vector.ImageVector,
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
     content: @Composable () -> Unit,
 ) {
+    /** Card. */
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
         ),
     ) {
+        /** Column. */
         Column(
             modifier = Modifier.padding(16.dp),
         ) {
+            /** Row. */
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -302,15 +352,19 @@ internal fun SettingsCard(
                     .fillMaxWidth()
                     .clickable { onToggleExpanded() },
             ) {
+                /** Row. */
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    /** Icon. */
                     Icon(
                         imageVector = icon,
                         contentDescription = null,
                         tint = MaterialTheme.colorScheme.primary,
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
+                    /** Text. */
                     Text(
                         text = title,
                         style = MaterialTheme.typography.titleMedium,
@@ -318,18 +372,24 @@ internal fun SettingsCard(
                         color = MaterialTheme.colorScheme.primary,
                     )
                 }
+                /** Icon. */
                 Icon(
                     imageVector = if (expanded) Icons.Default.ExpandLess else Icons.Default.ExpandMore,
                     contentDescription = if (expanded) {
+                        /** String resource. */
                         stringResource(id = R.string.settings_action_collapse)
                     } else {
+                        /** String resource. */
                         stringResource(id = R.string.settings_action_expand)
                     },
                 )
             }
 
+            /** If. */
             if (expanded) {
+                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
+                /** Content. */
                 content()
             }
         }
@@ -338,20 +398,25 @@ internal fun SettingsCard(
 
 @Composable
 internal fun StatRow(
+    /** Label. */
     label: String,
+    /** Value. */
     value: String,
 ) {
+    /** Row. */
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .padding(vertical = 4.dp),
         horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        /** Text. */
         Text(
             text = label,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Text. */
         Text(
             text = value,
             style = MaterialTheme.typography.bodyMedium,
@@ -366,40 +431,52 @@ internal fun DatabaseArtifactsSection(
     onDeleteArtifact: (String) -> Unit,
     onCleanStaleArtifacts: () -> Unit = {},
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
+    /** Text. */
     Text(
         text = stringResource(id = R.string.settings_database_files_title),
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold,
     )
 
+    /** If. */
     if (artifacts.isEmpty()) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_database_files_empty),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Return. */
         return
     }
 
+    /** Active artifacts. */
     val activeArtifacts = artifacts.filter { it.isActive }
+    /** Stale artifacts. */
     val staleArtifacts = artifacts.filter { !it.isActive }
 
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         activeArtifacts.forEach { artifact ->
+            /** Row. */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                /** Column. */
                 Column(
                     modifier = Modifier.weight(1f),
                     verticalArrangement = Arrangement.spacedBy(2.dp),
                 ) {
+                    /** Text. */
                     Text(
                         text = artifact.fileName,
                         style = MaterialTheme.typography.bodyMedium,
                         fontWeight = FontWeight.Medium,
                     )
+                    /** Text. */
                     Text(
                         text = stringResource(
                             id = R.string.settings_database_file_meta,
@@ -413,31 +490,38 @@ internal fun DatabaseArtifactsSection(
             }
         }
 
+        /** If. */
         if (staleArtifacts.isNotEmpty()) {
+            /** Horizontal divider. */
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),
                 thickness = 0.5.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_database_stale_files_title),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
             staleArtifacts.forEach { artifact ->
+                /** Row. */
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    /** Column. */
                     Column(
                         modifier = Modifier.weight(1f),
                         verticalArrangement = Arrangement.spacedBy(2.dp),
                     ) {
+                        /** Text. */
                         Text(
                             text = artifact.fileName,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
+                        /** Text. */
                         Text(
                             text = stringResource(
                                 id = R.string.settings_database_file_meta,
@@ -448,14 +532,18 @@ internal fun DatabaseArtifactsSection(
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
                     }
+                    /** Icon button. */
                     IconButton(onClick = {
                         logger.i(
                             "DatabaseArtifactsSection.onDeleteArtifact",
                             "Deleting stale database artifact from Settings",
+                            /** Map of. */
                             mapOf("fileName" to artifact.fileName),
                         )
+                        /** On delete artifact. */
                         onDeleteArtifact(artifact.fileName)
                     }) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = stringResource(id = R.string.settings_action_delete_file),
@@ -463,13 +551,16 @@ internal fun DatabaseArtifactsSection(
                     }
                 }
             }
+            /** Outlined button. */
             OutlinedButton(
                 onClick = {
                     logger.d("SettingsScreen.dbArtifactActionTapped", "Database artifact action tapped", mapOf("action" to "clean_stale"))
+                    /** On clean stale artifacts. */
                     onCleanStaleArtifacts()
                 },
                 modifier = Modifier.fillMaxWidth(),
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_database_clean_stale))
             }
         }
@@ -477,18 +568,31 @@ internal fun DatabaseArtifactsSection(
 }
 
 internal enum class SettingsSection {
+    /** Appearance. */
     APPEARANCE,
+    /** Default landing. */
     DEFAULT_LANDING,
+    /** Focus mode. */
     FOCUS_MODE,
+    /** Dimensions. */
     DIMENSIONS,
+    /** Auto track habit time. */
     AUTO_TRACK_HABIT_TIME,
+    /** Time insights. */
     TIME_INSIGHTS,
+    /** Auto backup. */
     AUTO_BACKUP,
+    /** Scoring. */
     SCORING,
+    /** Security. */
     SECURITY,
+    /** Debug. */
     DEBUG,
+    /** Database. */
     DATABASE,
+    /** Data management. */
     DATA_MANAGEMENT,
+    /** About. */
     ABOUT,
 }
 internal fun SettingsSection?.toggle(target: SettingsSection): SettingsSection? = if (this == target) null else target

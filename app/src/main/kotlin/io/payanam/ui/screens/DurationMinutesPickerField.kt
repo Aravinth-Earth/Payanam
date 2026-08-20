@@ -24,17 +24,24 @@ import java.time.LocalTime
 
 @Composable
 internal fun DurationMinutesPickerField(
+    /** Label. */
     label: String,
     minutes: Int?,
+    /** Enabled. */
     enabled: Boolean,
     onMinutesChange: (Int?) -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
+    /** Focus manager. */
     val focusManager = LocalFocusManager.current
     var showPicker by remember { mutableStateOf(false) }
+    /** Safe minutes. */
     val safeMinutes = (minutes ?: 0).coerceIn(0, 23 * 60 + 59)
 
+    /** Box. */
     Box(modifier = Modifier.fillMaxWidth()) {
+        /** Outlined text field. */
         OutlinedTextField(
             value = formatDurationForPickerValue(safeMinutes),
             onValueChange = {},
@@ -43,12 +50,15 @@ internal fun DurationMinutesPickerField(
             modifier = Modifier
                 .fillMaxWidth()
                 .pointerInput(enabled, safeMinutes, label) {
+                    /** If. */
                     if (!enabled) return@pointerInput
+                    /** Detect tap gestures. */
                     detectTapGestures(
                         onTap = {
                             logger.d(
                                 "DurationMinutesPickerField",
                                 "Opening duration picker",
+                                /** Map of. */
                                 mapOf("label" to label, "currentMinutes" to safeMinutes.toString()),
                             )
                             showPicker = true
@@ -59,6 +69,7 @@ internal fun DurationMinutesPickerField(
                     logger.d(
                         "DurationMinutesPickerField",
                         "Duration field focus changed",
+                        /** Map of. */
                         mapOf(
                             "label" to label,
                             "isFocused" to focusState.isFocused.toString(),
@@ -66,10 +77,12 @@ internal fun DurationMinutesPickerField(
                             "showPicker" to showPicker.toString(),
                         ),
                     )
+                    /** If. */
                     if (enabled && focusState.isFocused && !showPicker) {
                         logger.d(
                             "DurationMinutesPickerField",
                             "Opening duration picker from focus fallback",
+                            /** Map of. */
                             mapOf("label" to label, "currentMinutes" to safeMinutes.toString()),
                         )
                         showPicker = true
@@ -80,23 +93,30 @@ internal fun DurationMinutesPickerField(
         )
     }
 
+    /** Launched effect. */
     LaunchedEffect(showPicker) {
         logger.d(
             "DurationMinutesPickerField",
             "Duration picker visibility changed",
+            /** Map of. */
             mapOf("label" to label, "showPicker" to showPicker.toString()),
         )
     }
 
+    /** If. */
     if (showPicker) {
+        /** Time picker alert dialog. */
         TimePickerAlertDialog(
             initialTime = LocalTime.of(safeMinutes / 60, safeMinutes % 60),
             onConfirm = { time ->
+                /** Next minutes. */
                 val nextMinutes = time.hour * 60 + time.minute
+                /** On minutes change. */
                 onMinutesChange(nextMinutes.takeIf { it > 0 })
                 logger.d(
                     "DurationMinutesPickerField",
                     "Selected duration minutes",
+                    /** Map of. */
                     mapOf("minutes" to nextMinutes.toString(), "label" to label),
                 )
                 focusManager.clearFocus(force = true)
@@ -106,6 +126,7 @@ internal fun DurationMinutesPickerField(
                 logger.d(
                     "DurationMinutesPickerField",
                     "Duration picker dismissed",
+                    /** Map of. */
                     mapOf("label" to label),
                 )
                 focusManager.clearFocus(force = true)
@@ -117,16 +138,23 @@ internal fun DurationMinutesPickerField(
 
 @Composable
 private fun formatDurationForPickerValue(totalMinutes: Int): String {
+    /** Safe minutes. */
     val safeMinutes = totalMinutes.coerceAtLeast(0)
+    /** Hours. */
     val hours = safeMinutes / 60
+    /** Minutes. */
     val minutes = safeMinutes % 60
     return if (hours > 0) {
+        /** String resource. */
         stringResource(
             id = R.string.loc_duration_hours_minutes_compact,
+            /** Hours. */
             hours,
+            /** Minutes. */
             minutes,
         )
     } else {
+        /** String resource. */
         stringResource(id = R.string.loc_duration_minutes_compact, minutes)
     }
 }

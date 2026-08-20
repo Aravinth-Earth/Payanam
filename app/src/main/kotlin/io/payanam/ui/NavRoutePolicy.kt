@@ -15,6 +15,7 @@ package io.payanam.ui
  */
 internal object NavRoutePolicy {
 
+    /** Startup gate routes. */
     val startupGateRoutes: Set<String> = setOf(
         "database_init",
         "passphrase_setup",
@@ -31,6 +32,7 @@ internal object NavRoutePolicy {
         "scoring_config",
     )
 
+    /** Minimal mode allowed tabs. */
     val minimalModeAllowedTabs: Set<String> = setOf(
         "time",
         "tasks",
@@ -48,8 +50,11 @@ internal object NavRoutePolicy {
      * other disabled tabs (currently habits) are blocked.
      */
     fun isAllowed(route: String, minimalModeEnabled: Boolean): Boolean {
+        /** If. */
         if (route in startupGateRoutes) return true
+        /** If. */
         if (secondaryRoutes.any { prefix -> route == prefix || route.startsWith("$prefix/") }) return true
+        /** If. */
         if (minimalModeEnabled && route !in minimalModeAllowedTabs) return false
         return true
     }

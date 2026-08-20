@@ -30,18 +30,24 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
  */
 @Composable
 internal fun InsightsChartsVisibilitySettingsCard(
+    /** Expanded. */
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    /** Prefs state. */
     prefsState: AppPreferencesState,
+    /** Prefs view model. */
     prefsViewModel: AppPreferencesViewModel,
+    /** Logger. */
     logger: UnifiedLogger,
 ) {
+    /** Settings card. */
     SettingsCard(
         title = stringResource(id = R.string.settings_insights_charts_visibility_title),
         icon = Icons.Default.TrendingUp,
         expanded = expanded,
         onToggleExpanded = onToggleExpanded,
     ) {
+        /** Insights charts visibility settings section. */
         InsightsChartsVisibilitySettingsSection(
             prefsState = prefsState,
             prefsViewModel = prefsViewModel,
@@ -52,17 +58,23 @@ internal fun InsightsChartsVisibilitySettingsCard(
 
 @Composable
 internal fun InsightsChartsVisibilitySettingsSection(
+    /** Prefs state. */
     prefsState: AppPreferencesState,
+    /** Prefs view model. */
     prefsViewModel: AppPreferencesViewModel,
+    /** Logger. */
     logger: UnifiedLogger,
 ) {
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_insights_charts_visibility_description),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
 
+        /** Module toggle section. */
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_time),
             checked = prefsState.chartTimeModuleEnabled,
@@ -71,15 +83,18 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 logger.d(
                     "SettingsTimeInsightsSection.timeModule",
                     "Time insights module toggled",
+                    /** Map of. */
                     mapOf("enabled" to enabled),
                 )
             },
         ) {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_insights_time_overview_title),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.settings_insights_time_overall_snapshot_title),
                 checked = prefsState.chartTimeOverallSnapshotEnabled,
@@ -88,11 +103,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.timeOverallSnapshot",
                         "Time overall snapshot card toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.settings_insights_time_execution_details_title),
                 checked = prefsState.chartTimeExecutionDetailsEnabled,
@@ -101,11 +118,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.timeExecutionDetails",
                         "Time execution details toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Module toggle section. */
             ModuleToggleSection(
                 title = stringResource(id = R.string.settings_insights_time_score_cards_title),
                 checked = prefsState.chartTimeScoreCardsEnabled,
@@ -114,10 +133,12 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.timeScoreCards",
                         "Time score cards section toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             ) {
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_overall_score_card_title),
                     checked = prefsState.chartTimeOverallScoreCardEnabled,
@@ -126,11 +147,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeOverallScoreCard",
                             "Time overall score card toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
 
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_dimension_score_cards_title),
                     checked = prefsState.chartTimeDimensionScoreCardsEnabled,
@@ -139,12 +162,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeDimensionScoreCards",
                             "Time dimension score cards toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
             }
 
+            /** Module toggle section. */
             ModuleToggleSection(
                 title = stringResource(id = R.string.settings_insights_time_line_graphs_title),
                 checked = prefsState.chartTimeLineGraphsEnabled,
@@ -153,10 +178,12 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.timeLineGraphs",
                         "Time line graphs section toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             ) {
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_daily_score_trend_title),
                     checked = prefsState.chartTimeDailyScoreTrendEnabled,
@@ -165,11 +192,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeDailyScoreTrend",
                             "Time daily score trend toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
 
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_progress_trend_title),
                     checked = prefsState.chartTimeProgressTrendEnabled,
@@ -178,11 +207,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeProgressTrend",
                             "Time progress trend toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
 
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_historical_ranking_title),
                     checked = prefsState.chartTimeHistoricalRankingEnabled,
@@ -191,11 +222,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeHistoricalRanking",
                             "Time historical ranking toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
 
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_momentum_streak_title),
                     checked = prefsState.chartTimeMomentumStreakEnabled,
@@ -204,12 +237,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.timeMomentumStreak",
                             "Time momentum streak toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
             }
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_time_average_daily_title),
                 checked = prefsState.chartAverageDailyTimeEnabled,
@@ -218,11 +253,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.averageDailyTime",
                         "Average daily time chart toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_dim_split_title),
                 checked = prefsState.chartDimSplitEnabled,
@@ -231,11 +268,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.dimSplit",
                         "Chart dim split toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_dim_trend_title),
                 checked = prefsState.chartDimTrendEnabled,
@@ -244,11 +283,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.dimTrend",
                         "Chart dim trend toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_heatmap_title),
                 checked = prefsState.chartDailyTimelineEnabled,
@@ -257,11 +298,13 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.dailyTimeline",
                         "Chart daily timeline toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_week_grid_title),
                 checked = prefsState.chartWeeklyPatternEnabled,
@@ -270,11 +313,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.weeklyPattern",
                         "Chart weekly pattern toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
+            /** If. */
             if (prefsState.chartWeeklyPatternEnabled) {
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.loc_settings_chart_excl_empty_days),
                     checked = prefsState.chartWeeklyPatternExclEmpty,
@@ -284,12 +330,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.weeklyPatternExclEmpty",
                             "Chart weekly pattern excl-empty toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
                 )
             }
 
+            /** Chart toggle row. */
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_minute_pattern_title),
                 checked = prefsState.chartDailyRhythmEnabled,
@@ -298,11 +346,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     logger.d(
                         "SettingsTimeInsightsSection.dailyRhythm",
                         "Chart daily rhythm toggled",
+                        /** Map of. */
                         mapOf("enabled" to enabled),
                     )
                 },
             )
+            /** If. */
             if (prefsState.chartDailyRhythmEnabled) {
+                /** Chart toggle row. */
                 ChartToggleRow(
                     label = stringResource(id = R.string.loc_settings_chart_excl_empty_days),
                     checked = prefsState.chartDailyRhythmExclEmpty,
@@ -312,6 +363,7 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         logger.d(
                             "SettingsTimeInsightsSection.dailyRhythmExclEmpty",
                             "Chart daily rhythm excl-empty toggled",
+                            /** Map of. */
                             mapOf("enabled" to enabled),
                         )
                     },
@@ -319,8 +371,10 @@ internal fun InsightsChartsVisibilitySettingsSection(
             }
         }
 
+        /** Horizontal divider. */
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
 
+        /** Module toggle section. */
         ModuleToggleSection(
             title = stringResource(id = R.string.settings_database_tasks),
             checked = prefsState.chartTaskModuleEnabled,
@@ -329,12 +383,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 logger.d(
                     "SettingsTimeInsightsSection.taskModule",
                     "Task insights module toggled",
+                    /** Map of. */
                     mapOf("enabled" to enabled),
                 )
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
 
+        /** Module toggle section. */
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_habits),
             checked = prefsState.chartHabitModuleEnabled,
@@ -343,12 +399,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 logger.d(
                     "SettingsTimeInsightsSection.habitModule",
                     "Habit insights module toggled",
+                    /** Map of. */
                     mapOf("enabled" to enabled),
                 )
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
 
+        /** Module toggle section. */
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_journal_notes),
             checked = prefsState.chartJournalModuleEnabled,
@@ -357,12 +415,14 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 logger.d(
                     "SettingsTimeInsightsSection.journalModule",
                     "Journal insights module toggled",
+                    /** Map of. */
                     mapOf("enabled" to enabled),
                 )
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
 
+        /** Module toggle section. */
         ModuleToggleSection(
             title = stringResource(id = R.string.settings_database_notes),
             checked = prefsState.chartNoteModuleEnabled,
@@ -371,6 +431,7 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 logger.d(
                     "SettingsTimeInsightsSection.noteModule",
                     "Note insights module toggled",
+                    /** Map of. */
                     mapOf("enabled" to enabled),
                 )
             },
@@ -381,27 +442,36 @@ internal fun InsightsChartsVisibilitySettingsSection(
 
 @Composable
 private fun ModuleToggleSection(
+    /** Title. */
     title: String,
+    /** Checked. */
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     emptyHint: String? = null,
     content: @Composable (() -> Unit)? = null,
 ) {
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        /** Chart toggle row. */
         ChartToggleRow(
             label = title,
             checked = checked,
             onCheckedChange = onCheckedChange,
         )
+        /** If. */
         if (checked) {
+            /** If. */
             if (content != null) {
+                /** Column. */
                 Column(
                     modifier = Modifier.padding(start = 20.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
                 ) {
+                    /** Content. */
                     content()
                 }
             } else if (!emptyHint.isNullOrBlank()) {
+                /** Text. */
                 Text(
                     text = emptyHint,
                     style = MaterialTheme.typography.bodySmall,
@@ -415,11 +485,14 @@ private fun ModuleToggleSection(
 
 @Composable
 private fun ChartToggleRow(
+    /** Label. */
     label: String,
+    /** Checked. */
     checked: Boolean,
     onCheckedChange: (Boolean) -> Unit,
     indented: Boolean = false,
 ) {
+    /** Row. */
     Row(
         modifier = Modifier
             .fillMaxWidth()
@@ -427,12 +500,14 @@ private fun ChartToggleRow(
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        /** Text. */
         Text(
             text = label,
             style = if (indented) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium,
             color = if (indented) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.onSurface,
             modifier = Modifier.weight(1f),
         )
+        /** Switch. */
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,

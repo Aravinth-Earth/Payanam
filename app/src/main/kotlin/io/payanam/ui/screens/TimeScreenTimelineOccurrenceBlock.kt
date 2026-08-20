@@ -44,54 +44,79 @@ import java.time.format.DateTimeFormatter
 
 @Composable
 internal fun PastOccurrenceBlock(
+    /** Occurrence. */
     occurrence: TaskOccurrence,
     task: Task?,
     minuteHeight: androidx.compose.ui.unit.Dp,
+    /** Start minutes. */
     startMinutes: Int,
+    /** End minutes. */
     endMinutes: Int,
+    /** Use24hour. */
     use24Hour: Boolean,
+    /** Color. */
     color: Color,
+    /** Dimension icon option. */
     dimensionIconOption: DimensionIconOption,
     laneIndex: Int = 0,
     laneCount: Int = 1,
     onClick: () -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
+    /** Top offset. */
     val topOffset = minuteHeight * startMinutes
+    /** Height. */
     val height = minuteHeight * (endMinutes - startMinutes)
+    /** Val. */
     val (bgColor, statusIcon) = when (occurrence.status) {
         "completed" -> color.copy(alpha = 0.15f) to Icons.Filled.Check
         "skipped" -> Color.Gray.copy(alpha = 0.15f) to Icons.Filled.Close
         "missed" -> Color.Red.copy(alpha = 0.15f) to Icons.Filled.Close
         else -> color.copy(alpha = 0.1f) to null
     }
+    /** Border color. */
     val borderColor = when (occurrence.status) {
         "completed" -> color.copy(alpha = 0.4f)
         "skipped" -> Color.Gray.copy(alpha = 0.4f)
         "missed" -> Color.Red.copy(alpha = 0.4f)
         else -> color.copy(alpha = 0.3f)
     }
+    /** Time formatter. */
     val timeFormatter = DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a")
+    /** Display start. */
     val displayStart = LocalTime.of(startMinutes / 60, startMinutes % 60).format(timeFormatter)
+    /** Display end. */
     val displayEnd = LocalTime.of((endMinutes.coerceAtMost(1439)) / 60, (endMinutes.coerceAtMost(1439)) % 60).format(timeFormatter)
+    /** Duration minutes. */
     val durationMinutes = (endMinutes - startMinutes).coerceAtLeast(0)
+    /** Focus value label. */
     val focusValueLabel = formatCompactFocusValue(task?.focusRequired)
+    /** Duration label. */
     val durationLabel = if (durationMinutes >= 60) {
         androidx.compose.ui.res.stringResource(id = R.string.loc_duration_hours_minutes_compact, durationMinutes / 60, durationMinutes % 60)
     } else {
         androidx.compose.ui.res.stringResource(id = R.string.loc_duration_minutes_compact, durationMinutes)
     }
+    /** Dimension label. */
     val dimensionLabel = task?.lifeIntentionCategory?.takeIf { it.isNotBlank() }
+    /** Horizontal padding. */
     val horizontalPadding = 2.dp
+    /** Box with constraints. */
     BoxWithConstraints(
         modifier = Modifier
             .offset(y = topOffset)
             .fillMaxWidth(),
     ) {
+        /** Available width. */
         val availableWidth = maxWidth - (horizontalPadding * 2)
+        /** Lane width. */
         val laneWidth = availableWidth / laneCount
+        /** Left offset. */
         val leftOffset = horizontalPadding + (laneWidth * laneIndex)
+        /** Show compact row. */
         val showCompactRow = height >= 24.dp && laneWidth >= 92.dp
+        /** Compact label. */
         val compactLabel = buildTimeBlockCompactLabel(
             dimensionLabel = task?.lifeIntentionCategory ?: androidx.compose.ui.res.stringResource(id = R.string.loc_unknown_task),
             taskLabel = task?.title,
@@ -100,6 +125,7 @@ internal fun PastOccurrenceBlock(
             durationLabel = durationLabel,
             focusValueLabel = focusValueLabel,
         )
+        /** Box. */
         Box(
             modifier = Modifier
                 .offset(x = leftOffset)
@@ -109,10 +135,12 @@ internal fun PastOccurrenceBlock(
                 .border(1.dp, borderColor, RoundedCornerShape(8.dp))
                 .clickable {
                     logger.d("TimeScreenTimelineOccurrenceBlock.PastOccurrenceBlock", "Opening past occurrence block", mapOf("occurrenceId" to occurrence.id))
+                    /** On click. */
                     onClick()
                 }
                 .padding(horizontal = 6.dp, vertical = 2.dp),
         ) {
+            /** Dimension icon cascade layer. */
             DimensionIconCascadeLayer(
                 iconOption = dimensionIconOption,
                 tint = borderColor,
@@ -126,9 +154,12 @@ internal fun PastOccurrenceBlock(
                 alphaRange = 0.12f..0.24f,
                 animated = true,
             )
+            /** If. */
             if (showCompactRow) {
+                /** Row. */
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                     statusIcon?.let { icon ->
+                        /** Icon. */
                         Icon(
                             imageVector = icon,
                             contentDescription = when (occurrence.status) {
@@ -140,22 +171,28 @@ internal fun PastOccurrenceBlock(
                             modifier = Modifier.size(12.dp),
                             tint = borderColor,
                         )
+                        /** Spacer. */
                         Spacer(modifier = Modifier.width(3.dp))
                     }
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Filled.Repeat,
                         contentDescription = androidx.compose.ui.res.stringResource(id = R.string.loc_recurring),
                         modifier = Modifier.size(10.dp),
                         tint = borderColor.copy(alpha = 0.6f),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(3.dp))
+                    /** Icon. */
                     Icon(
                         imageVector = dimensionIconOption.imageVector,
                         contentDescription = null,
                         modifier = Modifier.size(12.dp),
                         tint = borderColor.copy(alpha = 0.92f),
                     )
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(4.dp))
+                    /** Text. */
                     Text(
                         text = compactLabel,
                         style = MaterialTheme.typography.labelSmall,
@@ -165,9 +202,12 @@ internal fun PastOccurrenceBlock(
                     )
                 }
             } else {
+                /** Column. */
                 Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
+                    /** Row. */
                     Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
                         statusIcon?.let { icon ->
+                            /** Icon. */
                             Icon(
                                 imageVector = icon,
                                 contentDescription = when (occurrence.status) {
@@ -179,22 +219,28 @@ internal fun PastOccurrenceBlock(
                                 modifier = Modifier.size(12.dp),
                                 tint = borderColor,
                             )
+                            /** Spacer. */
                             Spacer(modifier = Modifier.width(3.dp))
                         }
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.Filled.Repeat,
                             contentDescription = androidx.compose.ui.res.stringResource(id = R.string.loc_recurring),
                             modifier = Modifier.size(10.dp),
                             tint = borderColor.copy(alpha = 0.6f),
                         )
+                        /** Spacer. */
                         Spacer(modifier = Modifier.width(3.dp))
+                        /** Icon. */
                         Icon(
                             imageVector = dimensionIconOption.imageVector,
                             contentDescription = null,
                             modifier = Modifier.size(12.dp),
                             tint = borderColor.copy(alpha = 0.92f),
                         )
+                        /** Spacer. */
                         Spacer(modifier = Modifier.width(4.dp))
+                        /** Text. */
                         Text(
                             text = task?.title ?: androidx.compose.ui.res.stringResource(id = R.string.loc_unknown_task),
                             style = MaterialTheme.typography.labelSmall,
@@ -203,14 +249,17 @@ internal fun PastOccurrenceBlock(
                             overflow = TextOverflow.Ellipsis,
                         )
                     }
+                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = R.string.loc_time_range_with_now, displayStart, displayEnd),
                         style = MaterialTheme.typography.labelSmall,
                         color = borderColor.copy(alpha = 0.86f),
                         maxLines = 1,
                     )
+                    /** Text. */
                     Text(
                         text = buildList {
+                            /** Add. */
                             add(durationLabel)
                             focusValueLabel?.let { add(it) }
                         }.joinToString(" · "),

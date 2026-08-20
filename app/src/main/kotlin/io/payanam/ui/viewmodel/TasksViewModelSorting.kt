@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
@@ -20,11 +22,13 @@ import java.time.LocalDateTime
  */
 internal fun sortHabits(
     habits: List<Task>,
+    /** Option. */
     option: HabitSortOption,
     taskCheckmarks: Map<String, List<DayCheckmark>>,
     todayStatusByTaskId: Map<String, CheckmarkStatus> = emptyMap(),
     latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
 ): List<Task> {
+    /** Score of. */
     val scoreOf: (Task) -> Double = { latestL1ByHabit[it.id]?.runningAvg ?: 0.0 }
     return when (option) {
         HabitSortOption.SCORE_HIGH_LOW -> habits.sortedWith(compareByDescending(scoreOf).thenBy { it.id })
@@ -46,9 +50,12 @@ internal fun sortHabits(
 
 internal fun filterAndSortTasks(
     tasks: List<Task>,
+    /** Filter. */
     filter: TaskFilter,
+    /** Sort. */
     sort: TaskSortOption,
 ): List<Task> {
+    /** Filtered. */
     val filtered = filterTasks(tasks, filter)
     return sortTasks(filtered, sort)
 }
@@ -56,17 +63,21 @@ internal fun filterAndSortTasks(
 internal fun visibleHabitsForDisplay(
     habits: List<Task>,
     todayStatusByTaskId: Map<String, CheckmarkStatus>,
+    /** Show completed habits. */
     showCompletedHabits: Boolean,
     hideAllMarkedToday: Boolean = false,
     dueTodayOnly: Boolean = false,
     dueTodayByTaskId: Map<String, Boolean> = emptyMap(),
 ): List<Task> {
+    /** If. */
     if (showCompletedHabits && !hideAllMarkedToday && !dueTodayOnly) return habits
     return habits.filter { task ->
         // Due-today narrows first (actionable queue), then status hides.
+        /** If. */
         if (dueTodayOnly && dueTodayByTaskId[task.id] == false) {
             return@filter false
         }
+        /** Status. */
         val status = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
         when {
             hideAllMarkedToday -> status != CheckmarkStatus.COMPLETED && status != CheckmarkStatus.SKIPPED && status != CheckmarkStatus.MISSED
@@ -78,12 +89,18 @@ internal fun visibleHabitsForDisplay(
 
 internal fun buildTaskFilterCounts(
     oneTimeTasks: List<Task>,
+    /** Today count. */
     todayCount: Int,
+    /** Overdue count. */
     overdueCount: Int,
+    /** Future count. */
     futureCount: Int,
 ): TaskFilterCounts {
+    /** Active count. */
     val activeCount = oneTimeTasks.count { it.status == "active" || it.status == "pending" || it.status == null }
+    /** Completed count. */
     val completedCount = oneTimeTasks.count { it.status == "completed" }
+    /** Archived count. */
     val archivedCount = oneTimeTasks.count { it.status == "archived" }
     return TaskFilterCounts(
         all = oneTimeTasks.size,
@@ -98,7 +115,9 @@ internal fun buildTaskFilterCounts(
 }
 
 private fun filterTasks(tasks: List<Task>, filter: TaskFilter): List<Task> {
+    /** Now. */
     val now = LocalDateTime.now()
+    /** Today. */
     val today = LocalDate.now()
     return when (filter) {
         TaskFilter.ALL -> tasks
@@ -136,10 +155,12 @@ private fun sortTasks(tasks: List<Task>, sort: TaskSortOption): List<Task> = whe
     TaskSortOption.SCORE_ASC -> tasks.sortedBy { it.taskScore ?: 0.0 }
 
     TaskSortOption.DUE_DATE_ASC -> tasks.sortedWith(
+        /** Compare by. */
         compareBy(nullsLast()) { it.dueDate },
     )
 
     TaskSortOption.DUE_DATE_DESC -> tasks.sortedWith(
+        /** Compare by descending. */
         compareByDescending(nullsLast()) { it.dueDate },
     )
 
@@ -174,10 +195,12 @@ private fun impactLevelToValue(level: String): Int = when (level) {
     "Critical Impact" -> 5
 
     else -> {
+        /** If. */
         if (UnifiedLogger.isInitialized()) {
             UnifiedLogger.getInstance().w(
                 "TasksViewModelSorting.impactLevelToValue",
                 "Unknown impact level, using default sort weight",
+                /** Map of. */
                 mapOf("impactLevel" to level),
             )
         }
@@ -198,6 +221,7 @@ private fun energyLevelToValue(level: String): Int = when (level) {
  * are not user-visible and would pollute results.
  */
 internal fun Task.matchesTaskSearch(query: String): Boolean {
+    /** If. */
     if (query.isBlank()) return true
     // Defensive: lowercase both sides so the matcher is caller-independent.
     return title.lowercase().contains(query.lowercase())

@@ -51,28 +51,37 @@ import io.payanam.feature.settings.SettingsUiState
 @Composable
 @OptIn(ExperimentalMaterial3Api::class)
 internal fun DatabaseSecurityPreferencesSection(
+    /** Ui state. */
     uiState: SettingsUiState,
+    /** Context. */
     context: Context,
     onUpdateUnlockTimeout: (Int) -> Unit,
     onDisableBiometricEnabled: () -> Unit,
     onEnableBiometricRequested: (FragmentActivity, String, (Boolean) -> Unit) -> Unit,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
     var unlockTimeoutExpanded by remember { mutableStateOf(false) }
     var showEnableBiometricDialog by remember { mutableStateOf(false) }
     var enableBiometricPassphrase by remember { mutableStateOf("") }
     var showEnableBiometricPassphrase by remember { mutableStateOf(false) }
     var showEnableBiometricPassphraseError by remember { mutableStateOf(false) }
+    /** Unlock timeout choices. */
     val unlockTimeoutChoices = remember { listOf(1, 2, 5, 10, 15, 30, 60, 120, 240) }
+    /** Biometric can authenticate code. */
     val biometricCanAuthenticateCode = remember(context) { biometricCanAuthenticateCode(context) }
+    /** Biometric available. */
     val biometricAvailable = biometricCanAuthenticateCode == BiometricManager.BIOMETRIC_SUCCESS
+    /** Host activity. */
     val hostActivity = remember(context) { context.findFragmentActivity() }
 
+    /** Text. */
     Text(
         text = stringResource(id = R.string.settings_db_unlock_timeout_title),
         style = MaterialTheme.typography.labelMedium,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    /** Exposed dropdown menu box. */
     ExposedDropdownMenuBox(
         expanded = unlockTimeoutExpanded,
         onExpandedChange = {
@@ -80,10 +89,12 @@ internal fun DatabaseSecurityPreferencesSection(
             logger.d(
                 "DatabaseSecurityPreferencesSection.timeout",
                 "Unlock timeout selector expansion changed",
+                /** Map of. */
                 mapOf("expanded" to it),
             )
         },
     ) {
+        /** Outlined text field. */
         OutlinedTextField(
             value = formatTimeoutDisplay(uiState.unlockSessionTimeoutMinutes, context),
             onValueChange = {},
@@ -91,18 +102,22 @@ internal fun DatabaseSecurityPreferencesSection(
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unlockTimeoutExpanded) },
             modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
+        /** Dropdown menu. */
         DropdownMenu(
             expanded = unlockTimeoutExpanded,
             onDismissRequest = { unlockTimeoutExpanded = false },
         ) {
             unlockTimeoutChoices.forEach { minutes ->
+                /** Dropdown menu item. */
                 DropdownMenuItem(
                     text = { Text(formatTimeoutDisplay(minutes, context)) },
                     onClick = {
+                        /** On update unlock timeout. */
                         onUpdateUnlockTimeout(minutes)
                         logger.d(
                             "DatabaseSecurityPreferencesSection.timeout",
                             "Updated unlock session timeout",
+                            /** Map of. */
                             mapOf("minutes" to minutes),
                         )
                         unlockTimeoutExpanded = false
@@ -111,31 +126,39 @@ internal fun DatabaseSecurityPreferencesSection(
             }
         }
     }
+    /** Text. */
     Text(
         text = stringResource(id = R.string.settings_db_unlock_timeout_help),
         style = MaterialTheme.typography.bodySmall,
         color = MaterialTheme.colorScheme.onSurfaceVariant,
     )
+    /** Row. */
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
         verticalAlignment = Alignment.CenterVertically,
     ) {
+        /** Column. */
         Column(modifier = Modifier.weight(1f)) {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.db_passphrase_unlock_biometric_title),
                 style = MaterialTheme.typography.bodyMedium,
             )
+            /** Text. */
             Text(
                 text = if (biometricAvailable) {
+                    /** String resource. */
                     stringResource(id = R.string.settings_db_biometric_unlock_help)
                 } else {
+                    /** String resource. */
                     stringResource(id = R.string.settings_db_biometric_unlock_unavailable_help)
                 },
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
+        /** Switch. */
         Switch(
             checked = uiState.biometricUnlockEnabled,
             enabled = biometricAvailable,
@@ -143,23 +166,28 @@ internal fun DatabaseSecurityPreferencesSection(
                 logger.i(
                     "DatabaseSecurityPreferencesSection.biometric",
                     "Biometric toggle changed",
+                    /** Map of. */
                     mapOf(
                         "requestedEnabled" to enabled,
                         "biometricAvailable" to biometricAvailable,
                         "hostActivityPresent" to (hostActivity != null),
                     ),
                 )
+                /** If. */
                 if (!enabled) {
+                    /** On disable biometric enabled. */
                     onDisableBiometricEnabled()
                     logger.d(
                         "DatabaseSecurityPreferencesSection.biometric",
                         "Biometric unlock disabled from settings",
+                        /** Map of. */
                         mapOf("enabled" to false),
                     )
                 } else if (hostActivity != null) {
                     logger.i(
                         "DatabaseSecurityPreferencesSection.biometricEnable",
                         "Biometric enable requested from settings; collecting passphrase",
+                        /** Map of. */
                         mapOf(
                             "canAuthenticate" to biometricCanAuthenticateCode,
                             "hostActivityClass" to hostActivity.javaClass.name,
@@ -170,26 +198,33 @@ internal fun DatabaseSecurityPreferencesSection(
                     logger.w(
                         "DatabaseSecurityPreferencesSection.biometricEnable",
                         "Biometric enable verification blocked: host activity unavailable",
+                        /** Map of. */
                         mapOf("canAuthenticate" to biometricCanAuthenticateCode),
                     )
                 }
             },
         )
     }
+    /** If. */
     if (!biometricAvailable) {
         androidx.compose.material3.TextButton(onClick = {
             logger.i(
                 "DatabaseSecurityPreferencesSection.biometricSetup",
                 "Biometric setup action tapped from Settings",
+                /** Map of. */
                 mapOf("canAuthenticate" to biometricCanAuthenticateCode),
             )
+            /** Open biometric enrollment. */
             openBiometricEnrollment(context, logger)
         }) {
+            /** Text. */
             Text(text = stringResource(id = R.string.db_passphrase_unlock_biometric_setup_action))
         }
     }
 
+    /** If. */
     if (showEnableBiometricDialog) {
+        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = {
                 showEnableBiometricDialog = false
@@ -199,16 +234,20 @@ internal fun DatabaseSecurityPreferencesSection(
             },
             title = { Text(text = stringResource(id = R.string.db_passphrase_unlock_biometric_enable_action)) },
             text = {
+                /** Column. */
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_biometric_enable_passphrase_desc),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
+                    /** Outlined text field. */
                     OutlinedTextField(
                         value = enableBiometricPassphrase,
                         onValueChange = {
                             enableBiometricPassphrase = it
+                            /** If. */
                             if (showEnableBiometricPassphraseError) {
                                 showEnableBiometricPassphraseError = false
                             }
@@ -218,10 +257,13 @@ internal fun DatabaseSecurityPreferencesSection(
                         visualTransformation = if (showEnableBiometricPassphrase) {
                             VisualTransformation.None
                         } else {
+                            /** Password visual transformation. */
                             PasswordVisualTransformation()
                         },
                         trailingIcon = {
+                            /** Icon button. */
                             IconButton(onClick = { showEnableBiometricPassphrase = !showEnableBiometricPassphrase }) {
+                                /** Icon. */
                                 Icon(
                                     imageVector = if (showEnableBiometricPassphrase) {
                                         Icons.Default.VisibilityOff
@@ -234,7 +276,9 @@ internal fun DatabaseSecurityPreferencesSection(
                         },
                         modifier = Modifier.fillMaxWidth(),
                     )
+                    /** If. */
                     if (showEnableBiometricPassphraseError) {
+                        /** Text. */
                         Text(
                             text = stringResource(id = R.string.settings_biometric_enable_passphrase_error),
                             style = MaterialTheme.typography.bodySmall,
@@ -244,13 +288,17 @@ internal fun DatabaseSecurityPreferencesSection(
                 }
             },
             confirmButton = {
+                /** Button. */
                 Button(
                     onClick = {
+                        /** Activity. */
                         val activity = hostActivity
+                        /** If. */
                         if (activity == null || enableBiometricPassphrase.isBlank()) {
                             logger.w(
                                 "DatabaseSecurityPreferencesSection.biometricEnable",
                                 "Biometric enable blocked: missing host activity or passphrase",
+                                /** Map of. */
                                 mapOf(
                                     "hostActivityPresent" to (activity != null),
                                     "passphraseBlank" to enableBiometricPassphrase.isBlank(),
@@ -263,12 +311,15 @@ internal fun DatabaseSecurityPreferencesSection(
                             "DatabaseSecurityPreferencesSection.biometricEnable",
                             "Submitting biometric enable verification request",
                         )
+                        /** On enable biometric requested. */
                         onEnableBiometricRequested(activity, enableBiometricPassphrase) { success ->
                             logger.i(
                                 "DatabaseSecurityPreferencesSection.biometricEnable",
                                 "Biometric enable verification callback",
+                                /** Map of. */
                                 mapOf("success" to success),
                             )
+                            /** If. */
                             if (success) {
                                 showEnableBiometricDialog = false
                                 enableBiometricPassphrase = ""
@@ -280,10 +331,12 @@ internal fun DatabaseSecurityPreferencesSection(
                         }
                     },
                 ) {
+                    /** Text. */
                     Text(text = stringResource(id = R.string.settings_biometric_enable_passphrase_confirm))
                 }
             },
             dismissButton = {
+                /** Text button. */
                 TextButton(
                     onClick = {
                         logger.d(
@@ -296,6 +349,7 @@ internal fun DatabaseSecurityPreferencesSection(
                         showEnableBiometricPassphraseError = false
                     },
                 ) {
+                    /** Text. */
                     Text(text = stringResource(id = R.string.settings_action_cancel))
                 }
             },
@@ -306,11 +360,13 @@ internal fun DatabaseSecurityPreferencesSection(
 private fun biometricCanAuthenticateCode(context: Context): Int = BiometricManager.from(context).canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_STRONG)
 
 private fun openBiometricEnrollment(context: Context, logger: UnifiedLogger) {
+    /** Intent. */
     val intent = when {
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.R -> Intent(Settings.ACTION_BIOMETRIC_ENROLL)
 
         Build.VERSION.SDK_INT >= Build.VERSION_CODES.P ->
             @Suppress("DEPRECATION")
+            /** Intent. */
             Intent(Settings.ACTION_FINGERPRINT_ENROLL)
 
         else -> Intent(Settings.ACTION_SECURITY_SETTINGS)
@@ -319,6 +375,7 @@ private fun openBiometricEnrollment(context: Context, logger: UnifiedLogger) {
         logger.i(
             "DatabaseSecurityPreferencesSection.openBiometricEnrollment",
             "Launching biometric enrollment/settings intent",
+            /** Map of. */
             mapOf("action" to (intent.action ?: "null")),
         )
         context.startActivity(intent)
@@ -326,6 +383,7 @@ private fun openBiometricEnrollment(context: Context, logger: UnifiedLogger) {
         logger.w(
             "DatabaseSecurityPreferencesSection.openBiometricEnrollment",
             "Primary biometric enrollment intent failed; attempting generic settings fallback",
+            /** Map of. */
             mapOf(
                 "action" to (intent.action ?: "null"),
                 "error" to (firstError.message ?: "unknown"),
@@ -341,6 +399,7 @@ private fun openBiometricEnrollment(context: Context, logger: UnifiedLogger) {
             logger.e(
                 "DatabaseSecurityPreferencesSection.openBiometricEnrollment",
                 "Failed to open biometric enrollment and fallback settings",
+                /** Fallback error. */
                 fallbackError,
             )
         }
@@ -348,7 +407,9 @@ private fun openBiometricEnrollment(context: Context, logger: UnifiedLogger) {
 }
 
 private fun formatTimeoutDisplay(minutes: Int, context: Context): String {
+    /** Hours. */
     val hours = minutes / 60
+    /** Remaining minutes. */
     val remainingMinutes = minutes % 60
     return when {
         hours == 0 -> context.getString(R.string.settings_db_unlock_timeout_value_minutes, minutes)
@@ -358,8 +419,11 @@ private fun formatTimeoutDisplay(minutes: Int, context: Context): String {
 }
 
 private fun Context.findFragmentActivity(): FragmentActivity? {
+    /** Current. */
     var current: Context? = this
+    /** While. */
     while (current is ContextWrapper) {
+        /** If. */
         if (current is FragmentActivity) return current
         current = current.baseContext
     }

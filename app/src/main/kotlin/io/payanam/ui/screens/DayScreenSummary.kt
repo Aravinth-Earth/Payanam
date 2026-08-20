@@ -41,18 +41,26 @@ import java.time.format.FormatStyle
 
 @Composable
 internal fun SummaryTabContent(
+    /** Ui state. */
     uiState: DayUiState,
     onOverallResponseChange: (String) -> (String) -> Unit,
     onDimensionResponseChange: (String, String) -> (String) -> Unit,
 ) {
+    /** Prefs. */
     val prefs = LocalAppPreferences.current
+    /** Dimension options. */
     val dimensionOptions = prefs.visibleDimensions()
     var expandedDimensionId by remember { mutableStateOf<String?>(null) }
+    /** Status date formatter. */
     val statusDateFormatter = remember { DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM) }
+    /** Selected date. */
     val selectedDate = uiState.selectedDate
+    /** Is saving selected date. */
     val isSavingSelectedDate = uiState.pendingJournalSaveDates.contains(selectedDate)
+    /** Has saved selected date. */
     val hasSavedSelectedDate = uiState.lastSavedJournalDate == selectedDate
 
+    /** Column. */
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -61,16 +69,22 @@ internal fun SummaryTabContent(
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
         // Saving indicator
+        /** If. */
         if (isSavingSelectedDate || hasSavedSelectedDate) {
+            /** Row. */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
+                /** If. */
                 if (isSavingSelectedDate) {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(modifier = Modifier.size(16.dp))
+                    /** Spacer. */
                     Spacer(modifier = Modifier.width(8.dp))
                 }
+                /** Text. */
                 Text(
                     text = if (isSavingSelectedDate) {
                         androidx.compose.ui.res.stringResource(
@@ -90,16 +104,19 @@ internal fun SummaryTabContent(
         }
 
         // Overall reflections
+        /** Card. */
         Card(
             modifier = Modifier.fillMaxWidth(),
             colors = CardDefaults.cardColors(
                 containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f),
             ),
         ) {
+            /** Column. */
             Column(
                 modifier = Modifier.padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_daily_reflection),
                     style = MaterialTheme.typography.titleMedium,
@@ -107,6 +124,7 @@ internal fun SummaryTabContent(
                 )
 
                 OVERALL_JOURNAL_PROMPTS.forEach { (key, prompt) ->
+                    /** Journal prompt field. */
                     JournalPromptField(
                         prompt = prompt,
                         value = uiState.overallResponses[key] ?: "",
@@ -117,6 +135,7 @@ internal fun SummaryTabContent(
         }
 
         // Per-dimension reflections
+        /** Text. */
         Text(
             text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_dimension_reflections),
             style = MaterialTheme.typography.titleMedium,
@@ -124,10 +143,14 @@ internal fun SummaryTabContent(
         )
 
         dimensionOptions.forEach { dimensionPref ->
+            /** Dimension id. */
             val dimensionId = dimensionPref.id
+            /** Is expanded. */
             val isExpanded = expandedDimensionId == dimensionId
+            /** Color. */
             val color = dimensionPref.color
 
+            /** Card. */
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -142,12 +165,15 @@ internal fun SummaryTabContent(
                     },
                 ),
             ) {
+                /** Column. */
                 Column(modifier = Modifier.padding(16.dp)) {
+                    /** Row. */
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
+                        /** Dimension badge label row. */
                         DimensionBadgeLabelRow(
                             prefs = prefs,
                             dimensionId = dimensionId,
@@ -157,8 +183,11 @@ internal fun SummaryTabContent(
                             badgeSize = 24.dp,
                         )
 
+                        /** Response count. */
                         val responseCount = uiState.dimensionResponses[dimensionId]?.count { it.value.isNotBlank() } ?: 0
+                        /** If. */
                         if (responseCount > 0) {
+                            /** Text. */
                             Text(
                                 text = "$responseCount/${DIMENSION_JOURNAL_PROMPTS.size}",
                                 style = MaterialTheme.typography.labelSmall,
@@ -167,15 +196,19 @@ internal fun SummaryTabContent(
                         }
                     }
 
+                    /** If. */
                     if (isExpanded) {
+                        /** Spacer. */
                         Spacer(modifier = Modifier.height(16.dp))
 
                         DIMENSION_JOURNAL_PROMPTS.forEach { (key, prompt) ->
+                            /** Journal prompt field. */
                             JournalPromptField(
                                 prompt = prompt,
                                 value = uiState.dimensionResponses[dimensionId]?.get(key) ?: "",
                                 onValueChange = onDimensionResponseChange(dimensionId, key),
                             )
+                            /** Spacer. */
                             Spacer(modifier = Modifier.height(12.dp))
                         }
                     }
@@ -183,22 +216,28 @@ internal fun SummaryTabContent(
             }
         }
 
+        /** Spacer. */
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
 @Composable
 private fun JournalPromptField(
+    /** Prompt. */
     prompt: String,
+    /** Value. */
     value: String,
     onValueChange: (String) -> Unit,
 ) {
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        /** Text. */
         Text(
             text = prompt,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
+        /** Outlined text field. */
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,

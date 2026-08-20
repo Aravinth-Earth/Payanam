@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam.feature.settings
 
 import android.app.DownloadManager
@@ -16,21 +18,35 @@ import java.io.File
 /** States surfaced to the Settings UI for the auto-download flow. */
 sealed class DownloadUiState {
     data object Idle : DownloadUiState()
+    /**
+     * Downloading.
+     */
     data class Downloading(
+        /** File name. */
         val fileName: String,
+        /** Bytes downloaded. */
         val bytesDownloaded: Long,
+        /** Total bytes. */
         val totalBytes: Long,
         /** Channel this download belongs to (enriched by the ViewModel). */
         val channelName: String = "",
         /** Full APK build name, e.g. "Payanam_Android_1568_20260812_193754.apk" (enriched). */
         val buildName: String = "",
     ) : DownloadUiState() {
+        /** Progress percent. */
         val progressPercent: Int
+            /** Get. */
             get() = if (totalBytes > 0) ((bytesDownloaded * 100) / totalBytes).toInt() else 0
     }
     /** Paused by the system (e.g. waiting for Wi-Fi) — not an error. */
     data class Paused(val message: String) : DownloadUiState()
+    /**
+     * Downloaded.
+     */
     data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
+    /**
+     * Failed.
+     */
     data class Failed(val message: String) : DownloadUiState()
 }
 
@@ -51,14 +67,20 @@ object AutoDownloadManager {
      * Returns the download ID, or null if enqueue failed.
      */
     fun enqueue(
+        /** Context. */
         context: Context,
+        /** Url. */
         url: String,
+        /** File name. */
         fileName: String,
         wifiOnly: Boolean = false,
     ): Long? {
+        /** Log downloads dir state. */
         logDownloadsDirState(context, "enqueue_before")
         return try {
+            /** Manager. */
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+            /** Request. */
             val request = DownloadManager.Request(Uri.parse(url))
                 .setTitle("Payanam #${buildNumberFromFileName(fileName)}")
                 .setDescription("Downloading update APK")
@@ -66,30 +88,43 @@ object AutoDownloadManager {
                 .setDestinationInExternalFilesDir(context, null, "$SUBDIR/$fileName")
                 .setAllowedOverMetered(!wifiOnly)
                 .setAllowedOverRoaming(!wifiOnly)
+            /** Id. */
             val id = manager.enqueue(request)
             logger.d("AutoDownloadManager.enqueue", "Download enqueued", mapOf("downloadId" to id, "file" to fileName, "wifiOnly" to wifiOnly))
+            /** Id. */
             id
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("AutoDownloadManager.enqueue", "Enqueue failed", e)
+            /** Null. */
             null
         }
     }
 
     /** Query progress for a download ID; returns null if the row is gone. */
     fun queryProgress(context: Context, downloadId: Long): DownloadUiState {
+        /** Manager. */
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
+        /** Query. */
         val query = DownloadManager.Query().setFilterById(downloadId)
+        /** Cursor. */
         var cursor: Cursor? = null
         return try {
             cursor = manager.query(query)
+            /** If. */
             if (cursor != null && cursor.moveToFirst()) {
+                /** Status. */
                 val status = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+                /** Bytes. */
                 val bytes = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_BYTES_DOWNLOADED_SO_FAR))
+                /** Total. */
                 val total = cursor.getLong(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TOTAL_SIZE_BYTES))
+                /** When. */
                 when (status) {
                     DownloadManager.STATUS_SUCCESSFUL -> {
+                        /** Uri. */
                         val uri = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_LOCAL_URI))
                         logger.d("AutoDownloadManager.queryProgress", "Download complete", mapOf("uri" to (uri ?: "unknown")))
+                        /** Log downloads dir state. */
                         logDownloadsDirState(context, "after_complete")
                         DownloadUiState.Downloaded(
                             fileName = uri?.substringAfterLast('/') ?: "unknown",
@@ -97,11 +132,13 @@ object AutoDownloadManager {
                         )
                     }
                     DownloadManager.STATUS_FAILED -> {
+                        /** Reason. */
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         logger.w("AutoDownloadManager.queryProgress", "Download failed", mapOf("reason" to reason))
                         DownloadUiState.Failed(failureMessage(reason))
                     }
                     DownloadManager.STATUS_PAUSED -> {
+                        /** Reason. */
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         DownloadUiState.Paused(pausedMessage(reason))
                     }
@@ -114,7 +151,7 @@ object AutoDownloadManager {
             } else {
                 DownloadUiState.Failed("download_not_found")
             }
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("AutoDownloadManager.queryProgress", "Query failed", e)
             DownloadUiState.Failed("query_error")
         } finally {
@@ -125,10 +162,11 @@ object AutoDownloadManager {
     /** Cancel a download and remove its partial file. */
     fun cancel(context: Context, downloadId: Long) {
         try {
+            /** Manager. */
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             manager.remove(downloadId)
             logger.d("AutoDownloadManager.cancel", "Download removed", mapOf("downloadId" to downloadId))
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("AutoDownloadManager.cancel", "Cancel failed", e)
         }
     }
@@ -139,23 +177,31 @@ object AutoDownloadManager {
      * are logged, not thrown.
      */
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
+        /** Log downloads dir state. */
         logDownloadsDirState(context, "cleanup_before")
         try {
+            /** Dir. */
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
+            /** If. */
             if (!dir.exists()) return
+            /** Apks. */
             val apks = dir.listFiles { f -> f.isFile && f.name.endsWith(".apk") }?.toList() ?: return
+            /** If. */
             if (apks.size <= keepCount) return
+            /** To delete. */
             val toDelete = apks.sortedByDescending { it.lastModified() }.drop(keepCount)
             toDelete.forEach { f ->
+                /** If. */
                 if (f.delete()) {
                     logger.d("AutoDownloadManager.cleanupOldApks", "Deleted old APK", mapOf("file" to f.name))
                 } else {
                     logger.w("AutoDownloadManager.cleanupOldApks", "Could not delete", mapOf("file" to f.name))
                 }
             }
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("AutoDownloadManager.cleanupOldApks", "Cleanup failed", e)
         }
+        /** Log downloads dir state. */
         logDownloadsDirState(context, "cleanup_after")
     }
 
@@ -166,17 +212,22 @@ object AutoDownloadManager {
      */
     internal fun logDownloadsDirState(context: Context, tag: String) {
         try {
+            /** Dir. */
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
+            /** Apks. */
             val apks = dir.listFiles { f -> f.isFile && f.name.endsWith(".apk") }?.toList() ?: emptyList()
+            /** Total bytes. */
             val totalBytes = apks.sumOf { it.length() }
+            /** Files. */
             val files = apks.sortedByDescending { it.lastModified() }
                 .joinToString(" | ") { "${it.name} (${it.length() / 1024 / 1024}MB)" }
             logger.d(
                 "AutoDownloadManager.logDownloadsDirState",
                 "Downloads dir state",
+                /** Map of. */
                 mapOf("tag" to tag, "count" to apks.size, "totalMB" to (totalBytes / 1024 / 1024), "files" to files),
             )
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("AutoDownloadManager.logDownloadsDirState", "Dir state log failed", e)
         }
     }
@@ -189,15 +240,21 @@ object AutoDownloadManager {
 
     /** Register a completion receiver; returns the receiver for later unregister. */
     fun registerCompletionReceiver(
+        /** Context. */
         context: Context,
+        /** Download id. */
         downloadId: Long,
         onComplete: () -> Unit,
     ): BroadcastReceiver {
+        /** Receiver. */
         val receiver = object : BroadcastReceiver() {
             override fun onReceive(ctx: Context, intent: Intent) {
+                /** Id. */
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
+                /** If. */
                 if (id == downloadId) {
                     logger.d("AutoDownloadManager.receiver", "Completion broadcast", mapOf("downloadId" to id))
+                    /** On complete. */
                     onComplete()
                 }
             }
@@ -209,6 +266,7 @@ object AutoDownloadManager {
 
 /** Build-number extraction (pure, unit-testable on plain JVM). */
 internal fun buildNumberFromFileName(fileName: String): String =
+    /** Regex. */
     Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1).orEmpty()
 
 /**
@@ -216,7 +274,9 @@ internal fun buildNumberFromFileName(fileName: String): String =
  * app-private downloads dir, or null if it's no longer on disk.
  */
 internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: String): String? {
+    /** Dir. */
     val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
+    /** File. */
     val file = File(dir, fileName)
     return if (file.exists() && file.length() > 0) file.absolutePath else null
 }
@@ -226,7 +286,9 @@ internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: S
  * given build number. Returns the absolute path, or null if not present.
  */
 internal fun AutoDownloadManager.findApkForBuild(context: Context, buildNumber: String): String? {
+    /** Dir. */
     val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
+    /** Files. */
     val files = dir.listFiles() ?: return null
     return files.firstOrNull { it.isFile && it.name.contains("_${buildNumber}_") && it.length() > 0 }?.absolutePath
 }

@@ -39,10 +39,14 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.viewmodel.DatabasePassphraseChangeViewModel
 
 @Composable
+/**
+ * Database passphrase change screen.
+ */
 fun DatabasePassphraseChangeScreen(
     onPassphraseChanged: () -> Unit,
     viewModel: DatabasePassphraseChangeViewModel = hiltViewModel(),
 ) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
     val uiState by viewModel.uiState.collectAsState()
     var currentPassphrase by rememberSaveable { mutableStateOf("") }
@@ -52,12 +56,16 @@ fun DatabasePassphraseChangeScreen(
     var showNewPassphrase by rememberSaveable { mutableStateOf(false) }
     var showConfirmPassphrase by rememberSaveable { mutableStateOf(false) }
 
+    /** Launched effect. */
     LaunchedEffect(uiState.isSuccess) {
+        /** If. */
         if (uiState.isSuccess) {
+            /** On passphrase changed. */
             onPassphraseChanged()
         }
     }
 
+    /** Column. */
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -65,15 +73,18 @@ fun DatabasePassphraseChangeScreen(
             .padding(PaddingValues(16.dp)),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.db_passphrase_change_title),
             style = MaterialTheme.typography.headlineSmall,
         )
+        /** Text. */
         Text(
             text = stringResource(id = R.string.db_passphrase_change_desc),
             style = MaterialTheme.typography.bodyMedium,
         )
 
+        /** Outlined text field. */
         OutlinedTextField(
             value = currentPassphrase,
             onValueChange = { currentPassphrase = it },
@@ -82,7 +93,9 @@ fun DatabasePassphraseChangeScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (showCurrentPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                /** Icon button. */
                 IconButton(onClick = { showCurrentPassphrase = !showCurrentPassphrase }) {
+                    /** Icon. */
                     Icon(
                         imageVector = if (showCurrentPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = stringResource(
@@ -92,6 +105,7 @@ fun DatabasePassphraseChangeScreen(
                 }
             },
         )
+        /** Outlined text field. */
         OutlinedTextField(
             value = newPassphrase,
             onValueChange = { newPassphrase = it },
@@ -100,7 +114,9 @@ fun DatabasePassphraseChangeScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (showNewPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                /** Icon button. */
                 IconButton(onClick = { showNewPassphrase = !showNewPassphrase }) {
+                    /** Icon. */
                     Icon(
                         imageVector = if (showNewPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = stringResource(
@@ -110,6 +126,7 @@ fun DatabasePassphraseChangeScreen(
                 }
             },
         )
+        /** Outlined text field. */
         OutlinedTextField(
             value = confirmPassphrase,
             onValueChange = { confirmPassphrase = it },
@@ -118,7 +135,9 @@ fun DatabasePassphraseChangeScreen(
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (showConfirmPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
             trailingIcon = {
+                /** Icon button. */
                 IconButton(onClick = { showConfirmPassphrase = !showConfirmPassphrase }) {
+                    /** Icon. */
                     Icon(
                         imageVector = if (showConfirmPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = stringResource(
@@ -129,6 +148,7 @@ fun DatabasePassphraseChangeScreen(
             },
         )
 
+        /** Error text. */
         val errorText = when (uiState.errorReasonCode) {
             "current_invalid" -> stringResource(id = R.string.db_passphrase_change_error_current_invalid)
             "min_length" -> stringResource(id = R.string.db_passphrase_error_min_length)
@@ -140,7 +160,9 @@ fun DatabasePassphraseChangeScreen(
             "generic" -> stringResource(id = R.string.db_passphrase_error_generic)
             else -> null
         }
+        /** If. */
         if (errorText != null) {
+            /** Text. */
             Text(
                 text = errorText,
                 style = MaterialTheme.typography.bodySmall,
@@ -148,7 +170,9 @@ fun DatabasePassphraseChangeScreen(
             )
         }
 
+        /** If. */
         if (uiState.isSuccess) {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.db_passphrase_change_success),
                 style = MaterialTheme.typography.bodySmall,
@@ -156,6 +180,7 @@ fun DatabasePassphraseChangeScreen(
             )
         }
 
+        /** Button. */
         Button(
             onClick = {
                 logger.i("DatabasePassphraseChangeScreen", "Submitting passphrase change")
@@ -168,10 +193,13 @@ fun DatabasePassphraseChangeScreen(
             enabled = !uiState.isSaving,
             modifier = Modifier.fillMaxWidth(),
         ) {
+            /** Text. */
             Text(
                 text = if (uiState.isSaving) {
+                    /** String resource. */
                     stringResource(id = R.string.db_passphrase_change_saving)
                 } else {
+                    /** String resource. */
                     stringResource(id = R.string.db_passphrase_change_action)
                 },
             )

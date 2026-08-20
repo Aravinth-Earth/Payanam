@@ -9,28 +9,39 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 internal fun resolveGapConvertDateTimeRange(
+    /** Selected date. */
     selectedDate: LocalDate,
+    /** Gap start time. */
     gapStartTime: LocalTime,
+    /** Gap end time. */
     gapEndTime: LocalTime,
     lastEntryEndDateTime: LocalDateTime?,
 ): Pair<LocalDateTime, LocalDateTime> {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
+    /** Day start. */
     val dayStart = selectedDate.atStartOfDay()
+    /** Bridged start. */
     val bridgedStart = if (gapStartTime == LocalTime.MIDNIGHT) {
         lastEntryEndDateTime?.takeIf { endedAt ->
             endedAt.isBefore(dayStart) && Duration.between(endedAt, dayStart).toHours() <= 24
         }
     } else {
+        /** Null. */
         null
     }
+    /** Start date time. */
     val startDateTime = bridgedStart ?: LocalDateTime.of(selectedDate, gapStartTime)
+    /** End date time. */
     var endDateTime = LocalDateTime.of(selectedDate, gapEndTime)
+    /** If. */
     if (!endDateTime.isAfter(startDateTime)) {
         endDateTime = endDateTime.plusDays(1)
     }
     logger.d(
         "TimeScreenGapUtils.resolveGapConvertDateTimeRange",
         "Resolved gap range",
+        /** Map of. */
         mapOf(
             "selectedDate" to selectedDate.toString(),
             "start" to startDateTime.toString(),

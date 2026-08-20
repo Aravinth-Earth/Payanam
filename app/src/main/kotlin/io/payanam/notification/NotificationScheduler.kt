@@ -26,6 +26,9 @@ import javax.inject.Singleton
 import kotlin.math.abs
 
 @Singleton
+/**
+ * NotificationScheduler.
+ */
 class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val taskRepository: TaskRepository,
@@ -37,108 +40,148 @@ class NotificationScheduler @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val zoneId = ZoneId.systemDefault()
 
+    /**
+     * Schedule all pending tasks.
+     */
     suspend fun scheduleAllPendingTasks() {
+        /** If. */
         if (!FeatureFlags.remindersEnabled) {
             logger.i("NotificationScheduler.scheduleAllPendingTasks", "Reminder scheduling disabled by feature flag")
+            /** Return. */
             return
         }
+        /** Tasks. */
         val tasks = taskRepository.getAllTasks().first()
+        /** Eligible. */
         val eligible = tasks.filter { isEligibleForScheduling(it) }
         logger.i(
             "NotificationScheduler.scheduleAllPendingTasks",
             "Scheduling pending tasks",
+            /** Map of. */
             mapOf(
                 "total" to tasks.size,
                 "eligible" to eligible.size,
             ),
         )
         eligible.forEach { task ->
+            /** Schedule for task. */
             scheduleForTask(task)
         }
     }
 
+    /**
+     * Schedule for task.
+     */
     suspend fun scheduleForTask(
+        /** Task. */
         task: Task,
         overrideScheduledAt: LocalDateTime? = null,
         overrideDueAt: LocalDateTime? = null,
         isSnoozed: Boolean = false,
     ) {
+        /** If. */
         if (!FeatureFlags.remindersEnabled) {
+            /** Cancel for task. */
             cancelForTask(task.id)
             logger.d(
                 "NotificationScheduler.scheduleForTask",
                 "Reminder scheduling disabled by feature flag",
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                 ),
             )
+            /** Return. */
             return
         }
+        /** Due at. */
         val dueAt = overrideDueAt ?: task.dueDate
+        /** If. */
         if (!isEligibleForScheduling(task)) {
+            /** Cancel for task. */
             cancelForTask(task.id)
             logger.d(
                 "NotificationScheduler.scheduleForTask",
                 "Task not eligible for scheduling",
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                     "status" to task.status,
                     "mode" to (task.notificationMode ?: "auto"),
                 ),
             )
+            /** Return. */
             return
         }
+        /** If. */
         if (dueAt == null) {
+            /** Cancel for task. */
             cancelForTask(task.id)
             logger.d(
                 "NotificationScheduler.scheduleForTask",
                 "Skipping schedule - no due date",
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                 ),
             )
+            /** Return. */
             return
         }
 
+        /** Scheduled at. */
         val scheduledAt = overrideScheduledAt ?: run {
+            /** Advance minutes. */
             val advanceMinutes = resolveAdvanceMinutes(task) ?: run {
+                /** Cancel for task. */
                 cancelForTask(task.id)
                 logger.d(
                     "NotificationScheduler.scheduleForTask",
                     "Notifications disabled for task",
+                    /** Map of. */
                     mapOf(
                         "taskId" to task.id,
                     ),
                 )
+                /** Return. */
                 return
             }
             dueAt.minusMinutes(advanceMinutes)
         }
 
+        /** If. */
         if (!scheduledAt.isAfter(LocalDateTime.now())) {
+            /** Cancel for task. */
             cancelForTask(task.id)
             logger.d(
                 "NotificationScheduler.scheduleForTask",
                 "Skipping schedule - time is in the past",
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                     "scheduledAt" to scheduledAt.toString(),
                 ),
             )
+            /** Return. */
             return
         }
 
+        /** Cancel for task. */
         cancelForTask(task.id)
 
+        /** Notification type. */
         val notificationType = if (task.recurrenceEnabled) {
             TaskReminderReceiver.TYPE_HABIT_TRACKING
         } else {
             TaskReminderReceiver.TYPE_TASK_REMINDER
         }
 
+        /** Title. */
         val title = context.getString(R.string.task_notification_title, task.title)
+        /** Body. */
         val body = buildNotificationBody(task, dueAt, scheduledAt, isSnoozed)
 
+        /** Notification id. */
         val notificationId = try {
             notificationRepository.scheduleNotification(
                 taskId = task.id,
@@ -147,19 +190,23 @@ class NotificationScheduler @Inject constructor(
                 title = title,
                 body = body,
             )
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e(
                 "NotificationScheduler.scheduleForTask",
                 "Failed to persist scheduled notification",
+                /** E. */
                 e,
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                 ),
             )
+            /** Return. */
             return
         }
 
         try {
+            /** Schedule alarm. */
             scheduleAlarm(
                 notificationId = notificationId,
                 task = task,
@@ -171,17 +218,20 @@ class NotificationScheduler @Inject constructor(
             logger.i(
                 "NotificationScheduler.scheduleForTask",
                 "Alarm scheduled",
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                     "notificationId" to notificationId,
                     "scheduledAt" to scheduledAt.toString(),
                 ),
             )
-        } catch (e: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e(
                 "NotificationScheduler.scheduleForTask",
                 "Failed to schedule alarm",
+                /** E. */
                 e,
+                /** Map of. */
                 mapOf(
                     "taskId" to task.id,
                     "notificationId" to notificationId,
@@ -191,9 +241,15 @@ class NotificationScheduler @Inject constructor(
         }
     }
 
+    /**
+     * Schedule snooze.
+     */
     suspend fun scheduleSnooze(task: Task, dueAt: LocalDateTime?) {
+        /** Now. */
         val now = LocalDateTime.now()
+        /** Target. */
         val target = dueAt?.takeIf { it.isAfter(now) } ?: now.plusMinutes(DEFAULT_SNOOZE_MINUTES)
+        /** Schedule for task. */
         scheduleForTask(
             task = task,
             overrideScheduledAt = target,
@@ -202,13 +258,22 @@ class NotificationScheduler @Inject constructor(
         )
     }
 
+    /**
+     * Cancel for task.
+     */
     suspend fun cancelForTask(taskId: String) {
+        /** Notifications. */
         val notifications = notificationRepository.getNotificationsForTask(taskId)
         notifications.forEach { notification ->
+            /** Intent. */
             val intent = Intent(context, TaskReminderReceiver::class.java)
+            /** Pending intent. */
             val pendingIntent = PendingIntent.getBroadcast(
+                /** Context. */
                 context,
+                /** Request code for. */
                 requestCodeFor(notification.id),
+                /** Intent. */
                 intent,
                 PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
             )
@@ -219,6 +284,7 @@ class NotificationScheduler @Inject constructor(
         logger.d(
             "NotificationScheduler.cancelForTask",
             "Cancelled notifications and visible reminders for task",
+            /** Map of. */
             mapOf(
                 "taskId" to taskId,
                 "count" to notifications.size,
@@ -227,37 +293,58 @@ class NotificationScheduler @Inject constructor(
     }
 
     private fun scheduleAlarm(
+        /** Notification id. */
         notificationId: String,
+        /** Task. */
         task: Task,
+        /** Scheduled at. */
         scheduledAt: LocalDateTime,
+        /** Due at. */
         dueAt: LocalDateTime,
+        /** Notification type. */
         notificationType: String,
+        /** Is snoozed. */
         isSnoozed: Boolean,
     ) {
+        /** Intent. */
         val intent = Intent(context, TaskReminderReceiver::class.java).apply {
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID, notificationId)
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_TASK_ID, task.id)
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_TASK_TITLE, task.title)
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_DUE_AT, dueAt.toString())
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_TYPE, notificationType)
+            /** Put extra. */
             putExtra(TaskReminderReceiver.EXTRA_IS_SNOOZED, isSnoozed)
         }
 
+        /** Pending intent. */
         val pendingIntent = PendingIntent.getBroadcast(
+            /** Context. */
             context,
+            /** Request code for. */
             requestCodeFor(notificationId),
+            /** Intent. */
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
 
+        /** Trigger at millis. */
         val triggerAtMillis = scheduledAt.atZone(zoneId).toInstant().toEpochMilli()
+        /** If. */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            /** If. */
             if (alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)
             } else {
                 logger.w(
                     "NotificationScheduler.scheduleAlarm",
                     "Exact alarm permission not granted, using inexact",
+                    /** Map of. */
                     mapOf(
                         "taskId" to task.id,
                     ),
@@ -270,20 +357,29 @@ class NotificationScheduler @Inject constructor(
     }
 
     private fun buildNotificationBody(
+        /** Task. */
         task: Task,
+        /** Due at. */
         dueAt: LocalDateTime,
+        /** Scheduled at. */
         scheduledAt: LocalDateTime,
+        /** Is snoozed. */
         isSnoozed: Boolean,
     ): String {
+        /** Time text. */
         val timeText = DateTimeUtil.formatTime(dueAt.toLocalTime(), use24Hour = false)
+        /** If. */
         if (isSnoozed) {
             return context.getString(R.string.task_notification_snoozed_until, timeText)
         }
+        /** Minutes until due. */
         val minutesUntilDue = Duration.between(scheduledAt, dueAt).toMinutes()
         return if (minutesUntilDue > 0) {
             context.getString(
                 R.string.task_notification_due_in_at,
+                /** Minutes until due. */
                 minutesUntilDue,
+                /** Time text. */
                 timeText,
             )
         } else {
@@ -292,6 +388,7 @@ class NotificationScheduler @Inject constructor(
     }
 
     private fun resolveAdvanceMinutes(task: Task): Long? {
+        /** Mode. */
         val mode = task.notificationMode?.lowercase() ?: "auto"
         return when (mode) {
             "off" -> null
@@ -306,13 +403,18 @@ class NotificationScheduler @Inject constructor(
     }
 
     private fun isEligibleForScheduling(task: Task): Boolean {
+        /** Status. */
         val status = task.status.lowercase()
+        /** If. */
         if (status != "pending" && status != "active") return false
+        /** If. */
         if ((task.notificationMode ?: "auto").lowercase() == "off") return false
+        /** If. */
         if (FeatureFlags.minimalModeEnabled && task.recurrenceEnabled) {
             logger.d(
                 "NotificationScheduler.isEligibleForScheduling",
                 "Minimal mode: skipping notification for recurring task",
+                /** Map of. */
                 mapOf("taskId" to task.id),
             )
             return false
@@ -321,6 +423,7 @@ class NotificationScheduler @Inject constructor(
     }
 
     private fun requestCodeFor(notificationId: String): Int {
+        /** Hash. */
         val hash = notificationId.hashCode()
         return when (hash) {
             Int.MIN_VALUE -> 0

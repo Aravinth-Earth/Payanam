@@ -15,19 +15,30 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * TimeViewModelLoadStateTest.
+ */
 class TimeViewModelLoadStateTest {
     private val logger: UnifiedLogger by lazy {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
     }
 
     @Before
+    /**
+     * Set up.
+     */
     fun setUp() {
         logger.i("TimeViewModelLoadStateTest.setUp", "Preparing TimeViewModel selected-date load state tests")
     }
 
     @Test
+    /**
+     * Is time screen date content ready false until all required sections are loaded.
+     */
     fun isTimeScreenDateContentReady_false_until_all_required_sections_are_loaded() {
+        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = false,
@@ -35,11 +46,16 @@ class TimeViewModelLoadStateTest {
             needsOccurrences = true,
         )
 
+        /** Assert false. */
         assertFalse(isReady)
     }
 
     @Test
+    /**
+     * Is time screen date content ready true when entries planned tasks and occurrences are loaded.
+     */
     fun isTimeScreenDateContentReady_true_when_entries_planned_tasks_and_occurrences_are_loaded() {
+        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = true,
@@ -47,11 +63,16 @@ class TimeViewModelLoadStateTest {
             needsOccurrences = true,
         )
 
+        /** Assert true. */
         assertTrue(isReady)
     }
 
     @Test
+    /**
+     * Is time screen date content ready true without occurrences when minimal mode contract applies.
+     */
     fun isTimeScreenDateContentReady_true_without_occurrences_when_minimal_mode_contract_applies() {
+        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = true,
@@ -59,15 +80,23 @@ class TimeViewModelLoadStateTest {
             needsOccurrences = false,
         )
 
+        /** Assert true. */
         assertTrue(isReady)
     }
 
     @Test
+    /**
+     * Should use todays planned tasks true only for today.
+     */
     fun shouldUseTodaysPlannedTasks_true_only_for_today() {
+        /** Today. */
         val today = LocalDate.of(2026, 4, 9)
 
+        /** Assert true. */
         assertTrue(shouldUseTodaysPlannedTasks(today, today))
+        /** Assert equals. */
         assertEquals(false, shouldUseTodaysPlannedTasks(today.minusDays(1), today))
+        /** Assert equals. */
         assertEquals(false, shouldUseTodaysPlannedTasks(today.plusDays(1), today))
     }
 }

@@ -20,20 +20,28 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 
 @Composable
+/**
+ * Tag editor field.
+ */
 fun TagEditorField(
+    /** Raw value. */
     rawValue: String,
     onValueChange: (String) -> Unit,
     suggestions: List<String>,
     modifier: Modifier = Modifier,
 ) {
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
+    /** Selected tags. */
     val selectedTags = parseTagsInput(rawValue)
+    /** Matching tag suggestions. */
     val matchingTagSuggestions = suggestions
         .filter { suggestion ->
             suggestion.contains(rawValue.trim(), ignoreCase = true) && suggestion !in selectedTags
         }
         .take(6)
 
+    /** Outlined text field. */
     OutlinedTextField(
         value = rawValue,
         onValueChange = onValueChange,
@@ -42,16 +50,22 @@ fun TagEditorField(
         modifier = modifier.fillMaxWidth(),
         singleLine = true,
     )
+    /** If. */
     if (matchingTagSuggestions.isNotEmpty()) {
+        /** Lazy row. */
         LazyRow(
             modifier = modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
         ) {
+            /** Items. */
             items(matchingTagSuggestions) { suggestion ->
+                /** Filter chip. */
                 FilterChip(
                     selected = false,
                     onClick = {
+                        /** New tags. */
                         val newTags = (selectedTags + suggestion).distinct()
+                        /** On value change. */
                         onValueChange(newTags.joinToString(", "))
                         logger.d("TagEditorField", "Tag suggestion applied", mapOf("tag" to suggestion))
                     },
@@ -62,6 +76,9 @@ fun TagEditorField(
     }
 }
 
+/**
+ * Parse tags input.
+ */
 fun parseTagsInput(rawTags: String): List<String> = rawTags
     .split(",")
     .map { it.trim() }

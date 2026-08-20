@@ -35,12 +35,20 @@ import io.payanam.ui.viewmodel.visibleDimensionOptions
  * Extracted from SettingsScreen to maintain file size limits.
  */
 @Composable
+/**
+ * Auto tracking section.
+ */
 fun AutoTrackingSection(
+    /** Prefs state. */
     prefsState: AppPreferencesState,
+    /** Prefs view model. */
     prefsViewModel: AppPreferencesViewModel,
+    /** Logger. */
     logger: UnifiedLogger,
 ) {
+    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_auto_track_habit_time_description),
             style = MaterialTheme.typography.bodySmall,
@@ -48,22 +56,27 @@ fun AutoTrackingSection(
         )
 
         // Global toggle
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            /** Column. */
             Column(modifier = Modifier.weight(1f)) {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_auto_track_habit_time_global),
                     style = MaterialTheme.typography.bodyMedium,
                 )
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_auto_track_habit_time_global_hint),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            /** Switch. */
             Switch(
                 checked = prefsState.autoTrackHabitTimeGlobal,
                 onCheckedChange = { enabled ->
@@ -71,6 +84,7 @@ fun AutoTrackingSection(
                     logger.d(
                         "SettingsScreen.autoTrackHabitTime",
                         "Global auto-track toggled",
+                        /** Map of. */
                         mapOf(
                             "enabled" to enabled,
                         ),
@@ -80,18 +94,22 @@ fun AutoTrackingSection(
         }
 
         // Per-dimension toggles (only show when global is enabled)
+        /** If. */
         if (prefsState.autoTrackHabitTimeGlobal) {
+            /** Horizontal divider. */
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 8.dp),
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
 
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_auto_track_per_dimension),
                 style = MaterialTheme.typography.titleSmall,
                 color = MaterialTheme.colorScheme.primary,
             )
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_auto_track_per_dimension_hint),
                 style = MaterialTheme.typography.bodySmall,
@@ -99,6 +117,7 @@ fun AutoTrackingSection(
             )
 
             prefsState.visibleDimensionOptions().forEach { dimension ->
+                /** Row. */
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -106,21 +125,25 @@ fun AutoTrackingSection(
                     horizontalArrangement = Arrangement.SpaceBetween,
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
+                    /** Row. */
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
+                        /** Box. */
                         Box(
                             modifier = Modifier
                                 .size(16.dp)
                                 .clip(RoundedCornerShape(4.dp))
                                 .background(dimension.color),
                         )
+                        /** Text. */
                         Text(
                             text = dimension.label,
                             style = MaterialTheme.typography.bodyMedium,
                         )
                     }
+                    /** Switch. */
                     Switch(
                         checked = prefsState.autoTrackEnabledForDimensionId(dimension.id),
                         onCheckedChange = { enabled ->
@@ -128,6 +151,7 @@ fun AutoTrackingSection(
                             logger.d(
                                 "SettingsScreen.autoTrackDimension",
                                 "Dimension auto-track toggled",
+                                /** Map of. */
                                 mapOf(
                                     "dimensionId" to dimension.id,
                                     "enabled" to enabled,

@@ -60,9 +60,11 @@ import java.util.Locale
 
 @Composable
 internal fun MandatoryDimensionSetupSection(
+    /** Is saving. */
     isSaving: Boolean,
     onSave: (List<NewDatabaseDimensionInput>) -> Unit,
 ) {
+    /** Logger. */
     val logger = UnifiedLogger.getInstance()
     var validationErrorResId by rememberSaveable { mutableStateOf<Int?>(null) }
     var editTargetDimensionId by rememberSaveable { mutableStateOf<String?>(null) }
@@ -74,13 +76,18 @@ internal fun MandatoryDimensionSetupSection(
     var duplicateNameIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var duplicateColorIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     var duplicateIconIds by remember { mutableStateOf<Set<String>>(emptySet()) }
+    /** Context. */
     val context = LocalContext.current
+    /** Scope. */
     val scope = rememberCoroutineScope()
 
+    /** Editable dimensions. */
     val editableDimensions = remember {
+        /** Mutable state list of. */
         mutableStateListOf(
             *defaultNewDatabaseDimensionInputs(context)
                 .map { input ->
+                    /** Dimension setup ui item. */
                     DimensionSetupUiItem(
                         id = input.id,
                         label = input.label,
@@ -93,11 +100,13 @@ internal fun MandatoryDimensionSetupSection(
         )
     }
 
+    /** Column. */
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(16.dp),
     ) {
+        /** Text. */
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_title),
             style = MaterialTheme.typography.headlineSmall,
@@ -105,6 +114,7 @@ internal fun MandatoryDimensionSetupSection(
             textAlign = TextAlign.Center,
         )
 
+        /** Text. */
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_desc),
             style = MaterialTheme.typography.bodyMedium,
@@ -113,11 +123,13 @@ internal fun MandatoryDimensionSetupSection(
             modifier = Modifier.padding(horizontal = 8.dp),
         )
 
+        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
+            /** Text. */
             Text(
                 text = stringResource(id = R.string.db_init_dimension_setup_customize_desc),
                 style = MaterialTheme.typography.labelLarge,
@@ -125,8 +137,10 @@ internal fun MandatoryDimensionSetupSection(
                 fontWeight = FontWeight.SemiBold,
             )
 
+            /** Text button. */
             TextButton(
                 onClick = {
+                    /** If. */
                     if (editableDimensions.size < MAX_USER_DIMENSIONS) {
                         editTargetDimensionId = null
                         editTargetIsAddMode = true
@@ -140,12 +154,16 @@ internal fun MandatoryDimensionSetupSection(
                 },
                 enabled = !isSaving,
             ) {
+                /** Icon. */
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
+                /** Spacer. */
                 Spacer(modifier = Modifier.width(4.dp))
+                /** Text. */
                 Text(stringResource(id = R.string.db_init_dimension_setup_add_new_action))
             }
         }
 
+        /** Lazy column. */
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -153,7 +171,9 @@ internal fun MandatoryDimensionSetupSection(
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
+            /** Items. */
             items(editableDimensions, key = { it.id }) { item ->
+                /** Dimension setup row. */
                 DimensionSetupRow(
                     item = item,
                     hasDuplicateName = item.id in duplicateNameIds,
@@ -167,8 +187,11 @@ internal fun MandatoryDimensionSetupSection(
                         editIconKey = item.iconKey
                     },
                     onToggleEnabled = {
+                        /** Index. */
                         val index = editableDimensions.indexOfFirst { existing -> existing.id == item.id }
+                        /** If. */
                         if (index >= 0) {
+                            /** Toggled. */
                             val toggled = editableDimensions[index].copy(isEnabled = !editableDimensions[index].isEnabled)
                             editableDimensions[index] = toggled
                             validationErrorResId = null
@@ -182,6 +205,7 @@ internal fun MandatoryDimensionSetupSection(
         }
 
         validationErrorResId?.let { errorResId ->
+            /** Text. */
             Text(
                 text = stringResource(id = errorResId),
                 style = MaterialTheme.typography.bodySmall,
@@ -190,9 +214,12 @@ internal fun MandatoryDimensionSetupSection(
             )
         }
 
+        /** Button. */
         Button(
             onClick = {
+                /** Dimension inputs. */
                 val dimensionInputs = editableDimensions.map {
+                    /** New database dimension input. */
                     NewDatabaseDimensionInput(
                         id = it.id,
                         label = it.label.trim(),
@@ -201,16 +228,19 @@ internal fun MandatoryDimensionSetupSection(
                         iconKey = it.iconKey,
                     )
                 }
+                /** Validation result. */
                 val validationResult = validateDimensionInputs(dimensionInputs)
                 duplicateNameIds = validationResult.duplicateNameIds
                 duplicateColorIds = validationResult.duplicateColorIds
                 duplicateIconIds = validationResult.duplicateIconIds
+                /** If. */
                 if (validationResult.errorResId != null) {
                     validationErrorResId = validationResult.errorResId
                     return@Button
                 }
                 validationErrorResId = null
                 logger.i("DatabaseInitDimensionSetupScreen", "Submitting redesigned dimension setup")
+                /** On save. */
                 onSave(dimensionInputs)
             },
             modifier = Modifier
@@ -219,13 +249,16 @@ internal fun MandatoryDimensionSetupSection(
             enabled = !isSaving,
             shape = MaterialTheme.shapes.large,
         ) {
+            /** If. */
             if (isSaving) {
+                /** Circular progress indicator. */
                 CircularProgressIndicator(
                     modifier = Modifier.size(24.dp),
                     color = MaterialTheme.colorScheme.onPrimary,
                     strokeWidth = 2.dp,
                 )
             } else {
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_init_dimension_setup_continue_action),
                     style = MaterialTheme.typography.titleMedium,
@@ -233,6 +266,7 @@ internal fun MandatoryDimensionSetupSection(
             }
         }
 
+        /** Database init log export actions. */
         DatabaseInitLogExportActions(
             logger = logger,
             context = context,
@@ -243,7 +277,9 @@ internal fun MandatoryDimensionSetupSection(
         )
     }
 
+    /** If. */
     if (editTargetDimensionId != null || editTargetIsAddMode) {
+        /** Dimension edit dialog. */
         DimensionEditDialog(
             isAddMode = editTargetIsAddMode,
             editingDimensionId = editTargetDimensionId,
@@ -257,10 +293,14 @@ internal fun MandatoryDimensionSetupSection(
                 editIconKey = DimensionIconCatalog.defaultIconKeyForDimensionId(null)
             },
             onSave = { label, colorHex, iconKey ->
+                /** Trimmed. */
                 val trimmed = label.trim()
+                /** If. */
                 if (editTargetIsAddMode) {
+                    /** Generated id. */
                     val generatedId = generateDimensionId(trimmed, editableDimensions)
                     editableDimensions.add(
+                        /** Dimension setup ui item. */
                         DimensionSetupUiItem(
                             id = generatedId,
                             label = trimmed,
@@ -274,9 +314,13 @@ internal fun MandatoryDimensionSetupSection(
                     duplicateColorIds = emptySet()
                     duplicateIconIds = emptySet()
                 } else {
+                    /** Target id. */
                     val targetId = editTargetDimensionId
+                    /** If. */
                     if (targetId != null) {
+                        /** Index. */
                         val index = editableDimensions.indexOfFirst { it.id == targetId }
+                        /** If. */
                         if (index >= 0) {
                             editableDimensions[index] = editableDimensions[index].copy(
                                 label = trimmed,
@@ -301,13 +345,18 @@ internal fun MandatoryDimensionSetupSection(
 
 @Composable
 private fun DimensionSetupRow(
+    /** Item. */
     item: DimensionSetupUiItem,
+    /** Has duplicate name. */
     hasDuplicateName: Boolean,
+    /** Has duplicate color. */
     hasDuplicateColor: Boolean,
+    /** Has duplicate icon. */
     hasDuplicateIcon: Boolean,
     onEdit: () -> Unit,
     onToggleEnabled: () -> Unit,
 ) {
+    /** Card. */
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
@@ -320,6 +369,7 @@ private fun DimensionSetupRow(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
+        /** Row. */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -327,9 +377,12 @@ private fun DimensionSetupRow(
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
+            /** Column. */
             Column(modifier = Modifier.weight(1f)) {
+                /** Dimension badge label row. */
                 DimensionBadgeLabelRow(
                     label = item.label.ifBlank {
+                        /** String resource. */
                         stringResource(id = R.string.db_init_dimension_setup_name_placeholder)
                     },
                     color = colorFromHex(item.colorHex),
@@ -338,25 +391,30 @@ private fun DimensionSetupRow(
                     badgeSize = 24.dp,
                 )
 
+                /** If. */
                 if (!item.isEnabled) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_disabled),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else if (hasDuplicateName) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.db_init_dimension_setup_error_row_duplicate_name),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else if (hasDuplicateColor) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.db_init_dimension_setup_error_row_duplicate_color),
                         style = MaterialTheme.typography.labelSmall,
                         color = MaterialTheme.colorScheme.error,
                     )
                 } else if (hasDuplicateIcon) {
+                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.db_init_dimension_setup_error_row_duplicate_icon),
                         style = MaterialTheme.typography.labelSmall,
@@ -365,8 +423,11 @@ private fun DimensionSetupRow(
                 }
             }
 
+            /** Row. */
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                /** Icon button. */
                 IconButton(onClick = onEdit, enabled = item.isEnabled) {
+                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Edit,
                         contentDescription = stringResource(id = R.string.loc_edit),
@@ -374,7 +435,9 @@ private fun DimensionSetupRow(
                     )
                 }
 
+                /** Icon button. */
                 IconButton(onClick = onToggleEnabled) {
+                    /** Icon. */
                     Icon(
                         imageVector = if (item.isEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                         contentDescription = null,
@@ -388,10 +451,14 @@ private fun DimensionSetupRow(
 
 @Composable
 private fun DimensionEditDialog(
+    /** Is add mode. */
     isAddMode: Boolean,
     editingDimensionId: String?,
+    /** Initial label. */
     initialLabel: String,
+    /** Initial color hex. */
     initialColorHex: String,
+    /** Initial icon key. */
     initialIconKey: String,
     existingDimensions: List<DimensionSetupUiItem>,
     onDismiss: () -> Unit,
@@ -401,19 +468,25 @@ private fun DimensionEditDialog(
     var colorHex by remember { mutableStateOf(initialColorHex) }
     var iconKey by remember { mutableStateOf(initialIconKey) }
     var error by remember { mutableStateOf<String?>(null) }
+    /** Required name error. */
     val requiredNameError = stringResource(id = R.string.db_init_dimension_setup_error_name_required)
 
+    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
+            /** Text. */
             Text(
+                /** String resource. */
                 stringResource(
                     id = if (isAddMode) R.string.db_init_dimension_setup_add_dialog_title else R.string.db_init_dimension_setup_edit_dialog_title,
                 ),
             )
         },
         text = {
+            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                /** Outlined text field. */
                 OutlinedTextField(
                     value = label,
                     onValueChange = {
@@ -426,27 +499,32 @@ private fun DimensionEditDialog(
                     shape = MaterialTheme.shapes.medium,
                 )
 
+                /** Text. */
                 Text(
                     text = stringResource(id = R.string.db_init_dimension_setup_color_label),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                 )
 
+                /** Used active colors. */
                 val usedActiveColors = existingDimensions
                     .filter { it.isEnabled }
                     .filterNot { !isAddMode && it.id == editingDimensionId }
                     .map { it.colorHex.trim().uppercase(Locale.ROOT) }
                     .toSet()
 
+                /** Dimension color picker. */
                 DimensionColorPicker(
                     selectedColorHex = colorHex,
                     usedColorHexes = usedActiveColors,
                     onSelect = { colorHex = it },
                 )
+                /** Used icon keys. */
                 val usedIconKeys = existingDimensions
                     .filterNot { !isAddMode && it.id == editingDimensionId }
                     .map { it.iconKey }
                     .toSet()
+                /** Dimension icon picker. */
                 DimensionIconPicker(
                     selectedIconKey = iconKey,
                     usedIconKeys = usedIconKeys,
@@ -454,25 +532,32 @@ private fun DimensionEditDialog(
                 )
 
                 error?.let {
+                    /** Text. */
                     Text(text = it, color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall)
                 }
             }
         },
         confirmButton = {
+            /** Button. */
             Button(
                 onClick = {
+                    /** If. */
                     if (label.trim().isBlank()) {
                         error = requiredNameError
                     } else {
+                        /** On save. */
                         onSave(label, colorHex, iconKey)
                     }
                 },
             ) {
+                /** Text. */
                 Text(stringResource(id = R.string.loc_save))
             }
         },
         dismissButton = {
+            /** Text button. */
             TextButton(onClick = onDismiss) {
+                /** Text. */
                 Text(stringResource(id = R.string.settings_action_cancel))
             }
         },
@@ -480,47 +565,61 @@ private fun DimensionEditDialog(
 }
 
 private data class DimensionSetupValidationResult(
+    /** Error res id. */
     val errorResId: Int?,
+    /** Duplicate name ids. */
     val duplicateNameIds: Set<String> = emptySet(),
+    /** Duplicate color ids. */
     val duplicateColorIds: Set<String> = emptySet(),
+    /** Duplicate icon ids. */
     val duplicateIconIds: Set<String> = emptySet(),
 )
 
 private fun validateDimensionInputs(dimensionInputs: List<NewDatabaseDimensionInput>): DimensionSetupValidationResult {
+    /** Active dimensions. */
     val activeDimensions = dimensionInputs.filter { it.isEnabled }
+    /** If. */
     if (dimensionInputs.size > MAX_USER_DIMENSIONS) {
         return DimensionSetupValidationResult(errorResId = R.string.db_init_dimension_setup_error_no_slots_left)
     }
+    /** If. */
     if (activeDimensions.isEmpty()) {
         return DimensionSetupValidationResult(errorResId = R.string.db_init_dimension_setup_error_at_least_one)
     }
+    /** If. */
     if (activeDimensions.any { it.label.trim().isEmpty() }) {
         return DimensionSetupValidationResult(errorResId = R.string.db_init_dimension_setup_error_name_required)
     }
+    /** Duplicate name ids. */
     val duplicateNameIds = findDuplicateIds(
         rows = activeDimensions,
         keySelector = { it.label.trim().lowercase(Locale.ROOT) },
     )
+    /** If. */
     if (duplicateNameIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             errorResId = R.string.db_init_dimension_setup_error_unique_names,
             duplicateNameIds = duplicateNameIds,
         )
     }
+    /** Duplicate color ids. */
     val duplicateColorIds = findDuplicateIds(
         rows = activeDimensions,
         keySelector = { it.colorHex.trim().uppercase(Locale.ROOT) },
     )
+    /** If. */
     if (duplicateColorIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             errorResId = R.string.db_init_dimension_setup_error_unique_colors,
             duplicateColorIds = duplicateColorIds,
         )
     }
+    /** Duplicate icon ids. */
     val duplicateIconIds = findDuplicateIds(
         rows = dimensionInputs,
         keySelector = { it.iconKey.trim().ifEmpty { DimensionIconCatalog.defaultIconKeyForDimensionId(it.id) } },
     )
+    /** If. */
     if (duplicateIconIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             errorResId = R.string.db_init_dimension_setup_error_unique_icons,
@@ -534,8 +633,10 @@ private fun findDuplicateIds(
     rows: List<NewDatabaseDimensionInput>,
     keySelector: (NewDatabaseDimensionInput) -> String,
 ): Set<String> {
+    /** Ids by key. */
     val idsByKey = linkedMapOf<String, MutableList<String>>()
     rows.forEach { row ->
+        /** Key. */
         val key = keySelector(row)
         idsByKey.getOrPut(key) { mutableListOf() }.add(row.id)
     }
@@ -546,23 +647,33 @@ private fun findDuplicateIds(
 }
 
 private data class DimensionSetupUiItem(
+    /** Id. */
     val id: String,
+    /** Label. */
     val label: String,
+    /** Color hex. */
     val colorHex: String,
+    /** Is enabled. */
     val isEnabled: Boolean,
+    /** Icon key. */
     val iconKey: String,
 )
 
 private fun generateDimensionId(label: String, existing: List<DimensionSetupUiItem>): String {
+    /** Slug. */
     val slug = label.lowercase(Locale.US)
         .replace(Regex("[^a-z0-9]+"), "_")
         .trim('_')
         .ifBlank { "custom" }
+    /** Base. */
     val base = "dim_$slug"
+    /** If. */
     if (existing.none { it.id == base }) {
         return base
     }
+    /** Suffix. */
     var suffix = 2
+    /** While. */
     while (existing.any { it.id == "${base}_$suffix" }) {
         suffix++
     }

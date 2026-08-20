@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Box
@@ -45,46 +47,80 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 
 /** Detail-page source: DAY (day_metrics) or a dimension (dimension_metrics). */
-enum class ScoreDetailType { DAY, DIMENSION }
+/**
+ * ScoreDetailType.
+ */
+enum class ScoreDetailType  {
+    /** Day. */
+    DAY,
+    /** Dimension. */
+    DIMENSION,
+}
 
+/**
+ * ScoreDetailUiState.
+ */
 data class ScoreDetailUiState(
+    /** Is loading. */
     val isLoading: Boolean = true,
+    /** Rows. */
     val rows: List<MetricWindowRow> = emptyList(),
+    /** Window size days. */
     val windowSizeDays: Int = 7,
+    /** Window end. */
     val windowEnd: LocalDate = LocalDate.now(),
+    /** Show chart view. */
     val showChartView: Boolean = true,
+    /** Error. */
     val error: String? = null,
 )
 
 @HiltViewModel
+/**
+ * ScoreDetailViewModel.
+ */
 class ScoreDetailViewModel
     @Inject
+    /** Constructor. */
     constructor(
         private val scoreWindowRepository: ScoreWindowRepository,
     ) : ViewModel() {
         private val logger = UnifiedLogger.getInstance()
 
         private val _uiState = MutableStateFlow(ScoreDetailUiState())
+        /** Ui state. */
         val uiState: StateFlow<ScoreDetailUiState> = _uiState.asStateFlow()
 
+        /**
+         * Load.
+         */
         fun load(type: ScoreDetailType, key: String) {
             viewModelScope.launch {
+                /** State. */
                 val state = _uiState.value
+                /** End. */
                 val end = state.windowEnd
+                /** Start. */
                 val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
+                /** Start str. */
                 val startStr = start.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                /** End str. */
                 val endStr = end.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 _uiState.update { it.copy(isLoading = true, error = null) }
                 logger.d(
                     "ScoreDetailViewModel.load",
                     "Loading score detail window",
+                    /** Map of. */
                     mapOf("type" to type.name, "key" to key, "start" to startStr, "end" to endStr),
                 )
                 try {
+                    /** Rows. */
                     val rows =
+                        /** When. */
                         when (type) {
                             ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(startStr, endStr)
                             ScoreDetailType.DIMENSION -> {
+                                /** Score window repository. */
                                 scoreWindowRepository
                                     .getDimensionWindow(startStr, endStr)
                                     .filter { it.key == key }
@@ -101,28 +137,38 @@ class ScoreDetailViewModel
                     logger.d(
                         "ScoreDetailViewModel.load",
                         "Score detail loaded",
+                        /** Map of. */
                         mapOf("type" to type.name, "rows" to rows.size),
                     )
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                     logger.e("ScoreDetailViewModel.load", "Failed to load score detail", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
             }
         }
 
+        /**
+         * Shift window.
+         */
         fun shiftWindow(days: Int) {
             logger.d(
                 "ScoreDetailViewModel.shiftWindow",
                 "Window shifted",
+                /** Map of. */
                 mapOf("days" to days, "type" to currentType.name, "key" to currentKey),
             )
             _uiState.update { it.copy(windowEnd = it.windowEnd.plusDays(days.toLong())) }
             // Reload with the new end date: re-enter load with current state
             viewModelScope.launch {
+                /** State. */
                 val state = _uiState.value
+                /** End. */
                 val end = state.windowEnd
+                /** Start. */
                 val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
+                /** Rows. */
                 val rows =
+                    /** When. */
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
                             start.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -139,18 +185,27 @@ class ScoreDetailViewModel
             }
         }
 
+        /**
+         * Set window size.
+         */
         fun setWindowSize(days: Int) {
             logger.d(
                 "ScoreDetailViewModel.setWindowSize",
                 "Range size selected",
+                /** Map of. */
                 mapOf("days" to days, "type" to currentType.name, "key" to currentKey),
             )
             _uiState.update { it.copy(windowSizeDays = days) }
             viewModelScope.launch {
+                /** State. */
                 val state = _uiState.value
+                /** End. */
                 val end = state.windowEnd
+                /** Start. */
                 val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
+                /** Rows. */
                 val rows =
+                    /** When. */
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
                             start.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -167,22 +222,34 @@ class ScoreDetailViewModel
             }
         }
 
+        /**
+         * Set chart view.
+         */
         fun setChartView(show: Boolean) {
             _uiState.update { it.copy(showChartView = show) }
         }
 
+        /**
+         * Go today.
+         */
         fun goToday() {
             logger.d(
                 "ScoreDetailViewModel.goToday",
                 "Window reset to today",
+                /** Map of. */
                 mapOf("type" to currentType.name, "key" to currentKey),
             )
             _uiState.update { it.copy(windowEnd = LocalDate.now()) }
             viewModelScope.launch {
+                /** State. */
                 val state = _uiState.value
+                /** End. */
                 val end = state.windowEnd
+                /** Start. */
                 val start = scoreWindowRepository.resolveWindowStart(end, state.windowSizeDays, currentType, currentKey)
+                /** Rows. */
                 val rows =
+                    /** When. */
                     when (currentType) {
                         ScoreDetailType.DAY -> scoreWindowRepository.getDayWindow(
                             start.format(DateTimeFormatter.ISO_LOCAL_DATE),
@@ -200,7 +267,9 @@ class ScoreDetailViewModel
         }
 
         // Set by the screen on first composition; used by window shifts.
+        /** Current type. */
         var currentType: ScoreDetailType = ScoreDetailType.DAY
+        /** Current key. */
         var currentKey: String = "DAY"
     }
 
@@ -209,13 +278,20 @@ class ScoreDetailViewModel
  *  dimension layer, all habits for the DAY layer); otherwise end minus
  *  (days-1). Hard date fallback only when no metrics exist at all. */
 private suspend fun ScoreWindowRepository.resolveWindowStart(
+    /** End. */
     end: LocalDate,
+    /** Window size days. */
     windowSizeDays: Int,
+    /** Type. */
     type: ScoreDetailType,
+    /** Key. */
     key: String,
 ): LocalDate {
+    /** If. */
     if (windowSizeDays > 0) return end.minusDays((windowSizeDays - 1).toLong())
+    /** Earliest. */
     val earliest =
+        /** When. */
         when (type) {
             ScoreDetailType.DAY -> earliestDayKey()
             ScoreDetailType.DIMENSION -> earliestDimensionDayKey(key)
@@ -226,34 +302,49 @@ private suspend fun ScoreWindowRepository.resolveWindowStart(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
+/**
+ * Score detail screen.
+ */
 fun ScoreDetailScreen(
+    /** Type. */
     type: ScoreDetailType,
+    /** Key. */
     key: String,
     onNavigateBack: () -> Unit,
     viewModel: ScoreDetailViewModel = hiltViewModel(),
 ) {
     val uiState by viewModel.uiState.collectAsState()
+    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
 
+    /** Launched effect. */
     LaunchedEffect(type, key) {
         viewModel.currentType = type
         viewModel.currentKey = key
         viewModel.load(type, key)
     }
 
+    /** Title. */
     val title =
+        /** If. */
         if (type == ScoreDetailType.DAY) {
+            /** String resource. */
             stringResource(id = R.string.loc_lens_score_detail_day, key)
         } else {
+            /** String resource. */
             stringResource(id = R.string.loc_lens_score_detail_dimension, key)
         }
 
+    /** Scaffold. */
     Scaffold(
         topBar = {
+            /** Top app bar. */
             TopAppBar(
                 title = { Text(text = title) },
                 navigationIcon = {
+                    /** Icon button. */
                     IconButton(onClick = onNavigateBack) {
+                        /** Icon. */
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = stringResource(id = R.string.loc_back),
@@ -263,8 +354,10 @@ fun ScoreDetailScreen(
             )
         },
     ) { padding ->
+        /** Box. */
         Box(
             modifier =
+                /** Modifier. */
                 Modifier
                     .fillMaxSize()
                     .padding(padding)
@@ -274,9 +367,11 @@ fun ScoreDetailScreen(
         ) {
             when {
                 uiState.isLoading && uiState.rows.isEmpty() -> {
+                    /** Circular progress indicator. */
                     CircularProgressIndicator(modifier = Modifier.align(Alignment.Center))
                 }
                 uiState.error != null -> {
+                    /** Text. */
                     Text(
                         text = uiState.error ?: "",
                         style = MaterialTheme.typography.bodyMedium,
@@ -285,6 +380,7 @@ fun ScoreDetailScreen(
                     )
                 }
                 else -> {
+                    /** Habit activity detail section. */
                     HabitActivityDetailSection(
                         windowSizeDays = uiState.windowSizeDays,
                         windowEnd = uiState.windowEnd,

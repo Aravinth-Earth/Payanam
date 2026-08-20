@@ -33,13 +33,17 @@ import io.payanam.ui.viewmodel.LensMoment
 
 @Composable
 internal fun ModuleCard(
+    /** Title. */
     title: String,
+    /** Expanded. */
     expanded: Boolean,
     onToggle: () -> Unit,
+    /** Cta text. */
     ctaText: String,
     onCta: () -> Unit,
     content: @Composable ColumnScope.() -> Unit,
 ) {
+    /** Elevated card. */
     ElevatedCard(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.elevatedCardElevation(defaultElevation = 2.dp),
@@ -47,30 +51,42 @@ internal fun ModuleCard(
             containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f),
         ),
     ) {
+        /** Column. */
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            /** Row. */
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                /** Text. */
                 Text(
+                    /** Title. */
                     title,
                     style = MaterialTheme.typography.titleSmall,
                     fontWeight = FontWeight.Bold,
                     color = MaterialTheme.colorScheme.primary,
                 )
+                /** Row. */
                 Row(horizontalArrangement = Arrangement.spacedBy(4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    /** Text button. */
                     TextButton(onClick = onToggle) {
+                        /** Icon. */
                         val icon = if (expanded) Icons.Filled.ExpandLess else Icons.Filled.ExpandMore
+                        /** Icon. */
                         Icon(
                             imageVector = icon,
                             contentDescription = stringResource(id = if (expanded) R.string.settings_action_collapse else R.string.settings_action_expand),
                             modifier = Modifier.size(18.dp),
                         )
+                        /** Text. */
                         Text(
                             text = stringResource(id = if (expanded) R.string.settings_action_collapse else R.string.settings_action_expand),
                         )
                     }
+                    /** Filled tonal button. */
                     FilledTonalButton(onClick = onCta) { Text(ctaText) }
                 }
             }
+            /** If. */
             if (expanded) {
+                /** Column. */
                 Column(verticalArrangement = Arrangement.spacedBy(4.dp), content = content)
             }
         }
@@ -93,26 +109,33 @@ internal fun momentHint(moment: LensMoment): String = when (moment) {
 
 @Composable
 internal fun MinimalTaskSummaryRow(
+    /** Overdue. */
     overdue: Int,
+    /** Today. */
     today: Int,
+    /** Future. */
     future: Int,
 ) {
+    /** Row. */
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
+        /** Minimal task summary chip. */
         MinimalTaskSummaryChip(
             label = stringResource(id = R.string.loc_overdue),
             count = overdue,
             color = MaterialTheme.colorScheme.error,
             modifier = Modifier.weight(1f),
         )
+        /** Minimal task summary chip. */
         MinimalTaskSummaryChip(
             label = stringResource(id = R.string.loc_today),
             count = today,
             color = MaterialTheme.colorScheme.primary,
             modifier = Modifier.weight(1f),
         )
+        /** Minimal task summary chip. */
         MinimalTaskSummaryChip(
             label = stringResource(id = R.string.loc_future),
             count = future,
@@ -124,28 +147,35 @@ internal fun MinimalTaskSummaryRow(
 
 @Composable
 internal fun MinimalTaskSummaryChip(
+    /** Label. */
     label: String,
+    /** Count. */
     count: Int,
+    /** Color. */
     color: Color,
     modifier: Modifier = Modifier,
 ) {
+    /** Card. */
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = color.copy(alpha = 0.15f)),
         border = BorderStroke(1.dp, color.copy(alpha = 0.25f)),
     ) {
+        /** Column. */
         Column(
             modifier = Modifier
                 .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth(),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
+            /** Text. */
             Text(
                 text = count.toString(),
                 style = MaterialTheme.typography.titleMedium,
                 fontWeight = FontWeight.Bold,
                 color = color,
             )
+            /** Text. */
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
