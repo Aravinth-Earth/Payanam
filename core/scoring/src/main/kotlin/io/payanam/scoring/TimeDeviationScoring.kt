@@ -114,6 +114,11 @@ object TimeDeviationScoring {
 
 /**
  * Score result for a single dimension's time adherence.
+ *
+ * @property dimensionId Identifier of the dimension scored.
+ * @property plannedMinutes Planned minutes for the dimension.
+ * @property actualMinutes Actual tracked minutes for the dimension.
+ * @property score Adherence score between 0.0 and 1.0.
  */
 data class DimensionTimeScore(
     val dimensionId: String,
@@ -124,6 +129,11 @@ data class DimensionTimeScore(
 
 /**
  * Aggregated day time score with per-dimension breakdowns.
+ *
+ * @property dayKey YYYY-MM-DD key for the day.
+ * @property dimensionScores Per-dimension adherence scores.
+ * @property overallScore Weighted overall score between 0.0 and 1.0.
+ * @property isPlanned True when the day had planned allocations.
  */
 data class DayTimeScore(
     val dayKey: String,

@@ -15,6 +15,13 @@ import kotlin.math.sqrt
 
 /**
  * Completion statistics for recurring tasks.
+ *
+ * @property completionRate7Days Completion rate over the last 7 days.
+ * @property completionRate30Days Completion rate over the last 30 days.
+ * @property completionRate90Days Completion rate over the last 90 days.
+ * @property allTimeRate Completion rate across all recorded occurrences.
+ * @property currentStreak Current consecutive completed-days streak (from today backwards).
+ * @property longestStreak Longest completed-days streak on record.
  */
 data class CompletionStats(
     val completionRate7Days: Double,
@@ -25,6 +32,17 @@ data class CompletionStats(
     val longestStreak: Int
 )
 
+/**
+ * Summary of a single frequency window between [start] and [end].
+ *
+ * @property start Inclusive start date of the window.
+ * @property end Inclusive end date of the window.
+ * @property coveredDays Number of scheduled days that fall inside the range.
+ * @property completedCount Completed occurrences within the window.
+ * @property skippedCount Skipped occurrences within the window.
+ * @property targetCount Raw proportional target count for the window.
+ * @property effectiveTargetCount Target count after subtracting skipped days.
+ */
 data class FrequencyWindowSummary(
     val start: LocalDate,
     val end: LocalDate,
@@ -34,7 +52,9 @@ data class FrequencyWindowSummary(
     val targetCount: Int,
     val effectiveTargetCount: Int
 ) {
+    /** True when completed count meets or exceeds the effective target. */
     val isSatisfied: Boolean get() = completedCount >= effectiveTargetCount
+    /** Completed-to-effective-target ratio, or 1.0 when there is no target. */
     val completionRatio: Double
         get() = if (effectiveTargetCount <= 0) 1.0 else completedCount.toDouble() / effectiveTargetCount
 }
@@ -43,11 +63,19 @@ data class FrequencyWindowSummary(
  * Calculates recurrence decay scores using the uHabits-inspired model.
  */
 object RecurrenceScoreCalculator {
-    
+
     private val logger = UnifiedLogger.getInstance()
+
+    // Completion-rate window sizes (days) used by the rate calculations.
+    private const val WINDOW_DAYS_7 = 7
+    private const val WINDOW_DAYS_30 = 30
+    private const val WINDOW_DAYS_90 = 90
     
     /**
-     * Represents frequency as "X times per Y days".
+     * Represents a recurrence frequency as "X times per Y days".
+     *
+     * @property numerator How many times the habit should occur.
+     * @property denominator Across how many days.
      */
     data class Frequency(
         // How many times
@@ -55,19 +83,28 @@ object RecurrenceScoreCalculator {
         // Per how many days
         val denominator: Int
     ) {
+        /** Converts this frequency to a rate (occurrences per day). */
         fun toDouble() = numerator.toDouble() / denominator
-        
+
         companion object {
+            /** One occurrence per day. */
             val DAILY = Frequency(1, 1)
+            /** One occurrence every two days. */
             val EVERY_OTHER_DAY = Frequency(1, 2)
+            /** One occurrence per week (7 days). */
             val WEEKLY = Frequency(1, 7)
+            /** Two occurrences per week (7 days). */
             val TWO_PER_WEEK = Frequency(2, 7)
+            /** Three occurrences per week (7 days). */
             val THREE_PER_WEEK = Frequency(3, 7)
+            /** One occurrence per month (30 days). */
             val MONTHLY = Frequency(1, 30)
+            /** One occurrence per year (365 days). */
             val YEARLY = Frequency(1, 365)
         }
     }
 
+    /** Builds a [Frequency] from a domain [RecurrenceConfig], coercing to at least 1. */
     fun fromRecurrenceConfig(config: RecurrenceConfig): Frequency {
         val (numerator, denominator) = config.toFrequency()
         return Frequency(
@@ -76,14 +113,17 @@ object RecurrenceScoreCalculator {
         )
     }
 
+    /** Builds a [Frequency] from a domain [DomainFrequency], coercing to at least 1. */
     fun fromFrequency(frequency: DomainFrequency): Frequency =
         Frequency(
             numerator = frequency.numerator.coerceAtLeast(1),
             denominator = frequency.denominator.coerceAtLeast(1),
         )
 
+    /** Builds a [Frequency] from a legacy RRULE-style [rule] string. */
     fun fromRule(rule: String?): Frequency = fromFrequency(DomainFrequency.legacyParse(rule))
-    
+
+    /** Parses an RRULE [rrule] string into a [Frequency]. */
     fun parseRRuleToFrequency(rrule: String?): Frequency = fromRule(rrule)
     
     /**
@@ -131,7 +171,7 @@ object RecurrenceScoreCalculator {
         }
         
         // Current streak from today backwards
-        val recentOccurrences = occurrences.filter { it.first <= 7 }.sortedBy { it.first }
+        val recentOccurrences = occurrences.filter { it.first <= WINDOW_DAYS_7 }.sortedBy { it.first }
         for ((_, status) in recentOccurrences) {
             if (status == "completed") {
                 currentStreak++
@@ -141,9 +181,9 @@ object RecurrenceScoreCalculator {
         }
         
         return CompletionStats(
-            completionRate7Days = calculateRate(7),
-            completionRate30Days = calculateRate(30),
-            completionRate90Days = calculateRate(90),
+            completionRate7Days = calculateRate(WINDOW_DAYS_7),
+            completionRate30Days = calculateRate(WINDOW_DAYS_30),
+            completionRate90Days = calculateRate(WINDOW_DAYS_90),
             allTimeRate = calculateRate(Int.MAX_VALUE),
             currentStreak = currentStreak,
             longestStreak = longestStreak
@@ -255,15 +295,25 @@ object RecurrenceScoreCalculator {
         ))
         
         return CompletionStats(
-            completionRate7Days = calculateRateForDays(7),
-            completionRate30Days = calculateRateForDays(30),
-            completionRate90Days = calculateRateForDays(90),
+            completionRate7Days = calculateRateForDays(WINDOW_DAYS_7),
+            completionRate30Days = calculateRateForDays(WINDOW_DAYS_30),
+            completionRate90Days = calculateRateForDays(WINDOW_DAYS_90),
             allTimeRate = calculateRateForDays(Int.MAX_VALUE),
             currentStreak = currentStreak,
             longestStreak = longestStreak
         )
     }
 
+    /**
+     * Calculate frequency-aware completion statistics using an explicit
+     * [frequency] and [anchorDate] (rather than a [RecurrenceConfig]).
+     *
+     * @param occurrences Map of date -> status for recorded occurrences.
+     * @param frequency The recurrence frequency for this habit.
+     * @param anchorDate The date tracking started for this habit.
+     * @param today The reference "today" date (defaults to [LocalDate.now]).
+     * @return Completion statistics respecting the recurrence schedule.
+     */
     fun calculateFrequencyAwareStats(
         occurrences: Map<LocalDate, String>,
         frequency: DomainFrequency,
@@ -327,9 +377,9 @@ object RecurrenceScoreCalculator {
         }
 
         val stats = CompletionStats(
-            completionRate7Days = calculateRateForDays(7),
-            completionRate30Days = calculateRateForDays(30),
-            completionRate90Days = calculateRateForDays(90),
+            completionRate7Days = calculateRateForDays(WINDOW_DAYS_7),
+            completionRate30Days = calculateRateForDays(WINDOW_DAYS_30),
+            completionRate90Days = calculateRateForDays(WINDOW_DAYS_90),
             allTimeRate = calculateRateForDays(Int.MAX_VALUE),
             currentStreak = currentStreak,
             longestStreak = longestStreak,
@@ -351,6 +401,11 @@ object RecurrenceScoreCalculator {
         return stats
     }
 
+    /**
+     * Builds the list of frequency windows (each spanning [frequency.denominator]
+     * days) covering [rangeStart]..[rangeEnd] anchored at [anchorDate], with per-window
+     * completed/skipped counts derived from [occurrences].
+     */
     fun buildFrequencyWindows(
         occurrences: Map<LocalDate, String>,
         frequency: DomainFrequency,
