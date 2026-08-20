@@ -13,6 +13,7 @@ import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.HabitMetricEntity
 import io.payanam.database.entity.TaskEntity
 import io.payanam.database.entity.TaskOccurrenceEntity
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.RecurrenceConfig
 import java.time.LocalDate
@@ -55,6 +56,7 @@ class ScoreRollupCascadeService
     @Inject
     constructor(
         private val sessionManager: DatabaseSessionManager,
+        private val scoreChangeEventBus: ScoreChangeEventBus,
     ) {
         private val logger = UnifiedLogger.getInstance()
 
@@ -202,6 +204,8 @@ class ScoreRollupCascadeService
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
+                scoreChangeEventBus.emit(date)
+                logger.i(tag, "Score change event emitted", mapOf("date" to date.toString()))
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_FAILED", e, mapOf("taskId" to taskId, "date" to date.toString()))
             }
@@ -282,6 +286,8 @@ class ScoreRollupCascadeService
                         "ms=${System.currentTimeMillis() - started}",
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
+                scoreChangeEventBus.emit(LocalDate.now())
+                logger.i(tag, "Score change event emitted", mapOf("date" to "rule-change"))
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
             }
@@ -332,6 +338,9 @@ class ScoreRollupCascadeService
                 )
                 dayDao.deleteFrom(dateStr)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
+                // Notify subscribers (e.g. Lenses matrix) so derived values refresh.
+                scoreChangeEventBus.emit(changeDate)
+                logger.i(tag, "Score change event emitted", mapOf("date" to changeDate.toString()))
                 logger.i(
                     tag,
                     listOf(
@@ -534,6 +543,8 @@ class ScoreRollupCascadeService
                         "elapsedMs" to (System.currentTimeMillis() - started),
                     ),
                 )
+                scoreChangeEventBus.emit(LocalDate.now())
+                logger.i(tag, "Score change event emitted", mapOf("date" to "catch-up"))
             } catch (e: Exception) {
                 logger.e(tag, "CATCHUP_FAILED", e)
             }
@@ -555,18 +566,23 @@ class ScoreRollupCascadeService
             val posContinue: Int?,
         )
 
+        /** Converts a habit metric row to trace values (all 6 metrics). */
         private fun HabitMetricEntity.toTraceValues() =
             TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Converts a dimension metric row to trace values (all 6 metrics). */
         private fun DimensionMetricEntity.toTraceValues() =
             TraceValues(score, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Converts a day metric row to trace values (all 6 metrics). */
         private fun DayMetricEntity.toTraceValues() =
             TraceValues(dayScore, runningAvg, progress, streakPos, streakNet, posContinue)
 
+        /** Formats a nullable double for trace output at 5-decimal precision (∅ when null). */
         private fun traceValue(v: Double?): String =
-            v?.let { String.format(Locale.US, "%.4f", it) } ?: "∅"
+            v?.let { String.format(Locale.US, "%.5f", it) } ?: "∅"
 
+        /** Formats a nullable int for trace output (∅ when null). */
         private fun traceValue(v: Int?): String = v?.toString() ?: "∅"
 
         /**
@@ -599,6 +615,7 @@ class ScoreRollupCascadeService
             return shown.joinToString(" , ", prefix = "$header ", transform = detail)
         }
 
+        /** Parses a dayKey (or longer timestamp) to a [LocalDate] via the first 10 chars. */
         private fun parseDate(s: String): LocalDate =
             try {
                 LocalDate.parse(s.take(10))

@@ -67,4 +67,7 @@ class ScoreWindowRepositoryImpl
 
         override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
             sessionManager.requireDatabase().dimensionMetricDao().earliestDayKey(dimensionId)
+
+        override suspend fun earliestDimensionDayKey(): String? =
+            sessionManager.requireDatabase().dimensionMetricDao().earliestDayKeyGlobal()
     }

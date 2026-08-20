@@ -5,6 +5,7 @@ package io.payanam.ui.viewmodel
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.domain.model.DayMetricRow
 import io.payanam.domain.model.DimensionMetricRow
 import io.payanam.domain.model.MetricWindowRow
@@ -40,6 +41,8 @@ class LensHabitScoreViewModelTest {
         override suspend fun earliestDayKey(): String? = days.minByOrNull { it.dayKey }?.dayKey
         override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
             dims.filter { it.key == dimensionId }.minByOrNull { it.dayKey }?.dayKey
+        override suspend fun earliestDimensionDayKey(): String? =
+            dims.minByOrNull { it.dayKey }?.dayKey
     }
 
     @Before
@@ -68,7 +71,7 @@ class LensHabitScoreViewModelTest {
 
     @Test
     fun `loadWindow assembles one row per dimension plus day row`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -84,7 +87,7 @@ class LensHabitScoreViewModelTest {
 
     @Test
     fun `sparkline is dense across the window with nulls for missing days`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -99,23 +102,29 @@ class LensHabitScoreViewModelTest {
     }
 
     @Test
-    fun `selectMetric replaces the selected metric`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+    fun `selectMetric triggers reload and rank matches final metric`() = runTest(dispatcher) {
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
+        vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+        dispatcher.scheduler.advanceUntilIdle()
+
         vm.selectMetric(ScoreMetricColumn.PROGRESS)
+        dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
+        // rankByKey must be derived for the selected metric, not a stale one
+        assertTrue(vm.uiState.value.rankByKey.isNotEmpty())
     }
 
     @Test
     fun `default metric is progress`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
 
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
     }
 
     @Test
     fun `radar axes carry all metric pairs with today values`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
 
@@ -132,7 +141,7 @@ class LensHabitScoreViewModelTest {
 
     @Test
     fun `dimension labels fall back to taxonomy names`() = runTest(dispatcher) {
-        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()))
+        val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
 
