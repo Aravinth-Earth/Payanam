@@ -27,11 +27,14 @@ output-reports:
 comments:
   active: true
   UndocumentedPublicClass:
-    active: false
+    active: true
+    searchInNestedClass: false
+    searchInInnerClass: false
+    searchInInnerObject: false
   UndocumentedPublicFunction:
-    active: false
+    active: true
   UndocumentedPublicProperty:
-    active: false
+    active: true
 
 complexity:
   active: true
@@ -72,9 +75,9 @@ exceptions:
   PrintStackTrace:
     active: true
   SwallowedException:
-    active: false
+    active: true
   TooGenericExceptionCaught:
-    active: false
+    active: true
 
 naming:
   active: true
@@ -115,7 +118,16 @@ style:
       - 'STOPSHIP:'
       - 'TODO:'
   MagicNumber:
-    active: false
+    active: true
+    ignoreAnnotated: ['Composable']
+    ignoreEnums: true
+    ignoreNumbers: ['0', '1', '2']
+    ignoreLocalVariableDeclaration: true
+    ignoreConstantDeclaration: true
+    ignoreCompanionObjectPropertyDeclaration: true
+    ignorePropertyDeclaration: false
+    ignoreNamedArgument: true
+    ignoreRanges: true
   MaxLineLength:
     active: true
     maxLineLength: 200

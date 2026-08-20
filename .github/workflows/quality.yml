@@ -1,0 +1,37 @@
+# Static analysis gate for Payanam.
+# Enforces detekt (KDoc + style rules) on every PR to dev/main and on pushes to
+# dev, so contributor quality checks are enforced in CI, not just locally.
+#
+# NOTE: this runs detekt only, NOT the full `preCommitCheck`. The repo's
+# spotless/ktlint and lint checks have pre-existing violations on `dev` that are
+# out of scope for this gate; adding them here would red-fail every PR for
+# unrelated reasons. detekt is the enforced contract.
+#
+# SPDX-License-Identifier: AGPL-3.0-or-later
+name: "Quality"
+
+on:
+  push:
+    branches: ["dev"]
+  pull_request:
+    branches: ["main", "dev"]
+
+jobs:
+  detekt:
+    name: Detekt static analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run detekt
+        run: ./gradlew detekt --no-daemon --console=plain

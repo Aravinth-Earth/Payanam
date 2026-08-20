@@ -1,0 +1,475 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$0.5</ID>
+    <ID>MagicNumber:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$1</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency$3</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency$30</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency$365</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency$5</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency$7</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency.Companion$3</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency.Companion$30</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency.Companion$4</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency.Companion$5</ID>
+    <ID>MagicNumber:Frequency.kt$Frequency.Companion$7</ID>
+    <ID>MagicNumber:NumDenToConfigConverter.kt$NumDenToConfigConverter$3</ID>
+    <ID>MagicNumber:NumDenToConfigConverter.kt$NumDenToConfigConverter$4</ID>
+    <ID>MagicNumber:NumDenToConfigConverter.kt$NumDenToConfigConverter$6</ID>
+    <ID>MagicNumber:NumDenToConfigConverter.kt$NumDenToConfigConverter$7</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$10</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$14</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$3</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$30</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$32</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$365</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$5</ID>
+    <ID>MagicNumber:RecurrenceConfig.kt$RecurrenceConfig$7</ID>
+    <ID>MagicNumber:RecurrenceConfigCodec.kt$RecurrenceConfigCodec$3</ID>
+    <ID>MagicNumber:RecurrenceConfigCodec.kt$RecurrenceConfigCodec$4</ID>
+    <ID>MagicNumber:RecurrenceConfigCodec.kt$RecurrenceConfigCodec$5</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.1</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.15</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.25</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.35</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.4</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.5</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.6</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.65</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.7</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.75</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.8</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.85</ID>
+    <ID>MagicNumber:ScoringConfig.kt$ScoringConfig$0.9</ID>
+    <ID>SwallowedException:RecurrenceConfigCodec.kt$RecurrenceConfigCodec$e: Exception</ID>
+    <ID>TooGenericExceptionCaught:RecurrenceConfigCodec.kt$RecurrenceConfigCodec$e: Exception</ID>
+    <ID>UndocumentedPublicClass:AverageDailyTimeTableData.kt$AverageDailyTimeRow</ID>
+    <ID>UndocumentedPublicClass:AverageDailyTimeTableData.kt$AverageDailyTimeRowType</ID>
+    <ID>UndocumentedPublicClass:AverageDailyTimeTableData.kt$AverageDailyTimeTableData</ID>
+    <ID>UndocumentedPublicClass:AverageDailyTimeTableData.kt$AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$DayPlanAllocationRecord</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$DayPlanPolicyRecord</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$DayPlanRepository$Companion</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$DayPlanTemplateRecord</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$DayTypeTemplatePreferenceRecord</ID>
+    <ID>UndocumentedPublicClass:DayPlanRepository.kt$TemplateAllocationRecord</ID>
+    <ID>UndocumentedPublicClass:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition</ID>
+    <ID>UndocumentedPublicClass:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog</ID>
+    <ID>UndocumentedPublicClass:Frequency.kt$Frequency$Companion</ID>
+    <ID>UndocumentedPublicClass:Journal.kt$DayJournalResponseInput</ID>
+    <ID>UndocumentedPublicClass:Journal.kt$JournalPromptScope</ID>
+    <ID>UndocumentedPublicClass:LensRepository.kt$WeekGridSlot$Companion</ID>
+    <ID>UndocumentedPublicClass:LifeDimension.kt$LifeDimension$Companion</ID>
+    <ID>UndocumentedPublicClass:Note.kt$NoteInput</ID>
+    <ID>UndocumentedPublicClass:RecurrenceConfig.kt$RecurrenceConfig$Companion</ID>
+    <ID>UndocumentedPublicClass:ScoringConfig.kt$ScoringConfig$Companion</ID>
+    <ID>UndocumentedPublicClass:TimeEntry.kt$TimeEntryInput</ID>
+    <ID>UndocumentedPublicFunction:AverageDailyTimeTableData.kt$fun AverageDailyTimeTableData.logSummary(logger: UnifiedLogger)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$fun observeActiveTemplates(): Flow&lt;List&lt;DayPlanTemplateRecord&gt;&gt;</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$fun observeAllTemplates(): Flow&lt;List&lt;DayPlanTemplateRecord&gt;&gt;</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$fun observeAllocationsForDay(dayKey: String): Flow&lt;List&lt;DayPlanAllocationRecord&gt;&gt;</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun applyTemplateToDay(dayKey: String, templateId: String)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun clearDayPlan(dayKey: String)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun createTemplate( name: String, description: String?, allocations: Map&lt;String, Int&gt; ): String</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun deleteTemplate(id: String)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun getAllocationsForDay(dayKey: String): List&lt;DayPlanAllocationRecord&gt;</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun getTemplateById(id: String): DayPlanTemplateRecord?</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord?</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun setAllocation( dayKey: String, dimensionId: String, plannedMinutes: Int, source: String = "manual", templateId: String? = null )</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun setAllocations( dayKey: String, allocations: Map&lt;String, Int&gt;, source: String = "manual", templateId: String? = null )</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun setDayMode(dayKey: String, mode: String, templateId: String? = null)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun setDayStarred(dayKey: String, isStarred: Boolean)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?)</ID>
+    <ID>UndocumentedPublicFunction:DayPlanRepository.kt$DayPlanRepository$suspend fun updateTemplate( id: String, name: String, description: String?, allocations: Map&lt;String, Int&gt; )</ID>
+    <ID>UndocumentedPublicFunction:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$fun defaultWeightForDimensionId(id: String?): Double</ID>
+    <ID>UndocumentedPublicFunction:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$fun fromAnyId(id: String?): CanonicalDimensionDefinition?</ID>
+    <ID>UndocumentedPublicFunction:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$fun fromAnyLabel(label: String?): CanonicalDimensionDefinition?</ID>
+    <ID>UndocumentedPublicFunction:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$fun fromCanonicalId(id: String?): CanonicalDimensionDefinition?</ID>
+    <ID>UndocumentedPublicFunction:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$fun isCanonicalLabel(label: String?): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Frequency.kt$Frequency$fun displayName(): String</ID>
+    <ID>UndocumentedPublicFunction:Frequency.kt$Frequency$fun serialize(): String</ID>
+    <ID>UndocumentedPublicFunction:Frequency.kt$Frequency$fun withAnchor(date: LocalDate): Frequency</ID>
+    <ID>UndocumentedPublicFunction:Frequency.kt$Frequency.Companion$fun isSerializedRule(rule: String?): Boolean</ID>
+    <ID>UndocumentedPublicFunction:Frequency.kt$Frequency.Companion$fun parse(s: String?): Frequency</ID>
+    <ID>UndocumentedPublicFunction:LifeDimension.kt$LifeDimension.Companion$fun allDisplayNames(): List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicFunction:LifeDimension.kt$LifeDimension.Companion$fun fromDisplayName(name: String): LifeDimension?</ID>
+    <ID>UndocumentedPublicFunction:LifeDimension.kt$LifeDimension.Companion$fun fromId(id: String): LifeDimension?</ID>
+    <ID>UndocumentedPublicFunction:LifeDimensionCatalogRepository.kt$LifeDimensionCatalogRepository$fun observeAllDimensions(): Flow&lt;List&lt;ConfiguredLifeDimension&gt;&gt;</ID>
+    <ID>UndocumentedPublicFunction:LifeDimensionCatalogRepository.kt$LifeDimensionCatalogRepository$suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean)</ID>
+    <ID>UndocumentedPublicFunction:LifeDimensionCatalogRepository.kt$LifeDimensionCatalogRepository$suspend fun updateDimensionColor(dimensionId: String, colorHex: String)</ID>
+    <ID>UndocumentedPublicFunction:LifeDimensionCatalogRepository.kt$LifeDimensionCatalogRepository$suspend fun updateDimensionIcon(dimensionId: String, iconKey: String)</ID>
+    <ID>UndocumentedPublicFunction:LifeDimensionCatalogRepository.kt$LifeDimensionCatalogRepository$suspend fun updateDimensionLabel(dimensionId: String, label: String)</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig$fun countScheduledOccurrences(start: LocalDate, end: LocalDate): Int</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig$fun getScheduledDatesInRange(start: LocalDate, end: LocalDate): List&lt;LocalDate&gt;</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun daily(startDate: LocalDate? = null): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun everyNDays(n: Int, startDate: LocalDate? = null): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun monthlyOnDates(vararg dates: Int): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun parse(rule: String?): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun specificWeekdays(days: Set&lt;Int&gt;): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun specificWeekdays(vararg days: DayOfWeek): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun timesPerWeek(times: Int): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun weekdays(startDate: LocalDate? = null): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceConfig.kt$RecurrenceConfig.Companion$fun yearly(startDate: LocalDate? = null): RecurrenceConfig</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRow$val averageMinutesByWindow: Map&lt;AverageDailyTimeWindow, Double&gt;</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRow$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRow$val rowType: AverageDailyTimeRowType</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRowType$DIMENSION</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRowType$UNASSIGNED</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeRowType$UNTRACKED</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeTableData$val asOfDate: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeTableData$val firstTrackedDate: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeTableData$val rows: List&lt;AverageDailyTimeRow&gt;</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeTableData$val totalCalendarDays: Int</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeTableData$val visibleWindows: List&lt;AverageDailyTimeWindow&gt;</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$ALL_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$LAST_180_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$LAST_30_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$LAST_365_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$LAST_7_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$LAST_90_DAYS : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$TODAY_SO_FAR : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$YESTERDAY : AverageDailyTimeWindow</ID>
+    <ID>UndocumentedPublicProperty:AverageDailyTimeTableData.kt$AverageDailyTimeWindow$val minCalendarDays: Int</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val colorHex: String</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val description: String?</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val iconKey: String?</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val id: String</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val isActive: Boolean</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val key: String</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val label: String</ID>
+    <ID>UndocumentedPublicProperty:ConfiguredLifeDimension.kt$ConfiguredLifeDimension$val sortOrder: Int</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val dimensionId: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val plannedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val source: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanAllocationRecord$val templateId: String?</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanPolicyRecord$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanPolicyRecord$val isStarred: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanPolicyRecord$val mode: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanPolicyRecord$val templateId: String?</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val DAY_TYPE_STARRED = "starred"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val DAY_TYPE_WEEKDAY = "weekday"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val DAY_TYPE_WEEKEND = "weekend"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val MAX_TEMPLATE_COUNT = 10</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val MODE_AUTO = "auto"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val MODE_CUSTOM = "custom"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val MODE_TEMPLATE = "template"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val SOURCE_MANUAL = "manual"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val SOURCE_TEMPLATE = "template"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanRepository.Companion$const val SOURCE_TEMPLATE_AUTO = "template_auto"</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val allocations: List&lt;TemplateAllocationRecord&gt;</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val description: String?</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val isActive: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val name: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayPlanTemplateRecord$val sortOrder: Int</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayTypeTemplatePreferenceRecord$val dayType: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$DayTypeTemplatePreferenceRecord$val templateId: String?</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$TemplateAllocationRecord$val dimensionId: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$TemplateAllocationRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$TemplateAllocationRecord$val plannedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:DayPlanRepository.kt$TemplateAllocationRecord$val templateId: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionMetricRow.kt$DimensionMetricRow$val dimensionId: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val defaultColorHex: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val defaultIconKey: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val defaultWeight: Double</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val fallbackDescription: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val fallbackLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val slug: String</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$CanonicalDimensionDefinition$val sortOrder: Int</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val COMMUNITY_SERVICE = CanonicalDimensionDefinition( id = "dim_community_service", slug = "community_service", fallbackLabel = "Community &amp; Service", fallbackDescription = "Activities that help others, support communities, encourage participation, and create value beyond personal or family needs.", sortOrder = 90, defaultWeight = 0.7, defaultColorHex = "#607D8B", defaultIconKey = "volunteer_activism" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val FAMILY_RELATIONSHIPS = CanonicalDimensionDefinition( id = "dim_family_relationships", slug = "family_relationships", fallbackLabel = "Family &amp; Relationships", fallbackDescription = "Activities that nurture family bonds, close relationships, care, trust, " + "and meaningful connection with important people.", sortOrder = 30, defaultWeight = 0.9, defaultColorHex = "#E91E63", defaultIconKey = "groups" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val HOME_ENVIRONMENT = CanonicalDimensionDefinition( id = "dim_home_environment", slug = "home_environment", fallbackLabel = "Home &amp; Environment", fallbackDescription = "Activities related to home care, organization, maintenance, comfort, " + "and improving one's living space and surroundings.", sortOrder = 40, defaultWeight = 0.85, defaultColorHex = "#009688", defaultIconKey = "home" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val LEARNING_GROWTH = CanonicalDimensionDefinition( id = "dim_learning_growth", slug = "learning_growth", fallbackLabel = "Learning &amp; Growth", fallbackDescription = "Activities focused on learning, skill-building, self-improvement, and " + "growth through study, practice, or experience.", sortOrder = 70, defaultWeight = 0.8, defaultColorHex = "#FFC107", defaultIconKey = "menu_book" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val MENTAL_HEALTH = CanonicalDimensionDefinition( id = "dim_mental_health", slug = "mental_health", fallbackLabel = "Mental Health", fallbackDescription = "Activities that support emotional balance, mental wellness, reflection, calmness, and inner stability.", sortOrder = 20, defaultWeight = 0.75, defaultColorHex = "#9C27B0", defaultIconKey = "psychology" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val MONEY_FINANCE = CanonicalDimensionDefinition( id = "dim_money_finance", slug = "money_finance", fallbackLabel = "Money &amp; Finance", fallbackDescription = "Activities involving budgeting, saving, spending, investing, bills, and financial decisions for present and future needs.", sortOrder = 60, defaultWeight = 0.8, defaultColorHex = "#FF9800", defaultIconKey = "account_balance_wallet" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val PHYSICAL_HEALTH = CanonicalDimensionDefinition( id = "dim_physical_health", slug = "physical_health", fallbackLabel = "Physical Health", fallbackDescription = "Activities that support body health, exercise, rest, recovery, nutrition, and physical well-being.", sortOrder = 10, defaultWeight = 1.0, defaultColorHex = "#4CAF50", defaultIconKey = "monitor_heart" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val RECREATION_LEISURE = CanonicalDimensionDefinition( id = "dim_recreation_leisure", slug = "recreation_leisure", fallbackLabel = "Recreation &amp; Leisure", fallbackDescription = "Activities done for enjoyment, rest, hobbies, fun, exploration, and renewal outside essential responsibilities.", sortOrder = 80, defaultWeight = 0.7, defaultColorHex = "#00BCD4", defaultIconKey = "sports_esports" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val UNASSIGNED = CanonicalDimensionDefinition( id = "dim_unassigned", slug = "unassigned", fallbackLabel = "Unassigned", fallbackDescription = "System fallback for uncategorized or imported records.", sortOrder = 9999, defaultWeight = 0.5, defaultColorHex = "#9E9E9E", defaultIconKey = "help_outline" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val WORK_LIVELIHOOD = CanonicalDimensionDefinition( id = "dim_work_livelihood", slug = "work_livelihood", fallbackLabel = "Work &amp; Livelihood", fallbackDescription = "Work, profession, responsibilities, and effort that support daily living and long-term stability.", sortOrder = 50, defaultWeight = 1.0, defaultColorHex = "#3F51B5", defaultIconKey = "work" )</ID>
+    <ID>UndocumentedPublicProperty:DimensionTaxonomyCatalog.kt$DimensionTaxonomyCatalog$val entries: List&lt;CanonicalDimensionDefinition&gt; = listOf( PHYSICAL_HEALTH, MENTAL_HEALTH, FAMILY_RELATIONSHIPS, HOME_ENVIRONMENT, WORK_LIVELIHOOD, MONEY_FINANCE, LEARNING_GROWTH, RECREATION_LEISURE, COMMUNITY_SERVICE, UNASSIGNED )</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency$val anchorDate: LocalDate? = null</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency$val denominator: Int</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency$val numerator: Int</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency$val toDouble: Double get() = numerator.toDouble() / denominator</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val BIWEEKLY = Frequency(1, 14)</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val DAILY = Frequency(1, 1)</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val MONTHLY = Frequency(1, 30)</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val WEEKDAYS = Frequency(5, 7)</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val WEEKLY = Frequency(1, 7)</ID>
+    <ID>UndocumentedPublicProperty:Frequency.kt$Frequency.Companion$val YEARLY = Frequency(1, 365)</ID>
+    <ID>UndocumentedPublicProperty:HabitL1Summary.kt$HabitL1Summary$val habitId: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalEntry$val createdAt: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalEntry$val entryDate: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalEntry$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalEntry$val updatedAt: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val dimensionKey: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val entryId: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val promptKey: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val responseText: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponse$val scope: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponseInput$val dimensionKey: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponseInput$val promptKey: String</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponseInput$val responseText: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$DayJournalResponseInput$val scope: JournalPromptScope</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$JournalPromptScope$DIMENSION</ID>
+    <ID>UndocumentedPublicProperty:Journal.kt$JournalPromptScope$OVERALL</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val body: String</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val id: String</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val isDelivered: Boolean</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val notificationType: String</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val scheduledAt: java.time.LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val taskId: String</ID>
+    <ID>UndocumentedPublicProperty:JournalRepository.kt$ScheduledNotification$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyFocusStat$val avgFocus: Double?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyFocusStat$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyFocusedHoursStat$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyFocusedHoursStat$val focusedHours: Double</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyTrackedTimeStat$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DailyTrackedTimeStat$val trackedPercent: Double</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DimensionTrendBlock$val byDimension: Map&lt;String?, Int&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DimensionTrendBlock$val endDate: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DimensionTrendBlock$val startDate: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$DimensionTrendBlock$val totalPossibleMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitPlanItem$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitPlanItem$val estimatedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitPlanItem$val habitId: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitPlanItem$val recurrenceRule: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitPlanItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val actualMinutes: Int?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val completedAt: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val habitId: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val status: String // completed | skipped | missed</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HabitRealityItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HeatmapDayData$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HeatmapDayData$val segments: List&lt;HeatmapEntrySegment&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HeatmapEntrySegment$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HeatmapEntrySegment$val durationMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$HeatmapEntrySegment$val startMinute: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val createdAt: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val description: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val gapMinutes: Int?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val isAddressed: Boolean</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val reflectionType: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val relatedEntityId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$LensReflectionRecord$val userNote: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$MinutePatternData$val days: List&lt;MinutePatternDay&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$MinutePatternDay$val dayOfWeek: java.time.DayOfWeek</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$MinutePatternDay$val minuteWinners: List&lt;String?&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val budgetAllocationsByDimension: Map&lt;String, Int&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val planCompletenessScore: Float // 0.0 to 1.0</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val plannedHabits: List&lt;HabitPlanItem&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val plannedTasks: List&lt;TaskPlanItem&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val plannedTimeByDimension: Map&lt;String, Int&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val timeGoals: List&lt;TimeGoalItem&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$PlanningLensData$val totalPlannedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val actualHabitMinutes: Int = 0 // recurring-habit minutes (entry-linked + supplemental occurrences)</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val actualTaskMinutes: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val actualTimeByDimension: Map&lt;String, Int&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val actualTimeOnlyMinutes: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val adherenceScore: Float</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val budgetAllocationsByDimension: Map&lt;String, Int&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val completedHabits: List&lt;HabitRealityItem&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val completedTasks: List&lt;TaskRealityItem&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val focusGapMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val supplementalActualByDimension: Map&lt;String, Int&gt; = emptyMap()</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val supplementalActualMinutes: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val totalActualMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$RealityLensData$val untrackedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$SlotEntry$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$SlotEntry$val proportion: Float</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val dueDate: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val estimatedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val priority: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val taskId: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskPlanItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val actualMinutes: Int?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val adherenceGap: Int? // estimated - actual minutes</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val completedAt: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val status: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val taskId: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TaskRealityItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TimeGoalItem$val dimensionId: String?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TimeGoalItem$val dimensionLabel: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TimeGoalItem$val goalId: String</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TimeGoalItem$val isActive: Boolean</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$TimeGoalItem$val targetMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$UnifiedLensSnapshot$val planning: PlanningLensData</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$UnifiedLensSnapshot$val reality: RealityLensData</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridData$val days: List&lt;WeekGridDay&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridDay$val dayOfWeek: java.time.DayOfWeek</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridDay$val slots: List&lt;WeekGridSlot&gt;</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridSlot$val rank1: SlotEntry?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridSlot$val rank2: SlotEntry?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridSlot$val rank3: SlotEntry?</ID>
+    <ID>UndocumentedPublicProperty:LensRepository.kt$WeekGridSlot.Companion$val EMPTY = WeekGridSlot(null, null, null)</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$CAREER_WORK : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$CONTRIBUTION : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$FINANCIAL : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$HEALTH_WELLNESS : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$LEARNING : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$PERSONAL_GROWTH : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$RECREATION : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$RELATIONSHIPS : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$SPIRITUAL : LifeDimension</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$val description: String</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$val displayName: String</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$val id: String</ID>
+    <ID>UndocumentedPublicProperty:LifeDimension.kt$LifeDimension$val weight: Double</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val posContinue: Int</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val progress: Double</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val runningAvg: Double</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val score: Double</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val streakNet: Int</ID>
+    <ID>UndocumentedPublicProperty:MetricWindowRow.kt$MetricWindowRow$val streakPos: Int</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val createdAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val details: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val lifeIntentionCategory: String</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val title: String</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$Note$val updatedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$NoteInput$val details: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$NoteInput$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$NoteInput$val lifeIntentionCategory: String</ID>
+    <ID>UndocumentedPublicProperty:Note.kt$NoteInput$val title: String</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val frequencyDenominator: Int = 1</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val frequencyNumerator: Int = 1</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val intervalDays: Int = 1</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val monthlyDates: Set&lt;Int&gt; = emptySet()</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val startDate: LocalDate? = null</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val type: RecurrenceType</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceConfig$val weekdays: Set&lt;Int&gt; = emptySet()</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$DAILY</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$FREQUENCY</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$INTERVAL</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$MONTHLY_DATES</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$SPECIFIC_WEEKDAYS</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$WEEKDAYS_ONLY</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceConfig.kt$RecurrenceType$YEARLY</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val alignmentWeight: Double = 1.3</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val alignmentWeights: Map&lt;String, Double&gt; = mapOf( "Perfect Alignment" to 1.0, "Strong Alignment" to 0.8, "Moderate Alignment" to 0.5, "Weak Alignment" to 0.25, "No Alignment" to 0.1 )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val controlLevelWeights: Map&lt;String, Double&gt; = mapOf( "Full Control" to 1.0, "Mostly Controllable" to 0.85, "Office/Colleagues Dependent" to 0.6, "External Dependent" to 0.35, "No Control" to 0.1 )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val controlWeight: Double = 1.2</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val dimensionWeight: Double = 2.0</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val dimensionWeights: Map&lt;LifeDimension, Double&gt; = mapOf( LifeDimension.CAREER_WORK to (dimensionWeightsById[DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id] ?: 0.8), LifeDimension.HEALTH_WELLNESS to (dimensionWeightsById[DimensionTaxonomyCatalog.PHYSICAL_HEALTH.id] ?: 0.9), LifeDimension.RELATIONSHIPS to (dimensionWeightsById[DimensionTaxonomyCatalog.FAMILY_RELATIONSHIPS.id] ?: 0.85), LifeDimension.PERSONAL_GROWTH to (dimensionWeightsById[DimensionTaxonomyCatalog.LEARNING_GROWTH.id] ?: 0.8), LifeDimension.FINANCIAL to (dimensionWeightsById[DimensionTaxonomyCatalog.MONEY_FINANCE.id] ?: 0.75), LifeDimension.SPIRITUAL to (dimensionWeightsById[DimensionTaxonomyCatalog.MENTAL_HEALTH.id] ?: 0.6), LifeDimension.RECREATION to (dimensionWeightsById[DimensionTaxonomyCatalog.RECREATION_LEISURE.id] ?: 0.7), LifeDimension.LEARNING to (dimensionWeightsById[DimensionTaxonomyCatalog.LEARNING_GROWTH.id] ?: 0.8), LifeDimension.CONTRIBUTION to (dimensionWeightsById[DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id] ?: 0.65) )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val dimensionWeightsById: Map&lt;String, Double&gt; = mapOf( DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id to 0.8, DimensionTaxonomyCatalog.PHYSICAL_HEALTH.id to 0.9, DimensionTaxonomyCatalog.FAMILY_RELATIONSHIPS.id to 0.85, DimensionTaxonomyCatalog.HOME_ENVIRONMENT.id to 0.75, DimensionTaxonomyCatalog.MONEY_FINANCE.id to 0.75, DimensionTaxonomyCatalog.MENTAL_HEALTH.id to 0.6, DimensionTaxonomyCatalog.RECREATION_LEISURE.id to 0.7, DimensionTaxonomyCatalog.LEARNING_GROWTH.id to 0.8, DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id to 0.65 )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val durationWeight: Double = 0.8</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val energyLevelWeights: Map&lt;String, Double&gt; = mapOf( "High" to 1.0, "Moderate" to 0.7, "Low" to 0.4 )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val energyWeight: Double = 1.0</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val impactLevelWeights: Map&lt;String, Double&gt; = mapOf( "Critical Impact" to 1.0, "High Impact" to 0.85, "Moderate Impact" to 0.6, "Low Impact" to 0.35, "Minimal Impact" to 0.15 )</ID>
+    <ID>UndocumentedPublicProperty:ScoringConfig.kt$ScoringConfig$val impactWeight: Double = 1.5</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val createdAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val lastUsedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val name: String</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val normalizedName: String</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val updatedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Tag.kt$Tag$val usageCount: Int</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val archivedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val blockedReason: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val completedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val completionRate: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val controlLevel: String = "Office/Colleagues Dependent"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val createdAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val customNotificationMinutes: Int? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val dayBoundaryHour: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val description: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val dueDate: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val durationMinutes: Int = 10</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val energyLevel: String = "Moderate"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val explicitUrgency: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val externalDependency: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val focusRequired: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val goalAlignment: String = "Moderate Alignment"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val id: String</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val impactLevel: String = "Moderate Impact"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val lastOccurrenceDate: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val lifeIntentionCategory: String = "Career &amp; Work"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val notificationMode: String? = "auto"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val recurrenceEnabled: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val recurrenceRule: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val recurrenceStrategy: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val status: String = "pending"</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val taskScore: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val title: String</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$Task$val updatedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val archivedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val blockedReason: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val completionRate: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val controlLevel: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val customNotificationMinutes: Int? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val description: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val dueDate: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val durationMinutes: Int? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val energyLevel: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val explicitUrgency: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val externalDependency: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val focusRequired: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val goalAlignment: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val impactLevel: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val lifeIntentionCategory: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val notificationMode: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val recurrenceEnabled: Boolean? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val recurrenceRule: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val recurrenceStrategy: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val status: String? = null</ID>
+    <ID>UndocumentedPublicProperty:Task.kt$TaskInput$val title: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val actualCompletedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val actualDurationMinutes: Int? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val completedAt: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val completionRate: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val createdAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val dueDate: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val id: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val note: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val occurrenceDate: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val skippedAt: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val status: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val statusNote: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val statusReason: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskOccurrence$val taskId: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val id: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val newDueDate: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val previousDueDate: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val rescheduledAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val taskId: String</ID>
+    <ID>UndocumentedPublicProperty:TaskOccurrence.kt$TaskReschedule$val wasOverdue: Boolean</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val createdAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val endedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val focusNote: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val focusRatedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val focusRating: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val id: String</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val lifeIntentionCategory: String</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val startedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val taskId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntry$val updatedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val dimensionId: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val endedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val focusNote: String? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val focusRatedAt: LocalDateTime? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val focusRating: Double? = null</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val lifeIntentionCategory: String</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val startedAt: LocalDateTime</ID>
+    <ID>UndocumentedPublicProperty:TimeEntry.kt$TimeEntryInput$val taskId: String? = null</ID>
+  </CurrentIssues>
+</SmellBaseline>

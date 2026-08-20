@@ -1,0 +1,73 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$0.35</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$0.5</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$0.65</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$0.8</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$0.9</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$120</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$15</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$240</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$30</ID>
+    <ID>MagicNumber:ElegantTaskScoring.kt$ElegantTaskScoring$60</ID>
+    <ID>MagicNumber:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$30</ID>
+    <ID>MagicNumber:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$7</ID>
+    <ID>MagicNumber:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$90</ID>
+    <ID>UndocumentedPublicClass:ElegantTaskScoring.kt$TaskScoringDefaults</ID>
+    <ID>UndocumentedPublicClass:ElegantTaskScoring.kt$TaskScoringOptions</ID>
+    <ID>UndocumentedPublicClass:RecurrenceScoreCalculator.kt$FrequencyWindowSummary</ID>
+    <ID>UndocumentedPublicClass:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency$Companion</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun buildFrequencyWindows( occurrences: Map&lt;LocalDate, String&gt;, frequency: DomainFrequency, anchorDate: LocalDate, rangeStart: LocalDate, rangeEnd: LocalDate, ): List&lt;FrequencyWindowSummary&gt;</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun calculateFrequencyAwareStats( occurrences: Map&lt;LocalDate, String&gt;, frequency: DomainFrequency, anchorDate: LocalDate, today: LocalDate = LocalDate.now(), ): CompletionStats</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun fromFrequency(frequency: DomainFrequency): Frequency</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun fromRecurrenceConfig(config: RecurrenceConfig): Frequency</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun fromRule(rule: String?): Frequency</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator$fun parseRRuleToFrequency(rrule: String?): Frequency</ID>
+    <ID>UndocumentedPublicFunction:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency$fun toDouble()</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val controlLevel: String</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val durationMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val energyLevel: String</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val goalAlignment: String</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val impactLevel: String</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringDefaults$val lifeIntentionCategory: String</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringOptions$val controlLevels: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringOptions$val energyLevels: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringOptions$val goalAlignments: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringOptions$val impactLevels: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:ElegantTaskScoring.kt$TaskScoringOptions$val lifeDimensions: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val allTimeRate: Double</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val completionRate30Days: Double</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val completionRate7Days: Double</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val completionRate90Days: Double</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val currentStreak: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$CompletionStats$val longestStreak: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val completedCount: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val completionRatio: Double get() = if (effectiveTargetCount &lt;= 0) 1.0 else completedCount.toDouble() / effectiveTargetCount</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val coveredDays: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val effectiveTargetCount: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val end: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val isSatisfied: Boolean get() = completedCount &gt;= effectiveTargetCount</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val skippedCount: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val start: LocalDate</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$FrequencyWindowSummary$val targetCount: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency$val denominator: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency$val numerator: Int</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val DAILY = Frequency(1, 1)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val EVERY_OTHER_DAY = Frequency(1, 2)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val MONTHLY = Frequency(1, 30)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val THREE_PER_WEEK = Frequency(3, 7)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val TWO_PER_WEEK = Frequency(2, 7)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val WEEKLY = Frequency(1, 7)</ID>
+    <ID>UndocumentedPublicProperty:RecurrenceScoreCalculator.kt$RecurrenceScoreCalculator.Frequency.Companion$val YEARLY = Frequency(1, 365)</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DayTimeScore$val dayKey: String</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DayTimeScore$val dimensionScores: List&lt;DimensionTimeScore&gt;</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DayTimeScore$val isPlanned: Boolean</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DayTimeScore$val overallScore: Double</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DimensionTimeScore$val actualMinutes: Long</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DimensionTimeScore$val dimensionId: String</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DimensionTimeScore$val plannedMinutes: Int</ID>
+    <ID>UndocumentedPublicProperty:TimeDeviationScoring.kt$DimensionTimeScore$val score: Double</ID>
+  </CurrentIssues>
+</SmellBaseline>

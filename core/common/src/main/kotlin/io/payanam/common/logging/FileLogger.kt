@@ -269,6 +269,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     }
 
     companion object {
+        /** Format constants for the legacy FileLogger session header/files. */
         private const val HEADER_LINE_LENGTH = 80
         private const val AUTO_FLUSH_INTERVAL_MS = 5000L
         private const val BUFFER_FLUSH_THRESHOLD = 50

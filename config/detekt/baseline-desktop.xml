@@ -1,0 +1,122 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:DesktopAppSupport.kt$0xFF3E7B5A</ID>
+    <ID>MagicNumber:DesktopAppSupport.kt$0xFF9C4F4F</ID>
+    <ID>MagicNumber:DesktopAppSupport.kt$0xFFB47B2A</ID>
+    <ID>MagicNumber:DesktopDatabaseStore.kt$DesktopDatabaseStore$1024L</ID>
+    <ID>MagicNumber:DesktopNotesRoute.kt$1</ID>
+    <ID>MagicNumber:DesktopPersistenceDatabase.kt$DesktopPersistenceDatabase$3</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF111924</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF16212C</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF17303B</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF1B2733</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF202C3A</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFF23445A</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFFAEB9C7</ID>
+    <ID>MagicNumber:DesktopTheme.kt$0xFFD5DEE8</ID>
+    <ID>TooGenericExceptionCaught:DesktopJournalStore.kt$DesktopJournalStore$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DesktopMain.kt$error: Throwable</ID>
+    <ID>TooGenericExceptionCaught:DesktopNoteStore.kt$DesktopNoteStore$error: Exception</ID>
+    <ID>TooGenericExceptionCaught:DesktopTaskCatalogStore.kt$DesktopTaskCatalogStore$error: Exception</ID>
+    <ID>UndocumentedPublicClass:DesktopAppPaths.kt$DesktopAppPaths</ID>
+    <ID>UndocumentedPublicClass:DesktopBootstrapStore.kt$DesktopBootstrapSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopBuildInfo.kt$DesktopBuildInfo</ID>
+    <ID>UndocumentedPublicClass:DesktopDataHandoffStore.kt$DesktopDataHandoffSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopDataHandoffStore.kt$DesktopDataHandoffStore</ID>
+    <ID>UndocumentedPublicClass:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopJournalStore.kt$DesktopJournalState</ID>
+    <ID>UndocumentedPublicClass:DesktopNavigationModel.kt$DesktopNavigationModel</ID>
+    <ID>UndocumentedPublicClass:DesktopNoteStore.kt$DesktopNotesState</ID>
+    <ID>UndocumentedPublicClass:DesktopRoutePlaceholderContent.kt$DesktopRoutePlaceholderContent</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopPassphraseActionResult</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopPassphraseActionResult$Locked : DesktopPassphraseActionResult</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopPassphraseActionResult$Success : DesktopPassphraseActionResult</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopPassphraseActionResult$UnlockFailed : DesktopPassphraseActionResult</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopPassphraseActionResult$ValidationFailed : DesktopPassphraseActionResult</ID>
+    <ID>UndocumentedPublicClass:DesktopSecurityStore.kt$DesktopSecuritySnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopSessionLogger.kt$DesktopSessionLogger : AutoCloseable</ID>
+    <ID>UndocumentedPublicClass:DesktopSessionLogger.kt$DesktopSessionLogger$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupFlow.kt$DesktopStartupMode</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupFlow.kt$DesktopStartupRuntimeState</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskCatalogStore.kt$DesktopTaskCatalogState</ID>
+    <ID>UndocumentedPublicFunction:DesktopApp.kt$fun desktopFoundationSnapshot(selection: DataModuleSelection): SettingsFoundationSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveBootstrapDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveDatabaseDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveExportDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveLogsDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolvePreferencesDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveRootDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveRuntimeDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopAppPaths.kt$DesktopAppPaths$fun resolveSecurityDirectory( environment: Map&lt;String, String&gt; = System.getenv(), userHome: String = System.getProperty("user.home"), ): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopDataHandoffStore.kt$DesktopDataHandoffStore$fun exportLocalState(): DesktopDataHandoffSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopDataHandoffStore.kt$DesktopDataHandoffStore$fun importLatestExport(): DesktopDataHandoffSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopMain.kt$fun main()</ID>
+    <ID>UndocumentedPublicFunction:DesktopNavigationModel.kt$fun DesktopTopLevelRoute.summary(): String</ID>
+    <ID>UndocumentedPublicFunction:DesktopNavigationModel.kt$fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicFunction:DesktopNavigationModel.kt$fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigationModel</ID>
+    <ID>UndocumentedPublicFunction:DesktopRoutePlaceholderContent.kt$fun desktopRoutePlaceholderContent(route: DesktopTopLevelRoute): DesktopRoutePlaceholderContent?</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger$fun e( source: String, message: String, error: Throwable? = null, data: Map&lt;String, Any?&gt; = emptyMap(), )</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger$fun getLogPath(): Path</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger$fun i( source: String, message: String, data: Map&lt;String, Any?&gt; = emptyMap(), )</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger$fun w( source: String, message: String, data: Map&lt;String, Any?&gt; = emptyMap(), )</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger.Companion$fun getInstance(): DesktopSessionLogger</ID>
+    <ID>UndocumentedPublicFunction:DesktopSessionLogger.kt$DesktopSessionLogger.Companion$fun initialize( logsDirectory: Path = DesktopAppPaths.resolveLogsDirectory(), clock: () -&gt; Instant = { Instant.now() }, ): DesktopSessionLogger</ID>
+    <ID>UndocumentedPublicFunction:DesktopStartupFlow.kt$fun buildDesktopStartupRuntimeState( settingsSnapshot: io.payanam.shared.settings.DesktopSettingsSnapshot, bootstrapSnapshot: DesktopBootstrapSnapshot, securitySnapshot: DesktopSecuritySnapshot, databaseSnapshot: DesktopDatabaseSnapshot, sessionOpen: Boolean, nowEpochMillis: Long, ): DesktopStartupRuntimeState</ID>
+    <ID>UndocumentedPublicFunction:DesktopStartupFlow.kt$fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): DesktopStartupMode</ID>
+    <ID>UndocumentedPublicProperty:DesktopBootstrapStore.kt$DesktopBootstrapSnapshot$val databaseLifecycleReady: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopBootstrapStore.kt$DesktopBootstrapSnapshot$val lastLaunchRouteStorageKey: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopBootstrapStore.kt$DesktopBootstrapSnapshot$val lastStartupCompletedAtEpochMillis: Long? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopBootstrapStore.kt$DesktopBootstrapSnapshot$val schemaVersion: Int = DESKTOP_BOOTSTRAP_SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val BUILD_NAME = "Payanam_Windows_616_20260808_221149"</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val BUILD_TIMESTAMP = "20260808_221149"</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val OVERALL_BUILD_NUMBER = 2165</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val PLATFORM = "Windows"</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val PLATFORM_BUILD_NUMBER = 616</ID>
+    <ID>UndocumentedPublicProperty:DesktopBuildInfo.kt$DesktopBuildInfo$const val VERSION_DISPLAY_NAME = "#W616 (20260808_221149)"</ID>
+    <ID>UndocumentedPublicProperty:DesktopDataHandoffStore.kt$DesktopDataHandoffSnapshot$val exportCompleted: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopDataHandoffStore.kt$DesktopDataHandoffSnapshot$val exportFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopDataHandoffStore.kt$DesktopDataHandoffSnapshot$val importCompleted: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot$val databaseFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot$val databaseLastModifiedMs: Long</ID>
+    <ID>UndocumentedPublicProperty:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot$val databaseSizeKb: Long</ID>
+    <ID>UndocumentedPublicProperty:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot$val hasArtifacts: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopDatabaseStore.kt$DesktopDatabaseSnapshot$val initCompleted: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopJournalStore.kt$DesktopJournalState$val errorMessage: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopJournalStore.kt$DesktopJournalState$val lastSavedDateIso: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopJournalStore.kt$DesktopJournalState$val selectedDateIso: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopJournalStore.kt$DesktopJournalState$val snapshot: JournalSnapshot</ID>
+    <ID>UndocumentedPublicProperty:DesktopNavigationModel.kt$DesktopNavigationModel$val launchRoute: DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopNavigationModel.kt$DesktopNavigationModel$val primaryRoutes: List&lt;DesktopTopLevelRoute&gt;</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteStore.kt$DesktopNotesState$val errorMessage: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteStore.kt$DesktopNotesState$val snapshot: DesktopNotesSnapshot</ID>
+    <ID>UndocumentedPublicProperty:DesktopRoutePlaceholderContent.kt$DesktopRoutePlaceholderContent$val details: List&lt;String&gt;</ID>
+    <ID>UndocumentedPublicProperty:DesktopRoutePlaceholderContent.kt$DesktopRoutePlaceholderContent$val readiness: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopRoutePlaceholderContent.kt$DesktopRoutePlaceholderContent$val summary: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopRoutePlaceholderContent.kt$DesktopRoutePlaceholderContent$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopPassphraseActionResult.Locked$val lockoutSecondsRemaining: Long</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopPassphraseActionResult.UnlockFailed$val failedAttempts: Int</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopPassphraseActionResult.UnlockFailed$val lockoutSecondsRemaining: Long</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopPassphraseActionResult.ValidationFailed$val reasonCode: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopSecuritySnapshot$val failedUnlockAttempts: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopSecuritySnapshot$val hasPassphraseConfigured: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopSecuritySnapshot$val lockedUntilEpochMillis: Long? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopSecurityStore.kt$DesktopSecuritySnapshot$val schemaVersion: Int = DESKTOP_SECURITY_SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupMode$FocusModeSelection</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupMode$InitializeDatabase</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupMode$Ready</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupMode$SetupPassphrase</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupMode$UnlockPassphrase</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val databaseFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val databaseLifecycleReady: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val focusModeOnboardingCompleted: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val hasDatabaseArtifacts: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val hasPassphraseConfigured: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val lockoutSecondsRemaining: Long = 0L</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val securityFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupFlow.kt$DesktopStartupRuntimeState$val sessionOpen: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskCatalogStore.kt$DesktopTaskCatalogState$val catalog: DesktopTaskCatalogSnapshot</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskCatalogStore.kt$DesktopTaskCatalogState$val errorMessage: String? = null</ID>
+  </CurrentIssues>
+</SmellBaseline>

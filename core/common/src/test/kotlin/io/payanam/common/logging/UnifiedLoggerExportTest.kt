@@ -78,7 +78,7 @@ class UnifiedLoggerExportTest {
         // Seed the real export dir with 25 fake artifacts (older timestamps).
         val dir = exportDir()
         repeat(25) { index ->
-            File(dir, "payanam_1_20260810-${String.format("%02d", index)}00.zip").writeText("x")
+            File(dir, "payanam_1_20260810-${String.format(java.util.Locale.US, "%02d", index)}00.zip").writeText("x")
         }
 
         // A real export triggers cleanupOldExports(keepLast = 20).

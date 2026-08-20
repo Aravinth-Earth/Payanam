@@ -1,0 +1,306 @@
+<?xml version="1.0" ?>
+<SmellBaseline>
+  <ManuallySuppressedIssues/>
+  <CurrentIssues>
+    <ID>MagicNumber:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$10</ID>
+    <ID>MagicNumber:DesktopTaskBoardContracts.kt$DesktopTaskRecordFormatting$100</ID>
+    <ID>MagicNumber:DesktopTaskBoardContracts.kt$DesktopTaskRecordPredicates$3</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$10</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$12</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$18</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$20</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$21</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$3</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$30</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$4</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$5</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$8</ID>
+    <ID>MagicNumber:DesktopTaskSeedCatalog.kt$9</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$120L</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$3</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$300L</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$30L</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$4</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$5</ID>
+    <ID>MagicNumber:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$60L</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$BackupJsonContract</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$BackupModulePayloads</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$BackupPayloadEnvelope</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$BackupPayloadJson</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$DataModuleSelection</ID>
+    <ID>UndocumentedPublicClass:BackupTransferContracts.kt$ImportMode</ID>
+    <ID>UndocumentedPublicClass:DesktopNoteContracts.kt$DesktopNoteContracts</ID>
+    <ID>UndocumentedPublicClass:DesktopNoteContracts.kt$DesktopNoteRecord</ID>
+    <ID>UndocumentedPublicClass:DesktopNoteContracts.kt$DesktopNotesSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopLanguage</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopLanguage$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopSettingsContracts</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopThemeMode</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopThemeMode$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicClass:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupCheck</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupCheckStatus</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupContracts</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupPaths</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopStartupContracts.kt$DesktopStartupState</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopHabitListItem</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardContent</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardCounts</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardLoadState</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskBoardSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskCatalogSnapshot</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskFilter$Companion</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskListItem</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskRecord</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicClass:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$Companion</ID>
+    <ID>UndocumentedPublicClass:FocusModePreset.kt$FocusModePreset</ID>
+    <ID>UndocumentedPublicClass:FocusModePreset.kt$FocusModePreset$Companion</ID>
+    <ID>UndocumentedPublicClass:JournalReflectionContracts.kt$JournalDayRecord</ID>
+    <ID>UndocumentedPublicClass:JournalReflectionContracts.kt$JournalPromptDefinition</ID>
+    <ID>UndocumentedPublicClass:JournalReflectionContracts.kt$JournalReflectionContracts</ID>
+    <ID>UndocumentedPublicClass:JournalReflectionContracts.kt$JournalSnapshot</ID>
+    <ID>UndocumentedPublicClass:PassphraseContracts.kt$SharedPassphraseLockoutPolicy</ID>
+    <ID>UndocumentedPublicClass:PassphraseContracts.kt$SharedPassphrasePolicy</ID>
+    <ID>UndocumentedPublicClass:PassphraseContracts.kt$SharedPassphraseValidation</ID>
+    <ID>UndocumentedPublicClass:SettingsFoundationContracts.kt$FoundationArea</ID>
+    <ID>UndocumentedPublicClass:SettingsFoundationContracts.kt$FoundationReadiness</ID>
+    <ID>UndocumentedPublicClass:SettingsFoundationContracts.kt$SettingsFoundationContracts</ID>
+    <ID>UndocumentedPublicClass:SettingsFoundationContracts.kt$SettingsFoundationSnapshot</ID>
+    <ID>UndocumentedPublicFunction:BackupTransferContracts.kt$BackupPayloadJson$fun decode(jsonText: String): BackupPayloadEnvelope</ID>
+    <ID>UndocumentedPublicFunction:BackupTransferContracts.kt$BackupPayloadJson$fun encode(envelope: BackupPayloadEnvelope): String</ID>
+    <ID>UndocumentedPublicFunction:BackupTransferContracts.kt$DataModuleSelection$fun hasSelection(): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DesktopNoteContracts.kt$DesktopNoteContracts$fun createRecord( id: String, title: String, details: String?, dimensionId: String?, dimensionLabel: String?, tags: List&lt;String&gt;, now: LocalDateTime, ): DesktopNoteRecord</ID>
+    <ID>UndocumentedPublicFunction:DesktopNoteContracts.kt$DesktopNoteContracts$fun emptySnapshot(): DesktopNotesSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopNoteContracts.kt$DesktopNoteContracts$fun updateRecord( existing: DesktopNoteRecord, title: String, details: String?, dimensionId: String?, dimensionLabel: String?, tags: List&lt;String&gt;, now: LocalDateTime, ): DesktopNoteRecord</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopLanguage.Companion$fun fromStorageKey(key: String?): DesktopLanguage</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsContracts$fun defaultRouteVisibility(): Map&lt;DesktopTopLevelRoute, Boolean&gt;</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsContracts$fun defaultSnapshot(): DesktopSettingsSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsContracts$fun normalizeRouteVisibility(routeVisibility: Map&lt;DesktopTopLevelRoute, Boolean&gt;): Map&lt;DesktopTopLevelRoute, Boolean&gt;</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsContracts$fun routeVisibilityForPreset(preset: FocusModePreset): Map&lt;DesktopTopLevelRoute, Boolean&gt;</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$fun isRouteVisible(route: DesktopTopLevelRoute): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$fun visibleRoutes(): List&lt;DesktopTopLevelRoute&gt;</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopThemeMode.Companion$fun fromStorageKey(key: String?): DesktopThemeMode</ID>
+    <ID>UndocumentedPublicFunction:DesktopPreferenceContracts.kt$DesktopTopLevelRoute.Companion$fun fromStorageKey(key: String?): DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicFunction:DesktopStartupContracts.kt$DesktopStartupContracts$fun snapshot( launchRoute: DesktopTopLevelRoute, paths: DesktopStartupPaths, state: DesktopStartupState, ): DesktopStartupSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopStartupContracts.kt$DesktopStartupSnapshot$fun readyChecks(): Int</ID>
+    <ID>UndocumentedPublicFunction:DesktopStartupContracts.kt$DesktopStartupSnapshot$fun requiresAttention(): Boolean</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopHabitSortOption.Companion$fun fromStorageKey(storageKey: String?): DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun boardSnapshotForCatalog( catalog: DesktopTaskCatalogSnapshot, preferences: DesktopTaskBoardPreferences, errorMessage: String? = null, now: LocalDateTime = LocalDateTime.now(), ): DesktopTaskBoardSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun defaultContent(): DesktopTaskBoardContent</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun defaultCounts(): DesktopTaskBoardCounts</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun defaultPreferences(): DesktopTaskBoardPreferences</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun defaultTaskFilterCounts(): Map&lt;DesktopTaskFilter, Int&gt;</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun seededCatalog(now: LocalDateTime = LocalDateTime.now()): DesktopTaskCatalogSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$fun snapshot( preferences: DesktopTaskBoardPreferences = defaultPreferences(), counts: DesktopTaskBoardCounts = defaultCounts(), content: DesktopTaskBoardContent = defaultContent(), ): DesktopTaskBoardSnapshot</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskBoardSnapshot$fun visibleTaskCount(): Int</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskFilter.Companion$fun fromStorageKey(storageKey: String?): DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicFunction:DesktopTaskBoardContracts.kt$DesktopTaskSortOption.Companion$fun fromStorageKey(storageKey: String?): DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicFunction:FocusModePreset.kt$FocusModePreset.Companion$fun fromPresetId(presetId: String?): FocusModePreset</ID>
+    <ID>UndocumentedPublicFunction:JournalReflectionContracts.kt$JournalReflectionContracts$fun dayForDate( snapshot: JournalSnapshot, dateIso: String, ): JournalDayRecord?</ID>
+    <ID>UndocumentedPublicFunction:JournalReflectionContracts.kt$JournalReflectionContracts$fun emptySnapshot(): JournalSnapshot</ID>
+    <ID>UndocumentedPublicFunction:JournalReflectionContracts.kt$JournalReflectionContracts$fun upsertDimensionResponse( snapshot: JournalSnapshot, dateIso: String, dimensionId: String, promptKey: String, response: String, now: LocalDateTime, ): JournalSnapshot</ID>
+    <ID>UndocumentedPublicFunction:JournalReflectionContracts.kt$JournalReflectionContracts$fun upsertOverallResponse( snapshot: JournalSnapshot, dateIso: String, promptKey: String, response: String, now: LocalDateTime, ): JournalSnapshot</ID>
+    <ID>UndocumentedPublicFunction:PassphraseContracts.kt$SharedPassphraseLockoutPolicy$fun delaySecondsForAttempt(attemptCount: Int): Long</ID>
+    <ID>UndocumentedPublicFunction:PassphraseContracts.kt$SharedPassphrasePolicy$fun validate(passphrase: String): SharedPassphraseValidation</ID>
+    <ID>UndocumentedPublicFunction:SettingsFoundationContracts.kt$SettingsFoundationContracts$fun defaultAreas(): List&lt;FoundationArea&gt;</ID>
+    <ID>UndocumentedPublicFunction:SettingsFoundationContracts.kt$SettingsFoundationContracts$fun snapshot( moduleSelection: DataModuleSelection = DataModuleSelection(), schemaVersion: Int = BackupJsonContract.SCHEMA_VERSION, ): SettingsFoundationSnapshot</ID>
+    <ID>UndocumentedPublicFunction:SettingsFoundationContracts.kt$SettingsFoundationSnapshot$fun areasWithStatus(status: FoundationReadiness): Int</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val DAY_JOURNAL_ENTRIES_KEY = "dayJournalEntries"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val DAY_JOURNAL_RESPONSES_KEY = "dayJournalResponses"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val EXPORTED_AT_KEY = "exportedAt"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val JOURNAL_NOTES_KEY = "journalNotes"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val MODULES_KEY = "modules"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val NOTES_KEY = "notes"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val SCHEMA_VERSION = 1</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val SCHEMA_VERSION_KEY = "schemaVersion"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val TASKS_KEY = "tasks"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val TASK_OCCURRENCES_KEY = "taskOccurrences"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val TASK_RESCHEDULES_KEY = "taskReschedules"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupJsonContract$const val TIME_ENTRIES_KEY = "timeEntries"</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.DAY_JOURNAL_ENTRIES_KEY) val dayJournalEntries: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.DAY_JOURNAL_RESPONSES_KEY) val dayJournalResponses: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.JOURNAL_NOTES_KEY) val journalNotes: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.NOTES_KEY) val notes: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.TASKS_KEY) val tasks: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.TASK_OCCURRENCES_KEY) val taskOccurrences: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.TASK_RESCHEDULES_KEY) val taskReschedules: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupModulePayloads$@SerialName(BackupJsonContract.TIME_ENTRIES_KEY) val timeEntries: JsonArray? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupPayloadEnvelope$@SerialName(BackupJsonContract.EXPORTED_AT_KEY) val exportedAt: String? = null</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupPayloadEnvelope$@SerialName(BackupJsonContract.MODULES_KEY) val modules: BackupModulePayloads = BackupModulePayloads()</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$BackupPayloadEnvelope$@SerialName(BackupJsonContract.SCHEMA_VERSION_KEY) val schemaVersion: Int = BackupJsonContract.SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$DataModuleSelection$val notes: Boolean = true</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$DataModuleSelection$val tasks: Boolean = true</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$DataModuleSelection$val timeEntries: Boolean = true</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$ImportMode$MERGE</ID>
+    <ID>UndocumentedPublicProperty:BackupTransferContracts.kt$ImportMode$REPLACE</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteContracts$const val DEFAULT_DIMENSION_ID = "dim_work_livelihood"</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteContracts$const val DEFAULT_DIMENSION_LABEL = "Work &amp; Livelihood"</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteContracts$const val SCHEMA_VERSION = 1</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val createdAtIso: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val details: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val dimensionId: String = DesktopNoteContracts.DEFAULT_DIMENSION_ID</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val dimensionLabel: String = DesktopNoteContracts.DEFAULT_DIMENSION_LABEL</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val tags: List&lt;String&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNoteRecord$val updatedAtIso: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNotesSnapshot$val notes: List&lt;DesktopNoteRecord&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:DesktopNoteContracts.kt$DesktopNotesSnapshot$val schemaVersion: Int = DesktopNoteContracts.SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopLanguage$ENGLISH : DesktopLanguage</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopLanguage$SYSTEM : DesktopLanguage</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopLanguage$TAMIL : DesktopLanguage</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopLanguage$val displayName: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopLanguage$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsContracts$const val DEFAULT_ROUTE_VISIBLE = true</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsContracts$const val SCHEMA_VERSION = 3</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val activePreset: FocusModePreset = FocusModePreset.FULL_SUITE</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val focusModeOnboardingCompleted: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val language: DesktopLanguage = DesktopLanguage.SYSTEM</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val launchRoute: DesktopTopLevelRoute = DesktopTopLevelRoute.SETTINGS</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val routeVisibility: Map&lt;DesktopTopLevelRoute, Boolean&gt; = DesktopSettingsContracts.defaultRouteVisibility()</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val schemaVersion: Int = DesktopSettingsContracts.SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val sessionLoggingEnabled: Boolean = true</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopSettingsSnapshot$val themeMode: DesktopThemeMode = DesktopThemeMode.DARK</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopThemeMode$DARK : DesktopThemeMode</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopThemeMode$LIGHT : DesktopThemeMode</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopThemeMode$SYSTEM : DesktopThemeMode</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopThemeMode$val displayName: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopThemeMode$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$HABITS : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$JOURNAL : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$LENSES : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$NOTES : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$SETTINGS : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$TASKS : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$TIME : DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$val displayName: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopPreferenceContracts.kt$DesktopTopLevelRoute$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheck$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheck$val status: DesktopStartupCheckStatus</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheck$val summary: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheck$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheckStatus$AttentionRequired</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupCheckStatus$Ready</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupContracts$const val SCHEMA_VERSION = 1</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupPaths$val appDataRoot: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupPaths$val bootstrapFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupPaths$val databaseFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupPaths$val securityFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupPaths$val settingsFilePath: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupSnapshot$val checks: List&lt;DesktopStartupCheck&gt;</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupSnapshot$val launchRoute: DesktopTopLevelRoute</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupSnapshot$val schemaVersion: Int</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupState$val desktopDatabaseReady: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupState$val passphraseConfigured: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopStartupContracts.kt$DesktopStartupState$val sessionOpen: Boolean</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val dimensionLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val dueLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val scoreLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitListItem$val todayStatusLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$BY_DUE_TIME : DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$BY_LIFE_DIMENSION : DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$BY_NAME : DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$BY_STATUS : DesktopHabitSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopHabitSortOption$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContent$val errorMessage: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContent$val loadState: DesktopTaskBoardLoadState = DesktopTaskBoardLoadState.LOADING</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContent$val visibleHabits: List&lt;DesktopHabitListItem&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContent$val visibleTasks: List&lt;DesktopTaskListItem&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$const val CATALOG_SCHEMA_VERSION = 1</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$const val SCHEMA_VERSION = 2</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$val DEFAULT_HABIT_SORT: DesktopHabitSortOption = DesktopHabitSortOption.BY_STATUS</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$val DEFAULT_TASK_FILTER: DesktopTaskFilter = DesktopTaskFilter.TODAY</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardContracts$val DEFAULT_TASK_SORT: DesktopTaskSortOption = DesktopTaskSortOption.DUE_DATE_ASC</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardCounts$val activeTaskFilterCounts: Map&lt;DesktopTaskFilter, Int&gt; = DesktopTaskBoardContracts.defaultTaskFilterCounts()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardCounts$val completedHabitCountToday: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardCounts$val totalHabitCount: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardCounts$val totalTaskCount: Int = 0</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardLoadState$EMPTY</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardLoadState$ERROR</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardLoadState$LOADING</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardLoadState$READY</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val schemaVersion: Int = DesktopTaskBoardContracts.SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val selectedHabitSort: DesktopHabitSortOption = DesktopTaskBoardContracts.DEFAULT_HABIT_SORT</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val selectedTaskFilter: DesktopTaskFilter = DesktopTaskBoardContracts.DEFAULT_TASK_FILTER</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val selectedTaskSort: DesktopTaskSortOption = DesktopTaskBoardContracts.DEFAULT_TASK_SORT</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val showArchivedHabits: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardPreferences$val showCompletedHabits: Boolean = true</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardSnapshot$val content: DesktopTaskBoardContent = DesktopTaskBoardContracts.defaultContent()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardSnapshot$val counts: DesktopTaskBoardCounts = DesktopTaskBoardContracts.defaultCounts()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskBoardSnapshot$val preferences: DesktopTaskBoardPreferences = DesktopTaskBoardContracts.defaultPreferences()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskCatalogSnapshot$val schemaVersion: Int = DesktopTaskBoardContracts.CATALOG_SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskCatalogSnapshot$val tasks: List&lt;DesktopTaskRecord&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$ACTIVE : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$ARCHIVED : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$COMPLETED : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$FUTURE : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$NOT_ACTIVE : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$OVERDUE : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$TODAY : DesktopTaskFilter</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskFilter$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val dimensionLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val dueLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val scoreLabel: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val status: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskListItem$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$@SerialName("completedToday") val completedToday: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val createdAtIso: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val currentScore: Double = 0.5</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val dueAtIso: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val id: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val lifeDimension: String? = null</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val recurrenceEnabled: Boolean = false</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val status: String = "pending"</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskRecord$val title: String</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$CREATED_DESC : DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$DIMENSION : DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$DUE_DATE_ASC : DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$TITLE_ASC : DesktopTaskSortOption</ID>
+    <ID>UndocumentedPublicProperty:DesktopTaskBoardContracts.kt$DesktopTaskSortOption$val storageKey: String</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$FULL_SUITE : FocusModePreset</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$SIMPLE_JOURNAL : FocusModePreset</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$SIMPLE_TASKS : FocusModePreset</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$SIMPLE_TIME_HABITS : FocusModePreset</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$val descriptionKey: String</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$val nameKey: String</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$val presetId: String</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$val visibleRoutes: Set&lt;DesktopTopLevelRoute&gt;</ID>
+    <ID>UndocumentedPublicProperty:FocusModePreset.kt$FocusModePreset$val visibleTabs: Set&lt;String&gt; get() = visibleRoutes.map(DesktopTopLevelRoute::storageKey).toSet()</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalDayRecord$val createdAtIso: String</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalDayRecord$val dateIso: String</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalDayRecord$val dimensionResponses: Map&lt;String, Map&lt;String, String&gt;&gt; = emptyMap()</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalDayRecord$val overallResponses: Map&lt;String, String&gt; = emptyMap()</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalDayRecord$val updatedAtIso: String</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalPromptDefinition$val key: String</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalPromptDefinition$val prompt: String</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalReflectionContracts$const val SCHEMA_VERSION = 1</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalReflectionContracts$val dimensionPrompts: List&lt;JournalPromptDefinition&gt; = listOf( JournalPromptDefinition("progress", "What progress did I make in this area?"), JournalPromptDefinition("blockers", "What blocked me in this area?"), JournalPromptDefinition("next_action", "What's my next action here?"), JournalPromptDefinition("feeling", "How do I feel about this dimension?"), JournalPromptDefinition("insight", "Any insights or realizations?"), )</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalReflectionContracts$val overallPrompts: List&lt;JournalPromptDefinition&gt; = listOf( JournalPromptDefinition("gratitude", "What am I grateful for today?"), JournalPromptDefinition("accomplishment", "What did I accomplish today?"), JournalPromptDefinition("learned", "What did I learn today?"), JournalPromptDefinition("challenge", "What challenged me today?"), JournalPromptDefinition("improve", "What could I have done better?"), JournalPromptDefinition("energy", "What gave me energy today?"), JournalPromptDefinition("drained", "What drained my energy today?"), JournalPromptDefinition("tomorrow", "What's most important for tomorrow?"), )</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalSnapshot$val days: List&lt;JournalDayRecord&gt; = emptyList()</ID>
+    <ID>UndocumentedPublicProperty:JournalReflectionContracts.kt$JournalSnapshot$val schemaVersion: Int = JournalReflectionContracts.SCHEMA_VERSION</ID>
+    <ID>UndocumentedPublicProperty:PassphraseContracts.kt$SharedPassphraseValidation$val isValid: Boolean</ID>
+    <ID>UndocumentedPublicProperty:PassphraseContracts.kt$SharedPassphraseValidation$val reasonCode: String?</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationArea$val id: String</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationArea$val status: FoundationReadiness</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationArea$val summary: String</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationArea$val title: String</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationReadiness$AndroidOnly</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationReadiness$ExtractionNext</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$FoundationReadiness$SharedReady</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$SettingsFoundationSnapshot$val areas: List&lt;FoundationArea&gt;</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$SettingsFoundationSnapshot$val moduleSelection: DataModuleSelection</ID>
+    <ID>UndocumentedPublicProperty:SettingsFoundationContracts.kt$SettingsFoundationSnapshot$val schemaVersion: Int</ID>
+  </CurrentIssues>
+</SmellBaseline>

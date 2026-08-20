@@ -19,10 +19,16 @@ object PersistedDateTime {
     private val logger = UnifiedLogger.getInstance()
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+    /** Formats a [LocalDateTime] to the canonical ISO local string. */
     fun format(value: LocalDateTime): String = value.format(formatter)
 
+    /** Returns the date portion of [value] as a stable day-key string. */
     fun dayKey(value: LocalDateTime): String = value.toLocalDate().toString()
 
+    /**
+     * Parses a persisted date-time [value] (stripping a legacy trailing 'Z'
+     * so it is read as local wall-clock). Logs and rethrows on failure.
+     */
     fun parse(value: String): LocalDateTime {
         val normalized = normalize(value)
         return try {
@@ -38,11 +44,18 @@ object PersistedDateTime {
         }
     }
 
+    /**
+     * Parses [value] if non-blank, otherwise returns null. Delegates to [parse].
+     */
     fun parseOrNull(value: String?): LocalDateTime? {
         val candidate = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return parse(candidate)
     }
 
+    /**
+     * Parses [value] as a full date-time; on failure, falls back to parsing it
+     * as a bare date at start-of-day. Returns null if [value] is blank.
+     */
     fun parseOrDateStart(value: String?): LocalDateTime? {
         val candidate = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null
         return try {
