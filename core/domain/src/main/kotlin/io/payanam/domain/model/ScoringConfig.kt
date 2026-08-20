@@ -1,6 +1,9 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.domain.model
+
 
 /**
  * Domain model for Scoring Configuration.
@@ -8,14 +11,21 @@ package io.payanam.domain.model
  */
 data class ScoringConfig(
     // Factor weights (used in weighted geometric mean)
+    /** Dimension weight. */
     val dimensionWeight: Double = 2.0,
+    /** Impact weight. */
     val impactWeight: Double = 1.5,
+    /** Alignment weight. */
     val alignmentWeight: Double = 1.3,
+    /** Energy weight. */
     val energyWeight: Double = 1.0,
+    /** Control weight. */
     val controlWeight: Double = 1.2,
+    /** Duration weight. */
     val durationWeight: Double = 0.8,
     
     // Impact level values (0-1)
+    /** Impact level weights. */
     val impactLevelWeights: Map<String, Double> = mapOf(
         "Critical Impact" to 1.0,
         "High Impact" to 0.85,
@@ -25,6 +35,7 @@ data class ScoringConfig(
     ),
     
     // Goal alignment values (0-1)
+    /** Alignment weights. */
     val alignmentWeights: Map<String, Double> = mapOf(
         "Perfect Alignment" to 1.0,
         "Strong Alignment" to 0.8,
@@ -34,6 +45,7 @@ data class ScoringConfig(
     ),
     
     // Energy level values (0-1)
+    /** Energy level weights. */
     val energyLevelWeights: Map<String, Double> = mapOf(
         "High" to 1.0,
         "Moderate" to 0.7,
@@ -41,6 +53,7 @@ data class ScoringConfig(
     ),
     
     // Control level values (0-1)
+    /** Control level weights. */
     val controlLevelWeights: Map<String, Double> = mapOf(
         "Full Control" to 1.0,
         "Mostly Controllable" to 0.85,
@@ -50,6 +63,7 @@ data class ScoringConfig(
     ),
     
     // Per-dimension weights
+    /** Dimension weights by id. */
     val dimensionWeightsById: Map<String, Double> = mapOf(
         DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id to 0.8,
         DimensionTaxonomyCatalog.PHYSICAL_HEALTH.id to 0.9,
@@ -62,6 +76,7 @@ data class ScoringConfig(
         DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id to 0.65
     ),
     // Legacy compatibility for still-migrating enum consumers.
+    /** Dimension weights. */
     val dimensionWeights: Map<LifeDimension, Double> = mapOf(
         LifeDimension.CAREER_WORK to (dimensionWeightsById[DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id] ?: 0.8),
         LifeDimension.HEALTH_WELLNESS to (dimensionWeightsById[DimensionTaxonomyCatalog.PHYSICAL_HEALTH.id] ?: 0.9),
@@ -74,6 +89,7 @@ data class ScoringConfig(
         LifeDimension.CONTRIBUTION to (dimensionWeightsById[DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id] ?: 0.65)
     )
 ) {
+    @Suppress("MagicNumber")
     companion object {
         /**
          * Returns the default scoring configuration.

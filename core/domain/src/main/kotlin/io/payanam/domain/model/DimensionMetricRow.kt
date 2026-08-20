@@ -7,6 +7,7 @@ package io.payanam.domain.model
  * and the dimension detail-page window row.
  */
 data class DimensionMetricRow(
+    /** Dimension id. */
     val dimensionId: String,
     override val dayKey: String,
     override val score: Double,

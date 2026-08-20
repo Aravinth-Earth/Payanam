@@ -30,9 +30,13 @@ interface TaskRescheduleRepository {
      * Record a reschedule event with parameters.
      */
     suspend fun recordReschedule(
+        /** Task id. */
         taskId: String,
+        /** Previous due date. */
         previousDueDate: LocalDateTime,
+        /** New due date. */
         newDueDate: LocalDateTime,
+        /** Was overdue. */
         wasOverdue: Boolean
     ): TaskReschedule
 }

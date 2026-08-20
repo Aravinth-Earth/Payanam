@@ -12,12 +12,20 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * DimensionTaxonomyCatalogTest.
+ */
 class DimensionTaxonomyCatalogTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
+    /**
+     * Setup.
+     */
     fun setup() {
+        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
+        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -26,7 +34,11 @@ class DimensionTaxonomyCatalogTest {
     }
 
     @Test
+    /**
+     * Entries follow foundation first order.
+     */
     fun entries_follow_foundation_first_order() {
+        /** Assert that. */
         assertThat(
             DimensionTaxonomyCatalog.entries
                 .filterNot { it.id == DimensionTaxonomyCatalog.UNASSIGNED.id }
@@ -45,22 +57,37 @@ class DimensionTaxonomyCatalogTest {
     }
 
     @Test
+    /**
+     * From any id rejects legacy id.
+     */
     fun fromAnyId_rejects_legacy_id() {
+        /** Result. */
         val result = DimensionTaxonomyCatalog.fromAnyId("dim_health_wellness")
 
+        /** Assert that. */
         assertThat(result).isNull()
     }
 
     @Test
+    /**
+     * From any label rejects legacy label.
+     */
     fun fromAnyLabel_rejects_legacy_label() {
+        /** Result. */
         val result = DimensionTaxonomyCatalog.fromAnyLabel("Community & Service")
 
+        /** Assert that. */
         assertThat(result).isNull()
     }
 
     @Test
+    /**
+     * Is canonical label accepts canonical label only.
+     */
     fun isCanonicalLabel_accepts_canonical_label_only() {
+        /** Assert that. */
         assertThat(DimensionTaxonomyCatalog.isCanonicalLabel("Home & Environment")).isTrue()
+        /** Assert that. */
         assertThat(DimensionTaxonomyCatalog.isCanonicalLabel("Family & Relationship")).isFalse()
     }
 }
