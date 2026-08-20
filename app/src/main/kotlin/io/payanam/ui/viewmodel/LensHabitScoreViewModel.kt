@@ -99,7 +99,7 @@ class LensHabitScoreViewModel
         /** Load the matrix for the 14 days ending on [endDate] (default today).
          *  The 14-day window drives the displayed rows + sparklines; the full
          *  history (from each row's earliest day) drives the ordinal rank. */
-        fun loadWindow(endDate: LocalDate = LocalDate.now(), days: Int = 14) {
+        fun loadWindow(endDate: LocalDate = LocalDate.now(), days: Int = 14, metric: ScoreMetricColumn = _uiState.value.selectedMetric) {
             val t0 = System.currentTimeMillis()
             viewModelScope.launch {
                 _uiState.update { it.copy(isLoading = true, error = null) }
@@ -108,7 +108,7 @@ class LensHabitScoreViewModel
                 logger.d(
                     "LensHabitScoreViewModel.loadWindow",
                     "Score matrix load started",
-                    mapOf("start" to start, "end" to end, "days" to days),
+                    mapOf("start" to start, "end" to end, "days" to days, "metric" to metric.key),
                 )
                 try {
                     // 14-day window for display
@@ -141,9 +141,8 @@ class LensHabitScoreViewModel
                     val dayRows = days.associateBy { it.dayKey }
                     val rows = buildDimensionRows(dims, dayRows, start, end)
                     val dayRow = buildDayRow(days, start, end)
-                    val selected = _uiState.value.selectedMetric
                     val tRankStart = System.currentTimeMillis()
-                    val rankByKey = computeRankMap(history, selected)
+                    val rankByKey = computeRankMap(history, metric)
                     val tRankEnd = System.currentTimeMillis()
                     val tUpdateStart = System.currentTimeMillis()
                     _uiState.update {
@@ -162,7 +161,7 @@ class LensHabitScoreViewModel
                         "LensHabitScoreViewModel.loadWindow",
                         "Rank recomputed for window",
                         mapOf(
-                            "metric" to selected.key,
+                            "metric" to metric.key,
                             "rankKeys" to rankByKey.size,
                             "sampleDay" to (rankByKey["DAY"] ?: "none"),
                         ),
@@ -184,15 +183,25 @@ class LensHabitScoreViewModel
             }
         }
 
+        /**
+         * Switch the active metric and reload the matrix for it. Reloading
+         * (rather than recomputing rank against the cached history) guarantees
+         * the published rank matches the metric the user selected, even if a
+         * prior [loadWindow] is still in flight.
+         */
         fun selectMetric(metric: ScoreMetricColumn) {
             logger.d("LensHabitScoreViewModel.selectMetric", "Metric selected", mapOf("metric" to metric.key))
-            _uiState.update { it.copy(selectedMetric = metric, rankByKey = computeRankMap(rankHistory, metric)) }
+            _uiState.update { it.copy(selectedMetric = metric) }
+            loadWindow(metric = metric)
         }
 
         /** Cached full-history values per row key, per metric. Populated in loadWindow. */
         private var rankHistory: Map<String, Map<ScoreMetricColumn, List<Double>>> = emptyMap()
 
-        /** Group full-history rows into per-row, per-metric value lists. */
+        /**
+         * Group full-history rows into per-row, per-metric value lists.
+         * The DAY pseudo-row is included so it can be ranked alongside dimensions.
+         */
         private fun buildRankHistory(
             dimHist: List<MetricWindowRow>,
             dayHist: List<MetricWindowRow>,

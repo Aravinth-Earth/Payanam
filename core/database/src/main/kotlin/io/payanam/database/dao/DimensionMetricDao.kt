@@ -18,6 +18,7 @@ interface DimensionMetricDao {
     @Query("SELECT MIN(dayKey) FROM dimension_metrics WHERE dimensionId = :dimensionId")
     suspend fun earliestDayKey(dimensionId: String): String?
 
+    /** Earliest day key across all dimension rows (global, no dimension filter). */
     @Query("SELECT MIN(dayKey) FROM dimension_metrics")
     suspend fun earliestDayKeyGlobal(): String?
 

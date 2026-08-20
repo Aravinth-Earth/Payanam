@@ -102,11 +102,17 @@ class LensHabitScoreViewModelTest {
     }
 
     @Test
-    fun `selectMetric replaces the selected metric`() = runTest(dispatcher) {
+    fun `selectMetric triggers reload and rank matches final metric`() = runTest(dispatcher) {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
+        vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+        dispatcher.scheduler.advanceUntilIdle()
+
         vm.selectMetric(ScoreMetricColumn.PROGRESS)
+        dispatcher.scheduler.advanceUntilIdle()
 
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
+        // rankByKey must be derived for the selected metric, not a stale one
+        assertTrue(vm.uiState.value.rankByKey.isNotEmpty())
     }
 
     @Test

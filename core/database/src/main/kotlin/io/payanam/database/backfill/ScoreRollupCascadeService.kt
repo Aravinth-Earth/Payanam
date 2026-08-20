@@ -338,6 +338,9 @@ class ScoreRollupCascadeService
                 )
                 dayDao.deleteFrom(dateStr)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
+                // Notify subscribers (e.g. Lenses matrix) so derived values refresh.
+                scoreChangeEventBus.emit(changeDate)
+                logger.i(tag, "Score change event emitted", mapOf("date" to changeDate.toString()))
                 logger.i(
                     tag,
                     listOf(
@@ -540,6 +543,8 @@ class ScoreRollupCascadeService
                         "elapsedMs" to (System.currentTimeMillis() - started),
                     ),
                 )
+                scoreChangeEventBus.emit(LocalDate.now())
+                logger.i(tag, "Score change event emitted", mapOf("date" to "catch-up"))
             } catch (e: Exception) {
                 logger.e(tag, "CATCHUP_FAILED", e)
             }
