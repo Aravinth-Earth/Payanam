@@ -128,6 +128,31 @@ class TasksViewModelSortingRegressionTest {
         assertEquals(listOf("c", "b", "a"), sorted.map { it.id })
     }
 
+    @Test
+    fun equal_score_tiebreaks_by_habit_id_stably() {
+        // Two habits with identical runningAvg must land in creation-id order,
+        // not in arbitrary list order.
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val l1 = mapOf(
+            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.5, 0.0, 2, 2, 2),
+            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.5, 0.0, 2, 2, 2),
+        )
+        val sorted = sortHabits(listOf(t2, t1), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
+        assertEquals(listOf("a", "b"), sorted.map { it.id })
+    }
+
+    @Test
+    fun equal_name_tiebreaks_by_habit_id_stably() {
+        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
+        val t3 = task("c", "Moderate Impact", LocalDateTime.now())
+        // Same title forces an id tiebreak.
+        val named = listOf(t3, t1, t2).map { it.copy(title = "Same") }
+        val sorted = sortHabits(named, HabitSortOption.BY_NAME, emptyMap())
+        assertEquals(listOf("a", "b", "c"), sorted.map { it.id })
+    }
+
     // ── fromKey migration ──────────────────────────────────────────────────
 
     @Test

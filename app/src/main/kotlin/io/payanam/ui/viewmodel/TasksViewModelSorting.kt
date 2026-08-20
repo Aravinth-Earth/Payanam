@@ -9,6 +9,15 @@ import io.payanam.ui.components.DayCheckmark
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+/**
+ * Sorts habits for the listing according to [option].
+ *
+ * The scoring metric ([HabitL1Summary.runningAvg]) uses high-precision values, so
+ * genuine ties are rare — they occur only when two habits share the same frequency,
+ * creation day, and completion pattern. To keep ordering deterministic in that edge
+ * case, every branch applies a stable [Task.id] tiebreaker (creation order), so the
+ * list never appears to reorder randomly between renders.
+ */
 internal fun sortHabits(
     habits: List<Task>,
     option: HabitSortOption,
@@ -18,17 +27,19 @@ internal fun sortHabits(
 ): List<Task> {
     val scoreOf: (Task) -> Double = { latestL1ByHabit[it.id]?.runningAvg ?: 0.0 }
     return when (option) {
-        HabitSortOption.SCORE_HIGH_LOW -> habits.sortedByDescending(scoreOf)
-        HabitSortOption.SCORE_LOW_HIGH -> habits.sortedBy(scoreOf)
-        HabitSortOption.BY_NAME -> habits.sortedBy { it.title.lowercase() }
-        HabitSortOption.BY_NAME_REVERSE -> habits.sortedByDescending { it.title.lowercase() }
+        HabitSortOption.SCORE_HIGH_LOW -> habits.sortedWith(compareByDescending(scoreOf).thenBy { it.id })
+        HabitSortOption.SCORE_LOW_HIGH -> habits.sortedWith(compareBy(scoreOf).thenBy { it.id })
+        HabitSortOption.BY_NAME -> habits.sortedWith(compareBy<Task> { it.title.lowercase() }.thenBy { it.id })
+        HabitSortOption.BY_NAME_REVERSE -> habits.sortedWith(compareByDescending<Task> { it.title.lowercase() }.thenBy { it.id })
         HabitSortOption.BY_DUE_TIME -> habits.sortedWith(
             compareBy<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MAX }
-                .thenByDescending(scoreOf),
+                .thenByDescending(scoreOf)
+                .thenBy { it.id },
         )
         HabitSortOption.BY_DUE_TIME_REVERSE -> habits.sortedWith(
             compareByDescending<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MIN }
-                .thenByDescending(scoreOf),
+                .thenByDescending(scoreOf)
+                .thenBy { it.id },
         )
     }
 }
