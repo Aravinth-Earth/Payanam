@@ -44,36 +44,44 @@ enum class TaskSortOption(val key: String) {
 }
 
 enum class HabitSortOption(val key: String) {
-    // Score roll-up metric sorts (Inc 4): 6 metrics × asc/desc
-    RUNNING_AVG_DESC("running_avg_desc"),
-    RUNNING_AVG_ASC("running_avg_asc"),
-    SCORE_DESC("score_desc"),
-    SCORE_ASC("score_asc"),
-    PROGRESS_DESC("progress_desc"),
-    PROGRESS_ASC("progress_asc"),
-    STREAK_POS_DESC("streak_pos_desc"),
-    STREAK_POS_ASC("streak_pos_asc"),
-    STREAK_NET_DESC("streak_net_desc"),
-    STREAK_NET_ASC("streak_net_asc"),
-    POS_CONTINUE_DESC("pos_continue_desc"),
-    POS_CONTINUE_ASC("pos_continue_asc"),
-    // Legacy options (kept for backward compat)
-    BY_SCORE("by_score"),
     BY_NAME("by_name"),
-    BY_STATUS("by_status"),
+    BY_NAME_REVERSE("by_name_reverse"),
     BY_DUE_TIME("by_due_time"),
-    BY_LIFE_DIMENSION("by_life_dimension"),
-    BY_POSITION("by_position"),
+    BY_DUE_TIME_REVERSE("by_due_time_reverse"),
+    SCORE_HIGH_LOW("score_high_low"),
+    SCORE_LOW_HIGH("score_low_high"),
     ;
 
     companion object {
-        fun fromKey(key: String?): HabitSortOption = entries.find { it.key == key } ?: RUNNING_AVG_DESC
+        /** Map old (pre-simplification) keys to their new equivalent. */
+        private val legacyMigration = mapOf(
+            "running_avg_desc" to SCORE_HIGH_LOW,
+            "running_avg_asc" to SCORE_LOW_HIGH,
+            "score_desc" to SCORE_HIGH_LOW,
+            "score_asc" to SCORE_LOW_HIGH,
+            "progress_desc" to SCORE_HIGH_LOW,
+            "progress_asc" to SCORE_LOW_HIGH,
+            "streak_pos_desc" to SCORE_HIGH_LOW,
+            "streak_pos_asc" to SCORE_LOW_HIGH,
+            "streak_net_desc" to SCORE_HIGH_LOW,
+            "streak_net_asc" to SCORE_LOW_HIGH,
+            "pos_continue_desc" to SCORE_HIGH_LOW,
+            "pos_continue_asc" to SCORE_LOW_HIGH,
+            "by_score" to SCORE_HIGH_LOW,
+            "by_status" to BY_NAME,
+            "by_life_dimension" to BY_NAME,
+            "by_position" to BY_NAME,
+        )
+
+        fun fromKey(key: String?): HabitSortOption {
+            if (key == null) return SCORE_HIGH_LOW
+            entries.find { it.key == key }?.let { return it }
+            return legacyMigration[key] ?: SCORE_HIGH_LOW
+        }
     }
 
-    /** Legacy (non-metric) options stay visible even when scoring is disabled. */
-    fun legacyCategory(): Boolean =
-        this == BY_NAME || this == BY_STATUS || this == BY_DUE_TIME ||
-            this == BY_LIFE_DIMENSION || this == BY_POSITION
+    /** All simplified options are always visible regardless of scoring flag. */
+    fun legacyCategory(): Boolean = true
 }
 
 val TaskFilter.displayName: String
@@ -119,7 +127,7 @@ data class TasksChromeUiState(
     val isLoading: Boolean = true,
     val recurringTaskCount: Int = 0,
     val oneTimeTaskCount: Int = 0,
-    val habitSortOption: HabitSortOption = HabitSortOption.BY_SCORE,
+    val habitSortOption: HabitSortOption = HabitSortOption.SCORE_HIGH_LOW,
     val currentSort: TaskSortOption = TaskSortOption.DUE_DATE_ASC,
     val showArchivedHabits: Boolean = false,
     val showCompletedHabits: Boolean = true,
@@ -165,7 +173,7 @@ data class TasksUiState(
     val currentSort: TaskSortOption = TaskSortOption.DUE_DATE_ASC,
     val todayCount: Int = 0,
     val overdueCount: Int = 0,
-    val habitSortOption: HabitSortOption = HabitSortOption.BY_SCORE,
+    val habitSortOption: HabitSortOption = HabitSortOption.SCORE_HIGH_LOW,
     val showArchivedHabits: Boolean = false,
     val showCompletedHabits: Boolean = true,
     val hideAllMarkedToday: Boolean = false,

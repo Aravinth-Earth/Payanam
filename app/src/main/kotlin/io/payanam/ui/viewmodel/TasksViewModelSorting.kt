@@ -16,52 +16,20 @@ internal fun sortHabits(
     todayStatusByTaskId: Map<String, CheckmarkStatus> = emptyMap(),
     latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
 ): List<Task> {
-    // Inc 4: metric sorts read the latest L1 runningAvg (the new "score").
-    // BY_SCORE is kept as an alias for RUNNING_AVG_DESC for backward compat.
     val scoreOf: (Task) -> Double = { latestL1ByHabit[it.id]?.runningAvg ?: 0.0 }
     return when (option) {
-        HabitSortOption.RUNNING_AVG_DESC, HabitSortOption.BY_SCORE -> habits.sortedByDescending(scoreOf)
-        HabitSortOption.RUNNING_AVG_ASC -> habits.sortedBy(scoreOf)
-        HabitSortOption.SCORE_DESC -> habits.sortedByDescending { latestL1ByHabit[it.id]?.score ?: 0.0 }
-        HabitSortOption.SCORE_ASC -> habits.sortedBy { latestL1ByHabit[it.id]?.score ?: 0.0 }
-        HabitSortOption.PROGRESS_DESC -> habits.sortedByDescending { latestL1ByHabit[it.id]?.progress ?: 0.0 }
-        HabitSortOption.PROGRESS_ASC -> habits.sortedBy { latestL1ByHabit[it.id]?.progress ?: 0.0 }
-        HabitSortOption.STREAK_POS_DESC -> habits.sortedByDescending { latestL1ByHabit[it.id]?.streakPos ?: 0 }
-        HabitSortOption.STREAK_POS_ASC -> habits.sortedBy { latestL1ByHabit[it.id]?.streakPos ?: 0 }
-        HabitSortOption.STREAK_NET_DESC -> habits.sortedByDescending { latestL1ByHabit[it.id]?.streakNet ?: 0 }
-        HabitSortOption.STREAK_NET_ASC -> habits.sortedBy { latestL1ByHabit[it.id]?.streakNet ?: 0 }
-        HabitSortOption.POS_CONTINUE_DESC -> habits.sortedByDescending { latestL1ByHabit[it.id]?.posContinue ?: 0 }
-        HabitSortOption.POS_CONTINUE_ASC -> habits.sortedBy { latestL1ByHabit[it.id]?.posContinue ?: 0 }
-
+        HabitSortOption.SCORE_HIGH_LOW -> habits.sortedByDescending(scoreOf)
+        HabitSortOption.SCORE_LOW_HIGH -> habits.sortedBy(scoreOf)
         HabitSortOption.BY_NAME -> habits.sortedBy { it.title.lowercase() }
-
-        HabitSortOption.BY_STATUS -> {
-            habits.sortedWith(
-                compareBy<Task> { task ->
-                    val status = todayStatusByTaskId[task.id] ?: run {
-                        val today = LocalDate.now()
-                        val checkmarks = taskCheckmarks[task.id] ?: emptyList()
-                        checkmarks.find { it.date == today }?.status
-                    }
-                    when (status) {
-                        CheckmarkStatus.COMPLETED -> 1
-                        CheckmarkStatus.SKIPPED -> 2
-                        else -> 0
-                    }
-                }.thenByDescending(scoreOf),
-            )
-        }
-
-        HabitSortOption.BY_DUE_TIME -> {
-            habits.sortedWith(
-                compareBy<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MAX }
-                    .thenByDescending(scoreOf),
-            )
-        }
-
-        HabitSortOption.BY_LIFE_DIMENSION -> habits.sortedBy { it.lifeIntentionCategory ?: "zzz" }
-
-        HabitSortOption.BY_POSITION -> habits
+        HabitSortOption.BY_NAME_REVERSE -> habits.sortedByDescending { it.title.lowercase() }
+        HabitSortOption.BY_DUE_TIME -> habits.sortedWith(
+            compareBy<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MAX }
+                .thenByDescending(scoreOf),
+        )
+        HabitSortOption.BY_DUE_TIME_REVERSE -> habits.sortedWith(
+            compareByDescending<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MIN }
+                .thenByDescending(scoreOf),
+        )
     }
 }
 

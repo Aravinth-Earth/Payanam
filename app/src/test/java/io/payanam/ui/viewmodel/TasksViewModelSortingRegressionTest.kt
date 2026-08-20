@@ -71,10 +71,10 @@ class TasksViewModelSortingRegressionTest {
         updatedAt = baseTime,
     )
 
-    // ── Inc 4: metric sorts (latest L1 runningAvg) ────────────────────────
+    // ── Simplified habit sorts (score = runningAvg) ────────────────────────
 
     @Test
-    fun running_avg_desc_sorts_by_latest_l1_running_avg() {
+    fun score_high_low_sorts_by_latest_l1_running_avg() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val t3 = task("c", "Moderate Impact", LocalDateTime.now())
@@ -83,54 +83,85 @@ class TasksViewModelSortingRegressionTest {
             "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.4, 0.0, 1, 1, 1),
             "c" to io.payanam.domain.model.HabitL1Summary("c", "2026-08-07", 1.0, 0.7, 0.0, 2, 2, 2),
         )
-        val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.RUNNING_AVG_DESC, emptyMap(), latestL1ByHabit = l1)
+        val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "c", "b"), sorted.map { it.id })
     }
 
     @Test
-    fun running_avg_asc_sorts_lowest_first() {
+    fun score_low_high_sorts_lowest_first() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
             "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.2, 0.0, 0, 0, 0),
             "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.8, 0.0, 2, 2, 2),
         )
-        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.RUNNING_AVG_ASC, emptyMap(), latestL1ByHabit = l1)
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.SCORE_LOW_HIGH, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "b"), sorted.map { it.id })
     }
 
     @Test
-    fun streak_pos_desc_sorts_by_streak() {
-        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
-        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
-        val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.5, 0.0, 1, 1, 1),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.5, 0.0, 9, 9, 9),
-        )
-        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.STREAK_POS_DESC, emptyMap(), latestL1ByHabit = l1)
-        assertEquals(listOf("b", "a"), sorted.map { it.id })
-    }
-
-    @Test
-    fun habits_without_l1_metrics_sort_last_desc() {
+    fun habits_without_l1_metrics_sort_last_on_score_high_low() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
         val l1 = mapOf(
             "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.9, 0.0, 3, 3, 3),
         )
-        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.RUNNING_AVG_DESC, emptyMap(), latestL1ByHabit = l1)
+        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.SCORE_HIGH_LOW, emptyMap(), latestL1ByHabit = l1)
         assertEquals(listOf("a", "b"), sorted.map { it.id })
     }
 
     @Test
-    fun by_score_aliases_running_avg_desc() {
-        val t1 = task("a", "Moderate Impact", LocalDateTime.now())
-        val t2 = task("b", "Moderate Impact", LocalDateTime.now())
-        val l1 = mapOf(
-            "a" to io.payanam.domain.model.HabitL1Summary("a", "2026-08-07", 1.0, 0.3, 0.0, 0, 0, 0),
-            "b" to io.payanam.domain.model.HabitL1Summary("b", "2026-08-07", 1.0, 0.9, 0.0, 0, 0, 0),
-        )
-        val sorted = sortHabits(listOf(t1, t2), HabitSortOption.BY_SCORE, emptyMap(), latestL1ByHabit = l1)
-        assertEquals(listOf("b", "a"), sorted.map { it.id })
+    fun by_name_sorts_alphabetically() {
+        val t1 = task("c", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t3 = task("b", "Moderate Impact", LocalDateTime.now())
+        val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.BY_NAME, emptyMap())
+        assertEquals(listOf("a", "b", "c"), sorted.map { it.id })
+    }
+
+    @Test
+    fun by_name_reverse_sorts_reverse_alphabetically() {
+        val t1 = task("c", "Moderate Impact", LocalDateTime.now())
+        val t2 = task("a", "Moderate Impact", LocalDateTime.now())
+        val t3 = task("b", "Moderate Impact", LocalDateTime.now())
+        val sorted = sortHabits(listOf(t1, t2, t3), HabitSortOption.BY_NAME_REVERSE, emptyMap())
+        assertEquals(listOf("c", "b", "a"), sorted.map { it.id })
+    }
+
+    // ── fromKey migration ──────────────────────────────────────────────────
+
+    @Test
+    fun fromKey_migrates_legacy_running_avg_desc_to_score_high_low() {
+        assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("running_avg_desc"))
+    }
+
+    @Test
+    fun fromKey_migrates_legacy_by_score_to_score_high_low() {
+        assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("by_score"))
+    }
+
+    @Test
+    fun fromKey_migrates_legacy_by_status_to_by_name() {
+        assertEquals(HabitSortOption.BY_NAME, HabitSortOption.fromKey("by_status"))
+    }
+
+    @Test
+    fun fromKey_returns_score_high_low_for_unknown_key() {
+        assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("nonexistent_key"))
+    }
+
+    @Test
+    fun fromKey_returns_score_high_low_for_null() {
+        assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey(null))
+    }
+
+    @Test
+    fun fromKey_recognizes_new_keys_directly() {
+        assertEquals(HabitSortOption.BY_NAME, HabitSortOption.fromKey("by_name"))
+        assertEquals(HabitSortOption.BY_NAME_REVERSE, HabitSortOption.fromKey("by_name_reverse"))
+        assertEquals(HabitSortOption.BY_DUE_TIME, HabitSortOption.fromKey("by_due_time"))
+        assertEquals(HabitSortOption.BY_DUE_TIME_REVERSE, HabitSortOption.fromKey("by_due_time_reverse"))
+        assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("score_high_low"))
+        assertEquals(HabitSortOption.SCORE_LOW_HIGH, HabitSortOption.fromKey("score_low_high"))
     }
 }
