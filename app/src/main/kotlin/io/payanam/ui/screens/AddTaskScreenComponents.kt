@@ -187,7 +187,7 @@ enum class RecurrenceOption {
     YEARLY,
     ;
     /**
-     * Performs the to rrule.
+     * The preset's RRULE string.
      */
     fun toRRule(): String = when (this) {
         DAILY -> "FREQ=DAILY;INTERVAL=1"
@@ -200,7 +200,7 @@ enum class RecurrenceOption {
 
     companion object {
         /**
-         * Performs the from rrule.
+         * Maps an RRULE string back to its preset (DAILY when unrecognized).
          */
         fun fromRRule(rule: String?): RecurrenceOption {
             if (rule == null) return DAILY
