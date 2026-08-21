@@ -25,7 +25,8 @@ import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
 /**
- * Holds the edit task ui state.
+ * UI state for the edit-task screen: the loaded task, its tags + suggestions,
+ * loading/saving flags, and the last error.
  */
 data class EditTaskUiState(
     val task: Task? = null,
@@ -36,10 +37,11 @@ data class EditTaskUiState(
     val error: String? = null,
 )
 
-@HiltViewModel
 /**
- * Provides the edit task view model.
+ * Edit-task ViewModel: loads a task with its tags, then persists edits —
+ * replacing tags, rebuilding score roll-ups, and rescheduling reminders.
  */
+@HiltViewModel
 class EditTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val tagRepository: TagRepository,
@@ -72,7 +74,7 @@ class EditTaskViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the load task.
+     * Fetches [taskId]'s task + tags into state for editing.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadTask(taskId: String) {
@@ -110,7 +112,8 @@ class EditTaskViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update task.
+     * Persists the edited fields, replaces tags, recomputes scores (roll-up
+     * cascade for habits), and re-arms the reminder.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateTask(input: EditTaskInput) {
