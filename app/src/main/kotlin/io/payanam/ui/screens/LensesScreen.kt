@@ -76,7 +76,7 @@ fun LensesScreen(
     var journalExpanded by rememberSaveable { mutableStateOf(false) }
     var notesExpanded by rememberSaveable { mutableStateOf(false) }
     /**
-     * Performs the toggle exclusive.
+     * Expands [section] and collapses the others (accordion behavior).
      */
     fun toggleExclusive(section: String) {
         val shouldExpand = when (section) {
