@@ -11,61 +11,61 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * DayMetricDao.
+ * Defines the contract for day metric dao.
  */
 interface DayMetricDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert all.
+     * Performs the upsert all.
      */
     suspend fun upsertAll(rows: List<DayMetricEntity>)
 
     @Query("DELETE FROM day_metrics WHERE dayKey >= :fromDay")
     /**
-     * Delete from.
+     * Removes the delete from.
      */
     suspend fun deleteFrom(fromDay: String)
 
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     /**
-     * Observe all.
+     * Registers the observe all.
      */
     fun observeAll(): Flow<List<DayMetricEntity>>
 
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     /**
-     * Get all.
+     * Returns the get all.
      */
     suspend fun getAll(): List<DayMetricEntity>
 
     @Query("SELECT MIN(dayKey) FROM day_metrics")
     /**
-     * Earliest day key.
+     * Performs the earliest day key.
      */
     suspend fun earliestDayKey(): String?
 
     @Query("SELECT * FROM day_metrics WHERE dayKey = :dayKey")
     /**
-     * For day.
+     * Performs the for day.
      */
     suspend fun forDay(dayKey: String): DayMetricEntity?
 
     @Query("SELECT * FROM day_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
     /**
-     * Get for window.
+     * Returns the get for window.
      */
     suspend fun getForWindow(start: String, end: String): List<DayMetricEntity>
 
     @Query("SELECT * FROM day_metrics WHERE dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     /**
-     * Latest before.
+     * Performs the latest before.
      */
     suspend fun latestBefore(dayKey: String): DayMetricEntity?
 
     @Query("SELECT COUNT(*) FROM day_metrics")
     /**
-     * Count.
+     * Performs the count.
      */
     suspend fun count(): Int
 }

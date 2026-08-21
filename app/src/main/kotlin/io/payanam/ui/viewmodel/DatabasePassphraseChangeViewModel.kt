@@ -25,9 +25,8 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-
 /**
- * DatabasePassphraseChangeUiState.
+ * Holds the database passphrase change ui state.
  */
 data class DatabasePassphraseChangeUiState(
     val isSaving: Boolean = false,
@@ -37,7 +36,7 @@ data class DatabasePassphraseChangeUiState(
 
 @HiltViewModel
 /**
- * DatabasePassphraseChangeViewModel.
+ * Provides the database passphrase change view model.
  */
 class DatabasePassphraseChangeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -47,9 +46,8 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(DatabasePassphraseChangeUiState())
     val uiState: StateFlow<DatabasePassphraseChangeUiState> = _uiState.asStateFlow()
-
     /**
-     * Submit.
+     * Performs the submit.
      */
     fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
         val validation = PassphrasePolicy.validate(newPassphrase)

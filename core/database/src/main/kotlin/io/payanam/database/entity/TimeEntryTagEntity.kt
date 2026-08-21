@@ -27,7 +27,7 @@ import androidx.room.Index
     indices = [Index("time_entry_id"), Index("tag_id")],
 )
 /**
- * TimeEntryTagEntity.
+ * Holds the time entry tag entity.
  */
 data class TimeEntryTagEntity(
     @ColumnInfo(name = "time_entry_id")

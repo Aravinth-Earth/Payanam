@@ -36,18 +36,12 @@ class TasksSearchRegressionTest {
     )
 
     @Test
-    /**
-     * Blank query matches everything.
-     */
     fun blankQuery_matchesEverything() {
         assertTrue(task(title = "Morning Run").matchesTaskSearch(""))
         assertTrue(task(title = "Morning Run").matchesTaskSearch("   "))
     }
 
     @Test
-    /**
-     * Title substring is case insensitive.
-     */
     fun titleSubstring_isCaseInsensitive() {
         assertTrue(task(title = "Morning Run").matchesTaskSearch("morning"))
         assertTrue(task(title = "Morning Run").matchesTaskSearch("MORNING"))
@@ -56,9 +50,6 @@ class TasksSearchRegressionTest {
     }
 
     @Test
-    /**
-     * Partial substring matches.
-     */
     fun partialSubstring_matches() {
         // Fuzzy: any char sequence in title matches from the first character
         assertTrue(task(title = "Morning Run").matchesTaskSearch("m"))
@@ -67,18 +58,12 @@ class TasksSearchRegressionTest {
     }
 
     @Test
-    /**
-     * Non matching query returns false.
-     */
     fun nonMatchingQuery_returnsFalse() {
         assertFalse(task(title = "Morning Run").matchesTaskSearch("xyz"))
         assertFalse(task(title = "Read 20 pages").matchesTaskSearch("novel"))
     }
 
     @Test
-    /**
-     * Status field does not pollute results.
-     */
     fun statusField_doesNotPolluteResults() {
         // Regression: previously status ("pending" contains i/n) matched everything
         assertFalse(task(title = "Gym", status = "pending").matchesTaskSearch("pending"))
@@ -87,9 +72,6 @@ class TasksSearchRegressionTest {
     }
 
     @Test
-    /**
-     * Internal fields do not pollute results.
-     */
     fun internalFields_doNotPolluteResults() {
         // Regression: dimensionId / lifeIntentionCategory / description are not visible in listing
         assertFalse(task(title = "Gym", description = "leg day", dimensionId = "health").matchesTaskSearch("health"))
@@ -98,9 +80,6 @@ class TasksSearchRegressionTest {
     }
 
     @Test
-    /**
-     * Title only searchable field.
-     */
     fun titleOnly_searchableField() {
         // Only title matters — description match must NOT return true
         val t = task(title = "Meditate", description = "breathe deeply")
@@ -109,9 +88,6 @@ class TasksSearchRegressionTest {
     }
 
     @Test
-    /**
-     * Full title substring matches.
-     */
     fun fullTitleSubstring_matches() {
         // Multi-word title still substring-matched; callers trim before calling
         assertTrue(task(title = "Morning Run").matchesTaskSearch("morning run"))

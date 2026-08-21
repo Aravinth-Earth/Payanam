@@ -25,18 +25,12 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * NotificationSchedulerRegressionTest.
- */
 class NotificationSchedulerRegressionTest {
     private lateinit var notificationRepository: NotificationRepository
     private lateinit var taskRepository: TaskRepository
     private lateinit var notificationManager: NotificationManager
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         notificationRepository = mock()
@@ -46,9 +40,6 @@ class NotificationSchedulerRegressionTest {
     }
 
     @Test
-    /**
-     * Cancel for task clears visible delivered notification.
-     */
     fun cancelForTask_clearsVisibleDeliveredNotification() = runTest {
         val notificationId = "habit-reminder-1"
         val taskId = "habit-1"

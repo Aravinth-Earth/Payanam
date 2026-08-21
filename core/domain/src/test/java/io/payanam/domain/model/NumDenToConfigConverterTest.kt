@@ -6,10 +6,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-
-/**
- * NumDenToConfigConverterTest.
- */
 class NumDenToConfigConverterTest {
 
     private val anchor: LocalDate = LocalDate.of(2025, 8, 3)

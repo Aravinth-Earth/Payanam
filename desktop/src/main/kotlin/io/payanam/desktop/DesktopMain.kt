@@ -12,9 +12,8 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import java.awt.GraphicsEnvironment
 import kotlin.math.max
-
 /**
- * Main.
+ * Performs the main.
  */
 fun main() {
     val singleInstanceResult = DesktopSingleInstanceGuard.acquire()

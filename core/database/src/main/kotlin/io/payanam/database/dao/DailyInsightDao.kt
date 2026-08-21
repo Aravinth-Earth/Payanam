@@ -10,12 +10,12 @@ import io.payanam.database.entity.DailyInsightEntity
 
 @Dao
 /**
- * DailyInsightDao.
+ * Defines the contract for daily insight dao.
  */
 interface DailyInsightDao {
     @Query("SELECT * FROM daily_insights WHERE day_key = :dayKey AND module = :module AND dimension_id IS NULL LIMIT 1")
     /**
-     * Get summary for day.
+     * Returns the get summary for day.
      */
     suspend fun getSummaryForDay(
         dayKey: String,
@@ -24,13 +24,13 @@ interface DailyInsightDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert.
+     * Performs the upsert.
      */
     suspend fun upsert(entity: DailyInsightEntity)
 
     @Query("SELECT * FROM daily_insights WHERE module = :module AND dimension_id IS NULL AND day_key IN (:dayKeys)")
     /**
-     * Get summaries for days.
+     * Returns the get summaries for days.
      */
     suspend fun getSummariesForDays(
         dayKeys: List<String>,
@@ -39,7 +39,7 @@ interface DailyInsightDao {
 
     @Query("DELETE FROM daily_insights WHERE day_key = :dayKey AND module = :module")
     /**
-     * Delete summary for day.
+     * Removes the delete summary for day.
      */
     suspend fun deleteSummaryForDay(
         dayKey: String,

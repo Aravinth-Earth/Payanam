@@ -5,9 +5,8 @@ package io.payanam.desktop
 import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
-
 /**
- * DesktopRouteContentTest.
+ * Provides the desktop route content test.
  */
 class DesktopRouteContentTest {
     @Test

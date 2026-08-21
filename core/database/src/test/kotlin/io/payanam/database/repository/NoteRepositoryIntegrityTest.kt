@@ -21,7 +21,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * NoteRepositoryIntegrityTest.
+ * Provides the note repository integrity test.
  */
 class NoteRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
@@ -29,7 +29,7 @@ class NoteRepositoryIntegrityTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -48,7 +48,7 @@ class NoteRepositoryIntegrityTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -94,7 +94,7 @@ class NoteRepositoryIntegrityTest {
 
     @Test
     /**
-     * Delete note removes from journal and legacy shadow tables.
+     * Removes the delete note removes from journal and legacy shadow tables.
      */
     fun deleteNote_removesFromJournalAndLegacyShadowTables() =
         runBlocking {

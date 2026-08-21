@@ -56,7 +56,7 @@ internal class DesktopSingleInstanceLease(
     private val lock: FileLock,
 ) : AutoCloseable {
     /**
-     * Record session log path.
+     * Performs the record session log path.
      */
     fun recordSessionLogPath(logFilePath: Path) {
         DesktopSingleInstanceGuard.writeMetadata(
@@ -67,6 +67,9 @@ internal class DesktopSingleInstanceLease(
         )
     }
 
+    /**
+     * Performs the close.
+     */
     override fun close() {
         DesktopSingleInstanceGuard.clearTrackedState(lockFilePath = lockFilePath, metadataFilePath = metadataFilePath)
         runCatching { lock.release() }
@@ -88,9 +91,8 @@ internal object DesktopSingleInstanceGuard {
     private val trackedProcesses = ConcurrentHashMap<Path, Long>()
     private val trackedDetails = ConcurrentHashMap<Path, DesktopRunningInstanceDetails>()
     private val timestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
-
     /**
-     * Acquire.
+     * Performs the acquire.
      */
     fun acquire(
         runtimeDirectory: Path = DesktopAppPaths.resolveRuntimeDirectory(),
@@ -137,9 +139,8 @@ internal object DesktopSingleInstanceGuard {
                 ),
         )
     }
-
     /**
-     * Show already running dialog.
+     * Shows the show already running dialog.
      */
     fun showAlreadyRunningDialog(details: DesktopRunningInstanceDetails) {
         val processText = details.processId?.toString() ?: "unknown"

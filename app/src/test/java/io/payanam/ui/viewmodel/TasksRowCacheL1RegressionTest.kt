@@ -25,9 +25,6 @@ import org.robolectric.RobolectricTestRunner
 class TasksRowCacheL1RegressionTest {
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(

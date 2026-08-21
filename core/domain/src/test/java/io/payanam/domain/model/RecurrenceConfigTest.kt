@@ -9,10 +9,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-
-/**
- * RecurrenceConfigTest.
- */
 class RecurrenceConfigTest {
     
     // ==================== Factory Method Tests ====================

@@ -12,7 +12,7 @@ import java.time.LocalDate
  */
 @Suppress("TooManyFunctions")
 /**
- * LensRepository.
+ * Defines the contract for lens repository.
  */
 interface LensRepository {
     /**
@@ -238,7 +238,7 @@ data class RealityLensData(
 )
 
 /**
- * Planned task item for Planning Lens.
+ * Planned task item for planning lens.
  */
 data class TaskPlanItem(
     val taskId: String,
@@ -250,7 +250,7 @@ data class TaskPlanItem(
 )
 
 /**
- * Completed/missed task item for Reality Lens.
+ * Completed/missed task item for reality lens.
  */
 data class TaskRealityItem(
     val taskId: String,
@@ -263,7 +263,7 @@ data class TaskRealityItem(
 )
 
 /**
- * Planned habit item for Planning Lens.
+ * Planned habit item for planning lens.
  */
 data class HabitPlanItem(
     val habitId: String,
@@ -274,7 +274,7 @@ data class HabitPlanItem(
 )
 
 /**
- * Completed habit item for Reality Lens.
+ * Completed habit item for reality lens.
  */
 data class HabitRealityItem(
     val habitId: String,
@@ -286,7 +286,7 @@ data class HabitRealityItem(
 )
 
 /**
- * Time goal item for Planning Lens.
+ * Time goal item for planning lens.
  */
 data class TimeGoalItem(
     val goalId: String,

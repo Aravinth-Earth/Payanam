@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(tableName = "user_preferences")
 /**
- * UserPreferenceEntity.
+ * Holds the user preference entity.
  */
 data class UserPreferenceEntity(
     @PrimaryKey

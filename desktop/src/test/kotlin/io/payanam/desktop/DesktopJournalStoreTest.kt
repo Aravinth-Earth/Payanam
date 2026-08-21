@@ -10,9 +10,8 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.LocalDate
 import java.time.LocalDateTime
-
 /**
- * DesktopJournalStoreTest.
+ * Provides the desktop journal store test.
  */
 class DesktopJournalStoreTest {
     @get:Rule

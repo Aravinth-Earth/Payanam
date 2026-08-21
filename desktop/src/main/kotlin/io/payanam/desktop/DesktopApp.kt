@@ -638,8 +638,7 @@ internal fun desktopChoiceRow(
         }
     }
 }
-
 /**
- * Desktop foundation snapshot.
+ * Performs the desktop foundation snapshot.
  */
 fun desktopFoundationSnapshot(selection: DataModuleSelection): SettingsFoundationSnapshot = SettingsFoundationContracts.snapshot(selection)

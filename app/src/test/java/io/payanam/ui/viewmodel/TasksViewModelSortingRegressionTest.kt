@@ -6,15 +6,8 @@ import io.payanam.domain.model.Task
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDateTime
-
-/**
- * TasksViewModelSortingRegressionTest.
- */
 class TasksViewModelSortingRegressionTest {
     @Test
-    /**
-     * Impact desc sorts major and minimal aliases consistently.
-     */
     fun impact_desc_sorts_major_and_minimal_aliases_consistently() {
         val baseTime = LocalDateTime.of(2026, 2, 15, 10, 0)
         val tasks = listOf(
@@ -32,9 +25,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * Not active filter includes completed and archived only.
-     */
     fun not_active_filter_includes_completed_and_archived_only() {
         val baseTime = LocalDateTime.of(2026, 2, 15, 10, 0)
         val tasks = listOf(
@@ -51,9 +41,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * All filter keeps completed and archived tasks.
-     */
     fun all_filter_keeps_completed_and_archived_tasks() {
         val baseTime = LocalDateTime.of(2026, 2, 15, 10, 0)
         val tasks = listOf(
@@ -98,9 +85,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * Score low high sorts lowest first.
-     */
     fun score_low_high_sorts_lowest_first() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
@@ -127,9 +111,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * By name sorts alphabetically.
-     */
     fun by_name_sorts_alphabetically() {
         val t1 = task("c", "Moderate Impact", LocalDateTime.now())
         val t2 = task("a", "Moderate Impact", LocalDateTime.now())
@@ -139,9 +120,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * By name reverse sorts reverse alphabetically.
-     */
     fun by_name_reverse_sorts_reverse_alphabetically() {
         val t1 = task("c", "Moderate Impact", LocalDateTime.now())
         val t2 = task("a", "Moderate Impact", LocalDateTime.now())
@@ -151,9 +129,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * Equal score tiebreaks by habit id stably.
-     */
     fun equal_score_tiebreaks_by_habit_id_stably() {
         // Two habits with identical runningAvg must land in creation-id order,
         // not in arbitrary list order.
@@ -168,9 +143,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * Equal name tiebreaks by habit id stably.
-     */
     fun equal_name_tiebreaks_by_habit_id_stably() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
@@ -182,9 +154,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * By due time sorts early to late with nulls last.
-     */
     fun by_due_time_sorts_early_to_late_with_nulls_last() {
         val tEarly = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 8, 0))
         val tLate = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 20, 0))
@@ -194,9 +163,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * By due time reverse sorts late to early with nulls last.
-     */
     fun by_due_time_reverse_sorts_late_to_early_with_nulls_last() {
         val tEarly = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 8, 0))
         val tLate = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 20, 0))
@@ -206,9 +172,6 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * By due time tiebreaks by score desc when times equal.
-     */
     fun by_due_time_tiebreaks_by_score_desc_when_times_equal() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
         val t2 = task("b", "Moderate Impact", LocalDateTime.now()).copy(dueDate = LocalDateTime.of(2026, 8, 20, 12, 0))
@@ -231,41 +194,26 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
-    /**
-     * From key migrates legacy by score to score high low.
-     */
     fun fromKey_migrates_legacy_by_score_to_score_high_low() {
         assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("by_score"))
     }
 
     @Test
-    /**
-     * From key migrates legacy by status to by name.
-     */
     fun fromKey_migrates_legacy_by_status_to_by_name() {
         assertEquals(HabitSortOption.BY_NAME, HabitSortOption.fromKey("by_status"))
     }
 
     @Test
-    /**
-     * From key returns score high low for unknown key.
-     */
     fun fromKey_returns_score_high_low_for_unknown_key() {
         assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("nonexistent_key"))
     }
 
     @Test
-    /**
-     * From key returns score high low for null.
-     */
     fun fromKey_returns_score_high_low_for_null() {
         assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey(null))
     }
 
     @Test
-    /**
-     * From key recognizes new keys directly.
-     */
     fun fromKey_recognizes_new_keys_directly() {
         assertEquals(HabitSortOption.BY_NAME, HabitSortOption.fromKey("by_name"))
         assertEquals(HabitSortOption.BY_NAME_REVERSE, HabitSortOption.fromKey("by_name_reverse"))

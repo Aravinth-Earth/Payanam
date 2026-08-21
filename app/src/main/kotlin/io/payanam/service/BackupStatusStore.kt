@@ -15,17 +15,15 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
-
 /**
- * BackupFailureStatus.
+ * Holds the backup failure status.
  */
 data class BackupFailureStatus(
     val message: String,
     val recordedAtDisplay: String?,
 )
-
 /**
- * BackupStatusSnapshot.
+ * Holds the backup status snapshot.
  */
 data class BackupStatusSnapshot(
     val lastSuccessAtMillis: Long = 0L,
@@ -35,7 +33,7 @@ data class BackupStatusSnapshot(
 
 @Singleton
 /**
- * BackupStatusStore.
+ * Provides the backup status store.
  */
 class BackupStatusStore @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -44,9 +42,8 @@ class BackupStatusStore @Inject constructor(
     private val prefs = context.getSharedPreferences(BACKUP_META_PREFS, Context.MODE_PRIVATE)
     private val _status = MutableStateFlow(loadSnapshot())
     val status: StateFlow<BackupStatusSnapshot> = _status.asStateFlow()
-
     /**
-     * Record success.
+     * Performs the record success.
      */
     fun recordSuccess(recordedAtMillis: Long) {
         val effectiveMillis = recordedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
@@ -65,9 +62,8 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp),
         )
     }
-
     /**
-     * Record failure.
+     * Performs the record failure.
      */
     fun recordFailure(message: String) {
         val recordedAtMillis = System.currentTimeMillis()
@@ -84,9 +80,8 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp, "message" to message.take(200)),
         )
     }
-
     /**
-     * Dismiss latest failure.
+     * Performs the dismiss latest failure.
      */
     fun dismissLatestFailure() {
         prefs.edit()
@@ -97,9 +92,8 @@ class BackupStatusStore @Inject constructor(
         _status.value = loadSnapshot()
         logger.i("BackupStatusStore.dismissLatestFailure", "Dismissed persisted backup failure message")
     }
-
     /**
-     * Refresh.
+     * Performs the refresh.
      */
     fun refresh() {
         _status.value = loadSnapshot()
@@ -131,9 +125,8 @@ class BackupStatusStore @Inject constructor(
         const val KEY_LAST_BACKUP_FAILURE_AT_MILLIS = "last_backup_failure_at_millis"
         const val KEY_LAST_BACKUP_FAILURE_DISPLAY = "last_backup_failure_display"
         const val KEY_LAST_BACKUP_FAILURE_MESSAGE = "last_backup_failure_message"
-
         /**
-         * Format backup timestamp.
+         * Performs the format backup timestamp.
          */
         fun formatBackupTimestamp(millis: Long): String = Instant.ofEpochMilli(millis)
             .atZone(ZoneId.systemDefault())

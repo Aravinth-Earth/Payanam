@@ -409,7 +409,7 @@ private data class DesktopNoteDialogState(
 ) {
     companion object {
         /**
-         * Hidden.
+         * Performs the hidden.
          */
         fun hidden(): DesktopNoteDialogState =
             DesktopNoteDialogState(
@@ -420,14 +420,12 @@ private data class DesktopNoteDialogState(
                 tagsRaw = "",
                 dimensionId = DesktopNoteContracts.DEFAULT_DIMENSION_ID,
             )
-
         /**
-         * Create.
+         * Creates the create.
          */
         fun create(): DesktopNoteDialogState = hidden().copy(isVisible = true)
-
         /**
-         * Edit.
+         * Performs the edit.
          */
         fun edit(note: DesktopNoteRecord): DesktopNoteDialogState =
             DesktopNoteDialogState(

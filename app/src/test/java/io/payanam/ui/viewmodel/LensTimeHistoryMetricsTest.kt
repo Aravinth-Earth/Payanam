@@ -28,15 +28,9 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensTimeHistoryMetricsTest.
- */
 class LensTimeHistoryMetricsTest {
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {

@@ -15,9 +15,6 @@ import org.robolectric.RobolectricTestRunner
  * plain JVM stubs org.json with "not mocked" throws.
  */
 @RunWith(RobolectricTestRunner::class)
-/**
- * UpdateCheckerParseTest.
- */
 class UpdateCheckerParseTest {
 
     // ── parseReleases (list endpoint parsing) ─────────────────────────────

@@ -9,15 +9,15 @@ import dagger.hilt.components.SingletonComponent
 @EntryPoint
 @InstallIn(SingletonComponent::class)
 /**
- * BackupWorkerEntryPoint.
+ * Defines the contract for backup worker entry point.
  */
 interface BackupWorkerEntryPoint {
     /**
-     * Database backup coordinator.
+     * Performs the database backup coordinator.
      */
     fun databaseBackupCoordinator(): DatabaseBackupCoordinator
     /**
-     * Backup status store.
+     * Performs the backup status store.
      */
     fun backupStatusStore(): BackupStatusStore
 }

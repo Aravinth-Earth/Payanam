@@ -78,9 +78,8 @@ import io.payanam.ui.screens.TasksScreenMode
 import io.payanam.ui.screens.TimeScreen
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-
 /**
- * Screen.
+ * Provides the screen.
  */
 sealed class Screen(
     val route: String,
@@ -139,9 +138,6 @@ sealed class Screen(
 }
 
 // Non-bottom-nav routes
-/**
- * Routes.
- */
 object Routes {
     const val PASSPHRASE_UNLOCK = "passphrase_unlock"
     const val PASSPHRASE_SETUP = "passphrase_setup"
@@ -153,17 +149,16 @@ object Routes {
     const val EDIT_TASK = "edit_task/{taskId}"
     const val SCORE_DETAIL = "score_detail/{type}/{key}"
     const val SCORING_CONFIG = "scoring_config"
-
     /**
-     * Task detail.
+     * Performs the task detail.
      */
     fun taskDetail(taskId: String) = "task_detail/$taskId"
     /**
-     * Edit task.
+     * Performs the edit task.
      */
     fun editTask(taskId: String) = "edit_task/$taskId"
     /**
-     * Score detail.
+     * Performs the score detail.
      */
     fun scoreDetail(type: String, key: String) = "score_detail/$type/$key"
 }
@@ -179,7 +174,7 @@ val bottomNavItems = listOf(
 
 @Composable
 /**
- * Payanam nav host.
+ * Performs the payanam nav host.
  */
 fun PayanamNavHost(
     shouldShowPassphraseUnlock: Boolean = false,
@@ -215,7 +210,7 @@ fun PayanamNavHost(
     // Check if a route is allowed given current feature flags and preferences.
     // Delegates to NavRoutePolicy for testable logic; logs outcomes for observability.
     /**
-     * Is route allowed.
+     * Returns true when the is route allowed.
      */
     fun isRouteAllowed(route: String): Boolean {
         val allowed = NavRoutePolicy.isAllowed(route, FeatureFlags.minimalModeEnabled)

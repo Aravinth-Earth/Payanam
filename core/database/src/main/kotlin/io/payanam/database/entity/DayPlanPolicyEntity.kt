@@ -28,7 +28,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DayPlanPolicyEntity.
+ * Holds the day plan policy entity.
  */
 data class DayPlanPolicyEntity(
     @PrimaryKey

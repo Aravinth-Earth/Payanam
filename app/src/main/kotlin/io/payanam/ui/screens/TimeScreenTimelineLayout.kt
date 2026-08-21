@@ -11,9 +11,8 @@ internal sealed class TimelineItem {
     abstract val id: String
     abstract val startMinutes: Int
     abstract val endMinutes: Int
-
     /**
-     * Entry.
+     * Holds the entry.
      */
     data class Entry(
         val entry: TimeEntry,
@@ -22,9 +21,8 @@ internal sealed class TimelineItem {
     ) : TimelineItem() {
         override val id: String = "entry_${entry.id}"
     }
-
     /**
-     * Planned.
+     * Holds the planned.
      */
     data class Planned(
         val task: Task,
@@ -34,9 +32,8 @@ internal sealed class TimelineItem {
     ) : TimelineItem() {
         override val id: String = "planned_${task.id}"
     }
-
     /**
-     * Occurrence.
+     * Holds the occurrence.
      */
     data class Occurrence(
         val occurrence: TaskOccurrence,
@@ -61,11 +58,11 @@ internal fun <T> calculateLaneLayout(
 ): List<LaneLayoutEntry<T>> {
     if (items.isEmpty()) return emptyList()
     /**
-     * ActiveItem.
+     * Holds the active item.
      */
     data class ActiveItem<T>(val item: T, val laneIndex: Int, val endMinutes: Int)
     /**
-     * GroupItem.
+     * Holds the group item.
      */
     data class GroupItem<T>(val item: T, val laneIndex: Int)
     val logger = UnifiedLogger.getInstance()
@@ -74,9 +71,8 @@ internal fun <T> calculateLaneLayout(
     var groupItems = mutableListOf<GroupItem<T>>()
     var groupMaxLanes = 0
     val result = mutableListOf<LaneLayoutEntry<T>>()
-
     /**
-     * Finalize group.
+     * Performs the finalize group.
      */
     fun finalizeGroup() {
         if (groupItems.isEmpty()) return

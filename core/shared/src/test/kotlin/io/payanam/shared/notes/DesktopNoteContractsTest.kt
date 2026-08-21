@@ -5,10 +5,6 @@ package io.payanam.shared.notes
 import com.google.common.truth.Truth.assertThat
 import java.time.LocalDateTime
 import org.junit.Test
-
-/**
- * DesktopNoteContractsTest.
- */
 class DesktopNoteContractsTest {
     @Test
     fun `create record normalizes title details tags and dimension fallback`() {

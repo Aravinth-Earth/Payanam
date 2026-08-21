@@ -24,7 +24,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * JournalRepositoryImpl.
+ * Provides the journal repository impl.
  */
 class JournalRepositoryImpl
     @Inject
@@ -35,6 +35,9 @@ class JournalRepositoryImpl
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Returns the get or create entry.
+         */
         override suspend fun getOrCreateEntry(date: LocalDate): DayJournalEntry {
             val dateStr = date.format(dateFormatter)
             var entry = sessionManager.requireDatabase().journalDao().getEntryForDate(dateStr)
@@ -55,6 +58,9 @@ class JournalRepositoryImpl
             return entry.toDomain()
         }
 
+        /**
+         * Registers the observe entry.
+         */
         override fun observeEntry(date: LocalDate): Flow<DayJournalEntry?> {
             val dateStr = date.format(dateFormatter)
             logger.d("JournalRepositoryImpl.observeEntry", "Subscribing to journal entry", mapOf("date" to dateStr))
@@ -65,6 +71,9 @@ class JournalRepositoryImpl
                 .map { it?.toDomain() }
         }
 
+        /**
+         * Returns the get responses.
+         */
         override fun getResponses(entryId: String): Flow<List<DayJournalResponse>> {
             logger.d("JournalRepositoryImpl.getResponses", "Subscribing to journal responses", mapOf("entryId" to entryId))
             return sessionManager.requireDatabase().journalDao().getResponsesForEntry(entryId).map { entities ->
@@ -72,6 +81,9 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Writes the save response.
+         */
         override suspend fun saveResponse(
             entryId: String,
             input: DayJournalResponseInput,
@@ -112,6 +124,9 @@ class JournalRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Returns the get response.
+         */
         override suspend fun getResponse(
             entryId: String,
             scope: JournalPromptScope,
@@ -137,6 +152,9 @@ class JournalRepositoryImpl
             return response
         }
 
+        /**
+         * Returns the get entry by date.
+         */
         override suspend fun getEntryByDate(dateString: String): DayJournalEntry? {
             val entry =
                 sessionManager
@@ -155,6 +173,9 @@ class JournalRepositoryImpl
             return entry
         }
 
+        /**
+         * Performs the insert entry.
+         */
         override suspend fun insertEntry(entry: DayJournalEntry) {
             val entity =
                 DayJournalEntryEntity(
@@ -167,6 +188,9 @@ class JournalRepositoryImpl
             logger.d("JournalRepositoryImpl.insertEntry", "Entry inserted", mapOf("id" to entry.id))
         }
 
+        /**
+         * Returns the get responses by entry id.
+         */
         override suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse> {
             val responses =
                 sessionManager
@@ -185,6 +209,9 @@ class JournalRepositoryImpl
             return responses
         }
 
+        /**
+         * Performs the upsert response.
+         */
         override suspend fun upsertResponse(response: DayJournalResponse) {
             val now = LocalDateTime.now().format(dateTimeFormatter)
             val existing =
@@ -219,6 +246,9 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get all journal entries.
+         */
         override fun getAllJournalEntries(): Flow<List<DayJournalEntry>> {
             logger.d("JournalRepositoryImpl.getAllJournalEntries", "Subscribing to all journal entries")
             return sessionManager.requireDatabase().journalDao().getAllEntries().map { entities ->
@@ -226,6 +256,9 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get total response count.
+         */
         override fun getTotalResponseCount(): Flow<Int> =
             sessionManager.requireDatabase().journalDao().getAllResponses().map { responses ->
                 responses.size

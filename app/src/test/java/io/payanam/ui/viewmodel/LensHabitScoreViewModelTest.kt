@@ -28,9 +28,6 @@ import org.robolectric.RobolectricTestRunner
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensHabitScoreViewModelTest.
- */
 class LensHabitScoreViewModelTest {
 
     private val dispatcher = StandardTestDispatcher()
@@ -49,9 +46,6 @@ class LensHabitScoreViewModelTest {
     }
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -60,9 +54,6 @@ class LensHabitScoreViewModelTest {
     }
 
     @After
-    /**
-     * Tear down.
-     */
     fun tearDown() {
         Dispatchers.resetMain()
     }

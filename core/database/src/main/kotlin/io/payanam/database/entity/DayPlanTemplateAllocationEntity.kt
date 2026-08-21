@@ -35,7 +35,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DayPlanTemplateAllocationEntity.
+ * Holds the day plan template allocation entity.
  */
 data class DayPlanTemplateAllocationEntity(
     @PrimaryKey

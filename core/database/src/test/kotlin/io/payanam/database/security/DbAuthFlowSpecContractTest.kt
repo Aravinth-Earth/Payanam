@@ -14,7 +14,7 @@ import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * DbAuthFlowSpecContractTest.
+ * Provides the db auth flow spec contract test.
  */
 class DbAuthFlowSpecContractTest {
     private lateinit var logger: UnifiedLogger
@@ -22,7 +22,7 @@ class DbAuthFlowSpecContractTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()

@@ -12,7 +12,7 @@ import io.payanam.common.logging.UnifiedLogger
 
 @Immutable
 /**
- * InsightsVisualTokens.
+ * Holds the insights visual tokens.
  */
 data class InsightsVisualTokens(
     val cardContainer: Color,
@@ -24,7 +24,7 @@ data class InsightsVisualTokens(
 
 @Composable
 /**
- * Remember insights visual tokens.
+ * Performs the remember insights visual tokens.
  */
 fun rememberInsightsVisualTokens(): InsightsVisualTokens {
     val logger = UnifiedLogger.getInstance()

@@ -12,16 +12,10 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * DimensionTaxonomyCatalogTest.
- */
 class DimensionTaxonomyCatalogTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -32,9 +26,6 @@ class DimensionTaxonomyCatalogTest {
     }
 
     @Test
-    /**
-     * Entries follow foundation first order.
-     */
     fun entries_follow_foundation_first_order() {
         assertThat(
             DimensionTaxonomyCatalog.entries
@@ -54,27 +45,18 @@ class DimensionTaxonomyCatalogTest {
     }
 
     @Test
-    /**
-     * From any id rejects legacy id.
-     */
     fun fromAnyId_rejects_legacy_id() {
         val result = DimensionTaxonomyCatalog.fromAnyId("dim_health_wellness")
         assertThat(result).isNull()
     }
 
     @Test
-    /**
-     * From any label rejects legacy label.
-     */
     fun fromAnyLabel_rejects_legacy_label() {
         val result = DimensionTaxonomyCatalog.fromAnyLabel("Community & Service")
         assertThat(result).isNull()
     }
 
     @Test
-    /**
-     * Is canonical label accepts canonical label only.
-     */
     fun isCanonicalLabel_accepts_canonical_label_only() {
         assertThat(DimensionTaxonomyCatalog.isCanonicalLabel("Home & Environment")).isTrue()
         assertThat(DimensionTaxonomyCatalog.isCanonicalLabel("Family & Relationship")).isFalse()

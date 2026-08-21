@@ -26,16 +26,14 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.UUID
 import javax.inject.Inject
-
 /**
- * DayTab.
+ * Defines the contract for day tab.
  */
 enum class DayTab {
     SUMMARY,
 }
-
 /**
- * DayUiState.
+ * Holds the day ui state.
  */
 data class DayUiState(
     val isLoading: Boolean = true,
@@ -52,7 +50,7 @@ val DIMENSION_JOURNAL_PROMPTS = JournalReflectionContracts.dimensionPrompts.map 
 
 @HiltViewModel
 /**
- * DayViewModel.
+ * Provides the day view model.
  */
 class DayViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
@@ -78,9 +76,8 @@ class DayViewModel @Inject constructor(
     init {
         loadDayData()
     }
-
     /**
-     * Previous day.
+     * Performs the previous day.
      */
     fun previousDay() {
         val newDate = _uiState.value.selectedDate.minusDays(1)
@@ -88,9 +85,8 @@ class DayViewModel @Inject constructor(
         _uiState.update { it.copy(selectedDate = newDate) }
         loadDayData()
     }
-
     /**
-     * Next day.
+     * Performs the next day.
      */
     fun nextDay() {
         val currentDate = _uiState.value.selectedDate
@@ -108,18 +104,16 @@ class DayViewModel @Inject constructor(
         _uiState.update { it.copy(selectedDate = newDate) }
         loadDayData()
     }
-
     /**
-     * Go to today.
+     * Performs the go to today.
      */
     fun goToToday() {
         logger.d("DayViewModel.goToToday", "Navigating to today")
         _uiState.update { it.copy(selectedDate = LocalDate.now()) }
         loadDayData()
     }
-
     /**
-     * Select date.
+     * Performs the select date.
      */
     fun selectDate(date: LocalDate) {
         val today = LocalDate.now()
@@ -136,27 +130,23 @@ class DayViewModel @Inject constructor(
         _uiState.update { it.copy(selectedDate = selectedDate) }
         loadDayData()
     }
-
     /**
-     * Select tab.
+     * Performs the select tab.
      */
     fun selectTab(tab: DayTab) {
         logger.d("DayViewModel.selectTab", "Tab selected", mapOf("tab" to tab.name))
         _uiState.update { it.copy(selectedTab = DayTab.SUMMARY) }
     }
-
     /**
-     * Get formatted date.
+     * Returns the get formatted date.
      */
     fun getFormattedDate(): String = _uiState.value.selectedDate.format(displayDateFormatter)
-
     /**
-     * Is today.
+     * Returns true when the is today.
      */
     fun isToday(): Boolean = _uiState.value.selectedDate == LocalDate.now()
-
     /**
-     * Update overall response.
+     * Updates the update overall response.
      */
     fun updateOverallResponse(sourceDate: LocalDate, promptKey: String, response: String) {
         logger.d(
@@ -185,9 +175,8 @@ class DayViewModel @Inject constructor(
             response = response,
         )
     }
-
     /**
-     * Update dimension response.
+     * Updates the update dimension response.
      */
     fun updateDimensionResponse(
         sourceDate: LocalDate,
@@ -358,6 +347,9 @@ class DayViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles the on cleared.
+     */
     override fun onCleared() {
         pendingJournalSaves.values.forEach { it.cancel() }
         pendingJournalSaves.clear()

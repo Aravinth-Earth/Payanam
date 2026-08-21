@@ -22,9 +22,8 @@ internal class LensHistoryBackfillCoordinator(
     private val logger: UnifiedLogger,
 ) {
     private var backfillJob: Job? = null
-
     /**
-     * Cancel.
+     * Returns true when the cancel.
      */
     fun cancel() {
         if (backfillJob?.isActive == true) {
@@ -32,14 +31,12 @@ internal class LensHistoryBackfillCoordinator(
         }
         backfillJob?.cancel()
     }
-
     /**
-     * Next limit after.
+     * Performs the next limit after.
      */
     fun nextLimitAfter(currentDays: Int): Int? = PROGRESSIVE_HISTORY_LIMITS.firstOrNull { it > currentDays }
-
     /**
-     * Schedule.
+     * Performs the schedule.
      */
     fun schedule(
         scope: CoroutineScope,

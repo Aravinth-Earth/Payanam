@@ -13,15 +13,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensesScreenDimensionLineColorTest.
- */
 class LensesScreenDimensionLineColorTest {
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -29,9 +23,6 @@ class LensesScreenDimensionLineColorTest {
     }
 
     @Test
-    /**
-     * Tagged dimension line applies color to dimension name span.
-     */
     fun taggedDimensionLine_appliesColorToDimensionNameSpan() {
         val label = "Health & Wellness"
         val line = "$label: 1h 0m (planned) vs 45m (actual)"

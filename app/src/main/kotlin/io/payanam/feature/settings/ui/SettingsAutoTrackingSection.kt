@@ -36,7 +36,7 @@ import io.payanam.ui.viewmodel.visibleDimensionOptions
  */
 @Composable
 /**
- * Auto tracking section.
+ * Performs the auto tracking section.
  */
 fun AutoTrackingSection(
     prefsState: AppPreferencesState,

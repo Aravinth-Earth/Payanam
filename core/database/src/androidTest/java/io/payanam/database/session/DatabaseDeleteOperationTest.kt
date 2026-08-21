@@ -29,7 +29,7 @@ class DatabaseDeleteOperationTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
@@ -50,7 +50,7 @@ class DatabaseDeleteOperationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -62,7 +62,7 @@ class DatabaseDeleteOperationTest {
 
     @Test
     /**
-     * Delete database removes physical database file.
+     * Removes the delete database removes physical database file.
      */
     fun deleteDatabase_removesPhysicalDatabaseFile() =
         runTest {
@@ -94,7 +94,7 @@ class DatabaseDeleteOperationTest {
 
     @Test
     /**
-     * Delete database clears encryption state.
+     * Removes the delete database clears encryption state.
      */
     fun deleteDatabase_clearsEncryptionState() =
         runTest {
@@ -164,7 +164,7 @@ class DatabaseDeleteOperationTest {
 
     @Test
     /**
-     * Delete database handles multiple consecutive deletions.
+     * Removes the delete database handles multiple consecutive deletions.
      */
     fun deleteDatabase_handlesMultipleConsecutiveDeletions() =
         runTest {
@@ -201,7 +201,7 @@ class DatabaseDeleteOperationTest {
 
     @Test
     /**
-     * Session manager clears state on database close.
+     * Performs the session manager clears state on database close.
      */
     fun sessionManager_clearsStateOnDatabaseClose() =
         runTest {
@@ -232,7 +232,7 @@ class DatabaseDeleteOperationTest {
 
     @Test
     /**
-     * Delete database complete import scenario.
+     * Removes the delete database complete import scenario.
      */
     fun deleteDatabase_completeImportScenario() =
         runTest {

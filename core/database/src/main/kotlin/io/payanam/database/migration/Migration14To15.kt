@@ -18,6 +18,9 @@ val MIGRATION_14_15 =
     object : Migration(14, 15) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.14_15", "Starting migration from version 14 to 15")
             try {

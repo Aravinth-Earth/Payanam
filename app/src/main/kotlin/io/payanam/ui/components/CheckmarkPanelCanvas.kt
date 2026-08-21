@@ -41,7 +41,7 @@ import androidx.compose.ui.unit.sp
  */
 @Composable
 /**
- * Checkmark panel canvas.
+ * Returns true when the checkmark panel canvas.
  */
 fun CheckmarkPanelCanvas(
     checkmarks: List<DayCheckmark>,
@@ -131,7 +131,7 @@ fun CheckmarkPanelCanvas(
 }
 
 /**
- * Draw a single checkmark in the Canvas.
+ * Draw a single checkmark in the canvas.
  */
 private fun DrawScope.drawCheckmark(
     checkmark: DayCheckmark,

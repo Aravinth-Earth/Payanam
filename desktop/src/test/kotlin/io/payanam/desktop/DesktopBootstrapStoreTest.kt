@@ -8,9 +8,8 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
-
 /**
- * DesktopBootstrapStoreTest.
+ * Provides the desktop bootstrap store test.
  */
 class DesktopBootstrapStoreTest {
     @get:Rule

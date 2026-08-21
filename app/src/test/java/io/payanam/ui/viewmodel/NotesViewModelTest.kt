@@ -30,18 +30,12 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-/**
- * NotesViewModelTest.
- */
 class NotesViewModelTest {
     private val dispatcher = StandardTestDispatcher()
     private lateinit var noteRepository: FakeNoteRepository
     private lateinit var tagRepository: FakeTagRepository
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -52,17 +46,11 @@ class NotesViewModelTest {
     }
 
     @After
-    /**
-     * Tear down.
-     */
     fun tearDown() {
         Dispatchers.resetMain()
     }
 
     @Test
-    /**
-     * Set dimension filter uses dimension ids for filtering.
-     */
     fun setDimensionFilter_uses_dimensionIds_for_filtering() = runTest {
         val now = LocalDateTime.of(2026, 3, 15, 10, 0)
         noteRepository.notes.value = listOf(
@@ -94,9 +82,6 @@ class NotesViewModelTest {
     }
 
     @Test
-    /**
-     * Create note preserves selected dimension id and label.
-     */
     fun createNote_preserves_selected_dimension_id_and_label() = runTest {
         val viewModel = NotesViewModel(noteRepository, tagRepository)
         advanceUntilIdle()

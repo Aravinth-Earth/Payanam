@@ -45,7 +45,7 @@ import javax.inject.Inject
  */
 @HiltViewModel
 /**
- * PreUnlockUpdateViewModel.
+ * Provides the pre unlock update view model.
  */
 class PreUnlockUpdateViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -217,6 +217,9 @@ class PreUnlockUpdateViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Handles the on cleared.
+     */
     override fun onCleared() {
         pollJob?.cancel()
         super.onCleared()

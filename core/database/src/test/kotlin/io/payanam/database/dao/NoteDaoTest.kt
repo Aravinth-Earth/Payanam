@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * NoteDaoTest.
+ * Provides the note dao test.
  */
 class NoteDaoTest {
     private lateinit var database: PayanamDatabase
@@ -26,7 +26,7 @@ class NoteDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -41,7 +41,7 @@ class NoteDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -49,7 +49,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Insert and get note by id.
+     * Performs the insert and get note by id.
      */
     fun insert_and_getNoteById() {
         runBlocking {
@@ -64,7 +64,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Get all notes returns all notes.
+     * Returns the get all notes returns all notes.
      */
     fun getAllNotes_returnsAllNotes() {
         runBlocking {
@@ -81,7 +81,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Get notes by dimension filters correctly.
+     * Returns the get notes by dimension filters correctly.
      */
     fun getNotesByDimension_filtersCorrectly() {
         runBlocking {
@@ -100,7 +100,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Update modifies note.
+     * Updates the update modifies note.
      */
     fun update_modifiesNote() {
         runBlocking {
@@ -115,7 +115,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Delete removes note.
+     * Removes the delete removes note.
      */
     fun delete_removesNote() {
         runBlocking {
@@ -130,7 +130,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Delete by id removes note.
+     * Removes the delete by id removes note.
      */
     fun deleteById_removesNote() {
         runBlocking {

@@ -23,14 +23,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * CreateTimeEntryForHabitUseCaseTest.
- */
 class CreateTimeEntryForHabitUseCaseTest {
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)

@@ -36,7 +36,7 @@ internal class DesktopJournalStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Load state.
+     * Loads the load state.
      */
     fun loadState(): DesktopJournalState {
         val selectedDateIso = today().toString()
@@ -72,9 +72,8 @@ internal class DesktopJournalStore(
             )
         }
     }
-
     /**
-     * Select date.
+     * Performs the select date.
      */
     fun selectDate(
         currentState: DesktopJournalState,
@@ -87,9 +86,8 @@ internal class DesktopJournalStore(
                 .let { requestedDate -> if (requestedDate.isAfter(todayDate)) todayDate else requestedDate }
         return currentState.copy(selectedDateIso = boundedDate.toString(), errorMessage = null)
     }
-
     /**
-     * Save overall response.
+     * Writes the save overall response.
      */
     fun saveOverallResponse(
         currentState: DesktopJournalState,
@@ -113,9 +111,8 @@ internal class DesktopJournalStore(
         )
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
-
     /**
-     * Save dimension response.
+     * Writes the save dimension response.
      */
     fun saveDimensionResponse(
         currentState: DesktopJournalState,
@@ -146,16 +143,14 @@ internal class DesktopJournalStore(
         )
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
-
     /**
-     * Save snapshot.
+     * Writes the save snapshot.
      */
     fun saveSnapshot(snapshot: JournalSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
-
     /**
-     * Get journal file path.
+     * Returns the get journal file path.
      */
     fun getJournalFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

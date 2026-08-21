@@ -21,7 +21,7 @@ import androidx.room.PrimaryKey
     indices = [Index("dimension_id"), Index("period"), Index("is_active")],
 )
 /**
- * TimeGoalEntity.
+ * Holds the time goal entity.
  */
 data class TimeGoalEntity(
     @PrimaryKey

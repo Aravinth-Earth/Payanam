@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.Flow
 import java.time.LocalDateTime
 
 /**
- * Repository interface for Task Reschedule history.
+ * Repository interface for task reschedule history.
  */
 interface TaskRescheduleRepository {
 

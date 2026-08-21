@@ -4,10 +4,6 @@ package io.payanam.shared.settings
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
-/**
- * DesktopPreferenceContractsTest.
- */
 class DesktopPreferenceContractsTest {
     @Test
     fun `default snapshot stays stable for desktop bootstrap`() {

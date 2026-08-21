@@ -45,9 +45,8 @@ import io.payanam.ui.viewmodel.DayViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-
 /**
- * DayScreenMode.
+ * Defines the contract for day screen mode.
  */
 enum class DayScreenMode {
     JOURNAL_ONLY,
@@ -56,7 +55,7 @@ enum class DayScreenMode {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Day screen.
+ * Performs the day screen.
  */
 fun DayScreen(
     mode: DayScreenMode = DayScreenMode.JOURNAL_ONLY,
@@ -134,6 +133,9 @@ fun DayScreen(
         val today = LocalDate.now()
         val selectableDates = remember(today) {
             object : SelectableDates {
+                /**
+                 * Returns true when the is selectable date.
+                 */
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val candidate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.systemDefault())
@@ -141,6 +143,9 @@ fun DayScreen(
                     return !candidate.isAfter(today)
                 }
 
+                /**
+                 * Returns true when the is selectable year.
+                 */
                 override fun isSelectableYear(year: Int): Boolean = year <= today.year
             }
         }

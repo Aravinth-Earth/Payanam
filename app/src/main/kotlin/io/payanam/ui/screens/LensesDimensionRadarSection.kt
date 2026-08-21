@@ -59,7 +59,7 @@ private fun hasAverageMetric(metric: ScoreMetricColumn): Boolean =
  */
 @Composable
 /**
- * Lens dimension radar section.
+ * Performs the lens dimension radar section.
  */
 fun LensDimensionRadarSection(
     axes: List<RadarAxis>,
@@ -166,15 +166,14 @@ private fun RadarCanvas(
             radarMetric == ScoreMetricColumn.PROGRESS ||
                 radarMetric == ScoreMetricColumn.STREAK_NET
         /**
-         * Scale.
+         * Performs the scale.
          */
         fun scale(v: Double?): Float {
             val n = ((v ?: 0.0) / scaleMax).coerceIn(-1.0, 1.0)
             return (if (signedMetric) n else n * 2.0 - 1.0).toFloat()
         }
-
         /**
-         * Point.
+         * Performs the point.
          */
         fun point(index: Int, value: Float): Offset {
             val angle = -Math.PI / 2 + angleStep * index

@@ -82,7 +82,7 @@ import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 /**
- * Time screen.
+ * Performs the time screen.
  */
 fun TimeScreen(
     viewModel: TimeViewModel = hiltViewModel(),
@@ -215,7 +215,7 @@ fun TimeScreen(
         nearestTimeScalePreset(timeHourHeightDp)
     }
     /**
-     * Auto scroll to current time.
+     * Performs the auto scroll to current time.
      */
     suspend fun autoScrollToCurrentTime(reason: String) {
         if (uiState.selectedDate != LocalDate.now()) {

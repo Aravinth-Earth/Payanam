@@ -23,9 +23,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
-
 /**
- * TaskDetailUiState.
+ * Holds the task detail ui state.
  */
 data class TaskDetailUiState(
     val task: Task? = null,
@@ -55,7 +54,7 @@ data class TaskDetailUiState(
 
 @HiltViewModel
 /**
- * TaskDetailViewModel.
+ * Provides the task detail view model.
  */
 class TaskDetailViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -72,9 +71,8 @@ class TaskDetailViewModel @Inject constructor(
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
 
     private var currentTaskId: String? = null
-
     /**
-     * Load task.
+     * Loads the load task.
      */
     fun loadTask(taskId: String) {
         currentTaskId = taskId
@@ -177,9 +175,8 @@ class TaskDetailViewModel @Inject constructor(
         _uiState.update { it.copy(windowSizeDays = days, windowEnd = java.time.LocalDate.now()) }
         loadActivityWindow(currentTaskId ?: return)
     }
-
     /**
-     * Shift window back.
+     * Performs the shift window back.
      */
     fun shiftWindowBack() {
         val s = _uiState.value
@@ -188,9 +185,8 @@ class TaskDetailViewModel @Inject constructor(
         }
         loadActivityWindow(currentTaskId ?: return)
     }
-
     /**
-     * Shift window forward.
+     * Performs the shift window forward.
      */
     fun shiftWindowForward() {
         val s = _uiState.value
@@ -202,17 +198,15 @@ class TaskDetailViewModel @Inject constructor(
         }
         loadActivityWindow(currentTaskId ?: return)
     }
-
     /**
-     * Jump window to today.
+     * Performs the jump window to today.
      */
     fun jumpWindowToToday() {
         _uiState.update { it.copy(windowEnd = java.time.LocalDate.now()) }
         loadActivityWindow(currentTaskId ?: return)
     }
-
     /**
-     * Set chart view.
+     * Updates the set chart view.
      */
     fun setChartView(chart: Boolean) {
         _uiState.update { it.copy(showChartView = chart) }
@@ -260,7 +254,7 @@ class TaskDetailViewModel @Inject constructor(
     /** Window bounds: [sizeDays] days ending at [end]; sizeDays <= 0 = all-time. */
     internal companion object {
         /**
-         * Window bounds.
+         * Performs the window bounds.
          */
         fun windowBounds(sizeDays: Int, end: java.time.LocalDate): Pair<java.time.LocalDate, java.time.LocalDate> {
             val start = if (sizeDays > 0) end.minusDays((sizeDays - 1).toLong()) else java.time.LocalDate.of(2020, 1, 1)
@@ -606,9 +600,8 @@ class TaskDetailViewModel @Inject constructor(
             logger.e("TaskDetailViewModel.recordOccurrence", "Error recording occurrence", e)
         }
     }
-
     /**
-     * Archive task.
+     * Performs the archive task.
      */
     fun archiveTask() {
         val taskId = currentTaskId ?: return
@@ -634,9 +627,8 @@ class TaskDetailViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Reschedule task.
+     * Performs the reschedule task.
      */
     fun rescheduleTask(newDueDate: LocalDateTime) {
         val taskId = currentTaskId ?: return
@@ -709,9 +701,8 @@ class TaskDetailViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Delete task.
+     * Removes the delete task.
      */
     fun deleteTask() {
         val taskId = currentTaskId ?: return

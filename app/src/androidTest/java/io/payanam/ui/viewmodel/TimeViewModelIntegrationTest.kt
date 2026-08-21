@@ -36,7 +36,7 @@ import java.time.LocalDateTime
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
 /**
- * TimeViewModelIntegrationTest.
+ * Provides the time view model integration test.
  */
 class TimeViewModelIntegrationTest {
 
@@ -65,7 +65,7 @@ class TimeViewModelIntegrationTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         MockitoAnnotations.openMocks(this)
@@ -90,7 +90,7 @@ class TimeViewModelIntegrationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         Dispatchers.resetMain()
@@ -98,7 +98,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Initial state loads correctly.
+     * Performs the initial state loads correctly.
      */
     fun initialState_loadsCorrectly() = runTest {
         // Given - default mocks return empty data
@@ -116,7 +116,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Load data populates state with repository data.
+     * Loads the load data populates state with repository data.
      */
     fun loadData_populatesStateWithRepositoryData() = runTest {
         // Given
@@ -150,7 +150,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Start tracking creates new time entry.
+     * Performs the start tracking creates new time entry.
      */
     fun startTracking_createsNewTimeEntry() = runTest {
         // Given
@@ -170,7 +170,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Stop tracking stops active entry.
+     * Performs the stop tracking stops active entry.
      */
     fun stopTracking_stopsActiveEntry() = runTest {
         // Given
@@ -186,7 +186,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Load entries for date loads entries for specific date.
+     * Loads the load entries for date loads entries for specific date.
      */
     fun loadEntriesForDate_loadsEntriesForSpecificDate() = runTest {
         // Given
@@ -208,7 +208,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Active time entry is reflected in state.
+     * Performs the active time entry is reflected in state.
      */
     fun activeTimeEntry_isReflectedInState() = runTest {
         // Given
@@ -235,7 +235,7 @@ class TimeViewModelIntegrationTest {
 
     @Test
     /**
-     * Planned tasks are loaded and displayed.
+     * Performs the planned tasks are loaded and displayed.
      */
     fun plannedTasks_areLoadedAndDisplayed() = runTest {
         // Given

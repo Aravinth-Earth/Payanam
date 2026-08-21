@@ -12,9 +12,8 @@ import java.io.File
 internal object DatabaseImportIntegritySupport {
     private val logger = UnifiedLogger.getInstance()
     private val trackedTables = listOf("tasks", "time_entries", "notes")
-
     /**
-     * Read core counts.
+     * Loads the read core counts.
      */
     fun readCoreCounts(
         context: Context,
@@ -48,9 +47,8 @@ internal object DatabaseImportIntegritySupport {
         )
         return counts
     }
-
     /**
-     * Validate counts preserved.
+     * Returns true when the validate counts preserved.
      */
     fun validateCountsPreserved(
         beforeCounts: Map<String, Int>,

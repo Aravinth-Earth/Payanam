@@ -26,7 +26,7 @@ import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 
 /**
- * Full SettingsCard wrapper for the insights charts visibility section.
+ * Full settingsCard wrapper for the insights charts visibility section.
  */
 @Composable
 internal fun InsightsChartsVisibilitySettingsCard(

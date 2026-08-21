@@ -15,18 +15,18 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * TaskDao.
+ * Defines the contract for task dao.
  */
 interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC")
     /**
-     * Get all tasks.
+     * Returns the get all tasks.
      */
     fun getAllTasks(): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE status = :status ORDER BY taskScore DESC")
     /**
-     * Get tasks by status.
+     * Returns the get tasks by status.
      */
     fun getTasksByStatus(status: String): Flow<List<TaskEntity>>
 
@@ -42,25 +42,25 @@ interface TaskDao {
         """,
     )
     /**
-     * Get tasks due on.
+     * Returns the get tasks due on.
      */
     fun getTasksDueOn(date: String): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     /**
-     * Get task by id.
+     * Returns the get task by id.
      */
     suspend fun getTaskById(id: String): TaskEntity?
 
     @Query("UPDATE tasks SET recurrenceRule = :rule, updatedAt = :updatedAt WHERE id = :id")
     /**
-     * Update recurrence rule.
+     * Updates the update recurrence rule.
      */
     suspend fun updateRecurrenceRule(id: String, rule: String, updatedAt: String = java.time.LocalDateTime.now().toString())
 
     @Query("SELECT * FROM tasks WHERE import_source = :source AND import_id = :importId LIMIT 1")
     /**
-     * Get task by import ref.
+     * Returns the get task by import ref.
      */
     suspend fun getTaskByImportRef(
         source: String,
@@ -69,7 +69,7 @@ interface TaskDao {
 
     @Query("SELECT COUNT(*) FROM tasks WHERE import_source = :source")
     /**
-     * Count by import source.
+     * Performs the count by import source.
      */
     suspend fun countByImportSource(source: String): Int
 
@@ -83,7 +83,7 @@ interface TaskDao {
     """,
     )
     /**
-     * Get overdue tasks.
+     * Returns the get overdue tasks.
      */
     fun getOverdueTasks(now: String): Flow<List<TaskEntity>>
 
@@ -102,43 +102,43 @@ interface TaskDao {
     """,
     )
     /**
-     * Get todays tasks.
+     * Returns the get todays tasks.
      */
     fun getTodaysTasks(today: String): Flow<List<TaskEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(task: TaskEntity)
 
     @Update
     /**
-     * Update.
+     * Updates the update.
      */
     suspend fun update(task: TaskEntity)
 
     @Delete
     /**
-     * Delete.
+     * Removes the delete.
      */
     suspend fun delete(task: TaskEntity)
 
     @Query("DELETE FROM tasks WHERE id = :id")
     /**
-     * Delete by id.
+     * Removes the delete by id.
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM tasks")
     /**
-     * Delete all.
+     * Removes the delete all.
      */
     suspend fun deleteAll()
 
     @Query("UPDATE tasks SET status = :status, completedAt = :completedAt, updatedAt = :updatedAt WHERE id = :id")
     /**
-     * Update status.
+     * Updates the update status.
      */
     suspend fun updateStatus(
         id: String,
@@ -149,7 +149,7 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET status = :status, archivedAt = :archivedAt, updatedAt = :updatedAt WHERE id = :id")
     /**
-     * Update status with archive.
+     * Updates the update status with archive.
      */
     suspend fun updateStatusWithArchive(
         id: String,
@@ -160,7 +160,7 @@ interface TaskDao {
 
     @Query("UPDATE tasks SET taskScore = :score, updatedAt = :updatedAt WHERE id = :id")
     /**
-     * Update task score.
+     * Updates the update task score.
      */
     suspend fun updateTaskScore(
         id: String,
@@ -178,7 +178,7 @@ interface TaskDao {
         """,
     )
     /**
-     * Bulk map import source dimension.
+     * Performs the bulk map import source dimension.
      */
     suspend fun bulkMapImportSourceDimension(
         source: String,
@@ -189,7 +189,7 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE recurrenceEnabled = 1")
     /**
-     * Get recurring tasks.
+     * Returns the get recurring tasks.
      */
     suspend fun getRecurringTasks(): List<TaskEntity>
 
@@ -205,7 +205,7 @@ interface TaskDao {
     """,
     )
     /**
-     * Update recurrence state.
+     * Updates the update recurrence state.
      */
     suspend fun updateRecurrenceState(
         id: String,

@@ -31,7 +31,7 @@ import io.payanam.ui.viewmodel.AppPreferencesState
  */
 @Composable
 /**
- * Focus mode settings content.
+ * Performs the focus mode settings content.
  */
 fun focusModeSettingsContent(
     prefsState: AppPreferencesState,

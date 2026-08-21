@@ -9,7 +9,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * LifeDimensionDao.
+ * Defines the contract for life dimension dao.
  */
 interface LifeDimensionDao {
     @Query(
@@ -19,7 +19,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Observe all dimensions.
+     * Registers the observe all dimensions.
      */
     fun observeAllDimensions(): Flow<List<LifeDimensionEntity>>
 
@@ -32,7 +32,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Update label.
+     * Updates the update label.
      */
     suspend fun updateLabel(
         dimensionId: String,
@@ -49,7 +49,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Update color.
+     * Updates the update color.
      */
     suspend fun updateColor(
         dimensionId: String,
@@ -66,7 +66,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Update icon.
+     * Updates the update icon.
      */
     suspend fun updateIcon(
         dimensionId: String,
@@ -83,7 +83,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Update active state.
+     * Updates the update active state.
      */
     suspend fun updateActiveState(
         dimensionId: String,
@@ -100,7 +100,7 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Update weight.
+     * Updates the update weight.
      */
     suspend fun updateWeight(
         dimensionId: String,
@@ -110,18 +110,17 @@ interface LifeDimensionDao {
 
     @Query("SELECT weight FROM life_dimensions WHERE id = :dimensionId")
     /**
-     * Weight for.
+     * Performs the weight for.
      */
     suspend fun weightFor(dimensionId: String): Double?
 
     @Query("SELECT id, weight FROM life_dimensions")
     /**
-     * All weights.
+     * Performs the all weights.
      */
     suspend fun allWeights(): List<WeightRow>
-
     /**
-     * WeightRow.
+     * Holds the weight row.
      */
     data class WeightRow(
         val id: String,

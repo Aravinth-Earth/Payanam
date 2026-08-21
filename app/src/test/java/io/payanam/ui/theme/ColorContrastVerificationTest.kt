@@ -8,10 +8,6 @@ import org.junit.Test
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-
-/**
- * ColorContrastVerificationTest.
- */
 class ColorContrastVerificationTest {
 
     @Test

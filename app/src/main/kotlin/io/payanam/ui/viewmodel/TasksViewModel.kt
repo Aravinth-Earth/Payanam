@@ -38,7 +38,7 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 @HiltViewModel
 /**
- * TasksViewModel.
+ * Provides the tasks view model.
  */
 class TasksViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -389,7 +389,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Toggle checkmark.
+     * Performs the toggle checkmark.
      */
     fun toggleCheckmark(taskId: String, date: LocalDate) {
         logger.i(
@@ -492,7 +492,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Dismiss completion dialog.
+     * Performs the dismiss completion dialog.
      */
     fun dismissCompletionDialog() {
         _uiState.update {
@@ -504,7 +504,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Confirm completion.
+     * Performs the confirm completion.
      */
     fun confirmCompletion(actualCompletedAt: LocalDateTime?, actualDurationMinutes: Int?) {
         val task = _uiState.value.completionDialogTask ?: return
@@ -547,7 +547,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Update checkmark.
+     * Updates the update checkmark.
      */
     fun updateCheckmark(
         taskId: String,
@@ -711,7 +711,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Set sort option.
+     * Updates the set sort option.
      */
     fun setSortOption(sortOption: TaskSortOption) {
         viewModelScope.launch {
@@ -734,7 +734,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Set filter.
+     * Updates the set filter.
      */
     fun setFilter(
         filter: TaskFilter,
@@ -817,7 +817,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Set habit sort option.
+     * Updates the set habit sort option.
      */
     fun setHabitSortOption(option: HabitSortOption) {
         logger.i(
@@ -865,7 +865,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Toggle show archived habits.
+     * Performs the toggle show archived habits.
      */
     fun toggleShowArchivedHabits() {
         _uiState.update { state ->
@@ -877,7 +877,7 @@ class TasksViewModel @Inject constructor(
         loadTasks()
     }
     /**
-     * Toggle show completed habits.
+     * Performs the toggle show completed habits.
      */
     fun toggleShowCompletedHabits() {
         _uiState.update { state ->
@@ -920,7 +920,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Toggle hide all marked today.
+     * Performs the toggle hide all marked today.
      */
     fun toggleHideAllMarkedToday() {
         _uiState.update { state ->
@@ -930,9 +930,8 @@ class TasksViewModel @Inject constructor(
         }
         persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
-
     /**
-     * Toggle due today only.
+     * Performs the toggle due today only.
      */
     fun toggleDueTodayOnly() {
         _uiState.update { state ->
@@ -974,7 +973,7 @@ class TasksViewModel @Inject constructor(
             ),
         )
     /**
-     * Complete task.
+     * Performs the complete task.
      */
     fun completeTask(taskId: String, note: String? = null) {
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))
@@ -1036,7 +1035,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Archive task.
+     * Performs the archive task.
      */
     fun archiveTask(taskId: String) {
         logger.i("TasksViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
@@ -1064,7 +1063,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Delete task.
+     * Removes the delete task.
      */
     fun deleteTask(taskId: String) {
         logger.w("TasksViewModel.deleteTask", "Deleting task", mapOf("taskId" to taskId))
@@ -1091,7 +1090,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Clear error.
+     * Removes the clear error.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }

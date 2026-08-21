@@ -58,7 +58,7 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Settings screen.
+ * Updates the settings screen.
  */
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToPassphraseChange: () -> Unit = {}, onNavigateToScoringConfig: () -> Unit = {}, onNavigateToDatabaseInit: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()

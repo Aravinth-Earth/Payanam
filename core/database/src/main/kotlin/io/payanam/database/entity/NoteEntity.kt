@@ -9,7 +9,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for Note table.
+ * Room entity for note table.
  */
 @Entity(
     tableName = "notes",
@@ -24,7 +24,7 @@ import androidx.room.PrimaryKey
     indices = [Index("dimension_id"), Index("day_key")],
 )
 /**
- * NoteEntity.
+ * Holds the note entity.
  */
 data class NoteEntity(
     @PrimaryKey

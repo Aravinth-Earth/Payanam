@@ -4,9 +4,8 @@ package io.payanam.database.entity
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
 /**
- * DayPlanPolicyEntityTest.
+ * Provides the day plan policy entity test.
  */
 class DayPlanPolicyEntityTest {
     @Test

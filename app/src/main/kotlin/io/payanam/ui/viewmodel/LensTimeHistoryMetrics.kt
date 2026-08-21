@@ -9,9 +9,8 @@ import io.payanam.domain.repository.UnifiedLensSnapshot
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.round
-
 /**
- * TimeModuleDayMetric.
+ * Holds the time module day metric.
  */
 data class TimeModuleDayMetric(
     val dayKey: String,
@@ -20,9 +19,8 @@ data class TimeModuleDayMetric(
     val progressStreak: Int,
     val perDimensionScores: Map<String, Double>,
 )
-
 /**
- * TimeModuleHistorySummary.
+ * Holds the time module history summary.
  */
 data class TimeModuleHistorySummary(
     val currentDayKey: String,

@@ -8,16 +8,15 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
-
 /**
- * DailyStatsCalculatorTest.
+ * Provides the daily stats calculator test.
  */
 class DailyStatsCalculatorTest {
     // --- focusedHours: zero when no focusRating set ---
 
     @Test
     /**
-     * Focused hours unrated entry contributes zero.
+     * Performs the focused hours unrated entry contributes zero.
      */
     fun focusedHours_unrated_entry_contributes_zero() {
         val day = LocalDate.of(2026, 3, 1)
@@ -29,7 +28,7 @@ class DailyStatsCalculatorTest {
 
     @Test
     /**
-     * Focused hours rated entry computes correctly.
+     * Performs the focused hours rated entry computes correctly.
      */
     fun focusedHours_rated_entry_computes_correctly() {
         val day = LocalDate.of(2026, 3, 1)
@@ -44,7 +43,7 @@ class DailyStatsCalculatorTest {
 
     @Test
     /**
-     * Tracked time midnight crossing entry splits to both days.
+     * Performs the tracked time midnight crossing entry splits to both days.
      */
     fun trackedTime_midnight_crossing_entry_splits_to_both_days() {
         val day1 = LocalDate.of(2026, 3, 1)
@@ -65,7 +64,7 @@ class DailyStatsCalculatorTest {
 
     @Test
     /**
-     * Focus avg midnight crossing entry appears in both days.
+     * Performs the focus avg midnight crossing entry appears in both days.
      */
     fun focusAvg_midnight_crossing_entry_appears_in_both_days() {
         val day1 = LocalDate.of(2026, 3, 1)
@@ -83,7 +82,7 @@ class DailyStatsCalculatorTest {
 
     @Test
     /**
-     * Focused hours midnight crossing entry splits correctly.
+     * Performs the focused hours midnight crossing entry splits correctly.
      */
     fun focusedHours_midnight_crossing_entry_splits_correctly() {
         val day1 = LocalDate.of(2026, 3, 1)
@@ -105,7 +104,7 @@ class DailyStatsCalculatorTest {
 
     @Test(timeout = 5000)
     /**
-     * Split to day segments same day does not hang tracked time.
+     * Performs the split to day segments same day does not hang tracked time.
      */
     fun splitToDaySegments_sameDay_doesNotHang_trackedTime() {
         val day = LocalDate.of(2026, 3, 1)
@@ -116,7 +115,7 @@ class DailyStatsCalculatorTest {
 
     @Test(timeout = 5000)
     /**
-     * Split to day segments same day does not hang focus avg.
+     * Performs the split to day segments same day does not hang focus avg.
      */
     fun splitToDaySegments_sameDay_doesNotHang_focusAvg() {
         val day = LocalDate.of(2026, 3, 1)
@@ -127,7 +126,7 @@ class DailyStatsCalculatorTest {
 
     @Test(timeout = 5000)
     /**
-     * Split to day segments same day does not hang focused hours.
+     * Performs the split to day segments same day does not hang focused hours.
      */
     fun splitToDaySegments_sameDay_doesNotHang_focusedHours() {
         val day = LocalDate.of(2026, 3, 1)
@@ -141,7 +140,7 @@ class DailyStatsCalculatorTest {
 
     @Test
     /**
-     * Focus avg days without rated entries have null avg.
+     * Performs the focus avg days without rated entries have null avg.
      */
     fun focusAvg_days_without_rated_entries_have_null_avg() {
         val day1 = LocalDate.of(2026, 3, 1)

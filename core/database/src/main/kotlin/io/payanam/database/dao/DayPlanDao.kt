@@ -16,26 +16,26 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 @Suppress("TooManyFunctions")
 /**
- * DayPlanDao.
+ * Defines the contract for day plan dao.
  */
 interface DayPlanDao {
     // ---- Day Plan Allocations ----
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key = :dayKey ORDER BY dimension_id")
     /**
-     * Observe allocations for day.
+     * Registers the observe allocations for day.
      */
     fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationEntity>>
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key = :dayKey ORDER BY dimension_id")
     /**
-     * Get allocations for day.
+     * Returns the get allocations for day.
      */
     suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationEntity>
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key = :dayKey AND dimension_id = :dimensionId LIMIT 1")
     /**
-     * Get allocation for day and dimension.
+     * Returns the get allocation for day and dimension.
      */
     suspend fun getAllocationForDayAndDimension(
         dayKey: String,
@@ -44,7 +44,7 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key BETWEEN :startDayKey AND :endDayKey ORDER BY day_key, dimension_id")
     /**
-     * Get allocations for range.
+     * Returns the get allocations for range.
      */
     suspend fun getAllocationsForRange(
         startDayKey: String,
@@ -53,25 +53,25 @@ interface DayPlanDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert allocation.
+     * Performs the insert allocation.
      */
     suspend fun insertAllocation(entity: DayPlanAllocationEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert allocations.
+     * Performs the insert allocations.
      */
     suspend fun insertAllocations(entities: List<DayPlanAllocationEntity>)
 
     @Query("DELETE FROM day_plan_allocations WHERE day_key = :dayKey")
     /**
-     * Delete allocations for day.
+     * Removes the delete allocations for day.
      */
     suspend fun deleteAllocationsForDay(dayKey: String)
 
     @Query("SELECT DISTINCT day_key FROM day_plan_allocations ORDER BY day_key DESC LIMIT :limit")
     /**
-     * Get planned days.
+     * Returns the get planned days.
      */
     suspend fun getPlannedDays(limit: Int = 30): List<String>
 
@@ -79,13 +79,13 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_policies WHERE day_key = :dayKey LIMIT 1")
     /**
-     * Get day policy.
+     * Returns the get day policy.
      */
     suspend fun getDayPolicy(dayKey: String): DayPlanPolicyEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert day policy.
+     * Performs the upsert day policy.
      */
     suspend fun upsertDayPolicy(entity: DayPlanPolicyEntity)
 
@@ -93,13 +93,13 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_type_template_preferences WHERE day_type = :dayType LIMIT 1")
     /**
-     * Get day type template preference.
+     * Returns the get day type template preference.
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert day type template preference.
+     * Performs the upsert day type template preference.
      */
     suspend fun upsertDayTypeTemplatePreference(entity: DayTypeTemplatePreferenceEntity)
 
@@ -107,37 +107,37 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_templates WHERE is_active = 1 ORDER BY sort_order ASC")
     /**
-     * Observe active templates.
+     * Registers the observe active templates.
      */
     fun observeActiveTemplates(): Flow<List<DayPlanTemplateEntity>>
 
     @Query("SELECT * FROM day_plan_templates ORDER BY sort_order ASC")
     /**
-     * Observe all templates.
+     * Registers the observe all templates.
      */
     fun observeAllTemplates(): Flow<List<DayPlanTemplateEntity>>
 
     @Query("SELECT * FROM day_plan_templates WHERE id = :id")
     /**
-     * Get template by id.
+     * Returns the get template by id.
      */
     suspend fun getTemplateById(id: String): DayPlanTemplateEntity?
 
     @Query("SELECT COUNT(*) FROM day_plan_templates WHERE is_active = 1")
     /**
-     * Get active template count.
+     * Returns the get active template count.
      */
     suspend fun getActiveTemplateCount(): Int
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert template.
+     * Performs the insert template.
      */
     suspend fun insertTemplate(entity: DayPlanTemplateEntity)
 
     @Query("UPDATE day_plan_templates SET is_active = 0, updated_at = :updatedAt WHERE id = :id")
     /**
-     * Soft delete template.
+     * Performs the soft delete template.
      */
     suspend fun softDeleteTemplate(
         id: String,
@@ -146,7 +146,7 @@ interface DayPlanDao {
 
     @Query("DELETE FROM day_plan_templates WHERE id = :id")
     /**
-     * Delete template.
+     * Removes the delete template.
      */
     suspend fun deleteTemplate(id: String)
 
@@ -154,31 +154,31 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_template_allocations WHERE template_id = :templateId ORDER BY dimension_id")
     /**
-     * Observe template allocations.
+     * Registers the observe template allocations.
      */
     fun observeTemplateAllocations(templateId: String): Flow<List<DayPlanTemplateAllocationEntity>>
 
     @Query("SELECT * FROM day_plan_template_allocations WHERE template_id = :templateId ORDER BY dimension_id")
     /**
-     * Get template allocations.
+     * Returns the get template allocations.
      */
     suspend fun getTemplateAllocations(templateId: String): List<DayPlanTemplateAllocationEntity>
 
     @Query("SELECT * FROM day_plan_template_allocations WHERE template_id IN (:templateIds) ORDER BY template_id, dimension_id")
     /**
-     * Get template allocations for template ids.
+     * Returns the get template allocations for template ids.
      */
     suspend fun getTemplateAllocationsForTemplateIds(templateIds: List<String>): List<DayPlanTemplateAllocationEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert template allocations.
+     * Performs the insert template allocations.
      */
     suspend fun insertTemplateAllocations(entities: List<DayPlanTemplateAllocationEntity>)
 
     @Query("DELETE FROM day_plan_template_allocations WHERE template_id = :templateId")
     /**
-     * Delete template allocations.
+     * Removes the delete template allocations.
      */
     suspend fun deleteTemplateAllocations(templateId: String)
 }

@@ -36,7 +36,7 @@ import java.time.LocalDateTime
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
 /**
- * TasksViewModelIntegrationTest.
+ * Provides the tasks view model integration test.
  */
 class TasksViewModelIntegrationTest {
 
@@ -61,7 +61,7 @@ class TasksViewModelIntegrationTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         MockitoAnnotations.openMocks(this)
@@ -84,7 +84,7 @@ class TasksViewModelIntegrationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         Dispatchers.resetMain()
@@ -92,7 +92,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Initial state loads correctly.
+     * Performs the initial state loads correctly.
      */
     fun initialState_loadsCorrectly() = runTest {
         // Given - default mocks return empty lists
@@ -110,7 +110,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Load tasks updates state with repository data.
+     * Loads the load tasks updates state with repository data.
      */
     fun loadTasks_updatesStateWithRepositoryData() = runTest {
         // Given
@@ -138,7 +138,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Set filter updates current filter and reloads tasks.
+     * Updates the set filter updates current filter and reloads tasks.
      */
     fun setFilter_updatesCurrentFilterAndReloadsTasks() = runTest {
         // Given
@@ -159,7 +159,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Set sort option updates current sort and reloads tasks.
+     * Updates the set sort option updates current sort and reloads tasks.
      */
     fun setSortOption_updatesCurrentSortAndReloadsTasks() = runTest {
         // Given
@@ -194,7 +194,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Delete task removes task and refreshes list.
+     * Removes the delete task removes task and refreshes list.
      */
     fun deleteTask_removesTaskAndRefreshesList() = runTest {
         // Given
@@ -214,7 +214,7 @@ class TasksViewModelIntegrationTest {
 
     @Test
     /**
-     * Load todays tasks loads tasks for today filter.
+     * Loads the load todays tasks loads tasks for today filter.
      */
     fun loadTodaysTasks_loadsTasksForTodayFilter() = runTest {
         // Given

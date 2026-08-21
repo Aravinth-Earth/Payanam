@@ -12,36 +12,36 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * TaskOccurrenceDao.
+ * Defines the contract for task occurrence dao.
  */
 interface TaskOccurrenceDao {
     @Query("SELECT * FROM task_occurrences")
     /**
-     * Get all occurrences.
+     * Returns the get all occurrences.
      */
     suspend fun getAllOccurrences(): List<TaskOccurrenceEntity>
 
     @Query("SELECT COUNT(*) FROM task_occurrences")
     /**
-     * Count all occurrences.
+     * Performs the count all occurrences.
      */
     suspend fun countAllOccurrences(): Int
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate ASC")
     /**
-     * Get occurrences for task for backfill.
+     * Returns the get occurrences for task for backfill.
      */
     suspend fun getOccurrencesForTaskForBackfill(taskId: String): List<TaskOccurrenceEntity>
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate DESC")
     /**
-     * Get occurrences for task.
+     * Returns the get occurrences for task.
      */
     fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrenceEntity>>
 
     @Query("SELECT * FROM task_occurrences WHERE date(dueDate) = date(:date)")
     /**
-     * Get occurrences for date.
+     * Returns the get occurrences for date.
      */
     fun getOccurrencesForDate(date: String): Flow<List<TaskOccurrenceEntity>>
 
@@ -59,7 +59,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Get occurrences for task in range.
+     * Returns the get occurrences for task in range.
      */
     suspend fun getOccurrencesForTaskInRange(
         taskId: String,
@@ -79,7 +79,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Get occurrence for task on date.
+     * Returns the get occurrence for task on date.
      */
     suspend fun getOccurrenceForTaskOnDate(
         taskId: String,
@@ -100,7 +100,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Get occurrences for tasks in range.
+     * Returns the get occurrences for tasks in range.
      */
     suspend fun getOccurrencesForTasksInRange(
         taskIds: List<String>,
@@ -120,7 +120,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Update occurrence.
+     * Updates the update occurrence.
      */
     suspend fun updateOccurrence(
         id: String,
@@ -134,49 +134,49 @@ interface TaskOccurrenceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(occurrence: TaskOccurrenceEntity)
 
     @Query("DELETE FROM task_occurrences WHERE id = :id")
     /**
-     * Delete by id.
+     * Removes the delete by id.
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM task_occurrences")
     /**
-     * Delete all.
+     * Removes the delete all.
      */
     suspend fun deleteAll()
 }
 
 @Dao
 /**
- * TaskRescheduleDao.
+ * Defines the contract for task reschedule dao.
  */
 interface TaskRescheduleDao {
     @Query("SELECT * FROM task_reschedules")
     /**
-     * Get all reschedules.
+     * Returns the get all reschedules.
      */
     suspend fun getAllReschedules(): List<TaskRescheduleEntity>
 
     @Query("SELECT * FROM task_reschedules WHERE taskId = :taskId ORDER BY rescheduledAt DESC")
     /**
-     * Get reschedules for task.
+     * Returns the get reschedules for task.
      */
     fun getReschedulesForTask(taskId: String): Flow<List<TaskRescheduleEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(reschedule: TaskRescheduleEntity)
 
     @Query("DELETE FROM task_reschedules")
     /**
-     * Delete all.
+     * Removes the delete all.
      */
     suspend fun deleteAll()
 }

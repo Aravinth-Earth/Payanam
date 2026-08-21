@@ -55,7 +55,7 @@ import io.payanam.ui.viewmodel.visibleDimensions
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Day plan template screen.
+ * Performs the day plan template screen.
  */
 fun DayPlanTemplateScreen(
     viewModel: DayPlanViewModel = hiltViewModel(),

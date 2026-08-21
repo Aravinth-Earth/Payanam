@@ -16,7 +16,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * TagEntity.
+ * Holds the tag entity.
  */
 data class TagEntity(
     @PrimaryKey

@@ -24,9 +24,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-
 /**
- * EditTaskUiState.
+ * Holds the edit task ui state.
  */
 data class EditTaskUiState(
     val task: Task? = null,
@@ -39,7 +38,7 @@ data class EditTaskUiState(
 
 @HiltViewModel
 /**
- * EditTaskViewModel.
+ * Provides the edit task view model.
  */
 class EditTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -72,9 +71,8 @@ class EditTaskViewModel @Inject constructor(
                 }
         }
     }
-
     /**
-     * Load task.
+     * Loads the load task.
      */
     fun loadTask(taskId: String) {
         currentTaskId = taskId
@@ -110,9 +108,8 @@ class EditTaskViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Update task.
+     * Updates the update task.
      */
     fun updateTask(input: EditTaskInput) {
         val taskId = currentTaskId ?: return

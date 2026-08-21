@@ -18,14 +18,14 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TimeEntryMapperTest.
+ * Provides the time entry mapper test.
  */
 class TimeEntryMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         logger = initLogger()
@@ -34,7 +34,7 @@ class TimeEntryMapperTest {
 
     @Test
     /**
-     * To domain parses zulu dates.
+     * Performs the to domain parses zulu dates.
      */
     fun toDomain_parsesZuluDates() {
         val entity =
@@ -54,7 +54,7 @@ class TimeEntryMapperTest {
 
     @Test
     /**
-     * To domain handles blank end time.
+     * Performs the to domain handles blank end time.
      */
     fun toDomain_handlesBlankEndTime() {
         val entity =
@@ -73,7 +73,7 @@ class TimeEntryMapperTest {
 
     @Test
     /**
-     * Round trip preserves fields.
+     * Performs the round trip preserves fields.
      */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
@@ -100,7 +100,7 @@ class TimeEntryMapperTest {
 
     @Test
     /**
-     * To entity handles null end time.
+     * Performs the to entity handles null end time.
      */
     fun toEntity_handlesNullEndTime() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)

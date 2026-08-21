@@ -14,7 +14,7 @@ import java.time.LocalDate
 @Suppress("MagicNumber")
 internal object RecurrenceConfigCodec {
     /**
-     * Parse.
+     * Performs the parse.
      */
     fun parse(rule: String?): RecurrenceConfig {
         if (rule.isNullOrBlank()) return daily(startDate = null)
@@ -27,67 +27,59 @@ internal object RecurrenceConfigCodec {
 
         return parseRRule(rule)
     }
-
     /**
-     * Daily.
+     * Performs the daily.
      */
     fun daily(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.DAILY,
         startDate = startDate
     )
-
     /**
-     * Weekdays.
+     * Performs the weekdays.
      */
     fun weekdays(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.WEEKDAYS_ONLY,
         startDate = startDate
     )
-
     /**
-     * Specific weekdays.
+     * Performs the specific weekdays.
      */
     fun specificWeekdays(vararg days: DayOfWeek) = RecurrenceConfig(
         type = RecurrenceType.SPECIFIC_WEEKDAYS,
         weekdays = days.map { it.value }.toSet()
     )
-
     /**
-     * Specific weekdays.
+     * Performs the specific weekdays.
      */
     fun specificWeekdays(days: Set<Int>) = RecurrenceConfig(
         type = RecurrenceType.SPECIFIC_WEEKDAYS,
         weekdays = days
     )
-
     /**
-     * Monthly on dates.
+     * Performs the monthly on dates.
      */
     fun monthlyOnDates(vararg dates: Int) = RecurrenceConfig(
         type = RecurrenceType.MONTHLY_DATES,
         monthlyDates = dates.toSet()
     )
-
     /**
-     * Every ndays.
+     * Performs the every ndays.
      */
     fun everyNDays(n: Int, startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.INTERVAL,
         intervalDays = n,
         startDate = startDate
     )
-
     /**
-     * Times per week.
+     * Performs the times per week.
      */
     fun timesPerWeek(times: Int) = RecurrenceConfig(
         type = RecurrenceType.FREQUENCY,
         frequencyNumerator = times,
         frequencyDenominator = 7
     )
-
     /**
-     * Yearly.
+     * Performs the yearly.
      */
     fun yearly(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.YEARLY,

@@ -39,7 +39,7 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * LensRepositoryDailyInsightCacheTest.
+ * Provides the lens repository daily insight cache test.
  */
 class LensRepositoryDailyInsightCacheTest {
     private lateinit var database: PayanamDatabase
@@ -52,7 +52,7 @@ class LensRepositoryDailyInsightCacheTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -85,7 +85,7 @@ class LensRepositoryDailyInsightCacheTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -305,13 +305,22 @@ class LensRepositoryDailyInsightCacheTest {
         var tasks: List<Task> = emptyList()
         var getAllTasksCalls: Int = 0
 
+        /**
+         * Returns the get all tasks.
+         */
         override fun getAllTasks(): Flow<List<Task>> {
             getAllTasksCalls += 1
             return flowOf(tasks)
         }
 
+        /**
+         * Returns the get tasks by status.
+         */
         override fun getTasksByStatus(status: String): Flow<List<Task>> = unused("getTasksByStatus")
 
+        /**
+         * Returns the get tasks due on.
+         */
         override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> = unused("getTasksDueOn")
 
         override suspend fun getTaskById(id: String): Task? = unused("getTaskById")
@@ -347,8 +356,14 @@ class LensRepositoryDailyInsightCacheTest {
 
         override suspend fun archiveTask(id: String): Task = unused("archiveTask")
 
+        /**
+         * Returns the get overdue tasks.
+         */
         override fun getOverdueTasks(): Flow<List<Task>> = unused("getOverdueTasks")
 
+        /**
+         * Returns the get todays tasks.
+         */
         override fun getTodaysTasks(): Flow<List<Task>> = unused("getTodaysTasks")
 
         override suspend fun getRecurringTasks(): List<Task> = unused("getRecurringTasks")
@@ -365,13 +380,22 @@ class LensRepositoryDailyInsightCacheTest {
 
         override suspend fun getActiveTimeEntry(): TimeEntry? = unused("getActiveTimeEntry")
 
+        /**
+         * Registers the observe active time entry.
+         */
         override fun observeActiveTimeEntry(): Flow<TimeEntry?> = unused("observeActiveTimeEntry")
 
+        /**
+         * Returns the get time entries for range.
+         */
         override fun getTimeEntriesForRange(
             start: LocalDateTime,
             end: LocalDateTime,
         ): Flow<List<TimeEntry>> = unused("getTimeEntriesForRange")
 
+        /**
+         * Returns the get time entries for date.
+         */
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> = flowOf(entriesByDate[date] ?: emptyList())
 
         override suspend fun startTimeEntry(input: TimeEntryInput): TimeEntry = unused("startTimeEntry")
@@ -392,8 +416,14 @@ class LensRepositoryDailyInsightCacheTest {
 
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry = unused("createTimeEntry")
 
+        /**
+         * Returns the get all time entries.
+         */
         override fun getAllTimeEntries(): Flow<List<TimeEntry>> = flowOf(emptyList())
 
+        /**
+         * Returns the get active time entries.
+         */
         override fun getActiveTimeEntries(): Flow<List<TimeEntry>> = unused("getActiveTimeEntries")
 
         override suspend fun updateTimeEntry(entry: TimeEntry) = unused("updateTimeEntryDirect")
@@ -404,6 +434,9 @@ class LensRepositoryDailyInsightCacheTest {
 
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> = unused("getOccurrencesByTaskId")
 
+        /**
+         * Returns the get occurrences for task.
+         */
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> = unused("getOccurrencesForTask")
 
         override suspend fun getOccurrencesForLastNDays(
@@ -431,6 +464,9 @@ class LensRepositoryDailyInsightCacheTest {
             actualDurationMinutes: Int?,
         ): TaskOccurrence = unused("toggleOccurrence")
 
+        /**
+         * Returns the get occurrences for date.
+         */
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> = flowOf(occurrencesByDate[date] ?: emptyList())
 
         override suspend fun deleteOccurrence(
@@ -454,6 +490,9 @@ class LensRepositoryDailyInsightCacheTest {
     private class FakeDayPlanRepository : DayPlanRepository {
         val allocationsByDay = mutableMapOf<String, List<DayPlanAllocationRecord>>()
 
+        /**
+         * Registers the observe allocations for day.
+         */
         override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> = unused("observeAllocationsForDay")
 
         override suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> = allocationsByDay[dayKey] ?: emptyList()
@@ -506,8 +545,14 @@ class LensRepositoryDailyInsightCacheTest {
 
         override suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord? = unused("resolveTemplateForDay")
 
+        /**
+         * Registers the observe active templates.
+         */
         override fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>> = emptyFlow()
 
+        /**
+         * Registers the observe all templates.
+         */
         override fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>> = emptyFlow()
 
         override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? = unused("getTemplateById")

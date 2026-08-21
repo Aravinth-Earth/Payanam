@@ -51,7 +51,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * DatabaseSessionManager.
+ * Provides the database session manager.
  */
 class DatabaseSessionManager
     @Inject

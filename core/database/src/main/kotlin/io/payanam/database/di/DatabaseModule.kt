@@ -20,14 +20,11 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
-/**
- * DatabaseModule.
- */
 object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Provide database encryption manager.
+     * Returns the provide database encryption manager.
      */
     fun provideDatabaseEncryptionManager(
         @ApplicationContext context: Context,
@@ -36,7 +33,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Provide database session manager.
+     * Returns the provide database session manager.
      */
     fun provideDatabaseSessionManager(
         @ApplicationContext context: Context,
@@ -46,7 +43,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Provide lens repository.
+     * Returns the provide lens repository.
      */
     fun provideLensRepository(
         sessionManager: DatabaseSessionManager,

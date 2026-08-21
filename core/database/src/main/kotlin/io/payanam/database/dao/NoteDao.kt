@@ -13,54 +13,54 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * NoteDao.
+ * Defines the contract for note dao.
  */
 interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
     /**
-     * Get all notes.
+     * Returns the get all notes.
      */
     fun getAllNotes(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE lifeIntentionCategory = :dimension ORDER BY updatedAt DESC")
     /**
-     * Get notes by dimension.
+     * Returns the get notes by dimension.
      */
     fun getNotesByDimension(dimension: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id")
     /**
-     * Get note by id.
+     * Returns the get note by id.
      */
     suspend fun getNoteById(id: String): NoteEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(note: NoteEntity)
 
     @Update
     /**
-     * Update.
+     * Updates the update.
      */
     suspend fun update(note: NoteEntity)
 
     @Delete
     /**
-     * Delete.
+     * Removes the delete.
      */
     suspend fun delete(note: NoteEntity)
 
     @Query("DELETE FROM notes WHERE id = :id")
     /**
-     * Delete by id.
+     * Removes the delete by id.
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM notes")
     /**
-     * Delete all.
+     * Removes the delete all.
      */
     suspend fun deleteAll()
 }

@@ -44,11 +44,11 @@ import javax.inject.Inject
 private const val MINUTES_PER_DAY = 24 * 60
 
 /**
- * Implementation of LensRepository for calculating Planning and Reality lens data.
+ * Implementation of lensRepository for calculating planning and reality lens data.
  */
 @Suppress("TooManyFunctions")
 /**
- * LensRepositoryImpl.
+ * Provides the lens repository impl.
  */
 class LensRepositoryImpl
     @Inject
@@ -61,6 +61,9 @@ class LensRepositoryImpl
     ) : LensRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get first tracked date.
+         */
         override suspend fun getFirstTrackedDate(): LocalDate? {
             logger.d("LensRepository.getFirstTrackedDate", "Fetching first tracked date")
             val result =
@@ -74,24 +77,36 @@ class LensRepositoryImpl
             return result
         }
 
+        /**
+         * Returns the get daily focus averages.
+         */
         override suspend fun getDailyFocusAverages(): List<DailyFocusStat> {
             logger.d("LensRepository.getDailyFocusAverages", "Fetching daily focus averages")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyFocusAverages(all)
         }
 
+        /**
+         * Returns the get daily tracked time stats.
+         */
         override suspend fun getDailyTrackedTimeStats(): List<DailyTrackedTimeStat> {
             logger.d("LensRepository.getDailyTrackedTimeStats", "Fetching daily tracked time stats")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyTrackedTimeStats(all)
         }
 
+        /**
+         * Returns the get daily focused hours stats.
+         */
         override suspend fun getDailyFocusedHoursStats(): List<DailyFocusedHoursStat> {
             logger.d("LensRepository.getDailyFocusedHoursStats", "Fetching daily focused hours stats")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyFocusedHoursStats(all)
         }
 
+        /**
+         * Returns the get average daily time table data.
+         */
         override suspend fun getAverageDailyTimeTableData(): AverageDailyTimeTableData? {
             logger.d("LensRepository.getAverageDailyTimeTableData", "Fetching average daily time table")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return null
@@ -100,26 +115,41 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get dimension trend blocks.
+         */
         override suspend fun getDimensionTrendBlocks(windowDays: Int): List<DimensionTrendBlock> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildDimensionTrendBlocks(allEntries, windowDays, logger)
         }
 
+        /**
+         * Returns the get heatmap days.
+         */
         override suspend fun getHeatmapDays(): List<HeatmapDayData> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildHeatmapDays(allEntries, logger)
         }
 
+        /**
+         * Returns the get week grid data.
+         */
         override suspend fun getWeekGridData(excludeEmptyDays: Boolean): WeekGridData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildWeekGridData(allEntries, excludeEmptyDays, logger)
         }
 
+        /**
+         * Returns the get minute pattern data.
+         */
         override suspend fun getMinutePatternData(excludeEmptyDays: Boolean): MinutePatternData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildMinutePatternData(allEntries, excludeEmptyDays, logger)
         }
 
+        /**
+         * Returns the get dimension split for range.
+         */
         override suspend fun getDimensionSplitForRange(
             start: LocalDate,
             end: LocalDate,
@@ -133,6 +163,9 @@ class LensRepositoryImpl
             return DailyStatsCalculator.calculateDimensionSplit(all, start, end)
         }
 
+        /**
+         * Performs the calculate unified snapshot.
+         */
         override suspend fun calculateUnifiedSnapshot(dayKey: String): UnifiedLensSnapshot {
             val isDirty = loadLensDirtyDayMetadata(sessionManager.requireDatabase().dailyInsightDao(), dayKey) != null
             if (!isDirty) {
@@ -153,11 +186,17 @@ class LensRepositoryImpl
             return computed
         }
 
+        /**
+         * Performs the calculate planning data.
+         */
         override suspend fun calculatePlanningData(dayKey: String): PlanningLensData {
             logger.d("LensRepository.calculatePlanningData", "Calculating planning data", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).planning
         }
 
+        /**
+         * Registers the observe planning data.
+         */
         override fun observePlanningData(dayKey: String): Flow<PlanningLensData> {
             logger.d("LensRepository.observePlanningData", "Subscribing to planning data", mapOf("dayKey" to dayKey))
             // Combine multiple flows and recalculate when any changes
@@ -166,11 +205,17 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Performs the calculate reality data.
+         */
         override suspend fun calculateRealityData(dayKey: String): RealityLensData {
             logger.d("LensRepository.calculateRealityData", "Calculating reality data", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).reality
         }
 
+        /**
+         * Registers the observe reality data.
+         */
         override fun observeRealityData(dayKey: String): Flow<RealityLensData> {
             logger.d("LensRepository.observeRealityData", "Subscribing to reality data", mapOf("dayKey" to dayKey))
             return timeEntryRepository.getAllTimeEntries().map {
@@ -178,6 +223,9 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Performs the generate reflection cards.
+         */
         override suspend fun generateReflectionCards(dayKey: String) {
             logger.d("LensRepository.generateReflectionCards", "Generating reflection cards", mapOf("dayKey" to dayKey))
 
@@ -278,6 +326,9 @@ class LensRepositoryImpl
             )
         }
 
+        /**
+         * Registers the observe reflections.
+         */
         override fun observeReflections(dayKey: String): Flow<List<LensReflectionRecord>> {
             logger.d("LensRepository.observeReflections", "Subscribing to reflections", mapOf("dayKey" to dayKey))
             return sessionManager.requireDatabase().lensReflectionDao().observeReflectionsForDay(dayKey).map { entities ->
@@ -285,6 +336,9 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Performs the mark reflection addressed.
+         */
         override suspend fun markReflectionAddressed(
             id: String,
             note: String?,
@@ -293,21 +347,33 @@ class LensRepositoryImpl
             sessionManager.requireDatabase().lensReflectionDao().markReflectionAddressed(id, note)
         }
 
+        /**
+         * Performs the calculate plan completeness.
+         */
         override suspend fun calculatePlanCompleteness(dayKey: String): Float {
             logger.d("LensRepository.calculatePlanCompleteness", "Calculating plan completeness", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).planning.planCompletenessScore
         }
 
+        /**
+         * Performs the calculate adherence.
+         */
         override suspend fun calculateAdherence(dayKey: String): Float {
             logger.d("LensRepository.calculateAdherence", "Calculating adherence", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).reality.adherenceScore
         }
 
+        /**
+         * Returns the get dirty day keys.
+         */
         override suspend fun getDirtyDayKeys(dayKeys: Set<String>): Set<String> {
             logger.d("LensRepository.getDirtyDayKeys", "Fetching dirty day keys", mapOf("inputCount" to dayKeys.size))
             return getLensDirtyDayKeys(sessionManager.requireDatabase().dailyInsightDao(), dayKeys)
         }
 
+        /**
+         * Returns true when the is day dirty.
+         */
         override suspend fun isDayDirty(dayKey: String): Boolean =
             loadLensDirtyDayMetadata(sessionManager.requireDatabase().dailyInsightDao(), dayKey) != null
 

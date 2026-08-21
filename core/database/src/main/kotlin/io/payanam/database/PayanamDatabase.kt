@@ -149,96 +149,79 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
     exportSchema = true,
 )
 /**
- * PayanamDatabase.
+ * Provides the payanam database.
  */
 abstract class PayanamDatabase : RoomDatabase() {
     /**
-     * Task dao.
+     * Performs the task dao.
      */
     abstract fun taskDao(): TaskDao
-
     /**
-     * Time entry dao.
+     * Performs the time entry dao.
      */
     abstract fun timeEntryDao(): TimeEntryDao
-
     /**
-     * Note dao.
+     * Performs the note dao.
      */
     abstract fun noteDao(): NoteDao
-
     /**
-     * Task occurrence dao.
+     * Performs the task occurrence dao.
      */
     abstract fun taskOccurrenceDao(): TaskOccurrenceDao
-
     /**
-     * Task reschedule dao.
+     * Performs the task reschedule dao.
      */
     abstract fun taskRescheduleDao(): TaskRescheduleDao
-
     /**
-     * Journal dao.
+     * Performs the journal dao.
      */
     abstract fun journalDao(): JournalDao
-
     /**
-     * App settings dao.
+     * Performs the app settings dao.
      */
     abstract fun appSettingsDao(): AppSettingsDao
-
     /**
-     * Scheduled notification dao.
+     * Performs the scheduled notification dao.
      */
     abstract fun scheduledNotificationDao(): ScheduledNotificationDao
-
     /**
-     * Scoring config dao.
+     * Performs the scoring config dao.
      */
     abstract fun scoringConfigDao(): ScoringConfigDao
-
     /**
-     * Life dimension dao.
+     * Performs the life dimension dao.
      */
     abstract fun lifeDimensionDao(): LifeDimensionDao
-
     /**
-     * Tag dao.
+     * Performs the tag dao.
      */
     abstract fun tagDao(): TagDao
-
     /**
-     * Lens reflection dao.
+     * Performs the lens reflection dao.
      */
     abstract fun lensReflectionDao(): LensReflectionDao
-
     /**
-     * Daily insight dao.
+     * Performs the daily insight dao.
      */
     abstract fun dailyInsightDao(): DailyInsightDao
-
     /**
-     * Day plan dao.
+     * Performs the day plan dao.
      */
     abstract fun dayPlanDao(): DayPlanDao
-
     /**
-     * Import batch dao.
+     * Loads the import batch dao.
      */
     abstract fun importBatchDao(): ImportBatchDao
-
     /**
-     * Habit metric dao.
+     * Performs the habit metric dao.
      */
     abstract fun habitMetricDao(): HabitMetricDao
-
     /**
-     * Dimension metric dao.
+     * Performs the dimension metric dao.
      */
     abstract fun dimensionMetricDao(): DimensionMetricDao
-
     /**
-     * Day metric dao.
+     * Performs the day metric dao.
      */
     abstract fun dayMetricDao(): DayMetricDao
 

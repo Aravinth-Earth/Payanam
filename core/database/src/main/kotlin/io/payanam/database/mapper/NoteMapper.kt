@@ -7,11 +7,11 @@ import io.payanam.database.entity.NoteEntity
 import io.payanam.domain.model.Note
 
 /**
- * Mapper functions between NoteEntity (Room) and Note (Domain).
+ * Mapper functions between noteEntity (Room) and note (Domain).
  */
 object NoteMapper {
     /**
-     * Note entity.
+     * Performs the note entity.
      */
     fun NoteEntity.toDomain(): Note =
         Note(
@@ -23,9 +23,8 @@ object NoteMapper {
             createdAt = PersistedDateTime.parse(createdAt),
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
-
     /**
-     * Note.
+     * Performs the note.
      */
     fun Note.toEntity(): NoteEntity =
         NoteEntity(

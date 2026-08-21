@@ -15,19 +15,19 @@ import java.time.LocalTime
 
 internal sealed interface TimeBlockModalTarget {
     /**
-     * ExistingEntry.
+     * Holds the existing entry.
      */
     data class ExistingEntry(val entry: TimeEntry) : TimeBlockModalTarget
     /**
-     * ManualCreate.
+     * Holds the manual create.
      */
     data class ManualCreate(val selectedDate: LocalDate) : TimeBlockModalTarget
     /**
-     * GapCreate.
+     * Holds the gap create.
      */
     data class GapCreate(val gapStart: LocalDateTime, val gapEnd: LocalDateTime) : TimeBlockModalTarget
     /**
-     * TaskBlock.
+     * Holds the task block.
      */
     data class TaskBlock(val task: Task, val occurrence: TaskOccurrence?) : TimeBlockModalTarget
 }

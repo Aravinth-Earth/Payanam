@@ -17,7 +17,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * LifeDimensionEntity.
+ * Holds the life dimension entity.
  */
 data class LifeDimensionEntity(
     @PrimaryKey

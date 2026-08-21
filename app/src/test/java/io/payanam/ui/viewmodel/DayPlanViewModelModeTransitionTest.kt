@@ -31,9 +31,6 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
-/**
- * DayPlanViewModelModeTransitionTest.
- */
 class DayPlanViewModelModeTransitionTest {
 
     private val testDispatcher = StandardTestDispatcher()
@@ -42,9 +39,6 @@ class DayPlanViewModelModeTransitionTest {
     private lateinit var viewModel: DayPlanViewModel
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -56,9 +50,6 @@ class DayPlanViewModelModeTransitionTest {
     }
 
     @After
-    /**
-     * Tear down.
-     */
     fun tearDown() {
         Dispatchers.resetMain()
     }
@@ -303,10 +294,6 @@ private class FakeDayPlanRepository : DayPlanRepository {
     ) = Unit
 
     override suspend fun deleteTemplate(id: String) = Unit
-
-    /**
-     * Reset counters.
-     */
     fun resetCounters() {
         getAllocationsForDayCount = 0
         getDayPolicyCount = 0

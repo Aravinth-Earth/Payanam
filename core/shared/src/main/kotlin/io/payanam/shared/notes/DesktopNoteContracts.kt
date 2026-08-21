@@ -30,22 +30,16 @@ data class DesktopNotesSnapshot(
     val schemaVersion: Int = DesktopNoteContracts.SCHEMA_VERSION,
     val notes: List<DesktopNoteRecord> = emptyList(),
 )
-
-/**
- * DesktopNoteContracts.
- */
 object DesktopNoteContracts {
     const val SCHEMA_VERSION = 1
     const val DEFAULT_DIMENSION_ID = "dim_work_livelihood"
     const val DEFAULT_DIMENSION_LABEL = "Work & Livelihood"
-
     /**
-     * Empty snapshot.
+     * Performs the empty snapshot.
      */
     fun emptySnapshot(): DesktopNotesSnapshot = DesktopNotesSnapshot()
-
     /**
-     * Create record.
+     * Creates the create record.
      */
     fun createRecord(
         id: String,
@@ -67,9 +61,8 @@ object DesktopNoteContracts {
             updatedAtIso = now.toString(),
         )
     }
-
     /**
-     * Update record.
+     * Updates the update record.
      */
     fun updateRecord(
         existing: DesktopNoteRecord,

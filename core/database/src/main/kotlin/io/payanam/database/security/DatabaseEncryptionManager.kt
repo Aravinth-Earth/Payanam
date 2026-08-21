@@ -26,7 +26,7 @@ import javax.crypto.spec.PBEKeySpec
 
 @Suppress("TooManyFunctions")
 /**
- * DatabaseEncryptionManager.
+ * Provides the database encryption manager.
  */
 class DatabaseEncryptionManager(
     context: Context,
@@ -49,30 +49,26 @@ class DatabaseEncryptionManager(
         )
         sanitizeLegacySecurityState()
     }
-
     /**
-     * Has passphrase configured.
+     * Returns true when the has passphrase configured.
      */
     fun hasPassphraseConfigured(): Boolean =
         prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED &&
             !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
             !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank()
-
     /**
-     * Is encryption enabled.
+     * Returns true when the is encryption enabled.
      */
     fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
-
     /**
-     * Get session timeout minutes.
+     * Returns the get session timeout minutes.
      */
     fun getSessionTimeoutMinutes(): Int {
         val stored = prefs.getInt(KEY_SESSION_TIMEOUT_MINUTES, DEFAULT_SESSION_TIMEOUT_MINUTES)
         return stored.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
     }
-
     /**
-     * Set session timeout minutes.
+     * Updates the set session timeout minutes.
      */
     fun setSessionTimeoutMinutes(minutes: Int) {
         val normalized = minutes.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
@@ -83,17 +79,15 @@ class DatabaseEncryptionManager(
             mapOf("sessionTimeoutMinutes" to normalized),
         )
     }
-
     /**
-     * Is biometric unlock enabled.
+     * Returns true when the is biometric unlock enabled.
      */
     fun isBiometricUnlockEnabled(): Boolean {
         val enabled = prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
         return enabled && hasBiometricWrappedPassphrase()
     }
-
     /**
-     * Set biometric unlock enabled.
+     * Updates the set biometric unlock enabled.
      */
     fun setBiometricUnlockEnabled(enabled: Boolean) {
         logger.i(
@@ -122,9 +116,8 @@ class DatabaseEncryptionManager(
             mapOf("enabled" to true),
         )
     }
-
     /**
-     * Disable biometric unlock.
+     * Performs the disable biometric unlock.
      */
     fun disableBiometricUnlock(): Boolean {
         logger.i(
@@ -172,9 +165,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Configure passphrase.
+     * Performs the configure passphrase.
      */
     fun configurePassphrase(passphrase: String): Boolean {
         logger.i(
@@ -242,9 +234,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Update passphrase.
+     * Updates the update passphrase.
      */
     fun updatePassphrase(
         currentPassphrase: String,
@@ -275,9 +266,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Reset encryption state.
+     * Removes the reset encryption state.
      */
     fun resetEncryptionState(): Boolean {
         CrashSafeBreadcrumbs.record(
@@ -307,9 +297,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Backup encryption prefs.
+     * Performs the backup encryption prefs.
      */
     fun backupEncryptionPrefs(): Boolean {
         logger.i(
@@ -338,9 +327,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Restore encryption prefs.
+     * Loads the restore encryption prefs.
      */
     fun restoreEncryptionPrefs(): Boolean {
         logger.i(
@@ -370,9 +358,8 @@ class DatabaseEncryptionManager(
             false
         }
     }
-
     /**
-     * Clear encryption prefs backup.
+     * Removes the clear encryption prefs backup.
      */
     fun clearEncryptionPrefsBackup() {
         val editor = prefs.edit()
@@ -387,9 +374,8 @@ class DatabaseEncryptionManager(
             ),
         )
     }
-
     /**
-     * Verify passphrase.
+     * Performs the verify passphrase.
      */
     fun verifyPassphrase(passphrase: String): Boolean {
         val salt = decodeOrNull(prefs.getString(KEY_VERIFIER_SALT, null))
@@ -411,16 +397,14 @@ class DatabaseEncryptionManager(
         )
         return valid
     }
-
     /**
-     * Has biometric wrapped passphrase.
+     * Returns true when the has biometric wrapped passphrase.
      */
     fun hasBiometricWrappedPassphrase(): Boolean =
         !prefs.getString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, null).isNullOrBlank() &&
             !prefs.getString(KEY_BIOMETRIC_WRAPPED_IV, null).isNullOrBlank()
-
     /**
-     * Get cipher for biometric enrollment.
+     * Returns the get cipher for biometric enrollment.
      */
     fun getCipherForBiometricEnrollment(): Cipher {
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -431,9 +415,8 @@ class DatabaseEncryptionManager(
         )
         return cipher
     }
-
     /**
-     * Store biometric wrapped passphrase with cipher.
+     * Performs the store biometric wrapped passphrase with cipher.
      */
     fun storeBiometricWrappedPassphraseWithCipher(
         cipher: Cipher,
@@ -470,9 +453,8 @@ class DatabaseEncryptionManager(
             )
             false
         }
-
     /**
-     * Get cipher for biometric unlock.
+     * Returns the get cipher for biometric unlock.
      */
     fun getCipherForBiometricUnlock(): Cipher {
         val encodedIv =
@@ -490,9 +472,8 @@ class DatabaseEncryptionManager(
         )
         return cipher
     }
-
     /**
-     * Unwrap passphrase with cipher.
+     * Performs the unwrap passphrase with cipher.
      */
     fun unwrapPassphraseWithCipher(cipher: Cipher): String {
         val encodedCipherText =
@@ -512,9 +493,8 @@ class DatabaseEncryptionManager(
             clear.fill(0)
         }
     }
-
     /**
-     * Get unlock remaining seconds.
+     * Returns the get unlock remaining seconds.
      */
     fun getUnlockRemainingSeconds(): Long {
         val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)
@@ -525,9 +505,8 @@ class DatabaseEncryptionManager(
             0L
         }
     }
-
     /**
-     * Record failed unlock attempt.
+     * Performs the record failed unlock attempt.
      */
     fun recordFailedUnlockAttempt(): Long {
         val attempts = prefs.getInt(KEY_UNLOCK_FAILED_ATTEMPTS, 0) + 1
@@ -550,9 +529,8 @@ class DatabaseEncryptionManager(
         )
         return delaySeconds
     }
-
     /**
-     * Reset unlock attempts.
+     * Removes the reset unlock attempts.
      */
     fun resetUnlockAttempts() {
         prefs

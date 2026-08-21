@@ -9,7 +9,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for TimeEntry table.
+ * Room entity for timeEntry table.
  */
 @Entity(
     tableName = "time_entries",
@@ -45,7 +45,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * TimeEntryEntity.
+ * Holds the time entry entity.
  */
 data class TimeEntryEntity(
     @PrimaryKey

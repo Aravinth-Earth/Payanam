@@ -24,9 +24,8 @@ internal class DesktopDatabaseStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     private val databaseFilePath: Path = persistenceDatabase.getDatabaseFilePath()
-
     /**
-     * Load snapshot.
+     * Loads the load snapshot.
      */
     fun loadSnapshot(): DesktopDatabaseSnapshot =
         DesktopDatabaseSnapshot(
@@ -36,9 +35,8 @@ internal class DesktopDatabaseStore(
             databaseSizeKb = databaseFileSizeKb(),
             databaseLastModifiedMs = databaseLastModifiedEpochMillis(),
         )
-
     /**
-     * Ensure initialized.
+     * Performs the ensure initialized.
      */
     fun ensureInitialized(): DesktopDatabaseSnapshot {
         persistenceDatabase.markInitialized()
@@ -49,9 +47,8 @@ internal class DesktopDatabaseStore(
         )
         return loadSnapshot()
     }
-
     /**
-     * Reset database artifact.
+     * Removes the reset database artifact.
      */
     fun resetDatabaseArtifact(): DesktopDatabaseSnapshot {
         persistenceDatabase.clearStateEntries()
@@ -63,9 +60,8 @@ internal class DesktopDatabaseStore(
         )
         return loadSnapshot()
     }
-
     /**
-     * Get database file path.
+     * Returns the get database file path.
      */
     fun getDatabaseFilePath(): Path = databaseFilePath
 

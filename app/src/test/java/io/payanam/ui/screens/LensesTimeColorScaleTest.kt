@@ -14,9 +14,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensesTimeColorScaleTest.
- */
 class LensesTimeColorScaleTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -24,17 +21,11 @@ class LensesTimeColorScaleTest {
     }
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         logger.i("LensesTimeColorScaleTest.setUp", "Preparing Lenses time color-scale tests")
     }
 
     @Test
-    /**
-     * Lenses time gradient color clamps out of range inputs.
-     */
     fun lensesTimeGradientColor_clamps_out_of_range_inputs() {
         val belowZero = lensesTimeGradientColor(-0.5f)
         val atZero = lensesTimeGradientColor(0f)
@@ -82,9 +73,6 @@ class LensesTimeColorScaleTest {
     }
 
     @Test
-    /**
-     * Focused hours to percent converts with clamp and defaults.
-     */
     fun focusedHoursToPercent_converts_with_clamp_and_defaults() {
         assertEquals(0, focusedHoursToPercent(0.0))
         assertEquals(25, focusedHoursToPercent(6.0))
@@ -105,9 +93,6 @@ class LensesTimeColorScaleTest {
     }
 
     @Test
-    /**
-     * Sanitize focused hours returns zero for non finite values.
-     */
     fun sanitizeFocusedHours_returns_zero_for_non_finite_values() {
         assertEquals(0.0, sanitizeFocusedHours(Double.NaN), 0.0)
         assertEquals(0.0, sanitizeFocusedHours(Double.POSITIVE_INFINITY), 0.0)

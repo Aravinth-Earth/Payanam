@@ -11,14 +11,13 @@ import io.payanam.domain.repository.TaskPlanItem
 import io.payanam.domain.repository.TaskRealityItem
 import io.payanam.domain.repository.UnifiedLensSnapshot
 import org.junit.Test
-
 /**
- * LensDailyInsightCacheCodecTest.
+ * Provides the lens daily insight cache codec test.
  */
 class LensDailyInsightCacheCodecTest {
     @Test
     /**
-     * Encode decode round trips unified snapshot.
+     * Performs the encode decode round trips unified snapshot.
      */
     fun encodeDecode_roundTripsUnifiedSnapshot() {
         val snapshot =

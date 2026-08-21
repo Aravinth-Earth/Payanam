@@ -21,7 +21,7 @@ import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * DayPlanRepositoryTemplateResolutionTest.
+ * Provides the day plan repository template resolution test.
  */
 class DayPlanRepositoryTemplateResolutionTest {
     private lateinit var database: PayanamDatabase
@@ -29,7 +29,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -51,7 +51,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -59,7 +59,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Auto mode uses configured weekday template.
+     * Performs the auto mode uses configured weekday template.
      */
     fun autoMode_usesConfiguredWeekdayTemplate() =
         runBlocking {
@@ -79,7 +79,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Custom mode overrides auto template.
+     * Performs the custom mode overrides auto template.
      */
     fun customMode_overridesAutoTemplate() =
         runBlocking {
@@ -104,7 +104,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Auto mode starred day prefers starred template.
+     * Performs the auto mode starred day prefers starred template.
      */
     fun autoMode_starredDay_prefersStarredTemplate() =
         runBlocking {
@@ -133,7 +133,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Set day mode template persists policy.
+     * Updates the set day mode template persists policy.
      */
     fun setDayMode_template_persistsPolicy() =
         runBlocking {
@@ -170,7 +170,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Auto mode uses weekend template on weekend day.
+     * Performs the auto mode uses weekend template on weekend day.
      */
     fun autoMode_usesWeekendTemplate_onWeekendDay() =
         runBlocking {
@@ -214,7 +214,7 @@ class DayPlanRepositoryTemplateResolutionTest {
 
     @Test
     /**
-     * Day type preference accepts null template id.
+     * Performs the day type preference accepts null template id.
      */
     fun dayTypePreference_acceptsNullTemplateId() =
         runBlocking {

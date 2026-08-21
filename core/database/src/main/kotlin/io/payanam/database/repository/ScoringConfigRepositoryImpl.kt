@@ -13,11 +13,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room implementation of ScoringConfigRepository.
+ * Room implementation of scoringConfigRepository.
  */
 @Singleton
 /**
- * ScoringConfigRepositoryImpl.
+ * Provides the scoring config repository impl.
  */
 class ScoringConfigRepositoryImpl
     @Inject
@@ -26,6 +26,9 @@ class ScoringConfigRepositoryImpl
     ) : ScoringConfigRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get config.
+         */
         override suspend fun getConfig(): ScoringConfig {
             logger.d("ScoringConfigRepository.getConfig", "Fetching scoring config")
             val entity = sessionManager.requireDatabase().scoringConfigDao().getConfig()
@@ -38,6 +41,9 @@ class ScoringConfigRepositoryImpl
             }
         }
 
+        /**
+         * Registers the observe config.
+         */
         override fun observeConfig(): Flow<ScoringConfig> {
             logger.d("ScoringConfigRepository.observeConfig", "Subscribing to scoring config")
             return sessionManager.requireDatabase().scoringConfigDao().observeConfig().map { entity ->
@@ -49,6 +55,9 @@ class ScoringConfigRepositoryImpl
             }
         }
 
+        /**
+         * Writes the save config.
+         */
         override suspend fun saveConfig(config: ScoringConfig) {
             logger.i(
                 "ScoringConfigRepository.saveConfig",
@@ -62,6 +71,9 @@ class ScoringConfigRepositoryImpl
             sessionManager.requireDatabase().scoringConfigDao().upsertConfig(entity)
         }
 
+        /**
+         * Removes the reset to defaults.
+         */
         override suspend fun resetToDefaults() {
             logger.i("ScoringConfigRepository.resetToDefaults", "Resetting to default config")
             sessionManager.requireDatabase().scoringConfigDao().deleteConfig()

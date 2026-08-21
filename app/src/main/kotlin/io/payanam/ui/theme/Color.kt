@@ -19,9 +19,6 @@ val PurpleGrey40 = Color(0xFF546E7A)
 val Pink40 = Color(0xFFFF8F00)
 
 // Life Dimension Colors (matching original app)
-/**
- * LifeDimensionColors.
- */
 object LifeDimensionColors {
     private val fallbackLoggedDimensions = mutableSetOf<String>()
     val CareerWork = Color(0xFF4CAF50) // Green
@@ -33,9 +30,8 @@ object LifeDimensionColors {
     val Recreation = Color(0xFF00BCD4) // Cyan
     val Learning = Color(0xFFFFC107) // Amber
     val Contribution = Color(0xFF607D8B) // Blue Grey
-
     /**
-     * For dimension id.
+     * Performs the for dimension id.
      */
     fun forDimensionId(dimensionId: String?): Color? {
         val normalizedId = dimensionId?.trim().orEmpty()
@@ -94,9 +90,6 @@ object LifeDimensionColors {
 }
 
 // Task Status Colors
-/**
- * StatusColors.
- */
 object StatusColors {
     val Pending = Color(0xFF757575) // Grey
     val Completed = Color(0xFF4CAF50) // Green
@@ -107,7 +100,7 @@ object StatusColors {
 
 // Score Colors (gradient based on score 0..1)
 /**
- * Score color.
+ * Performs the score color.
  */
 fun scoreColor(score: Float): Color = when {
     score >= 0.8f -> Color(0xFF4CAF50)

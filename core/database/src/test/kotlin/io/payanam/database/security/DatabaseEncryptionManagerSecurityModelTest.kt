@@ -13,7 +13,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * DatabaseEncryptionManagerSecurityModelTest.
+ * Provides the database encryption manager security model test.
  */
 class DatabaseEncryptionManagerSecurityModelTest {
     private lateinit var context: Context
@@ -22,7 +22,7 @@ class DatabaseEncryptionManagerSecurityModelTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()

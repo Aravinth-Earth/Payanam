@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * JournalDaoTest.
+ * Provides the journal dao test.
  */
 class JournalDaoTest {
     private lateinit var database: PayanamDatabase
@@ -27,7 +27,7 @@ class JournalDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -42,7 +42,7 @@ class JournalDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -50,7 +50,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Insert entry and get entry for date.
+     * Performs the insert entry and get entry for date.
      */
     fun insertEntry_and_getEntryForDate() {
         runBlocking {
@@ -65,7 +65,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Observe entry for date emits entry.
+     * Registers the observe entry for date emits entry.
      */
     fun observeEntryForDate_emitsEntry() {
         runBlocking {
@@ -79,7 +79,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Get entry for date returns null when no entry.
+     * Returns the get entry for date returns null when no entry.
      */
     fun getEntryForDate_returnsNullWhenNoEntry() {
         runBlocking {
@@ -90,7 +90,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Insert response and get response.
+     * Performs the insert response and get response.
      */
     fun insertResponse_and_getResponse() {
         runBlocking {
@@ -107,7 +107,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Get responses for entry returns all responses.
+     * Returns the get responses for entry returns all responses.
      */
     fun getResponsesForEntry_returnsAllResponses() {
         runBlocking {
@@ -126,7 +126,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Update response modifies response.
+     * Updates the update response modifies response.
      */
     fun updateResponse_modifiesResponse() {
         runBlocking {
@@ -143,7 +143,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Delete response removes response.
+     * Removes the delete response removes response.
      */
     fun deleteResponse_removesResponse() {
         runBlocking {
@@ -160,7 +160,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Get all entries returns all entries.
+     * Returns the get all entries returns all entries.
      */
     fun getAllEntries_returnsAllEntries() {
         runBlocking {

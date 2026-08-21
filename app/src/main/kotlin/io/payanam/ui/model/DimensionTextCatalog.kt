@@ -6,10 +6,6 @@ import android.content.Context
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
-
-/**
- * DimensionTextCatalog.
- */
 object DimensionTextCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
@@ -38,19 +34,16 @@ object DimensionTextCatalog {
         DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id to R.string.loc_dimension_desc_community_service,
         DimensionTaxonomyCatalog.UNASSIGNED.id to R.string.loc_dimension_desc_unassigned,
     )
-
     /**
-     * Label res id for canonical id.
+     * Performs the label res id for canonical id.
      */
     fun labelResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(labelResIds::get)
-
     /**
-     * Description res id for canonical id.
+     * Performs the description res id for canonical id.
      */
     fun descriptionResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(descriptionResIds::get)
-
     /**
-     * Localized label.
+     * Performs the localized label.
      */
     fun localizedLabel(context: Context, canonicalId: String?): String? {
         val resId = labelResIdForCanonicalId(canonicalId) ?: return null
@@ -62,9 +55,8 @@ object DimensionTextCatalog {
             )
         }
     }
-
     /**
-     * Localized description.
+     * Performs the localized description.
      */
     fun localizedDescription(context: Context, canonicalId: String?): String? {
         val resId = descriptionResIdForCanonicalId(canonicalId) ?: return null

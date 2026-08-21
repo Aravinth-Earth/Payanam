@@ -14,9 +14,6 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeScreenAutoScrollPolicyTest.
- */
 class TimeScreenAutoScrollPolicyTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -24,9 +21,6 @@ class TimeScreenAutoScrollPolicyTest {
     }
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         logger.i("TimeScreenAutoScrollPolicyTest.setUp", "Preparing TimeScreen auto-scroll policy tests")
     }

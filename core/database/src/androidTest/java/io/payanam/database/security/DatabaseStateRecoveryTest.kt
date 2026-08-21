@@ -29,7 +29,7 @@ class DatabaseStateRecoveryTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
@@ -50,7 +50,7 @@ class DatabaseStateRecoveryTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -61,7 +61,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Cleanup stale artifacts removes temporary encryption files.
+     * Performs the cleanup stale artifacts removes temporary encryption files.
      */
     fun cleanupStaleArtifacts_removesTemporaryEncryptionFiles() {
         // Arrange: Create some stale encryption temporary files
@@ -85,7 +85,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Cleanup stale artifacts preserves primary database.
+     * Performs the cleanup stale artifacts preserves primary database.
      */
     fun cleanupStaleArtifacts_preservesPrimaryDatabase() =
         runTest {
@@ -112,7 +112,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Encryption prefs backup and restore.
+     * Performs the encryption prefs backup and restore.
      */
     fun encryptionPrefs_backupAndRestore() {
         // Arrange: Configure encryption with some state
@@ -148,7 +148,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Recovery from partial import resets state cleanly.
+     * Performs the recovery from partial import resets state cleanly.
      */
     fun recoveryFromPartialImport_resetsStateCleanly() =
         runTest {
@@ -192,7 +192,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Database walfiles cleaned on deletion.
+     * Performs the database walfiles cleaned on deletion.
      */
     fun databaseWALFiles_cleanedOnDeletion() =
         runTest {
@@ -229,7 +229,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Encryption state reset is idempotent.
+     * Performs the encryption state reset is idempotent.
      */
     fun encryptionStateReset_isIdempotent() {
         // Arrange: Configure encryption
@@ -259,7 +259,7 @@ class DatabaseStateRecoveryTest {
 
     @Test
     /**
-     * Failure recovery database reopening after cleanup.
+     * Performs the failure recovery database reopening after cleanup.
      */
     fun failureRecovery_databaseReopeningAfterCleanup() =
         runTest {

@@ -11,9 +11,8 @@ import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.model.DimensionTextCatalog
 import java.time.Instant
 import java.util.Locale
-
 /**
- * NewDatabaseDimensionInput.
+ * Holds the new database dimension input.
  */
 data class NewDatabaseDimensionInput(
     val id: String,
@@ -22,9 +21,8 @@ data class NewDatabaseDimensionInput(
     val isEnabled: Boolean,
     val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
 )
-
 /**
- * NewDatabaseDimensionSeedRow.
+ * Holds the new database dimension seed row.
  */
 data class NewDatabaseDimensionSeedRow(
     val id: String,

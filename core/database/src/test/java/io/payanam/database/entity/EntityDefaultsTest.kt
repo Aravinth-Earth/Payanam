@@ -15,14 +15,14 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * EntityDefaultsTest.
+ * Provides the entity defaults test.
  */
 class EntityDefaultsTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         logger = initLogger()
@@ -31,7 +31,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Task occurrence defaults are applied.
+     * Performs the task occurrence defaults are applied.
      */
     fun taskOccurrence_defaults_areApplied() {
         val occurrence =
@@ -53,7 +53,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Task reschedule stores values.
+     * Performs the task reschedule stores values.
      */
     fun taskReschedule_storesValues() {
         val reschedule =
@@ -75,7 +75,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Journal entities hold values.
+     * Performs the journal entities hold values.
      */
     fun journal_entities_holdValues() {
         val entry =
@@ -113,7 +113,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * App setting entity stores value.
+     * Performs the app setting entity stores value.
      */
     fun appSetting_entity_storesValue() {
         val setting =
@@ -129,7 +129,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Scheduled notification defaults are applied.
+     * Performs the scheduled notification defaults are applied.
      */
     fun scheduledNotification_defaults_areApplied() {
         val notification =
@@ -154,7 +154,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Time entry entity exposes fields.
+     * Performs the time entry entity exposes fields.
      */
     fun timeEntry_entity_exposesFields() {
         val entry =
@@ -196,7 +196,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Time entry entity default optional fields are null.
+     * Performs the time entry entity default optional fields are null.
      */
     fun timeEntry_entity_default_optional_fields_are_null() {
         val entry =
@@ -222,7 +222,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Note entity exposes fields.
+     * Performs the note entity exposes fields.
      */
     fun note_entity_exposesFields() {
         val note =
@@ -248,7 +248,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Note entity default optional fields are null.
+     * Performs the note entity default optional fields are null.
      */
     fun note_entity_default_optional_fields_are_null() {
         val note =
@@ -266,7 +266,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Task entity dimension id defaults and explicit values work.
+     * Performs the task entity dimension id defaults and explicit values work.
      */
     fun taskEntity_dimensionId_defaults_and_explicit_values_work() {
         val taskWithDefaults =
@@ -304,7 +304,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Life dimension and user preference entities store values.
+     * Performs the life dimension and user preference entities store values.
      */
     fun lifeDimension_and_userPreference_entities_store_values() {
         val dimension =
@@ -343,7 +343,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Life dimension entity default optional fields are applied.
+     * Performs the life dimension entity default optional fields are applied.
      */
     fun lifeDimension_entity_default_optional_fields_are_applied() {
         val dimension =
@@ -363,7 +363,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * User preference entity default optional fields are applied.
+     * Performs the user preference entity default optional fields are applied.
      */
     fun userPreference_entity_default_optional_fields_are_applied() {
         val preference =
@@ -411,7 +411,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Import batch entity stores values.
+     * Loads the import batch entity stores values.
      */
     fun importBatch_entity_stores_values() {
         val batch =
@@ -433,7 +433,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Import batch entity defaults and copy work.
+     * Loads the import batch entity defaults and copy work.
      */
     fun importBatch_entity_defaults_and_copy_work() {
         val minimal =
@@ -468,7 +468,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Daily insight entity stores values.
+     * Performs the daily insight entity stores values.
      */
     fun dailyInsight_entity_stores_values() {
         val insight =
@@ -500,7 +500,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Daily insight entity defaults and copy work.
+     * Performs the daily insight entity defaults and copy work.
      */
     fun dailyInsight_entity_defaults_and_copy_work() {
         val minimal =
@@ -554,7 +554,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Tag and mapping entities store values.
+     * Performs the tag and mapping entities store values.
      */
     fun tag_and_mapping_entities_store_values() {
         val tag =
@@ -600,7 +600,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Tag and mapping entities copy component and to string work.
+     * Performs the tag and mapping entities copy component and to string work.
      */
     fun tag_and_mapping_entities_copy_component_and_toString_work() {
         val tag =
@@ -646,7 +646,7 @@ class EntityDefaultsTest {
 
     @Test
     /**
-     * Time goal and time rule entities store values and defaults.
+     * Performs the time goal and time rule entities store values and defaults.
      */
     fun timeGoal_and_timeRule_entities_store_values_and_defaults() {
         val goal =

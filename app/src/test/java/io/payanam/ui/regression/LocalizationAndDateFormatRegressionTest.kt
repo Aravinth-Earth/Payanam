@@ -7,16 +7,9 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
-
-/**
- * LocalizationAndDateFormatRegressionTest.
- */
 class LocalizationAndDateFormatRegressionTest {
 
     @Test
-    /**
-     * Tasks filter chip uses string resource format.
-     */
     fun tasks_filter_chip_uses_string_resource_format() {
         val source = readSource("app/src/main/kotlin/io/payanam/ui/screens/MinimalModeComponents.kt")
         assertTrue(source.contains("R.string.loc_task_filter_with_count"))

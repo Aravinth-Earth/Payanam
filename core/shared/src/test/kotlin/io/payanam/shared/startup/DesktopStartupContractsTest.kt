@@ -5,10 +5,6 @@ package io.payanam.shared.startup
 import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
-
-/**
- * DesktopStartupContractsTest.
- */
 class DesktopStartupContractsTest {
     @Test
     fun `startup snapshot flags missing desktop database lifecycle attention`() {

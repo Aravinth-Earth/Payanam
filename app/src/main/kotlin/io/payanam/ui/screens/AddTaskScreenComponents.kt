@@ -176,7 +176,7 @@ internal fun TimePickerDialog(
 }
 
 /**
- * Recurrence options with RRule generation.
+ * Recurrence options with rRule generation.
  */
 enum class RecurrenceOption {
     DAILY,
@@ -186,9 +186,8 @@ enum class RecurrenceOption {
     MONTHLY,
     YEARLY,
     ;
-
     /**
-     * To rrule.
+     * Performs the to rrule.
      */
     fun toRRule(): String = when (this) {
         DAILY -> "FREQ=DAILY;INTERVAL=1"
@@ -201,7 +200,7 @@ enum class RecurrenceOption {
 
     companion object {
         /**
-         * From rrule.
+         * Performs the from rrule.
          */
         fun fromRRule(rule: String?): RecurrenceOption {
             if (rule == null) return DAILY

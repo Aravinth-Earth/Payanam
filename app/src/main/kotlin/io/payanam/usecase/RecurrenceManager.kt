@@ -33,7 +33,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * RecurrenceManager.
+ * Provides the recurrence manager.
  */
 class RecurrenceManager @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -376,7 +376,7 @@ class RecurrenceManager @Inject constructor(
     }
 
     /**
-     * Handle task miss with due-date advancement (decay scoring removed in Inc 3).
+     * Handle task miss with due-date advancement (decay scoring removed in inc 3).
      */
     suspend fun onTaskMissed(task: Task, note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         if (!task.recurrenceEnabled) return
@@ -565,18 +565,16 @@ class RecurrenceManager @Inject constructor(
             RecurrenceScoreCalculator.calculateCompletionStats(indexedOccurrences)
         }
     }
-
     /**
-     * Is frequency habit.
+     * Returns true when the is frequency habit.
      */
     fun isFrequencyHabit(task: Task): Boolean {
         if (!task.recurrenceEnabled) return false
         if (Frequency.isSerializedRule(task.recurrenceRule)) return true
         return RecurrenceConfig.parse(task.recurrenceRule).type == RecurrenceType.FREQUENCY
     }
-
     /**
-     * Refresh frequency habit state.
+     * Performs the refresh frequency habit state.
      */
     suspend fun refreshFrequencyHabitState(taskId: String) {
         val task = taskRepository.getTaskById(taskId) ?: return

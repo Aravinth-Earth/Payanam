@@ -3,9 +3,8 @@
 package io.payanam.shared.startup
 
 import io.payanam.shared.settings.DesktopTopLevelRoute
-
 /**
- * DesktopStartupCheckStatus.
+ * Defines the contract for desktop startup check status.
  */
 enum class DesktopStartupCheckStatus {
     Ready,
@@ -33,12 +32,11 @@ data class DesktopStartupSnapshot(
     val checks: List<DesktopStartupCheck>,
 ) {
     /**
-     * Requires attention.
+     * Performs the requires attention.
      */
     fun requiresAttention(): Boolean = checks.any { it.status == DesktopStartupCheckStatus.AttentionRequired }
-
     /**
-     * Ready checks.
+     * Loads the ready checks.
      */
     fun readyChecks(): Int = checks.count { it.status == DesktopStartupCheckStatus.Ready }
 }
@@ -64,15 +62,10 @@ data class DesktopStartupState(
     val sessionOpen: Boolean,
     val desktopDatabaseReady: Boolean = false,
 )
-
-/**
- * DesktopStartupContracts.
- */
 object DesktopStartupContracts {
     const val SCHEMA_VERSION = 1
-
     /**
-     * Snapshot.
+     * Performs the snapshot.
      */
     fun snapshot(
         launchRoute: DesktopTopLevelRoute,

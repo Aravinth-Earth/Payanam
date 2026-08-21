@@ -18,9 +18,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
 /**
- * NotesScreenUiState.
+ * Holds the notes screen ui state.
  */
 data class NotesScreenUiState(
     val notes: List<Note> = emptyList(),
@@ -35,7 +34,7 @@ data class NotesScreenUiState(
 
 @HiltViewModel
 /**
- * NotesViewModel.
+ * Provides the notes view model.
  */
 class NotesViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
@@ -84,9 +83,8 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Update search query.
+     * Updates the update search query.
      */
     fun updateSearchQuery(query: String) {
         _uiState.update { state ->
@@ -96,9 +94,8 @@ class NotesViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Set dimension filter.
+     * Updates the set dimension filter.
      */
     fun setDimensionFilter(dimensionId: String?) {
         _uiState.update { state ->
@@ -125,9 +122,8 @@ class NotesViewModel @Inject constructor(
 
         matchesQuery && matchesDimension
     }
-
     /**
-     * Create note.
+     * Creates the create note.
      */
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
@@ -149,9 +145,8 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Update note.
+     * Updates the update note.
      */
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
@@ -178,9 +173,8 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Delete note.
+     * Removes the delete note.
      */
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
@@ -193,9 +187,8 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Clear error.
+     * Removes the clear error.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }

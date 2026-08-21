@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskOccurrenceDaoTest.
+ * Provides the task occurrence dao test.
  */
 class TaskOccurrenceDaoTest {
     private lateinit var database: PayanamDatabase
@@ -30,7 +30,7 @@ class TaskOccurrenceDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -47,7 +47,7 @@ class TaskOccurrenceDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -55,7 +55,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Insert and get occurrences for task.
+     * Performs the insert and get occurrences for task.
      */
     fun insert_and_getOccurrencesForTask() =
         runBlocking {
@@ -70,7 +70,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Get occurrences for date filters by date.
+     * Returns the get occurrences for date filters by date.
      */
     fun getOccurrencesForDate_filtersByDate() =
         runBlocking {
@@ -105,7 +105,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Get occurrences for task in range filters by date range.
+     * Returns the get occurrences for task in range filters by date range.
      */
     fun getOccurrencesForTaskInRange_filtersByDateRange() =
         runBlocking {
@@ -125,7 +125,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Update occurrence modifies status.
+     * Updates the update occurrence modifies status.
      */
     fun updateOccurrence_modifiesStatus() =
         runBlocking {
@@ -151,7 +151,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Delete by id removes occurrence.
+     * Removes the delete by id removes occurrence.
      */
     fun deleteById_removesOccurrence() =
         runBlocking {
@@ -167,7 +167,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Get occurrences for tasks in range bulk loads occurrences.
+     * Returns the get occurrences for tasks in range bulk loads occurrences.
      */
     fun getOccurrencesForTasksInRange_bulkLoadsOccurrences() =
         runBlocking {
@@ -191,7 +191,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Get all occurrences returns all rows.
+     * Returns the get all occurrences returns all rows.
      */
     fun getAllOccurrences_returnsAllRows() =
         runBlocking {
@@ -208,7 +208,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Get all reschedules returns all rows.
+     * Returns the get all reschedules returns all rows.
      */
     fun getAllReschedules_returnsAllRows() =
         runBlocking {
@@ -223,7 +223,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Deleting task cascades occurrence and reschedule rows.
+     * Performs the deleting task cascades occurrence and reschedule rows.
      */
     fun deletingTask_cascadesOccurrenceAndRescheduleRows() =
         runBlocking {

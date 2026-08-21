@@ -6,9 +6,8 @@ package io.payanam.domain.model
 
 
 import io.payanam.common.logging.UnifiedLogger
-
 /**
- * CanonicalDimensionDefinition.
+ * Holds the canonical dimension definition.
  */
 data class CanonicalDimensionDefinition(
     val id: String,
@@ -20,10 +19,6 @@ data class CanonicalDimensionDefinition(
     val defaultColorHex: String,
     val defaultIconKey: String
 )
-
-/**
- * DimensionTaxonomyCatalog.
- */
 @Suppress("MagicNumber")
 object DimensionTaxonomyCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
@@ -162,16 +157,14 @@ object DimensionTaxonomyCatalog {
             "callerLine" to (caller?.lineNumber ?: -1)
         )
     }
-
     /**
-     * From canonical id.
+     * Performs the from canonical id.
      */
     fun fromCanonicalId(id: String?): CanonicalDimensionDefinition? {
         return id?.let(entriesByCanonicalId::get)
     }
-
     /**
-     * From any id.
+     * Performs the from any id.
      */
     fun fromAnyId(id: String?): CanonicalDimensionDefinition? {
         if (id.isNullOrBlank()) {
@@ -203,9 +196,8 @@ object DimensionTaxonomyCatalog {
             null
         }
     }
-
     /**
-     * From any label.
+     * Performs the from any label.
      */
     fun fromAnyLabel(label: String?): CanonicalDimensionDefinition? {
         if (label.isNullOrBlank()) {
@@ -223,16 +215,14 @@ object DimensionTaxonomyCatalog {
         )
         return null
     }
-
     /**
-     * Is canonical label.
+     * Returns true when the is canonical label.
      */
     fun isCanonicalLabel(label: String?): Boolean {
         return !label.isNullOrBlank() && canonicalLabels.contains(label.trim())
     }
-
     /**
-     * Default weight for dimension id.
+     * Performs the default weight for dimension id.
      */
     fun defaultWeightForDimensionId(id: String?): Double {
         return fromCanonicalId(id)?.defaultWeight ?: 0.5

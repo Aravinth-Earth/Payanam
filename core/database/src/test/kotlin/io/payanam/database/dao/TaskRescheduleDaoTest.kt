@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskRescheduleDaoTest.
+ * Provides the task reschedule dao test.
  */
 class TaskRescheduleDaoTest {
     private lateinit var database: PayanamDatabase
@@ -28,7 +28,7 @@ class TaskRescheduleDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -44,7 +44,7 @@ class TaskRescheduleDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -52,7 +52,7 @@ class TaskRescheduleDaoTest {
 
     @Test
     /**
-     * Insert and get reschedules for task.
+     * Performs the insert and get reschedules for task.
      */
     fun insert_and_getReschedulesForTask() {
         runBlocking {
@@ -69,7 +69,7 @@ class TaskRescheduleDaoTest {
 
     @Test
     /**
-     * Get reschedules for task empty.
+     * Returns the get reschedules for task empty.
      */
     fun getReschedulesForTask_empty() {
         runBlocking {
@@ -82,7 +82,7 @@ class TaskRescheduleDaoTest {
 
     @Test
     /**
-     * Insert multiple reschedules.
+     * Performs the insert multiple reschedules.
      */
     fun insert_multiple_reschedules() {
         runBlocking {
@@ -100,7 +100,7 @@ class TaskRescheduleDaoTest {
 
     @Test
     /**
-     * Insert replace on conflict.
+     * Performs the insert replace on conflict.
      */
     fun insert_replace_on_conflict() {
         runBlocking {

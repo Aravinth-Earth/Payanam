@@ -14,9 +14,6 @@ import java.time.LocalDate
 import java.time.LocalTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * EditTimeEntryDialogLogicTest.
- */
 class EditTimeEntryDialogLogicTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Application>()

@@ -8,7 +8,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for TaskOccurrence table.
+ * Room entity for taskOccurrence table.
  */
 @Entity(
     tableName = "task_occurrences",
@@ -31,7 +31,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * TaskOccurrenceEntity.
+ * Holds the task occurrence entity.
  */
 data class TaskOccurrenceEntity(
     @PrimaryKey
@@ -49,7 +49,7 @@ data class TaskOccurrenceEntity(
 )
 
 /**
- * Room entity for TaskReschedule table.
+ * Room entity for taskReschedule table.
  */
 @Entity(
     tableName = "task_reschedules",
@@ -64,7 +64,7 @@ data class TaskOccurrenceEntity(
     indices = [Index("taskId")],
 )
 /**
- * TaskRescheduleEntity.
+ * Holds the task reschedule entity.
  */
 data class TaskRescheduleEntity(
     @PrimaryKey

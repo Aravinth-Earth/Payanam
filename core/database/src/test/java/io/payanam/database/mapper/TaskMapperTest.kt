@@ -18,14 +18,14 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskMapperTest.
+ * Provides the task mapper test.
  */
 class TaskMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         logger = initLogger()
@@ -34,7 +34,7 @@ class TaskMapperTest {
 
     @Test
     /**
-     * To domain parses zulu date.
+     * Performs the to domain parses zulu date.
      */
     fun toDomain_parsesZuluDate() {
         val entity =
@@ -69,7 +69,7 @@ class TaskMapperTest {
 
     @Test
     /**
-     * Round trip preserves fields.
+     * Performs the round trip preserves fields.
      */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
@@ -103,7 +103,7 @@ class TaskMapperTest {
 
     @Test
     /**
-     * To entity handles null due date.
+     * Performs the to entity handles null due date.
      */
     fun toEntity_handlesNullDueDate() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
@@ -122,7 +122,7 @@ class TaskMapperTest {
 
     @Test
     /**
-     * To entity sets recurrence enabled flag.
+     * Performs the to entity sets recurrence enabled flag.
      */
     fun toEntity_setsRecurrenceEnabledFlag() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)

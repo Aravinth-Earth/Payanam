@@ -10,16 +10,14 @@ import io.payanam.domain.model.TimeEntry
 
 internal object InsightsDimensionContract {
     private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }
-
     /**
-     * Task dimension id.
+     * Performs the task dimension id.
      */
     fun taskDimensionId(task: Task): String = task.dimensionId
         ?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
         ?: DimensionTaxonomyCatalog.LEARNING_GROWTH.id
-
     /**
-     * Note dimension id.
+     * Performs the note dimension id.
      */
     fun noteDimensionId(note: Note): String = note.dimensionId
         ?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
@@ -63,9 +61,8 @@ internal object InsightsDimensionContract {
         )
         return DimensionTaxonomyCatalog.LEARNING_GROWTH.id
     }
-
     /**
-     * Dimension label.
+     * Performs the dimension label.
      */
     fun dimensionLabel(dimensionId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
 }

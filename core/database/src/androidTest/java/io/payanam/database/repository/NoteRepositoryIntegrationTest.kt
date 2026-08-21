@@ -22,7 +22,7 @@ import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
 /**
- * NoteRepositoryIntegrationTest.
+ * Provides the note repository integration test.
  */
 class NoteRepositoryIntegrationTest {
     private lateinit var database: PayanamDatabase
@@ -31,7 +31,7 @@ class NoteRepositoryIntegrationTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -55,7 +55,7 @@ class NoteRepositoryIntegrationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -64,7 +64,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Create note creates and returns note with generated id.
+     * Creates the create note creates and returns note with generated id.
      */
     fun createNote_createsAndReturnsNoteWithGeneratedId() =
         runBlocking {
@@ -84,7 +84,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get all notes returns all created notes.
+     * Returns the get all notes returns all created notes.
      */
     fun getAllNotes_returnsAllCreatedNotes() =
         runBlocking {
@@ -102,7 +102,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get note by id returns correct note when exists.
+     * Returns the get note by id returns correct note when exists.
      */
     fun getNoteById_returnsCorrectNoteWhenExists() =
         runBlocking {
@@ -121,7 +121,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get note by id returns null when note does not exist.
+     * Returns the get note by id returns null when note does not exist.
      */
     fun getNoteById_returnsNullWhenNoteDoesNotExist() =
         runBlocking {
@@ -161,7 +161,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Update note modifies existing note.
+     * Updates the update note modifies existing note.
      */
     fun updateNote_modifiesExistingNote() =
         runBlocking {
@@ -181,7 +181,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Delete note removes note from database.
+     * Removes the delete note removes note from database.
      */
     fun deleteNote_removesNoteFromDatabase() =
         runBlocking {

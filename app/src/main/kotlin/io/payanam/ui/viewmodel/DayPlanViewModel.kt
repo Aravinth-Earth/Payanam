@@ -18,9 +18,8 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
-
 /**
- * DayPlanUiState.
+ * Holds the day plan ui state.
  */
 data class DayPlanUiState(
     val templates: List<DayPlanTemplateRecord> = emptyList(),
@@ -49,7 +48,7 @@ data class DayPlanUiState(
 
 @HiltViewModel
 /**
- * DayPlanViewModel.
+ * Provides the day plan view model.
  */
 class DayPlanViewModel @Inject constructor(
     private val dayPlanRepository: DayPlanRepository,
@@ -88,9 +87,8 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Load day plan.
+     * Loads the load day plan.
      */
     fun loadDayPlan(dayKey: String) {
         viewModelScope.launch {
@@ -164,9 +162,8 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Save day plan.
+     * Writes the save day plan.
      */
     fun saveDayPlan(
         dayKey: String,
@@ -220,9 +217,8 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Clear day plan.
+     * Removes the clear day plan.
      */
     fun clearDayPlan(dayKey: String) {
         logger.i("DayPlanViewModel.clearDayPlan", "Clearing day plan", mapOf("dayKey" to dayKey))
@@ -231,9 +227,8 @@ class DayPlanViewModel @Inject constructor(
             loadDayPlan(dayKey)
         }
     }
-
     /**
-     * Select template.
+     * Performs the select template.
      */
     fun selectTemplate(id: String) {
         logger.d("DayPlanViewModel.selectTemplate", "Selecting template", mapOf("id" to id))
@@ -253,9 +248,8 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Start new template.
+     * Performs the start new template.
      */
     fun startNewTemplate() {
         _uiState.update {
@@ -270,9 +264,8 @@ class DayPlanViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Start edit template.
+     * Performs the start edit template.
      */
     fun startEditTemplate(id: String) {
         logger.d("DayPlanViewModel.startEditTemplate", "Starting template edit", mapOf("id" to id))
@@ -294,23 +287,20 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Set template name.
+     * Updates the set template name.
      */
     fun setTemplateName(name: String) {
         _uiState.update { it.copy(templateName = name, errorMessage = null) }
     }
-
     /**
-     * Set template description.
+     * Updates the set template description.
      */
     fun setTemplateDescription(description: String) {
         _uiState.update { it.copy(templateDescription = description) }
     }
-
     /**
-     * Set template allocation.
+     * Updates the set template allocation.
      */
     fun setTemplateAllocation(dimensionId: String, minutes: Int?) {
         _uiState.update { state ->
@@ -323,9 +313,8 @@ class DayPlanViewModel @Inject constructor(
             state.copy(templateAllocations = allocs)
         }
     }
-
     /**
-     * Save template.
+     * Writes the save template.
      */
     fun saveTemplate() {
         val state = _uiState.value
@@ -401,9 +390,8 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Delete template.
+     * Removes the delete template.
      */
     fun deleteTemplate(id: String) {
         viewModelScope.launch {
@@ -418,9 +406,8 @@ class DayPlanViewModel @Inject constructor(
             logger.i("DayPlanViewModel.deleteTemplate", "Deleted template", mapOf("id" to id))
         }
     }
-
     /**
-     * Cancel editing.
+     * Returns true when the cancel editing.
      */
     fun cancelEditing() {
         _uiState.update {
@@ -431,9 +418,8 @@ class DayPlanViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Clear error.
+     * Removes the clear error.
      */
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }

@@ -44,7 +44,7 @@ import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
  */
 @Composable
 /**
- * Pre unlock update section.
+ * Performs the pre unlock update section.
  */
 fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
     val logger = UnifiedLogger.getInstance()

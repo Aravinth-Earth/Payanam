@@ -25,15 +25,14 @@ internal class DesktopPersistenceDatabase(
         initializeDatabase()
         migrateLegacyFilesIfNeeded()
     }
-
     /**
-     * Get database file path.
+     * Returns the get database file path.
      */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
     @Synchronized
     /**
-     * Read entry.
+     * Loads the read entry.
      */
     fun readEntry(entryKey: String): String? =
         withConnection { connection ->
@@ -56,6 +55,9 @@ internal class DesktopPersistenceDatabase(
      * Write entry.
      */
     @Suppress("MagicNumber")
+    /**
+     * Writes the write entry.
+     */
     fun writeEntry(
         entryKey: String,
         payload: String,
@@ -81,7 +83,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Delete entry.
+     * Removes the delete entry.
      */
     fun deleteEntry(entryKey: String) {
         withConnection { connection ->
@@ -96,7 +98,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Clear state entries.
+     * Removes the clear state entries.
      */
     fun clearStateEntries() {
         withConnection { connection ->
@@ -108,13 +110,13 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Has entry.
+     * Returns true when the has entry.
      */
     fun hasEntry(entryKey: String): Boolean = readEntry(entryKey) != null
 
     @Synchronized
     /**
-     * Mark initialized.
+     * Performs the mark initialized.
      */
     fun markInitialized() {
         writeEntry(INITIALIZED_ENTRY_KEY, System.currentTimeMillis().toString())
@@ -122,7 +124,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Clear initialized marker.
+     * Removes the clear initialized marker.
      */
     fun clearInitializedMarker() {
         deleteEntry(INITIALIZED_ENTRY_KEY)
@@ -130,13 +132,13 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Is initialized.
+     * Returns true when the is initialized.
      */
     fun isInitialized(): Boolean = hasEntry(INITIALIZED_ENTRY_KEY)
 
     @Synchronized
     /**
-     * Database entry count.
+     * Performs the database entry count.
      */
     fun databaseEntryCount(): Int =
         withConnection { connection ->
@@ -150,7 +152,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Import legacy files into database.
+     * Loads the import legacy files into database.
      */
     fun importLegacyFilesIntoDatabase() {
         migrateLegacyFilesIfNeeded(force = true)

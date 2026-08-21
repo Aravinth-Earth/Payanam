@@ -24,7 +24,7 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 /**
- * BootReceiver.
+ * Provides the boot receiver.
  */
 class BootReceiver : BroadcastReceiver() {
 
@@ -36,6 +36,9 @@ class BootReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Handles the on receive.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val logger = UnifiedLogger.getInstance()

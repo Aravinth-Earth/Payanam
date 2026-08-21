@@ -8,10 +8,6 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
-/**
- * TimeScreenVisualPanelsTest.
- */
 class TimeScreenVisualPanelsTest {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
@@ -36,9 +32,6 @@ class TimeScreenVisualPanelsTest {
     }
 
     @Test
-    /**
-     * Short dimension label returns initials for two word label.
-     */
     fun shortDimensionLabel_returnsInitials_forTwoWordLabel() {
         assertEquals("LG", shortDimensionLabel("Learning & Grow"))
     }
@@ -52,9 +45,6 @@ class TimeScreenVisualPanelsTest {
     }
 
     @Test
-    /**
-     * Short dimension label supports tamil two word initials.
-     */
     fun shortDimensionLabel_supportsTamil_twoWordInitials() {
         assertEquals("கவ", shortDimensionLabel("கற்று வளர"))
     }

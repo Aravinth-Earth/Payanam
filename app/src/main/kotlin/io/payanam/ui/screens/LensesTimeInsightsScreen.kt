@@ -684,6 +684,9 @@ private fun roundToLensScorePrecision(value: Double): Double = round(value * LEN
 
 private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
     return object : CartesianValueFormatter {
+        /**
+         * Performs the format.
+         */
         override fun format(
             value: Double,
             chartValues: ChartValues,

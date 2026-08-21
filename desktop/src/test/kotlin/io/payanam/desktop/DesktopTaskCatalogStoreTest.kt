@@ -9,9 +9,8 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
-
 /**
- * DesktopTaskCatalogStoreTest.
+ * Provides the desktop task catalog store test.
  */
 class DesktopTaskCatalogStoreTest {
     @get:Rule

@@ -16,7 +16,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * LifeDimensionCatalogRepositoryImpl.
+ * Provides the life dimension catalog repository impl.
  */
 class LifeDimensionCatalogRepositoryImpl
     @Inject
@@ -26,6 +26,9 @@ class LifeDimensionCatalogRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Registers the observe all dimensions.
+         */
         override fun observeAllDimensions(): Flow<List<ConfiguredLifeDimension>> {
             logger.d("LifeDimensionCatalogRepositoryImpl.observeAllDimensions", "Subscribing to life dimension catalog")
             return sessionManager
@@ -35,6 +38,9 @@ class LifeDimensionCatalogRepositoryImpl
                 .map { entities -> entities.map { it.toConfiguredLifeDimension() } }
         }
 
+        /**
+         * Updates the update dimension label.
+         */
         override suspend fun updateDimensionLabel(
             dimensionId: String,
             label: String,
@@ -51,6 +57,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the update dimension color.
+         */
         override suspend fun updateDimensionColor(
             dimensionId: String,
             colorHex: String,
@@ -67,6 +76,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the update dimension icon.
+         */
         override suspend fun updateDimensionIcon(
             dimensionId: String,
             iconKey: String,
@@ -83,6 +95,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the update dimension active state.
+         */
         override suspend fun updateDimensionActiveState(
             dimensionId: String,
             isActive: Boolean,
@@ -99,6 +114,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the update dimension weight.
+         */
         override suspend fun updateDimensionWeight(
             dimensionId: String,
             weight: Double,

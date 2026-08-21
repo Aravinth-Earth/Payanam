@@ -13,7 +13,7 @@ import androidx.room.PrimaryKey
  */
 @Entity(tableName = "scoring_config")
 /**
- * ScoringConfigEntity.
+ * Holds the scoring config entity.
  */
 data class ScoringConfigEntity(
     @PrimaryKey

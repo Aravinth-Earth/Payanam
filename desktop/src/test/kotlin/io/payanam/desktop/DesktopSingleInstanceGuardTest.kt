@@ -5,9 +5,8 @@ package io.payanam.desktop
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import java.nio.file.Files
-
 /**
- * DesktopSingleInstanceGuardTest.
+ * Provides the desktop single instance guard test.
  */
 class DesktopSingleInstanceGuardTest {
     @Test

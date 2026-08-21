@@ -19,7 +19,7 @@ import java.io.File
 sealed class DownloadUiState {
     data object Idle : DownloadUiState()
     /**
-     * Downloading.
+     * Holds the downloading.
      */
     data class Downloading(
         val fileName: String,
@@ -36,11 +36,11 @@ sealed class DownloadUiState {
     /** Paused by the system (e.g. waiting for Wi-Fi) — not an error. */
     data class Paused(val message: String) : DownloadUiState()
     /**
-     * Downloaded.
+     * Holds the downloaded.
      */
     data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
     /**
-     * Failed.
+     * Holds the failed.
      */
     data class Failed(val message: String) : DownloadUiState()
 }
@@ -205,6 +205,9 @@ object AutoDownloadManager {
         onComplete: () -> Unit,
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
+            /**
+             * Handles the on receive.
+             */
             override fun onReceive(ctx: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
                 if (id == downloadId) {

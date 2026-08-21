@@ -27,7 +27,7 @@ import kotlin.math.abs
 
 @AndroidEntryPoint
 /**
- * TaskReminderReceiver.
+ * Provides the task reminder receiver.
  */
 class TaskReminderReceiver : BroadcastReceiver() {
 
@@ -37,6 +37,9 @@ class TaskReminderReceiver : BroadcastReceiver() {
     private val logger = UnifiedLogger.getInstance()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Handles the on receive.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         scope.launch {

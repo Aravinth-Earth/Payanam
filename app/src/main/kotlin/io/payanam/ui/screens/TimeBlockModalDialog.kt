@@ -166,9 +166,8 @@ internal fun TimeBlockModalDialog(
         isExistingEntry -> io.payanam.R.string.loc_save
         else -> io.payanam.R.string.loc_add
     }
-
     /**
-     * Submit time entry.
+     * Performs the submit time entry.
      */
     fun submitTimeEntry() {
         val normalizedFocusNote = focusNote.takeIf { it.isNotBlank() }

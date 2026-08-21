@@ -16,16 +16,10 @@ import org.mockito.kotlin.mock
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeVisualsDrillInInteractionTest.
- */
 class TimeVisualsDrillInInteractionTest {
     private lateinit var viewModel: TimeVisualsViewModel
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -39,9 +33,6 @@ class TimeVisualsDrillInInteractionTest {
     }
 
     @Test
-    /**
-     * Toggle dimension filter behaves as drill in toggle.
-     */
     fun toggleDimensionFilter_behaves_as_drill_in_toggle() {
         viewModel.toggleDimensionFilter("dim_learning")
         assertEquals("dim_learning", viewModel.uiState.value.selectedDimensionFilterId)

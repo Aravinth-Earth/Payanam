@@ -10,10 +10,6 @@ import io.payanam.ui.viewmodel.DimensionPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-
-/**
- * DayPlanDialogPayloadTest.
- */
 class DayPlanDialogPayloadTest {
 
     private val logger: UnifiedLogger? by lazy {

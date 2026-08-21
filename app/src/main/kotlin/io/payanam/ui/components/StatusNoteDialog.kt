@@ -53,7 +53,7 @@ enum class SkipReason(@androidx.annotation.StringRes val labelRes: Int) {
 }
 
 /**
- * Result returned from the StatusNoteDialog
+ * Result returned from the statusNoteDialog
  */
 data class StatusNoteResult(
     val action: StatusAction,
@@ -76,7 +76,7 @@ data class StatusNoteResult(
  */
 @Composable
 /**
- * Status note dialog.
+ * Performs the status note dialog.
  */
 fun StatusNoteDialog(
     isVisible: Boolean,
@@ -265,7 +265,7 @@ fun StatusNoteDialog(
  */
 @Composable
 /**
- * Quick complete dialog.
+ * Performs the quick complete dialog.
  */
 fun QuickCompleteDialog(
     isVisible: Boolean,

@@ -13,26 +13,17 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * ModelDefaultsTest.
- */
 class ModelDefaultsTest {
 
     private lateinit var logger: UnifiedLogger
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         logger = initLogger()
         logger.d("ModelDefaultsTest.setup", "Logger initialized for tests")
     }
 
     @Test
-    /**
-     * Task defaults are applied.
-     */
     fun task_defaults_areApplied() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val task = Task(
@@ -47,9 +38,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Task exposes all fields.
-     */
     fun task_exposesAllFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val due = now.plusHours(2)
@@ -112,9 +100,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Note defaults are applied.
-     */
     fun note_defaults_areApplied() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val note = Note(
@@ -128,9 +113,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Note exposes fields.
-     */
     fun note_exposesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val note = Note(
@@ -150,9 +132,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Time entry optional fields default to null.
-     */
     fun timeEntry_optionalFieldsDefaultToNull() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val entry = TimeEntry(
@@ -167,9 +146,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Task occurrence defaults are applied.
-     */
     fun taskOccurrence_defaults_areApplied() {
         val occurrence = TaskOccurrence(
             id = "occ-1",
@@ -182,9 +158,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Task occurrence exposes fields.
-     */
     fun taskOccurrence_exposesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val occurrence = TaskOccurrence(
@@ -216,9 +189,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Journal models hold values.
-     */
     fun journal_models_holdValues() {
         val entry = DayJournalEntry(
             id = "entry-1",
@@ -247,9 +217,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Task reschedule holds values.
-     */
     fun taskReschedule_holdsValues() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val reschedule = TaskReschedule(
@@ -268,9 +235,6 @@ class ModelDefaultsTest {
     }
 
     @Test
-    /**
-     * Tag model defaults copy and components work.
-     */
     fun tag_model_defaults_copy_and_components_work() {
         val createdAt = LocalDateTime.of(2026, 2, 8, 10, 0)
         val tag = Tag(

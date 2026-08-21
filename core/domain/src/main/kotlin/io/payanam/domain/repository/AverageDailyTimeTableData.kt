@@ -4,9 +4,8 @@ package io.payanam.domain.repository
 
 import io.payanam.common.logging.UnifiedLogger
 import java.time.LocalDate
-
 /**
- * AverageDailyTimeWindow.
+ * Defines the contract for average daily time window.
  */
 enum class AverageDailyTimeWindow(
     val minCalendarDays: Int,
@@ -20,27 +19,24 @@ enum class AverageDailyTimeWindow(
     LAST_365_DAYS(365),
     ALL_DAYS(1),
 }
-
 /**
- * AverageDailyTimeRowType.
+ * Defines the contract for average daily time row type.
  */
 enum class AverageDailyTimeRowType {
     DIMENSION,
     UNASSIGNED,
     UNTRACKED,
 }
-
 /**
- * AverageDailyTimeRow.
+ * Holds the average daily time row.
  */
 data class AverageDailyTimeRow(
     val rowType: AverageDailyTimeRowType,
     val dimensionId: String? = null,
     val averageMinutesByWindow: Map<AverageDailyTimeWindow, Double>,
 )
-
 /**
- * AverageDailyTimeTableData.
+ * Holds the average daily time table data.
  */
 data class AverageDailyTimeTableData(
     val firstTrackedDate: LocalDate,
@@ -49,9 +45,8 @@ data class AverageDailyTimeTableData(
     val visibleWindows: List<AverageDailyTimeWindow>,
     val rows: List<AverageDailyTimeRow>,
 )
-
 /**
- * Average daily time table data.
+ * Performs the average daily time table data.
  */
 fun AverageDailyTimeTableData.logSummary(logger: UnifiedLogger) {
     logger.d(

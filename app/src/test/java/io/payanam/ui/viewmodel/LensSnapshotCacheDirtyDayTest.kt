@@ -26,18 +26,12 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensSnapshotCacheDirtyDayTest.
- */
 class LensSnapshotCacheDirtyDayTest {
 
     private lateinit var repository: FakeLensRepository
     private lateinit var cache: LensSnapshotCache
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -48,9 +42,6 @@ class LensSnapshotCacheDirtyDayTest {
     }
 
     @Test
-    /**
-     * Get or load recomputes when day is marked dirty.
-     */
     fun getOrLoad_recomputesWhenDayIsMarkedDirty() = runBlocking {
         val dayKey = "2026-02-20"
         cache.getOrLoad(dayKey)
@@ -62,9 +53,6 @@ class LensSnapshotCacheDirtyDayTest {
     }
 
     @Test
-    /**
-     * Load for days batches unique day keys.
-     */
     fun loadForDays_batchesUniqueDayKeys() = runBlocking {
         val dayA = "2026-02-20"
         val dayB = "2026-02-21"

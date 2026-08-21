@@ -12,12 +12,12 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * LensPlanCompletenessRegressionTest.
+ * Provides the lens plan completeness regression test.
  */
 class LensPlanCompletenessRegressionTest {
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {

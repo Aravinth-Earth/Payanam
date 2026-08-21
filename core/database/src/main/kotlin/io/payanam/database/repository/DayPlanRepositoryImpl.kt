@@ -39,7 +39,7 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("TooManyFunctions")
 /**
- * DayPlanRepositoryImpl.
+ * Provides the day plan repository impl.
  */
 class DayPlanRepositoryImpl
     @Inject
@@ -51,6 +51,9 @@ class DayPlanRepositoryImpl
 
         // ---- Day Allocations ----
 
+        /**
+         * Registers the observe allocations for day.
+         */
         override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> {
             logger.d("DayPlanRepositoryImpl.observeAllocationsForDay", "Subscribing to allocations for day", mapOf("dayKey" to dayKey))
             return sessionManager.requireDatabase().dayPlanDao().observeAllocationsForDay(dayKey).map { entities ->
@@ -58,6 +61,9 @@ class DayPlanRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get allocations for day.
+         */
         override suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d("DayPlanRepositoryImpl.getAllocationsForDay", "Fetching allocations for day", mapOf("dayKey" to dayKey))
             return sessionManager
@@ -67,6 +73,9 @@ class DayPlanRepositoryImpl
                 .map { it.toRecord() }
         }
 
+        /**
+         * Returns the get effective allocations for day.
+         */
         override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d(
                 "DayPlanRepositoryImpl.getEffectiveAllocationsForDay",
@@ -128,6 +137,9 @@ class DayPlanRepositoryImpl
             return emptyList()
         }
 
+        /**
+         * Updates the set allocation.
+         */
         override suspend fun setAllocation(
             dayKey: String,
             dimensionId: String,
@@ -159,6 +171,9 @@ class DayPlanRepositoryImpl
             )
         }
 
+        /**
+         * Updates the set allocations.
+         */
         override suspend fun setAllocations(
             dayKey: String,
             allocations: Map<String, Int>,
@@ -194,6 +209,9 @@ class DayPlanRepositoryImpl
             markDirtyForDay(dayKey, "day_plan_set_allocations_batch")
         }
 
+        /**
+         * Updates the apply template to day.
+         */
         override suspend fun applyTemplateToDay(
             dayKey: String,
             templateId: String,
@@ -237,6 +255,9 @@ class DayPlanRepositoryImpl
             markDirtyForDay(dayKey, "day_plan_apply_template")
         }
 
+        /**
+         * Removes the clear day plan.
+         */
         override suspend fun clearDayPlan(dayKey: String) {
             requireTodayOrFuture(dayKey)
             sessionManager.requireDatabase().withTransaction {
@@ -247,12 +268,18 @@ class DayPlanRepositoryImpl
             logger.i("DayPlanRepositoryImpl.clearDayPlan", "Cleared day plan and reset mode to auto", mapOf("dayKey" to dayKey))
         }
 
+        /**
+         * Returns the get day policy.
+         */
         override suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord {
             logger.d("DayPlanRepositoryImpl.getDayPolicy", "Fetching day policy", mapOf("dayKey" to dayKey))
             val persisted = sessionManager.requireDatabase().dayPlanDao().getDayPolicy(dayKey)
             return getDayPolicyFromEntity(dayKey, persisted)
         }
 
+        /**
+         * Updates the set day mode.
+         */
         override suspend fun setDayMode(
             dayKey: String,
             mode: String,
@@ -280,6 +307,9 @@ class DayPlanRepositoryImpl
             markDirtyForDay(dayKey, "day_plan_mode_changed")
         }
 
+        /**
+         * Updates the set day starred.
+         */
         override suspend fun setDayStarred(
             dayKey: String,
             isStarred: Boolean,
@@ -303,6 +333,9 @@ class DayPlanRepositoryImpl
             markDirtyForDay(dayKey, "day_plan_starred_changed")
         }
 
+        /**
+         * Returns the get day type template preference.
+         */
         override suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord {
             require(dayType == DAY_TYPE_WEEKDAY || dayType == DAY_TYPE_WEEKEND || dayType == DAY_TYPE_STARRED) {
                 "Unsupported day type: $dayType"
@@ -319,6 +352,9 @@ class DayPlanRepositoryImpl
             )
         }
 
+        /**
+         * Updates the set day type template preference.
+         */
         override suspend fun setDayTypeTemplatePreference(
             dayType: String,
             templateId: String?,
@@ -340,6 +376,9 @@ class DayPlanRepositoryImpl
             )
         }
 
+        /**
+         * Returns the resolve template for day.
+         */
         override suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord? {
             logger.d(
                 "DayPlanRepositoryImpl.resolveTemplateForDay",
@@ -353,6 +392,9 @@ class DayPlanRepositoryImpl
 
         // ---- Templates ----
 
+        /**
+         * Registers the observe active templates.
+         */
         override fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>> {
             logger.d("DayPlanRepositoryImpl.observeActiveTemplates", "Subscribing to active templates")
             return sessionManager.requireDatabase().dayPlanDao().observeActiveTemplates().map { templates ->
@@ -360,6 +402,9 @@ class DayPlanRepositoryImpl
             }
         }
 
+        /**
+         * Registers the observe all templates.
+         */
         override fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>> {
             logger.d("DayPlanRepositoryImpl.observeAllTemplates", "Subscribing to all templates")
             return sessionManager.requireDatabase().dayPlanDao().observeAllTemplates().map { templates ->
@@ -367,6 +412,9 @@ class DayPlanRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get template by id.
+         */
         override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? {
             logger.d("DayPlanRepositoryImpl.getTemplateById", "Fetching template by id", mapOf("id" to id))
             val entity =
@@ -377,6 +425,9 @@ class DayPlanRepositoryImpl
             return entity.toRecord()
         }
 
+        /**
+         * Creates the create template.
+         */
         override suspend fun createTemplate(
             name: String,
             description: String?,
@@ -428,6 +479,9 @@ class DayPlanRepositoryImpl
             return templateId
         }
 
+        /**
+         * Updates the update template.
+         */
         override suspend fun updateTemplate(
             id: String,
             name: String,
@@ -469,6 +523,9 @@ class DayPlanRepositoryImpl
             )
         }
 
+        /**
+         * Removes the delete template.
+         */
         override suspend fun deleteTemplate(id: String) {
             val now = LocalDateTime.now().format(formatter)
             sessionManager.requireDatabase().dayPlanDao().softDeleteTemplate(id, now)

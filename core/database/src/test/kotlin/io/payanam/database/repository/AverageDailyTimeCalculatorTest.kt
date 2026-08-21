@@ -17,12 +17,12 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * AverageDailyTimeCalculatorTest.
+ * Provides the average daily time calculator test.
  */
 class AverageDailyTimeCalculatorTest {
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()

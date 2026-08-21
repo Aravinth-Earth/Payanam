@@ -69,7 +69,7 @@ import java.util.Locale
 
 @Composable
 /**
- * Database init screen.
+ * Performs the database init screen.
  */
 fun DatabaseInitScreen(
     onDatabaseReady: () -> Unit,

@@ -13,14 +13,14 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * PassphrasePolicyTest.
+ * Provides the passphrase policy test.
  */
 class PassphrasePolicyTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -33,7 +33,7 @@ class PassphrasePolicyTest {
 
     @Test
     /**
-     * Validate rejects short passphrase.
+     * Returns true when the validate rejects short passphrase.
      */
     fun validate_rejectsShortPassphrase() {
         val result = PassphrasePolicy.validate("Ab1!")
@@ -44,7 +44,7 @@ class PassphrasePolicyTest {
 
     @Test
     /**
-     * Validate rejects missing uppercase.
+     * Returns true when the validate rejects missing uppercase.
      */
     fun validate_rejectsMissingUppercase() {
         val result = PassphrasePolicy.validate("lowercase12!")
@@ -55,7 +55,7 @@ class PassphrasePolicyTest {
 
     @Test
     /**
-     * Validate accepts strong passphrase.
+     * Returns true when the validate accepts strong passphrase.
      */
     fun validate_acceptsStrongPassphrase() {
         val result = PassphrasePolicy.validate("S3cure!Passphrase")

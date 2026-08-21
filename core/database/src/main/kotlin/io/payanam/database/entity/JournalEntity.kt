@@ -9,14 +9,14 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for Day Journal Entry - one per day.
+ * Room entity for day journal entry - one per day.
  */
 @Entity(
     tableName = "day_journal_entries",
     indices = [Index("entryDate", unique = true)],
 )
 /**
- * DayJournalEntryEntity.
+ * Holds the day journal entry entity.
  */
 data class DayJournalEntryEntity(
     @PrimaryKey
@@ -27,7 +27,7 @@ data class DayJournalEntryEntity(
 )
 
 /**
- * Room entity for Journal Response to a prompt.
+ * Room entity for journal response to a prompt.
  */
 @Entity(
     tableName = "day_journal_responses",
@@ -52,7 +52,7 @@ data class DayJournalEntryEntity(
     ],
 )
 /**
- * DayJournalResponseEntity.
+ * Holds the day journal response entity.
  */
 data class DayJournalResponseEntity(
     @PrimaryKey
@@ -84,7 +84,7 @@ data class DayJournalResponseEntity(
     indices = [Index("day_key"), Index("dimension_id"), Index("updated_at")],
 )
 /**
- * JournalNoteEntity.
+ * Holds the journal note entity.
  */
 data class JournalNoteEntity(
     @PrimaryKey
@@ -103,14 +103,14 @@ data class JournalNoteEntity(
 )
 
 /**
- * Room entity for App Settings (key-value store).
+ * Room entity for app settings (key-value store).
  */
 @Entity(
     tableName = "app_settings",
     indices = [Index("key", unique = true)],
 )
 /**
- * AppSettingEntity.
+ * Holds the app setting entity.
  */
 data class AppSettingEntity(
     @PrimaryKey
@@ -135,7 +135,7 @@ data class AppSettingEntity(
     indices = [Index("taskId"), Index("scheduledAt")],
 )
 /**
- * ScheduledNotificationEntity.
+ * Holds the scheduled notification entity.
  */
 data class ScheduledNotificationEntity(
     @PrimaryKey

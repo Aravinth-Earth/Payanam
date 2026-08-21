@@ -9,15 +9,10 @@ import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
 import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
-
-/**
- * DatabaseEncryptionMigrationSupport.
- */
 object DatabaseEncryptionMigrationSupport {
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * Export database snapshot.
+     * Writes the export database snapshot.
      */
     fun exportDatabaseSnapshot(
         context: Context,
@@ -57,9 +52,8 @@ object DatabaseEncryptionMigrationSupport {
         )
         logger.i(logTag, "Database snapshot exported as plaintext one-time payload")
     }
-
     /**
-     * Ensure encrypted with passphrase.
+     * Performs the ensure encrypted with passphrase.
      */
     fun ensureEncryptedWithPassphrase(
         context: Context,
@@ -89,9 +83,8 @@ object DatabaseEncryptionMigrationSupport {
         logger.i(logTag, "Converted plaintext database into SQLCipher format")
         return true
     }
-
     /**
-     * Migrate encrypted database with different key.
+     * Performs the migrate encrypted database with different key.
      */
     fun migrateEncryptedDatabaseWithDifferentKey(
         context: Context,
@@ -134,7 +127,7 @@ object DatabaseEncryptionMigrationSupport {
 
     @Suppress("UnusedParameter")
     /**
-     * Is detectably encrypted.
+     * Returns true when the is detectably encrypted.
      */
     fun isDetectablyEncrypted(
         context: Context,
@@ -172,9 +165,8 @@ object DatabaseEncryptionMigrationSupport {
         )
         return result
     }
-
     /**
-     * Rekey encrypted database.
+     * Performs the rekey encrypted database.
      */
     fun rekeyEncryptedDatabase(
         context: Context,
@@ -204,9 +196,8 @@ object DatabaseEncryptionMigrationSupport {
         }
         logger.i(logTag, "Database rekey completed")
     }
-
     /**
-     * Read table counts.
+     * Loads the read table counts.
      */
     fun readTableCounts(
         context: Context,
@@ -604,9 +595,8 @@ object DatabaseEncryptionMigrationSupport {
         }.getOrElse {
             tableNames.associateWith { 0 }
         }
-
     /**
-     * Can open with sql cipher.
+     * Returns true when the can open with sql cipher.
      */
     fun canOpenWithSqlCipher(
         context: Context,
@@ -654,7 +644,7 @@ object DatabaseEncryptionMigrationSupport {
     // Writes database_init_completed = true directly into app_settings, bypassing Room.
     // Uses SQLCipher if passphrase non-null, plain SQLite otherwise.
     /**
-     * Mark database init completed.
+     * Performs the mark database init completed.
      */
     fun markDatabaseInitCompleted(
         context: Context,

@@ -53,7 +53,7 @@ private data class LensBackfillContext(
  */
 @HiltViewModel
 /**
- * LensViewModel.
+ * Provides the lens view model.
  */
 class LensViewModel @Inject constructor(
     private val lensRepository: LensRepository,
@@ -77,9 +77,8 @@ class LensViewModel @Inject constructor(
         logger.i("LensViewModel.init", "Initializing LensViewModel")
         loadLensData()
     }
-
     /**
-     * Select date.
+     * Performs the select date.
      */
     fun selectDate(date: LocalDate) {
         logger.d("LensViewModel.selectDate", "Selecting date", mapOf("date" to date.toString()))
@@ -99,26 +98,23 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
     /**
-     * Select moment.
+     * Performs the select moment.
      */
     fun selectMoment(moment: LensMoment) {
         logger.d("LensViewModel.selectMoment", "Selecting moment", mapOf("moment" to moment.name))
         _uiState.update { it.copy(selectedMoment = moment) }
     }
-
     /**
-     * Select grouping.
+     * Performs the select grouping.
      */
     fun selectGrouping(grouping: LensGrouping) {
         if (_uiState.value.selectedGrouping == grouping) return
         logger.d("LensViewModel.selectGrouping", "Selecting grouping", mapOf("grouping" to grouping.name))
         _uiState.update { it.copy(selectedGrouping = grouping) }
     }
-
     /**
-     * Select time mode.
+     * Performs the select time mode.
      */
     fun selectTimeMode(mode: LensTimeMode) {
         val defaultWindow = defaultWindowForMode(mode)
@@ -144,9 +140,8 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
     /**
-     * Select time window.
+     * Performs the select time window.
      */
     fun selectTimeWindow(window: LensTimeWindow) {
         val mode = _uiState.value.selectedTimeMode
@@ -175,9 +170,8 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
     /**
-     * Go to previous window page.
+     * Performs the go to previous window page.
      */
     fun goToPreviousWindowPage() {
         val state = _uiState.value
@@ -206,9 +200,8 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
     /**
-     * Go to next window page.
+     * Performs the go to next window page.
      */
     fun goToNextWindowPage() {
         val state = _uiState.value
@@ -233,9 +226,8 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
     /**
-     * Mark reflection addressed.
+     * Performs the mark reflection addressed.
      */
     fun markReflectionAddressed(reflectionId: String, note: String?) {
         logger.d("LensViewModel.markReflectionAddressed", "Marking reflection addressed", mapOf("id" to reflectionId))
@@ -254,9 +246,8 @@ class LensViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Regenerate reflections.
+     * Performs the regenerate reflections.
      */
     fun regenerateReflections() {
         logger.d("LensViewModel.regenerateReflections", "Regenerating reflections")
@@ -276,9 +267,8 @@ class LensViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Request next time history stage.
+     * Performs the request next time history stage.
      */
     fun requestNextTimeHistoryStage() {
         if (!timeHistoryChartsEnabled) return
@@ -298,9 +288,8 @@ class LensViewModel @Inject constructor(
         pendingHistoryLimit = nextLimit
         scheduleHistoryBackfill(context = context, maxHistoryLimit = nextLimit)
     }
-
     /**
-     * Load enabled charts sequentially.
+     * Loads the load enabled charts sequentially.
      */
     fun loadEnabledChartsSequentially(
         chartTimeModuleEnabled: Boolean,
@@ -388,9 +377,8 @@ class LensViewModel @Inject constructor(
             if (chartTimeModuleEnabled && chartDailyRhythmEnabled) loadMinutePatternInternal(chartDailyRhythmExclEmpty)
         }
     }
-
     /**
-     * Load lens data.
+     * Loads the load lens data.
      */
     fun loadLensData() {
         lensLoadJob?.cancel()
@@ -563,18 +551,16 @@ class LensViewModel @Inject constructor(
             ),
         )
     }
-
     /**
-     * Select dimension split window.
+     * Performs the select dimension split window.
      */
     fun selectDimensionSplitWindow(window: DimensionSplitWindow) {
         logger.d("LensViewModel.selectDimensionSplitWindow", "Selecting dimension split window", mapOf("window" to window.name))
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(window = window, windowOffset = 0, isLoading = true)) }
         loadDimensionSplit()
     }
-
     /**
-     * Shift dimension split left.
+     * Performs the shift dimension split left.
      */
     fun shiftDimensionSplitLeft() {
         val state = _uiState.value.dimensionSplit
@@ -584,9 +570,8 @@ class LensViewModel @Inject constructor(
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(windowOffset = newOffset, isLoading = true)) }
         loadDimensionSplit()
     }
-
     /**
-     * Shift dimension split right.
+     * Performs the shift dimension split right.
      */
     fun shiftDimensionSplitRight() {
         val state = _uiState.value.dimensionSplit
@@ -682,9 +667,8 @@ class LensViewModel @Inject constructor(
             _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(isLoading = false)) }
         }
     }
-
     /**
-     * Select dimension trend window.
+     * Performs the select dimension trend window.
      */
     fun selectDimensionTrendWindow(window: DimensionTrendWindow) {
         logger.d("LensViewModel.selectDimensionTrendWindow", "Selecting dimension trend window", mapOf("window" to window.name, "spanDays" to window.spanDays))
@@ -694,28 +678,28 @@ class LensViewModel @Inject constructor(
 
     // Public trigger methods — called from LensesScreen when opt-in pref is enabled
     /**
-     * Trigger dim trend load.
+     * Performs the trigger dim trend load.
      */
     fun triggerDimTrendLoad() {
         logger.d("LensViewModel.triggerDimTrendLoad", "Dimension trend chart load triggered")
         loadDimensionTrend()
     }
     /**
-     * Trigger daily timeline load.
+     * Performs the trigger daily timeline load.
      */
     fun triggerDailyTimelineLoad() {
         logger.d("LensViewModel.triggerDailyTimelineLoad", "Daily timeline chart load triggered")
         loadHeatmap()
     }
     /**
-     * Trigger weekly pattern load.
+     * Performs the trigger weekly pattern load.
      */
     fun triggerWeeklyPatternLoad(excludeEmptyDays: Boolean) {
         logger.d("LensViewModel.triggerWeeklyPatternLoad", "Weekly pattern chart load triggered", mapOf("excludeEmptyDays" to excludeEmptyDays))
         loadWeekGrid(excludeEmptyDays)
     }
     /**
-     * Trigger daily rhythm load.
+     * Performs the trigger daily rhythm load.
      */
     fun triggerDailyRhythmLoad(excludeEmptyDays: Boolean) {
         logger.d("LensViewModel.triggerDailyRhythmLoad", "Daily rhythm chart load triggered", mapOf("excludeEmptyDays" to excludeEmptyDays))
@@ -1019,7 +1003,7 @@ class LensViewModel @Inject constructor(
     }
 }
 /**
- * LensUiState.
+ * Holds the lens ui state.
  */
 data class LensUiState(
     val isLoading: Boolean = true,
@@ -1052,7 +1036,7 @@ data class LensUiState(
     val minutePattern: MinutePatternState = MinutePatternState(),
 )
 /**
- * LensMoment.
+ * Defines the contract for lens moment.
  */
 enum class LensMoment  {
     START_DAY,
@@ -1060,7 +1044,7 @@ enum class LensMoment  {
     CLOSE_DAY,
 }
 /**
- * LensGrouping.
+ * Defines the contract for lens grouping.
  */
 enum class LensGrouping  {
     OVERALL,
@@ -1068,7 +1052,7 @@ enum class LensGrouping  {
     BY_DIMENSION,
 }
 /**
- * LensTimeMode.
+ * Defines the contract for lens time mode.
  */
 enum class LensTimeMode  {
     TODAY,
@@ -1076,7 +1060,7 @@ enum class LensTimeMode  {
     FUTURE,
 }
 /**
- * LensTimeWindow.
+ * Defines the contract for lens time window.
  */
 enum class LensTimeWindow {
     TODAY,
@@ -1095,11 +1079,11 @@ enum class LensTimeWindow {
     NEXT_365_DAYS,
 }
 /**
- * LensTrendPoint.
+ * Holds the lens trend point.
  */
 data class LensTrendPoint(val dayKey: String, val plannedMinutes: Int, val actualMinutes: Int)
 /**
- * LensRangeSummary.
+ * Holds the lens range summary.
  */
 data class LensRangeSummary(
     val mode: LensTimeMode,
@@ -1139,7 +1123,7 @@ data class LensRangeSummary(
     val trendPoints: List<LensTrendPoint>,
 )
 /**
- * ResolvedLensWindowRange.
+ * Holds the resolved lens window range.
  */
 data class ResolvedLensWindowRange(
     val mode: LensTimeMode,
@@ -1149,11 +1133,11 @@ data class ResolvedLensWindowRange(
     val endDate: LocalDate,
 )
 /**
- * LensWindowNavigationState.
+ * Holds the lens window navigation state.
  */
 data class LensWindowNavigationState(val canGoPrevious: Boolean, val canGoNext: Boolean)
 /**
- * Windows for mode.
+ * Performs the windows for mode.
  */
 fun windowsForMode(mode: LensTimeMode): List<LensTimeWindow> = when (mode) {
     LensTimeMode.TODAY -> listOf(LensTimeWindow.TODAY)
@@ -1177,9 +1161,8 @@ fun windowsForMode(mode: LensTimeMode): List<LensTimeWindow> = when (mode) {
         LensTimeWindow.NEXT_365_DAYS,
     )
 }
-
 /**
- * DimensionSplitWindow.
+ * Defines the contract for dimension split window.
  */
 enum class DimensionSplitWindow(val spanDays: Int?) {
     W1(1),
@@ -1190,9 +1173,8 @@ enum class DimensionSplitWindow(val spanDays: Int?) {
     W365(365),
     ALL(null),
 }
-
 /**
- * DimensionSplitState.
+ * Holds the dimension split state.
  */
 data class DimensionSplitState(
     val window: DimensionSplitWindow = DimensionSplitWindow.W1,
@@ -1211,9 +1193,8 @@ data class DimensionSplitState(
     val canShiftRight: Boolean = false,
     val isLoading: Boolean = false,
 )
-
 /**
- * DimensionTrendWindow.
+ * Defines the contract for dimension trend window.
  */
 enum class DimensionTrendWindow(val spanDays: Int) {
     W1(1),
@@ -1223,34 +1204,30 @@ enum class DimensionTrendWindow(val spanDays: Int) {
     W180(180),
     W365(365),
 }
-
 /**
- * DimensionTrendState.
+ * Holds the dimension trend state.
  */
 data class DimensionTrendState(
     val window: DimensionTrendWindow = DimensionTrendWindow.W1,
     val blocks: List<DimensionTrendBlock> = emptyList(),
     val isLoading: Boolean = false,
 )
-
 /**
- * HeatmapState.
+ * Holds the heatmap state.
  */
 data class HeatmapState(
     val days: List<HeatmapDayData> = emptyList(),
     val isLoading: Boolean = false,
 )
-
 /**
- * WeekGridState.
+ * Holds the week grid state.
  */
 data class WeekGridState(
     val data: WeekGridData = WeekGridData(emptyList()),
     val isLoading: Boolean = false,
 )
-
 /**
- * MinutePatternState.
+ * Holds the minute pattern state.
  */
 data class MinutePatternState(
     val data: MinutePatternData = MinutePatternData(emptyList()),

@@ -13,14 +13,14 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * PassphraseLockoutPolicyTest.
+ * Provides the passphrase lockout policy test.
  */
 class PassphraseLockoutPolicyTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -33,7 +33,7 @@ class PassphraseLockoutPolicyTest {
 
     @Test
     /**
-     * Delay seconds for attempt progressively backs off and caps.
+     * Performs the delay seconds for attempt progressively backs off and caps.
      */
     fun delaySecondsForAttempt_progressivelyBacksOffAndCaps() {
         val a1 = PassphraseLockoutPolicy.delaySecondsForAttempt(1)

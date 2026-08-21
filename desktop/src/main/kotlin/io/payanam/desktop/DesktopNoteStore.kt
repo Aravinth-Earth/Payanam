@@ -35,7 +35,7 @@ internal class DesktopNoteStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Load state.
+     * Loads the load state.
      */
     fun loadState(): DesktopNotesState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -69,9 +69,8 @@ internal class DesktopNoteStore(
             )
         }
     }
-
     /**
-     * Create note.
+     * Creates the create note.
      */
     fun createNote(
         title: String,
@@ -103,9 +102,8 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
     /**
-     * Update note.
+     * Updates the update note.
      */
     fun updateNote(
         noteId: String,
@@ -144,9 +142,8 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
     /**
-     * Delete note.
+     * Removes the delete note.
      */
     fun deleteNote(noteId: String): DesktopNotesState {
         val currentState = loadState()
@@ -162,16 +159,14 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
     /**
-     * Save snapshot.
+     * Writes the save snapshot.
      */
     fun saveSnapshot(snapshot: DesktopNotesSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
-
     /**
-     * Get notes file path.
+     * Returns the get notes file path.
      */
     fun getNotesFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

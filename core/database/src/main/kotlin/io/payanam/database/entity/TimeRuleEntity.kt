@@ -12,7 +12,7 @@ import androidx.room.PrimaryKey
     indices = [Index("rule_type"), Index("is_active")],
 )
 /**
- * TimeRuleEntity.
+ * Holds the time rule entity.
  */
 data class TimeRuleEntity(
     @PrimaryKey

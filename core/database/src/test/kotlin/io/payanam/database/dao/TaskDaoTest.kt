@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskDaoTest.
+ * Provides the task dao test.
  */
 class TaskDaoTest {
     private lateinit var database: PayanamDatabase
@@ -26,7 +26,7 @@ class TaskDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -41,7 +41,7 @@ class TaskDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -49,7 +49,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Insert and get task by id.
+     * Performs the insert and get task by id.
      */
     fun insert_and_getTaskById() =
         runBlocking {
@@ -63,7 +63,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Get all tasks returns archived and non archived tasks.
+     * Returns the get all tasks returns archived and non archived tasks.
      */
     fun getAllTasks_returnsArchivedAndNonArchivedTasks() {
         runBlocking {
@@ -80,7 +80,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Get tasks by status filters correctly.
+     * Returns the get tasks by status filters correctly.
      */
     fun getTasksByStatus_filtersCorrectly() =
         runBlocking {
@@ -96,7 +96,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Update status updates correctly.
+     * Updates the update status updates correctly.
      */
     fun updateStatus_updatesCorrectly() =
         runBlocking {
@@ -111,7 +111,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Delete removes task.
+     * Removes the delete removes task.
      */
     fun delete_removesTask() =
         runBlocking {
@@ -125,7 +125,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Get todays tasks includes due today and recurring.
+     * Returns the get todays tasks includes due today and recurring.
      */
     fun getTodaysTasks_includesDueTodayAndRecurring() =
         runBlocking {

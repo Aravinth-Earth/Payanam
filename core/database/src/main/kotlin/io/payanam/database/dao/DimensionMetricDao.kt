@@ -11,14 +11,14 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * DimensionMetricDao.
+ * Defines the contract for dimension metric dao.
  */
 interface DimensionMetricDao {
 
     /** Insert or replace all [rows] (conflict = REPLACE). */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert all.
+     * Performs the upsert all.
      */
     suspend fun upsertAll(rows: List<DimensionMetricEntity>)
 
@@ -30,14 +30,14 @@ interface DimensionMetricDao {
      */
     @Query("SELECT MIN(dayKey) FROM dimension_metrics WHERE dimensionId = :dimensionId")
     /**
-     * Earliest day key.
+     * Performs the earliest day key.
      */
     suspend fun earliestDayKey(dimensionId: String): String?
 
     /** Earliest day key across all dimension rows (global, no dimension filter). */
     @Query("SELECT MIN(dayKey) FROM dimension_metrics")
     /**
-     * Earliest day key global.
+     * Performs the earliest day key global.
      */
     suspend fun earliestDayKeyGlobal(): String?
 
@@ -50,21 +50,21 @@ interface DimensionMetricDao {
      */
     @Query("DELETE FROM dimension_metrics WHERE dimensionId = :dimensionId AND dayKey >= :fromDay")
     /**
-     * Delete from.
+     * Removes the delete from.
      */
     suspend fun deleteFrom(dimensionId: String, fromDay: String)
 
     /** Continuous stream of all dimension rows ordered by day (for debug/observe). */
     @Query("SELECT * FROM dimension_metrics ORDER BY dayKey ASC")
     /**
-     * Observe all.
+     * Registers the observe all.
      */
     fun observeAll(): Flow<List<DimensionMetricEntity>>
 
     /** Snapshot of every dimension row (used by cascade rebuild). */
     @Query("SELECT * FROM dimension_metrics")
     /**
-     * Get all.
+     * Returns the get all.
      */
     suspend fun getAll(): List<DimensionMetricEntity>
 
@@ -75,7 +75,7 @@ interface DimensionMetricDao {
      */
     @Query("SELECT * FROM dimension_metrics WHERE dimensionId = :dimensionId ORDER BY dayKey ASC")
     /**
-     * Observe for dimension.
+     * Registers the observe for dimension.
      */
     fun observeForDimension(dimensionId: String): Flow<List<DimensionMetricEntity>>
 
@@ -88,7 +88,7 @@ interface DimensionMetricDao {
      */
     @Query("SELECT * FROM dimension_metrics WHERE dimensionId = :dimensionId AND dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     /**
-     * Latest before.
+     * Performs the latest before.
      */
     suspend fun latestBefore(dimensionId: String, dayKey: String): DimensionMetricEntity?
 
@@ -99,7 +99,7 @@ interface DimensionMetricDao {
      */
     @Query("SELECT * FROM dimension_metrics WHERE dayKey = :dayKey")
     /**
-     * For day.
+     * Performs the for day.
      */
     suspend fun forDay(dayKey: String): List<DimensionMetricEntity>
 
@@ -111,14 +111,14 @@ interface DimensionMetricDao {
      */
     @Query("SELECT * FROM dimension_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
     /**
-     * Get for window.
+     * Returns the get for window.
      */
     suspend fun getForWindow(start: String, end: String): List<DimensionMetricEntity>
 
     /** Total row count (used by diagnostics). */
     @Query("SELECT COUNT(*) FROM dimension_metrics")
     /**
-     * Count.
+     * Performs the count.
      */
     suspend fun count(): Int
 }

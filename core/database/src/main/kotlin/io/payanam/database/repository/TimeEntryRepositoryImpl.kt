@@ -21,7 +21,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * TimeEntryRepositoryImpl.
+ * Provides the time entry repository impl.
  */
 class TimeEntryRepositoryImpl
     @Inject
@@ -30,6 +30,9 @@ class TimeEntryRepositoryImpl
     ) : TimeEntryRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get active time entry.
+         */
         override suspend fun getActiveTimeEntry(): TimeEntry? {
             val entry =
                 sessionManager
@@ -45,11 +48,17 @@ class TimeEntryRepositoryImpl
             return entry
         }
 
+        /**
+         * Registers the observe active time entry.
+         */
         override fun observeActiveTimeEntry(): Flow<TimeEntry?> =
             sessionManager.requireDatabase().timeEntryDao().observeActiveTimeEntry().map {
                 it?.toDomain()
             }
 
+        /**
+         * Returns the get time entries for range.
+         */
         override fun getTimeEntriesForRange(
             start: LocalDateTime,
             end: LocalDateTime,
@@ -75,6 +84,9 @@ class TimeEntryRepositoryImpl
                 }
         }
 
+        /**
+         * Returns the get time entries for date.
+         */
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> {
             val dayStart = date.atStartOfDay()
             val dayEnd = dayStart.plusDays(1)
@@ -96,6 +108,9 @@ class TimeEntryRepositoryImpl
                 }
         }
 
+        /**
+         * Performs the start time entry.
+         */
         override suspend fun startTimeEntry(input: TimeEntryInput): TimeEntry {
             logger.i(
                 "TimeEntryRepositoryImpl.startTimeEntry",
@@ -145,12 +160,18 @@ class TimeEntryRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Performs the stop active time entry.
+         */
         override suspend fun stopActiveTimeEntry(): TimeEntry? =
             stopActiveTimeEntryInternal(
                 focusRating = 0.0,
                 focusNote = null,
             )
 
+        /**
+         * Performs the stop active time entry with focus.
+         */
         override suspend fun stopActiveTimeEntryWithFocus(
             focusRating: Double,
             focusNote: String?,
@@ -197,6 +218,9 @@ class TimeEntryRepositoryImpl
                 ?.toDomain()
         }
 
+        /**
+         * Updates the update time entry.
+         */
         override suspend fun updateTimeEntry(
             id: String,
             input: TimeEntryInput,
@@ -244,6 +268,9 @@ class TimeEntryRepositoryImpl
             return updated.toDomain()
         }
 
+        /**
+         * Removes the delete time entry.
+         */
         override suspend fun deleteTimeEntry(id: String) {
             logger.w("TimeEntryRepositoryImpl.deleteTimeEntry", "Deleting time entry", mapOf("id" to id))
             val existing = sessionManager.requireDatabase().timeEntryDao().getById(id)
@@ -252,6 +279,9 @@ class TimeEntryRepositoryImpl
             logger.i("TimeEntryRepositoryImpl.deleteTimeEntry", "Time entry deleted", mapOf("id" to id))
         }
 
+        /**
+         * Creates the create time entry.
+         */
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry {
             logger.i(
                 "TimeEntryRepositoryImpl.createTimeEntry",
@@ -296,16 +326,25 @@ class TimeEntryRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Returns the get all time entries.
+         */
         override fun getAllTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAll().map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Returns the get active time entries.
+         */
         override fun getActiveTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAllActiveTimeEntries().map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Updates the update time entry.
+         */
         override suspend fun updateTimeEntry(entry: TimeEntry) {
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntryDirect",

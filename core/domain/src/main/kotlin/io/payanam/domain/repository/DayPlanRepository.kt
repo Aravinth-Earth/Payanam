@@ -3,9 +3,8 @@
 package io.payanam.domain.repository
 
 import kotlinx.coroutines.flow.Flow
-
 /**
- * DayPlanAllocationRecord.
+ * Holds the day plan allocation record.
  */
 data class DayPlanAllocationRecord(
     val id: String,
@@ -15,9 +14,8 @@ data class DayPlanAllocationRecord(
     val source: String,
     val templateId: String?
 )
-
 /**
- * DayPlanTemplateRecord.
+ * Holds the day plan template record.
  */
 data class DayPlanTemplateRecord(
     val id: String,
@@ -27,9 +25,8 @@ data class DayPlanTemplateRecord(
     val sortOrder: Int,
     val allocations: List<TemplateAllocationRecord>
 )
-
 /**
- * TemplateAllocationRecord.
+ * Holds the template allocation record.
  */
 data class TemplateAllocationRecord(
     val id: String,
@@ -37,9 +34,8 @@ data class TemplateAllocationRecord(
     val dimensionId: String,
     val plannedMinutes: Int
 )
-
 /**
- * DayPlanPolicyRecord.
+ * Holds the day plan policy record.
  */
 data class DayPlanPolicyRecord(
     val dayKey: String,
@@ -47,9 +43,8 @@ data class DayPlanPolicyRecord(
     val templateId: String?,
     val isStarred: Boolean
 )
-
 /**
- * DayTypeTemplatePreferenceRecord.
+ * Holds the day type template preference record.
  */
 data class DayTypeTemplatePreferenceRecord(
     val dayType: String,
@@ -62,14 +57,12 @@ data class DayTypeTemplatePreferenceRecord(
 interface DayPlanRepository {
 
     // ---- Day Allocations ----
-
     /**
-     * Observe allocations for day.
+     * Registers the observe allocations for day.
      */
     fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>>
-
     /**
-     * Get allocations for day.
+     * Returns the get allocations for day.
      */
     suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord>
 
@@ -78,9 +71,8 @@ interface DayPlanRepository {
      * (custom/template/auto template).
      */
     suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord>
-
     /**
-     * Set allocation.
+     * Updates the set allocation.
      */
     suspend fun setAllocation(
         dayKey: String,
@@ -89,9 +81,8 @@ interface DayPlanRepository {
         source: String = "manual",
         templateId: String? = null
     )
-
     /**
-     * Set allocations.
+     * Updates the set allocations.
      */
     suspend fun setAllocations(
         dayKey: String,
@@ -99,75 +90,62 @@ interface DayPlanRepository {
         source: String = "manual",
         templateId: String? = null
     )
-
     /**
-     * Apply template to day.
+     * Updates the apply template to day.
      */
     suspend fun applyTemplateToDay(dayKey: String, templateId: String)
-
     /**
-     * Clear day plan.
+     * Removes the clear day plan.
      */
     suspend fun clearDayPlan(dayKey: String)
-
     /**
-     * Get day policy.
+     * Returns the get day policy.
      */
     suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord
-
     /**
-     * Set day mode.
+     * Updates the set day mode.
      */
     suspend fun setDayMode(dayKey: String, mode: String, templateId: String? = null)
-
     /**
-     * Set day starred.
+     * Updates the set day starred.
      */
     suspend fun setDayStarred(dayKey: String, isStarred: Boolean)
-
     /**
-     * Get day type template preference.
+     * Returns the get day type template preference.
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord
-
     /**
-     * Set day type template preference.
+     * Updates the set day type template preference.
      */
     suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?)
-
     /**
-     * Resolve template for day.
+     * Returns the resolve template for day.
      */
     suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord?
 
     // ---- Templates ----
-
     /**
-     * Observe active templates.
+     * Registers the observe active templates.
      */
     fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>>
-
     /**
-     * Observe all templates.
+     * Registers the observe all templates.
      */
     fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>>
-
     /**
-     * Get template by id.
+     * Returns the get template by id.
      */
     suspend fun getTemplateById(id: String): DayPlanTemplateRecord?
-
     /**
-     * Create template.
+     * Creates the create template.
      */
     suspend fun createTemplate(
         name: String,
         description: String?,
         allocations: Map<String, Int>
     ): String
-
     /**
-     * Update template.
+     * Updates the update template.
      */
     suspend fun updateTemplate(
         id: String,
@@ -175,9 +153,8 @@ interface DayPlanRepository {
         description: String?,
         allocations: Map<String, Int>
     )
-
     /**
-     * Delete template.
+     * Removes the delete template.
      */
     suspend fun deleteTemplate(id: String)
 

@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TimeEntryDaoTest.
+ * Provides the time entry dao test.
  */
 class TimeEntryDaoTest {
     private lateinit var database: PayanamDatabase
@@ -28,7 +28,7 @@ class TimeEntryDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -44,7 +44,7 @@ class TimeEntryDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -52,7 +52,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Insert and get by id.
+     * Performs the insert and get by id.
      */
     fun insert_and_getById() =
         runBlocking {
@@ -66,7 +66,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Get active time entry returns null when no active.
+     * Returns the get active time entry returns null when no active.
      */
     fun getActiveTimeEntry_returnsNullWhenNoActive() =
         runBlocking {
@@ -78,7 +78,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Get active time entry returns active entry.
+     * Returns the get active time entry returns active entry.
      */
     fun getActiveTimeEntry_returnsActiveEntry() =
         runBlocking {
@@ -95,7 +95,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Observe active time entry emits active entry.
+     * Registers the observe active time entry emits active entry.
      */
     fun observeActiveTimeEntry_emitsActiveEntry() =
         runBlocking {
@@ -108,7 +108,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Get time entries for date filters by date.
+     * Returns the get time entries for date filters by date.
      */
     fun getTimeEntriesForDate_filtersByDate() =
         runBlocking {
@@ -178,7 +178,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Stop entry updates ended at.
+     * Performs the stop entry updates ended at.
      */
     fun stopEntry_updatesEndedAt() =
         runBlocking {
@@ -202,7 +202,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Delete removes entry.
+     * Removes the delete removes entry.
      */
     fun delete_removesEntry() =
         runBlocking {
@@ -216,7 +216,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Get all active time entries returns only active.
+     * Returns the get all active time entries returns only active.
      */
     fun getAllActiveTimeEntries_returnsOnlyActive() =
         runBlocking {
@@ -232,7 +232,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Deleting task nulls linked time entry task id.
+     * Performs the deleting task nulls linked time entry task id.
      */
     fun deletingTask_nullsLinkedTimeEntryTaskId() =
         runBlocking {

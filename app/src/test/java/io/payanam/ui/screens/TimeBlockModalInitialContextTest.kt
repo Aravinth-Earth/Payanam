@@ -23,9 +23,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeBlockModalInitialContextTest.
- */
 class TimeBlockModalInitialContextTest {
 
     private val logger: UnifiedLogger by lazy {
@@ -34,17 +31,11 @@ class TimeBlockModalInitialContextTest {
     }
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         logger
     }
 
     @Test
-    /**
-     * Manual create defaults to morning window.
-     */
     fun manualCreate_defaultsToMorningWindow() {
         val selectedDate = LocalDate.of(2026, 2, 15)
         val context = buildTimeBlockModalInitialContext(
@@ -63,9 +54,6 @@ class TimeBlockModalInitialContextTest {
     }
 
     @Test
-    /**
-     * Existing entry uses entry values.
-     */
     fun existingEntry_usesEntryValues() {
         val startedAt = LocalDateTime.of(2026, 2, 15, 11, 0)
         val endedAt = LocalDateTime.of(2026, 2, 15, 12, 0)
@@ -109,9 +97,6 @@ class TimeBlockModalInitialContextTest {
     }
 
     @Test
-    /**
-     * Completed task block prefers occurrence timing.
-     */
     fun completedTaskBlock_prefersOccurrenceTiming() {
         val due = LocalDateTime.of(2026, 2, 15, 18, 0)
         val task = Task(

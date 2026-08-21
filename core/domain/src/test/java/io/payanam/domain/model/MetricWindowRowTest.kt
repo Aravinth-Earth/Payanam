@@ -4,16 +4,9 @@ package io.payanam.domain.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
-/**
- * MetricWindowRowTest.
- */
 class MetricWindowRowTest {
 
     @Test
-    /**
-     * Habit summary satisfies metric window row contract.
-     */
     fun habitSummarySatisfiesMetricWindowRowContract() {
         val habit = HabitL1Summary(
             habitId = "habit-1",

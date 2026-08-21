@@ -25,17 +25,11 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * DbLayerLifecycleRegressionTest.
- */
 class DbLayerLifecycleRegressionTest {
 
     private lateinit var context: Context
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         UnifiedLogger.initialize(context, "test", 0)

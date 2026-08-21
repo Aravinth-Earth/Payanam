@@ -18,7 +18,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * ScoringConfigDaoTest.
+ * Provides the scoring config dao test.
  */
 class ScoringConfigDaoTest {
     private lateinit var database: PayanamDatabase
@@ -26,7 +26,7 @@ class ScoringConfigDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -41,7 +41,7 @@ class ScoringConfigDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -49,7 +49,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Upsert config and get config.
+     * Performs the upsert config and get config.
      */
     fun upsertConfig_and_getConfig() =
         runBlocking {
@@ -63,7 +63,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Observe config emits config.
+     * Registers the observe config emits config.
      */
     fun observeConfig_emitsConfig() =
         runBlocking {
@@ -76,7 +76,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Get config returns null when no config.
+     * Returns the get config returns null when no config.
      */
     fun getConfig_returnsNullWhenNoConfig() =
         runBlocking {
@@ -86,7 +86,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Upsert config replaces existing config.
+     * Performs the upsert config replaces existing config.
      */
     fun upsertConfig_replacesExistingConfig() =
         runBlocking {
@@ -101,7 +101,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Delete config removes config.
+     * Removes the delete config removes config.
      */
     fun deleteConfig_removesConfig() =
         runBlocking {

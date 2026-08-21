@@ -41,11 +41,11 @@ comments:
     searchInNestedClass: false
     searchInInnerClass: false
     searchInInnerObject: false
-    excludes: ['**/test/**', '**/androidTest/**']
+    excludes: ['**/test/**', '**/androidTest/**', '**/*.Test.kt']
   UndocumentedPublicFunction:
     active: true
     ignoreAnnotated: ['Composable']
-    excludes: ['**/test/**', '**/androidTest/**']
+    excludes: ['**/test/**', '**/androidTest/**', '**/*.Test.kt']
   UndocumentedPublicProperty:
     active: false
     excludes: ['**/test/**', '**/androidTest/**']

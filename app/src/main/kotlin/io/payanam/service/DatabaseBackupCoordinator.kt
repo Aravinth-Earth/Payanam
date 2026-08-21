@@ -24,18 +24,16 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
-
 /**
- * BackupTrigger.
+ * Defines the contract for backup trigger.
  */
 enum class BackupTrigger(val key: String) {
     AUTO("auto"),
     MANUAL("manual"),
     EXPORT("export"),
 }
-
 /**
- * BackupExecutionResult.
+ * Holds the backup execution result.
  */
 data class BackupExecutionResult(
     val recordedAtMillis: Long,
@@ -51,7 +49,7 @@ private data class SnapshotAttemptResult(
 
 @Singleton
 /**
- * DatabaseBackupCoordinator.
+ * Provides the database backup coordinator.
  */
 class DatabaseBackupCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -59,9 +57,8 @@ class DatabaseBackupCoordinator @Inject constructor(
     private val backupStatusStore: BackupStatusStore,
 ) {
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * Backup to app backup directory.
+     * Performs the backup to app backup directory.
      */
     suspend fun backupToAppBackupDirectory(trigger: BackupTrigger): BackupExecutionResult = withContext(Dispatchers.IO) {
         val policy = retryPolicyFor(trigger)
@@ -98,9 +95,8 @@ class DatabaseBackupCoordinator @Inject constructor(
             throw IllegalStateException(finalMessage, error)
         }
     }
-
     /**
-     * Export snapshot to uri.
+     * Writes the export snapshot to uri.
      */
     suspend fun exportSnapshotToUri(destinationUri: Uri): Long = withContext(Dispatchers.IO) {
         val trigger = BackupTrigger.EXPORT

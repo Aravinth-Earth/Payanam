@@ -18,9 +18,8 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-
 /**
- * UpdateCheckResult.
+ * Holds the update check result.
  */
 data class UpdateCheckResult(
     val isUpdateAvailable: Boolean,
@@ -122,10 +121,6 @@ enum class UpdateCheckError {
     PARSE_ERROR,
     UNKNOWN,
 }
-
-/**
- * UpdateChecker.
- */
 object UpdateChecker {
 
     private const val RELEASES_LIST_URL =

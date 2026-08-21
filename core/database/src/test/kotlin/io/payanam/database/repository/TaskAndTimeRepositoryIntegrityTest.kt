@@ -23,7 +23,7 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskAndTimeRepositoryIntegrityTest.
+ * Provides the task and time repository integrity test.
  */
 class TaskAndTimeRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
@@ -32,7 +32,7 @@ class TaskAndTimeRepositoryIntegrityTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -52,7 +52,7 @@ class TaskAndTimeRepositoryIntegrityTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -60,7 +60,7 @@ class TaskAndTimeRepositoryIntegrityTest {
 
     @Test
     /**
-     * Task repository status transitions persist expected fields.
+     * Performs the task repository status transitions persist expected fields.
      */
     fun taskRepository_statusTransitionsPersistExpectedFields() =
         runBlocking {
@@ -121,7 +121,7 @@ class TaskAndTimeRepositoryIntegrityTest {
 
     @Test
     /**
-     * Task repository delete task removes row.
+     * Performs the task repository delete task removes row.
      */
     fun taskRepository_deleteTask_removesRow() =
         runBlocking {
@@ -141,7 +141,7 @@ class TaskAndTimeRepositoryIntegrityTest {
 
     @Test
     /**
-     * Task repository update task updates due date and status.
+     * Performs the task repository update task updates due date and status.
      */
     fun taskRepository_updateTask_updatesDueDateAndStatus() =
         runBlocking {

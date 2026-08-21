@@ -16,9 +16,8 @@ data class Note(
     val updatedAt: LocalDateTime,
     val dimensionId: String? = null
 )
-
 /**
- * NoteInput.
+ * Holds the note input.
  */
 data class NoteInput(
     val title: String,

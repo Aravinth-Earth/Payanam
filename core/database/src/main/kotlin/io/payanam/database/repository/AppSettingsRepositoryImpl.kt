@@ -15,7 +15,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * AppSettingsRepositoryImpl.
+ * Provides the app settings repository impl.
  */
 class AppSettingsRepositoryImpl
     @Inject
@@ -25,6 +25,9 @@ class AppSettingsRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Returns the get setting.
+         */
         override suspend fun getSetting(key: String): String? {
             logger.d("AppSettingsRepositoryImpl.getSetting", "Getting setting", mapOf("key" to key))
             return sessionManager
@@ -34,6 +37,9 @@ class AppSettingsRepositoryImpl
                 ?.value
         }
 
+        /**
+         * Registers the observe setting.
+         */
         override fun observeSetting(key: String): Flow<String?> {
             logger.d("AppSettingsRepositoryImpl.observeSetting", "Subscribing to setting", mapOf("key" to key))
             return sessionManager
@@ -43,6 +49,9 @@ class AppSettingsRepositoryImpl
                 .map { it?.value }
         }
 
+        /**
+         * Updates the set setting.
+         */
         override suspend fun setSetting(
             key: String,
             value: String?,
@@ -58,11 +67,17 @@ class AppSettingsRepositoryImpl
             logger.d("AppSettingsRepositoryImpl.setSetting", "Setting saved", mapOf("key" to key))
         }
 
+        /**
+         * Removes the delete setting.
+         */
         override suspend fun deleteSetting(key: String) {
             sessionManager.requireDatabase().appSettingsDao().deleteSetting(key)
             logger.d("AppSettingsRepositoryImpl.deleteSetting", "Setting deleted", mapOf("key" to key))
         }
 
+        /**
+         * Returns the get all settings.
+         */
         override fun getAllSettings(): Flow<Map<String, String?>> {
             logger.d("AppSettingsRepositoryImpl.getAllSettings", "Subscribing to all settings")
             return sessionManager.requireDatabase().appSettingsDao().getAllSettings().map { entities ->

@@ -20,7 +20,7 @@ import java.time.format.DateTimeFormatter
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * LensReflectionDaoTest.
+ * Provides the lens reflection dao test.
  */
 class LensReflectionDaoTest {
     private lateinit var database: PayanamDatabase
@@ -28,7 +28,7 @@ class LensReflectionDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -43,7 +43,7 @@ class LensReflectionDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -51,7 +51,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Insert reflection and observe.
+     * Performs the insert reflection and observe.
      */
     fun insertReflection_and_observe() =
         runBlocking {
@@ -65,7 +65,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Insert reflections inserts multiple.
+     * Performs the insert reflections inserts multiple.
      */
     fun insertReflections_insertsMultiple() =
         runBlocking {
@@ -82,7 +82,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Observe reflections for day filters by day.
+     * Registers the observe reflections for day filters by day.
      */
     fun observeReflectionsForDay_filtersByDay() =
         runBlocking {
@@ -98,7 +98,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Mark reflection addressed updates is addressed and note.
+     * Performs the mark reflection addressed updates is addressed and note.
      */
     fun markReflectionAddressed_updatesIsAddressedAndNote() =
         runBlocking {
@@ -113,7 +113,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Mark reflection addressed with null note.
+     * Performs the mark reflection addressed with null note.
      */
     fun markReflectionAddressed_withNullNote() =
         runBlocking {
@@ -128,7 +128,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Delete reflections for day removes only specified day.
+     * Removes the delete reflections for day removes only specified day.
      */
     fun deleteReflectionsForDay_removesOnlySpecifiedDay() =
         runBlocking {
@@ -149,7 +149,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Delete old reflections removes old entries.
+     * Removes the delete old reflections removes old entries.
      */
     fun deleteOldReflections_removesOldEntries() =
         runBlocking {
@@ -168,7 +168,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Reflection with dimension stores and retrieves.
+     * Performs the reflection with dimension stores and retrieves.
      */
     fun reflectionWithDimension_storesAndRetrieves() =
         runBlocking {
@@ -186,7 +186,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Reflection with gap minutes stores and retrieves.
+     * Performs the reflection with gap minutes stores and retrieves.
      */
     fun reflectionWithGapMinutes_storesAndRetrieves() =
         runBlocking {
@@ -204,7 +204,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Reflection with related entity stores and retrieves.
+     * Performs the reflection with related entity stores and retrieves.
      */
     fun reflectionWithRelatedEntity_storesAndRetrieves() =
         runBlocking {
@@ -238,7 +238,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity copy creates new instance with modified fields.
+     * Performs the entity copy creates new instance with modified fields.
      */
     fun entityCopy_createsNewInstanceWithModifiedFields() =
         runBlocking {
@@ -257,7 +257,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity equals returns true for same values.
+     * Performs the entity equals returns true for same values.
      */
     fun entityEquals_returnsTrueForSameValues() {
         val timestamp = "2026-02-08T10:00:00"
@@ -268,7 +268,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity hash code is same for equal entities.
+     * Performs the entity hash code is same for equal entities.
      */
     fun entityHashCode_isSameForEqualEntities() {
         val timestamp = "2026-02-08T10:00:00"
@@ -279,7 +279,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity to string contains all fields.
+     * Performs the entity to string contains all fields.
      */
     fun entityToString_containsAllFields() {
         val reflection =
@@ -299,7 +299,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity component functions extract fields correctly.
+     * Performs the entity component functions extract fields correctly.
      */
     fun entityComponentFunctions_extractFieldsCorrectly() {
         val reflection =
@@ -324,7 +324,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity with all nullable fields handles nulls correctly.
+     * Performs the entity with all nullable fields handles nulls correctly.
      */
     fun entityWithAllNullableFields_handlesNullsCorrectly() =
         runBlocking {
@@ -354,7 +354,7 @@ class LensReflectionDaoTest {
 
     @Test
     /**
-     * Entity with minimal required params uses defaults.
+     * Performs the entity with minimal required params uses defaults.
      */
     fun entityWithMinimalRequiredParams_usesDefaults() =
         runBlocking {

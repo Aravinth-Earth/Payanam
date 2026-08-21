@@ -24,7 +24,7 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("TooManyFunctions")
 /**
- * TaskRepositoryImpl.
+ * Provides the task repository impl.
  */
 class TaskRepositoryImpl
     @Inject
@@ -34,6 +34,9 @@ class TaskRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val dateFormatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
 
+        /**
+         * Returns the get all tasks.
+         */
         override fun getAllTasks(): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getAllTasks", "Fetching all tasks")
             return sessionManager.requireDatabase().taskDao().getAllTasks().map { entities ->
@@ -42,6 +45,9 @@ class TaskRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get tasks by status.
+         */
         override fun getTasksByStatus(status: String): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksByStatus", "Subscribing tasks by status", mapOf("status" to status))
             return sessionManager.requireDatabase().taskDao().getTasksByStatus(status).map { entities ->
@@ -54,6 +60,9 @@ class TaskRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get tasks due on.
+         */
         override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksDueOn", "Subscribing tasks due on day", mapOf("date" to date.toString()))
             return sessionManager.requireDatabase().taskDao().getTasksDueOn(date.format(dateFormatter)).map { entities ->
@@ -66,6 +75,9 @@ class TaskRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get task by id.
+         */
         override suspend fun getTaskById(id: String): Task? {
             val task =
                 sessionManager
@@ -81,6 +93,9 @@ class TaskRepositoryImpl
             return task
         }
 
+        /**
+         * Creates the create task.
+         */
         override suspend fun createTask(input: TaskInput): Task {
             logger.i(
                 "TaskRepositoryImpl.createTask",
@@ -148,6 +163,9 @@ class TaskRepositoryImpl
         }
 
         @Suppress("CyclomaticComplexMethod")
+        /**
+         * Updates the update task.
+         */
         override suspend fun updateTask(
             id: String,
             input: TaskInput,
@@ -214,6 +232,9 @@ class TaskRepositoryImpl
             return updated.toDomain()
         }
 
+        /**
+         * Removes the delete task.
+         */
         override suspend fun deleteTask(id: String) {
             logger.w("TaskRepositoryImpl.deleteTask", "Deleting task", mapOf("id" to id))
             val existing = sessionManager.requireDatabase().taskDao().getTaskById(id)
@@ -222,6 +243,9 @@ class TaskRepositoryImpl
             logger.i("TaskRepositoryImpl.deleteTask", "Task deleted", mapOf("id" to id))
         }
 
+        /**
+         * Performs the complete task.
+         */
         override suspend fun completeTask(
             id: String,
             note: String?,
@@ -246,6 +270,9 @@ class TaskRepositoryImpl
             return getTaskById(id)!!
         }
 
+        /**
+         * Performs the skip task.
+         */
         override suspend fun skipTask(
             id: String,
             note: String?,
@@ -263,6 +290,9 @@ class TaskRepositoryImpl
             return getTaskById(id)!!
         }
 
+        /**
+         * Performs the miss task.
+         */
         override suspend fun missTask(
             id: String,
             note: String?,
@@ -280,6 +310,9 @@ class TaskRepositoryImpl
             return getTaskById(id)!!
         }
 
+        /**
+         * Performs the archive task.
+         */
         override suspend fun archiveTask(id: String): Task {
             logger.i("TaskRepositoryImpl.archiveTask", "Archiving task", mapOf("id" to id))
             val now = LocalDateTime.now()
@@ -294,6 +327,9 @@ class TaskRepositoryImpl
             return getTaskById(id)!!
         }
 
+        /**
+         * Updates the update task score.
+         */
         override suspend fun updateTaskScore(
             id: String,
             score: Double,
@@ -312,6 +348,9 @@ class TaskRepositoryImpl
             markDirtyForTaskId(id, "task_score_updated")
         }
 
+        /**
+         * Returns the get overdue tasks.
+         */
         override fun getOverdueTasks(): Flow<List<Task>> {
             val now = PersistedDateTime.format(LocalDateTime.now())
             return sessionManager.requireDatabase().taskDao().getOverdueTasks(now).map { entities ->
@@ -320,6 +359,9 @@ class TaskRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get todays tasks.
+         */
         override fun getTodaysTasks(): Flow<List<Task>> {
             val today = LocalDate.now().format(dateFormatter)
             return sessionManager.requireDatabase().taskDao().getTodaysTasks(today).map { entities ->
@@ -328,6 +370,9 @@ class TaskRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get recurring tasks.
+         */
         override suspend fun getRecurringTasks(): List<Task> {
             val tasks =
                 sessionManager
@@ -339,6 +384,9 @@ class TaskRepositoryImpl
             return tasks
         }
 
+        /**
+         * Updates the update recurrence state.
+         */
         override suspend fun updateRecurrenceState(
             taskId: String,
             newDueDate: LocalDateTime,

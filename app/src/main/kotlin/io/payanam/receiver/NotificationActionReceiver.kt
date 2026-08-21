@@ -27,7 +27,7 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 /**
- * NotificationActionReceiver.
+ * Provides the notification action receiver.
  */
 class NotificationActionReceiver : BroadcastReceiver() {
 
@@ -55,6 +55,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Handles the on receive.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         if (!FeatureFlags.remindersEnabled && intent.action != ACTION_STOP_TRACKING) {

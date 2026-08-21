@@ -27,7 +27,7 @@ class PassphraseChangeFlowTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
@@ -54,7 +54,7 @@ class PassphraseChangeFlowTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -84,7 +84,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Verify passphrase accepts correct passphrase.
+     * Performs the verify passphrase accepts correct passphrase.
      */
     fun verifyPassphrase_acceptsCorrectPassphrase() {
         // Arrange: Configure passphrase
@@ -105,7 +105,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Verify passphrase rejects incorrect passphrase.
+     * Performs the verify passphrase rejects incorrect passphrase.
      */
     fun verifyPassphrase_rejectsIncorrectPassphrase() {
         // Arrange: Configure passphrase
@@ -127,7 +127,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Update passphrase changes passphrase with verification.
+     * Updates the update passphrase changes passphrase with verification.
      */
     fun updatePassphrase_changesPassphraseWithVerification() {
         // Arrange: Configure initial passphrase
@@ -155,7 +155,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Update passphrase fails with incorrect current passphrase.
+     * Updates the update passphrase fails with incorrect current passphrase.
      */
     fun updatePassphrase_failsWithIncorrectCurrentPassphrase() {
         // Arrange: Configure initial passphrase
@@ -183,7 +183,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Full passphrase lifecycle set verify change unlock.
+     * Performs the full passphrase lifecycle set verify change unlock.
      */
     fun fullPassphraseLifecycle_setVerifyChangeUnlock() =
         runTest {
@@ -223,7 +223,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Session timeout configuration can be set.
+     * Performs the session timeout configuration can be set.
      */
     fun sessionTimeoutConfiguration_canBeSet() {
         // Act: Set session timeout
@@ -245,7 +245,7 @@ class PassphraseChangeFlowTest {
 
     @Test
     /**
-     * Session timeout configuration coerced to valid range.
+     * Performs the session timeout configuration coerced to valid range.
      */
     fun sessionTimeoutConfiguration_coercedToValidRange() {
         // Act: Try to set timeout outside valid range

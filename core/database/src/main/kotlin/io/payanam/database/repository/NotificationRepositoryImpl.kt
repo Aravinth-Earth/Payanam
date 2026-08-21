@@ -17,7 +17,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * NotificationRepositoryImpl.
+ * Provides the notification repository impl.
  */
 class NotificationRepositoryImpl
     @Inject
@@ -26,6 +26,9 @@ class NotificationRepositoryImpl
     ) : NotificationRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the schedule notification.
+         */
         override suspend fun scheduleNotification(
             taskId: String,
             scheduledAt: LocalDateTime,
@@ -63,6 +66,9 @@ class NotificationRepositoryImpl
             return id
         }
 
+        /**
+         * Returns the get notifications for task.
+         */
         override suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getNotificationsForTask", "Fetching notifications for task", mapOf("taskId" to taskId))
             val result =
@@ -82,6 +88,9 @@ class NotificationRepositoryImpl
             return result
         }
 
+        /**
+         * Returns the get pending notifications.
+         */
         override suspend fun getPendingNotifications(): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getPendingNotifications", "Fetching pending notifications")
             val now = PersistedDateTime.format(LocalDateTime.now())
@@ -95,16 +104,25 @@ class NotificationRepositoryImpl
             return result
         }
 
+        /**
+         * Performs the mark delivered.
+         */
         override suspend fun markDelivered(id: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().markDelivered(id)
             logger.d("NotificationRepositoryImpl.markDelivered", "Marked delivered", mapOf("id" to id))
         }
 
+        /**
+         * Returns true when the cancel notifications for task.
+         */
         override suspend fun cancelNotificationsForTask(taskId: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().deleteForTask(taskId)
             logger.i("NotificationRepositoryImpl.cancelNotificationsForTask", "Cancelled notifications", mapOf("taskId" to taskId))
         }
 
+        /**
+         * Returns true when the cancel notification.
+         */
         override suspend fun cancelNotification(id: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().deleteById(id)
             logger.d("NotificationRepositoryImpl.cancelNotification", "Cancelled notification", mapOf("id" to id))

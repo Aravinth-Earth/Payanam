@@ -16,7 +16,7 @@ import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * DatabaseArtifactJanitorTempBackupRecoveryTest.
+ * Provides the database artifact janitor temp backup recovery test.
  */
 class DatabaseArtifactJanitorTempBackupRecoveryTest {
     private lateinit var context: Context
@@ -26,7 +26,7 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -45,7 +45,7 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         dbFile.delete()

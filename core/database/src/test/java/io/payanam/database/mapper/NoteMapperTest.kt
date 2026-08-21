@@ -18,14 +18,14 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * NoteMapperTest.
+ * Provides the note mapper test.
  */
 class NoteMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         logger = initLogger()
@@ -34,7 +34,7 @@ class NoteMapperTest {
 
     @Test
     /**
-     * To domain parses zulu dates.
+     * Performs the to domain parses zulu dates.
      */
     fun toDomain_parsesZuluDates() {
         val entity =
@@ -53,7 +53,7 @@ class NoteMapperTest {
 
     @Test
     /**
-     * Round trip preserves fields.
+     * Performs the round trip preserves fields.
      */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
@@ -78,7 +78,7 @@ class NoteMapperTest {
 
     @Test
     /**
-     * To entity handles null details.
+     * Performs the to entity handles null details.
      */
     fun toEntity_handlesNullDetails() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)

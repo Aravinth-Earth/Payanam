@@ -53,7 +53,7 @@ import io.payanam.shared.settings.FocusModePreset
  */
 @Composable
 /**
- * Focus mode selection screen.
+ * Performs the focus mode selection screen.
  */
 fun FocusModeSelectionScreen(
     onPresetSelected: (FocusModePreset) -> Unit,

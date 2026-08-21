@@ -19,7 +19,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * ScoreWindowQueriesTest.
+ * Provides the score window queries test.
  */
 class ScoreWindowQueriesTest {
 
@@ -27,7 +27,7 @@ class ScoreWindowQueriesTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -41,7 +41,7 @@ class ScoreWindowQueriesTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -49,7 +49,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Dimension metrics window returns rows in window.
+     * Performs the dimension metrics window returns rows in window.
      */
     fun dimensionMetricsWindowReturnsRowsInWindow() = runBlocking {
         val dao = database.dimensionMetricDao()
@@ -69,7 +69,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Day metrics window returns day rows.
+     * Performs the day metrics window returns day rows.
      */
     fun dayMetricsWindowReturnsDayRows() = runBlocking {
         val dao = database.dayMetricDao()
@@ -89,7 +89,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Window boundaries are inclusive.
+     * Performs the window boundaries are inclusive.
      */
     fun windowBoundariesAreInclusive() = runBlocking {
         val dao = database.dayMetricDao()
@@ -105,7 +105,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Earliest day key returns oldest logged day.
+     * Performs the earliest day key returns oldest logged day.
      */
     fun earliestDayKey_returnsOldestLoggedDay() = runBlocking {
         val dao = database.dayMetricDao()
@@ -121,7 +121,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Earliest day key null when no rows.
+     * Performs the earliest day key null when no rows.
      */
     fun earliestDayKey_nullWhenNoRows() = runBlocking {
         assertThat(database.dayMetricDao().earliestDayKey()).isNull()
@@ -129,7 +129,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Earliest dimension day key scoped to dimension.
+     * Performs the earliest dimension day key scoped to dimension.
      */
     fun earliestDimensionDayKey_scopedToDimension() = runBlocking {
         val dao = database.dimensionMetricDao()
@@ -146,7 +146,7 @@ class ScoreWindowQueriesTest {
 
     @Test
     /**
-     * Max day key per habit returns latest per habit only.
+     * Performs the max day key per habit returns latest per habit only.
      */
     fun maxDayKeyPerHabit_returnsLatestPerHabitOnly() = runBlocking {
         val dao = database.habitMetricDao()

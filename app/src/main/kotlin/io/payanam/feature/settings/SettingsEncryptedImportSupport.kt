@@ -28,9 +28,8 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
         data = data,
     )
 }
-
 /**
- * Settings view model.
+ * Updates the settings view model.
  */
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
@@ -317,9 +316,8 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
         }
     }
 }
-
 /**
- * Settings view model.
+ * Updates the settings view model.
  */
 fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
     logger.i("SettingsViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
@@ -449,9 +447,8 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
         }
     }
 }
-
 /**
- * Settings view model.
+ * Updates the settings view model.
  */
 fun SettingsViewModel.cancelImportPassphrase() {
     logger.i("SettingsViewModel.cancelImportPassphrase", "User cancelled encrypted import passphrase prompt")

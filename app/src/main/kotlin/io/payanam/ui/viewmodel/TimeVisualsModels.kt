@@ -3,9 +3,8 @@
 package io.payanam.ui.viewmodel
 
 import java.time.LocalDate
-
 /**
- * TimeDayOverallSummary.
+ * Holds the time day overall summary.
  */
 data class TimeDayOverallSummary(
     val trackedMinutes: Long = 0,
@@ -15,9 +14,8 @@ data class TimeDayOverallSummary(
     val overlapCount: Int = 0,
     val gapCount: Int = 0,
 )
-
 /**
- * TimeDimensionDaySummary.
+ * Holds the time dimension day summary.
  */
 data class TimeDimensionDaySummary(
     val dimensionId: String,
@@ -29,18 +27,16 @@ data class TimeDimensionDaySummary(
     val plannedMinutes: Int,
     val plannedDeltaMinutes: Long,
 )
-
 /**
- * TimeTrendStripSummary.
+ * Holds the time trend strip summary.
  */
 data class TimeTrendStripSummary(
     val selectedDayMinutes: Long = 0,
     val previousDayMinutes: Long = 0,
     val last7AverageMinutes: Long = 0,
 )
-
 /**
- * TimeVisualsState.
+ * Holds the time visuals state.
  */
 data class TimeVisualsState(
     val selectedDate: LocalDate = LocalDate.now(),

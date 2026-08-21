@@ -34,7 +34,7 @@ import java.time.LocalTime
 import java.util.UUID
 import javax.inject.Inject
 /**
- * TimeScreenUiState.
+ * Holds the time screen ui state.
  */
 data class TimeScreenUiState(
     val selectedDate: LocalDate = LocalDate.now(),
@@ -68,20 +68,19 @@ private data class SelectedDateLoadState(
     val occurrencesLoaded: Boolean = false,
 ) {
     /**
-     * Mark entries loaded.
+     * Performs the mark entries loaded.
      */
     fun markEntriesLoaded(): SelectedDateLoadState = copy(entriesLoaded = true)
     /**
-     * Mark planned tasks loaded.
+     * Performs the mark planned tasks loaded.
      */
     fun markPlannedTasksLoaded(): SelectedDateLoadState = copy(plannedTasksLoaded = true)
     /**
-     * Mark occurrences loaded.
+     * Performs the mark occurrences loaded.
      */
     fun markOccurrencesLoaded(): SelectedDateLoadState = copy(occurrencesLoaded = true)
-
     /**
-     * Is ready.
+     * Returns true when the is ready.
      */
     fun isReady(): Boolean = isTimeScreenDateContentReady(
         entriesLoaded = entriesLoaded,
@@ -93,7 +92,7 @@ private data class SelectedDateLoadState(
 
 @HiltViewModel
 /**
- * TimeViewModel.
+ * Provides the time view model.
  */
 class TimeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -157,7 +156,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Load entries for date.
+     * Loads the load entries for date.
      */
     fun loadEntriesForDate(date: LocalDate) {
         val requestId = ++selectedDateLoadRequestId
@@ -252,19 +251,19 @@ class TimeViewModel @Inject constructor(
         OCCURRENCES,
     }
     /**
-     * Navigate to previous day.
+     * Shows the navigate to previous day.
      */
     fun navigateToPreviousDay() {
         loadEntriesForDate(_uiState.value.selectedDate.minusDays(1))
     }
     /**
-     * Navigate to next day.
+     * Shows the navigate to next day.
      */
     fun navigateToNextDay() {
         loadEntriesForDate(_uiState.value.selectedDate.plusDays(1))
     }
     /**
-     * Navigate to today.
+     * Shows the navigate to today.
      */
     fun navigateToToday() {
         loadEntriesForDate(LocalDate.now())
@@ -275,7 +274,7 @@ class TimeViewModel @Inject constructor(
         return (duePending + allPending).distinctBy { it.id }
     }
     /**
-     * Start tracking.
+     * Performs the start tracking.
      */
     fun startTracking(
         dimensionId: String,
@@ -343,13 +342,13 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Stop tracking.
+     * Performs the stop tracking.
      */
     fun stopTracking() {
         stopTracking(focusRating = 0.0, focusNote = null)
     }
     /**
-     * Stop tracking.
+     * Performs the stop tracking.
      */
     fun stopTracking(focusRating: Double, focusNote: String?) {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
@@ -386,7 +385,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Update time entry.
+     * Updates the update time entry.
      */
     fun updateTimeEntry(
         entryId: String,
@@ -441,7 +440,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Delete time entry.
+     * Removes the delete time entry.
      */
     fun deleteTimeEntry(entryId: String) {
         logger.w("TimeViewModel.deleteTimeEntry", "Deleting time entry", mapOf("entryId" to entryId))
@@ -551,7 +550,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Create manual entry.
+     * Creates the create manual entry.
      */
     fun createManualEntry(
         dimensionId: String,
@@ -616,13 +615,13 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Clear error.
+     * Removes the clear error.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
     /**
-     * Continue last session.
+     * Performs the continue last session.
      */
     fun continueLastSession() {
         val lastEntry = _uiState.value.lastEntry ?: return
@@ -638,7 +637,7 @@ class TimeViewModel @Inject constructor(
         continueEntry(lastEntry.id)
     }
     /**
-     * Continue entry.
+     * Performs the continue entry.
      */
     fun continueEntry(entryId: String) {
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
@@ -693,7 +692,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Complete task.
+     * Performs the complete task.
      */
     fun completeTask(taskId: String, note: String?) {
         completeTaskWithDetails(
@@ -704,7 +703,7 @@ class TimeViewModel @Inject constructor(
         )
     }
     /**
-     * Complete task with details.
+     * Performs the complete task with details.
      */
     fun completeTaskWithDetails(
         taskId: String,
@@ -764,7 +763,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Skip task.
+     * Performs the skip task.
      */
     fun skipTask(taskId: String, note: String?) {
         logger.i(
@@ -823,7 +822,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Miss task.
+     * Performs the miss task.
      */
     fun missTask(taskId: String, note: String?) {
         logger.i(
@@ -882,7 +881,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Archive task.
+     * Performs the archive task.
      */
     fun archiveTask(taskId: String) {
         logger.i("TimeViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
@@ -911,7 +910,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Delete task.
+     * Removes the delete task.
      */
     fun deleteTask(taskId: String) {
         logger.w("TimeViewModel.deleteTask", "Deleting task from time screen", mapOf("taskId" to taskId))

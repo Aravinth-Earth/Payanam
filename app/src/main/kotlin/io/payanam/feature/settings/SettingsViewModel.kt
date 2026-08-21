@@ -49,7 +49,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 /**
- * SettingsViewModel.
+ * Provides the settings view model.
  */
 class SettingsViewModel @Inject constructor(
     @ApplicationContext internal val context: Context,
@@ -374,7 +374,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Export data.
+     * Writes the export data.
      */
     fun exportData(
         destinationUri: Uri,
@@ -382,7 +382,7 @@ class SettingsViewModel @Inject constructor(
         exportDatabase(destinationUri)
     }
     /**
-     * Import data.
+     * Loads the import data.
      */
     fun importData(
         sourceUri: Uri,
@@ -390,7 +390,7 @@ class SettingsViewModel @Inject constructor(
         importDatabase(sourceUri)
     }
     /**
-     * Export database.
+     * Writes the export database.
      */
     fun exportDatabase(
         destinationUri: Uri,
@@ -428,7 +428,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Import uhabits data.
+     * Loads the import uhabits data.
      */
     fun importUhabitsData(sourceUri: Uri) {
         logger.i("SettingsViewModel.importUhabitsData", "uHabits import started", mapOf("sourceUri" to sourceUri.toString()))
@@ -467,7 +467,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Bulk map imported habits to dimension.
+     * Performs the bulk map imported habits to dimension.
      */
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
         viewModelScope.launch {
@@ -516,7 +516,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Generate export file name.
+     * Performs the generate export file name.
      */
     fun generateExportFileName(
     ): String {
@@ -524,20 +524,20 @@ class SettingsViewModel @Inject constructor(
         return "payanam_backup_encrypted_$timestamp.db"
     }
     /**
-     * Request delete database.
+     * Performs the request delete database.
      */
     fun requestDeleteDatabase() {
         logger.i("SettingsViewModel.requestDeleteDatabase", "Delete database flow initiated")
         _uiState.update { it.copy(showDeleteExportPrompt = true) }
     }
     /**
-     * Dismiss delete export prompt.
+     * Performs the dismiss delete export prompt.
      */
     fun dismissDeleteExportPrompt() {
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
     }
     /**
-     * Delete database.
+     * Removes the delete database.
      */
     fun deleteDatabase() {
         logger.i("SettingsViewModel.deleteDatabase", "Delete database confirmed — wiping all artifacts")
@@ -571,7 +571,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Delete database artifact.
+     * Removes the delete database artifact.
      */
     fun deleteDatabaseArtifact(fileName: String) {
         logger.i(
@@ -596,7 +596,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Clean stale artifacts.
+     * Performs the clean stale artifacts.
      */
     fun cleanStaleArtifacts() {
         logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale artifact cleanup requested")
@@ -613,25 +613,25 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Clear export result.
+     * Removes the clear export result.
      */
     fun clearExportResult() {
         _uiState.update { it.copy(exportResult = null) }
     }
     /**
-     * Clear import result.
+     * Removes the clear import result.
      */
     fun clearImportResult() {
         _uiState.update { it.copy(importResult = null) }
     }
     /**
-     * Clear uhabits import result.
+     * Removes the clear uhabits import result.
      */
     fun clearUhabitsImportResult() {
         _uiState.update { it.copy(uhabitsImportResult = null) }
     }
     /**
-     * Clear bulk habit mapping result.
+     * Removes the clear bulk habit mapping result.
      */
     fun clearBulkHabitMappingResult() {
         _uiState.update { it.copy(bulkHabitMappingResult = null) }
@@ -666,9 +666,8 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Update unlock session timeout minutes.
+     * Updates the update unlock session timeout minutes.
      */
     fun updateUnlockSessionTimeoutMinutes(minutes: Int) {
         databaseEncryptionManager.setSessionTimeoutMinutes(minutes)
@@ -683,7 +682,7 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Disable biometric unlock.
+     * Performs the disable biometric unlock.
      */
     fun disableBiometricUnlock() {
         val disabled = databaseEncryptionManager.disableBiometricUnlock()
@@ -701,9 +700,8 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(biometricUnlockEnabled = false) }
         }
     }
-
     /**
-     * Enable biometric unlock with verification.
+     * Performs the enable biometric unlock with verification.
      */
     fun enableBiometricUnlockWithVerification(
         activity: FragmentActivity,
@@ -764,6 +762,9 @@ class SettingsViewModel @Inject constructor(
             }
             val executor = ContextCompat.getMainExecutor(context)
             val callback = object : BiometricPrompt.AuthenticationCallback() {
+                /**
+                 * Handles the on authentication succeeded.
+                 */
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     logger.i(
                         "SettingsViewModel.enableBiometricUnlockWithVerification",
@@ -803,6 +804,9 @@ class SettingsViewModel @Inject constructor(
                     }
                 }
 
+                /**
+                 * Handles the on authentication error.
+                 */
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     logger.w(
                         "SettingsViewModel.enableBiometricUnlockWithVerification",
@@ -812,6 +816,9 @@ class SettingsViewModel @Inject constructor(
                     onComplete(false)
                 }
 
+                /**
+                 * Handles the on authentication failed.
+                 */
                 override fun onAuthenticationFailed() {
                     logger.w(
                         "SettingsViewModel.enableBiometricUnlockWithVerification",
@@ -843,9 +850,8 @@ class SettingsViewModel @Inject constructor(
     private var lastCheckTimestampMs = 0L
     private var checkCountInWindow = 0
     private var windowStartMs = 0L
-
     /**
-     * Check for update.
+     * Returns true when the check for update.
      */
     fun checkForUpdate() {
         val now = System.currentTimeMillis()

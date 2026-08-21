@@ -16,9 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * DatabaseHealthCheckerRegressionTest.
- */
 class DatabaseHealthCheckerRegressionTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()

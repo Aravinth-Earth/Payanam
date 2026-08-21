@@ -20,7 +20,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * TimeTrackingUseCase.
+ * Provides the time tracking use case.
  */
 class TimeTrackingUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
@@ -135,7 +135,7 @@ class TimeTrackingUseCase @Inject constructor(
     }
 
     /**
-     * Record occurrence for a task (adapted from TimeViewModel logic)
+     * Record occurrence for a task (adapted from timeViewModel logic)
      */
     private suspend fun recordOccurrenceForTask(
         taskId: String,

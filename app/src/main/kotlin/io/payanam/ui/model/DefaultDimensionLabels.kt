@@ -8,10 +8,6 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import java.util.Locale
-
-/**
- * DefaultDimensionLabels.
- */
 object DefaultDimensionLabels {
     private val logger = UnifiedLogger.getInstance()
 
@@ -27,9 +23,8 @@ object DefaultDimensionLabels {
         DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id to R.string.loc_dimension_name_community_service,
         UNASSIGNED_DIMENSION_ID to R.string.loc_dimension_fallback_unassigned,
     )
-
     /**
-     * Localized label.
+     * Performs the localized label.
      */
     fun localizedLabel(context: Context, dimensionId: String, languageTag: String? = null): String? {
         val resId = canonicalLabelResIds[dimensionId]
@@ -41,18 +36,16 @@ object DefaultDimensionLabels {
             localizedStringForLocale(context, resId, languageTag)
         }
     }
-
     /**
-     * Canonical label.
+     * Returns true when the canonical label.
      */
     fun canonicalLabel(dimensionId: String): String? = if (dimensionId == UNASSIGNED_DIMENSION_ID) {
         CANONICAL_UNASSIGNED_LABEL
     } else {
         DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
     }
-
     /**
-     * Resolve display label.
+     * Returns the resolve display label.
      */
     fun resolveDisplayLabel(
         context: Context,
@@ -67,9 +60,8 @@ object DefaultDimensionLabels {
         }
         return trimmed.ifBlank { localizedDefault ?: dimensionId }
     }
-
     /**
-     * Canonicalize stored label.
+     * Returns true when the canonicalize stored label.
      */
     fun canonicalizeStoredLabel(
         context: Context,
@@ -94,9 +86,8 @@ object DefaultDimensionLabels {
         }
         return trimmed
     }
-
     /**
-     * Is app owned default label.
+     * Returns true when the is app owned default label.
      */
     fun isAppOwnedDefaultLabel(context: Context, dimensionId: String, label: String?): Boolean {
         val trimmed = label?.trim().orEmpty()

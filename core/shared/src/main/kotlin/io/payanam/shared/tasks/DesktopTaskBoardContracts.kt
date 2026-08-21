@@ -25,7 +25,7 @@ enum class DesktopTaskFilter(val storageKey: String) {
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(storageKey: String?): DesktopTaskFilter = entries.find { it.storageKey == storageKey } ?: TODAY
     }
@@ -45,7 +45,7 @@ enum class DesktopTaskSortOption(val storageKey: String) {
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(storageKey: String?): DesktopTaskSortOption =
             entries.find { it.storageKey == storageKey } ?: DUE_DATE_ASC
@@ -66,15 +66,14 @@ enum class DesktopHabitSortOption(val storageKey: String) {
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(storageKey: String?): DesktopHabitSortOption =
             entries.find { it.storageKey == storageKey } ?: BY_STATUS
     }
 }
-
 /**
- * DesktopTaskBoardLoadState.
+ * Defines the contract for desktop task board load state.
  */
 enum class DesktopTaskBoardLoadState {
     LOADING,
@@ -182,14 +181,10 @@ data class DesktopTaskBoardSnapshot(
     val content: DesktopTaskBoardContent = DesktopTaskBoardContracts.defaultContent(),
 ) {
     /**
-     * Visible task count.
+     * Performs the visible task count.
      */
     fun visibleTaskCount(): Int = counts.activeTaskFilterCounts[preferences.selectedTaskFilter] ?: 0
 }
-
-/**
- * DesktopTaskBoardContracts.
- */
 object DesktopTaskBoardContracts {
     const val SCHEMA_VERSION = 2
     const val CATALOG_SCHEMA_VERSION = 1
@@ -199,24 +194,20 @@ object DesktopTaskBoardContracts {
 
     private val dateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("dd MMM")
     private const val DEFAULT_DIMENSION = "General"
-
     /**
-     * Default preferences.
+     * Performs the default preferences.
      */
     fun defaultPreferences(): DesktopTaskBoardPreferences = DesktopTaskBoardPreferences()
-
     /**
-     * Default counts.
+     * Performs the default counts.
      */
     fun defaultCounts(): DesktopTaskBoardCounts = DesktopTaskBoardCounts()
-
     /**
-     * Default content.
+     * Performs the default content.
      */
     fun defaultContent(): DesktopTaskBoardContent = DesktopTaskBoardContent()
-
     /**
-     * Default task filter counts.
+     * Performs the default task filter counts.
      */
     fun defaultTaskFilterCounts(): Map<DesktopTaskFilter, Int> =
         mapOf(
@@ -228,23 +219,20 @@ object DesktopTaskBoardContracts {
             DesktopTaskFilter.ARCHIVED to 0,
             DesktopTaskFilter.NOT_ACTIVE to 0,
         )
-
     /**
-     * Snapshot.
+     * Performs the snapshot.
      */
     fun snapshot(
         preferences: DesktopTaskBoardPreferences = defaultPreferences(),
         counts: DesktopTaskBoardCounts = defaultCounts(),
         content: DesktopTaskBoardContent = defaultContent(),
     ): DesktopTaskBoardSnapshot = DesktopTaskBoardSnapshot(preferences = preferences, counts = counts, content = content)
-
     /**
-     * Seeded catalog.
+     * Performs the seeded catalog.
      */
     fun seededCatalog(now: LocalDateTime = LocalDateTime.now()): DesktopTaskCatalogSnapshot = seededDesktopTaskCatalog(now)
-
     /**
-     * Board snapshot for catalog.
+     * Performs the board snapshot for catalog.
      */
     fun boardSnapshotForCatalog(
         catalog: DesktopTaskCatalogSnapshot,
@@ -417,6 +405,9 @@ private object DesktopTaskRecordFormatting {
      * Due label.
      */
     @Suppress("MagicNumber")
+    /**
+     * Performs the due label.
+     */
     fun dueLabel(dueAtIso: String?): String {
         val dueAt = parseDateTime(dueAtIso) ?: return "No due date"
         return "${dateFormatter.format(dueAt.toLocalDate())} ${dueAt.toLocalTime()}"
@@ -426,40 +417,38 @@ private object DesktopTaskRecordFormatting {
      * Score label.
      */
     @Suppress("MagicNumber")
-    fun scoreLabel(score: Double): String = "${(score * 100).toInt()}%"
-
     /**
-     * Normalize dimension.
+     * Performs the score label.
+     */
+    fun scoreLabel(score: Double): String = "${(score * 100).toInt()}%"
+    /**
+     * Performs the normalize dimension.
      */
     fun normalizeDimension(value: String?): String = value?.takeIf { it.isNotBlank() } ?: DEFAULT_DIMENSION
-
     /**
-     * Parse date time.
+     * Performs the parse date time.
      */
     fun parseDateTime(value: String?): LocalDateTime? = value?.let(LocalDateTime::parse)
 }
 
 private object DesktopTaskRecordPredicates {
     /**
-     * Is active.
+     * Returns true when the is active.
      */
     fun isActive(record: DesktopTaskRecord): Boolean = record.status == "active" || record.status == "pending"
-
     /**
-     * Is actionable.
+     * Returns true when the is actionable.
      */
     fun isActionable(record: DesktopTaskRecord): Boolean = record.status != "completed" && record.status != "archived"
-
     /**
-     * Is due today.
+     * Returns true when the is due today.
      */
     fun isDueToday(
         record: DesktopTaskRecord,
         today: LocalDate,
     ): Boolean = DesktopTaskRecordFormatting.parseDateTime(record.dueAtIso)?.toLocalDate() == today
-
     /**
-     * Is overdue.
+     * Returns true when the is overdue.
      */
     fun isOverdue(
         record: DesktopTaskRecord,
@@ -467,9 +456,8 @@ private object DesktopTaskRecordPredicates {
     ): Boolean =
         (DesktopTaskRecordFormatting.parseDateTime(record.dueAtIso)?.isBefore(now) == true) &&
             record.status != "completed"
-
     /**
-     * Is future.
+     * Returns true when the is future.
      */
     fun isFuture(
         record: DesktopTaskRecord,
@@ -483,15 +471,17 @@ private object DesktopTaskRecordPredicates {
      * Habit status rank.
      */
     @Suppress("MagicNumber")
+    /**
+     * Performs the habit status rank.
+     */
     fun habitStatusRank(record: DesktopTaskRecord): Int =
         when {
             record.completedToday -> 2
             record.status == "archived" -> 3
             else -> 1
         }
-
     /**
-     * Habit status label.
+     * Performs the habit status label.
      */
     fun habitStatusLabel(
         record: DesktopTaskRecord,

@@ -28,9 +28,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
-
 /**
- * DatabasePassphraseUnlockUiState.
+ * Holds the database passphrase unlock ui state.
  */
 data class DatabasePassphraseUnlockUiState(
     val isUnlocking: Boolean = false,
@@ -58,7 +57,7 @@ internal fun classifyDatabaseOpenFailureReason(error: Throwable?): String {
 
 @HiltViewModel
 /**
- * DatabasePassphraseUnlockViewModel.
+ * Provides the database passphrase unlock view model.
  */
 class DatabasePassphraseUnlockViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -74,9 +73,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         refreshLockoutState()
         loadDatabaseSummary()
     }
-
     /**
-     * Refresh lockout state.
+     * Performs the refresh lockout state.
      */
     fun refreshLockoutState() {
         val remaining = encryptionManager.getUnlockRemainingSeconds()
@@ -87,9 +85,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         )
         _uiState.update { it.copy(lockoutSecondsRemaining = remaining) }
     }
-
     /**
-     * Unlock.
+     * Performs the unlock.
      */
     fun unlock(passphrase: String, onSuccess: () -> Unit) {
         logger.i(
@@ -257,6 +254,9 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
         val executor = ContextCompat.getMainExecutor(context)
         val callback = object : BiometricPrompt.AuthenticationCallback() {
+            /**
+             * Handles the on authentication succeeded.
+             */
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 val authenticatedCipher = result.cryptoObject?.cipher
                 if (authenticatedCipher == null) {
@@ -311,6 +311,9 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 }
             }
 
+            /**
+             * Handles the on authentication error.
+             */
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -329,6 +332,9 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 }
             }
 
+            /**
+             * Handles the on authentication failed.
+             */
             override fun onAuthenticationFailed() {
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -353,14 +359,12 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             BiometricPrompt.CryptoObject(cipher),
         )
     }
-
     /**
-     * Is biometric unlock enabled.
+     * Returns true when the is biometric unlock enabled.
      */
     fun isBiometricUnlockEnabled(): Boolean = encryptionManager.isBiometricUnlockEnabled()
-
     /**
-     * Forgot passphrase reset.
+     * Performs the forgot passphrase reset.
      */
     fun forgotPassphraseReset(onSuccess: () -> Unit) {
         logger.w("DatabasePassphraseUnlockViewModel.forgotPassphraseReset", "Forgot-passphrase reset requested")

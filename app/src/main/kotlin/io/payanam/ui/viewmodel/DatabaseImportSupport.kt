@@ -28,9 +28,8 @@ internal data class DatabaseImportCopyResult(
 
 internal object DatabaseImportSupport {
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * Copy database artifacts.
+     * Performs the copy database artifacts.
      */
     fun copyDatabaseArtifacts(
         context: Context,
@@ -237,9 +236,8 @@ internal object DatabaseImportSupport {
             false
         }
     }
-
     /**
-     * Consolidate wal after import.
+     * Performs the consolidate wal after import.
      */
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
         val walFile = File(dbFile.parent, "${dbFile.name}-wal")
@@ -453,9 +451,8 @@ internal object DatabaseImportSupport {
             throw e
         }
     }
-
     /**
-     * Validate supported plaintext import schema.
+     * Returns true when the validate supported plaintext import schema.
      */
     fun validateSupportedPlaintextImportSchema(
         context: Context,

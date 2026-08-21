@@ -29,7 +29,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DailyInsightEntity.
+ * Holds the daily insight entity.
  */
 data class DailyInsightEntity(
     @PrimaryKey

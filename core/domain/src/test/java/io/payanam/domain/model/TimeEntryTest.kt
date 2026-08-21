@@ -13,26 +13,17 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeEntryTest.
- */
 class TimeEntryTest {
 
     private lateinit var logger: UnifiedLogger
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         logger = initLogger()
         logger.d("TimeEntryTest.setup", "Logger initialized for tests")
     }
 
     @Test
-    /**
-     * Is active true when no end time.
-     */
     fun isActive_trueWhenNoEndTime() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val entry = TimeEntry(
@@ -46,9 +37,6 @@ class TimeEntryTest {
     }
 
     @Test
-    /**
-     * Is active false when ended.
-     */
     fun isActive_falseWhenEnded() {
         val start = LocalDateTime.of(2026, 1, 31, 9, 0)
         val end = start.plusMinutes(10)
@@ -64,9 +52,6 @@ class TimeEntryTest {
     }
 
     @Test
-    /**
-     * Duration minutes uses end time when present.
-     */
     fun durationMinutes_usesEndTimeWhenPresent() {
         val start = LocalDateTime.of(2026, 1, 31, 9, 0)
         val end = start.plusMinutes(45)
@@ -82,9 +67,6 @@ class TimeEntryTest {
     }
 
     @Test
-    /**
-     * Duration minutes uses provided now for active entry.
-     */
     fun durationMinutes_usesProvidedNowForActiveEntry() {
         val start = LocalDateTime.of(2026, 1, 31, 9, 0)
         val now = start.plusMinutes(20)
@@ -99,9 +81,6 @@ class TimeEntryTest {
     }
 
     @Test
-    /**
-     * Time entry exposes fields.
-     */
     fun timeEntry_exposesFields() {
         val start = LocalDateTime.of(2026, 1, 31, 10, 0)
         val end = start.plusMinutes(30)
@@ -124,9 +103,6 @@ class TimeEntryTest {
     }
 
     @Test
-    /**
-     * Time entry input holds values.
-     */
     fun timeEntryInput_holdsValues() {
         val start = LocalDateTime.of(2026, 1, 31, 10, 0)
         val end = start.plusMinutes(45)

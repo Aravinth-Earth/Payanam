@@ -15,7 +15,7 @@ import kotlinx.coroutines.flow.Flow
  */
 @Dao
 /**
- * LensReflectionDao.
+ * Defines the contract for lens reflection dao.
  */
 interface LensReflectionDao {
     /**
@@ -25,7 +25,7 @@ interface LensReflectionDao {
      */
     @Query("SELECT * FROM lens_reflections WHERE day_key = :dayKey ORDER BY created_at DESC")
     /**
-     * Observe reflections for day.
+     * Registers the observe reflections for day.
      */
     fun observeReflectionsForDay(dayKey: String): Flow<List<LensReflectionEntity>>
 
@@ -37,7 +37,7 @@ interface LensReflectionDao {
      */
     @Query("SELECT * FROM lens_reflections WHERE day_key = :dayKey AND dimension_id = :dimensionId")
     /**
-     * Get reflections for dimension.
+     * Returns the get reflections for dimension.
      */
     fun getReflectionsForDimension(
         dayKey: String,
@@ -51,7 +51,7 @@ interface LensReflectionDao {
      */
     @Query("SELECT * FROM lens_reflections WHERE day_key = :dayKey ORDER BY created_at DESC")
     /**
-     * Get reflections for day sync.
+     * Returns the get reflections for day sync.
      */
     suspend fun getReflectionsForDaySync(dayKey: String): List<LensReflectionEntity>
 
@@ -61,7 +61,7 @@ interface LensReflectionDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert reflection.
+     * Performs the insert reflection.
      */
     suspend fun insertReflection(reflection: LensReflectionEntity)
 
@@ -71,7 +71,7 @@ interface LensReflectionDao {
      */
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert reflections.
+     * Performs the insert reflections.
      */
     suspend fun insertReflections(reflections: List<LensReflectionEntity>)
 
@@ -81,7 +81,7 @@ interface LensReflectionDao {
      */
     @Update
     /**
-     * Update reflection.
+     * Updates the update reflection.
      */
     suspend fun updateReflection(reflection: LensReflectionEntity)
 
@@ -92,7 +92,7 @@ interface LensReflectionDao {
      */
     @Query("UPDATE lens_reflections SET is_addressed = 1, user_note = :note WHERE id = :id")
     /**
-     * Mark reflection addressed.
+     * Performs the mark reflection addressed.
      */
     suspend fun markReflectionAddressed(
         id: String,
@@ -106,7 +106,7 @@ interface LensReflectionDao {
      */
     @Query("DELETE FROM lens_reflections WHERE day_key < :cutoffDate")
     /**
-     * Delete old reflections.
+     * Removes the delete old reflections.
      */
     suspend fun deleteOldReflections(cutoffDate: String): Int
 
@@ -117,7 +117,7 @@ interface LensReflectionDao {
      */
     @Query("DELETE FROM lens_reflections WHERE day_key = :dayKey")
     /**
-     * Delete reflections for day.
+     * Removes the delete reflections for day.
      */
     suspend fun deleteReflectionsForDay(dayKey: String): Int
 }

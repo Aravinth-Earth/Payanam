@@ -20,7 +20,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DayPlanTemplateEntity.
+ * Holds the day plan template entity.
  */
 data class DayPlanTemplateEntity(
     @PrimaryKey

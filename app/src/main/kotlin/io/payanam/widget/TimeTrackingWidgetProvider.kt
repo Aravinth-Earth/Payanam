@@ -42,7 +42,7 @@ import javax.inject.Inject
  */
 @AndroidEntryPoint
 /**
- * TimeTrackingWidgetProvider.
+ * Provides the time tracking widget provider.
  */
 class TimeTrackingWidgetProvider : AppWidgetProvider() {
 
@@ -100,6 +100,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * Handles the on update.
+     */
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -117,6 +120,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * Handles the on receive.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
         when (intent.action) {
@@ -393,6 +399,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * Handles the on enabled.
+     */
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         logger.i("TimeTrackingWidget.onEnabled", "First widget added")
@@ -400,6 +409,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         logger.d("TimeTrackingWidget.onEnabled", "Requested widget refresh after enable")
     }
 
+    /**
+     * Handles the on disabled.
+     */
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         logger.i("TimeTrackingWidget.onDisabled", "Last widget removed")

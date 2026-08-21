@@ -17,56 +17,56 @@ import kotlinx.coroutines.flow.Flow
 @Suppress("TooManyFunctions")
 @Dao
 /**
- * JournalDao.
+ * Defines the contract for journal dao.
  */
 interface JournalDao {
     // Day Journal Entry
     @Query("SELECT * FROM day_journal_entries WHERE entryDate = :date")
     /**
-     * Get entry for date.
+     * Returns the get entry for date.
      */
     suspend fun getEntryForDate(date: String): DayJournalEntryEntity?
 
     @Query("SELECT * FROM day_journal_entries WHERE entryDate = :date")
     /**
-     * Observe entry for date.
+     * Registers the observe entry for date.
      */
     fun observeEntryForDate(date: String): Flow<DayJournalEntryEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert entry.
+     * Performs the insert entry.
      */
     suspend fun insertEntry(entry: DayJournalEntryEntity)
 
     @Update
     /**
-     * Update entry.
+     * Updates the update entry.
      */
     suspend fun updateEntry(entry: DayJournalEntryEntity)
 
     @Query("SELECT * FROM day_journal_entries")
     /**
-     * Get all entries.
+     * Returns the get all entries.
      */
     fun getAllEntries(): Flow<List<DayJournalEntryEntity>>
 
     @Query("SELECT * FROM day_journal_responses")
     /**
-     * Get all responses.
+     * Returns the get all responses.
      */
     fun getAllResponses(): Flow<List<DayJournalResponseEntity>>
 
     // Day Journal Responses
     @Query("SELECT * FROM day_journal_responses WHERE entryId = :entryId")
     /**
-     * Get responses for entry.
+     * Returns the get responses for entry.
      */
     fun getResponsesForEntry(entryId: String): Flow<List<DayJournalResponseEntity>>
 
     @Query("SELECT * FROM day_journal_responses WHERE entryId = :entryId")
     /**
-     * Get responses for entry once.
+     * Returns the get responses for entry once.
      */
     suspend fun getResponsesForEntryOnce(entryId: String): List<DayJournalResponseEntity>
 
@@ -79,7 +79,7 @@ interface JournalDao {
     """,
     )
     /**
-     * Get response.
+     * Returns the get response.
      */
     suspend fun getResponse(
         entryId: String,
@@ -90,32 +90,32 @@ interface JournalDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert response.
+     * Performs the insert response.
      */
     suspend fun insertResponse(response: DayJournalResponseEntity)
 
     @Update
     /**
-     * Update response.
+     * Updates the update response.
      */
     suspend fun updateResponse(response: DayJournalResponseEntity)
 
     @Query("DELETE FROM day_journal_responses WHERE id = :id")
     /**
-     * Delete response.
+     * Removes the delete response.
      */
     suspend fun deleteResponse(id: String)
 
     // Journal notes
     @Query("SELECT * FROM journal_notes ORDER BY updated_at DESC")
     /**
-     * Get all notes.
+     * Returns the get all notes.
      */
     fun getAllNotes(): Flow<List<JournalNoteEntity>>
 
     @Query("SELECT * FROM journal_notes WHERE day_key = :dayKey ORDER BY updated_at DESC")
     /**
-     * Get notes for day.
+     * Returns the get notes for day.
      */
     fun getNotesForDay(dayKey: String): Flow<List<JournalNoteEntity>>
 
@@ -128,139 +128,139 @@ interface JournalDao {
         """,
     )
     /**
-     * Get notes by dimension.
+     * Returns the get notes by dimension.
      */
     fun getNotesByDimension(dimension: String): Flow<List<JournalNoteEntity>>
 
     @Query("SELECT * FROM journal_notes WHERE id = :id")
     /**
-     * Get note by id.
+     * Returns the get note by id.
      */
     suspend fun getNoteById(id: String): JournalNoteEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert note.
+     * Performs the insert note.
      */
     suspend fun insertNote(note: JournalNoteEntity)
 
     @Update
     /**
-     * Update note.
+     * Updates the update note.
      */
     suspend fun updateNote(note: JournalNoteEntity)
 
     @Query("DELETE FROM journal_notes WHERE id = :id")
     /**
-     * Delete note by id.
+     * Removes the delete note by id.
      */
     suspend fun deleteNoteById(id: String)
 
     @Query("DELETE FROM day_journal_responses")
     /**
-     * Delete all responses.
+     * Removes the delete all responses.
      */
     suspend fun deleteAllResponses()
 
     @Query("DELETE FROM day_journal_entries")
     /**
-     * Delete all entries.
+     * Removes the delete all entries.
      */
     suspend fun deleteAllEntries()
 
     @Query("DELETE FROM journal_notes")
     /**
-     * Delete all notes.
+     * Removes the delete all notes.
      */
     suspend fun deleteAllNotes()
 }
 
 @Dao
 /**
- * AppSettingsDao.
+ * Defines the contract for app settings dao.
  */
 interface AppSettingsDao {
     @Query("SELECT * FROM app_settings WHERE `key` = :key")
     /**
-     * Get setting.
+     * Returns the get setting.
      */
     suspend fun getSetting(key: String): AppSettingEntity?
 
     @Query("SELECT * FROM app_settings WHERE `key` = :key")
     /**
-     * Observe setting.
+     * Registers the observe setting.
      */
     fun observeSetting(key: String): Flow<AppSettingEntity?>
 
     @Query("SELECT * FROM app_settings")
     /**
-     * Get all settings.
+     * Returns the get all settings.
      */
     fun getAllSettings(): Flow<List<AppSettingEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert setting.
+     * Performs the insert setting.
      */
     suspend fun insertSetting(setting: AppSettingEntity)
 
     @Query("DELETE FROM app_settings WHERE `key` = :key")
     /**
-     * Delete setting.
+     * Removes the delete setting.
      */
     suspend fun deleteSetting(key: String)
 }
 
 @Dao
 /**
- * ScheduledNotificationDao.
+ * Defines the contract for scheduled notification dao.
  */
 interface ScheduledNotificationDao {
     @Query("SELECT * FROM scheduled_notifications WHERE taskId = :taskId")
     /**
-     * Get notifications for task.
+     * Returns the get notifications for task.
      */
     suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotificationEntity>
 
     @Query("SELECT * FROM scheduled_notifications WHERE isDelivered = 0 AND scheduledAt > :now ORDER BY scheduledAt ASC")
     /**
-     * Get pending notifications.
+     * Returns the get pending notifications.
      */
     suspend fun getPendingNotifications(now: String): List<ScheduledNotificationEntity>
 
     @Query("SELECT * FROM scheduled_notifications WHERE isDelivered = 0 AND scheduledAt <= :now")
     /**
-     * Get overdue notifications.
+     * Returns the get overdue notifications.
      */
     suspend fun getOverdueNotifications(now: String): List<ScheduledNotificationEntity>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(notification: ScheduledNotificationEntity)
 
     @Query("UPDATE scheduled_notifications SET isDelivered = 1 WHERE id = :id")
     /**
-     * Mark delivered.
+     * Performs the mark delivered.
      */
     suspend fun markDelivered(id: String)
 
     @Query("DELETE FROM scheduled_notifications WHERE taskId = :taskId")
     /**
-     * Delete for task.
+     * Removes the delete for task.
      */
     suspend fun deleteForTask(taskId: String)
 
     @Query("DELETE FROM scheduled_notifications WHERE id = :id")
     /**
-     * Delete by id.
+     * Removes the delete by id.
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM scheduled_notifications WHERE isDelivered = 1")
     /**
-     * Delete delivered.
+     * Removes the delete delivered.
      */
     suspend fun deleteDelivered()
 }

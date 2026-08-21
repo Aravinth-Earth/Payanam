@@ -20,7 +20,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * TaskRescheduleRepositoryImpl.
+ * Provides the task reschedule repository impl.
  */
 class TaskRescheduleRepositoryImpl
     @Inject
@@ -29,6 +29,9 @@ class TaskRescheduleRepositoryImpl
     ) : TaskRescheduleRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get reschedules by task id.
+         */
         override suspend fun getReschedulesByTaskId(taskId: String): List<TaskReschedule> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesByTaskId", "Fetching reschedules", mapOf("taskId" to taskId))
             val result =
@@ -50,6 +53,9 @@ class TaskRescheduleRepositoryImpl
             return result
         }
 
+        /**
+         * Returns the get reschedules for task.
+         */
         override fun getReschedulesForTask(taskId: String): Flow<List<TaskReschedule>> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesForTask", "Subscribing to reschedules", mapOf("taskId" to taskId))
             return sessionManager.requireDatabase().taskRescheduleDao().getReschedulesForTask(taskId).map { entities ->
@@ -57,6 +63,9 @@ class TaskRescheduleRepositoryImpl
             }
         }
 
+        /**
+         * Performs the record reschedule.
+         */
         override suspend fun recordReschedule(reschedule: TaskReschedule) {
             val entity =
                 TaskRescheduleEntity(
@@ -79,6 +88,9 @@ class TaskRescheduleRepositoryImpl
             )
         }
 
+        /**
+         * Performs the record reschedule.
+         */
         override suspend fun recordReschedule(
             taskId: String,
             previousDueDate: LocalDateTime,

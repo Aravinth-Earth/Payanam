@@ -9,13 +9,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /**
- * Maps between ScoringConfigEntity (Room) and ScoringConfig (domain).
+ * Maps between scoringConfigEntity (Room) and scoringConfig (domain).
  */
 object ScoringConfigMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-
     /**
-     * To domain.
+     * Performs the to domain.
      */
     fun toDomain(entity: ScoringConfigEntity): ScoringConfig =
         ScoringConfig(
@@ -80,9 +79,8 @@ object ScoringConfigMapper {
                     LifeDimension.CONTRIBUTION.id to entity.dimensionContribution,
                 ),
         )
-
     /**
-     * To entity.
+     * Performs the to entity.
      */
     fun toEntity(config: ScoringConfig): ScoringConfigEntity {
         val dimensionCareerWork = resolveDimensionWeight(config, LifeDimension.CAREER_WORK, 0.8)

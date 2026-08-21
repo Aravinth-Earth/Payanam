@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * UI state for Scoring Configuration screen.
+ * UI state for scoring configuration screen.
  */
 data class ScoringConfigUiState(
     val config: ScoringConfig = ScoringConfig.defaults(),
@@ -27,11 +27,11 @@ data class ScoringConfigUiState(
 )
 
 /**
- * ViewModel for the Scoring Configuration screen.
+ * ViewModel for the scoring configuration screen.
  */
 @HiltViewModel
 /**
- * ScoringConfigViewModel.
+ * Provides the scoring config view model.
  */
 class ScoringConfigViewModel @Inject constructor(
     private val scoringConfigRepository: ScoringConfigRepository,
@@ -63,53 +63,46 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Factor Weight Updates =====
-
     /**
-     * Set dimension weight.
+     * Updates the set dimension weight.
      */
     fun setDimensionWeight(value: Double) {
         updateConfig { it.copy(dimensionWeight = value) }
     }
-
     /**
-     * Set impact weight.
+     * Updates the set impact weight.
      */
     fun setImpactWeight(value: Double) {
         updateConfig { it.copy(impactWeight = value) }
     }
-
     /**
-     * Set alignment weight.
+     * Updates the set alignment weight.
      */
     fun setAlignmentWeight(value: Double) {
         updateConfig { it.copy(alignmentWeight = value) }
     }
-
     /**
-     * Set energy weight.
+     * Updates the set energy weight.
      */
     fun setEnergyWeight(value: Double) {
         updateConfig { it.copy(energyWeight = value) }
     }
-
     /**
-     * Set control weight.
+     * Updates the set control weight.
      */
     fun setControlWeight(value: Double) {
         updateConfig { it.copy(controlWeight = value) }
     }
-
     /**
-     * Set duration weight.
+     * Updates the set duration weight.
      */
     fun setDurationWeight(value: Double) {
         updateConfig { it.copy(durationWeight = value) }
     }
 
     // ===== Impact Level Updates =====
-
     /**
-     * Set impact level value.
+     * Updates the set impact level value.
      */
     fun setImpactLevelValue(level: String, value: Double) {
         updateConfig {
@@ -118,9 +111,8 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Alignment Level Updates =====
-
     /**
-     * Set alignment value.
+     * Updates the set alignment value.
      */
     fun setAlignmentValue(level: String, value: Double) {
         updateConfig {
@@ -129,9 +121,8 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Energy Level Updates =====
-
     /**
-     * Set energy level value.
+     * Updates the set energy level value.
      */
     fun setEnergyLevelValue(level: String, value: Double) {
         updateConfig {
@@ -140,9 +131,8 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Control Level Updates =====
-
     /**
-     * Set control level value.
+     * Updates the set control level value.
      */
     fun setControlLevelValue(level: String, value: Double) {
         updateConfig {
@@ -151,9 +141,8 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Dimension Weight Updates =====
-
     /**
-     * Set dimension value.
+     * Updates the set dimension value.
      */
     fun setDimensionValue(dimensionId: String, value: Double) {
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: dimensionId
@@ -163,18 +152,16 @@ class ScoringConfigViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Set dimension value.
+     * Updates the set dimension value.
      */
     fun setDimensionValue(dimension: LifeDimension, value: Double) {
         setDimensionValue(dimension.id, value)
     }
 
     // ===== Actions =====
-
     /**
-     * Save config.
+     * Writes the save config.
      */
     fun saveConfig() {
         viewModelScope.launch {
@@ -191,9 +178,8 @@ class ScoringConfigViewModel @Inject constructor(
             logger.i("ScoringConfigViewModel.saveConfig", "Config saved successfully")
         }
     }
-
     /**
-     * Reset to defaults.
+     * Removes the reset to defaults.
      */
     fun resetToDefaults() {
         viewModelScope.launch {
@@ -207,9 +193,8 @@ class ScoringConfigViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Discard changes.
+     * Performs the discard changes.
      */
     fun discardChanges() {
         logger.i("ScoringConfigViewModel.discardChanges", "Discarding config changes")

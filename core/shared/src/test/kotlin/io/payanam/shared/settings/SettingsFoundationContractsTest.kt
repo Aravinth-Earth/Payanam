@@ -6,10 +6,6 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.transfer.BackupJsonContract
 import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Test
-
-/**
- * SettingsFoundationContractsTest.
- */
 class SettingsFoundationContractsTest {
 
     @Test

@@ -15,9 +15,6 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeViewModelLoadStateTest.
- */
 class TimeViewModelLoadStateTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -25,9 +22,6 @@ class TimeViewModelLoadStateTest {
     }
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         logger.i("TimeViewModelLoadStateTest.setUp", "Preparing TimeViewModel selected-date load state tests")
     }
@@ -75,9 +69,6 @@ class TimeViewModelLoadStateTest {
     }
 
     @Test
-    /**
-     * Should use todays planned tasks true only for today.
-     */
     fun shouldUseTodaysPlannedTasks_true_only_for_today() {
         val today = LocalDate.of(2026, 4, 9)
         assertTrue(shouldUseTodaysPlannedTasks(today, today))

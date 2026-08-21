@@ -5,10 +5,6 @@ package io.payanam.ui.screens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-
-/**
- * TimeScreenTimelineLabelFormattingTest.
- */
 class TimeScreenTimelineLabelFormattingTest {
 
     @Test
@@ -32,9 +28,6 @@ class TimeScreenTimelineLabelFormattingTest {
     }
 
     @Test
-    /**
-     * Build time block compact label preserves expected order.
-     */
     fun buildTimeBlockCompactLabel_preserves_expected_order() {
         val label = buildTimeBlockCompactLabel(
             dimensionLabel = "Health",

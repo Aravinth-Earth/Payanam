@@ -29,23 +29,15 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Date
 import javax.inject.Inject
-
 /**
- * RestoreResult.
+ * Provides the restore result.
  */
 sealed class RestoreResult {
-    /**
-     * RestoredOk.
-     */
     object RestoredOk : RestoreResult()
-    /**
-     * RestoreFailed.
-     */
     object RestoreFailed : RestoreResult()
 }
-
 /**
- * DatabaseInitUiState.
+ * Holds the database init ui state.
  */
 data class DatabaseInitUiState(
     val isChecking: Boolean = true,
@@ -71,9 +63,8 @@ data class DatabaseInitUiState(
     val importPassphraseError: String? = null,
     val awaitingDimensionSetup: Boolean = false,
 )
-
 /**
- * DatabaseBootIssueType.
+ * Defines the contract for database boot issue type.
  */
 enum class DatabaseBootIssueType {
     SIDECAR_PRIMARY_MISSING,
@@ -84,9 +75,8 @@ enum class DatabaseBootIssueType {
     REPAIRABLE_GENERIC,
     NON_REPAIRABLE_GENERIC,
 }
-
 /**
- * DatabaseBootIssue.
+ * Holds the database boot issue.
  */
 data class DatabaseBootIssue(
     val type: DatabaseBootIssueType,
@@ -96,7 +86,7 @@ data class DatabaseBootIssue(
 
 @HiltViewModel
 /**
- * DatabaseInitViewModel.
+ * Provides the database init view model.
  */
 class DatabaseInitViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -277,17 +267,15 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Retry database status check.
+     * Performs the retry database status check.
      */
     fun retryDatabaseStatusCheck() {
         logger.i("DatabaseInitViewModel.retryDatabaseStatusCheck", "Retrying database status check")
         checkDatabaseStatus()
     }
-
     /**
-     * Create new database.
+     * Creates the create new database.
      */
     fun createNewDatabase(passphrase: String) {
         logger.i("DatabaseInitViewModel.createNewDatabase", "Create new database requested")
@@ -303,26 +291,23 @@ class DatabaseInitViewModel @Inject constructor(
         }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = false)
     }
-
     /**
-     * Confirm create new.
+     * Performs the confirm create new.
      */
     fun confirmCreateNew(passphrase: String) {
         logger.i("DatabaseInitViewModel.confirmCreateNew", "User confirmed create new with wipe")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = true)
     }
-
     /**
-     * Cancel create new wipe.
+     * Returns true when the cancel create new wipe.
      */
     fun cancelCreateNewWipe() {
         logger.i("DatabaseInitViewModel.cancelCreateNewWipe", "User cancelled create new wipe confirm")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
     }
-
     /**
-     * Dismiss restore result.
+     * Performs the dismiss restore result.
      */
     fun dismissRestoreResult() {
         _uiState.update { it.copy(restoreResult = null) }
@@ -346,9 +331,8 @@ class DatabaseInitViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Complete new database dimension setup.
+     * Performs the complete new database dimension setup.
      */
     fun completeNewDatabaseDimensionSetup(
         dimensionInputs: List<NewDatabaseDimensionInput>,
@@ -437,9 +421,8 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Import database.
+     * Loads the import database.
      */
     fun importDatabase(sourceUri: Uri, onSuccess: () -> Unit) {
         logger.i(
@@ -463,9 +446,8 @@ class DatabaseInitViewModel @Inject constructor(
         }
         executeImportDatabase(sourceUri, onSuccess)
     }
-
     /**
-     * Confirm import after wipe.
+     * Performs the confirm import after wipe.
      */
     fun confirmImportAfterWipe(onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.confirmImportAfterWipe", "User confirmed import with wipe")
@@ -476,9 +458,8 @@ class DatabaseInitViewModel @Inject constructor(
         pendingImportOnSuccess = null
         executeImportDatabase(uri, cb)
     }
-
     /**
-     * Cancel import wipe.
+     * Returns true when the cancel import wipe.
      */
     fun cancelImportWipe() {
         logger.i("DatabaseInitViewModel.cancelImportWipe", "User cancelled import wipe confirm")
@@ -489,15 +470,15 @@ class DatabaseInitViewModel @Inject constructor(
 
     private sealed class ImportIOResult {
         /**
-         * NeedsPassphrase.
+         * Holds the needs passphrase.
          */
         data class NeedsPassphrase(val dbFile: File, val tempBackupDir: File?) : ImportIOResult()
         /**
-         * Completed.
+         * Holds the completed.
          */
         data class Completed(val dbFile: File, val passphrase: String?) : ImportIOResult()
         /**
-         * Failed.
+         * Holds the failed.
          */
         data class Failed(
             val cause: Throwable,
@@ -757,9 +738,8 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Resume import with passphrase.
+     * Performs the resume import with passphrase.
      */
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
@@ -866,9 +846,8 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Cancel import passphrase.
+     * Returns true when the cancel import passphrase.
      */
     fun cancelImportPassphrase() {
         logger.i("DatabaseInitViewModel.cancelImportPassphrase", "User cancelled imported DB passphrase prompt")
@@ -905,9 +884,8 @@ class DatabaseInitViewModel @Inject constructor(
     }
 
     private fun readDatabaseInitCompletedFlag(dbFile: File): Boolean = dbInitReadInitCompletedFlag(dbFile)
-
     /**
-     * Continue with existing database.
+     * Performs the continue with existing database.
      */
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
         viewModelScope.launch {

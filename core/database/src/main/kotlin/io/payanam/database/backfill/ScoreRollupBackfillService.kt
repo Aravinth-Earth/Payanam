@@ -41,7 +41,7 @@ internal data class MetricBaseline(
 ) {
     companion object {
         /**
-         * Empty.
+         * Performs the empty.
          */
         fun empty(): MetricBaseline = MetricBaseline(0.0, 0, null, 0, 0, 0)
 
@@ -117,7 +117,7 @@ internal data class MetricBaseline(
  */
 @Singleton
 /**
- * ScoreRollupBackfillService.
+ * Provides the score rollup backfill service.
  */
 class ScoreRollupBackfillService
     @Inject

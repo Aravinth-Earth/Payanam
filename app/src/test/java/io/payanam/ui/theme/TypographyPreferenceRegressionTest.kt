@@ -9,10 +9,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.viewmodel.FontFamilyOption
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
-/**
- * TypographyPreferenceRegressionTest.
- */
 class TypographyPreferenceRegressionTest {
 
     private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }

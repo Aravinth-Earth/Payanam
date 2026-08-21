@@ -22,7 +22,7 @@ internal class DesktopTaskBoardStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Load snapshot.
+     * Loads the load snapshot.
      */
     fun loadSnapshot(): DesktopTaskBoardSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -65,9 +65,8 @@ internal class DesktopTaskBoardStore(
         )
         return snapshot
     }
-
     /**
-     * Save snapshot.
+     * Writes the save snapshot.
      */
     fun saveSnapshot(snapshot: DesktopTaskBoardSnapshot) {
         val properties =
@@ -95,9 +94,8 @@ internal class DesktopTaskBoardStore(
             ),
         )
     }
-
     /**
-     * Get board file path.
+     * Returns the get board file path.
      */
     fun getBoardFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

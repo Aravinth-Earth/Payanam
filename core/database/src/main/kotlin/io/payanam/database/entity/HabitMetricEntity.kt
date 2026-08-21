@@ -17,7 +17,7 @@ import androidx.room.Index
     indices = [Index("habitId"), Index("dayKey")],
 )
 /**
- * HabitMetricEntity.
+ * Holds the habit metric entity.
  */
 data class HabitMetricEntity(
     val habitId: String,

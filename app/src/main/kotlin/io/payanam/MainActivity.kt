@@ -74,7 +74,7 @@ import javax.inject.Inject
  */
 sealed interface ExternalNavigationCommand {
     /**
-     * OpenTimeScreen.
+     * Holds the open time screen.
      */
     data class OpenTimeScreen(
         val openQuickStart: Boolean,
@@ -86,7 +86,7 @@ sealed interface ExternalNavigationCommand {
 
 @AndroidEntryPoint
 /**
- * MainActivity.
+ * Provides the main activity.
  */
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
@@ -116,11 +116,17 @@ class MainActivity : FragmentActivity() {
     private var showExternalDeletionWarning = mutableStateOf(false)
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
+    /**
+     * Handles the on user interaction.
+     */
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
     }
 
+    /**
+     * Handles the on create.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         logger.i("MainActivity.onCreate", "Activity creating")
@@ -418,6 +424,9 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Handles the on start.
+     */
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -533,11 +542,17 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Handles the on new intent.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleExternalNavigationIntent(intent)
     }
+    /**
+     * Handles the on resume.
+     */
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
@@ -562,11 +577,17 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Handles the on pause.
+     */
     override fun onPause() {
         super.onPause()
         logger.d("MainActivity.onPause", "Activity paused")
     }
 
+    /**
+     * Handles the on stop.
+     */
     override fun onStop() {
         super.onStop()
         logger.d("MainActivity.onStop", "Activity stopped")
@@ -580,6 +601,9 @@ class MainActivity : FragmentActivity() {
         logger.flush()
     }
 
+    /**
+     * Handles the on destroy.
+     */
     override fun onDestroy() {
         super.onDestroy()
         logger.i("MainActivity.onDestroy", "Activity destroyed")

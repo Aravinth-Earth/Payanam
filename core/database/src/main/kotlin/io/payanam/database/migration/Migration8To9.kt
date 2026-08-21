@@ -20,6 +20,9 @@ val MIGRATION_8_9 =
     object : Migration(8, 9) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.8_9", "Starting migration from version 8 to 9")
 

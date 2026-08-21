@@ -9,9 +9,8 @@ import io.payanam.domain.model.Task
 import io.payanam.ui.components.CheckmarkStatus
 import io.payanam.ui.components.DayCheckmark
 import java.time.LocalDate
-
 /**
- * TaskFilter.
+ * Defines the contract for task filter.
  */
 enum class TaskFilter(val key: String) {
     ALL("all"),
@@ -26,14 +25,13 @@ enum class TaskFilter(val key: String) {
 
     companion object {
         /**
-         * From key.
+         * Performs the from key.
          */
         fun fromKey(key: String?): TaskFilter = entries.find { it.key == key } ?: TODAY
     }
 }
-
 /**
- * TaskSortOption.
+ * Defines the contract for task sort option.
  */
 enum class TaskSortOption(val key: String) {
     SCORE_DESC("score_desc"),
@@ -51,14 +49,13 @@ enum class TaskSortOption(val key: String) {
 
     companion object {
         /**
-         * From key.
+         * Performs the from key.
          */
         fun fromKey(key: String?): TaskSortOption = entries.find { it.key == key } ?: DUE_DATE_ASC
     }
 }
-
 /**
- * HabitSortOption.
+ * Defines the contract for habit sort option.
  */
 enum class HabitSortOption(val key: String) {
     BY_NAME("by_name"),
@@ -96,9 +93,8 @@ enum class HabitSortOption(val key: String) {
             "by_life_dimension" to BY_NAME,
             "by_position" to BY_NAME,
         )
-
         /**
-         * From key.
+         * Performs the from key.
          */
         fun fromKey(key: String?): HabitSortOption {
             if (key == null) return SCORE_HIGH_LOW
@@ -122,7 +118,7 @@ val HabitSortOption.displayName: String
 
 @Immutable
 /**
- * TaskCheckmarks.
+ * Holds the task checkmarks.
  */
 data class TaskCheckmarks(
     val taskId: String,
@@ -131,7 +127,7 @@ data class TaskCheckmarks(
 
 @Immutable
 /**
- * TaskFilterCounts.
+ * Holds the task filter counts.
  */
 data class TaskFilterCounts(
     val all: Int = 0,
@@ -144,7 +140,7 @@ data class TaskFilterCounts(
     val notActive: Int = 0,
 ) {
     /**
-     * Count for.
+     * Performs the count for.
      */
     fun countFor(filter: TaskFilter): Int = when (filter) {
         TaskFilter.ALL -> all
@@ -160,7 +156,7 @@ data class TaskFilterCounts(
 
 @Immutable
 /**
- * TasksChromeUiState.
+ * Holds the tasks chrome ui state.
  */
 data class TasksChromeUiState(
     val isLoading: Boolean = true,
@@ -179,7 +175,7 @@ data class TasksChromeUiState(
 
 @Immutable
 /**
- * HabitsTabUiState.
+ * Holds the habits tab ui state.
  */
 data class HabitsTabUiState(
     val rows: List<HabitRowUiModel> = emptyList(),
@@ -188,7 +184,7 @@ data class HabitsTabUiState(
 
 @Immutable
 /**
- * TasksTabUiState.
+ * Holds the tasks tab ui state.
  */
 data class TasksTabUiState(
     val rows: List<TaskRowUiModel> = emptyList(),
@@ -199,7 +195,7 @@ data class TasksTabUiState(
 
 @Immutable
 /**
- * TasksUiState.
+ * Holds the tasks ui state.
  */
 data class TasksUiState(
     val tasks: List<Task> = emptyList(),

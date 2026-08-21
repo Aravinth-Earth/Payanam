@@ -25,9 +25,8 @@ class DesktopSessionLogger private constructor(
     init {
         writeHeader()
     }
-
     /**
-     * I.
+     * Performs the i.
      */
     fun i(
         source: String,
@@ -36,9 +35,8 @@ class DesktopSessionLogger private constructor(
     ) {
         appendEntry(level = "INFO", source = source, message = message, data = data)
     }
-
     /**
-     * W.
+     * Performs the w.
      */
     fun w(
         source: String,
@@ -47,9 +45,8 @@ class DesktopSessionLogger private constructor(
     ) {
         appendEntry(level = "WARN", source = source, message = message, data = data)
     }
-
     /**
-     * E.
+     * Performs the e.
      */
     fun e(
         source: String,
@@ -73,12 +70,14 @@ class DesktopSessionLogger private constructor(
             }
         appendEntry(level = "ERROR", source = source, message = message, data = errorData)
     }
-
     /**
-     * Get log path.
+     * Returns the get log path.
      */
     fun getLogPath(): Path = logFilePath
 
+    /**
+     * Performs the close.
+     */
     override fun close() {
         appendEntry(
             level = "INFO",
@@ -174,9 +173,8 @@ class DesktopSessionLogger private constructor(
         @Volatile
         private var instance: DesktopSessionLogger? = null
         private val companionLock = Any()
-
         /**
-         * Initialize.
+         * Performs the initialize.
          */
         fun initialize(
             logsDirectory: Path = DesktopAppPaths.resolveLogsDirectory(),
@@ -187,9 +185,8 @@ class DesktopSessionLogger private constructor(
                     instance = it
                 }
             }
-
         /**
-         * Get instance.
+         * Returns the get instance.
          */
         fun getInstance(): DesktopSessionLogger =
             instance ?: error("DesktopSessionLogger not initialized. Call initialize() from desktop main().")

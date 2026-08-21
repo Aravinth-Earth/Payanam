@@ -32,7 +32,7 @@ import java.util.UUID
  */
 @RunWith(RobolectricTestRunner::class)
 /**
- * BaselineCarryForwardEquivalenceTest.
+ * Provides the baseline carry forward equivalence test.
  */
 class BaselineCarryForwardEquivalenceTest {
 
@@ -40,7 +40,7 @@ class BaselineCarryForwardEquivalenceTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(
@@ -51,7 +51,7 @@ class BaselineCarryForwardEquivalenceTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         db.close()

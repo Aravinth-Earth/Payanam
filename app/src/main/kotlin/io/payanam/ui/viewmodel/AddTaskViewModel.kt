@@ -26,7 +26,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 /**
- * AddTaskViewModel.
+ * Provides the add task view model.
  */
 class AddTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -57,9 +57,8 @@ class AddTaskViewModel @Inject constructor(
                 }
         }
     }
-
     /**
-     * Create task.
+     * Creates the create task.
      */
     fun createTask(
         title: String,

@@ -77,7 +77,7 @@ import java.time.format.FormatStyle
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Notes screen.
+ * Performs the notes screen.
  */
 fun NotesScreen(
     viewModel: NotesViewModel = hiltViewModel(),

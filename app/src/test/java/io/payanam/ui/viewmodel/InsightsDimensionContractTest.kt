@@ -15,14 +15,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * InsightsDimensionContractTest.
- */
 class InsightsDimensionContractTest {
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -30,9 +24,6 @@ class InsightsDimensionContractTest {
     }
 
     @Test
-    /**
-     * Time entry dimension id prefers explicit entry dimension.
-     */
     fun timeEntryDimensionId_prefers_explicit_entry_dimension() {
         val task = task("t1", "dim_financial")
         val entry = entry("e1", taskId = "t1", dimensionId = "dim_learning_growth", category = "Relationships")
@@ -52,9 +43,6 @@ class InsightsDimensionContractTest {
     }
 
     @Test
-    /**
-     * Time entry dimension id falls back to category mapping.
-     */
     fun timeEntryDimensionId_falls_back_to_category_mapping() {
         val entry = entry("e3", taskId = null, dimensionId = null, category = "Learning")
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, emptyMap())
@@ -62,9 +50,6 @@ class InsightsDimensionContractTest {
     }
 
     @Test
-    /**
-     * Note dimension id uses canonical dimension id.
-     */
     fun noteDimensionId_uses_canonical_dimension_id() {
         val note = io.payanam.domain.model.Note(
             id = "n1",

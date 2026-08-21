@@ -6,9 +6,8 @@ package io.payanam.feature.settings
 
 import io.payanam.BuildConfig
 import io.payanam.database.DatabaseHealthChecker
-
 /**
- * SettingsUiState.
+ * Holds the settings ui state.
  */
 data class SettingsUiState(
     val taskCount: Int = 0,
@@ -56,24 +55,24 @@ data class SettingsUiState(
     }
 }
 /**
- * ExportResult.
+ * Provides the export result.
  */
 sealed class ExportResult {
     /**
-     * Success.
+     * Holds the success.
      */
     data class Success(val fileName: String) : ExportResult()
     /**
-     * Error.
+     * Holds the error.
      */
     data class Error(val message: String) : ExportResult()
 }
 /**
- * ImportResult.
+ * Provides the import result.
  */
 sealed class ImportResult {
     /**
-     * Success.
+     * Holds the success.
      */
     data class Success(
         val tasksImported: Int,
@@ -82,33 +81,33 @@ sealed class ImportResult {
         val requiresAppRestart: Boolean = false,
     ) : ImportResult()
     /**
-     * Error.
+     * Holds the error.
      */
     data class Error(val message: String) : ImportResult()
 }
 /**
- * UhabitsImportResult.
+ * Provides the uhabits import result.
  */
 sealed class UhabitsImportResult {
     /**
-     * Success.
+     * Holds the success.
      */
     data class Success(val habitsUpserted: Int, val repetitionsUpserted: Int) : UhabitsImportResult()
     /**
-     * Error.
+     * Holds the error.
      */
     data class Error(val message: String) : UhabitsImportResult()
 }
 /**
- * BulkHabitMappingResult.
+ * Provides the bulk habit mapping result.
  */
 sealed class BulkHabitMappingResult {
     /**
-     * Success.
+     * Holds the success.
      */
     data class Success(val mappedCount: Int, val dimensionId: String) : BulkHabitMappingResult()
     /**
-     * Error.
+     * Holds the error.
      */
     data class Error(val message: String) : BulkHabitMappingResult()
 }

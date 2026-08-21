@@ -33,7 +33,7 @@ private var lastThemeSignature: String? = null
 
 @Composable
 /**
- * Payanam theme.
+ * Performs the payanam theme.
  */
 fun PayanamTheme(
     themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,

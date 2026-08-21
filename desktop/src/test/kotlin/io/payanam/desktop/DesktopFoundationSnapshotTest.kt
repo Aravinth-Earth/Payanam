@@ -6,9 +6,8 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.SettingsFoundationContracts
 import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Test
-
 /**
- * DesktopFoundationSnapshotTest.
+ * Provides the desktop foundation snapshot test.
  */
 class DesktopFoundationSnapshotTest {
     @Test

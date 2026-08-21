@@ -12,7 +12,7 @@ import io.payanam.ui.components.DayCheckmark
 
 @Immutable
 /**
- * HabitRowUiModel.
+ * Holds the habit row ui model.
  */
 data class HabitRowUiModel(
     val id: String,
@@ -25,7 +25,7 @@ data class HabitRowUiModel(
 
 @Immutable
 /**
- * TaskRowUiModel.
+ * Holds the task row ui model.
  */
 data class TaskRowUiModel(
     val id: String,
@@ -40,7 +40,7 @@ internal object TasksRowCacheManager {
 
     @Synchronized
     /**
-     * Build habit rows.
+     * Creates the build habit rows.
      */
     fun buildHabitRows(
         tasks: List<Task>,
@@ -97,7 +97,7 @@ internal object TasksRowCacheManager {
 
     @Synchronized
     /**
-     * Build task rows.
+     * Creates the build task rows.
      */
     fun buildTaskRows(tasks: List<Task>): List<TaskRowUiModel> {
         val rows = ArrayList<TaskRowUiModel>(tasks.size)

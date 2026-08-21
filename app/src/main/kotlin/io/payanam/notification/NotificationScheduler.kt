@@ -27,7 +27,7 @@ import kotlin.math.abs
 
 @Singleton
 /**
- * NotificationScheduler.
+ * Provides the notification scheduler.
  */
 class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -39,9 +39,8 @@ class NotificationScheduler @Inject constructor(
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val zoneId = ZoneId.systemDefault()
-
     /**
-     * Schedule all pending tasks.
+     * Performs the schedule all pending tasks.
      */
     suspend fun scheduleAllPendingTasks() {
         if (!FeatureFlags.remindersEnabled) {
@@ -62,9 +61,8 @@ class NotificationScheduler @Inject constructor(
             scheduleForTask(task)
         }
     }
-
     /**
-     * Schedule for task.
+     * Performs the schedule for task.
      */
     suspend fun scheduleForTask(
         task: Task,
@@ -193,9 +191,8 @@ class NotificationScheduler @Inject constructor(
             notificationRepository.cancelNotification(notificationId)
         }
     }
-
     /**
-     * Schedule snooze.
+     * Performs the schedule snooze.
      */
     suspend fun scheduleSnooze(task: Task, dueAt: LocalDateTime?) {
         val now = LocalDateTime.now()
@@ -207,9 +204,8 @@ class NotificationScheduler @Inject constructor(
             isSnoozed = true,
         )
     }
-
     /**
-     * Cancel for task.
+     * Returns true when the cancel for task.
      */
     suspend fun cancelForTask(taskId: String) {
         val notifications = notificationRepository.getNotificationsForTask(taskId)

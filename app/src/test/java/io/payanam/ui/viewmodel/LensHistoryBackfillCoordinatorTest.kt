@@ -10,17 +10,11 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensHistoryBackfillCoordinatorTest.
- */
 class LensHistoryBackfillCoordinatorTest {
 
     private lateinit var coordinator: LensHistoryBackfillCoordinator
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(androidx.test.core.app.ApplicationProvider.getApplicationContext(), "test", 0)
@@ -29,9 +23,6 @@ class LensHistoryBackfillCoordinatorTest {
     }
 
     @Test
-    /**
-     * Next limit after returns expected progressive sequence.
-     */
     fun next_limit_after_returns_expected_progressive_sequence() {
         assertEquals(14, coordinator.nextLimitAfter(7))
         assertEquals(30, coordinator.nextLimitAfter(14))

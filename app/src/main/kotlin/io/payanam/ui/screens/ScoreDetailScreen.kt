@@ -47,16 +47,12 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 
 /** Detail-page source: DAY (day_metrics) or a dimension (dimension_metrics). */
-/**
- * ScoreDetailType.
- */
 enum class ScoreDetailType  {
     DAY,
     DIMENSION,
 }
-
 /**
- * ScoreDetailUiState.
+ * Holds the score detail ui state.
  */
 data class ScoreDetailUiState(
     val isLoading: Boolean = true,
@@ -69,7 +65,7 @@ data class ScoreDetailUiState(
 
 @HiltViewModel
 /**
- * ScoreDetailViewModel.
+ * Provides the score detail view model.
  */
 class ScoreDetailViewModel
     @Inject
@@ -80,9 +76,8 @@ class ScoreDetailViewModel
 
         private val _uiState = MutableStateFlow(ScoreDetailUiState())
         val uiState: StateFlow<ScoreDetailUiState> = _uiState.asStateFlow()
-
         /**
-         * Load.
+         * Loads the load.
          */
         fun load(type: ScoreDetailType, key: String) {
             viewModelScope.launch {
@@ -126,9 +121,8 @@ class ScoreDetailViewModel
                 }
             }
         }
-
         /**
-         * Shift window.
+         * Performs the shift window.
          */
         fun shiftWindow(days: Int) {
             logger.d(
@@ -158,9 +152,8 @@ class ScoreDetailViewModel
                 _uiState.update { it.copy(rows = rows, isLoading = false) }
             }
         }
-
         /**
-         * Set window size.
+         * Updates the set window size.
          */
         fun setWindowSize(days: Int) {
             logger.d(
@@ -189,16 +182,14 @@ class ScoreDetailViewModel
                 _uiState.update { it.copy(rows = rows, isLoading = false) }
             }
         }
-
         /**
-         * Set chart view.
+         * Updates the set chart view.
          */
         fun setChartView(show: Boolean) {
             _uiState.update { it.copy(showChartView = show) }
         }
-
         /**
-         * Go today.
+         * Performs the go today.
          */
         fun goToday() {
             logger.d(
@@ -256,7 +247,7 @@ private suspend fun ScoreWindowRepository.resolveWindowStart(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Score detail screen.
+ * Performs the score detail screen.
  */
 fun ScoreDetailScreen(
     type: ScoreDetailType,

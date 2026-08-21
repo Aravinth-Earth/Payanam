@@ -56,7 +56,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * ScoreRollupCascadeService.
+ * Provides the score rollup cascade service.
  */
 class ScoreRollupCascadeService
     @Inject

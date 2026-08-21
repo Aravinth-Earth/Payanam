@@ -27,7 +27,7 @@ import androidx.room.Index
     indices = [Index("note_id"), Index("tag_id")],
 )
 /**
- * NoteTagEntity.
+ * Holds the note tag entity.
  */
 data class NoteTagEntity(
     @ColumnInfo(name = "note_id")

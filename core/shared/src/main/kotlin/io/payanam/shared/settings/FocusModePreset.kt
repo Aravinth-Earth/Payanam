@@ -1,9 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
-
 /**
- * FocusModePreset.
+ * Defines the contract for focus mode preset.
  */
 enum class FocusModePreset(
     val presetId: String,
@@ -41,7 +40,7 @@ enum class FocusModePreset(
 
     companion object {
         /**
-         * From preset id.
+         * Performs the from preset id.
          */
         fun fromPresetId(presetId: String?): FocusModePreset = entries.firstOrNull { it.presetId == presetId } ?: FULL_SUITE
     }

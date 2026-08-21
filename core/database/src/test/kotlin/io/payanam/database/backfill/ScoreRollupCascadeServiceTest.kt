@@ -42,7 +42,7 @@ import java.time.LocalDateTime
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
 /**
- * ScoreRollupCascadeServiceTest.
+ * Provides the score rollup cascade service test.
  */
 class ScoreRollupCascadeServiceTest {
 
@@ -55,7 +55,7 @@ class ScoreRollupCascadeServiceTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -85,7 +85,7 @@ class ScoreRollupCascadeServiceTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         db.close()

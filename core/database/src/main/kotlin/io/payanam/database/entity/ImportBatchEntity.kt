@@ -17,7 +17,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * ImportBatchEntity.
+ * Holds the import batch entity.
  */
 data class ImportBatchEntity(
     @PrimaryKey

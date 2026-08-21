@@ -9,10 +9,6 @@ import io.payanam.ui.theme.LifeDimensionColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
-/**
- * AppPreferencesStateTest.
- */
 class AppPreferencesStateTest {
 
     @Test

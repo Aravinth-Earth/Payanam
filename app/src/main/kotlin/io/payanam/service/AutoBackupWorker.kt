@@ -32,6 +32,9 @@ class AutoBackupWorker(
 
     private val logger = UnifiedLogger.getInstance()
 
+    /**
+     * Performs the do work.
+     */
     override suspend fun doWork(): Result {
         val trigger = backupTrigger()
         val workId = id.toString()
@@ -93,7 +96,7 @@ class AutoBackupWorker(
 
     companion object {
         /**
-         * AutoBackupFailureStatus.
+         * Holds the auto backup failure status.
          */
         data class AutoBackupFailureStatus(
             val message: String,
@@ -200,9 +203,8 @@ class AutoBackupWorker(
                 schedule(context, intervalMinutes)
             }
         }
-
         /**
-         * Reconcile schedule.
+         * Performs the reconcile schedule.
          */
         suspend fun reconcileSchedule(context: Context, appSettingsRepository: AppSettingsRepository) {
             val logger = UnifiedLogger.getInstance()
@@ -248,17 +250,15 @@ class AutoBackupWorker(
             } ?: emptyList()
             return (legacyFlatFiles + sessionDirectoryFiles).sortedByDescending { it.lastModified() }
         }
-
         /**
-         * Get latest backup success millis.
+         * Returns the get latest backup success millis.
          */
         fun getLatestBackupSuccessMillis(context: Context): Long {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             return prefs.getLong(BackupStatusStore.KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, 0L)
         }
-
         /**
-         * Get latest backup last run display.
+         * Returns the get latest backup last run display.
          */
         fun getLatestBackupLastRunDisplay(context: Context): String? {
             val latestFileMillis = getBackupFiles()
@@ -275,9 +275,8 @@ class AutoBackupWorker(
                 else -> BackupStatusStore.formatBackupTimestamp(effectiveMillis)
             }
         }
-
         /**
-         * Get latest backup failure status.
+         * Returns the get latest backup failure status.
          */
         fun getLatestBackupFailureStatus(context: Context): AutoBackupFailureStatus? {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
@@ -290,9 +289,8 @@ class AutoBackupWorker(
                 recordedAtDisplay = display,
             )
         }
-
         /**
-         * Dismiss latest backup failure.
+         * Performs the dismiss latest backup failure.
          */
         fun dismissLatestBackupFailure(context: Context) {
             context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)

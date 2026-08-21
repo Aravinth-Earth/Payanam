@@ -21,7 +21,7 @@ import io.payanam.common.logging.UnifiedLogger
 
 @Composable
 /**
- * Tag editor field.
+ * Performs the tag editor field.
  */
 fun TagEditorField(
     rawValue: String,
@@ -63,9 +63,8 @@ fun TagEditorField(
         }
     }
 }
-
 /**
- * Parse tags input.
+ * Performs the parse tags input.
  */
 fun parseTagsInput(rawTags: String): List<String> = rawTags
     .split(",")

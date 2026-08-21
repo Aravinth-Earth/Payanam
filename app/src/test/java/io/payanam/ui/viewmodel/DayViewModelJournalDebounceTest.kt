@@ -38,18 +38,12 @@ import java.time.LocalDate
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-/**
- * DayViewModelJournalDebounceTest.
- */
 class DayViewModelJournalDebounceTest {
     private val testDispatcher = StandardTestDispatcher()
 
     private lateinit var journalRepository: JournalRepository
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         if (!UnifiedLogger.isInitialized()) {
@@ -65,9 +59,6 @@ class DayViewModelJournalDebounceTest {
     }
 
     @After
-    /**
-     * Tear down.
-     */
     fun tearDown() {
         Dispatchers.resetMain()
     }
@@ -123,9 +114,6 @@ class DayViewModelJournalDebounceTest {
     }
 
     @Test
-    /**
-     * Update dimension response persists canonical dimension id.
-     */
     fun updateDimensionResponse_persists_canonical_dimension_id() = runTest {
         val viewModel = DayViewModel(
             journalRepository = journalRepository,
@@ -184,9 +172,6 @@ class DayViewModelJournalDebounceTest {
     }
 
     @Test
-    /**
-     * Next day blocks navigation beyond today.
-     */
     fun nextDay_blocks_navigation_beyond_today() = runTest {
         val viewModel = DayViewModel(
             journalRepository = journalRepository,

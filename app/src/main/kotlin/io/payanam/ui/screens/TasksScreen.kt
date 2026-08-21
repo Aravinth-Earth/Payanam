@@ -83,9 +83,8 @@ import io.payanam.ui.viewmodel.TaskSortOption
 import io.payanam.ui.viewmodel.TasksChromeUiState
 import io.payanam.ui.viewmodel.matchesTaskSearch
 import io.payanam.ui.viewmodel.TasksViewModel
-
 /**
- * TasksScreenMode.
+ * Defines the contract for tasks screen mode.
  */
 enum class TasksScreenMode {
     COMBINED,
@@ -156,7 +155,7 @@ private fun TraceTaskTabPhase(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Tasks screen.
+ * Performs the tasks screen.
  */
 fun TasksScreen(
     mode: TasksScreenMode = TasksScreenMode.COMBINED,
@@ -769,9 +768,8 @@ private fun TasksTabContent(
         event = "filter_interaction_tasks_tab_content_composed",
         data = mapOf("rowCount" to displayTasks.size),
     )
-
     /**
-     * Trace filter selection.
+     * Performs the trace filter selection.
      */
     fun traceFilterSelection(filter: TaskFilter) {
         val tapMs = SystemClock.elapsedRealtime()

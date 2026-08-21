@@ -7,11 +7,11 @@ import io.payanam.database.entity.TimeEntryEntity
 import io.payanam.domain.model.TimeEntry
 
 /**
- * Mapper functions between TimeEntryEntity (Room) and TimeEntry (Domain).
+ * Mapper functions between timeEntryEntity (Room) and timeEntry (Domain).
  */
 object TimeEntryMapper {
     /**
-     * Time entry entity.
+     * Performs the time entry entity.
      */
     fun TimeEntryEntity.toDomain(): TimeEntry =
         TimeEntry(
@@ -27,9 +27,8 @@ object TimeEntryMapper {
             createdAt = PersistedDateTime.parse(createdAt),
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
-
     /**
-     * Time entry.
+     * Performs the time entry.
      */
     fun TimeEntry.toEntity(): TimeEntryEntity =
         TimeEntryEntity(

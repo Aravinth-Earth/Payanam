@@ -13,9 +13,6 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeScreenScalePresetsTest.
- */
 class TimeScreenScalePresetsTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -23,9 +20,6 @@ class TimeScreenScalePresetsTest {
     }
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         logger.i("TimeScreenScalePresetsTest.setUp", "Preparing time-scale preset regression tests")
     }

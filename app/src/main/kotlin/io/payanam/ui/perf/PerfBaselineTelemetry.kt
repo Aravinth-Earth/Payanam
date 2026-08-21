@@ -12,18 +12,13 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val PERF_SOURCE = "PerfBaseline"
 private const val RECOMPOSITION_LOG_INTERVAL = 25
-
-/**
- * PerfBaselineTelemetry.
- */
 object PerfBaselineTelemetry {
     private val logger = UnifiedLogger.getInstance()
     private val onceEvents = ConcurrentHashMap.newKeySet<String>()
     private val queryCounters = ConcurrentHashMap<String, AtomicInteger>()
     private val recompositionCounters = ConcurrentHashMap<String, AtomicInteger>()
-
     /**
-     * Reset.
+     * Removes the reset.
      */
     fun reset() {
         onceEvents.clear()
@@ -31,9 +26,8 @@ object PerfBaselineTelemetry {
         recompositionCounters.clear()
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT screen=perf event=telemetry_reset tMs=${android.os.SystemClock.elapsedRealtime()}")
     }
-
     /**
-     * Mark event.
+     * Performs the mark event.
      */
     fun markEvent(
         screen: String,
@@ -47,9 +41,8 @@ object PerfBaselineTelemetry {
         val messageData = payload.entries.joinToString(" ") { (key, value) -> "$key=$value" }
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT $messageData", payload)
     }
-
     /**
-     * Mark event once.
+     * Performs the mark event once.
      */
     fun markEventOnce(
         key: String,
@@ -60,9 +53,8 @@ object PerfBaselineTelemetry {
         if (!onceEvents.add(key)) return
         markEvent(screen = screen, event = event, data = data)
     }
-
     /**
-     * Increment query.
+     * Performs the increment query.
      */
     fun incrementQuery(
         screen: String,
@@ -83,9 +75,8 @@ object PerfBaselineTelemetry {
         )
         return total
     }
-
     /**
-     * Increment recomposition.
+     * Performs the increment recomposition.
      */
     fun incrementRecomposition(
         screen: String,
@@ -106,7 +97,7 @@ object PerfBaselineTelemetry {
 
 @Composable
 /**
- * Track recomposition.
+ * Performs the track recomposition.
  */
 fun TrackRecomposition(screen: String, section: String) {
     SideEffect {

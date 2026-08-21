@@ -36,9 +36,8 @@ internal class UhabitsImporter(
     private val logger = UnifiedLogger.getInstance()
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-
     /**
-     * Import.
+     * Loads the import.
      */
     suspend fun import(sourceUri: Uri): UhabitsImportSummary {
         val tempDb = File.createTempFile("uhabits_import_", ".db", context.cacheDir)
@@ -261,9 +260,8 @@ internal class UhabitsImporter(
         }
         return false
     }
-
     /**
-     * UhabitsImportSummary.
+     * Holds the uhabits import summary.
      */
     data class UhabitsImportSummary(
         val habitsUpserted: Int,

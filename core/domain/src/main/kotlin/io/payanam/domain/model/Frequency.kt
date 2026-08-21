@@ -24,9 +24,8 @@ data class Frequency(
         require(denominator > 0) { "denominator must be positive" }
     }
     val toDouble: Double get() = numerator.toDouble() / denominator
-
     /**
-     * Display name.
+     * Performs the display name.
      */
     fun displayName(): String = when {
         numerator == denominator -> "Daily"
@@ -41,17 +40,15 @@ data class Frequency(
         denominator == 1 -> "Daily"
         else -> "$numerator×/$denominator days"
     }
-
     /**
-     * Serialize.
+     * Performs the serialize.
      */
     fun serialize(): String = buildString {
         append("$numerator/$denominator")
         anchorDate?.let { append("!start=$it") }
     }
-
     /**
-     * With anchor.
+     * Performs the with anchor.
      */
     fun withAnchor(date: LocalDate): Frequency = copy(anchorDate = date)
 
@@ -64,14 +61,12 @@ data class Frequency(
         val MONTHLY  = Frequency(1, 30)
         val YEARLY   = Frequency(1, 365)
         private val serializedPattern = Regex("""^\d+/\d+(!start=\d{4}-\d{2}-\d{2})?$""")
-
         /**
-         * Is serialized rule.
+         * Returns true when the is serialized rule.
          */
         fun isSerializedRule(rule: String?): Boolean = !rule.isNullOrBlank() && serializedPattern.matches(rule)
-
         /**
-         * Parse.
+         * Performs the parse.
          */
         fun parse(s: String?): Frequency {
             if (s.isNullOrBlank()) return DAILY

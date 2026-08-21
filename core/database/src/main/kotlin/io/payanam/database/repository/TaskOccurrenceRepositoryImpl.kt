@@ -22,7 +22,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * TaskOccurrenceRepositoryImpl.
+ * Provides the task occurrence repository impl.
  */
 class TaskOccurrenceRepositoryImpl
     @Inject
@@ -33,6 +33,9 @@ class TaskOccurrenceRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
+        /**
+         * Returns the get occurrences by task id.
+         */
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> =
             sessionManager
                 .requireDatabase()
@@ -42,11 +45,17 @@ class TaskOccurrenceRepositoryImpl
                 ?.map { it.toDomain() }
                 ?: emptyList()
 
+        /**
+         * Returns the get occurrences for task.
+         */
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> =
             sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTask(taskId).map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Returns the get occurrences for last ndays.
+         */
         override suspend fun getOccurrencesForLastNDays(
             taskId: String,
             days: Int,
@@ -75,6 +84,9 @@ class TaskOccurrenceRepositoryImpl
             return entities.map { it.toDomain() }
         }
 
+        /**
+         * Returns the get occurrences for tasks in last ndays.
+         */
         override suspend fun getOccurrencesForTasksInLastNDays(
             taskIds: List<String>,
             days: Int,
@@ -106,6 +118,9 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get occurrence for date.
+         */
         override suspend fun getOccurrenceForDate(
             taskId: String,
             date: LocalDate,
@@ -118,6 +133,9 @@ class TaskOccurrenceRepositoryImpl
             return entity?.toDomain()
         }
 
+        /**
+         * Returns the get occurrences for date.
+         */
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> {
             val dateStr = date.format(dateFormatter)
             return sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForDate(dateStr).map { entities ->
@@ -125,6 +143,9 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Performs the toggle occurrence.
+         */
         override suspend fun toggleOccurrence(
             taskId: String,
             date: LocalDate,
@@ -262,6 +283,9 @@ class TaskOccurrenceRepositoryImpl
             }.also { markDirtyForDay(date, "habit_occurrence_toggled") }
         }
 
+        /**
+         * Removes the delete occurrence.
+         */
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate) {
             val dateStr = date.format(dateFormatter)
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
@@ -291,6 +315,9 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Performs the record occurrence.
+         */
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             val entity =
                 TaskOccurrenceEntity(
@@ -324,6 +351,9 @@ class TaskOccurrenceRepositoryImpl
             )
         }
 
+        /**
+         * Performs the record occurrence.
+         */
         override suspend fun recordOccurrence(
             taskId: String,
             dueDate: LocalDateTime,
@@ -422,6 +452,9 @@ class TaskOccurrenceRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Removes the delete occurrence.
+         */
         override suspend fun deleteOccurrence(id: String) {
             sessionManager.requireDatabase().taskOccurrenceDao().deleteById(id)
             logger.d("TaskOccurrenceRepositoryImpl.deleteOccurrence", "Deleted occurrence", mapOf("id" to id))

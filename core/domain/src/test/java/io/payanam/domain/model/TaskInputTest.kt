@@ -13,26 +13,17 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TaskInputTest.
- */
 class TaskInputTest {
 
     private lateinit var logger: UnifiedLogger
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         logger = initLogger()
         logger.d("TaskInputTest.setup", "Logger initialized for tests")
     }
 
     @Test
-    /**
-     * Task input allows optional fields.
-     */
     fun taskInput_allowsOptionalFields() {
         val input = TaskInput(title = "Test")
         assertThat(input.description).isNull()
@@ -41,9 +32,6 @@ class TaskInputTest {
     }
 
     @Test
-    /**
-     * Task input exposes all fields.
-     */
     fun taskInput_exposesAllFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val input = TaskInput(
@@ -91,9 +79,6 @@ class TaskInputTest {
     }
 
     @Test
-    /**
-     * Note input holds values.
-     */
     fun noteInput_holdsValues() {
         val input = NoteInput(
             title = "Note",
@@ -106,9 +91,6 @@ class TaskInputTest {
     }
 
     @Test
-    /**
-     * Journal response input defaults to null response.
-     */
     fun journalResponseInput_defaultsToNullResponse() {
         val input = DayJournalResponseInput(
             scope = JournalPromptScope.OVERALL,
@@ -118,9 +100,6 @@ class TaskInputTest {
     }
 
     @Test
-    /**
-     * Journal response input exposes fields.
-     */
     fun journalResponseInput_exposesFields() {
         val input = DayJournalResponseInput(
             scope = JournalPromptScope.DIMENSION,
@@ -135,9 +114,6 @@ class TaskInputTest {
     }
 
     @Test
-    /**
-     * Journal prompt scope values are stable.
-     */
     fun journalPromptScope_valuesAreStable() {
         assertThat(JournalPromptScope.valueOf("OVERALL")).isEqualTo(JournalPromptScope.OVERALL)
         assertThat(JournalPromptScope.valueOf("DIMENSION")).isEqualTo(JournalPromptScope.DIMENSION)

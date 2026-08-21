@@ -10,10 +10,6 @@ import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
 import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
-
-/**
- * DatabaseHealthChecker.
- */
 object DatabaseHealthChecker {
     private val logger = UnifiedLogger.getInstance()
 
@@ -23,9 +19,8 @@ object DatabaseHealthChecker {
     // Build #1081 was the first beta build shipped to users, and it used schema 16.
     // Anything older is outside the supported in-place Room migration contract.
     const val MIN_MIGRATABLE_VERSION = 16
-
     /**
-     * HealthCheckResult.
+     * Holds the health check result.
      */
     data class HealthCheckResult(
         val isHealthy: Boolean,
@@ -47,9 +42,8 @@ object DatabaseHealthChecker {
         val journalFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-journal")
         return dbFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
     }
-
     /**
-     * Check database health.
+     * Returns true when the check database health.
      */
     fun checkDatabaseHealth(
         context: Context,

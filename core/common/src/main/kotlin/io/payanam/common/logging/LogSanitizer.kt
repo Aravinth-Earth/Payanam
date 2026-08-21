@@ -53,6 +53,9 @@ internal object LogSanitizer {
             "category",
         )
 
+    /**
+     * Performs the sanitize data.
+     */
     fun sanitizeData(data: Map<String, Any?>?): Map<String, Any?> {
         if (data.isNullOrEmpty()) {
             return emptyMap()
@@ -62,6 +65,9 @@ internal object LogSanitizer {
         }
     }
 
+    /**
+     * Performs the sanitize message.
+     */
     fun sanitizeMessage(message: String): String {
         val singleLine = message.replace(lineBreakRegex, " ").trim()
         return singleLine.replace(windowsPathRegex, REDACTED_PATH_VALUE)

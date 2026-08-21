@@ -37,10 +37,6 @@ data class JournalSnapshot(
     val schemaVersion: Int = JournalReflectionContracts.SCHEMA_VERSION,
     val days: List<JournalDayRecord> = emptyList(),
 )
-
-/**
- * JournalReflectionContracts.
- */
 object JournalReflectionContracts {
     const val SCHEMA_VERSION = 1
     val overallPrompts: List<JournalPromptDefinition> =
@@ -62,22 +58,19 @@ object JournalReflectionContracts {
             JournalPromptDefinition("feeling", "How do I feel about this dimension?"),
             JournalPromptDefinition("insight", "Any insights or realizations?"),
         )
-
     /**
-     * Empty snapshot.
+     * Performs the empty snapshot.
      */
     fun emptySnapshot(): JournalSnapshot = JournalSnapshot()
-
     /**
-     * Day for date.
+     * Performs the day for date.
      */
     fun dayForDate(
         snapshot: JournalSnapshot,
         dateIso: String,
     ): JournalDayRecord? = snapshot.days.firstOrNull { it.dateIso == dateIso }
-
     /**
-     * Upsert overall response.
+     * Performs the upsert overall response.
      */
     fun upsertOverallResponse(
         snapshot: JournalSnapshot,
@@ -92,9 +85,8 @@ object JournalReflectionContracts {
                 updatedAtIso = now.toString(),
             )
         }
-
     /**
-     * Upsert dimension response.
+     * Performs the upsert dimension response.
      */
     fun upsertDimensionResponse(
         snapshot: JournalSnapshot,

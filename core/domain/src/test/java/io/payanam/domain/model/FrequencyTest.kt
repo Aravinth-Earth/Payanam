@@ -5,16 +5,9 @@ package io.payanam.domain.model
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import java.time.LocalDate
-
-/**
- * FrequencyTest.
- */
 class FrequencyTest {
 
     @Test
-    /**
-     * Parse reads canonical rule with anchor.
-     */
     fun parse_readsCanonicalRuleWithAnchor() {
         val frequency = Frequency.parse("3/7!start=2026-04-01")
         assertThat(frequency.numerator).isEqualTo(3)
@@ -23,9 +16,6 @@ class FrequencyTest {
     }
 
     @Test
-    /**
-     * Legacy parse converts config frequency to canonical values.
-     */
     fun legacyParse_convertsConfigFrequencyToCanonicalValues() {
         val frequency = Frequency.legacyParse("CONFIG:type=FREQUENCY|freq=5/7|start=2026-04-01")
         assertThat(frequency.numerator).isEqualTo(5)
@@ -33,9 +23,6 @@ class FrequencyTest {
     }
 
     @Test
-    /**
-     * Is serialized rule accepts canonical and rejects legacy.
-     */
     fun isSerializedRule_acceptsCanonicalAndRejectsLegacy() {
         assertThat(Frequency.isSerializedRule("2/7")).isTrue()
         assertThat(Frequency.isSerializedRule("2/7!start=2026-04-01")).isTrue()
@@ -44,9 +31,6 @@ class FrequencyTest {
     }
 
     @Test
-    /**
-     * Recurrence config parse reads canonical frequency rule.
-     */
     fun recurrenceConfigParse_readsCanonicalFrequencyRule() {
         val config = RecurrenceConfig.parse("2/7!start=2026-04-01")
         assertThat(config.type).isEqualTo(RecurrenceType.FREQUENCY)

@@ -21,9 +21,6 @@ import java.time.LocalDateTime
  */
 class TimeScreenTimelineUtilsPhase9Test {
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -31,9 +28,6 @@ class TimeScreenTimelineUtilsPhase9Test {
     }
 
     @Test
-    /**
-     * Compute time overlaps returns overlap intervals.
-     */
     fun computeTimeOverlaps_returns_overlap_intervals() {
         val day = LocalDate.of(2026, 2, 15)
         val now = day.atTime(23, 0)
@@ -49,9 +43,6 @@ class TimeScreenTimelineUtilsPhase9Test {
     }
 
     @Test
-    /**
-     * Resolve occurrence window minutes prefers task due time.
-     */
     fun resolveOccurrenceWindowMinutes_prefers_task_due_time() {
         val day = LocalDate.of(2026, 2, 16)
         val now = day.atTime(8, 0)

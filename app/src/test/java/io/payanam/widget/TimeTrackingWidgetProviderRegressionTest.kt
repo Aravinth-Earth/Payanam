@@ -16,9 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeTrackingWidgetProviderRegressionTest.
- */
 class TimeTrackingWidgetProviderRegressionTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Application>()

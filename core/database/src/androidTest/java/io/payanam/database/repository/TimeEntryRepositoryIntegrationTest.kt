@@ -24,7 +24,7 @@ import java.time.LocalDateTime
 
 @RunWith(AndroidJUnit4::class)
 /**
- * TimeEntryRepositoryIntegrationTest.
+ * Provides the time entry repository integration test.
  */
 class TimeEntryRepositoryIntegrationTest {
     private lateinit var database: PayanamDatabase
@@ -33,7 +33,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -57,7 +57,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -66,7 +66,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Start time entry creates new time entry and returns it.
+     * Performs the start time entry creates new time entry and returns it.
      */
     fun startTimeEntry_createsNewTimeEntryAndReturnsIt() =
         runBlocking {
@@ -85,7 +85,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get active time entry returns currently active entry.
+     * Returns the get active time entry returns currently active entry.
      */
     fun getActiveTimeEntry_returnsCurrentlyActiveEntry() =
         runBlocking {
@@ -104,7 +104,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get active time entry returns null when no active entry.
+     * Returns the get active time entry returns null when no active entry.
      */
     fun getActiveTimeEntry_returnsNullWhenNoActiveEntry() =
         runBlocking {
@@ -119,7 +119,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Stop active time entry stops current active entry.
+     * Performs the stop active time entry stops current active entry.
      */
     fun stopActiveTimeEntry_stopsCurrentActiveEntry() =
         runBlocking {
@@ -140,7 +140,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Stop active time entry returns null when no active entry.
+     * Performs the stop active time entry returns null when no active entry.
      */
     fun stopActiveTimeEntry_returnsNullWhenNoActiveEntry() =
         runBlocking {
@@ -205,7 +205,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get all time entries returns all entries.
+     * Returns the get all time entries returns all entries.
      */
     fun getAllTimeEntries_returnsAllEntries() =
         runBlocking {
@@ -225,7 +225,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Get active time entries returns only active entries.
+     * Returns the get active time entries returns only active entries.
      */
     fun getActiveTimeEntries_returnsOnlyActiveEntries() =
         runBlocking {
@@ -245,7 +245,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Update time entry modifies existing entry.
+     * Updates the update time entry modifies existing entry.
      */
     fun updateTimeEntry_modifiesExistingEntry() =
         runBlocking {
@@ -263,7 +263,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Delete time entry removes entry from database.
+     * Removes the delete time entry removes entry from database.
      */
     fun deleteTimeEntry_removesEntryFromDatabase() =
         runBlocking {

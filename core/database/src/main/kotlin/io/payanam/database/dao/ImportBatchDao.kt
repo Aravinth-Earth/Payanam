@@ -9,12 +9,12 @@ import io.payanam.database.entity.ImportBatchEntity
 
 @Dao
 /**
- * ImportBatchDao.
+ * Defines the contract for import batch dao.
  */
 interface ImportBatchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Insert.
+     * Performs the insert.
      */
     suspend fun insert(batch: ImportBatchEntity)
 }

@@ -52,7 +52,7 @@ import java.time.format.DateTimeFormatter
  */
 @Composable
 /**
- * Checkmark dialog.
+ * Returns true when the checkmark dialog.
  */
 fun CheckmarkDialog(
     date: LocalDate,
@@ -225,7 +225,7 @@ enum class CheckmarkSkipReason(@androidx.annotation.StringRes val labelRes: Int)
  */
 @Composable
 /**
- * Checkmark dialog with reason.
+ * Returns true when the checkmark dialog with reason.
  */
 fun CheckmarkDialogWithReason(
     date: LocalDate,

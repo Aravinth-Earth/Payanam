@@ -22,6 +22,9 @@ val MIGRATION_1_2 =
     object : Migration(1, 2) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.1_2", "Starting migration from version 1 to 2")
 
@@ -155,6 +158,9 @@ val MIGRATION_2_3 =
     object : Migration(2, 3) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.2_3", "Starting migration from version 2 to 3")
 
@@ -272,6 +278,9 @@ val MIGRATION_3_4 =
     object : Migration(3, 4) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.3_4", "Starting migration from version 3 to 4")
 
@@ -348,6 +357,9 @@ val MIGRATION_4_5 =
     object : Migration(4, 5) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.4_5", "Starting migration from version 4 to 5 (Recurrence Redesign)")
 
@@ -405,6 +417,9 @@ val MIGRATION_5_6 =
     object : Migration(5, 6) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.5_6", "Starting migration from version 5 to 6")
 
@@ -453,6 +468,9 @@ val MIGRATION_6_7 =
     object : Migration(6, 7) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.6_7", "Starting migration from version 6 to 7")
 
@@ -508,6 +526,9 @@ val MIGRATION_7_8 =
     object : Migration(7, 8) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.7_8", "Starting migration from version 7 to 8")
 
@@ -714,6 +735,9 @@ val MIGRATION_16_17 =
     object : Migration(16, 17) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.16_17", "Starting habit recurrence system migration")
 
@@ -852,7 +876,7 @@ val MIGRATION_16_17 =
 
             // Helper: parse CONFIG: format
             /**
-             * Parse config.
+             * Performs the parse config.
              */
             fun parseConfig(config: String): String {
                 val parts = config.split("|").associate { part ->
@@ -890,7 +914,7 @@ val MIGRATION_16_17 =
 
             // Helper: parse RRULE format
             /**
-             * Parse rrule.
+             * Performs the parse rrule.
              */
             fun parseRRule(rrule: String): String {
                 val parts = rrule.uppercase().split(";").associate { part ->
@@ -968,6 +992,9 @@ val MIGRATION_17_18 =
     object : Migration(17, 18) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.17_18", "Creating score roll-up metric tables")
 
@@ -1067,6 +1094,9 @@ val MIGRATION_18_19 =
     object : Migration(18, 19) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.18_19", "Dropping decay currentScore column from tasks")
 
@@ -1186,6 +1216,9 @@ val MIGRATION_19_20 =
     object : Migration(19, 20) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.19_20", "Adding weight column to life_dimensions")
 
@@ -1246,6 +1279,9 @@ val MIGRATION_20_21 =
     object : Migration(20, 21) {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Performs the migrate.
+         */
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.20_21", "Deduplicating task_occurrences and adding unique (taskId, day) index")
 

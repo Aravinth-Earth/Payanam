@@ -4,9 +4,8 @@ package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
 /**
- * DesktopStartupFlowTest.
+ * Provides the desktop startup flow test.
  */
 class DesktopStartupFlowTest {
     @Test

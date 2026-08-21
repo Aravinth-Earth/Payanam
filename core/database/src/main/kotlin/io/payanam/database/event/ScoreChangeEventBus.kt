@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.asSharedFlow
  */
 @Singleton
 /**
- * ScoreChangeEventBus.
+ * Provides the score change event bus.
  */
 class ScoreChangeEventBus @Inject constructor() {
     private val _events = MutableSharedFlow<LocalDate>(extraBufferCapacity = 16)

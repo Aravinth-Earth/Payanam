@@ -10,15 +10,10 @@ data class SharedPassphraseValidation(
     val isValid: Boolean,
     val reasonCode: String?,
 )
-
-/**
- * SharedPassphrasePolicy.
- */
 object SharedPassphrasePolicy {
     private const val MIN_LENGTH = 12
-
     /**
-     * Validate.
+     * Returns true when the validate.
      */
     fun validate(passphrase: String): SharedPassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {
@@ -39,14 +34,10 @@ object SharedPassphrasePolicy {
         return SharedPassphraseValidation(isValid = true, reasonCode = null)
     }
 }
-
-/**
- * SharedPassphraseLockoutPolicy.
- */
 @Suppress("MagicNumber")
 object SharedPassphraseLockoutPolicy {
     /**
-     * Delay seconds for attempt.
+     * Performs the delay seconds for attempt.
      */
     fun delaySecondsForAttempt(attemptCount: Int): Long =
         when {

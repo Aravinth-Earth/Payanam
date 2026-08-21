@@ -25,10 +25,13 @@ import timber.log.Timber
 
 @HiltAndroidApp
 /**
- * PayanamApp.
+ * Provides the payanam app.
  */
 class PayanamApp : Application() {
 
+    /**
+     * Handles the on create.
+     */
     override fun onCreate() {
         super.onCreate()
 
@@ -74,11 +77,11 @@ class PayanamApp : Application() {
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     /**
-     * AppStartUpdateCheckerEntryPoint.
+     * Defines the contract for app start update checker entry point.
      */
     interface AppStartUpdateCheckerEntryPoint {
         /**
-         * App start update checker.
+         * Performs the app start update checker.
          */
         fun appStartUpdateChecker(): AppStartUpdateChecker
     }

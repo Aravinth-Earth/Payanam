@@ -24,7 +24,7 @@ import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * TaskOccurrenceRepositoryDataIntegrityTest.
+ * Provides the task occurrence repository data integrity test.
  */
 class TaskOccurrenceRepositoryDataIntegrityTest {
     private lateinit var database: PayanamDatabase
@@ -32,7 +32,7 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -53,7 +53,7 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -61,7 +61,7 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
 
     @Test
     /**
-     * Record occurrence persists actual completion fields.
+     * Performs the record occurrence persists actual completion fields.
      */
     fun recordOccurrence_persistsActualCompletionFields() =
         runBlocking {

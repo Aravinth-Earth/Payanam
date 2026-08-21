@@ -32,7 +32,7 @@ internal class DesktopBootstrapStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Ensure snapshot.
+     * Performs the ensure snapshot.
      */
     fun ensureSnapshot(): DesktopBootstrapSnapshot {
         if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
@@ -47,9 +47,8 @@ internal class DesktopBootstrapStore(
         )
         return defaultSnapshot
     }
-
     /**
-     * Load snapshot.
+     * Loads the load snapshot.
      */
     fun loadSnapshot(): DesktopBootstrapSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -82,9 +81,8 @@ internal class DesktopBootstrapStore(
         )
         return snapshot
     }
-
     /**
-     * Record startup completed.
+     * Performs the record startup completed.
      */
     fun recordStartupCompleted(route: DesktopTopLevelRoute): DesktopBootstrapSnapshot {
         val updatedSnapshot =
@@ -102,9 +100,8 @@ internal class DesktopBootstrapStore(
         )
         return updatedSnapshot
     }
-
     /**
-     * Update database lifecycle ready.
+     * Updates the update database lifecycle ready.
      */
     fun updateDatabaseLifecycleReady(isReady: Boolean): DesktopBootstrapSnapshot {
         val updatedSnapshot = loadSnapshot().copy(databaseLifecycleReady = isReady)
@@ -118,9 +115,8 @@ internal class DesktopBootstrapStore(
         )
         return updatedSnapshot
     }
-
     /**
-     * Get bootstrap file path.
+     * Returns the get bootstrap file path.
      */
     fun getBootstrapFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

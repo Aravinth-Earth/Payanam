@@ -13,18 +13,16 @@ data class DesktopNavigationModel(
     val launchRoute: DesktopTopLevelRoute,
     val primaryRoutes: List<DesktopTopLevelRoute>,
 )
-
 /**
- * Desktop navigation model.
+ * Performs the desktop navigation model.
  */
 fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigationModel =
     DesktopNavigationModel(
         launchRoute = desktopLaunchRoute(settings),
         primaryRoutes = settings.visibleRoutes(),
     )
-
 /**
- * Desktop launch route.
+ * Performs the desktop launch route.
  */
 fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute {
     val preferredRoute = settings.launchRoute
@@ -34,9 +32,8 @@ fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute 
         settings.visibleRoutes().firstOrNull() ?: DesktopTopLevelRoute.SETTINGS
     }
 }
-
 /**
- * Desktop top level route.
+ * Performs the desktop top level route.
  */
 fun DesktopTopLevelRoute.summary(): String =
     when (this) {

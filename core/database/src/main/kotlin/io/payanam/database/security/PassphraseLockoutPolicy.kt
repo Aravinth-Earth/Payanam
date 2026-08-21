@@ -3,15 +3,10 @@
 package io.payanam.database.security
 
 import io.payanam.common.logging.UnifiedLogger
-
-/**
- * PassphraseLockoutPolicy.
- */
 object PassphraseLockoutPolicy {
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * Delay seconds for attempt.
+     * Performs the delay seconds for attempt.
      */
     fun delaySecondsForAttempt(attemptCount: Int): Long {
         val delay =

@@ -158,7 +158,7 @@ data class RecurrenceConfig(
     }
     
     /**
-     * Converts this config to an RRULE string for storage.
+     * Converts this config to an rRULE string for storage.
      */
     fun toRRule(): String {
         return when (type) {
@@ -244,9 +244,8 @@ data class RecurrenceConfig(
             RecurrenceType.YEARLY -> 1 to 365
         }
     }
-    
     /**
-     * Get scheduled dates in range.
+     * Returns the get scheduled dates in range.
      */
     fun getScheduledDatesInRange(start: LocalDate, end: LocalDate): List<LocalDate> {
         val dates = mutableListOf<LocalDate>()
@@ -259,9 +258,8 @@ data class RecurrenceConfig(
         }
         return dates
     }
-    
     /**
-     * Count scheduled occurrences.
+     * Performs the count scheduled occurrences.
      */
     fun countScheduledOccurrences(start: LocalDate, end: LocalDate): Int {
         return getScheduledDatesInRange(start, end).size
@@ -270,48 +268,40 @@ data class RecurrenceConfig(
     @Suppress("MagicNumber")
     companion object {
         /**
-         * Parse.
+         * Performs the parse.
          */
         fun parse(rule: String?): RecurrenceConfig = RecurrenceConfigCodec.parse(rule)
-
         /**
-         * Daily.
+         * Performs the daily.
          */
         fun daily(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.daily(startDate)
-
         /**
-         * Weekdays.
+         * Performs the weekdays.
          */
         fun weekdays(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.weekdays(startDate)
-
         /**
-         * Specific weekdays.
+         * Performs the specific weekdays.
          */
         fun specificWeekdays(vararg days: DayOfWeek): RecurrenceConfig = RecurrenceConfigCodec.specificWeekdays(*days)
-
         /**
-         * Specific weekdays.
+         * Performs the specific weekdays.
          */
         fun specificWeekdays(days: Set<Int>): RecurrenceConfig = RecurrenceConfigCodec.specificWeekdays(days)
-
         /**
-         * Monthly on dates.
+         * Performs the monthly on dates.
          */
         fun monthlyOnDates(vararg dates: Int): RecurrenceConfig = RecurrenceConfigCodec.monthlyOnDates(*dates)
-
         /**
-         * Every ndays.
+         * Performs the every ndays.
          */
         fun everyNDays(n: Int, startDate: LocalDate? = null): RecurrenceConfig =
             RecurrenceConfigCodec.everyNDays(n, startDate)
-
         /**
-         * Times per week.
+         * Performs the times per week.
          */
         fun timesPerWeek(times: Int): RecurrenceConfig = RecurrenceConfigCodec.timesPerWeek(times)
-
         /**
-         * Yearly.
+         * Performs the yearly.
          */
         fun yearly(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.yearly(startDate)
     }

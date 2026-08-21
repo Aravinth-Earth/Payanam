@@ -6,10 +6,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.repository.DayPlanRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
-/**
- * TimeScreenDayPlanLabelTest.
- */
 class TimeScreenDayPlanLabelTest {
 
     private val logger: UnifiedLogger? by lazy {

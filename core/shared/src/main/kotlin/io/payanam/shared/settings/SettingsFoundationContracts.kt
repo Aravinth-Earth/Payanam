@@ -4,9 +4,8 @@ package io.payanam.shared.settings
 
 import io.payanam.shared.transfer.BackupJsonContract
 import io.payanam.shared.transfer.DataModuleSelection
-
 /**
- * FoundationReadiness.
+ * Defines the contract for foundation readiness.
  */
 enum class FoundationReadiness {
     SharedReady,
@@ -35,17 +34,13 @@ data class SettingsFoundationSnapshot(
     val areas: List<FoundationArea>,
 ) {
     /**
-     * Areas with status.
+     * Performs the areas with status.
      */
     fun areasWithStatus(status: FoundationReadiness): Int = areas.count { it.status == status }
 }
-
-/**
- * SettingsFoundationContracts.
- */
 object SettingsFoundationContracts {
     /**
-     * Snapshot.
+     * Performs the snapshot.
      */
     fun snapshot(
         moduleSelection: DataModuleSelection = DataModuleSelection(),
@@ -56,9 +51,8 @@ object SettingsFoundationContracts {
             moduleSelection = moduleSelection,
             areas = defaultAreas(),
         )
-
     /**
-     * Default areas.
+     * Performs the default areas.
      */
     fun defaultAreas(): List<FoundationArea> =
         listOf(

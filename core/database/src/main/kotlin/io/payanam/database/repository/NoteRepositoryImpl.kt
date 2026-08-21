@@ -25,7 +25,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * NoteRepositoryImpl.
+ * Provides the note repository impl.
  */
 class NoteRepositoryImpl
     @Inject
@@ -35,6 +35,9 @@ class NoteRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Returns the get all notes.
+         */
         override fun getAllNotes(): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getAllNotes", "Subscribing to all notes")
             return sessionManager.requireDatabase().journalDao().getAllNotes().map { entities ->
@@ -43,6 +46,9 @@ class NoteRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get notes by dimension.
+         */
         override fun getNotesByDimension(dimension: String): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesByDimension", "Subscribing to notes by dimension", mapOf("dimension" to dimension))
             return sessionManager.requireDatabase().journalDao().getNotesByDimension(dimension).map { entities ->
@@ -58,6 +64,9 @@ class NoteRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get notes for date.
+         */
         override fun getNotesForDate(date: LocalDate): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesForDate", "Subscribing to notes for date", mapOf("date" to date.toString()))
             return sessionManager.requireDatabase().journalDao().getNotesForDay(date.toString()).map { entities ->
@@ -73,6 +82,9 @@ class NoteRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get note by id.
+         */
         override suspend fun getNoteById(id: String): Note? {
             val note =
                 sessionManager
@@ -84,6 +96,9 @@ class NoteRepositoryImpl
             return note
         }
 
+        /**
+         * Creates the create note.
+         */
         override suspend fun createNote(input: NoteInput): Note {
             logger.i("NoteRepositoryImpl.createNote", "Creating new note")
             val now = LocalDateTime.now()
@@ -119,6 +134,9 @@ class NoteRepositoryImpl
             return note.toDomain()
         }
 
+        /**
+         * Updates the update note.
+         */
         override suspend fun updateNote(
             id: String,
             input: NoteInput,
@@ -159,6 +177,9 @@ class NoteRepositoryImpl
             return updated.toDomain()
         }
 
+        /**
+         * Removes the delete note.
+         */
         override suspend fun deleteNote(id: String) {
             logger.i("NoteRepositoryImpl.deleteNote", "Deleting note", mapOf("id" to id))
             sessionManager.requireDatabase().withTransaction {

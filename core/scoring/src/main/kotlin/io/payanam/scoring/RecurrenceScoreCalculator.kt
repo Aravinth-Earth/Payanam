@@ -146,6 +146,9 @@ object RecurrenceScoreCalculator {
             )
         }
         
+        /**
+         * Performs the calculate rate.
+         */
         fun calculateRate(days: Int): Double {
             val relevant = occurrences.filter { it.first <= days }
             if (relevant.isEmpty()) return 1.0
@@ -223,6 +226,9 @@ object RecurrenceScoreCalculator {
         }
         
         // Calculate rates for different periods
+        /**
+         * Performs the calculate rate for days.
+         */
         fun calculateRateForDays(days: Int): Double {
             val startDate = maxOf(firstOccurrenceDate, today.minusDays(days.toLong() - 1))
             val scheduledDates = recurrenceConfig.getScheduledDatesInRange(startDate, today)
@@ -331,6 +337,9 @@ object RecurrenceScoreCalculator {
             )
         }
 
+        /**
+         * Performs the calculate rate for days.
+         */
         fun calculateRateForDays(days: Int): Double {
             val startDate = maxOf(anchorDate, today.minusDays(days.toLong() - 1))
             val windows = buildFrequencyWindows(

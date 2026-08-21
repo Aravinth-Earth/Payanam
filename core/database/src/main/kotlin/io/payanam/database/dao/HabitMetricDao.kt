@@ -11,7 +11,7 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * HabitMetricDao.
+ * Defines the contract for habit metric dao.
  */
 interface HabitMetricDao {
 
@@ -23,51 +23,51 @@ interface HabitMetricDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert all.
+     * Performs the upsert all.
      */
     suspend fun upsertAll(rows: List<HabitMetricEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert.
+     * Performs the upsert.
      */
     suspend fun upsert(row: HabitMetricEntity)
 
     @Query("DELETE FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :fromDay")
     /**
-     * Delete from.
+     * Removes the delete from.
      */
     suspend fun deleteFrom(habitId: String, fromDay: String)
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     /**
-     * Get for habit.
+     * Returns the get for habit.
      */
     suspend fun getForHabit(habitId: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     /**
-     * Observe for habit.
+     * Registers the observe for habit.
      */
     fun observeForHabit(habitId: String): Flow<List<HabitMetricEntity>>
 
     /** Window query for the activity detail view (Part C). */
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :start AND dayKey <= :end ORDER BY dayKey ASC")
     /**
-     * Get for habit range.
+     * Returns the get for habit range.
      */
     suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics")
     /**
-     * Get all.
+     * Returns the get all.
      */
     suspend fun getAll(): List<HabitMetricEntity>
 
     /** Max dayKey per habit — O(rows) GROUP BY instead of loading every row. */
     @Query("SELECT habitId, MAX(dayKey) AS maxDayKey FROM habit_metrics GROUP BY habitId")
     /**
-     * Max day key per habit.
+     * Performs the max day key per habit.
      */
     suspend fun maxDayKeyPerHabit(): List<HabitIdDayKey>
 
@@ -86,25 +86,25 @@ interface HabitMetricDao {
         """,
     )
     /**
-     * Get latest per habit.
+     * Returns the get latest per habit.
      */
     suspend fun getLatestPerHabit(): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     /**
-     * Latest before.
+     * Performs the latest before.
      */
     suspend fun latestBefore(habitId: String, dayKey: String): HabitMetricEntity?
 
     @Query("SELECT * FROM habit_metrics WHERE dayKey = :dayKey")
     /**
-     * For day.
+     * Performs the for day.
      */
     suspend fun forDay(dayKey: String): List<HabitMetricEntity>
 
     @Query("SELECT COUNT(*) FROM habit_metrics")
     /**
-     * Count.
+     * Performs the count.
      */
     suspend fun count(): Int
 }

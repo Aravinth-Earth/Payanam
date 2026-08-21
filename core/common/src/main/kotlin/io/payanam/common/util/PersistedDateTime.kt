@@ -45,7 +45,7 @@ object PersistedDateTime {
     }
 
     /**
-     * Parses [value] if non-blank, otherwise returns null. Delegates to [parse].
+     * Parses [value] if non-blank, otherwise returns null. delegates to [parse].
      */
     fun parseOrNull(value: String?): LocalDateTime? {
         val candidate = value?.trim()?.takeIf { it.isNotEmpty() } ?: return null

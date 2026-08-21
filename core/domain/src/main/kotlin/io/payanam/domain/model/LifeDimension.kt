@@ -70,21 +70,19 @@ enum class LifeDimension(
     
     companion object {
         /**
-         * From id.
+         * Performs the from id.
          */
         fun fromId(id: String): LifeDimension? {
             return entries.find { it.id == id }
         }
-
         /**
-         * From display name.
+         * Performs the from display name.
          */
         fun fromDisplayName(name: String): LifeDimension? {
             return entries.find { it.displayName == name }
         }
-        
         /**
-         * All display names.
+         * Performs the all display names.
          */
         fun allDisplayNames(): List<String> {
             return entries.map { it.displayName }

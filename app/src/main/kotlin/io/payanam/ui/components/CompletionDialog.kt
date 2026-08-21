@@ -44,7 +44,7 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Completion dialog.
+ * Performs the completion dialog.
  */
 fun CompletionDialog(
     taskTitle: String,

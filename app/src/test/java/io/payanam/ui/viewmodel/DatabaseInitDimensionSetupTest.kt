@@ -27,16 +27,10 @@ import org.robolectric.RobolectricTestRunner
 import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * DatabaseInitDimensionSetupTest.
- */
 class DatabaseInitDimensionSetupTest {
     private lateinit var context: Context
 
     @Before
-    /**
-     * Setup.
-     */
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         UnifiedLogger.initialize(context, "test", 0)
@@ -69,10 +63,6 @@ class DatabaseInitDimensionSetupTest {
             R.string.loc_dimension_name_community_service to "சமூகம் & சேவை",
             R.string.loc_dimension_fallback_unassigned to "ஒதுக்கப்படாதது",
         )
-
-        /**
-         * Context for.
-         */
         fun contextFor(strings: Map<Int, String>, localeTag: String): Context {
             val localeConfiguration = Configuration().apply { setLocale(Locale.forLanguageTag(localeTag)) }
             val resources = mock<Resources>()

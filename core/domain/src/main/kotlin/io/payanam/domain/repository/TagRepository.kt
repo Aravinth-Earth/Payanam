@@ -9,9 +9,8 @@ import kotlinx.coroutines.flow.Flow
  * Repository for optional cross-module tags.
  */
 interface TagRepository {
-
     /**
-     * Observe all tags.
+     * Registers the observe all tags.
      */
     fun observeAllTags(): Flow<List<Tag>>
 

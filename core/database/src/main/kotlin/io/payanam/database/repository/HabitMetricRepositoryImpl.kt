@@ -12,7 +12,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * HabitMetricRepositoryImpl.
+ * Provides the habit metric repository impl.
  */
 class HabitMetricRepositoryImpl
     @Inject
@@ -21,6 +21,9 @@ class HabitMetricRepositoryImpl
     ) : HabitMetricRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get latest per habit.
+         */
         override suspend fun getLatestPerHabit(): Map<String, HabitL1Summary> {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getLatestPerHabit()
@@ -32,12 +35,18 @@ class HabitMetricRepositoryImpl
             return rows.associate { it.habitId to it.toSummary() }
         }
 
+        /**
+         * Returns the get latest for habit.
+         */
         override suspend fun getLatestForHabit(habitId: String): HabitL1Summary? {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getLatestPerHabit()
             return rows.firstOrNull { it.habitId == habitId }?.toSummary()
         }
 
+        /**
+         * Returns the get for habit range.
+         */
         override suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitL1Summary> {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getForHabitRange(habitId, start, end)

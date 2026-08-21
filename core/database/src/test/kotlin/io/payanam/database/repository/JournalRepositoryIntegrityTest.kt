@@ -24,7 +24,7 @@ import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * JournalRepositoryIntegrityTest.
+ * Provides the journal repository integrity test.
  */
 class JournalRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
@@ -32,7 +32,7 @@ class JournalRepositoryIntegrityTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -51,7 +51,7 @@ class JournalRepositoryIntegrityTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -59,7 +59,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Get or create entry returns existing when present.
+     * Returns the get or create entry returns existing when present.
      */
     fun getOrCreateEntry_returnsExistingWhenPresent() =
         runBlocking {
@@ -72,7 +72,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Save response inserts then updates by natural key.
+     * Writes the save response inserts then updates by natural key.
      */
     fun saveResponse_insertsThenUpdatesByNaturalKey() =
         runBlocking {
@@ -105,7 +105,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Upsert response updates existing and inserts missing.
+     * Performs the upsert response updates existing and inserts missing.
      */
     fun upsertResponse_updatesExistingAndInsertsMissing() =
         runBlocking {
@@ -148,7 +148,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Get response and total count are consistent.
+     * Returns the get response and total count are consistent.
      */
     fun getResponse_and_totalCount_areConsistent() =
         runBlocking {

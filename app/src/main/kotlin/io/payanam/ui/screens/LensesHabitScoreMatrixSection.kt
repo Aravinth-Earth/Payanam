@@ -58,7 +58,7 @@ import java.util.Locale
  */
 @Composable
 /**
- * Lens habit score matrix section.
+ * Performs the lens habit score matrix section.
  */
 fun LensHabitScoreMatrixSection(
     viewModel: LensHabitScoreViewModel = hiltViewModel(),

@@ -20,7 +20,7 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * DayPlanDaoTest.
+ * Provides the day plan dao test.
  */
 class DayPlanDaoTest {
     private lateinit var database: PayanamDatabase
@@ -28,7 +28,7 @@ class DayPlanDaoTest {
 
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -56,7 +56,7 @@ class DayPlanDaoTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         database.close()
@@ -66,7 +66,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Insert allocation and get allocations for day.
+     * Performs the insert allocation and get allocations for day.
      */
     fun insertAllocation_and_getAllocationsForDay() =
         runBlocking {
@@ -80,7 +80,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Observe allocations for day emits updates.
+     * Registers the observe allocations for day emits updates.
      */
     fun observeAllocationsForDay_emitsUpdates() =
         runBlocking {
@@ -108,7 +108,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Get allocations for range returns range results.
+     * Returns the get allocations for range returns range results.
      */
     fun getAllocationsForRange_returnsRangeResults() =
         runBlocking {
@@ -122,7 +122,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Insert allocations batch.
+     * Performs the insert allocations batch.
      */
     fun insertAllocations_batch() =
         runBlocking {
@@ -139,7 +139,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Delete allocations for day removes all.
+     * Removes the delete allocations for day removes all.
      */
     fun deleteAllocationsForDay_removesAll() =
         runBlocking {
@@ -157,7 +157,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Get planned days returns distinct days.
+     * Returns the get planned days returns distinct days.
      */
     fun getPlannedDays_returnsDistinctDays() =
         runBlocking {
@@ -178,7 +178,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Insert template and get template by id.
+     * Performs the insert template and get template by id.
      */
     fun insertTemplate_and_getTemplateById() =
         runBlocking {
@@ -191,7 +191,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Observe active templates filters inactive.
+     * Registers the observe active templates filters inactive.
      */
     fun observeActiveTemplates_filtersInactive() =
         runBlocking {
@@ -206,7 +206,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Observe all templates returns all.
+     * Registers the observe all templates returns all.
      */
     fun observeAllTemplates_returnsAll() =
         runBlocking {
@@ -218,7 +218,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Get active template count counts active.
+     * Returns the get active template count counts active.
      */
     fun getActiveTemplateCount_countsActive() =
         runBlocking {
@@ -231,7 +231,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Soft delete template sets inactive.
+     * Performs the soft delete template sets inactive.
      */
     fun softDeleteTemplate_setsInactive() =
         runBlocking {
@@ -244,7 +244,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Delete template removes completely.
+     * Removes the delete template removes completely.
      */
     fun deleteTemplate_removesCompletely() =
         runBlocking {
@@ -259,7 +259,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Insert template allocations and get template allocations.
+     * Performs the insert template allocations and get template allocations.
      */
     fun insertTemplateAllocations_and_getTemplateAllocations() =
         runBlocking {
@@ -276,7 +276,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Observe template allocations emits allocations.
+     * Registers the observe template allocations emits allocations.
      */
     fun observeTemplateAllocations_emitsAllocations() =
         runBlocking {
@@ -293,7 +293,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Delete template allocations removes for template.
+     * Removes the delete template allocations removes for template.
      */
     fun deleteTemplateAllocations_removesForTemplate() =
         runBlocking {
@@ -313,7 +313,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Insert allocation replaces on conflict.
+     * Performs the insert allocation replaces on conflict.
      */
     fun insertAllocation_replacesOnConflict() =
         runBlocking {

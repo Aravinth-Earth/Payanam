@@ -81,7 +81,7 @@ import java.util.Locale
 
 @Composable
 /**
- * Database passphrase unlock screen.
+ * Performs the database passphrase unlock screen.
  */
 fun DatabasePassphraseUnlockScreen(
     onPassphraseUnlocked: () -> Unit,

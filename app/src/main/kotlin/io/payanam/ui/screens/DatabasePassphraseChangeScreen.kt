@@ -40,7 +40,7 @@ import io.payanam.ui.viewmodel.DatabasePassphraseChangeViewModel
 
 @Composable
 /**
- * Database passphrase change screen.
+ * Performs the database passphrase change screen.
  */
 fun DatabasePassphraseChangeScreen(
     onPassphraseChanged: () -> Unit,

@@ -9,7 +9,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
- * Repository interface for TimeEntry operations.
+ * Repository interface for timeEntry operations.
  */
 interface TimeEntryRepository {
     
@@ -65,9 +65,8 @@ interface TimeEntryRepository {
      * Create a manual time entry (with both start and end).
      */
     suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry
-    
     /**
-     * Get all time entries.
+     * Returns the get all time entries.
      */
     fun getAllTimeEntries(): Flow<List<TimeEntry>>
     

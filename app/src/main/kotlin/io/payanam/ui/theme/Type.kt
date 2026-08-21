@@ -22,9 +22,8 @@ private fun resolveFontFamily(option: FontFamilyOption): FontFamily = when (opti
     FontFamilyOption.SERIF -> FontFamily.Serif
     FontFamilyOption.CURSIVE -> FontFamily.Cursive
 }
-
 /**
- * Build typography.
+ * Creates the build typography.
  */
 fun buildTypography(fontFamilyOption: FontFamilyOption): Typography {
     val fontFamily = resolveFontFamily(fontFamilyOption)

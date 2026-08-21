@@ -4,15 +4,10 @@ package io.payanam.desktop
 
 import java.nio.file.Path
 import java.nio.file.Paths
-
-/**
- * DesktopAppPaths.
- */
 object DesktopAppPaths {
     private const val APP_DIRECTORY_NAME = "Payanam"
-
     /**
-     * Resolve root directory.
+     * Returns the resolve root directory.
      */
     fun resolveRootDirectory(
         environment: Map<String, String> = System.getenv(),
@@ -30,57 +25,50 @@ object DesktopAppPaths {
 
         return Paths.get(userHome, "AppData", "Local", APP_DIRECTORY_NAME)
     }
-
     /**
-     * Resolve logs directory.
+     * Returns the resolve logs directory.
      */
     fun resolveLogsDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("logs")
-
     /**
-     * Resolve preferences directory.
+     * Returns the resolve preferences directory.
      */
     fun resolvePreferencesDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("preferences")
-
     /**
-     * Resolve bootstrap directory.
+     * Returns the resolve bootstrap directory.
      */
     fun resolveBootstrapDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("bootstrap")
-
     /**
-     * Resolve security directory.
+     * Returns the resolve security directory.
      */
     fun resolveSecurityDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("security")
-
     /**
-     * Resolve database directory.
+     * Returns the resolve database directory.
      */
     fun resolveDatabaseDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("database")
-
     /**
-     * Resolve runtime directory.
+     * Returns the resolve runtime directory.
      */
     fun resolveRuntimeDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("runtime")
-
     /**
-     * Resolve export directory.
+     * Returns the resolve export directory.
      */
     fun resolveExportDirectory(
         environment: Map<String, String> = System.getenv(),

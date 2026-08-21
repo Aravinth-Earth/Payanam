@@ -6,10 +6,6 @@ import com.google.common.truth.Truth.assertThat
 import java.time.LocalDateTime
 import org.junit.Ignore
 import org.junit.Test
-
-/**
- * DesktopTaskBoardContractsTest.
- */
 class DesktopTaskBoardContractsTest {
     private val fixedNow: LocalDateTime = LocalDateTime.parse("2026-03-26T09:30:00")
 

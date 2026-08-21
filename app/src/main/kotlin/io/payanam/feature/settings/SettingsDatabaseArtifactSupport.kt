@@ -10,9 +10,8 @@ import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
 /**
- * DatabaseArtifactUiModel.
+ * Holds the database artifact ui model.
  */
 data class DatabaseArtifactUiModel(
     val fileName: String,
@@ -22,16 +21,14 @@ data class DatabaseArtifactUiModel(
 )
 
 private val activeSuffixes = setOf("", "-wal", "-shm", "-journal")
-
 /**
- * Is active artifact.
+ * Returns true when the is active artifact.
  */
 fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabase.DATABASE_NAME): Boolean = activeSuffixes.any { fileName == "$dbName$it" }
 
 private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
-
 /**
- * List database artifact files.
+ * Performs the list database artifact files.
  */
 fun listDatabaseArtifactFiles(context: Context): List<File> {
     val logger = UnifiedLogger.getInstance()
@@ -53,9 +50,8 @@ fun listDatabaseArtifactFiles(context: Context): List<File> {
         )
     } ?: emptyList()
 }
-
 /**
- * File.
+ * Performs the file.
  */
 fun File.toDatabaseArtifactUiModel(): DatabaseArtifactUiModel {
     val modifiedLabel = Instant.ofEpochMilli(lastModified())
@@ -69,9 +65,8 @@ fun File.toDatabaseArtifactUiModel(): DatabaseArtifactUiModel {
         isActive = isActiveArtifact(name),
     )
 }
-
 /**
- * Delete stale artifact files.
+ * Removes the delete stale artifact files.
  */
 fun deleteStaleArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
@@ -104,9 +99,8 @@ fun deleteStaleArtifactFiles(context: Context): Int {
     )
     return deletedCount
 }
-
 /**
- * Delete database artifact file.
+ * Removes the delete database artifact file.
  */
 fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
     val logger = UnifiedLogger.getInstance()
@@ -135,9 +129,8 @@ fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
     )
     return deleted
 }
-
 /**
- * Delete all database artifact files.
+ * Removes the delete all database artifact files.
  */
 fun deleteAllDatabaseArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
@@ -194,9 +187,8 @@ fun deleteAllDatabaseArtifactFiles(context: Context): Int {
     )
     return deletedCount
 }
-
 /**
- * Delete runtime database artifacts.
+ * Removes the delete runtime database artifacts.
  */
 fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
@@ -240,9 +232,8 @@ fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     )
     return deletedCount
 }
-
 /**
- * Wipe temp backup dir.
+ * Performs the wipe temp backup dir.
  */
 fun wipeTempBackupDir(context: Context): Boolean {
     val logger = UnifiedLogger.getInstance()
@@ -259,9 +250,8 @@ fun wipeTempBackupDir(context: Context): Boolean {
     )
     return deleted
 }
-
 /**
- * Backup database artifact files.
+ * Performs the backup database artifact files.
  */
 fun backupDatabaseArtifactFiles(files: List<File>): List<Pair<File, File>> {
     val logger = UnifiedLogger.getInstance()
@@ -283,9 +273,8 @@ fun backupDatabaseArtifactFiles(files: List<File>): List<Pair<File, File>> {
         )
     }
 }
-
 /**
- * Restore database artifact files.
+ * Loads the restore database artifact files.
  */
 fun restoreDatabaseArtifactFiles(mappings: List<Pair<File, File>>): Int {
     val logger = UnifiedLogger.getInstance()
@@ -314,9 +303,8 @@ fun restoreDatabaseArtifactFiles(mappings: List<Pair<File, File>>): Int {
     )
     return restored
 }
-
 /**
- * Cleanup database artifact backups.
+ * Performs the cleanup database artifact backups.
  */
 fun cleanupDatabaseArtifactBackups(mappings: List<Pair<File, File>>) {
     val logger = UnifiedLogger.getInstance()

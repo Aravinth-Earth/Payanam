@@ -13,12 +13,12 @@ import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * JournalNoteEntityTest.
+ * Provides the journal note entity test.
  */
 class JournalNoteEntityTest {
     @Before
     /**
-     * Setup.
+     * Updates the setup.
      */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -29,7 +29,7 @@ class JournalNoteEntityTest {
 
     @Test
     /**
-     * Journal note entity exposes fields.
+     * Performs the journal note entity exposes fields.
      */
     fun journalNote_entity_exposes_fields() {
         val journalNote =
@@ -55,7 +55,7 @@ class JournalNoteEntityTest {
 
     @Test
     /**
-     * Journal note entity defaults copy and components work.
+     * Performs the journal note entity defaults copy and components work.
      */
     fun journalNote_entity_defaults_copy_and_components_work() {
         val note =

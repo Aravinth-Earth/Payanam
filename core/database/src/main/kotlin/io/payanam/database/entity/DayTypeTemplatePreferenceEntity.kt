@@ -26,7 +26,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DayTypeTemplatePreferenceEntity.
+ * Holds the day type template preference entity.
  */
 data class DayTypeTemplatePreferenceEntity(
     @PrimaryKey

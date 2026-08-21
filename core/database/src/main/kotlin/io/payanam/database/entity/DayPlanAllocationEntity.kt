@@ -40,7 +40,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * DayPlanAllocationEntity.
+ * Holds the day plan allocation entity.
  */
 data class DayPlanAllocationEntity(
     @PrimaryKey

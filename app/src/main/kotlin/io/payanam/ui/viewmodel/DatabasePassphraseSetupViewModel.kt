@@ -21,9 +21,8 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-
 /**
- * DatabasePassphraseSetupUiState.
+ * Holds the database passphrase setup ui state.
  */
 data class DatabasePassphraseSetupUiState(
     val isSaving: Boolean = false,
@@ -40,7 +39,7 @@ data class DatabasePassphraseSetupUiState(
 
 @HiltViewModel
 /**
- * DatabasePassphraseSetupViewModel.
+ * Provides the database passphrase setup view model.
  */
 class DatabasePassphraseSetupViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -54,9 +53,8 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
     init {
         loadDatabaseSummary()
     }
-
     /**
-     * Configure passphrase.
+     * Performs the configure passphrase.
      */
     fun configurePassphrase(
         passphrase: String,
@@ -115,16 +113,14 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
             onSuccess()
         }
     }
-
     /**
-     * Clear error.
+     * Removes the clear error.
      */
     fun clearError() {
         _uiState.update { it.copy(errorReasonCode = null) }
     }
-
     /**
-     * Reset local data and configure passphrase.
+     * Removes the reset local data and configure passphrase.
      */
     fun resetLocalDataAndConfigurePassphrase(
         passphrase: String,

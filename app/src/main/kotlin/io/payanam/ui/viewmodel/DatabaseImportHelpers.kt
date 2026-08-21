@@ -64,9 +64,8 @@ internal fun queryTableCount(database: SQLiteDatabase, tableName: String): Int =
 
 internal object DatabaseImportHelper {
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * Resume import with passphrase.
+     * Performs the resume import with passphrase.
      */
     suspend fun resumeImportWithPassphrase(
         viewModel: DatabaseInitViewModel,
@@ -147,9 +146,8 @@ internal object DatabaseImportHelper {
             onError(e.message ?: "Failed to unlock imported database")
         }
     }
-
     /**
-     * Resume encrypted import after unlock.
+     * Performs the resume encrypted import after unlock.
      */
     suspend fun resumeEncryptedImportAfterUnlock(
         viewModel: DatabaseInitViewModel,

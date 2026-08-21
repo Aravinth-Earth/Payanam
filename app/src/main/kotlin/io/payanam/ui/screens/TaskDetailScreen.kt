@@ -39,7 +39,7 @@ import io.payanam.ui.viewmodel.TaskDetailViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Task detail screen.
+ * Performs the task detail screen.
  */
 fun TaskDetailScreen(
     taskId: String,

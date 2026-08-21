@@ -19,7 +19,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * CreateTimeEntryForHabitUseCase.
+ * Provides the create time entry for habit use case.
  */
 class CreateTimeEntryForHabitUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,

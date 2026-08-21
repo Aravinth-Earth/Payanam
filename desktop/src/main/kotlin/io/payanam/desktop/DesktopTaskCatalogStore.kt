@@ -32,7 +32,7 @@ internal class DesktopTaskCatalogStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Load state.
+     * Loads the load state.
      */
     fun loadState(): DesktopTaskCatalogState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -68,9 +68,8 @@ internal class DesktopTaskCatalogStore(
             )
         }
     }
-
     /**
-     * Get catalog file path.
+     * Returns the get catalog file path.
      */
     fun getCatalogFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

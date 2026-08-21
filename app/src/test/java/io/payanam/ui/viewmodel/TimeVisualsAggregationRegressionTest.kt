@@ -16,14 +16,8 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeVisualsAggregationRegressionTest.
- */
 class TimeVisualsAggregationRegressionTest {
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
@@ -31,9 +25,6 @@ class TimeVisualsAggregationRegressionTest {
     }
 
     @Test
-    /**
-     * Compute day overall calculates weighted focus percent.
-     */
     fun computeDayOverall_calculates_weighted_focus_percent() {
         val day = LocalDate.of(2026, 2, 15)
         val entries = listOf(
@@ -46,9 +37,6 @@ class TimeVisualsAggregationRegressionTest {
     }
 
     @Test
-    /**
-     * Compute per dimension builds share and plan delta.
-     */
     fun computePerDimension_builds_share_and_plan_delta() {
         val day = LocalDate.of(2026, 2, 15)
         val entries = listOf(

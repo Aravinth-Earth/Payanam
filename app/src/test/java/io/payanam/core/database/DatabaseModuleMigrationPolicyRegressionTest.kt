@@ -13,9 +13,6 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * DatabaseModuleMigrationPolicyRegressionTest.
- */
 class DatabaseModuleMigrationPolicyRegressionTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Application>()

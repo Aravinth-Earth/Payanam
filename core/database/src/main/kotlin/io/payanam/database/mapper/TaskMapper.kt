@@ -7,11 +7,11 @@ import io.payanam.database.entity.TaskEntity
 import io.payanam.domain.model.Task
 
 /**
- * Mapper functions between TaskEntity (Room) and Task (Domain).
+ * Mapper functions between taskEntity (Room) and task (Domain).
  */
 object TaskMapper {
     /**
-     * Task entity.
+     * Performs the task entity.
      */
     fun TaskEntity.toDomain(): Task =
         Task(
@@ -44,9 +44,8 @@ object TaskMapper {
             taskScore = taskScore,
             lastOccurrenceDate = PersistedDateTime.parseOrDateStart(lastOccurrenceDate),
         )
-
     /**
-     * Task.
+     * Performs the task.
      */
     fun Task.toEntity(): TaskEntity =
         TaskEntity(

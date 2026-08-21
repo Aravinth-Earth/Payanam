@@ -8,7 +8,7 @@ import org.junit.Test
 
 @Ignore("Windows-only — runs in Desktop CI")
 /**
- * DesktopAppPathsTest.
+ * Provides the desktop app paths test.
  */
 class DesktopAppPathsTest {
     @Test

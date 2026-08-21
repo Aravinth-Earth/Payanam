@@ -38,7 +38,7 @@ import java.time.LocalDateTime
  */
 @AndroidEntryPoint
 /**
- * TrackingService.
+ * Provides the tracking service.
  */
 class TrackingService : Service() {
 
@@ -64,9 +64,8 @@ class TrackingService : Service() {
 
         private val _currentSession = MutableStateFlow<TrackingSession?>(null)
         val currentSession: StateFlow<TrackingSession?> = _currentSession.asStateFlow()
-
         /**
-         * Start tracking.
+         * Performs the start tracking.
          */
         fun startTracking(
             context: Context,
@@ -84,9 +83,8 @@ class TrackingService : Service() {
             }
             context.startForegroundService(intent)
         }
-
         /**
-         * Stop tracking.
+         * Performs the stop tracking.
          */
         fun stopTracking(context: Context) {
             val intent = Intent(context, TrackingService::class.java).apply {
@@ -101,13 +99,19 @@ class TrackingService : Service() {
     private var updateJob: Job? = null
     private lateinit var notificationManager: NotificationManager
 
+    /**
+     * Provides the tracking binder.
+     */
     inner class TrackingBinder : Binder() {
         /**
-         * Get service.
+         * Returns the get service.
          */
         fun getService(): TrackingService = this@TrackingService
     }
 
+    /**
+     * Handles the on create.
+     */
     override fun onCreate() {
         super.onCreate()
         logger.i("TrackingService.onCreate", "Service created")
@@ -115,8 +119,14 @@ class TrackingService : Service() {
         createNotificationChannel()
     }
 
+    /**
+     * Handles the on bind.
+     */
     override fun onBind(intent: Intent?): IBinder = binder
 
+    /**
+     * Handles the on start command.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         logger.i("TrackingService.onStartCommand", "Command received", mapOf("action" to (action ?: "null")))
@@ -326,6 +336,9 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Handles the on destroy.
+     */
     override fun onDestroy() {
         logger.i(
             "TrackingService.onDestroy",
@@ -340,9 +353,8 @@ class TrackingService : Service() {
         super.onDestroy()
     }
 }
-
 /**
- * TrackingSession.
+ * Holds the tracking session.
  */
 data class TrackingSession(
     val taskId: String?,

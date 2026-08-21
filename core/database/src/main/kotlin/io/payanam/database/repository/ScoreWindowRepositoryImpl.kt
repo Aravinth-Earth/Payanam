@@ -13,7 +13,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * ScoreWindowRepositoryImpl.
+ * Provides the score window repository impl.
  */
 class ScoreWindowRepositoryImpl
     @Inject
@@ -22,6 +22,9 @@ class ScoreWindowRepositoryImpl
     ) : ScoreWindowRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the get dimension window.
+         */
         override suspend fun getDimensionWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()
             val rows = db.dimensionMetricDao().getForWindow(start, end)
@@ -44,6 +47,9 @@ class ScoreWindowRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get day window.
+         */
         override suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()
             val rows = db.dayMetricDao().getForWindow(start, end)
@@ -65,12 +71,21 @@ class ScoreWindowRepositoryImpl
             }
         }
 
+        /**
+         * Performs the earliest day key.
+         */
         override suspend fun earliestDayKey(): String? =
             sessionManager.requireDatabase().dayMetricDao().earliestDayKey()
 
+        /**
+         * Performs the earliest dimension day key.
+         */
         override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
             sessionManager.requireDatabase().dimensionMetricDao().earliestDayKey(dimensionId)
 
+        /**
+         * Performs the earliest dimension day key.
+         */
         override suspend fun earliestDimensionDayKey(): String? =
             sessionManager.requireDatabase().dimensionMetricDao().earliestDayKeyGlobal()
     }

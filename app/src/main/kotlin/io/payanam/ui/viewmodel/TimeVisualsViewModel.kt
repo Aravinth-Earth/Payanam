@@ -28,7 +28,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 /**
- * TimeVisualsViewModel.
+ * Provides the time visuals view model.
  */
 class TimeVisualsViewModel @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
@@ -43,9 +43,8 @@ class TimeVisualsViewModel @Inject constructor(
     private var taskLookup: Map<String, Task> = emptyMap()
     private var inFlightDate: LocalDate? = null
     private var loadJob: Job? = null
-
     /**
-     * Load for date.
+     * Loads the load for date.
      */
     fun loadForDate(date: LocalDate) {
         if (inFlightDate == date && loadJob?.isActive == true) {
@@ -136,9 +135,8 @@ class TimeVisualsViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Toggle dimension filter.
+     * Performs the toggle dimension filter.
      */
     fun toggleDimensionFilter(dimensionId: String) {
         _uiState.update { state ->

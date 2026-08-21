@@ -25,7 +25,7 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * TagRepositoryImpl.
+ * Provides the tag repository impl.
  */
 class TagRepositoryImpl
     @Inject
@@ -35,6 +35,9 @@ class TagRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Registers the observe all tags.
+         */
         override fun observeAllTags(): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeAllTags", "Subscribing to all tags")
             return sessionManager.requireDatabase().tagDao().observeAllTags().map { entities ->
@@ -42,6 +45,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Performs the search tags by prefix.
+         */
         override fun searchTagsByPrefix(
             query: String,
             limit: Int,
@@ -60,6 +66,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Registers the observe tags for task.
+         */
         override fun observeTagsForTask(taskId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTask", "Subscribing to tags for task", mapOf("taskId" to taskId))
             return sessionManager.requireDatabase().tagDao().observeTagsForTask(taskId).map { entities ->
@@ -67,6 +76,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Registers the observe tags for note.
+         */
         override fun observeTagsForNote(noteId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForNote", "Subscribing to tags for note", mapOf("noteId" to noteId))
             return sessionManager.requireDatabase().tagDao().observeTagsForNote(noteId).map { entities ->
@@ -74,6 +86,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Returns the get tag names for notes.
+         */
         override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> {
             if (noteIds.isEmpty()) {
                 return emptyMap()
@@ -89,6 +104,9 @@ class TagRepositoryImpl
                 .groupBy(keySelector = { it.noteId }, valueTransform = { it.tagName })
         }
 
+        /**
+         * Registers the observe tags for time entry.
+         */
         override fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTimeEntry", "Subscribing to tags for time entry", mapOf("timeEntryId" to timeEntryId))
             return sessionManager.requireDatabase().tagDao().observeTagsForTimeEntry(timeEntryId).map { entities ->
@@ -96,6 +114,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Performs the replace task tags.
+         */
         override suspend fun replaceTaskTags(
             taskId: String,
             tagNames: List<String>,
@@ -114,6 +135,9 @@ class TagRepositoryImpl
             )
         }
 
+        /**
+         * Performs the replace note tags.
+         */
         override suspend fun replaceNoteTags(
             noteId: String,
             tagNames: List<String>,
@@ -132,6 +156,9 @@ class TagRepositoryImpl
             )
         }
 
+        /**
+         * Performs the replace time entry tags.
+         */
         override suspend fun replaceTimeEntryTags(
             timeEntryId: String,
             tagNames: List<String>,

@@ -12,10 +12,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-
-/**
- * BackupJsonContract.
- */
 object BackupJsonContract {
     const val SCHEMA_VERSION = 1
     const val SCHEMA_VERSION_KEY = "schemaVersion"
@@ -39,12 +35,8 @@ object BackupJsonContract {
     internal fun legacyModulesRoot(root: JsonObject): JsonObject =
         JsonObject(root.filterKeys { it !in reservedRootKeys })
 }
-
 /**
- * ImportMode.
- */
-/**
- * ImportMode.
+ * Defines the contract for import mode.
  */
 enum class ImportMode  {
     REPLACE,
@@ -62,7 +54,7 @@ data class DataModuleSelection(
     val notes: Boolean = true
 ) {
     /**
-     * Has selection.
+     * Returns true when the has selection.
      */
     fun hasSelection(): Boolean = tasks || timeEntries || notes
 }
@@ -104,10 +96,6 @@ data class BackupPayloadEnvelope(
     @SerialName(BackupJsonContract.MODULES_KEY)
     val modules: BackupModulePayloads = BackupModulePayloads()
 )
-
-/**
- * BackupPayloadJson.
- */
 object BackupPayloadJson {
     private val json = Json {
         encodeDefaults = true
@@ -115,14 +103,12 @@ object BackupPayloadJson {
         ignoreUnknownKeys = true
         prettyPrint = true
     }
-
     /**
-     * Encode.
+     * Performs the encode.
      */
     fun encode(envelope: BackupPayloadEnvelope): String = json.encodeToString(envelope)
-
     /**
-     * Decode.
+     * Performs the decode.
      */
     fun decode(jsonText: String): BackupPayloadEnvelope {
         val root = json.parseToJsonElement(jsonText).jsonObject

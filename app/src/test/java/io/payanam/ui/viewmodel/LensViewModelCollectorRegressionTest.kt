@@ -40,17 +40,11 @@ import java.util.concurrent.atomic.AtomicInteger
 
 @OptIn(ExperimentalCoroutinesApi::class)
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensViewModelCollectorRegressionTest.
- */
 class LensViewModelCollectorRegressionTest {
     private val testDispatcher = StandardTestDispatcher()
     private lateinit var lensRepository: FakeLensRepository
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         Dispatchers.setMain(testDispatcher)
         if (!UnifiedLogger.isInitialized()) {
@@ -60,17 +54,11 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @After
-    /**
-     * Tear down.
-     */
     fun tearDown() {
         Dispatchers.resetMain()
     }
 
     @Test
-    /**
-     * Select date does not leak reflection collectors.
-     */
     fun selectDate_does_not_leak_reflection_collectors() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel, requireSummary = false)
@@ -86,9 +74,6 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
-    /**
-     * Default day load keeps range as primary filter.
-     */
     fun default_day_load_keeps_range_as_primary_filter() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
@@ -101,9 +86,6 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
-    /**
-     * Selecting default today mode and window is a no op.
-     */
     fun selecting_default_today_mode_and_window_is_a_no_op() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
@@ -116,9 +98,6 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
-    /**
-     * Select time mode past defaults to last day window.
-     */
     fun selectTimeMode_past_defaults_to_last_day_window() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
@@ -195,9 +174,6 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
-    /**
-     * Range summary aggregates task and habit dimension maps.
-     */
     fun range_summary_aggregates_task_and_habit_dimension_maps() = runTest {
         val todayKey = LocalDate.now().toString()
         lensRepository.planningByDay[todayKey] = PlanningLensData(

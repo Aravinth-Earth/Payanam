@@ -7,9 +7,8 @@ import io.payanam.shared.settings.DesktopSettingsContracts
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
-
 /**
- * DesktopNavigationTest.
+ * Provides the desktop navigation test.
  */
 class DesktopNavigationTest {
     @Test

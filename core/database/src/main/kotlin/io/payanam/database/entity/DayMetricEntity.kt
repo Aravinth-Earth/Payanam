@@ -15,7 +15,7 @@ import androidx.room.Entity
     primaryKeys = ["dayKey"],
 )
 /**
- * DayMetricEntity.
+ * Holds the day metric entity.
  */
 data class DayMetricEntity(
     val dayKey: String,

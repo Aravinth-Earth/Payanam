@@ -9,16 +9,11 @@ import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
 import java.io.File
-
-/**
- * DatabaseArtifactJanitor.
- */
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
     private val countTables = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes")
-
     /**
-     * Cleanup stale artifacts.
+     * Performs the cleanup stale artifacts.
      */
     fun cleanupStaleArtifacts(
         context: Context,

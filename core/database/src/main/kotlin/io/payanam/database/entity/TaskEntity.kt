@@ -37,7 +37,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * TaskEntity.
+ * Holds the task entity.
  */
 data class TaskEntity(
     @PrimaryKey

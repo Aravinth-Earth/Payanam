@@ -10,18 +10,13 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.LifeDimension
-
 /**
- * DimensionIconOption.
+ * Holds the dimension icon option.
  */
 data class DimensionIconOption(
     val key: String,
     val imageVector: ImageVector,
 )
-
-/**
- * DimensionIconCatalog.
- */
 object DimensionIconCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
     val options: List<DimensionIconOption> = listOf(
@@ -381,9 +376,8 @@ object DimensionIconCatalog {
 
     private val optionsByKey: Map<String, DimensionIconOption> = options.associateBy { it.key }
     private val keyAliases: Map<String, String> = mapOf("people" to "groups")
-
     /**
-     * Default icon key for dimension id.
+     * Performs the default icon key for dimension id.
      */
     fun defaultIconKeyForDimensionId(dimensionId: String?): String {
         val normalizedId = dimensionId?.trim().orEmpty()
@@ -402,9 +396,8 @@ object DimensionIconCatalog {
             else -> "category"
         }
     }
-
     /**
-     * Resolve.
+     * Returns the resolve.
      */
     fun resolve(key: String?, dimensionId: String? = null): DimensionIconOption {
         val normalized = key?.trim()?.takeIf { it.isNotEmpty() } ?: defaultIconKeyForDimensionId(dimensionId)

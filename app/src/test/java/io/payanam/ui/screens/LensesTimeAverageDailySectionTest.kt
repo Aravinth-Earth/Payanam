@@ -17,14 +17,8 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensesTimeAverageDailySectionTest.
- */
 class LensesTimeAverageDailySectionTest {
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -33,9 +27,6 @@ class LensesTimeAverageDailySectionTest {
     }
 
     @Test
-    /**
-     * Average daily time column totals sums all rows per window.
-     */
     fun averageDailyTimeColumnTotals_sums_all_rows_per_window() {
         val summary =
             AverageDailyTimeTableData(

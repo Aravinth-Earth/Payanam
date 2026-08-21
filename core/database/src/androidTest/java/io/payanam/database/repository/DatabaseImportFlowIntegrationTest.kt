@@ -35,7 +35,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -61,7 +61,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -134,7 +134,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @Test
     /**
-     * Import flow encryption state is clean between imports.
+     * Loads the import flow encryption state is clean between imports.
      */
     fun importFlow_encryptionStateIsCleanBetweenImports() =
         runTest {
@@ -169,7 +169,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @Test
     /**
-     * Import flow passphrase change does not corrupt database.
+     * Loads the import flow passphrase change does not corrupt database.
      */
     fun importFlow_passphraseChangeDoesNotCorruptDatabase() =
         runTest {
@@ -206,7 +206,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @Test
     /**
-     * Import flow wrong passphrase rejects import.
+     * Loads the import flow wrong passphrase rejects import.
      */
     fun importFlow_wrongPassphraseRejectsImport() =
         runTest {
@@ -241,7 +241,7 @@ class DatabaseImportFlowIntegrationTest {
 
     @Test
     /**
-     * Import flow multiple sequential imports.
+     * Loads the import flow multiple sequential imports.
      */
     fun importFlow_multipleSequentialImports() =
         runTest {

@@ -29,16 +29,15 @@ data class TimeEntry(
         get() = endedAt == null
     
     /**
-     * Duration in minutes. For active entries, calculates from startedAt to now.
+     * Duration in minutes. for active entries, calculates from startedAt to now.
      */
     fun durationMinutes(now: LocalDateTime = LocalDateTime.now()): Long {
         val end = endedAt ?: now
         return java.time.Duration.between(startedAt, end).toMinutes()
     }
 }
-
 /**
- * TimeEntryInput.
+ * Holds the time entry input.
  */
 data class TimeEntryInput(
     val lifeIntentionCategory: String,

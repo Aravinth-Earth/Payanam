@@ -22,17 +22,15 @@ internal class LensSnapshotCache(
         val snapshot: UnifiedLensSnapshot,
         val cachedAtMs: Long,
     )
-
     /**
-     * Get or load.
+     * Returns the get or load.
      */
     suspend fun getOrLoad(
         dayKey: String,
         seededDataByDay: Map<String, UnifiedLensSnapshot> = emptyMap(),
     ): UnifiedLensSnapshot = loadForDays(listOf(dayKey), seededDataByDay).getValue(dayKey)
-
     /**
-     * Load for days.
+     * Loads the load for days.
      */
     suspend fun loadForDays(
         dayKeys: List<String>,

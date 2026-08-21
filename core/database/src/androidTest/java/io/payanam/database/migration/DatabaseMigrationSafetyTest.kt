@@ -14,11 +14,11 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Verifies the contracted Room schema support floor for shipped beta users.
+ * Verifies the contracted room schema support floor for shipped beta users.
  */
 @RunWith(AndroidJUnit4::class)
 /**
- * DatabaseMigrationSafetyTest.
+ * Provides the database migration safety test.
  */
 class DatabaseMigrationSafetyTest {
     private val logger = UnifiedLogger.getInstance()
@@ -26,7 +26,7 @@ class DatabaseMigrationSafetyTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
@@ -37,7 +37,7 @@ class DatabaseMigrationSafetyTest {
 
     @Test
     /**
-     * Supported schema floor is locked to closed beta baseline.
+     * Performs the supported schema floor is locked to closed beta baseline.
      */
     fun supported_schema_floor_is_locked_to_closed_beta_baseline() {
         logger.i(

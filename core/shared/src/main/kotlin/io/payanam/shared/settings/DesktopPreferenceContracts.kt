@@ -1,9 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
-
 /**
- * DesktopThemeMode.
+ * Defines the contract for desktop theme mode.
  */
 enum class DesktopThemeMode(
     val storageKey: String,
@@ -16,14 +15,13 @@ enum class DesktopThemeMode(
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(key: String?): DesktopThemeMode = entries.firstOrNull { it.storageKey == key } ?: SYSTEM
     }
 }
-
 /**
- * DesktopLanguage.
+ * Defines the contract for desktop language.
  */
 enum class DesktopLanguage(
     val storageKey: String,
@@ -36,14 +34,13 @@ enum class DesktopLanguage(
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(key: String?): DesktopLanguage = entries.firstOrNull { it.storageKey == key } ?: SYSTEM
     }
 }
-
 /**
- * DesktopTopLevelRoute.
+ * Defines the contract for desktop top level route.
  */
 enum class DesktopTopLevelRoute(
     val storageKey: String,
@@ -60,7 +57,7 @@ enum class DesktopTopLevelRoute(
 
     companion object {
         /**
-         * From storage key.
+         * Performs the from storage key.
          */
         fun fromStorageKey(key: String?): DesktopTopLevelRoute = entries.firstOrNull { it.storageKey == key } ?: SETTINGS
     }
@@ -81,39 +78,31 @@ data class DesktopSettingsSnapshot(
     val sessionLoggingEnabled: Boolean = true,
 ) {
     /**
-     * Is route visible.
+     * Returns true when the is route visible.
      */
     fun isRouteVisible(route: DesktopTopLevelRoute): Boolean = routeVisibility[route] ?: DesktopSettingsContracts.DEFAULT_ROUTE_VISIBLE
-
     /**
-     * Visible routes.
+     * Performs the visible routes.
      */
     fun visibleRoutes(): List<DesktopTopLevelRoute> = DesktopTopLevelRoute.entries.filter(::isRouteVisible)
 }
-
-/**
- * DesktopSettingsContracts.
- */
 object DesktopSettingsContracts {
     const val SCHEMA_VERSION = 3
     const val DEFAULT_ROUTE_VISIBLE = true
-
     /**
-     * Default snapshot.
+     * Performs the default snapshot.
      */
     fun defaultSnapshot(): DesktopSettingsSnapshot =
         DesktopSettingsSnapshot(
             routeVisibility = defaultRouteVisibility(),
         )
-
     /**
-     * Default route visibility.
+     * Performs the default route visibility.
      */
     fun defaultRouteVisibility(): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { DEFAULT_ROUTE_VISIBLE }
-
     /**
-     * Normalize route visibility.
+     * Performs the normalize route visibility.
      */
     fun normalizeRouteVisibility(routeVisibility: Map<DesktopTopLevelRoute, Boolean>): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { route ->
@@ -123,9 +112,8 @@ object DesktopSettingsContracts {
                 routeVisibility[route] ?: DEFAULT_ROUTE_VISIBLE
             }
         }
-
     /**
-     * Route visibility for preset.
+     * Performs the route visibility for preset.
      */
     fun routeVisibilityForPreset(preset: FocusModePreset): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { route ->

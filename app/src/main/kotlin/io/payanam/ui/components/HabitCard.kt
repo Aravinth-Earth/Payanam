@@ -62,7 +62,7 @@ import java.util.Locale
  */
 @Composable
 /**
- * Get life dimension color.
+ * Returns the get life dimension color.
  */
 fun getLifeDimensionColor(dimensionId: String): Color {
     val preferences = io.payanam.ui.viewmodel.LocalAppPreferences.current
@@ -88,7 +88,7 @@ private val dayNumberFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(
  */
 @Immutable
 /**
- * DayCheckmark.
+ * Holds the day checkmark.
  */
 data class DayCheckmark(
     val date: LocalDate,
@@ -103,7 +103,7 @@ data class DayCheckmark(
  */
 @Composable
 /**
- * Calculate button count.
+ * Performs the calculate button count.
  */
 fun calculateButtonCount(
     scoreRingWidth: Dp = 28.dp, // Reduced from 48dp
@@ -127,7 +127,7 @@ fun calculateButtonCount(
  */
 @Composable
 /**
- * Score ring.
+ * Performs the score ring.
  */
 fun ScoreRing(
     score: Double,
@@ -181,7 +181,7 @@ fun ScoreRing(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 /**
- * Checkmark button.
+ * Returns true when the checkmark button.
  */
 fun CheckmarkButton(
     checkmark: DayCheckmark,
@@ -298,7 +298,7 @@ fun CheckmarkButton(
  */
 @Composable
 /**
- * Checkmark panel.
+ * Returns true when the checkmark panel.
  */
 fun CheckmarkPanel(
     checkmarks: List<DayCheckmark>,
@@ -338,7 +338,7 @@ fun CheckmarkPanel(
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
 /**
- * Habit card.
+ * Performs the habit card.
  */
 fun HabitCard(
     task: Task,
@@ -421,7 +421,7 @@ fun HabitCard(
  */
 @Composable
 /**
- * Day header row.
+ * Performs the day header row.
  */
 fun DayHeaderRow(
     buttonCount: Int,

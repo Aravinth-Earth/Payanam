@@ -15,9 +15,8 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
 /**
- * TimeTagEditorUiState.
+ * Holds the time tag editor ui state.
  */
 data class TimeTagEditorUiState(
     val tagSuggestions: List<String> = emptyList(),
@@ -27,7 +26,7 @@ data class TimeTagEditorUiState(
 
 @HiltViewModel
 /**
- * TimeTagEditorViewModel.
+ * Provides the time tag editor view model.
  */
 class TimeTagEditorViewModel @Inject constructor(
     private val tagRepository: TagRepository,
@@ -53,9 +52,8 @@ class TimeTagEditorViewModel @Inject constructor(
                 }
         }
     }
-
     /**
-     * Load entry tags.
+     * Loads the load entry tags.
      */
     fun loadEntryTags(entryId: String?) {
         entryTagsJob?.cancel()
@@ -69,9 +67,8 @@ class TimeTagEditorViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Save entry tags.
+     * Writes the save entry tags.
      */
     fun saveEntryTags(entryId: String, tags: List<String>) {
         viewModelScope.launch {
@@ -86,9 +83,8 @@ class TimeTagEditorViewModel @Inject constructor(
             )
         }
     }
-
     /**
-     * Load task tags.
+     * Loads the load task tags.
      */
     fun loadTaskTags(taskId: String?) {
         taskTagsJob?.cancel()
@@ -102,9 +98,8 @@ class TimeTagEditorViewModel @Inject constructor(
             }
         }
     }
-
     /**
-     * Save task tags.
+     * Writes the save task tags.
      */
     fun saveTaskTags(taskId: String, tags: List<String>) {
         viewModelScope.launch {

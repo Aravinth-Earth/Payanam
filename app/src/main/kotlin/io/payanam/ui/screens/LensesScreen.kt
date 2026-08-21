@@ -59,7 +59,7 @@ internal const val LENS_DAY_MINUTES = 24 * 60
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Lenses screen.
+ * Performs the lenses screen.
  */
 fun LensesScreen(
     viewModel: LensViewModel = hiltViewModel(),
@@ -79,7 +79,7 @@ fun LensesScreen(
     var journalExpanded by rememberSaveable { mutableStateOf(false) }
     var notesExpanded by rememberSaveable { mutableStateOf(false) }
     /**
-     * Toggle exclusive.
+     * Performs the toggle exclusive.
      */
     fun toggleExclusive(section: String) {
         val shouldExpand = when (section) {

@@ -13,10 +13,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
-
-/**
- * TimeVisualsCalculatorTest.
- */
 class TimeVisualsCalculatorTest {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
@@ -47,9 +43,6 @@ class TimeVisualsCalculatorTest {
     }
 
     @Test
-    /**
-     * Compute day overall counts overlap and gap.
-     */
     fun computeDayOverall_counts_overlap_and_gap() {
         logger?.d("TimeVisualsCalculatorTest.computeDayOverall", "Running overlap/gap regression case")
         val day = LocalDate.of(2026, 2, 15)
@@ -65,9 +58,6 @@ class TimeVisualsCalculatorTest {
     }
 
     @Test
-    /**
-     * Compute per dimension builds plan vs actual.
-     */
     fun computePerDimension_builds_plan_vs_actual() {
         logger?.d("TimeVisualsCalculatorTest.computePerDimension", "Running plan-vs-actual baseline case")
         val day = LocalDate.of(2026, 2, 15)

@@ -21,9 +21,8 @@ import java.time.temporal.ChronoUnit
 
 internal object DailyStatsCalculator {
     private val logger get() = if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance() else null
-
     /**
-     * Calculate daily focus averages.
+     * Performs the calculate daily focus averages.
      */
     fun calculateDailyFocusAverages(entries: List<TimeEntry>): List<DailyFocusStat> {
         val segments = splitToDaySegments(entries)
@@ -52,9 +51,8 @@ internal object DailyStatsCalculator {
         )
         return result
     }
-
     /**
-     * Calculate daily tracked time stats.
+     * Performs the calculate daily tracked time stats.
      */
     fun calculateDailyTrackedTimeStats(entries: List<TimeEntry>): List<DailyTrackedTimeStat> {
         val segments = splitToDaySegments(entries)
@@ -83,9 +81,8 @@ internal object DailyStatsCalculator {
         )
         return result
     }
-
     /**
-     * Calculate daily focused hours stats.
+     * Performs the calculate daily focused hours stats.
      */
     fun calculateDailyFocusedHoursStats(entries: List<TimeEntry>): List<DailyFocusedHoursStat> {
         val segments = splitToDaySegments(entries)
@@ -117,9 +114,8 @@ internal object DailyStatsCalculator {
         )
         return result
     }
-
     /**
-     * Calculate average daily time table.
+     * Performs the calculate average daily time table.
      */
     fun calculateAverageDailyTimeTable(
         entries: List<TimeEntry>,
@@ -339,9 +335,8 @@ internal object DailyStatsCalculator {
         }
         return result
     }
-
     /**
-     * Calculate dimension split.
+     * Performs the calculate dimension split.
      */
     fun calculateDimensionSplit(
         entries: List<TimeEntry>,

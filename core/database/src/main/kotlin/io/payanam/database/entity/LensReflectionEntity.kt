@@ -25,7 +25,7 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * LensReflectionEntity.
+ * Holds the lens reflection entity.
  */
 data class LensReflectionEntity(
     @PrimaryKey

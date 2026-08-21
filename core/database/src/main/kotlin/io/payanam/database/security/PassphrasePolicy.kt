@@ -1,18 +1,13 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.security
-
-/**
- * PassphrasePolicy.
- */
 object PassphrasePolicy {
     private const val MIN_LENGTH = 12
     private val logger =
         io.payanam.common.logging.UnifiedLogger
             .getInstance()
-
     /**
-     * Validate.
+     * Returns true when the validate.
      */
     fun validate(passphrase: String): PassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {
@@ -54,9 +49,8 @@ object PassphrasePolicy {
         return PassphraseValidation(isValid = true, reasonCode = null)
     }
 }
-
 /**
- * PassphraseValidation.
+ * Holds the passphrase validation.
  */
 data class PassphraseValidation(
     val isValid: Boolean,

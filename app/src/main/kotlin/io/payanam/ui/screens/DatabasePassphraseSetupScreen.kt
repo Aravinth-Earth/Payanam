@@ -49,7 +49,7 @@ import java.util.Locale
 
 @Composable
 /**
- * Database passphrase setup screen.
+ * Performs the database passphrase setup screen.
  */
 fun DatabasePassphraseSetupScreen(
     onPassphraseConfigured: () -> Unit,

@@ -71,7 +71,7 @@ private val logger = UnifiedLogger.getInstance()
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 /**
- * Add task screen.
+ * Performs the add task screen.
  */
 fun AddTaskScreen(
     viewModel: AddTaskViewModel = hiltViewModel(),

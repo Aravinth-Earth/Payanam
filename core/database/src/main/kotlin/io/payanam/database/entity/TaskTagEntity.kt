@@ -27,7 +27,7 @@ import androidx.room.Index
     indices = [Index("task_id"), Index("tag_id")],
 )
 /**
- * TaskTagEntity.
+ * Holds the task tag entity.
  */
 data class TaskTagEntity(
     @ColumnInfo(name = "task_id")

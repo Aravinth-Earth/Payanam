@@ -12,15 +12,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * LensesTimeModuleScoreTest.
- */
 class LensesTimeModuleScoreTest {
 
     @Before
-    /**
-     * Set up.
-     */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -62,9 +56,6 @@ class LensesTimeModuleScoreTest {
     }
 
     @Test
-    /**
-     * Format signed minutes formats sign and magnitude.
-     */
     fun formatSignedMinutes_formatsSignAndMagnitude() {
         assertEquals("+1h", formatSignedMinutes(60))
         assertEquals("-30m", formatSignedMinutes(-30))
@@ -72,9 +63,6 @@ class LensesTimeModuleScoreTest {
     }
 
     @Test
-    /**
-     * Format lens score uses five decimals.
-     */
     fun formatLensScore_usesFiveDecimals() {
         assertEquals("0.12500", formatLensScore(0.125))
         assertEquals("1.00000", formatLensScore(2.0))

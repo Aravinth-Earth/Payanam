@@ -20,9 +20,6 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 
 @RunWith(RobolectricTestRunner::class)
-/**
- * TimeScreenGapRangeRegressionTest.
- */
 class TimeScreenGapRangeRegressionTest {
     private val logger: UnifiedLogger by lazy {
         val context = ApplicationProvider.getApplicationContext<Context>()

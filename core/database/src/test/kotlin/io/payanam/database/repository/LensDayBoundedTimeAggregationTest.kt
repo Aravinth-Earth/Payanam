@@ -15,12 +15,12 @@ import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
 /**
- * LensDayBoundedTimeAggregationTest.
+ * Provides the lens day bounded time aggregation test.
  */
 class LensDayBoundedTimeAggregationTest {
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
@@ -46,7 +46,7 @@ class LensDayBoundedTimeAggregationTest {
 
     @Test
     /**
-     * Day bounded duration minutes caps entry at day end.
+     * Performs the day bounded duration minutes caps entry at day end.
      */
     fun dayBoundedDurationMinutes_capsEntryAtDayEnd() {
         val day = LocalDate.of(2026, 2, 18)
@@ -58,7 +58,7 @@ class LensDayBoundedTimeAggregationTest {
 
     @Test
     /**
-     * Day bounded duration minutes returns zero when no overlap.
+     * Performs the day bounded duration minutes returns zero when no overlap.
      */
     fun dayBoundedDurationMinutes_returnsZeroWhenNoOverlap() {
         val day = LocalDate.of(2026, 2, 18)

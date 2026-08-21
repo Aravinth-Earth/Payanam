@@ -28,7 +28,7 @@ import javax.inject.Singleton
  */
 @Singleton
 /**
- * AppStartUpdateChecker.
+ * Provides the app start update checker.
  */
 class AppStartUpdateChecker @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -37,9 +37,8 @@ class AppStartUpdateChecker @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
-
     /**
-     * On app start.
+     * Handles the on app start.
      */
     fun onAppStart() {
         scope.launch {

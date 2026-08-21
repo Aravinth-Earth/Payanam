@@ -10,34 +10,34 @@ import io.payanam.database.entity.ScoringConfigEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data Access Object for Scoring Configuration.
+ * Data access object for scoring configuration.
  */
 @Dao
 /**
- * ScoringConfigDao.
+ * Defines the contract for scoring config dao.
  */
 interface ScoringConfigDao {
     @Query("SELECT * FROM scoring_config WHERE id = 1")
     /**
-     * Get config.
+     * Returns the get config.
      */
     suspend fun getConfig(): ScoringConfigEntity?
 
     @Query("SELECT * FROM scoring_config WHERE id = 1")
     /**
-     * Observe config.
+     * Registers the observe config.
      */
     fun observeConfig(): Flow<ScoringConfigEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Upsert config.
+     * Performs the upsert config.
      */
     suspend fun upsertConfig(config: ScoringConfigEntity)
 
     @Query("DELETE FROM scoring_config WHERE id = 1")
     /**
-     * Delete config.
+     * Removes the delete config.
      */
     suspend fun deleteConfig()
 }

@@ -26,7 +26,7 @@ class DatabaseSessionLifecycleTest {
 
     @Before
     /**
-     * Set up.
+     * Updates the set up.
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
@@ -48,7 +48,7 @@ class DatabaseSessionLifecycleTest {
 
     @After
     /**
-     * Tear down.
+     * Performs the tear down.
      */
     fun tearDown() {
         sessionManager.closeDatabase()
@@ -57,7 +57,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Open database creates new database session.
+     * Shows the open database creates new database session.
      */
     fun openDatabase_createsNewDatabaseSession() =
         runTest {
@@ -80,7 +80,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Open database idempotent with same passphrase.
+     * Shows the open database idempotent with same passphrase.
      */
     fun openDatabase_idempotentWithSamePassphrase() =
         runTest {
@@ -105,7 +105,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Open database with different passphrase rejects wrong key.
+     * Shows the open database with different passphrase rejects wrong key.
      */
     fun openDatabase_withDifferentPassphraseRejectsWrongKey() =
         runTest {
@@ -135,7 +135,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Close database nullifies database reference.
+     * Performs the close database nullifies database reference.
      */
     fun closeDatabase_nullifiesDatabaseReference() =
         runTest {
@@ -160,7 +160,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Require open passphrase throws when database not open.
+     * Performs the require open passphrase throws when database not open.
      */
     fun requireOpenPassphrase_throwsWhenDatabaseNotOpen() {
         // Arrange: Ensure database is not open
@@ -182,7 +182,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Require database throws when database not open.
+     * Performs the require database throws when database not open.
      */
     fun requireDatabase_throwsWhenDatabaseNotOpen() {
         // Arrange: Ensure database is not open
@@ -204,7 +204,7 @@ class DatabaseSessionLifecycleTest {
 
     @Test
     /**
-     * Open database multiple sequential operations.
+     * Shows the open database multiple sequential operations.
      */
     fun openDatabase_multipleSequentialOperations() =
         runTest {
