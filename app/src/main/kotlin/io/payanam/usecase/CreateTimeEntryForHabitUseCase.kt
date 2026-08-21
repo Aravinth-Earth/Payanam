@@ -19,9 +19,6 @@ import javax.inject.Singleton
  * Extracted from TasksViewModel to maintain file size limits.
  */
 @Singleton
-/**
- * Returns the time entry for habit use case.
- */
 class CreateTimeEntryForHabitUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val appSettingsRepository: AppSettingsRepository,
