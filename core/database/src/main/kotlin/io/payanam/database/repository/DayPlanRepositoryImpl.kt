@@ -39,7 +39,12 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("TooManyFunctions")
 /**
- * Provides the day plan repository impl.
+ * Room-backed implementation of [DayPlanRepository]. Manages per-day planned
+ * time allocations across three modes — [MODE_AUTO] (derive from a day-type
+ * template), [MODE_TEMPLATE] (apply a specific template), [MODE_CUSTOM]
+ * (explicit allocations) — plus reusable templates and weekday/weekend/starred
+ * day-type preferences. Past days are immutable; every mutation marks the day's
+ * insight dirty.
  */
 class DayPlanRepositoryImpl
     @Inject
@@ -52,7 +57,8 @@ class DayPlanRepositoryImpl
         // ---- Day Allocations ----
 
         /**
-         * Registers the observe allocations for day.
+         * Emits the explicit per-[dayKey] allocations, mapped to records, as a
+         * [Flow].
          */
         override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> {
             logger.d("DayPlanRepositoryImpl.observeAllocationsForDay", "Subscribing to allocations for day", mapOf("dayKey" to dayKey))
@@ -62,7 +68,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the allocations for day.
+         * Returns the explicit per-[dayKey] allocations as a one-shot list of
+         * records (no template resolution).
          */
         override suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d("DayPlanRepositoryImpl.getAllocationsForDay", "Fetching allocations for day", mapOf("dayKey" to dayKey))
@@ -74,7 +81,11 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the effective allocations for day.
+         * Resolves the allocations actually shown for [dayKey] given its mode:
+         * CUSTOM → explicit rows; TEMPLATE → that template's allocations (falls back
+         * to explicit if the template is empty); AUTO → the day-type template
+         * (starred > weekday/weekend) derived allocations. Returns an empty list when
+         * nothing resolves.
          */
         override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d(
@@ -138,7 +149,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the set allocation.
+         * Sets or replaces one [dimensionId]'s planned minutes for [dayKey], forcing
+         * the day to CUSTOM mode. Rejects past days. Marks the day insight-dirty.
          */
         override suspend fun setAllocation(
             dayKey: String,
@@ -172,7 +184,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the set allocations.
+         * Replaces ALL of [dayKey]'s allocations atomically with [allocations]
+         * (delete-then-insert in one transaction), forcing CUSTOM mode. Rejects past
+         * days. Marks the day insight-dirty.
          */
         override suspend fun setAllocations(
             dayKey: String,
@@ -210,7 +224,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the apply template to day.
+         * Applies [templateId]'s allocations to [dayKey] (delete-then-insert in a
+         * transaction) and sets the day to TEMPLATE mode. Rejects past days and
+         * empty templates. Marks the day insight-dirty.
          */
         override suspend fun applyTemplateToDay(
             dayKey: String,
@@ -256,7 +272,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Removes the clear day plan.
+         * Clears [dayKey]'s allocations and resets its mode to AUTO (deletes + upsert
+         * in a transaction). Rejects past days. Marks the day insight-dirty.
          */
         override suspend fun clearDayPlan(dayKey: String) {
             requireTodayOrFuture(dayKey)
@@ -269,7 +286,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the day policy.
+         * Returns the day policy for [dayKey] (mode/template/starred), defaulting to
+         * AUTO when no row is stored yet.
          */
         override suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord {
             logger.d("DayPlanRepositoryImpl.getDayPolicy", "Fetching day policy", mapOf("dayKey" to dayKey))
@@ -278,7 +296,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the set day mode.
+         * Sets [dayKey]'s plan mode (AUTO/TEMPLATE/CUSTOM) and optional
+         * [templateId]; CUSTOM/TEMPLATE reject a template id. Rejects past days and
+         * unknown modes. Marks the day insight-dirty.
          */
         override suspend fun setDayMode(
             dayKey: String,
@@ -308,7 +328,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the set day starred.
+         * Toggles the starred flag for [dayKey] (keeps its current mode/template).
+         * Starred days win AUTO template resolution. Rejects past days. Marks the day
+         * insight-dirty.
          */
         override suspend fun setDayStarred(
             dayKey: String,
@@ -334,7 +356,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the day type template preference.
+         * Returns the preferred template id for a day [dayType] (weekday/weekend/
+         * starred), or null when none is set.
          */
         override suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord {
             require(dayType == DAY_TYPE_WEEKDAY || dayType == DAY_TYPE_WEEKEND || dayType == DAY_TYPE_STARRED) {
@@ -353,7 +376,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the set day type template preference.
+         * Sets the preferred [templateId] for a day [dayType] (weekday/weekend/
+         * starred). Rejects unknown day types. This is what AUTO mode resolves to.
          */
         override suspend fun setDayTypeTemplatePreference(
             dayType: String,
@@ -377,7 +401,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the template for day.
+         * Resolves which template should apply to [dayKey] via AUTO/TEMPLATE mode
+         * resolution (starred wins → day-type preference → null). Returns the
+         * active template record, or null.
          */
         override suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord? {
             logger.d(
@@ -393,7 +419,8 @@ class DayPlanRepositoryImpl
         // ---- Templates ----
 
         /**
-         * Registers the observe active templates.
+         * Emits only active (soft-deleted excluded) templates with their allocation
+         * summaries, ordered by sort position, as a [Flow].
          */
         override fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>> {
             logger.d("DayPlanRepositoryImpl.observeActiveTemplates", "Subscribing to active templates")
@@ -403,7 +430,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Registers the observe all templates.
+         * Emits all templates (including soft-deleted) with allocation summaries,
+         * as a [Flow]. Primarily used for admin/export views.
          */
         override fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>> {
             logger.d("DayPlanRepositoryImpl.observeAllTemplates", "Subscribing to all templates")
@@ -413,7 +441,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the template by id.
+         * Returns the template [id] with its allocation records, or null if not
+         * found.
          */
         override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? {
             logger.d("DayPlanRepositoryImpl.getTemplateById", "Fetching template by id", mapOf("id" to id))
@@ -426,7 +455,10 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Creates the create template.
+         * Creates a new template with [name], optional [description], and
+         * [allocations] (dimension → minutes). Fails if the active template count
+         * is already at the limit. Returns the new template's id. Inserts
+         * template allocation rows inside a transaction.
          */
         override suspend fun createTemplate(
             name: String,
@@ -480,7 +512,9 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Updates the update template.
+         * Updates the template [id] with a new [name], [description], and
+         * [allocations]. Replaces all allocation rows inside a transaction. No-ops
+         * silently when the template does not exist.
          */
         override suspend fun updateTemplate(
             id: String,
@@ -524,7 +558,8 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Removes the delete template.
+         * Soft-deletes the template [id] by marking it inactive rather than removing
+         * the row.
          */
         override suspend fun deleteTemplate(id: String) {
             val now = LocalDateTime.now().format(formatter)
