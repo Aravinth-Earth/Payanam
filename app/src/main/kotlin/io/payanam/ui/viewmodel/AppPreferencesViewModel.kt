@@ -290,17 +290,17 @@ data class AppPreferencesState(
 )
 val LocalAppPreferences = compositionLocalOf { AppPreferencesState() }
 /**
- * Performs the app preferences state.
+ * Resolves the display label for [dimensionName], checking dimension prefs then dynamic options, falling back to the raw name.
  */
 fun AppPreferencesState.labelFor(dimensionName: String): String = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.label
     ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.label
     ?: dimensionName
 /**
- * Performs the app preferences state.
+ * Resolves the display label for a dimension by its [dimensionId], or null.
  */
 fun AppPreferencesState.labelForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.label
 /**
- * Performs the app preferences state.
+ * Resolves a dimension label: tries the [dimensionId] first, then falls back to looking up [dimensionName] via labelFor.
  */
 fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: String?): String? {
     val directLabel = labelForDimensionId(dimensionId)
@@ -314,7 +314,7 @@ fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: S
     return labelFor(fallbackName)
 }
 /**
- * Performs the app preferences state.
+ * True when [option] matches the given dimension (by id or resolved label).
  */
 fun AppPreferencesState.matchesDimensionOption(
     option: DimensionOption,
@@ -334,25 +334,25 @@ fun AppPreferencesState.matchesDimensionOption(
     return labelForDimension(dimensionId, normalizedName) == option.label
 }
 /**
- * Performs the app preferences state.
+ * Resolves the color for [dimensionName] from prefs/dynamic options, falling back to the canonical dimension color.
  */
 fun AppPreferencesState.colorFor(dimensionName: String): Color = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.color
     ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.color
     ?: LifeDimensionColors.forDimension(dimensionName)
 /**
- * Performs the app preferences state.
+ * Resolves the color for a dimension by its [dimensionId], or null.
  */
 fun AppPreferencesState.colorForDimensionId(dimensionId: String?): Color? = findDimensionOption(dimensionId)?.color
 /**
- * Performs the app preferences state.
+ * Resolves the icon key for a dimension by its [dimensionId], or null.
  */
 fun AppPreferencesState.iconKeyForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.iconKey
 /**
- * Performs the app preferences state.
+ * Resolves the icon option for a dimension by its [dimensionId], or null.
  */
 fun AppPreferencesState.iconOptionForDimensionId(dimensionId: String?): DimensionIconOption? = findDimensionOption(dimensionId)?.let { DimensionIconCatalog.resolve(it.iconKey, it.id) }
 /**
- * Performs the app preferences state.
+ * True when auto-tracking is enabled for [dimensionId] (matching canonical id too).
  */
 fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Boolean {
     val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
@@ -364,12 +364,12 @@ fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Bo
     }?.value ?: false
 }
 /**
- * Performs the app preferences state.
+ * Resolves a dimension color: by [dimensionId] first, then by resolved [dimensionName].
  */
 fun AppPreferencesState.colorForDimension(dimensionId: String?, dimensionName: String?): Color? = colorForDimensionId(dimensionId)
     ?: dimensionName?.trim()?.takeIf { it.isNotEmpty() }?.let(::colorFor)
 /**
- * Performs the app preferences state.
+ * True when the dimension [dimensionId] is in the visible set (defaults to visible).
  */
 fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
     val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return true
@@ -383,19 +383,19 @@ fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
     }
 }
 /**
- * Performs the app preferences state.
+ * True when the named dimension [dimensionName] is visible (defaults to visible).
  */
 fun AppPreferencesState.isVisible(dimensionName: String): Boolean = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.isVisible ?: true
 /**
- * Performs the app preferences state.
+ * The task filter to use at launch: the launch-destination filter, or the current one.
  */
 fun AppPreferencesState.effectiveLaunchTaskFilter(): TaskFilter = launchDestination.taskFilter ?: currentTaskFilter
 /**
- * Performs the app preferences state.
+ * All dimension preferences marked visible.
  */
 fun AppPreferencesState.visibleDimensions(): List<DimensionPreference> = dimensionPreferences.filter { it.isVisible }
 /**
- * Performs the app preferences state.
+ * Dimension preferences offered for selection: visible ones, plus [selected] even if hidden.
  */
 fun AppPreferencesState.optionsForSelection(selected: LifeDimension?): List<DimensionPreference> {
     if (selected == null) {
@@ -404,7 +404,7 @@ fun AppPreferencesState.optionsForSelection(selected: LifeDimension?): List<Dime
     return dimensionPreferences.filter { it.isVisible || it.canonicalId == selected.id || it.id == selected.id }
 }
 /**
- * Performs the app preferences state.
+ * Merged, de-duplicated, visible dimension options (defaults + dynamic).
  */
 fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
     val defaults = dimensionPreferences.map {
@@ -424,7 +424,7 @@ fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
         .filter { it.isVisible }
 }
 /**
- * Performs the app preferences state.
+ * Dimension options for selection: visible ones, or all when [selectedDimensionId] is blank; [selectedDimensionId] itself is always included.
  */
 fun AppPreferencesState.optionsForSelection(selectedDimensionId: String?): List<DimensionOption> {
     val defaults = dimensionPreferences.map {

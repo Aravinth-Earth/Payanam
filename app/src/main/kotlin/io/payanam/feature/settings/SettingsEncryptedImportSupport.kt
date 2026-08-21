@@ -29,7 +29,12 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
     )
 }
 /**
- * Updates the settings view model.
+ * Starts an encrypted/plaintext database import from [sourceUri]: backs up the
+ * current DB + encryption prefs, swaps in the imported file, and either
+ * re-encrypts it (when local encryption is on) or validates the schema. If the
+ * imported file is encrypted it pauses and surfaces [awaitingImportPassphrase];
+ * the coroutine then resumes via [resumeImportWithPassphrase]. On failure the
+ * pre-import backup is restored.
  */
 @Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
@@ -318,7 +323,10 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     }
 }
 /**
- * Updates the settings view model.
+ * Resumes a paused encrypted import: verifies [passphrase] can unlock the
+ * imported DB, adopts it as the new local passphrase, then discards the prefs
+ * + artifact backups and reports the imported counts. On a wrong passphrase it
+ * stays on the gate; on any other failure it restores the backups.
  */
 @Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
@@ -450,7 +458,9 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
     }
 }
 /**
- * Updates the settings view model.
+ * Aborts a paused encrypted-import passphrase gate: restores the original
+ * encryption prefs, deletes the staged imported DB, restores any pre-import
+ * artifact backup, and clears the passphrase UI state.
  */
 fun SettingsViewModel.cancelImportPassphrase() {
     logger.i("SettingsViewModel.cancelImportPassphrase", "User cancelled encrypted import passphrase prompt")
