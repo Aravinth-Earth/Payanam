@@ -30,9 +30,6 @@ data class ScoringConfigUiState(
  * ViewModel for the scoring configuration screen.
  */
 @HiltViewModel
-/**
- * Provides the scoring config view model.
- */
 class ScoringConfigViewModel @Inject constructor(
     private val scoringConfigRepository: ScoringConfigRepository,
 ) : ViewModel() {
@@ -64,37 +61,37 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Factor Weight Updates =====
     /**
-     * Updates the set dimension weight.
+     * Sets the overall weight of the dimension-allocation scoring factor.
      */
     fun setDimensionWeight(value: Double) {
         updateConfig { it.copy(dimensionWeight = value) }
     }
     /**
-     * Updates the set impact weight.
+     * Configures the weight of the impact level in the overall score.
      */
     fun setImpactWeight(value: Double) {
         updateConfig { it.copy(impactWeight = value) }
     }
     /**
-     * Updates the set alignment weight.
+     * Configures the weight of the alignment level in the overall score.
      */
     fun setAlignmentWeight(value: Double) {
         updateConfig { it.copy(alignmentWeight = value) }
     }
     /**
-     * Updates the set energy weight.
+     * Configures the weight of the energy level in the overall score.
      */
     fun setEnergyWeight(value: Double) {
         updateConfig { it.copy(energyWeight = value) }
     }
     /**
-     * Updates the set control weight.
+     * Configures the weight of the control level in the overall score.
      */
     fun setControlWeight(value: Double) {
         updateConfig { it.copy(controlWeight = value) }
     }
     /**
-     * Updates the set duration weight.
+     * Sets the weight of the time-duration factor in the overall score.
      */
     fun setDurationWeight(value: Double) {
         updateConfig { it.copy(durationWeight = value) }
@@ -102,7 +99,7 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Impact Level Updates =====
     /**
-     * Updates the set impact level value.
+     * Sets the numeric weight mapped to impact [level] (e.g. "high"/"medium"/"low").
      */
     fun setImpactLevelValue(level: String, value: Double) {
         updateConfig {
@@ -112,7 +109,7 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Alignment Level Updates =====
     /**
-     * Updates the set alignment value.
+     * Sets the numeric weight mapped to alignment [level].
      */
     fun setAlignmentValue(level: String, value: Double) {
         updateConfig {
@@ -122,7 +119,7 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Energy Level Updates =====
     /**
-     * Updates the set energy level value.
+     * Sets the numeric weight mapped to energy [level].
      */
     fun setEnergyLevelValue(level: String, value: Double) {
         updateConfig {
@@ -132,7 +129,7 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Control Level Updates =====
     /**
-     * Updates the set control level value.
+     * Sets the numeric weight mapped to control [level].
      */
     fun setControlLevelValue(level: String, value: Double) {
         updateConfig {
@@ -142,7 +139,8 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Dimension Weight Updates =====
     /**
-     * Updates the set dimension value.
+     * Sets the weight for a life dimension identified by [dimensionId] (canonicalized
+     * via the taxonomy before storing).
      */
     fun setDimensionValue(dimensionId: String, value: Double) {
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: dimensionId
@@ -153,7 +151,8 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension value.
+     * Sets the weight for a life [dimension] (delegates to the id-based overload
+     * after canonicalizing its id).
      */
     fun setDimensionValue(dimension: LifeDimension, value: Double) {
         setDimensionValue(dimension.id, value)
@@ -161,7 +160,7 @@ class ScoringConfigViewModel @Inject constructor(
 
     // ===== Actions =====
     /**
-     * Writes the save config.
+     * Persists the current in-progress config and clears the "has changes" flag.
      */
     fun saveConfig() {
         viewModelScope.launch {
@@ -179,7 +178,7 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the reset to defaults.
+     * Reverts the config to the app defaults (persisting them) and clears changes.
      */
     fun resetToDefaults() {
         viewModelScope.launch {
@@ -194,7 +193,7 @@ class ScoringConfigViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the discard changes.
+     * Discards unsaved edits, restoring the last-loaded config.
      */
     fun discardChanges() {
         logger.i("ScoringConfigViewModel.discardChanges", "Discarding config changes")
