@@ -26,7 +26,8 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 /**
- * Holds the database passphrase change ui state.
+ * UI state for the passphrase-change screen: saving flag, error reason code,
+ * and success flag (triggers the process restart).
  */
 data class DatabasePassphraseChangeUiState(
     val isSaving: Boolean = false,
@@ -34,10 +35,12 @@ data class DatabasePassphraseChangeUiState(
     val isSuccess: Boolean = false,
 )
 
-@HiltViewModel
 /**
- * Provides the database passphrase change view model.
+ * Passphrase-change ViewModel: validates the new passphrase, rekeys the
+ * encrypted database with backup/rollback safety, then restarts the process
+ * for a clean re-auth.
  */
+@HiltViewModel
 class DatabasePassphraseChangeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val encryptionManager: DatabaseEncryptionManager,
@@ -47,7 +50,9 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(DatabasePassphraseChangeUiState())
     val uiState: StateFlow<DatabasePassphraseChangeUiState> = _uiState.asStateFlow()
     /**
-     * Performs the submit.
+     * Validates and applies a passphrase change: policy + confirm checks,
+     * verified current passphrase, artifact backup, rekey, rollback on any
+     * failure, then process restart on success.
      */
     fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
         val validation = PassphrasePolicy.validate(newPassphrase)
