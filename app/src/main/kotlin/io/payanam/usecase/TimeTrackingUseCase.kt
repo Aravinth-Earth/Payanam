@@ -20,9 +20,6 @@ import javax.inject.Singleton
  * Use case for time tracking operations that include task completion logic.
  */
 @Singleton
-/**
- * Provides the time tracking use case.
- */
 class TimeTrackingUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val taskRepository: TaskRepository,
