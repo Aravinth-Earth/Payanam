@@ -7,7 +7,10 @@ package io.payanam.feature.settings
 import io.payanam.BuildConfig
 import io.payanam.database.DatabaseHealthChecker
 /**
- * Holds the settings ui state.
+ * UI state for the Settings screen: database stats/artifacts, import/export
+ * and uHabits-import progress + results, encryption unlock settings, self-
+ * update channel preferences and download/install state, plus the delete-
+ * database prompt flag.
  */
 data class SettingsUiState(
     val taskCount: Int = 0,
@@ -55,24 +58,26 @@ data class SettingsUiState(
     }
 }
 /**
- * Returns the result.
+ * Outcome of a database export: [Success] with the written file name, or
+ * [Error] with a user-facing message.
  */
 sealed class ExportResult {
     /**
-     * Holds the success.
+     * Export finished; [fileName] identifies the written backup file.
      */
     data class Success(val fileName: String) : ExportResult()
     /**
-     * Holds the error.
+     * Export failed; [message] is user-displayable.
      */
     data class Error(val message: String) : ExportResult()
 }
 /**
- * Returns the result.
+ * Outcome of a full-database JSON import: per-type row counts on [Success]
+ * (optionally requiring an app restart), or [Error].
  */
 sealed class ImportResult {
     /**
-     * Holds the success.
+     * Import finished with the number of tasks/time entries/notes imported.
      */
     data class Success(
         val tasksImported: Int,
@@ -81,33 +86,34 @@ sealed class ImportResult {
         val requiresAppRestart: Boolean = false,
     ) : ImportResult()
     /**
-     * Holds the error.
+     * Import failed; [message] is user-displayable.
      */
     data class Error(val message: String) : ImportResult()
 }
 /**
- * Provides the uhabits import result.
+ * Outcome of a uHabits database import: upsert counts on success, or [Error].
  */
 sealed class UhabitsImportResult {
     /**
-     * Holds the success.
+     * Import finished: habits + repetitions upserted counts.
      */
     data class Success(val habitsUpserted: Int, val repetitionsUpserted: Int) : UhabitsImportResult()
     /**
-     * Holds the error.
+     * Import failed; [message] is user-displayable.
      */
     data class Error(val message: String) : UhabitsImportResult()
 }
 /**
- * Provides the bulk habit mapping result.
+ * Outcome of bulk-tagging imported habits into a life dimension: mapped
+ * count + target dimension on success, or [Error].
  */
 sealed class BulkHabitMappingResult {
     /**
-     * Holds the success.
+     * Mapping finished: how many habits were tagged, into which dimension.
      */
     data class Success(val mappedCount: Int, val dimensionId: String) : BulkHabitMappingResult()
     /**
-     * Holds the error.
+     * Mapping failed; [message] is user-displayable.
      */
     data class Error(val message: String) : BulkHabitMappingResult()
 }
