@@ -6,18 +6,19 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 
+/**
+ * Hilt entry point letting WorkManager-instantiated backup workers resolve the
+ * coordinator and status store without field injection.
+ */
 @EntryPoint
 @InstallIn(SingletonComponent::class)
-/**
- * Defines the contract for backup worker entry point.
- */
 interface BackupWorkerEntryPoint {
     /**
-     * Performs the database backup coordinator.
+     * The singleton backup executor (snapshot + rotation).
      */
     fun databaseBackupCoordinator(): DatabaseBackupCoordinator
     /**
-     * Performs the backup status store.
+     * The persisted last-success/last-failure store shown in Settings.
      */
     fun backupStatusStore(): BackupStatusStore
 }
