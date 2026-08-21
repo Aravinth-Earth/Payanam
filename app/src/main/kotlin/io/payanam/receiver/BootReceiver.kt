@@ -23,9 +23,6 @@ import javax.inject.Inject
  * Restores active tracking notification after device boot.
  */
 @AndroidEntryPoint
-/**
- * Provides the boot receiver.
- */
 class BootReceiver : BroadcastReceiver() {
 
     @Inject
@@ -37,7 +34,8 @@ class BootReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Handles the on receive.
+     * On boot completion: restores any active tracking session + widget state
+     * and re-arms task reminders.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
