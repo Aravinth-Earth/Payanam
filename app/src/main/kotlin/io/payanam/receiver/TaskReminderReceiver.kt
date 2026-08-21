@@ -25,10 +25,12 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.math.abs
 
-@AndroidEntryPoint
 /**
- * Provides the task reminder receiver.
+ * Alarm-fired task reminder: validates extras, posts the notification on the
+ * right channel (with complete/skip/snooze/miss actions), and marks it
+ * delivered.
  */
+@AndroidEntryPoint
 class TaskReminderReceiver : BroadcastReceiver() {
 
     @Inject
@@ -38,7 +40,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Handles the on receive.
+     * Delivers the reminder asynchronously (goAsync) when reminders are on.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
