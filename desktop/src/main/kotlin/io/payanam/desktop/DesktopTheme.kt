@@ -16,9 +16,6 @@ internal object DesktopTheme {
     )
 
     @Composable
-    /**
-     * Performs the palette.
-     */
     fun palette(): Palette {
         val darkMaterial =
             darkColors(

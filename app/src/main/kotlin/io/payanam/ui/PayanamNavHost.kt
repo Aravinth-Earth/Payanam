@@ -173,9 +173,6 @@ val bottomNavItems = listOf(
 )
 
 @Composable
-/**
- * Performs the payanam nav host.
- */
 fun PayanamNavHost(
     shouldShowPassphraseUnlock: Boolean = false,
     shouldShowPassphraseSetup: Boolean = false,

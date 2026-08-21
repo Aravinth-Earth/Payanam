@@ -246,9 +246,6 @@ private suspend fun ScoreWindowRepository.resolveWindowStart(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the score detail screen.
- */
 fun ScoreDetailScreen(
     type: ScoreDetailType,
     key: String,

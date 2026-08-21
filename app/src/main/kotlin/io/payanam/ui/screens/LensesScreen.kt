@@ -58,9 +58,6 @@ internal const val LENS_DAY_MINUTES = 24 * 60
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the lenses screen.
- */
 fun LensesScreen(
     viewModel: LensViewModel = hiltViewModel(),
     onOpenTime: () -> Unit = {},

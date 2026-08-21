@@ -58,9 +58,6 @@ private fun hasAverageMetric(metric: ScoreMetricColumn): Boolean =
  * polar support in the pinned version).
  */
 @Composable
-/**
- * Performs the lens dimension radar section.
- */
 fun LensDimensionRadarSection(
     axes: List<RadarAxis>,
     selectedMetric: ScoreMetricColumn = ScoreMetricColumn.PROGRESS,

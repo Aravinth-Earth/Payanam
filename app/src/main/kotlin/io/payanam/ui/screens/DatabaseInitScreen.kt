@@ -68,9 +68,6 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-/**
- * Performs the database init screen.
- */
 fun DatabaseInitScreen(
     onDatabaseReady: () -> Unit,
     viewModel: DatabaseInitViewModel = hiltViewModel(),

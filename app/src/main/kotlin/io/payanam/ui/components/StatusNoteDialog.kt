@@ -75,9 +75,6 @@ data class StatusNoteResult(
  * @param onDismiss Callback when dialog is dismissed
  */
 @Composable
-/**
- * Performs the status note dialog.
- */
 fun StatusNoteDialog(
     isVisible: Boolean,
     action: StatusAction,
@@ -264,9 +261,6 @@ fun StatusNoteDialog(
  * Just shows a minimal confirmation.
  */
 @Composable
-/**
- * Performs the quick complete dialog.
- */
 fun QuickCompleteDialog(
     isVisible: Boolean,
     taskTitle: String,

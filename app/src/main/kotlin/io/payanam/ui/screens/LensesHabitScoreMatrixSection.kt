@@ -57,9 +57,6 @@ import java.util.Locale
  * Row tap opens the full detail page via [onRowSelected].
  */
 @Composable
-/**
- * Performs the lens habit score matrix section.
- */
 fun LensHabitScoreMatrixSection(
     viewModel: LensHabitScoreViewModel = hiltViewModel(),
     onRowSelected: (isDay: Boolean, key: String) -> Unit = { _, _ -> },

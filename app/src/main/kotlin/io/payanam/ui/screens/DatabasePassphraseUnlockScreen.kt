@@ -80,9 +80,6 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-/**
- * Performs the database passphrase unlock screen.
- */
 fun DatabasePassphraseUnlockScreen(
     onPassphraseUnlocked: () -> Unit,
     onForgotPassphraseReset: () -> Unit,

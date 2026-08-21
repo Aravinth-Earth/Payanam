@@ -20,9 +20,6 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 
 @Composable
-/**
- * Performs the tag editor field.
- */
 fun TagEditorField(
     rawValue: String,
     onValueChange: (String) -> Unit,

@@ -35,9 +35,6 @@ import io.payanam.ui.viewmodel.visibleDimensionOptions
  * Extracted from SettingsScreen to maintain file size limits.
  */
 @Composable
-/**
- * Performs the auto tracking section.
- */
 fun AutoTrackingSection(
     prefsState: AppPreferencesState,
     prefsViewModel: AppPreferencesViewModel,

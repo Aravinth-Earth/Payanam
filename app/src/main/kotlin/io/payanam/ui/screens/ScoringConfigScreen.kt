@@ -44,9 +44,6 @@ private val logger = UnifiedLogger.getInstance()
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the scoring config screen.
- */
 fun ScoringConfigScreen(
     viewModel: ScoringConfigViewModel = hiltViewModel(),
     onNavigateBack: () -> Unit = {},

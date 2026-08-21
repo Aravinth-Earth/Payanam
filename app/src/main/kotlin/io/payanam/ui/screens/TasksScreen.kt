@@ -154,9 +154,6 @@ private fun TraceTaskTabPhase(
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the tasks screen.
- */
 fun TasksScreen(
     mode: TasksScreenMode = TasksScreenMode.COMBINED,
     viewModel: TasksViewModel = hiltViewModel(),

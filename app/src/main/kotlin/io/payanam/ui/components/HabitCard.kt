@@ -61,9 +61,6 @@ import java.util.Locale
  * Uses dimensionId-first resolution to keep customized colors stable.
  */
 @Composable
-/**
- * Returns the life dimension color.
- */
 fun getLifeDimensionColor(dimensionId: String): Color {
     val preferences = io.payanam.ui.viewmodel.LocalAppPreferences.current
     return preferences.colorForDimensionId(dimensionId)
@@ -102,9 +99,6 @@ data class DayCheckmark(
  * Similar to uHabits' buttonCount calculation.
  */
 @Composable
-/**
- * Performs the calculate button count.
- */
 fun calculateButtonCount(
     scoreRingWidth: Dp = 28.dp, // Reduced from 48dp
     labelWidth: Dp = 120.dp, // Keep more width reserved for habit title text
@@ -126,9 +120,6 @@ fun calculateButtonCount(
  * Similar to uHabits' ScoreRing.
  */
 @Composable
-/**
- * Performs the score ring.
- */
 fun ScoreRing(
     score: Double,
     modifier: Modifier = Modifier,
@@ -180,9 +171,6 @@ fun ScoreRing(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-/**
- * Returns true when the checkmark button.
- */
 fun CheckmarkButton(
     checkmark: DayCheckmark,
     onClick: () -> Unit,
@@ -297,9 +285,6 @@ fun CheckmarkButton(
  * Responsive: button count adjusts to screen width.
  */
 @Composable
-/**
- * Returns true when the checkmark panel.
- */
 fun CheckmarkPanel(
     checkmarks: List<DayCheckmark>,
     onCheckmarkClick: (DayCheckmark) -> Unit,
@@ -337,9 +322,6 @@ fun CheckmarkPanel(
  */
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-/**
- * Performs the habit card.
- */
 fun HabitCard(
     task: Task,
     checkmarks: List<DayCheckmark>,
@@ -420,9 +402,6 @@ fun HabitCard(
  * Like uHabits HeaderView with weekday + day number.
  */
 @Composable
-/**
- * Performs the day header row.
- */
 fun DayHeaderRow(
     buttonCount: Int,
     modifier: Modifier = Modifier,

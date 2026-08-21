@@ -38,9 +38,6 @@ import io.payanam.ui.viewmodel.TaskDetailViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the task detail screen.
- */
 fun TaskDetailScreen(
     taskId: String,
     viewModel: TaskDetailViewModel = hiltViewModel(),

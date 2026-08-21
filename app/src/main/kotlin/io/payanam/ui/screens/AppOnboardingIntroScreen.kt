@@ -47,9 +47,6 @@ import kotlinx.coroutines.launch
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-/**
- * Performs the app onboarding intro screen.
- */
 fun AppOnboardingIntroScreen(
     onFinished: () -> Unit,
 ) {

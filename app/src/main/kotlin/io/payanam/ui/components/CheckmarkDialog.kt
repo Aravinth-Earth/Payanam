@@ -51,9 +51,6 @@ import java.time.format.DateTimeFormatter
  * Similar to uHabits' CheckmarkDialog.
  */
 @Composable
-/**
- * Returns true when the checkmark dialog.
- */
 fun CheckmarkDialog(
     date: LocalDate,
     currentStatus: CheckmarkStatus,
@@ -224,9 +221,6 @@ enum class CheckmarkSkipReason(@androidx.annotation.StringRes val labelRes: Int)
  * Extended dialog with skip reason selection.
  */
 @Composable
-/**
- * Returns true when the checkmark dialog with reason.
- */
 fun CheckmarkDialogWithReason(
     date: LocalDate,
     currentStatus: CheckmarkStatus,

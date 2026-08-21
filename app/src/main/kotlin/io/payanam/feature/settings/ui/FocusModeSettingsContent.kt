@@ -30,9 +30,6 @@ import io.payanam.ui.viewmodel.AppPreferencesState
  * Allows users to select preset tab configurations and toggle individual tab visibility.
  */
 @Composable
-/**
- * Performs the focus mode settings content.
- */
 fun focusModeSettingsContent(
     prefsState: AppPreferencesState,
     onSetActivePreset: (FocusModePreset) -> Unit,

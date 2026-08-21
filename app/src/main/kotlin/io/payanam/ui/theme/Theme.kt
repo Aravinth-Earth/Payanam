@@ -32,9 +32,6 @@ private val logger = UnifiedLogger.getInstance()
 private var lastThemeSignature: String? = null
 
 @Composable
-/**
- * Performs the payanam theme.
- */
 fun PayanamTheme(
     themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
     fontFamily: FontFamilyOption = FontFamilyOption.SANS_SERIF,

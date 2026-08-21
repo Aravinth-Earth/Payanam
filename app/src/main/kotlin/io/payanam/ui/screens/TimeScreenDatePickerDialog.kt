@@ -18,9 +18,6 @@ import java.time.ZoneId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the time screen date picker dialog.
- */
 fun TimeScreenDatePickerDialog(
     selectedDate: LocalDate,
     onDateSelected: (LocalDate) -> Unit,

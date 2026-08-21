@@ -54,9 +54,6 @@ enum class DayScreenMode {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-/**
- * Performs the day screen.
- */
 fun DayScreen(
     mode: DayScreenMode = DayScreenMode.JOURNAL_ONLY,
     viewModel: DayViewModel = hiltViewModel(),

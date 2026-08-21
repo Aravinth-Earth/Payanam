@@ -96,9 +96,6 @@ object PerfBaselineTelemetry {
 }
 
 @Composable
-/**
- * Performs the track recomposition.
- */
 fun TrackRecomposition(screen: String, section: String) {
     SideEffect {
         PerfBaselineTelemetry.incrementRecomposition(screen = screen, section = section)

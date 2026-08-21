@@ -52,9 +52,6 @@ import io.payanam.shared.settings.FocusModePreset
  * @param onPresetSelected Callback invoked when user selects a preset and continues
  */
 @Composable
-/**
- * Performs the focus mode selection screen.
- */
 fun FocusModeSelectionScreen(
     onPresetSelected: (FocusModePreset) -> Unit,
 ) {

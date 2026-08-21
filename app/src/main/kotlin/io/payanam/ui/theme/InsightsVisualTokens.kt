@@ -23,9 +23,6 @@ data class InsightsVisualTokens(
 )
 
 @Composable
-/**
- * Performs the remember insights visual tokens.
- */
 fun rememberInsightsVisualTokens(): InsightsVisualTokens {
     val logger = UnifiedLogger.getInstance()
     val colorScheme = MaterialTheme.colorScheme

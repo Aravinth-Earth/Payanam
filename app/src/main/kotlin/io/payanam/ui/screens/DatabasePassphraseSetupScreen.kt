@@ -48,9 +48,6 @@ import java.util.Date
 import java.util.Locale
 
 @Composable
-/**
- * Performs the database passphrase setup screen.
- */
 fun DatabasePassphraseSetupScreen(
     onPassphraseConfigured: () -> Unit,
     viewModel: DatabasePassphraseSetupViewModel = hiltViewModel(),

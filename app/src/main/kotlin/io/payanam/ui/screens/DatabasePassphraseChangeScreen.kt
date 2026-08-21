@@ -39,9 +39,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.viewmodel.DatabasePassphraseChangeViewModel
 
 @Composable
-/**
- * Performs the database passphrase change screen.
- */
 fun DatabasePassphraseChangeScreen(
     onPassphraseChanged: () -> Unit,
     viewModel: DatabasePassphraseChangeViewModel = hiltViewModel(),

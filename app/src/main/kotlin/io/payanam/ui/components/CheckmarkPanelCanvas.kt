@@ -40,9 +40,6 @@ import androidx.compose.ui.unit.sp
  * Touch handling: calculates which checkmark was tapped from x-coordinate.
  */
 @Composable
-/**
- * Returns true when the checkmark panel canvas.
- */
 fun CheckmarkPanelCanvas(
     checkmarks: List<DayCheckmark>,
     onCheckmarkClick: (DayCheckmark) -> Unit,

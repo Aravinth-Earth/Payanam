@@ -81,9 +81,6 @@ import java.util.Locale
 import kotlin.math.abs
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
-/**
- * Performs the time screen.
- */
 fun TimeScreen(
     viewModel: TimeViewModel = hiltViewModel(),
     openStartTrackingDialogRequestId: Long? = null,

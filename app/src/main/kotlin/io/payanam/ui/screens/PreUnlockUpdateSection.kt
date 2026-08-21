@@ -43,9 +43,6 @@ import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
  * unlock flow stays primary. All actions are manual taps; nothing automatic.
  */
 @Composable
-/**
- * Performs the pre unlock update section.
- */
 fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
     val logger = UnifiedLogger.getInstance()
     val downloadState by viewModel.downloadState.collectAsState()
