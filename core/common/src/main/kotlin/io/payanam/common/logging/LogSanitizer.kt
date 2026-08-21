@@ -54,7 +54,9 @@ internal object LogSanitizer {
         )
 
     /**
-     * Performs the sanitize data.
+     * Recursively walks a structured [data] map and redacts sensitive values
+     * (paths, keys, tokens) while preserving the map shape, so logs never
+     * leak PII. Returns an empty map when [data] is null/empty.
      */
     fun sanitizeData(data: Map<String, Any?>?): Map<String, Any?> {
         if (data.isNullOrEmpty()) {
@@ -66,7 +68,9 @@ internal object LogSanitizer {
     }
 
     /**
-     * Performs the sanitize message.
+     * Single-line-izes [message] and replaces Windows/absolute file paths with
+     * a redaction token, so log lines stay searchable without exposing local
+     * filesystem layout.
      */
     fun sanitizeMessage(message: String): String {
         val singleLine = message.replace(lineBreakRegex, " ").trim()

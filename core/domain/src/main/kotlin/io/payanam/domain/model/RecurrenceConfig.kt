@@ -245,7 +245,8 @@ data class RecurrenceConfig(
         }
     }
     /**
-     * Returns the scheduled dates in range.
+     * Enumerates every calendar day in [start]..[end] (inclusive) that this
+     * recurrence rule marks as scheduled.
      */
     fun getScheduledDatesInRange(start: LocalDate, end: LocalDate): List<LocalDate> {
         val dates = mutableListOf<LocalDate>()

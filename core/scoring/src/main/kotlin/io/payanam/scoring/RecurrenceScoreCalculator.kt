@@ -228,7 +228,9 @@ object RecurrenceScoreCalculator {
         
         // Calculate rates for different periods
         /**
-         * Performs the calculate rate for days.
+         * Completion rate over the last [days] calendar days: scheduled days in
+         * that window (from the recurrence rule anchored at [firstOccurrenceDate])
+         * vs. how many were actually completed/missed.
          */
         fun calculateRateForDays(days: Int): Double {
             val startDate = maxOf(firstOccurrenceDate, today.minusDays(days.toLong() - 1))
@@ -339,7 +341,9 @@ object RecurrenceScoreCalculator {
         }
 
         /**
-         * Performs the calculate rate for days.
+         * Completion rate over the last [days] calendar days for this habit,
+         * using [anchorDate] as the recurrence anchor and the frequency-window
+         * model to enumerate scheduled days.
          */
         fun calculateRateForDays(days: Int): Double {
             val startDate = maxOf(anchorDate, today.minusDays(days.toLong() - 1))

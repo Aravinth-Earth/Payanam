@@ -27,7 +27,8 @@ data class DayJournalResponse(
     val responseText: String
 )
 /**
- * Defines the contract for journal prompt scope.
+ * The two prompt scopes a journal question can target: the [OVERALL] day
+ * summary or a specific [DIMENSION] of life.
  */
 enum class JournalPromptScope {
     OVERALL,

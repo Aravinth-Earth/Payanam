@@ -117,11 +117,13 @@ interface DayPlanRepository {
      */
     suspend fun setDayStarred(dayKey: String, isStarred: Boolean)
     /**
-     * Returns the default template for a day type (weekday/weekend/starred).
+     * Reads the preferred template for a given [dayType] (weekday, weekend, or
+     * a starred preset), or null if none is set.
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord
     /**
-     * Sets the default template for a day type.
+     * Persists the preferred template [templateId] for a [dayType], or clears
+     * it (null) to fall back to the system default.
      */
     suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?)
     /**

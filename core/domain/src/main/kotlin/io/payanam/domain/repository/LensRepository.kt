@@ -91,12 +91,14 @@ interface LensRepository {
     suspend fun calculateAdherence(dayKey: String): Float
 
     /**
-     * Returns the subset of day keys that are marked dirty for lens snapshot recomputation.
+     * Filters [dayKeys] down to those still flagged dirty, i.e. needing their
+     * cached lens snapshot recomputed.
      */
     suspend fun getDirtyDayKeys(dayKeys: Set<String>): Set<String> = emptySet()
 
     /**
-     * Returns true when the day has a dirty marker and should be recomputed.
+     * True when [dayKey] still carries a dirty marker (a data change has
+     * happened since its lens snapshot was last computed).
      */
     suspend fun isDayDirty(dayKey: String): Boolean = false
 

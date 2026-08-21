@@ -15,7 +15,8 @@ enum class DesktopThemeMode(
 
     companion object {
         /**
-         * Performs the from storage key.
+         * Resolves a persisted [key] to its [DesktopThemeMode], defaulting to
+         * [SYSTEM] when the key is null or unrecognized.
          */
         fun fromStorageKey(key: String?): DesktopThemeMode = entries.firstOrNull { it.storageKey == key } ?: SYSTEM
     }
@@ -34,7 +35,8 @@ enum class DesktopLanguage(
 
     companion object {
         /**
-         * Performs the from storage key.
+         * Resolves a persisted [key] to its [DesktopLanguage], defaulting to
+         * [SYSTEM] when the key is null.
          */
         fun fromStorageKey(key: String?): DesktopLanguage = entries.firstOrNull { it.storageKey == key } ?: SYSTEM
     }
@@ -57,7 +59,8 @@ enum class DesktopTopLevelRoute(
 
     companion object {
         /**
-         * Performs the from storage key.
+         * Resolves a persisted [key] to its [DesktopTopLevelRoute], defaulting
+         * to [SETTINGS] when the key is null or unrecognized.
          */
         fun fromStorageKey(key: String?): DesktopTopLevelRoute = entries.firstOrNull { it.storageKey == key } ?: SETTINGS
     }

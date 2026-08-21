@@ -80,7 +80,8 @@ data class ScoringConfig(
     @Suppress("MagicNumber")
     companion object {
         /**
-         * Returns the default scoring configuration.
+         * The out-of-the-box scoring weights/threshold configuration, used
+         * when the user has not customized [ScoringConfig] yet.
          */
         fun defaults() = ScoringConfig()
         

@@ -5,7 +5,9 @@ package io.payanam.domain.repository
 import io.payanam.common.logging.UnifiedLogger
 import java.time.LocalDate
 /**
- * Defines the contract for average daily time window.
+ * The rolling time windows an average-daily-time table can report against,
+ * named by their calendar span. [minCalendarDays] is the minimum history the
+ * window needs to be meaningful.
  */
 enum class AverageDailyTimeWindow(
     val minCalendarDays: Int,
@@ -20,7 +22,8 @@ enum class AverageDailyTimeWindow(
     ALL_DAYS(1),
 }
 /**
- * Defines the contract for average daily time row type.
+ * The kind of row in an average-daily-time table: a specific life
+ * [DIMENSION], [UNASSIGNED] time, or [UNTRACKED] time.
  */
 enum class AverageDailyTimeRowType {
     DIMENSION,
@@ -28,7 +31,8 @@ enum class AverageDailyTimeRowType {
     UNTRACKED,
 }
 /**
- * Holds the average daily time row.
+ * One row of an average-daily-time table: a [rowType] (dimension, unassigned,
+ * or untracked) plus its average tracked minutes per [AverageDailyTimeWindow].
  */
 data class AverageDailyTimeRow(
     val rowType: AverageDailyTimeRowType,
@@ -36,7 +40,8 @@ data class AverageDailyTimeRow(
     val averageMinutesByWindow: Map<AverageDailyTimeWindow, Double>,
 )
 /**
- * Holds the average daily time table data.
+ * The full average-daily-time report: the tracked-date span, the
+ * [visibleWindows] requested, and one [AverageDailyTimeRow] per row type.
  */
 data class AverageDailyTimeTableData(
     val firstTrackedDate: LocalDate,
@@ -46,7 +51,8 @@ data class AverageDailyTimeTableData(
     val rows: List<AverageDailyTimeRow>,
 )
 /**
- * Performs the average daily time table data.
+ * Emits a debug summary of this table (date span, windows, row count) through
+ * [logger] for traceability of the Lenses "average day" computation.
  */
 fun AverageDailyTimeTableData.logSummary(logger: UnifiedLogger) {
     logger.d(
