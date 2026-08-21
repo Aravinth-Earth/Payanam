@@ -13,7 +13,8 @@ import io.payanam.ui.model.DimensionTextCatalog
 import java.time.Instant
 import java.util.Locale
 /**
- * Holds the new database dimension input.
+ * A dimension chosen during first-run setup: id, user label/color, enabled
+ * flag, and icon key.
  */
 data class NewDatabaseDimensionInput(
     val id: String,
@@ -23,7 +24,8 @@ data class NewDatabaseDimensionInput(
     val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
 )
 /**
- * Holds the new database dimension seed row.
+ * A life-dimension seed row as written to the database on first-run setup
+ * (defaults merged with user choices, plus the unassigned fallback).
  */
 data class NewDatabaseDimensionSeedRow(
     val id: String,
