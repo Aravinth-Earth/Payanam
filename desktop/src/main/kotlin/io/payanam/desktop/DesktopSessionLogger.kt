@@ -26,7 +26,7 @@ class DesktopSessionLogger private constructor(
         writeHeader()
     }
     /**
-     * Performs the i.
+     * INFO-level structured entry.
      */
     fun i(
         source: String,
@@ -36,7 +36,7 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "INFO", source = source, message = message, data = data)
     }
     /**
-     * Performs the w.
+     * WARN-level structured entry.
      */
     fun w(
         source: String,
@@ -46,7 +46,8 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "WARN", source = source, message = message, data = data)
     }
     /**
-     * Performs the e.
+     * ERROR-level structured entry; [error]'s class, message, and a capped
+     * stack trace are folded into the data payload.
      */
     fun e(
         source: String,
@@ -71,12 +72,12 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "ERROR", source = source, message = message, data = errorData)
     }
     /**
-     * Returns the log path.
+     * Path of this session's log file.
      */
     fun getLogPath(): Path = logFilePath
 
     /**
-     * Performs the close.
+     * Writes the session-end marker and releases the singleton.
      */
     override fun close() {
         appendEntry(
@@ -174,7 +175,8 @@ class DesktopSessionLogger private constructor(
         private var instance: DesktopSessionLogger? = null
         private val companionLock = Any()
         /**
-         * Performs the initialize.
+         * Creates the singleton session logger (pruning stale logs first);
+         * safe to call repeatedly.
          */
         fun initialize(
             logsDirectory: Path = DesktopAppPaths.resolveLogsDirectory(),
@@ -186,7 +188,7 @@ class DesktopSessionLogger private constructor(
                 }
             }
         /**
-         * Returns the instance.
+         * The active session logger; errors if [initialize] was not called.
          */
         fun getInstance(): DesktopSessionLogger =
             instance ?: error("DesktopSessionLogger not initialized. Call initialize() from desktop main().")
