@@ -7,7 +7,8 @@ import java.nio.file.Paths
 object DesktopAppPaths {
     private const val APP_DIRECTORY_NAME = "Payanam"
     /**
-     * Returns the root directory.
+     * App data root: %LOCALAPPDATA%\Payanam, falling back to %APPDATA%, then
+     * the default Windows user path.
      */
     fun resolveRootDirectory(
         environment: Map<String, String> = System.getenv(),
@@ -26,49 +27,49 @@ object DesktopAppPaths {
         return Paths.get(userHome, "AppData", "Local", APP_DIRECTORY_NAME)
     }
     /**
-     * Returns the logs directory.
+     * <root>/logs — session and crash logs.
      */
     fun resolveLogsDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("logs")
     /**
-     * Returns the preferences directory.
+     * <root>/preferences — legacy settings file location.
      */
     fun resolvePreferencesDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("preferences")
     /**
-     * Returns the bootstrap directory.
+     * <root>/bootstrap — legacy bootstrap state location.
      */
     fun resolveBootstrapDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("bootstrap")
     /**
-     * Returns the security directory.
+     * <root>/security — legacy security store location.
      */
     fun resolveSecurityDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("security")
     /**
-     * Returns the database directory.
+     * <root>/database — SQLite state store location.
      */
     fun resolveDatabaseDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("database")
     /**
-     * Returns the runtime directory.
+     * <root>/runtime — transient runtime artifacts (locks, sockets).
      */
     fun resolveRuntimeDirectory(
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
     ): Path = resolveRootDirectory(environment = environment, userHome = userHome).resolve("runtime")
     /**
-     * Returns the export directory.
+     * <root>/exports — user-initiated data exports.
      */
     fun resolveExportDirectory(
         environment: Map<String, String> = System.getenv(),
