@@ -35,7 +35,9 @@ import java.time.LocalTime
 import java.util.UUID
 import javax.inject.Inject
 /**
- * Holds the time screen ui state.
+ * UI state for the Time-tracking screen: the selected date, the day's time
+ * entries, the active entry, the task list/picker/planned tasks, past
+ * occurrences, load/readiness flags, and any error.
  */
 data class TimeScreenUiState(
     val selectedDate: LocalDate = LocalDate.now(),
@@ -69,19 +71,20 @@ private data class SelectedDateLoadState(
     val occurrencesLoaded: Boolean = false,
 ) {
     /**
-     * Performs the mark entries loaded.
+     * Marks the entries section of this selected-date load as finished.
      */
     fun markEntriesLoaded(): SelectedDateLoadState = copy(entriesLoaded = true)
     /**
-     * Performs the mark planned tasks loaded.
+     * Marks the planned-tasks section of this selected-date load as finished.
      */
     fun markPlannedTasksLoaded(): SelectedDateLoadState = copy(plannedTasksLoaded = true)
     /**
-     * Performs the mark occurrences loaded.
+     * Marks the occurrences section of this selected-date load as finished.
      */
     fun markOccurrencesLoaded(): SelectedDateLoadState = copy(occurrencesLoaded = true)
     /**
-     * Returns true when the is ready.
+     * True once all required sections of this selected-date load have arrived
+     * (entries + planned tasks, plus occurrences unless minimal mode skips them).
      */
     fun isReady(): Boolean = isTimeScreenDateContentReady(
         entriesLoaded = entriesLoaded,
@@ -91,10 +94,13 @@ private data class SelectedDateLoadState(
     )
 }
 
-@HiltViewModel
 /**
- * Provides the time view model.
+ * ViewModel for the Time-tracking screen: loads the selected day's entries,
+ * planned tasks, and past occurrences, and drives start/stop/edit/continue
+ * tracking plus task complete/skip/miss/archive/delete (recurring tasks also
+ * record occurrences and reschedule reminders).
  */
+@HiltViewModel
 class TimeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val timeEntryRepository: TimeEntryRepository,
@@ -158,7 +164,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the load entries for date.
+     * Loads all data for [date]: cancels any in-flight loads and (re)starts the
+     * entries, planned-tasks, and occurrences collections for that day.
      */
     fun loadEntriesForDate(date: LocalDate) {
         val requestId = ++selectedDateLoadRequestId
@@ -253,19 +260,19 @@ class TimeViewModel @Inject constructor(
         OCCURRENCES,
     }
     /**
-     * Shows the navigate to previous day.
+     * Switches the screen to the previous day and reloads its data.
      */
     fun navigateToPreviousDay() {
         loadEntriesForDate(_uiState.value.selectedDate.minusDays(1))
     }
     /**
-     * Shows the navigate to next day.
+     * Switches the screen to the next day and reloads its data.
      */
     fun navigateToNextDay() {
         loadEntriesForDate(_uiState.value.selectedDate.plusDays(1))
     }
     /**
-     * Shows the navigate to today.
+     * Switches the screen back to today and reloads its data.
      */
     fun navigateToToday() {
         loadEntriesForDate(LocalDate.now())
@@ -276,7 +283,9 @@ class TimeViewModel @Inject constructor(
         return (duePending + allPending).distinctBy { it.id }
     }
     /**
-     * Performs the start tracking.
+     * Starts a time entry for [dimensionId]/[dimensionLabel] (optionally tied to
+     * [taskId]) from [startedAt], stops any active entry first, and hands off to
+     * the foreground tracking service + widget.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun startTracking(
@@ -391,7 +400,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update time entry.
+     * Edits an existing time entry ([entryId]) with new dimension/task/time window
+     * and focus rating/note, then reloads the day.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateTimeEntry(
@@ -447,7 +457,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete time entry.
+     * Deletes [entryId] and, if it was linked to a task, reverts that task's
+     * completion status, then reloads the day.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTimeEntry(entryId: String) {
@@ -558,7 +569,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Creates the create manual entry.
+     * Creates a finished (already-stopped) time entry spanning the given start/end
+     * window and dimension/task/focus, then reloads the day.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createManualEntry(
@@ -624,13 +636,14 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the clear error.
+     * Clears the current error message shown on the screen.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
     /**
-     * Performs the continue last session.
+     * Resumes tracking from the most recent completed entry (re-opening it as the
+     * active entry).
      */
     fun continueLastSession() {
         val lastEntry = _uiState.value.lastEntry ?: return
@@ -646,7 +659,8 @@ class TimeViewModel @Inject constructor(
         continueEntry(lastEntry.id)
     }
     /**
-     * Performs the continue entry.
+     * Re-opens a specific finished [entryId] as the active tracking entry and
+     * hands off to the foreground tracking service.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun continueEntry(entryId: String) {
@@ -702,7 +716,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the complete task.
+     * Marks [taskId] complete (no explicit timing details) and, for recurring
+     * tasks, records the occurrence and schedules the next reminder.
      */
     fun completeTask(taskId: String, note: String?) {
         completeTaskWithDetails(
@@ -713,7 +728,8 @@ class TimeViewModel @Inject constructor(
         )
     }
     /**
-     * Performs the complete task with details.
+     * Completes [taskId] with explicit [actualCompletedAt]/[actualDurationMinutes],
+     * records the occurrence (and next reminder for recurring tasks), then reloads.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTaskWithDetails(
@@ -774,7 +790,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the skip task.
+     * Marks [taskId] skipped: records the occurrence and applies decay for
+     * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun skipTask(taskId: String, note: String?) {
@@ -834,7 +851,8 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the miss task.
+     * Marks [taskId] missed: records the occurrence and applies decay for
+     * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun missTask(taskId: String, note: String?) {
@@ -894,7 +912,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the archive task.
+     * Archives [taskId] (removes it from active lists) and reloads the day.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask(taskId: String) {
@@ -924,7 +942,7 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete task.
+     * Permanently deletes [taskId] (canceling its reminder) and reloads the day.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask(taskId: String) {
