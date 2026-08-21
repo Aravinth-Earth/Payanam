@@ -19,10 +19,17 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 
+/**
+ * Pure aggregation helper for the Lenses stats: turns raw [TimeEntry] spans
+ * into per-day focus averages, tracked-time percentages, focused hours, the
+ * "average day" time table, and dimension splits. All logic is side-effect
+ * free aside from optional logging.
+ */
 internal object DailyStatsCalculator {
     private val logger get() = if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance() else null
     /**
-     * Performs the calculate daily focus averages.
+     * Per-day mean focus rating (0..1) across [entries], one point per calendar
+     * day in the tracked range (days with no rated entries yield null).
      */
     fun calculateDailyFocusAverages(entries: List<TimeEntry>): List<DailyFocusStat> {
         val segments = splitToDaySegments(entries)
@@ -52,7 +59,8 @@ internal object DailyStatsCalculator {
         return result
     }
     /**
-     * Performs the calculate daily tracked time stats.
+     * Per-day total tracked minutes as a percentage of a 24h day, one point
+     * per calendar day in the tracked range.
      */
     fun calculateDailyTrackedTimeStats(entries: List<TimeEntry>): List<DailyTrackedTimeStat> {
         val segments = splitToDaySegments(entries)
@@ -82,7 +90,9 @@ internal object DailyStatsCalculator {
         return result
     }
     /**
-     * Performs the calculate daily focused hours stats.
+     * Per-day focused-hours total: each segment's minutes weighted by its
+     * focusRating, summed and converted to hours (capped at 24), one point per
+     * calendar day.
      */
     fun calculateDailyFocusedHoursStats(entries: List<TimeEntry>): List<DailyFocusedHoursStat> {
         val segments = splitToDaySegments(entries)
@@ -115,7 +125,10 @@ internal object DailyStatsCalculator {
         return result
     }
     /**
-     * Performs the calculate average daily time table.
+     * Builds the "average day" table: splits [entries] into per-day,
+     * per-dimension tracked minutes (plus an untracked remainder), then rolls
+     * them up into the windows the UI exposes (today / 7 / 30 / 90 / 180 / 365
+     * / all). Returns null when there is no eligible day.
      */
     fun calculateAverageDailyTimeTable(
         entries: List<TimeEntry>,
@@ -336,7 +349,9 @@ internal object DailyStatsCalculator {
         return result
     }
     /**
-     * Performs the calculate dimension split.
+     * Sums tracked minutes per dimension-id, but only for the day-range
+     * [start]..[end], by splitting each entry across its calendar-day
+     * boundaries. Used by the range-split chart.
      */
     fun calculateDimensionSplit(
         entries: List<TimeEntry>,
