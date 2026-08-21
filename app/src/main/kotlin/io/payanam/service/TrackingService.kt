@@ -37,9 +37,6 @@ import java.time.LocalDateTime
  * Shows an ongoing notification with the current tracking session.
  */
 @AndroidEntryPoint
-/**
- * Provides the tracking service.
- */
 class TrackingService : Service() {
 
     private val logger = UnifiedLogger.getInstance()
@@ -65,7 +62,8 @@ class TrackingService : Service() {
         private val _currentSession = MutableStateFlow<TrackingSession?>(null)
         val currentSession: StateFlow<TrackingSession?> = _currentSession.asStateFlow()
         /**
-         * Performs the start tracking.
+         * Launches the service in the foreground with a new tracking session
+         * (task, dimension, start time passed as intent extras).
          */
         fun startTracking(
             context: Context,
@@ -84,7 +82,8 @@ class TrackingService : Service() {
             context.startForegroundService(intent)
         }
         /**
-         * Performs the stop tracking.
+         * Sends the stop action to the running tracking service, ending the
+         * active session and removing its notification.
          */
         fun stopTracking(context: Context) {
             val intent = Intent(context, TrackingService::class.java).apply {
@@ -100,17 +99,17 @@ class TrackingService : Service() {
     private lateinit var notificationManager: NotificationManager
 
     /**
-     * Provides the tracking binder.
+     * Local binder exposing this service to bound clients.
      */
     inner class TrackingBinder : Binder() {
         /**
-         * Returns the service.
+         * The bound [TrackingService] instance.
          */
         fun getService(): TrackingService = this@TrackingService
     }
 
     /**
-     * Handles the on create.
+     * Creates the low-importance tracking notification channel.
      */
     override fun onCreate() {
         super.onCreate()
@@ -120,12 +119,13 @@ class TrackingService : Service() {
     }
 
     /**
-     * Handles the on bind.
+     * Clients bind directly; commands arrive via [onStartCommand].
      */
     override fun onBind(intent: Intent?): IBinder = binder
 
     /**
-     * Handles the on start command.
+     * Dispatches the incoming command: start (with extras), stop, or a
+     * notification refresh. Sticky so the OS restarts it after reclaim.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
@@ -338,7 +338,8 @@ class TrackingService : Service() {
     }
 
     /**
-     * Handles the on destroy.
+     * Cancels the per-second notification ticker and flushes the encrypted
+     * database's WAL checkpoint before the service dies.
      */
     override fun onDestroy() {
         logger.i(
@@ -355,7 +356,8 @@ class TrackingService : Service() {
     }
 }
 /**
- * Holds the tracking session.
+ * One active tracking session: the optional linked task, display title, life
+ * dimension being tracked, and when the session started.
  */
 data class TrackingSession(
     val taskId: String?,
