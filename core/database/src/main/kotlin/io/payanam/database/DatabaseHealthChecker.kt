@@ -20,7 +20,8 @@ object DatabaseHealthChecker {
     // Anything older is outside the supported in-place Room migration contract.
     const val MIN_MIGRATABLE_VERSION = 16
     /**
-     * Holds the health check result.
+     * Outcome of [checkDatabaseHealth]: whether the database is safe to open,
+     * whether it needs a Room migration or a repair, plus the detected version.
      */
     data class HealthCheckResult(
         val isHealthy: Boolean,
@@ -43,7 +44,10 @@ object DatabaseHealthChecker {
         return dbFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
     }
     /**
-     * Returns true when the check database health.
+     * Opens the database read-only (plain SQLite or SQLCipher when
+     * [sqlCipherPassphrase] is given) and validates version, presence of
+     * critical tables, and schema integrity. Returns a [HealthCheckResult]
+     * telling the caller whether to open, migrate, or repair.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun checkDatabaseHealth(

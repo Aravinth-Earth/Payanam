@@ -50,9 +50,6 @@ import javax.inject.Singleton
  * [touch]; only user-initiated operations reset the inactivity timer.
  */
 @Singleton
-/**
- * Provides the database session manager.
- */
 class DatabaseSessionManager
     @Inject
     constructor(
