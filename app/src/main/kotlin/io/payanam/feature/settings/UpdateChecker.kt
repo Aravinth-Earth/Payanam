@@ -19,7 +19,8 @@ import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 /**
- * Holds the update check result.
+ * Outcome of an update check: availability verdict, latest build/release
+ * info, per-channel statuses, and the error reason when it failed.
  */
 data class UpdateCheckResult(
     val isUpdateAvailable: Boolean,
