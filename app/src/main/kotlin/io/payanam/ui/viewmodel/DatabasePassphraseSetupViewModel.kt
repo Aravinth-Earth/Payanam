@@ -22,7 +22,9 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 /**
- * Holds the database passphrase setup ui state.
+ * UI state for the passphrase-setup gate: save-in-progress flag, error reason
+ * code, and a summary of any existing plaintext database (size, last-modified,
+ * per-table row counts) so the user knows what will be encrypted.
  */
 data class DatabasePassphraseSetupUiState(
     val isSaving: Boolean = false,
@@ -37,10 +39,12 @@ data class DatabasePassphraseSetupUiState(
     val storageModeLabelKey: String = "plaintext",
 )
 
-@HiltViewModel
 /**
- * Provides the database passphrase setup view model.
+ * Passphrase-setup ViewModel: loads the existing plaintext DB summary, then
+ * either encrypts it in place under a new passphrase or (destructive path)
+ * wipes local data before configuring encryption.
  */
+@HiltViewModel
 class DatabasePassphraseSetupViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val encryptionManager: DatabaseEncryptionManager,
@@ -54,7 +58,8 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
         loadDatabaseSummary()
     }
     /**
-     * Performs the configure passphrase.
+     * Validates + persists a new passphrase, encrypting the existing plaintext
+     * database in place (with count-validated backup/rollback on failure).
      */
     fun configurePassphrase(
         passphrase: String,
@@ -114,13 +119,14 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the clear error.
+     * Clears the current error reason code shown on the screen.
      */
     fun clearError() {
         _uiState.update { it.copy(errorReasonCode = null) }
     }
     /**
-     * Removes the reset local data and configure passphrase.
+     * Destructive alternative: wipes all local database artifacts and encryption
+     * state, then configures the new passphrase on a clean slate.
      */
     fun resetLocalDataAndConfigurePassphrase(
         passphrase: String,
