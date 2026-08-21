@@ -24,10 +24,11 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import javax.inject.Inject
 
-@HiltViewModel
 /**
- * Returns the task view model.
+ * Add-task ViewModel: streams tag suggestions and creates tasks — persisting
+ * tags, computing the initial score, and arming the reminder.
  */
+@HiltViewModel
 class AddTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val tagRepository: TagRepository,
@@ -58,7 +59,8 @@ class AddTaskViewModel @Inject constructor(
         }
     }
     /**
-     * Creates the create task.
+     * Creates a task from the form fields (defaulting a recurring task's due
+     * date), attaches tags, scores it, and schedules its reminder.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createTask(
