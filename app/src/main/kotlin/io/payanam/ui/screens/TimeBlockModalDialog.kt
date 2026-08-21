@@ -167,7 +167,8 @@ internal fun TimeBlockModalDialog(
         else -> io.payanam.R.string.loc_add
     }
     /**
-     * Performs the submit time entry.
+     * Validates and saves the entry form, defaulting an active block's end to
+     * now before invoking the submit callback.
      */
     fun submitTimeEntry() {
         val normalizedFocusNote = focusNote.takeIf { it.isNotBlank() }
