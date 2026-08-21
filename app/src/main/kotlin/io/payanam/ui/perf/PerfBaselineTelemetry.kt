@@ -18,7 +18,7 @@ object PerfBaselineTelemetry {
     private val queryCounters = ConcurrentHashMap<String, AtomicInteger>()
     private val recompositionCounters = ConcurrentHashMap<String, AtomicInteger>()
     /**
-     * Removes the reset.
+     * Clears all once-keys and counters (used between measurement runs).
      */
     fun reset() {
         onceEvents.clear()
@@ -27,7 +27,7 @@ object PerfBaselineTelemetry {
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT screen=perf event=telemetry_reset tMs=${android.os.SystemClock.elapsedRealtime()}")
     }
     /**
-     * Performs the mark event.
+     * Logs a structured PERF_BASELINE_EVENT line with screen/event/timing data.
      */
     fun markEvent(
         screen: String,
@@ -42,7 +42,7 @@ object PerfBaselineTelemetry {
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT $messageData", payload)
     }
     /**
-     * Performs the mark event once.
+     * Like [markEvent] but fires only the first time [key] is seen per run.
      */
     fun markEventOnce(
         key: String,
@@ -54,7 +54,7 @@ object PerfBaselineTelemetry {
         markEvent(screen = screen, event = event, data = data)
     }
     /**
-     * Performs the increment query.
+     * Adds [amount] to a per-screen query counter and logs the running total.
      */
     fun incrementQuery(
         screen: String,
@@ -76,7 +76,8 @@ object PerfBaselineTelemetry {
         return total
     }
     /**
-     * Performs the increment recomposition.
+     * Counts a recomposition per screen section; logs the first few and then
+     * every 25th to keep log volume bounded.
      */
     fun incrementRecomposition(
         screen: String,
