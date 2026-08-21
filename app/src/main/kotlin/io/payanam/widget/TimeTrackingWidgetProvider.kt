@@ -41,9 +41,6 @@ import javax.inject.Inject
  * Default size: 2x1 (resizable horizontally).
  */
 @AndroidEntryPoint
-/**
- * Provides the time tracking widget provider.
- */
 class TimeTrackingWidgetProvider : AppWidgetProvider() {
 
     @Inject
@@ -101,7 +98,8 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Handles the on update.
+     * Redraws each widget: active state (task title, dimension chip, running
+     * chronometer, stop action) or idle prompt with quick-start action.
      */
     override fun onUpdate(
         context: Context,
@@ -121,7 +119,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Handles the on receive.
+     * Dispatches widget button actions: toggle tracking and manual refresh.
      */
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
@@ -402,7 +400,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Handles the on enabled.
+     * First widget placed: refreshes immediately so it never shows stale data.
      */
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
@@ -412,7 +410,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
     }
 
     /**
-     * Handles the on disabled.
+     * Last widget removed; no widget-scoped resources to release.
      */
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
