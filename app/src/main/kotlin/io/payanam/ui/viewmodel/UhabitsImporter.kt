@@ -37,7 +37,9 @@ internal class UhabitsImporter(
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
     /**
-     * Loads the import.
+     * Imports habits + repetitions from a uHabits (Loop) SQLite backup at
+     * [sourceUri]: upserts tasks/occurrences by import-ref, marks affected
+     * lens days dirty, and returns the upsert counts.
      */
     suspend fun import(sourceUri: Uri): UhabitsImportSummary {
         val tempDb = File.createTempFile("uhabits_import_", ".db", context.cacheDir)
@@ -261,7 +263,7 @@ internal class UhabitsImporter(
         return false
     }
     /**
-     * Holds the uhabits import summary.
+     * Upsert counts reported to the caller after a completed import.
      */
     data class UhabitsImportSummary(
         val habitsUpserted: Int,
