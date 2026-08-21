@@ -20,7 +20,9 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the task reschedule repository impl.
+ * Room-backed implementation of [TaskRescheduleRepository]. Wraps
+ * [TaskRescheduleEntity] and maintains an audit trail of when a task's due date
+ * was pushed (with a flag indicating whether the task was already overdue).
  */
 class TaskRescheduleRepositoryImpl
     @Inject
@@ -30,7 +32,8 @@ class TaskRescheduleRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the reschedules by task id.
+         * Returns every reschedule record for [taskId] as a one-shot list, ordered
+         * most-recent first.
          */
         override suspend fun getReschedulesByTaskId(taskId: String): List<TaskReschedule> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesByTaskId", "Fetching reschedules", mapOf("taskId" to taskId))
@@ -54,7 +57,8 @@ class TaskRescheduleRepositoryImpl
         }
 
         /**
-         * Returns the reschedules for task.
+         * Emits the reschedule history for [taskId], most-recent first, as a
+         * [Flow].
          */
         override fun getReschedulesForTask(taskId: String): Flow<List<TaskReschedule>> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesForTask", "Subscribing to reschedules", mapOf("taskId" to taskId))
@@ -64,7 +68,7 @@ class TaskRescheduleRepositoryImpl
         }
 
         /**
-         * Performs the record reschedule.
+         * Persists a reschedule record from a domain [TaskReschedule] object.
          */
         override suspend fun recordReschedule(reschedule: TaskReschedule) {
             val entity =
@@ -89,7 +93,9 @@ class TaskRescheduleRepositoryImpl
         }
 
         /**
-         * Performs the record reschedule.
+         * Creates and persists a reschedule record from its constituent fields,
+         * generating the id and `rescheduledAt` timestamp. Returns the new domain
+         * [TaskReschedule].
          */
         override suspend fun recordReschedule(
             taskId: String,

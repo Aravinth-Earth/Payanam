@@ -13,12 +13,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room implementation of scoringConfigRepository.
+ * Room implementation of [ScoringConfigRepository]. The scoring config is a
+ * singleton row (id = 1) holding tunable weights/thresholds for the scoring
+ * engine.
  */
 @Singleton
-/**
- * Provides the scoring config repository impl.
- */
 class ScoringConfigRepositoryImpl
     @Inject
     constructor(
@@ -27,7 +26,8 @@ class ScoringConfigRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the config.
+         * Returns the scoring config, or `ScoringConfig.defaults()` when none has
+         * been saved yet.
          */
         override suspend fun getConfig(): ScoringConfig {
             logger.d("ScoringConfigRepository.getConfig", "Fetching scoring config")
@@ -42,7 +42,8 @@ class ScoringConfigRepositoryImpl
         }
 
         /**
-         * Registers the observe config.
+         * Emits the scoring config, or `ScoringConfig.defaults()` when unsaved, as a
+         * [Flow].
          */
         override fun observeConfig(): Flow<ScoringConfig> {
             logger.d("ScoringConfigRepository.observeConfig", "Subscribing to scoring config")
@@ -56,7 +57,7 @@ class ScoringConfigRepositoryImpl
         }
 
         /**
-         * Writes the save config.
+         * Persists the scoring [config] (upserts the singleton row).
          */
         override suspend fun saveConfig(config: ScoringConfig) {
             logger.i(
@@ -72,7 +73,8 @@ class ScoringConfigRepositoryImpl
         }
 
         /**
-         * Removes the reset to defaults.
+         * Deletes the scoring config row, so the next read returns
+         * `ScoringConfig.defaults()`.
          */
         override suspend fun resetToDefaults() {
             logger.i("ScoringConfigRepository.resetToDefaults", "Resetting to default config")

@@ -17,7 +17,10 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the notification repository impl.
+ * Room-backed implementation of [NotificationRepository]. Manages
+ * [ScheduledNotificationEntity] rows: one row per scheduled local push
+ * notification tied to a task. Pending = not yet delivered; overdue = fire time
+ * passed.
  */
 class NotificationRepositoryImpl
     @Inject
@@ -27,7 +30,8 @@ class NotificationRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Performs the schedule notification.
+         * Schedules a local push notification for [taskId] at [scheduledAt] with the
+         * given [title]/[body]/[notificationType]. Returns the new notification id.
          */
         override suspend fun scheduleNotification(
             taskId: String,
@@ -67,7 +71,7 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns the notifications for task.
+         * Returns every notification (delivered or pending) for [taskId].
          */
         override suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getNotificationsForTask", "Fetching notifications for task", mapOf("taskId" to taskId))
@@ -89,7 +93,8 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns the pending notifications.
+         * Returns notifications that are not yet delivered and whose fire time is
+         * still in the future.
          */
         override suspend fun getPendingNotifications(): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getPendingNotifications", "Fetching pending notifications")
@@ -105,7 +110,7 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Performs the mark delivered.
+         * Marks the notification [id] as delivered (flips the `isDelivered` flag).
          */
         override suspend fun markDelivered(id: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().markDelivered(id)
@@ -113,7 +118,8 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns true when the cancel notifications for task.
+         * Deletes all notifications for [taskId] (e.g. when the task is rescheduled
+         * or deleted).
          */
         override suspend fun cancelNotificationsForTask(taskId: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().deleteForTask(taskId)
@@ -121,7 +127,7 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns true when the cancel notification.
+         * Deletes the single notification [id].
          */
         override suspend fun cancelNotification(id: String) {
             sessionManager.requireDatabase().scheduledNotificationDao().deleteById(id)
