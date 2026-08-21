@@ -37,7 +37,8 @@ import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
 /**
- * Holds the edit task input.
+ * Edit-task form fields collected by the edit screen, converted to a
+ * TaskInput on save.
  */
 data class EditTaskInput(
     val title: String,
