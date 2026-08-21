@@ -11,7 +11,7 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.LifeDimension
 /**
- * Holds the dimension icon option.
+ * One selectable dimension icon: stable key plus its outlined vector.
  */
 data class DimensionIconOption(
     val key: String,
@@ -377,7 +377,8 @@ object DimensionIconCatalog {
     private val optionsByKey: Map<String, DimensionIconOption> = options.associateBy { it.key }
     private val keyAliases: Map<String, String> = mapOf("people" to "groups")
     /**
-     * Performs the default icon key for dimension id.
+     * Default icon key for a dimension: taxonomy default, legacy id mapping,
+     * then the generic category icon.
      */
     fun defaultIconKeyForDimensionId(dimensionId: String?): String {
         val normalizedId = dimensionId?.trim().orEmpty()
@@ -397,7 +398,8 @@ object DimensionIconCatalog {
         }
     }
     /**
-     * Returns the result
+     * Icon option for a stored key, falling back to the dimension's default
+     * (with a warning log) when unknown.
      */
     fun resolve(key: String?, dimensionId: String? = null): DimensionIconOption {
         val normalized = key?.trim()?.takeIf { it.isNotEmpty() } ?: defaultIconKeyForDimensionId(dimensionId)
