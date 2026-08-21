@@ -36,7 +36,8 @@ internal class DesktopJournalStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Loads the load state.
+     * Journal snapshot decoded from storage (seeding an empty one on first
+     * run), selected on today's date; carries a decode error when unreadable.
      */
     fun loadState(): DesktopJournalState {
         val selectedDateIso = today().toString()
@@ -73,7 +74,7 @@ internal class DesktopJournalStore(
         }
     }
     /**
-     * Performs the select date.
+     * Moves the selection to [requestedDateIso], clamped to today.
      */
     fun selectDate(
         currentState: DesktopJournalState,
@@ -87,7 +88,7 @@ internal class DesktopJournalStore(
         return currentState.copy(selectedDateIso = boundedDate.toString(), errorMessage = null)
     }
     /**
-     * Writes the save overall response.
+     * Upserts an overall prompt response for the selected day and persists.
      */
     fun saveOverallResponse(
         currentState: DesktopJournalState,
@@ -112,7 +113,8 @@ internal class DesktopJournalStore(
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
     /**
-     * Writes the save dimension response.
+     * Upserts a dimension-scoped prompt response for the selected day and
+     * persists.
      */
     fun saveDimensionResponse(
         currentState: DesktopJournalState,
@@ -144,13 +146,13 @@ internal class DesktopJournalStore(
         return currentState.copy(snapshot = nextSnapshot, lastSavedDateIso = selectedDateIso, errorMessage = null)
     }
     /**
-     * Writes the save snapshot.
+     * Serializes and stores the journal snapshot.
      */
     fun saveSnapshot(snapshot: JournalSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
     /**
-     * Returns the journal file path.
+     * Path of the database file holding the journal payload.
      */
     fun getJournalFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
