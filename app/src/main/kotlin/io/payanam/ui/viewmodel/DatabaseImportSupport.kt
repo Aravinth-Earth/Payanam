@@ -29,7 +29,8 @@ internal data class DatabaseImportCopyResult(
 internal object DatabaseImportSupport {
     private val logger = UnifiedLogger.getInstance()
     /**
-     * Performs the copy database artifacts.
+     * Copies the selected database (plus any -wal/-shm companions) from
+     * [sourceUri] over the target files, returning what was copied.
      */
     fun copyDatabaseArtifacts(
         context: Context,
@@ -239,7 +240,8 @@ internal object DatabaseImportSupport {
         }
     }
     /**
-     * Performs the consolidate wal after import.
+     * Merges an imported WAL into its database via a temp-copy checkpoint and
+     * removes WAL artifacts (false when consolidation was skipped/failed).
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
@@ -456,7 +458,9 @@ internal object DatabaseImportSupport {
         }
     }
     /**
-     * Returns true when the validate supported plaintext import schema.
+     * Checks an imported plaintext database's schema version is within the
+     * migratable range, returning the version; throws with a localized
+     * message otherwise.
      */
     fun validateSupportedPlaintextImportSchema(
         context: Context,
