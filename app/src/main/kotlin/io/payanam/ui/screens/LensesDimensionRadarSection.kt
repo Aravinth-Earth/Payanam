@@ -163,14 +163,14 @@ private fun RadarCanvas(
             radarMetric == ScoreMetricColumn.PROGRESS ||
                 radarMetric == ScoreMetricColumn.STREAK_NET
         /**
-         * Performs the scale.
+         * Normalized radius for a metric value (signed metrics center at 0).
          */
         fun scale(v: Double?): Float {
             val n = ((v ?: 0.0) / scaleMax).coerceIn(-1.0, 1.0)
             return (if (signedMetric) n else n * 2.0 - 1.0).toFloat()
         }
         /**
-         * Performs the point.
+         * Canvas point for an axis index at a normalized value.
          */
         fun point(index: Int, value: Float): Offset {
             val angle = -Math.PI / 2 + angleStep * index
