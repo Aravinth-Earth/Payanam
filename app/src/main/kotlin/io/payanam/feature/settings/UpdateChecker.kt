@@ -72,8 +72,10 @@ internal fun channelFromTag(tagName: String): UpdateChannel? =
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
-/** File-level logger for top-level helpers that live outside [UpdateChecker]. */
-private val logger = UnifiedLogger.getInstance()
+/** File-level logger for top-level helpers that live outside [UpdateChecker].
+ *  Lazy so pure helpers (parseReleases et al.) stay usable in plain JVM tests
+ *  without UnifiedLogger.initialize(). */
+private val logger: UnifiedLogger by lazy { UnifiedLogger.getInstance() }
 
 /**
  * Parse the GitHub releases list JSON body into per-channel statuses.

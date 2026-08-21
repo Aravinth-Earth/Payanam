@@ -126,7 +126,9 @@ class ScoreRollupBackfillService
         private val logger = UnifiedLogger.getInstance()
 
         companion object {
-            private val logger = UnifiedLogger.getInstance()
+            // Lazy so pure static helpers (computeStreaks et al.) stay usable in
+            // plain JVM tests without UnifiedLogger.initialize().
+            private val logger by lazy { UnifiedLogger.getInstance() }
 
             const val BACKFILL_DONE_KEY = "score_rollup_backfill_v1_done"
 

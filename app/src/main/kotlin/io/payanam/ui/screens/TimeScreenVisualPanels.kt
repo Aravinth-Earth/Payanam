@@ -34,7 +34,6 @@ import io.payanam.ui.viewmodel.DimensionPreference
 import io.payanam.ui.viewmodel.TimeDayOverallSummary
 import io.payanam.ui.viewmodel.TimeDimensionDaySummary
 import io.payanam.ui.viewmodel.TimeTrendStripSummary
-import java.text.BreakIterator
 import java.util.Locale
 import kotlin.math.absoluteValue
 
@@ -316,19 +315,31 @@ internal fun shortDimensionLabel(label: String): String {
 
 private fun firstGrapheme(text: String): String = firstNGraphemes(text, 1)
 
+/**
+ * Groups base letters with their trailing combining marks (vowel signs,
+ * viramas) into user-perceived units before counting, so Indic scripts
+ * behave identically on JVM and Android (JDK BreakIterator does not form
+ * extended grapheme clusters for Tamil).
+ */
 private fun firstNGraphemes(text: String, count: Int): String {
     if (text.isBlank() || count <= 0) return ""
-    val iterator = BreakIterator.getCharacterInstance(Locale.ROOT)
-    iterator.setText(text)
     val builder = StringBuilder()
-    var start = iterator.first()
-    var end = iterator.next()
     var taken = 0
-    while (end != BreakIterator.DONE && taken < count) {
-        builder.append(text.substring(start, end))
-        taken++
-        start = end
-        end = iterator.next()
+    var previousWasBase = false
+    for (ch in text) {
+        val type = Character.getType(ch)
+        val isMark = type == Character.NON_SPACING_MARK.toInt() ||
+            type == Character.COMBINING_SPACING_MARK.toInt() ||
+            type == Character.ENCLOSING_MARK.toInt()
+        if (previousWasBase && !isMark && taken == count - 1) {
+            break
+        }
+        if (!isMark && previousWasBase) {
+            taken++
+            if (taken >= count) break
+        }
+        builder.append(ch)
+        previousWasBase = true
     }
     return builder.toString()
 }
