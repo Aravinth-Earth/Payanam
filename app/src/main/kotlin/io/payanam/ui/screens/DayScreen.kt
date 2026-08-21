@@ -46,7 +46,7 @@ import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
 /**
- * Defines the contract for day screen mode.
+ * Day screen modes (currently journal-only).
  */
 enum class DayScreenMode {
     JOURNAL_ONLY,
@@ -131,7 +131,7 @@ fun DayScreen(
         val selectableDates = remember(today) {
             object : SelectableDates {
                 /**
-                 * Returns true when the is selectable date.
+                 * Allows only dates up to today (no future journaling).
                  */
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val candidate = Instant.ofEpochMilli(utcTimeMillis)
@@ -141,7 +141,7 @@ fun DayScreen(
                 }
 
                 /**
-                 * Returns true when the is selectable year.
+                 * Allows only years up to the current year.
                  */
                 override fun isSelectableYear(year: Int): Boolean = year <= today.year
             }
