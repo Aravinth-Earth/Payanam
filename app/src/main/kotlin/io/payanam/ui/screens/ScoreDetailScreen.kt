@@ -52,7 +52,8 @@ enum class ScoreDetailType  {
     DIMENSION,
 }
 /**
- * Holds the score detail ui state.
+ * UI state for the score-detail screen: loading/error flags, metric rows for
+ * the selected layer, and the current window (size + end date) plus view mode.
  */
 data class ScoreDetailUiState(
     val isLoading: Boolean = true,
@@ -63,10 +64,11 @@ data class ScoreDetailUiState(
     val error: String? = null,
 )
 
-@HiltViewModel
 /**
- * Provides the score detail view model.
+ * Score-detail ViewModel: loads day/dimension metric windows, shifts the
+ * window or changes its size, and toggles the chart/table view.
  */
+@HiltViewModel
 class ScoreDetailViewModel
     @Inject
     constructor(
@@ -77,7 +79,7 @@ class ScoreDetailViewModel
         private val _uiState = MutableStateFlow(ScoreDetailUiState())
         val uiState: StateFlow<ScoreDetailUiState> = _uiState.asStateFlow()
         /**
-         * Loads the load.
+         * Loads the metric rows for [type]/[key] over the current window.
          */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun load(type: ScoreDetailType, key: String) {
@@ -123,7 +125,7 @@ class ScoreDetailViewModel
             }
         }
         /**
-         * Performs the shift window.
+         * Slides the window by [days] and reloads its rows.
          */
         fun shiftWindow(days: Int) {
             logger.d(
@@ -154,7 +156,7 @@ class ScoreDetailViewModel
             }
         }
         /**
-         * Updates the set window size.
+         * Sets the visible range to [days] days (0 = all-time) and reloads.
          */
         fun setWindowSize(days: Int) {
             logger.d(
@@ -184,13 +186,13 @@ class ScoreDetailViewModel
             }
         }
         /**
-         * Updates the set chart view.
+         * Toggles the activity section between chart and table rendering.
          */
         fun setChartView(show: Boolean) {
             _uiState.update { it.copy(showChartView = show) }
         }
         /**
-         * Performs the go today.
+         * Snaps the window back to end at today and reloads.
          */
         fun goToday() {
             logger.d(
