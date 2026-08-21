@@ -25,7 +25,8 @@ import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
 /**
- * Defines the contract for backup trigger.
+ * What started a backup: scheduled auto, user-initiated manual, or a
+ * settings-screen export. Drives the retry policy.
  */
 enum class BackupTrigger(val key: String) {
     AUTO("auto"),
@@ -33,7 +34,8 @@ enum class BackupTrigger(val key: String) {
     EXPORT("export"),
 }
 /**
- * Holds the backup execution result.
+ * Outcome of a completed backup: when it was recorded, where it landed, and
+ * how many snapshot attempts it took.
  */
 data class BackupExecutionResult(
     val recordedAtMillis: Long,
@@ -47,10 +49,13 @@ private data class SnapshotAttemptResult(
     val attemptsUsed: Int,
 )
 
-@Singleton
 /**
- * Provides the database backup coordinator.
+ * Owns database backup execution: creates WAL-checkpointed, integrity-verified
+ * snapshots with trigger-specific retry policies, writes them to the Documents
+ * backup folder or a SAF destination, applies retention rotation, and records
+ * every outcome in [BackupStatusStore].
  */
+@Singleton
 class DatabaseBackupCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sessionManager: DatabaseSessionManager,
@@ -58,7 +63,9 @@ class DatabaseBackupCoordinator @Inject constructor(
 ) {
     private val logger = UnifiedLogger.getInstance()
     /**
-     * Performs the backup to app backup directory.
+     * Runs a full backup into the app's Documents backup folder: WAL
+     * checkpoint + verified snapshot with retries, then rotation cleanup.
+     * Records success/failure in [BackupStatusStore].
      */
     suspend fun backupToAppBackupDirectory(trigger: BackupTrigger): BackupExecutionResult = withContext(Dispatchers.IO) {
         val policy = retryPolicyFor(trigger)
@@ -96,7 +103,8 @@ class DatabaseBackupCoordinator @Inject constructor(
         }
     }
     /**
-     * Writes the export snapshot to uri.
+     * Streams a verified snapshot to a user-chosen [destinationUri] via SAF,
+     * returning the bytes written.
      */
     suspend fun exportSnapshotToUri(destinationUri: Uri): Long = withContext(Dispatchers.IO) {
         val trigger = BackupTrigger.EXPORT
