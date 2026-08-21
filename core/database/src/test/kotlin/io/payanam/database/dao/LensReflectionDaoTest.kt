@@ -31,10 +31,8 @@ class LensReflectionDaoTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -57,17 +55,11 @@ class LensReflectionDaoTest {
      */
     fun insertReflection_and_observe() =
         runBlocking {
-            /** Reflection. */
             val reflection = createTestReflection("ref-1", "2026-02-08", "untracked_time")
             lensReflectionDao.insertReflection(reflection)
-
-            /** Reflections. */
             val reflections = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(reflections).hasSize(1)
-            /** Assert that. */
             assertThat(reflections[0].id).isEqualTo("ref-1")
-            /** Assert that. */
             assertThat(reflections[0].reflectionType).isEqualTo("untracked_time")
         }
 
@@ -77,22 +69,14 @@ class LensReflectionDaoTest {
      */
     fun insertReflections_insertsMultiple() =
         runBlocking {
-            /** Reflections. */
             val reflections =
-                /** List of. */
                 listOf(
-                    /** Create test reflection. */
                     createTestReflection("ref-1", "2026-02-08", "untracked_time"),
-                    /** Create test reflection. */
                     createTestReflection("ref-2", "2026-02-08", "missed_task"),
-                    /** Create test reflection. */
                     createTestReflection("ref-3", "2026-02-08", "focus_gap"),
                 )
             lensReflectionDao.insertReflections(reflections)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved).hasSize(3)
         }
 
@@ -102,19 +86,13 @@ class LensReflectionDaoTest {
      */
     fun observeReflectionsForDay_filtersByDay() =
         runBlocking {
-            /** Reflection1. */
             val reflection1 = createTestReflection("ref-1", "2026-02-08", "untracked_time")
-            /** Reflection2. */
             val reflection2 = createTestReflection("ref-2", "2026-02-09", "missed_task")
 
             lensReflectionDao.insertReflection(reflection1)
             lensReflectionDao.insertReflection(reflection2)
-
-            /** Day8reflections. */
             val day8Reflections = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(day8Reflections).hasSize(1)
-            /** Assert that. */
             assertThat(day8Reflections[0].dayKey).isEqualTo("2026-02-08")
         }
 
@@ -124,17 +102,12 @@ class LensReflectionDaoTest {
      */
     fun markReflectionAddressed_updatesIsAddressedAndNote() =
         runBlocking {
-            /** Reflection. */
             val reflection = createTestReflection("ref-1", "2026-02-08", "missed_task")
             lensReflectionDao.insertReflection(reflection)
 
             lensReflectionDao.markReflectionAddressed("ref-1", "Rescheduled for tomorrow")
-
-            /** Updated. */
             val updated = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(updated[0].isAddressed).isEqualTo(1)
-            /** Assert that. */
             assertThat(updated[0].userNote).isEqualTo("Rescheduled for tomorrow")
         }
 
@@ -144,17 +117,12 @@ class LensReflectionDaoTest {
      */
     fun markReflectionAddressed_withNullNote() =
         runBlocking {
-            /** Reflection. */
             val reflection = createTestReflection("ref-1", "2026-02-08", "focus_gap")
             lensReflectionDao.insertReflection(reflection)
 
             lensReflectionDao.markReflectionAddressed("ref-1", null)
-
-            /** Updated. */
             val updated = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(updated[0].isAddressed).isEqualTo(1)
-            /** Assert that. */
             assertThat(updated[0].userNote).isNull()
         }
 
@@ -164,11 +132,8 @@ class LensReflectionDaoTest {
      */
     fun deleteReflectionsForDay_removesOnlySpecifiedDay() =
         runBlocking {
-            /** Reflection1. */
             val reflection1 = createTestReflection("ref-1", "2026-02-08", "untracked_time")
-            /** Reflection2. */
             val reflection2 = createTestReflection("ref-2", "2026-02-08", "missed_task")
-            /** Reflection3. */
             val reflection3 = createTestReflection("ref-3", "2026-02-09", "focus_gap")
 
             lensReflectionDao.insertReflection(reflection1)
@@ -176,15 +141,9 @@ class LensReflectionDaoTest {
             lensReflectionDao.insertReflection(reflection3)
 
             lensReflectionDao.deleteReflectionsForDay("2026-02-08")
-
-            /** Day8reflections. */
             val day8Reflections = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Day9reflections. */
             val day9Reflections = lensReflectionDao.observeReflectionsForDay("2026-02-09").first()
-
-            /** Assert that. */
             assertThat(day8Reflections).isEmpty()
-            /** Assert that. */
             assertThat(day9Reflections).hasSize(1)
         }
 
@@ -194,24 +153,16 @@ class LensReflectionDaoTest {
      */
     fun deleteOldReflections_removesOldEntries() =
         runBlocking {
-            /** Old reflection. */
             val oldReflection = createTestReflection("ref-1", "2026-01-01", "untracked_time", "2026-01-01T10:00:00")
-            /** Recent reflection. */
             val recentReflection = createTestReflection("ref-2", "2026-02-08", "missed_task", "2026-02-08T10:00:00")
 
             lensReflectionDao.insertReflection(oldReflection)
             lensReflectionDao.insertReflection(recentReflection)
 
             lensReflectionDao.deleteOldReflections("2026-02-01T00:00:00")
-
-            /** All reflections. */
             val allReflections = lensReflectionDao.observeReflectionsForDay("2026-01-01").first()
-            /** Recent reflections. */
             val recentReflections = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-
-            /** Assert that. */
             assertThat(allReflections).isEmpty()
-            /** Assert that. */
             assertThat(recentReflections).hasSize(1)
         }
 
@@ -221,9 +172,7 @@ class LensReflectionDaoTest {
      */
     fun reflectionWithDimension_storesAndRetrieves() =
         runBlocking {
-            /** Reflection. */
             val reflection =
-                /** Create test reflection. */
                 createTestReflection(
                     "ref-1",
                     "2026-02-08",
@@ -231,10 +180,7 @@ class LensReflectionDaoTest {
                     dimensionId = "dim-health",
                 )
             lensReflectionDao.insertReflection(reflection)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved[0].dimensionId).isEqualTo("dim-health")
         }
 
@@ -244,9 +190,7 @@ class LensReflectionDaoTest {
      */
     fun reflectionWithGapMinutes_storesAndRetrieves() =
         runBlocking {
-            /** Reflection. */
             val reflection =
-                /** Create test reflection. */
                 createTestReflection(
                     "ref-1",
                     "2026-02-08",
@@ -254,10 +198,7 @@ class LensReflectionDaoTest {
                     gapMinutes = 120,
                 )
             lensReflectionDao.insertReflection(reflection)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved[0].gapMinutes).isEqualTo(120)
         }
 
@@ -267,9 +208,7 @@ class LensReflectionDaoTest {
      */
     fun reflectionWithRelatedEntity_storesAndRetrieves() =
         runBlocking {
-            /** Reflection. */
             val reflection =
-                /** Create test reflection. */
                 createTestReflection(
                     "ref-1",
                     "2026-02-08",
@@ -277,10 +216,7 @@ class LensReflectionDaoTest {
                     relatedEntityId = "task-123",
                 )
             lensReflectionDao.insertReflection(reflection)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved[0].relatedEntityId).isEqualTo("task-123")
         }
 
@@ -290,22 +226,13 @@ class LensReflectionDaoTest {
      */
     fun observeReflectionsForDay_emitsUpdatesWhenNewReflectionAdded() =
         runBlocking {
-            /** Reflection1. */
             val reflection1 = createTestReflection("ref-1", "2026-02-08", "untracked_time")
             lensReflectionDao.insertReflection(reflection1)
-
-            /** Initial. */
             val initial = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(initial).hasSize(1)
-
-            /** Reflection2. */
             val reflection2 = createTestReflection("ref-2", "2026-02-08", "missed_task")
             lensReflectionDao.insertReflection(reflection2)
-
-            /** Updated. */
             val updated = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(updated).hasSize(2)
         }
 
@@ -315,24 +242,16 @@ class LensReflectionDaoTest {
      */
     fun entityCopy_createsNewInstanceWithModifiedFields() =
         runBlocking {
-            /** Original. */
             val original = createTestReflection("ref-1", "2026-02-08", "untracked_time")
             lensReflectionDao.insertReflection(original)
-
-            /** Copied. */
             val copied =
                 original.copy(
                     isAddressed = 1,
                     userNote = "Fixed by user",
                 )
-
-            /** Assert that. */
             assertThat(copied.id).isEqualTo(original.id)
-            /** Assert that. */
             assertThat(copied.dayKey).isEqualTo(original.dayKey)
-            /** Assert that. */
             assertThat(copied.isAddressed).isEqualTo(1)
-            /** Assert that. */
             assertThat(copied.userNote).isEqualTo("Fixed by user")
         }
 
@@ -341,14 +260,9 @@ class LensReflectionDaoTest {
      * Entity equals returns true for same values.
      */
     fun entityEquals_returnsTrueForSameValues() {
-        /** Timestamp. */
         val timestamp = "2026-02-08T10:00:00"
-        /** Reflection1. */
         val reflection1 = createTestReflection("ref-1", "2026-02-08", "untracked_time", timestamp)
-        /** Reflection2. */
         val reflection2 = createTestReflection("ref-1", "2026-02-08", "untracked_time", timestamp)
-
-        /** Assert that. */
         assertThat(reflection1).isEqualTo(reflection2)
     }
 
@@ -357,14 +271,9 @@ class LensReflectionDaoTest {
      * Entity hash code is same for equal entities.
      */
     fun entityHashCode_isSameForEqualEntities() {
-        /** Timestamp. */
         val timestamp = "2026-02-08T10:00:00"
-        /** Reflection1. */
         val reflection1 = createTestReflection("ref-1", "2026-02-08", "untracked_time", timestamp)
-        /** Reflection2. */
         val reflection2 = createTestReflection("ref-1", "2026-02-08", "untracked_time", timestamp)
-
-        /** Assert that. */
         assertThat(reflection1.hashCode()).isEqualTo(reflection2.hashCode())
     }
 
@@ -373,9 +282,7 @@ class LensReflectionDaoTest {
      * Entity to string contains all fields.
      */
     fun entityToString_containsAllFields() {
-        /** Reflection. */
         val reflection =
-            /** Create test reflection. */
             createTestReflection(
                 "ref-1",
                 "2026-02-08",
@@ -383,16 +290,10 @@ class LensReflectionDaoTest {
                 dimensionId = "dim-work",
                 gapMinutes = 120,
             )
-
-        /** String rep. */
         val stringRep = reflection.toString()
-        /** Assert that. */
         assertThat(stringRep).contains("ref-1")
-        /** Assert that. */
         assertThat(stringRep).contains("2026-02-08")
-        /** Assert that. */
         assertThat(stringRep).contains("missed_task")
-        /** Assert that. */
         assertThat(stringRep).contains("dim-work")
     }
 
@@ -401,9 +302,7 @@ class LensReflectionDaoTest {
      * Entity component functions extract fields correctly.
      */
     fun entityComponentFunctions_extractFieldsCorrectly() {
-        /** Reflection. */
         val reflection =
-            /** Create test reflection. */
             createTestReflection(
                 "ref-1",
                 "2026-02-08",
@@ -413,22 +312,13 @@ class LensReflectionDaoTest {
             )
 
         // Only destructure first 3 components to avoid Detekt warning
-        /** Id. */
         val id = reflection.component1()
-        /** Day key. */
         val dayKey = reflection.component2()
-        /** Dimension id. */
         val dimensionId = reflection.component3()
-
-        /** Assert that. */
         assertThat(id).isEqualTo("ref-1")
-        /** Assert that. */
         assertThat(dayKey).isEqualTo("2026-02-08")
-        /** Assert that. */
         assertThat(dimensionId).isEqualTo("dim-health")
-        /** Assert that. */
         assertThat(reflection.reflectionType).isEqualTo("focus_gap")
-        /** Assert that. */
         assertThat(reflection.title).contains("focus_gap")
     }
 
@@ -438,9 +328,7 @@ class LensReflectionDaoTest {
      */
     fun entityWithAllNullableFields_handlesNullsCorrectly() =
         runBlocking {
-            /** Reflection. */
             val reflection =
-                /** Lens reflection entity. */
                 LensReflectionEntity(
                     id = "ref-1",
                     dayKey = "2026-02-08",
@@ -456,18 +344,11 @@ class LensReflectionDaoTest {
                 )
 
             lensReflectionDao.insertReflection(reflection)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved[0].dimensionId).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].description).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].gapMinutes).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].relatedEntityId).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].userNote).isNull()
         }
 
@@ -478,9 +359,7 @@ class LensReflectionDaoTest {
     fun entityWithMinimalRequiredParams_usesDefaults() =
         runBlocking {
             // Create entity using only required params, letting defaults kick in
-            /** Reflection. */
             val reflection =
-                /** Lens reflection entity. */
                 LensReflectionEntity(
                     id = "ref-minimal",
                     dayKey = "2026-02-08",
@@ -490,33 +369,20 @@ class LensReflectionDaoTest {
                 )
 
             lensReflectionDao.insertReflection(reflection)
-
-            /** Retrieved. */
             val retrieved = lensReflectionDao.observeReflectionsForDay("2026-02-08").first()
-            /** Assert that. */
             assertThat(retrieved).hasSize(1)
-            /** Assert that. */
             assertThat(retrieved[0].id).isEqualTo("ref-minimal")
-            /** Assert that. */
             assertThat(retrieved[0].dimensionId).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].description).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].gapMinutes).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].relatedEntityId).isNull()
-            /** Assert that. */
             assertThat(retrieved[0].isAddressed).isEqualTo(0)
-            /** Assert that. */
             assertThat(retrieved[0].userNote).isNull()
         }
 
     private fun createTestReflection(
-        /** Id. */
         id: String,
-        /** Day key. */
         dayKey: String,
-        /** Reflection type. */
         reflectionType: String,
         createdAt: String = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
         dimensionId: String? = null,

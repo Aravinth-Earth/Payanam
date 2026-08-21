@@ -11,21 +11,13 @@ import io.payanam.common.logging.UnifiedLogger
  * CanonicalDimensionDefinition.
  */
 data class CanonicalDimensionDefinition(
-    /** Id. */
     val id: String,
-    /** Slug. */
     val slug: String,
-    /** Fallback label. */
     val fallbackLabel: String,
-    /** Fallback description. */
     val fallbackDescription: String,
-    /** Sort order. */
     val sortOrder: Int,
-    /** Default weight. */
     val defaultWeight: Double,
-    /** Default color hex. */
     val defaultColorHex: String,
-    /** Default icon key. */
     val defaultIconKey: String
 )
 
@@ -36,8 +28,6 @@ data class CanonicalDimensionDefinition(
 object DimensionTaxonomyCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
     private const val CATALOG_CLASS_NAME = "io.payanam.domain.model.DimensionTaxonomyCatalog"
-
-    /** Physical health. */
     val PHYSICAL_HEALTH = CanonicalDimensionDefinition(
         id = "dim_physical_health",
         slug = "physical_health",
@@ -48,7 +38,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#4CAF50",
         defaultIconKey = "monitor_heart"
     )
-    /** Mental health. */
     val MENTAL_HEALTH = CanonicalDimensionDefinition(
         id = "dim_mental_health",
         slug = "mental_health",
@@ -59,7 +48,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#9C27B0",
         defaultIconKey = "psychology"
     )
-    /** Family relationships. */
     val FAMILY_RELATIONSHIPS = CanonicalDimensionDefinition(
         id = "dim_family_relationships",
         slug = "family_relationships",
@@ -72,7 +60,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#E91E63",
         defaultIconKey = "groups"
     )
-    /** Home environment. */
     val HOME_ENVIRONMENT = CanonicalDimensionDefinition(
         id = "dim_home_environment",
         slug = "home_environment",
@@ -85,7 +72,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#009688",
         defaultIconKey = "home"
     )
-    /** Work livelihood. */
     val WORK_LIVELIHOOD = CanonicalDimensionDefinition(
         id = "dim_work_livelihood",
         slug = "work_livelihood",
@@ -96,7 +82,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#3F51B5",
         defaultIconKey = "work"
     )
-    /** Money finance. */
     val MONEY_FINANCE = CanonicalDimensionDefinition(
         id = "dim_money_finance",
         slug = "money_finance",
@@ -107,7 +92,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#FF9800",
         defaultIconKey = "account_balance_wallet"
     )
-    /** Learning growth. */
     val LEARNING_GROWTH = CanonicalDimensionDefinition(
         id = "dim_learning_growth",
         slug = "learning_growth",
@@ -120,7 +104,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#FFC107",
         defaultIconKey = "menu_book"
     )
-    /** Recreation leisure. */
     val RECREATION_LEISURE = CanonicalDimensionDefinition(
         id = "dim_recreation_leisure",
         slug = "recreation_leisure",
@@ -131,7 +114,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#00BCD4",
         defaultIconKey = "sports_esports"
     )
-    /** Community service. */
     val COMMUNITY_SERVICE = CanonicalDimensionDefinition(
         id = "dim_community_service",
         slug = "community_service",
@@ -142,7 +124,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#607D8B",
         defaultIconKey = "volunteer_activism"
     )
-    /** Unassigned. */
     val UNASSIGNED = CanonicalDimensionDefinition(
         id = "dim_unassigned",
         slug = "unassigned",
@@ -153,28 +134,16 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#9E9E9E",
         defaultIconKey = "help_outline"
     )
-
-    /** Entries. */
     val entries: List<CanonicalDimensionDefinition> = listOf(
-        /** Physical health. */
         PHYSICAL_HEALTH,
-        /** Mental health. */
         MENTAL_HEALTH,
-        /** Family relationships. */
         FAMILY_RELATIONSHIPS,
-        /** Home environment. */
         HOME_ENVIRONMENT,
-        /** Work livelihood. */
         WORK_LIVELIHOOD,
-        /** Money finance. */
         MONEY_FINANCE,
-        /** Learning growth. */
         LEARNING_GROWTH,
-        /** Recreation leisure. */
         RECREATION_LEISURE,
-        /** Community service. */
         COMMUNITY_SERVICE,
-        /** Unassigned. */
         UNASSIGNED
     )
 
@@ -182,7 +151,6 @@ object DimensionTaxonomyCatalog {
     private val canonicalLabels = entries.map { it.fallbackLabel }.toSet()
 
     private fun fallbackCallerTrace(): Map<String, Any> {
-        /** Caller. */
         val caller = Throwable("Dimension taxonomy fallback trace").stackTrace.firstOrNull { element ->
             element.className != CATALOG_CLASS_NAME &&
                 element.className != Throwable::class.java.name &&
@@ -206,20 +174,15 @@ object DimensionTaxonomyCatalog {
      * From any id.
      */
     fun fromAnyId(id: String?): CanonicalDimensionDefinition? {
-        /** If. */
         if (id.isNullOrBlank()) {
             return null
         }
         return fromCanonicalId(id)?.also {
-            /** If. */
             if (id != it.id) {
-                /** Caller data. */
                 val callerData = fallbackCallerTrace()
-                /** Logger or null. */
                 loggerOrNull()?.w(
                     "DimensionTaxonomyCatalog.fromAnyId",
                     "Rejected non-canonical dimension id",
-                    /** Map of. */
                     mapOf(
                         "dimensionId" to id,
                         "canonicalId" to it.id,
@@ -228,19 +191,15 @@ object DimensionTaxonomyCatalog {
                 )
             }
         } ?: run {
-            /** Caller data. */
             val callerData = fallbackCallerTrace()
-            /** Logger or null. */
             loggerOrNull()?.w(
                 "DimensionTaxonomyCatalog.fromAnyId",
                 "Rejected non-canonical dimension id",
-                /** Map of. */
                 mapOf(
                     "dimensionId" to id,
                     "resolutionKind" to "non_canonical"
                 ) + callerData
             )
-            /** Null. */
             null
         }
     }
@@ -249,19 +208,14 @@ object DimensionTaxonomyCatalog {
      * From any label.
      */
     fun fromAnyLabel(label: String?): CanonicalDimensionDefinition? {
-        /** If. */
         if (label.isNullOrBlank()) {
             return null
         }
-        /** Trimmed. */
         val trimmed = label.trim()
-        /** Caller data. */
         val callerData = fallbackCallerTrace()
-        /** Logger or null. */
         loggerOrNull()?.w(
             "DimensionTaxonomyCatalog.fromAnyLabel",
             "Rejected dimension label; canonical id required",
-            /** Map of. */
             mapOf(
                 "dimensionLabel" to trimmed,
                 "resolutionKind" to "label_not_supported"

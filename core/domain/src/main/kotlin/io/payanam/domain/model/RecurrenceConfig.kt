@@ -21,43 +21,33 @@ private const val SUNDAY = 7
  * Flexible recurrence configuration supporting weekdays, dates, intervals, and frequency patterns.
  */
 data class RecurrenceConfig(
-    /** Type. */
     val type: RecurrenceType,
     
     // For SPECIFIC_WEEKDAYS: Which days of the week (1=Monday, 7=Sunday)
-    /** Weekdays. */
     val weekdays: Set<Int> = emptySet(),
     
     // For MONTHLY_DATES: Which days of the month (1-31, 32=last day)
-    /** Monthly dates. */
     val monthlyDates: Set<Int> = emptySet(),
     
     // For INTERVAL: How many days between occurrences
-    /** Interval days. */
     val intervalDays: Int = 1,
     
     // For FREQUENCY: X times per Y days (like uHabits)
-    /** Frequency numerator. */
     val frequencyNumerator: Int = 1,
-    /** Frequency denominator. */
     val frequencyDenominator: Int = 1,
     
     // Start date for tracking (first scheduled occurrence)
-    /** Start date. */
     val startDate: LocalDate? = null
 ) {
     /**
      * Human-readable display name for this recurrence configuration.
      */
     val displayName: String
-        /** Get. */
         get() = when (type) {
             RecurrenceType.DAILY -> "Daily"
             RecurrenceType.WEEKDAYS_ONLY -> "Weekdays"
             RecurrenceType.SPECIFIC_WEEKDAYS -> {
-                /** Day names. */
                 val dayNames = weekdays.sorted().map { dayNum ->
-                    /** When. */
                     when (dayNum) {
                         MONDAY -> "Mon"
                         TUESDAY -> "Tue"
@@ -76,9 +66,7 @@ data class RecurrenceConfig(
                 }
             }
             RecurrenceType.MONTHLY_DATES -> {
-                /** Date names. */
                 val dateNames = monthlyDates.sorted().map { date ->
-                    /** If. */
                     if (date == 32) "last" else "${date}${getDaySuffix(date)}"
                 }
                 when {
@@ -88,7 +76,6 @@ data class RecurrenceConfig(
                 }
             }
             RecurrenceType.INTERVAL -> {
-                /** When. */
                 when (intervalDays) {
                     1 -> "Daily"
                     2 -> "Every other day"
@@ -124,7 +111,6 @@ data class RecurrenceConfig(
     fun isScheduledDay(date: LocalDate): Boolean {
         // If startDate is set, dates before it are not scheduled
         startDate?.let {
-            /** If. */
             if (date.isBefore(it)) return false
         }
         
@@ -132,21 +118,17 @@ data class RecurrenceConfig(
             RecurrenceType.DAILY -> true
             
             RecurrenceType.SPECIFIC_WEEKDAYS -> {
-                /** Day of week. */
                 val dayOfWeek = date.dayOfWeek.value // 1=Monday, 7=Sunday
                 dayOfWeek in weekdays
             }
             
             RecurrenceType.WEEKDAYS_ONLY -> {
-                /** Day of week. */
                 val dayOfWeek = date.dayOfWeek
                 dayOfWeek != DayOfWeek.SATURDAY && dayOfWeek != DayOfWeek.SUNDAY
             }
             
             RecurrenceType.MONTHLY_DATES -> {
-                /** Day of month. */
                 val dayOfMonth = date.dayOfMonth
-                /** Last day of month. */
                 val lastDayOfMonth = date.lengthOfMonth()
                 // 32 represents "last day of month"
                 dayOfMonth in monthlyDates || 
@@ -155,9 +137,7 @@ data class RecurrenceConfig(
             
             RecurrenceType.INTERVAL -> {
                 // Scheduled every N days from start date
-                /** Start. */
                 val start = startDate ?: return true
-                /** Days since start. */
                 val daysSinceStart = ChronoUnit.DAYS.between(start, date).toInt()
                 daysSinceStart >= 0 && daysSinceStart % intervalDays == 0
             }
@@ -165,7 +145,6 @@ data class RecurrenceConfig(
             RecurrenceType.FREQUENCY -> {
                 // X times per Y days - any day in the period qualifies
                 // This is flexible like uHabits - user can complete on any day
-                /** True. */
                 true
             }
             
@@ -186,9 +165,7 @@ data class RecurrenceConfig(
             RecurrenceType.DAILY -> "FREQ=DAILY;INTERVAL=1"
             
             RecurrenceType.SPECIFIC_WEEKDAYS -> {
-                /** By day. */
                 val byDay = weekdays.sorted().joinToString(",") { dayNum ->
-                    /** When. */
                     when (dayNum) {
                         1 -> "MO"
                         2 -> "TU"
@@ -206,7 +183,6 @@ data class RecurrenceConfig(
             RecurrenceType.WEEKDAYS_ONLY -> "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
             
             RecurrenceType.MONTHLY_DATES -> {
-                /** By month day. */
                 val byMonthDay = monthlyDates.filter { it in 1..31 }
                     .sorted().joinToString(",")
                 "FREQ=MONTHLY;BYMONTHDAY=$byMonthDay"
@@ -233,23 +209,17 @@ data class RecurrenceConfig(
      * Format: "CONFIG:{type}|{params}"
      */
     fun serialize(): String {
-        /** Params. */
         val params = mutableListOf<String>()
         params.add("type=$type")
-        
-        /** If. */
         if (weekdays.isNotEmpty()) {
             params.add("weekdays=${weekdays.sorted().joinToString(",")}")
         }
-        /** If. */
         if (monthlyDates.isNotEmpty()) {
             params.add("monthlyDates=${monthlyDates.sorted().joinToString(",")}")
         }
-        /** If. */
         if (type == RecurrenceType.INTERVAL) {
             params.add("interval=$intervalDays")
         }
-        /** If. */
         if (type == RecurrenceType.FREQUENCY) {
             params.add("freq=$frequencyNumerator/$frequencyDenominator")
         }
@@ -279,13 +249,9 @@ data class RecurrenceConfig(
      * Get scheduled dates in range.
      */
     fun getScheduledDatesInRange(start: LocalDate, end: LocalDate): List<LocalDate> {
-        /** Dates. */
         val dates = mutableListOf<LocalDate>()
-        /** Current. */
         var current = start
-        /** While. */
         while (!current.isAfter(end)) {
-            /** If. */
             if (isScheduledDay(current)) {
                 dates.add(current)
             }
@@ -355,18 +321,11 @@ data class RecurrenceConfig(
  * Types of recurrence patterns.
  */
 enum class RecurrenceType {
-    /** Daily. */
     DAILY,              // Every day
-    /** Weekdays only. */
     WEEKDAYS_ONLY,      // Monday to Friday
-    /** Specific weekdays. */
     SPECIFIC_WEEKDAYS,  // Specific days like Mon, Wed, Fri
-    /** Monthly dates. */
     MONTHLY_DATES,      // Specific dates like 1st, 15th
-    /** Interval. */
     INTERVAL,           // Every N days
-    /** Frequency. */
     FREQUENCY,          // X times per Y days (flexible)
-    /** Yearly. */
     YEARLY              // Once a year
 }

@@ -17,16 +17,13 @@ internal object DatabaseImportIntegritySupport {
      * Read core counts.
      */
     fun readCoreCounts(
-        /** Context. */
         context: Context,
-        /** Database file. */
         databaseFile: File,
         passphrase: String?,
     ): Map<String, Int> {
         logger.i(
             "DatabaseImportIntegritySupport.readCoreCounts",
             "Reading import integrity core counts",
-            /** Map of. */
             mapOf(
                 "dbFile" to databaseFile.absolutePath,
                 "dbExists" to databaseFile.exists(),
@@ -34,7 +31,6 @@ internal object DatabaseImportIntegritySupport {
                 "hasPassphrase" to (passphrase != null),
             ),
         )
-        /** Counts. */
         val counts = DatabaseEncryptionMigrationSupport.readTableCounts(
             context = context,
             databaseFile = databaseFile,
@@ -44,7 +40,6 @@ internal object DatabaseImportIntegritySupport {
         logger.i(
             "DatabaseImportIntegritySupport.readCoreCounts",
             "Read import integrity core counts",
-            /** Map of. */
             mapOf(
                 "tasks" to (counts["tasks"] ?: 0),
                 "timeEntries" to (counts["time_entries"] ?: 0),
@@ -60,22 +55,16 @@ internal object DatabaseImportIntegritySupport {
     fun validateCountsPreserved(
         beforeCounts: Map<String, Int>,
         afterCounts: Map<String, Int>,
-        /** Log tag. */
         logTag: String,
     ) {
-        /** Mismatch. */
         val mismatch = trackedTables.firstOrNull { table ->
             (beforeCounts[table] ?: 0) != (afterCounts[table] ?: 0)
         }
-        /** If. */
         if (mismatch != null) {
             logger.e(
-                /** Log tag. */
                 logTag,
                 "Import integrity check failed",
-                /** Illegal state exception. */
                 IllegalStateException("Counts mismatch for $mismatch"),
-                /** Map of. */
                 mapOf(
                     "table" to mismatch,
                     "before" to (beforeCounts[mismatch] ?: 0),

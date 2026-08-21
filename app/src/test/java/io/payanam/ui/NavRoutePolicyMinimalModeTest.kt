@@ -68,9 +68,7 @@ class NavRoutePolicyMinimalModeTest {
 
     // ── minimalModeAllowedTabs + secondaryRoutes are consistent ───────────
     @Test fun `minimalModeAllowedTabs contains exactly time tasks journal notes lenses settings`() {
-        /** Expected. */
         val expected = setOf("time", "tasks", "journal", "notes", "lenses", "settings")
-        /** Assert true. */
         assertTrue(
             "minimalModeAllowedTabs must contain exactly $expected but was ${NavRoutePolicy.minimalModeAllowedTabs}",
             NavRoutePolicy.minimalModeAllowedTabs == expected,
@@ -78,10 +76,8 @@ class NavRoutePolicyMinimalModeTest {
     }
 
     @Test fun `disabled tabs are not in minimalModeAllowedTabs`() {
-        /** Disabled tabs. */
         val disabledTabs = listOf("habits")
         disabledTabs.forEach { tab ->
-            /** Assert false. */
             assertFalse(
                 "Disabled tab '$tab' must not be in minimalModeAllowedTabs",
                 tab in NavRoutePolicy.minimalModeAllowedTabs,

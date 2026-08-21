@@ -33,24 +33,16 @@ import javax.inject.Inject
  * DatabasePassphraseUnlockUiState.
  */
 data class DatabasePassphraseUnlockUiState(
-    /** Is unlocking. */
     val isUnlocking: Boolean = false,
-    /** Error reason code. */
     val errorReasonCode: String? = null,
-    /** Lockout seconds remaining. */
     val lockoutSecondsRemaining: Long = 0L,
-    /** Has local database. */
     val hasLocalDatabase: Boolean = false,
-    /** Database size kb. */
     val databaseSizeKb: Long = 0L,
-    /** Database last modified ms. */
     val databaseLastModifiedMs: Long = 0L,
-    /** Storage mode label key. */
     val storageModeLabelKey: String = "encrypted",
 )
 
 internal fun classifyDatabaseOpenFailureReason(error: Throwable?): String {
-    /** Message. */
     val message = error?.message.orEmpty()
     return when {
         message.contains("newer than app supports", ignoreCase = true) -> "db_too_new"
@@ -75,14 +67,11 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(DatabasePassphraseUnlockUiState())
-    /** Ui state. */
     val uiState: StateFlow<DatabasePassphraseUnlockUiState> = _uiState.asStateFlow()
 
     init {
         logger.i("DatabasePassphraseUnlockViewModel.init", "Unlock ViewModel initialized")
-        /** Refresh lockout state. */
         refreshLockoutState()
-        /** Load database summary. */
         loadDatabaseSummary()
     }
 
@@ -90,12 +79,10 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
      * Refresh lockout state.
      */
     fun refreshLockoutState() {
-        /** Remaining. */
         val remaining = encryptionManager.getUnlockRemainingSeconds()
         logger.d(
             "DatabasePassphraseUnlockViewModel.refreshLockoutState",
             "Refreshed lockout countdown",
-            /** Map of. */
             mapOf("remainingSeconds" to remaining),
         )
         _uiState.update { it.copy(lockoutSecondsRemaining = remaining) }
@@ -108,13 +95,11 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         logger.i(
             "DatabasePassphraseUnlockViewModel.unlock",
             "Passphrase unlock requested",
-            /** Map of. */
             mapOf(
                 "passphraseBlank" to passphrase.isBlank(),
                 "passphraseLength" to passphrase.length,
             ),
         )
-        /** If. */
         if (passphrase.isBlank()) {
             logger.w("DatabasePassphraseUnlockViewModel.unlock", "Unlock blocked: blank passphrase")
             _uiState.update {
@@ -124,17 +109,13 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     lockoutSecondsRemaining = 0L,
                 )
             }
-            /** Return. */
             return
         }
-        /** Remaining. */
         val remaining = encryptionManager.getUnlockRemainingSeconds()
-        /** If. */
         if (remaining > 0) {
             logger.w(
                 "DatabasePassphraseUnlockViewModel.unlock",
                 "Unlock blocked due to lockout",
-                /** Map of. */
                 mapOf("lockoutSecondsRemaining" to remaining),
             )
             _uiState.update {
@@ -143,37 +124,28 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     lockoutSecondsRemaining = remaining,
                 )
             }
-            /** Start lockout ticker. */
             startLockoutTicker()
-            /** Return. */
             return
         }
 
         viewModelScope.launch {
             _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-            /** Valid. */
             val valid = withContext(Dispatchers.IO) {
                 encryptionManager.verifyPassphrase(passphrase)
             }
             logger.i(
                 "DatabasePassphraseUnlockViewModel.unlock",
                 "Passphrase verification finished",
-                /** Map of. */
                 mapOf("valid" to valid),
             )
-            /** If. */
             if (valid) {
-                /** Open result. */
                 val openResult = sessionManager.openDatabase(passphrase)
-                /** If. */
                 if (openResult.isFailure) {
-                    /** Reason code. */
                     val reasonCode = classifyDatabaseOpenFailureReason(openResult.exceptionOrNull())
                     logger.e(
                         "DatabasePassphraseUnlockViewModel.unlock",
                         "DB open failed after passphrase verified",
                         openResult.exceptionOrNull(),
-                        /** Map of. */
                         mapOf("reasonCode" to reasonCode),
                     )
                     _uiState.update {
@@ -194,15 +166,12 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                         lockoutSecondsRemaining = 0L,
                     )
                 }
-                /** On success. */
                 onSuccess()
             } else {
-                /** Lockout seconds. */
                 val lockoutSeconds = encryptionManager.recordFailedUnlockAttempt()
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.unlock",
                     "Passphrase unlock failed",
-                    /** Map of. */
                     mapOf("lockoutSeconds" to lockoutSeconds),
                 )
                 _uiState.update {
@@ -212,9 +181,7 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                         lockoutSecondsRemaining = lockoutSeconds,
                     )
                 }
-                /** If. */
                 if (lockoutSeconds > 0) {
-                    /** Start lockout ticker. */
                     startLockoutTicker()
                 }
             }
@@ -226,19 +193,15 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
      * authenticated cipher is used to unwrap the passphrase and open the DB session.
      */
     fun startBiometricUnlock(
-        /** Activity. */
         activity: FragmentActivity,
         onSuccess: () -> Unit,
     ) {
-        /** Biometric enabled. */
         val biometricEnabled = encryptionManager.isBiometricUnlockEnabled()
         logger.i(
             "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
             "Biometric unlock requested",
-            /** Map of. */
             mapOf("biometricEnabledPreference" to biometricEnabled),
         )
-        /** If. */
         if (!biometricEnabled) {
             logger.w(
                 "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -251,26 +214,19 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     lockoutSecondsRemaining = 0L,
                 )
             }
-            /** Return. */
             return
         }
-
-        /** Biometric manager. */
         val biometricManager = BiometricManager.from(context)
-        /** Can auth. */
         val canAuth = biometricManager.canAuthenticate(BIOMETRIC_STRONG)
         logger.i(
             "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
             "Biometric capability checked",
-            /** Map of. */
             mapOf("canAuthenticateResult" to canAuth),
         )
-        /** If. */
         if (canAuth != BiometricManager.BIOMETRIC_SUCCESS) {
             logger.w(
                 "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
                 "Biometric not available",
-                /** Map of. */
                 mapOf("canAuthResult" to canAuth),
             )
             _uiState.update {
@@ -280,16 +236,12 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     lockoutSecondsRemaining = 0L,
                 )
             }
-            /** Return. */
             return
         }
-
-        /** Cipher. */
         val cipher = runCatching { encryptionManager.getCipherForBiometricUnlock() }.getOrElse { error ->
             logger.e(
                 "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
                 "Failed to initialize cipher for biometric unlock",
-                /** Error. */
                 error,
             )
             _uiState.update {
@@ -299,20 +251,14 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     lockoutSecondsRemaining = 0L,
                 )
             }
-            /** Return. */
             return
         }
 
         _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-
-        /** Executor. */
         val executor = ContextCompat.getMainExecutor(context)
-        /** Callback. */
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
-                /** Authenticated cipher. */
                 val authenticatedCipher = result.cryptoObject?.cipher
-                /** If. */
                 if (authenticatedCipher == null) {
                     logger.e(
                         "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -321,13 +267,10 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(isUnlocking = false, errorReasonCode = "biometric_error")
                     }
-                    /** Return. */
                     return
                 }
                 viewModelScope.launch {
-                    /** Passphrase. */
                     val passphrase = runCatching {
-                        /** With context. */
                         withContext(Dispatchers.IO) {
                             encryptionManager.unwrapPassphraseWithCipher(authenticatedCipher)
                         }
@@ -335,7 +278,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                         logger.e(
                             "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
                             "Failed to unwrap passphrase after biometric success",
-                            /** Error. */
                             error,
                         )
                         _uiState.update {
@@ -343,17 +285,13 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                         }
                         return@launch
                     }
-                    /** Open result. */
                     val openResult = sessionManager.openDatabase(passphrase)
-                    /** If. */
                     if (openResult.isFailure) {
-                        /** Reason code. */
                         val reasonCode = classifyDatabaseOpenFailureReason(openResult.exceptionOrNull())
                         logger.e(
                             "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
                             "DB open failed after biometric auth",
                             openResult.exceptionOrNull(),
-                            /** Map of. */
                             mapOf("reasonCode" to reasonCode),
                         )
                         _uiState.update {
@@ -369,7 +307,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                     _uiState.update {
                         it.copy(isUnlocking = false, errorReasonCode = null, lockoutSecondsRemaining = 0L)
                     }
-                    /** On success. */
                     onSuccess()
                 }
             }
@@ -378,10 +315,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
                     "Biometric auth error",
-                    /** Map of. */
                     mapOf("errorCode" to errorCode, "errString" to errString.toString()),
                 )
-                /** Reason code. */
                 val reasonCode = if (errorCode == BiometricPrompt.ERROR_LOCKOUT ||
                     errorCode == BiometricPrompt.ERROR_LOCKOUT_PERMANENT
                 ) {
@@ -402,8 +337,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 // Don't update errorReasonCode here — the system shows its own feedback
             }
         }
-
-        /** Prompt info. */
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_title))
             .setSubtitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_subtitle))
@@ -415,9 +348,7 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
             "Launching biometric prompt",
         )
-        /** Biometric prompt. */
         BiometricPrompt(activity, executor, callback).authenticate(
-            /** Prompt info. */
             promptInfo,
             BiometricPrompt.CryptoObject(cipher),
         )
@@ -435,19 +366,14 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         logger.w("DatabasePassphraseUnlockViewModel.forgotPassphraseReset", "Forgot-passphrase reset requested")
         viewModelScope.launch {
             _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-            /** Reset ok. */
             val resetOk = withContext(Dispatchers.IO) {
-                /** Deleted. */
                 val deleted = deleteAllDatabaseFiles()
-                /** Encryption reset. */
                 val encryptionReset = encryptionManager.resetEncryptionState()
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.forgotPassphraseReset",
                     "Forgot-passphrase reset executed",
-                    /** Map of. */
                     mapOf("databaseFilesDeleted" to deleted, "encryptionStateReset" to encryptionReset),
                 )
-                /** Encryption reset. */
                 encryptionReset
             }
             _uiState.update {
@@ -460,12 +386,9 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             logger.i(
                 "DatabasePassphraseUnlockViewModel.forgotPassphraseReset",
                 "Forgot-passphrase reset finished",
-                /** Map of. */
                 mapOf("resetOk" to resetOk),
             )
-            /** If. */
             if (resetOk) {
-                /** On success. */
                 onSuccess()
             }
         }
@@ -474,44 +397,32 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
     private fun startLockoutTicker() {
         logger.i("DatabasePassphraseUnlockViewModel.startLockoutTicker", "Starting lockout ticker")
         viewModelScope.launch {
-            /** While. */
             while (true) {
-                /** Remaining. */
                 val remaining = encryptionManager.getUnlockRemainingSeconds()
                 _uiState.update { it.copy(lockoutSecondsRemaining = remaining) }
-                /** If. */
                 if (remaining <= 0) {
-                    /** If. */
                     if (_uiState.value.errorReasonCode == "locked") {
                         _uiState.update { it.copy(errorReasonCode = null) }
                     }
                     logger.i("DatabasePassphraseUnlockViewModel.startLockoutTicker", "Lockout ticker finished")
-                    /** Break. */
                     break
                 }
-                /** Delay. */
                 delay(1000L)
             }
         }
     }
 
     private fun deleteAllDatabaseFiles(): Int {
-        /** Deleted count. */
         var deletedCount = 0
-        /** Get database artifact files. */
         getDatabaseArtifactFiles().forEach { file ->
-            /** If. */
             if (file.exists()) {
-                /** Deleted. */
                 val deleted = file.delete()
-                /** If. */
                 if (deleted) {
                     deletedCount++
                 }
                 logger.i(
                     "DatabasePassphraseUnlockViewModel.deleteAllDatabaseFiles",
                     "Delete artifact attempt",
-                    /** Map of. */
                     mapOf("name" to file.name, "deleted" to deleted),
                 )
             }
@@ -519,7 +430,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         logger.i(
             "DatabasePassphraseUnlockViewModel.deleteAllDatabaseFiles",
             "Delete-all completed",
-            /** Map of. */
             mapOf("deletedCount" to deletedCount),
         )
         return deletedCount
@@ -528,9 +438,7 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
     private fun loadDatabaseSummary() {
         logger.i("DatabasePassphraseUnlockViewModel.loadDatabaseSummary", "Loading local database summary")
         viewModelScope.launch(Dispatchers.IO) {
-            /** Db file. */
             val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-            /** If. */
             if (!dbFile.exists()) {
                 _uiState.update {
                     it.copy(
@@ -542,7 +450,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.loadDatabaseSummary",
                     "Local database file not found",
-                    /** Map of. */
                     mapOf("path" to dbFile.absolutePath),
                 )
                 return@launch
@@ -558,7 +465,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             logger.i(
                 "DatabasePassphraseUnlockViewModel.loadDatabaseSummary",
                 "Local database summary loaded",
-                /** Map of. */
                 mapOf(
                     "path" to dbFile.absolutePath,
                     "sizeKB" to (dbFile.length() / 1024),
@@ -569,16 +475,11 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
     }
 
     private fun getDatabaseArtifactFiles(): List<File> {
-        /** Db file. */
         val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
         return listOf(
-            /** Db file. */
             dbFile,
-            /** File. */
             File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal"),
-            /** File. */
             File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-shm"),
-            /** File. */
             File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-journal"),
         )
     }

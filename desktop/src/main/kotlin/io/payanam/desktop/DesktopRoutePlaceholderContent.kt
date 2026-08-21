@@ -9,13 +9,9 @@ import io.payanam.shared.settings.DesktopTopLevelRoute
 
  */
 data class DesktopRoutePlaceholderContent(
-    /** Title. */
     val title: String,
-    /** Summary. */
     val summary: String,
-    /** Readiness. */
     val readiness: String,
-    /** Details. */
     val details: List<String>,
 )
 

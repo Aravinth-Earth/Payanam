@@ -50,15 +50,10 @@ class NotificationSchedulerRegressionTest {
      * Cancel for task clears visible delivered notification.
      */
     fun cancelForTask_clearsVisibleDeliveredNotification() = runTest {
-        /** Notification id. */
         val notificationId = "habit-reminder-1"
-        /** Task id. */
         val taskId = "habit-1"
-        /** Whenever. */
         whenever(notificationRepository.getNotificationsForTask(taskId)).thenReturn(
-            /** List of. */
             listOf(
-                /** Scheduled notification. */
                 ScheduledNotification(
                     id = notificationId,
                     taskId = taskId,
@@ -70,14 +65,9 @@ class NotificationSchedulerRegressionTest {
                 ),
             ),
         )
-
-        /** Visible id. */
         val visibleId = requestCodeFor(notificationId)
         notificationManager.notify(visibleId, Notification())
-        /** Assert true. */
         assertTrue(shadowOf(notificationManager).allNotifications.isNotEmpty())
-
-        /** Scheduler. */
         val scheduler = NotificationScheduler(
             context = ApplicationProvider.getApplicationContext(),
             taskRepository = taskRepository,
@@ -85,15 +75,11 @@ class NotificationSchedulerRegressionTest {
         )
 
         scheduler.cancelForTask(taskId)
-
-        /** Verify. */
         verify(notificationRepository).cancelNotificationsForTask(taskId)
-        /** Assert false. */
         assertFalse(shadowOf(notificationManager).allNotifications.isNotEmpty())
     }
 
     private fun requestCodeFor(notificationId: String): Int {
-        /** Hash. */
         val hash = notificationId.hashCode()
         return if (hash == Int.MIN_VALUE) 0 else abs(hash)
     }

@@ -8,17 +8,11 @@ import kotlinx.coroutines.flow.Flow
  * DayPlanAllocationRecord.
  */
 data class DayPlanAllocationRecord(
-    /** Id. */
     val id: String,
-    /** Day key. */
     val dayKey: String,
-    /** Dimension id. */
     val dimensionId: String,
-    /** Planned minutes. */
     val plannedMinutes: Int,
-    /** Source. */
     val source: String,
-    /** Template id. */
     val templateId: String?
 )
 
@@ -26,17 +20,11 @@ data class DayPlanAllocationRecord(
  * DayPlanTemplateRecord.
  */
 data class DayPlanTemplateRecord(
-    /** Id. */
     val id: String,
-    /** Name. */
     val name: String,
-    /** Description. */
     val description: String?,
-    /** Is active. */
     val isActive: Boolean,
-    /** Sort order. */
     val sortOrder: Int,
-    /** Allocations. */
     val allocations: List<TemplateAllocationRecord>
 )
 
@@ -44,13 +32,9 @@ data class DayPlanTemplateRecord(
  * TemplateAllocationRecord.
  */
 data class TemplateAllocationRecord(
-    /** Id. */
     val id: String,
-    /** Template id. */
     val templateId: String,
-    /** Dimension id. */
     val dimensionId: String,
-    /** Planned minutes. */
     val plannedMinutes: Int
 )
 
@@ -58,13 +42,9 @@ data class TemplateAllocationRecord(
  * DayPlanPolicyRecord.
  */
 data class DayPlanPolicyRecord(
-    /** Day key. */
     val dayKey: String,
-    /** Mode. */
     val mode: String,
-    /** Template id. */
     val templateId: String?,
-    /** Is starred. */
     val isStarred: Boolean
 )
 
@@ -72,9 +52,7 @@ data class DayPlanPolicyRecord(
  * DayTypeTemplatePreferenceRecord.
  */
 data class DayTypeTemplatePreferenceRecord(
-    /** Day type. */
     val dayType: String,
-    /** Template id. */
     val templateId: String?
 )
 
@@ -105,11 +83,8 @@ interface DayPlanRepository {
      * Set allocation.
      */
     suspend fun setAllocation(
-        /** Day key. */
         dayKey: String,
-        /** Dimension id. */
         dimensionId: String,
-        /** Planned minutes. */
         plannedMinutes: Int,
         source: String = "manual",
         templateId: String? = null
@@ -119,7 +94,6 @@ interface DayPlanRepository {
      * Set allocations.
      */
     suspend fun setAllocations(
-        /** Day key. */
         dayKey: String,
         allocations: Map<String, Int>,
         source: String = "manual",
@@ -187,7 +161,6 @@ interface DayPlanRepository {
      * Create template.
      */
     suspend fun createTemplate(
-        /** Name. */
         name: String,
         description: String?,
         allocations: Map<String, Int>
@@ -197,9 +170,7 @@ interface DayPlanRepository {
      * Update template.
      */
     suspend fun updateTemplate(
-        /** Id. */
         id: String,
-        /** Name. */
         name: String,
         description: String?,
         allocations: Map<String, Int>
@@ -211,27 +182,15 @@ interface DayPlanRepository {
     suspend fun deleteTemplate(id: String)
 
     companion object {
-        /** Max template count. */
         const val MAX_TEMPLATE_COUNT = 10
-        /** Source manual. */
         const val SOURCE_MANUAL = "manual"
-        /** Source template. */
         const val SOURCE_TEMPLATE = "template"
-        /** Source template auto. */
         const val SOURCE_TEMPLATE_AUTO = "template_auto"
-
-        /** Mode auto. */
         const val MODE_AUTO = "auto"
-        /** Mode template. */
         const val MODE_TEMPLATE = "template"
-        /** Mode custom. */
         const val MODE_CUSTOM = "custom"
-
-        /** Day type weekday. */
         const val DAY_TYPE_WEEKDAY = "weekday"
-        /** Day type weekend. */
         const val DAY_TYPE_WEEKEND = "weekend"
-        /** Day type starred. */
         const val DAY_TYPE_STARRED = "starred"
     }
 }

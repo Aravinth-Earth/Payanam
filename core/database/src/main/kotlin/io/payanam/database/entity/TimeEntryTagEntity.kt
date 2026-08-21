@@ -11,14 +11,12 @@ import androidx.room.Index
     tableName = "time_entry_tags",
     primaryKeys = ["time_entry_id", "tag_id"],
     foreignKeys = [
-        /** Foreign key. */
         ForeignKey(
             entity = TimeEntryEntity::class,
             parentColumns = ["id"],
             childColumns = ["time_entry_id"],
             onDelete = ForeignKey.CASCADE,
         ),
-        /** Foreign key. */
         ForeignKey(
             entity = TagEntity::class,
             parentColumns = ["id"],
@@ -33,12 +31,9 @@ import androidx.room.Index
  */
 data class TimeEntryTagEntity(
     @ColumnInfo(name = "time_entry_id")
-    /** Time entry id. */
     val timeEntryId: String,
     @ColumnInfo(name = "tag_id")
-    /** Tag id. */
     val tagId: String,
     @ColumnInfo(name = "created_at")
-    /** Created at. */
     val createdAt: String,
 )

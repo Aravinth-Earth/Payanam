@@ -47,7 +47,6 @@ interface TimeEntryRepository {
      * Stop the currently active time entry while persisting focus feedback.
      */
     suspend fun stopActiveTimeEntryWithFocus(
-        /** Focus rating. */
         focusRating: Double,
         focusNote: String? = null
     ): TimeEntry?

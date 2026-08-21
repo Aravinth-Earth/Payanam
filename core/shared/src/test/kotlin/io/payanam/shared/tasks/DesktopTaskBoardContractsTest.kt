@@ -16,16 +16,10 @@ class DesktopTaskBoardContractsTest {
     @Test
     fun `default snapshot starts in loading state with today filter`() {
         val snapshot = DesktopTaskBoardContracts.snapshot()
-
-        /** Assert that. */
         assertThat(snapshot.preferences.selectedTaskFilter).isEqualTo(DesktopTaskFilter.TODAY)
-        /** Assert that. */
         assertThat(snapshot.preferences.selectedTaskSort).isEqualTo(DesktopTaskSortOption.DUE_DATE_ASC)
-        /** Assert that. */
         assertThat(snapshot.preferences.selectedHabitSort).isEqualTo(DesktopHabitSortOption.BY_STATUS)
-        /** Assert that. */
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.LOADING)
-        /** Assert that. */
         assertThat(snapshot.visibleTaskCount()).isEqualTo(0)
     }
 
@@ -41,16 +35,10 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.READY)
-        /** Assert that. */
         assertThat(snapshot.counts.totalTaskCount).isEqualTo(4)
-        /** Assert that. */
         assertThat(snapshot.counts.totalHabitCount).isEqualTo(3)
-        /** Assert that. */
         assertThat(snapshot.visibleTaskCount()).isEqualTo(2)
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.map { it.title })
             .containsExactly("Pay utility bill", "Plan weekly outcomes")
             .inOrder()
@@ -69,10 +57,7 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.map { it.title }).containsExactly("Evening walk").inOrder()
-        /** Assert that. */
         assertThat(snapshot.counts.completedHabitCountToday).isEqualTo(1)
     }
 
@@ -84,12 +69,8 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.EMPTY)
-        /** Assert that. */
         assertThat(snapshot.counts.totalTaskCount).isEqualTo(0)
-        /** Assert that. */
         assertThat(snapshot.counts.totalHabitCount).isEqualTo(0)
     }
 
@@ -102,14 +83,9 @@ class DesktopTaskBoardContractsTest {
                 errorMessage = "bad json",
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.ERROR)
-        /** Assert that. */
         assertThat(snapshot.content.errorMessage).isEqualTo("bad json")
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks).isEmpty()
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits).isEmpty()
     }
 
@@ -129,10 +105,7 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.ARCHIVED),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(completedSnapshot.content.visibleTasks.map { it.title }).containsExactly("Read planning notes")
-        /** Assert that. */
         assertThat(archivedSnapshot.content.visibleTasks.map { it.title }).containsExactly("Archive old receipts")
     }
 
@@ -140,9 +113,7 @@ class DesktopTaskBoardContractsTest {
     fun `task filters include active future and not active buckets`() {
         val catalog = DesktopTaskCatalogSnapshot(
             tasks =
-                /** List of. */
                 listOf(
-                    /** Desktop task record. */
                     DesktopTaskRecord(
                         id = "active-pending",
                         title = "Pending task",
@@ -150,7 +121,6 @@ class DesktopTaskBoardContractsTest {
                         createdAtIso = fixedNow.minusDays(1).toString(),
                         dueAtIso = fixedNow.plusDays(1).toString(),
                     ),
-                    /** Desktop task record. */
                     DesktopTaskRecord(
                         id = "future-active",
                         title = "Future task",
@@ -158,7 +128,6 @@ class DesktopTaskBoardContractsTest {
                         createdAtIso = fixedNow.minusDays(1).toString(),
                         dueAtIso = fixedNow.plusDays(2).toString(),
                     ),
-                    /** Desktop task record. */
                     DesktopTaskRecord(
                         id = "done",
                         title = "Done task",
@@ -186,12 +155,8 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.NOT_ACTIVE),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(activeSnapshot.content.visibleTasks.map { it.title }).containsExactly("Future task", "Pending task")
-        /** Assert that. */
         assertThat(futureSnapshot.content.visibleTasks.map { it.title }).containsExactly("Pending task", "Future task").inOrder()
-        /** Assert that. */
         assertThat(inactiveSnapshot.content.visibleTasks.map { it.title }).containsExactly("Done task")
     }
 
@@ -207,27 +172,21 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().dimensionLabel).isEqualTo("Career & Work")
     }
 
     @Test
     fun `task sort created desc prefers newest rows and fallback dimension label`() {
         val catalog =
-            /** Desktop task catalog snapshot. */
             DesktopTaskCatalogSnapshot(
                 tasks =
-                    /** List of. */
                     listOf(
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "older",
                             title = "Older row",
                             status = "active",
                             createdAtIso = fixedNow.minusDays(5).toString(),
                         ),
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "newer",
                             title = "Newer row",
@@ -247,24 +206,17 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().title).isEqualTo("Newer row")
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().dimensionLabel).isEqualTo("General")
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().dueLabel).isEqualTo("No due date")
     }
 
     @Test
     fun `today filter keeps actionable rows and formats task status labels`() {
         val catalog =
-            /** Desktop task catalog snapshot. */
             DesktopTaskCatalogSnapshot(
                 tasks =
-                    /** List of. */
                     listOf(
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "today-active",
                             title = "Today task",
@@ -273,7 +225,6 @@ class DesktopTaskBoardContractsTest {
                             dueAtIso = fixedNow.withHour(16).toString(),
                             currentScore = 0.73,
                         ),
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "today-completed",
                             title = "Done today",
@@ -290,12 +241,8 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.map { it.title }).containsExactly("Today task")
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().status).isEqualTo("Active")
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.first().scoreLabel).isEqualTo("73%")
     }
 
@@ -312,12 +259,8 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.first().title).isEqualTo("Review daily priorities")
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.first().todayStatusLabel).isEqualTo("Completed today")
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.first().dueLabel).contains("26 Mar")
     }
 
@@ -333,20 +276,15 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.map { it.todayStatusLabel }).contains("Archived")
     }
 
     @Test
     fun `habit sorts cover name status and dimension orderings`() {
         val catalog =
-            /** Desktop task catalog snapshot. */
             DesktopTaskCatalogSnapshot(
                 tasks =
-                    /** List of. */
                     listOf(
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "habit-z",
                             title = "Zen breathing",
@@ -356,7 +294,6 @@ class DesktopTaskBoardContractsTest {
                             dueAtIso = fixedNow.plusHours(2).toString(),
                             lifeDimension = "Self",
                         ),
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "habit-a",
                             title = "Admin reset",
@@ -366,7 +303,6 @@ class DesktopTaskBoardContractsTest {
                             dueAtIso = fixedNow.plusHours(1).toString(),
                             lifeDimension = "Career & Work",
                         ),
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "habit-b",
                             title = "Book review",
@@ -410,24 +346,17 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(byName.content.visibleHabits.map { it.title }).containsExactly("Admin reset", "Book review", "Zen breathing").inOrder()
-        /** Assert that. */
         assertThat(byStatus.content.visibleHabits.first().todayStatusLabel).isEqualTo("Due today")
-        /** Assert that. */
         assertThat(byDimension.content.visibleHabits.first().dimensionLabel).isEqualTo("Career & Work")
     }
 
     @Test
     fun `future filter keeps actionable tasks without due dates`() {
         val catalog =
-            /** Desktop task catalog snapshot. */
             DesktopTaskCatalogSnapshot(
                 tasks =
-                    /** List of. */
                     listOf(
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "no-due",
                             title = "Inbox cleanup",
@@ -435,7 +364,6 @@ class DesktopTaskBoardContractsTest {
                             createdAtIso = fixedNow.minusDays(2).toString(),
                             dueAtIso = null,
                         ),
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "today",
                             title = "Today task",
@@ -452,20 +380,15 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.FUTURE),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleTasks.map { it.title }).containsExactly("Inbox cleanup")
     }
 
     @Test
     fun `habit status falls back to open when nothing is due or completed`() {
         val catalog =
-            /** Desktop task catalog snapshot. */
             DesktopTaskCatalogSnapshot(
                 tasks =
-                    /** List of. */
                     listOf(
-                        /** Desktop task record. */
                         DesktopTaskRecord(
                             id = "habit-open",
                             title = "Stretch break",
@@ -484,32 +407,22 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
-        /** Assert that. */
         assertThat(snapshot.content.visibleHabits.single().todayStatusLabel).isEqualTo("Open")
     }
 
     @Test
     fun `seeded catalog includes both task and habit entries`() {
         val catalog = DesktopTaskBoardContracts.seededCatalog(now = fixedNow)
-
-        /** Assert that. */
         assertThat(catalog.schemaVersion).isEqualTo(DesktopTaskBoardContracts.CATALOG_SCHEMA_VERSION)
-        /** Assert that. */
         assertThat(catalog.tasks.count { it.recurrenceEnabled }).isEqualTo(3)
-        /** Assert that. */
         assertThat(catalog.tasks.count { !it.recurrenceEnabled }).isEqualTo(4)
     }
 
     @Test
     fun `filter and sort enums accept persisted storage keys`() {
-        /** Assert that. */
         assertThat(DesktopTaskFilter.fromStorageKey("overdue")).isEqualTo(DesktopTaskFilter.OVERDUE)
-        /** Assert that. */
         assertThat(DesktopTaskSortOption.fromStorageKey("title_asc")).isEqualTo(DesktopTaskSortOption.TITLE_ASC)
-        /** Assert that. */
         assertThat(DesktopHabitSortOption.fromStorageKey("by_due_time")).isEqualTo(DesktopHabitSortOption.BY_DUE_TIME)
-        /** Assert that. */
         assertThat(DesktopTaskFilter.fromStorageKey("missing")).isEqualTo(DesktopTaskFilter.TODAY)
     }
 }

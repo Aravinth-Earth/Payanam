@@ -69,18 +69,13 @@ import kotlin.random.Random
 
 @Composable
 internal fun DimensionCompactBadge(
-    /** Label. */
     label: String,
-    /** Color. */
     color: Color,
-    /** Icon option. */
     iconOption: DimensionIconOption,
     modifier: Modifier = Modifier,
     size: Dp = 24.dp,
 ) {
-    /** Compact icon tint. */
     val compactIconTint = if (color.luminance() > 0.45f) Color(0xFF111111) else Color.White
-    /** Surface. */
     Surface(
         modifier = modifier
             .size(size)
@@ -92,9 +87,7 @@ internal fun DimensionCompactBadge(
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
     ) {
-        /** Box. */
         Box(contentAlignment = Alignment.Center) {
-            /** Icon. */
             Icon(
                 imageVector = iconOption.imageVector,
                 contentDescription = null,
@@ -107,18 +100,14 @@ internal fun DimensionCompactBadge(
 
 @Composable
 internal fun DimensionBadgeLabelRow(
-    /** Label. */
     label: String,
-    /** Color. */
     color: Color,
-    /** Icon option. */
     iconOption: DimensionIconOption,
     modifier: Modifier = Modifier,
     badgeSize: Dp = 24.dp,
     labelColor: Color = MaterialTheme.colorScheme.onSurface,
     maxLines: Int = 1,
 ) {
-    /** Row. */
     Row(
         modifier = modifier.semantics(mergeDescendants = true) {
             contentDescription = label
@@ -126,14 +115,12 @@ internal fun DimensionBadgeLabelRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        /** Dimension compact badge. */
         DimensionCompactBadge(
             label = label,
             color = color,
             iconOption = iconOption,
             size = badgeSize,
         )
-        /** Text. */
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
@@ -146,26 +133,19 @@ internal fun DimensionBadgeLabelRow(
 
 @Composable
 internal fun DimensionBadgeLabelRow(
-    /** Prefs. */
     prefs: AppPreferencesState,
     dimensionId: String?,
-    /** Fallback label. */
     fallbackLabel: String,
-    /** Fallback color. */
     fallbackColor: Color,
     modifier: Modifier = Modifier,
     labelColor: Color = MaterialTheme.colorScheme.onSurface,
     badgeSize: Dp = 24.dp,
     maxLines: Int = 1,
 ) {
-    /** Icon option. */
     val iconOption = prefs.iconOptionForDimensionId(dimensionId)
         ?: remember(dimensionId) { DimensionIconCatalog.resolve(null, dimensionId) }
-    /** Label. */
     val label = prefs.labelForDimensionId(dimensionId) ?: fallbackLabel
-    /** Color. */
     val color = prefs.colorForDimensionId(dimensionId) ?: fallbackColor
-    /** Dimension badge label row. */
     DimensionBadgeLabelRow(
         label = label,
         color = color,
@@ -179,18 +159,13 @@ internal fun DimensionBadgeLabelRow(
 
 @Composable
 internal fun DimensionDropdownBadge(
-    /** Label. */
     label: String,
-    /** Color. */
     color: Color,
-    /** Icon option. */
     iconOption: DimensionIconOption,
     modifier: Modifier = Modifier,
     size: Dp = 22.dp,
 ) {
-    /** Compact icon tint. */
     val compactIconTint = if (color.luminance() > 0.45f) Color(0xFF111111) else Color.White
-    /** Surface. */
     Surface(
         modifier = modifier
             .size(size)
@@ -202,9 +177,7 @@ internal fun DimensionDropdownBadge(
         shadowElevation = 0.dp,
         tonalElevation = 0.dp,
     ) {
-        /** Box. */
         Box(contentAlignment = Alignment.Center) {
-            /** Icon. */
             Icon(
                 imageVector = iconOption.imageVector,
                 contentDescription = null,
@@ -217,18 +190,14 @@ internal fun DimensionDropdownBadge(
 
 @Composable
 internal fun DimensionDropdownBadgeLabelRow(
-    /** Label. */
     label: String,
-    /** Color. */
     color: Color,
-    /** Icon option. */
     iconOption: DimensionIconOption,
     modifier: Modifier = Modifier,
     badgeSize: Dp = 22.dp,
     labelColor: Color = MaterialTheme.colorScheme.onSurface,
     maxLines: Int = 1,
 ) {
-    /** Row. */
     Row(
         modifier = modifier.semantics(mergeDescendants = true) {
             contentDescription = label
@@ -236,14 +205,12 @@ internal fun DimensionDropdownBadgeLabelRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        /** Dimension dropdown badge. */
         DimensionDropdownBadge(
             label = label,
             color = color,
             iconOption = iconOption,
             size = badgeSize,
         )
-        /** Text. */
         Text(
             text = label,
             style = MaterialTheme.typography.labelSmall,
@@ -256,11 +223,8 @@ internal fun DimensionDropdownBadgeLabelRow(
 
 @Composable
 internal fun DimensionIdentityRow(
-    /** Label. */
     label: String,
-    /** Color. */
     color: Color,
-    /** Icon option. */
     iconOption: DimensionIconOption,
     modifier: Modifier = Modifier,
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -270,9 +234,7 @@ internal fun DimensionIdentityRow(
     maxLines: Int = 1,
     showLabel: Boolean = true,
 ) {
-    /** Compact badge size. */
     val compactBadgeSize = (iconSize + dotSize + 8.dp).coerceAtLeast(20.dp)
-    /** Row. */
     Row(
         modifier = modifier.semantics(mergeDescendants = true) {
             contentDescription = label
@@ -280,22 +242,18 @@ internal fun DimensionIdentityRow(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(if (showLabel) 8.dp else 6.dp),
     ) {
-        /** If. */
         if (showLabel) {
-            /** Icon. */
             Icon(
                 imageVector = iconOption.imageVector,
                 contentDescription = null,
                 modifier = Modifier.size(iconSize),
                 tint = iconTint,
             )
-            /** Box. */
             Box(
                 modifier = Modifier
                     .size(dotSize)
                     .background(color, CircleShape),
             )
-            /** Text. */
             Text(
                 text = label,
                 style = MaterialTheme.typography.labelSmall,
@@ -304,7 +262,6 @@ internal fun DimensionIdentityRow(
                 overflow = TextOverflow.Ellipsis,
             )
         } else {
-            /** Dimension compact badge. */
             DimensionCompactBadge(
                 label = label,
                 color = color,
@@ -317,9 +274,7 @@ internal fun DimensionIdentityRow(
 
 @Composable
 internal fun DimensionIconPatternLayer(
-    /** Icon option. */
     iconOption: DimensionIconOption,
-    /** Tint. */
     tint: Color,
     modifier: Modifier = Modifier,
     iconSize: Dp = 10.dp,
@@ -329,9 +284,7 @@ internal fun DimensionIconPatternLayer(
     rotationDegrees: Float = 0f,
     animated: Boolean = false,
 ) {
-    /** Transition. */
     val transition = rememberInfiniteTransition(label = "dimension-pattern")
-    /** Drift. */
     val drift = if (animated) {
         transition.animateFloat(
             initialValue = -10f,
@@ -345,7 +298,6 @@ internal fun DimensionIconPatternLayer(
     } else {
         0f
     }
-    /** Column. */
     Column(
         modifier = modifier.graphicsLayer {
             rotationZ = rotationDegrees
@@ -354,17 +306,13 @@ internal fun DimensionIconPatternLayer(
         },
         verticalArrangement = Arrangement.SpaceEvenly,
     ) {
-        /** Repeat. */
         repeat(rows) {
-            /** Row. */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceEvenly,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                /** Repeat. */
                 repeat(columns) {
-                    /** Icon. */
                     Icon(
                         imageVector = iconOption.imageVector,
                         contentDescription = null,
@@ -378,30 +326,20 @@ internal fun DimensionIconPatternLayer(
 }
 
 private data class DimensionCascadeSpec(
-    /** Start xfraction. */
     val startXFraction: Float,
-    /** End xfraction. */
     val endXFraction: Float,
-    /** Start yfraction. */
     val startYFraction: Float,
-    /** End yfraction. */
     val endYFraction: Float,
-    /** Phase offset. */
     val phaseOffset: Float,
-    /** Size factor. */
     val sizeFactor: Float,
-    /** Alpha factor. */
     val alphaFactor: Float,
 )
 
 @Composable
 internal fun DimensionIconCascadeLayer(
-    /** Icon option. */
     iconOption: DimensionIconOption,
-    /** Tint. */
     tint: Color,
     modifier: Modifier = Modifier,
-    /** Seed key. */
     seedKey: String,
     iconCount: Int = 11,
     minIconSize: Dp = 8.dp,
@@ -409,31 +347,20 @@ internal fun DimensionIconCascadeLayer(
     alphaRange: ClosedFloatingPointRange<Float> = 0.14f..0.28f,
     animated: Boolean = true,
 ) {
-    /** Box with constraints. */
     BoxWithConstraints(
         modifier = modifier
             .fillMaxSize()
             .clip(RoundedCornerShape(8.dp)),
     ) {
-        /** Transition. */
         val transition = rememberInfiniteTransition(label = "dimension-cascade")
-        /** Target speed dp per second. */
         val targetSpeedDpPerSecond = 18f
-        /** Area score. */
         val areaScore = (maxWidth.value * maxHeight.value) / 420f
-        /** Resolved icon count. */
         val resolvedIconCount = areaScore.toInt().coerceIn(iconCount, iconCount * 4)
-        /** Specs. */
         val specs = remember(seedKey, resolvedIconCount, alphaRange.start, alphaRange.endInclusive) {
-            /** List. */
             List(resolvedIconCount) { index ->
-                /** Random. */
                 val random = Random("${seedKey}_$index".hashCode().absoluteValue)
-                /** Start x. */
                 val startX = random.nextFloat() * 0.86f + 0.02f
-                /** End x. */
                 val endX = (startX + (random.nextFloat() * 0.18f - 0.09f)).coerceIn(0.02f, 0.9f)
-                /** Dimension cascade spec. */
                 DimensionCascadeSpec(
                     startXFraction = startX,
                     endXFraction = endX,
@@ -446,17 +373,12 @@ internal fun DimensionIconCascadeLayer(
             }
         }
         specs.forEachIndexed { index, spec ->
-            /** Horizontal travel dp. */
             val horizontalTravelDp = (maxWidth.value * (spec.endXFraction - spec.startXFraction))
-            /** Vertical travel dp. */
             val verticalTravelDp = (maxHeight.value * (spec.endYFraction - spec.startYFraction))
-            /** Travel distance dp. */
             val travelDistanceDp = sqrt((horizontalTravelDp * horizontalTravelDp) + (verticalTravelDp * verticalTravelDp))
-            /** Duration millis. */
             val durationMillis = ((travelDistanceDp / targetSpeedDpPerSecond) * 1000f)
                 .toInt()
                 .coerceIn(3600, 22000)
-            /** Base progress. */
             val baseProgress = if (animated) {
                 transition.animateFloat(
                     initialValue = 0f,
@@ -470,23 +392,16 @@ internal fun DimensionIconCascadeLayer(
             } else {
                 0.42f
             }
-            /** Progress. */
             val progress = (baseProgress + spec.phaseOffset) % 1f
-            /** Icon size. */
             val iconSize = minIconSize + (maxIconSize - minIconSize) * spec.sizeFactor
-            /** X fraction. */
             val xFraction = spec.startXFraction + ((spec.endXFraction - spec.startXFraction) * progress)
-            /** Y fraction. */
             val yFraction = spec.startYFraction + ((spec.endYFraction - spec.startYFraction) * progress)
-            /** Fade multiplier. */
             val fadeMultiplier = when {
                 progress < 0.16f -> progress / 0.16f
                 progress > 0.84f -> (1f - progress) / 0.16f
                 else -> 1f
             }.coerceIn(0f, 1f)
-            /** Live alpha. */
             val liveAlpha = (spec.alphaFactor * fadeMultiplier).coerceIn(0.03f, alphaRange.endInclusive)
-            /** Icon. */
             Icon(
                 imageVector = iconOption.imageVector,
                 contentDescription = null,
@@ -501,12 +416,9 @@ internal fun DimensionIconCascadeLayer(
 
 @Composable
 internal fun DimensionIdentityRow(
-    /** Prefs. */
     prefs: AppPreferencesState,
     dimensionId: String?,
-    /** Fallback label. */
     fallbackLabel: String,
-    /** Fallback color. */
     fallbackColor: Color,
     modifier: Modifier = Modifier,
     iconTint: Color = MaterialTheme.colorScheme.onSurfaceVariant,
@@ -516,14 +428,10 @@ internal fun DimensionIdentityRow(
     maxLines: Int = 1,
     showLabel: Boolean = true,
 ) {
-    /** Icon option. */
     val iconOption = prefs.iconOptionForDimensionId(dimensionId)
         ?: remember(dimensionId) { DimensionIconCatalog.resolve(null, dimensionId) }
-    /** Label. */
     val label = prefs.labelForDimensionId(dimensionId) ?: fallbackLabel
-    /** Color. */
     val color = prefs.colorForDimensionId(dimensionId) ?: fallbackColor
-    /** Dimension identity row. */
     DimensionIdentityRow(
         label = label,
         color = color,
@@ -540,40 +448,32 @@ internal fun DimensionIdentityRow(
 
 @Composable
 internal fun DimensionColorPicker(
-    /** Selected color hex. */
     selectedColorHex: String,
     usedColorHexes: Set<String>,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    /** Normalized selected. */
     val normalizedSelected = selectedColorHex.trim().uppercase()
-    /** Column. */
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        /** Text. */
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_color_label),
             style = MaterialTheme.typography.labelLarge,
         )
-        /** Outlined button. */
         OutlinedButton(
             onClick = { showDialog = true },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            /** Box. */
             Box(
                 modifier = Modifier
                     .size(18.dp)
                     .background(colorFromHex(selectedColorHex), CircleShape)
                     .border(1.dp, MaterialTheme.colorScheme.outline, CircleShape),
             )
-            /** Spacer. */
             Spacer(modifier = Modifier.width(12.dp))
-            /** Text. */
             Text(
                 text = stringResource(id = R.string.dimension_picker_choose_color),
                 modifier = Modifier.weight(1f),
@@ -581,25 +481,19 @@ internal fun DimensionColorPicker(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        /** Text. */
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_color_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
-    /** If. */
     if (showDialog) {
-        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = {
-                /** Text. */
                 Text(text = stringResource(id = R.string.db_init_dimension_setup_color_label))
             },
             text = {
-                /** Lazy vertical grid. */
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 52.dp),
                     modifier = Modifier
@@ -608,18 +502,12 @@ internal fun DimensionColorPicker(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    /** Items. */
                     items(DimensionColorHexOptions) { hex ->
-                        /** Normalized hex. */
                         val normalizedHex = hex.trim().uppercase()
-                        /** Is selected. */
                         val isSelected = normalizedHex == normalizedSelected
-                        /** Is used. */
                         val isUsed = normalizedHex in usedColorHexes && !isSelected
-                        /** Surface. */
                         Surface(
                             onClick = {
-                                /** On select. */
                                 onSelect(hex)
                                 showDialog = false
                             },
@@ -641,9 +529,7 @@ internal fun DimensionColorPicker(
             },
             confirmButton = {},
             dismissButton = {
-                /** Outlined button. */
                 OutlinedButton(onClick = { showDialog = false }) {
-                    /** Text. */
                     Text(text = stringResource(id = R.string.settings_action_cancel))
                 }
             },
@@ -653,38 +539,30 @@ internal fun DimensionColorPicker(
 
 @Composable
 internal fun DimensionIconPicker(
-    /** Selected icon key. */
     selectedIconKey: String,
     usedIconKeys: Set<String>,
     onSelect: (String) -> Unit,
     modifier: Modifier = Modifier,
 ) {
     var showDialog by remember { mutableStateOf(false) }
-    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
-    /** Column. */
     Column(
         modifier = modifier,
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        /** Text. */
         Text(
             text = androidx.compose.ui.res.stringResource(id = R.string.db_init_dimension_setup_icon_label),
             style = MaterialTheme.typography.labelLarge,
         )
-        /** Outlined button. */
         OutlinedButton(
             onClick = { showDialog = true },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            /** Icon. */
             Icon(
                 imageVector = DimensionIconCatalog.resolve(selectedIconKey).imageVector,
                 contentDescription = null,
             )
-            /** Spacer. */
             Spacer(modifier = Modifier.width(12.dp))
-            /** Text. */
             Text(
                 text = stringResource(id = R.string.dimension_picker_choose_icon),
                 modifier = Modifier.weight(1f),
@@ -692,25 +570,19 @@ internal fun DimensionIconPicker(
                 overflow = TextOverflow.Ellipsis,
             )
         }
-        /** Text. */
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_icon_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
-    /** If. */
     if (showDialog) {
-        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = { showDialog = false },
             title = {
-                /** Text. */
                 Text(text = stringResource(id = R.string.db_init_dimension_setup_icon_label))
             },
             text = {
-                /** Lazy vertical grid. */
                 LazyVerticalGrid(
                     columns = GridCells.Adaptive(minSize = 44.dp),
                     modifier = Modifier
@@ -719,19 +591,14 @@ internal fun DimensionIconPicker(
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
-                    /** Items. */
                     items(DimensionIconCatalog.options) { option ->
-                        /** Is selected. */
                         val isSelected = option.key == selectedIconKey
-                        /** Is used. */
                         val isUsed = option.key in usedIconKeys && !isSelected
-                        /** Box. */
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
-                                    /** If. */
                                     if (isSelected) {
                                         MaterialTheme.colorScheme.secondaryContainer.copy(alpha = 0.5f)
                                     } else {
@@ -753,16 +620,13 @@ internal fun DimensionIconPicker(
                                     logger.d(
                                         "DimensionIconPicker",
                                         "Dimension icon selected",
-                                        /** Map of. */
                                         mapOf("iconKey" to option.key),
                                     )
-                                    /** On select. */
                                     onSelect(option.key)
                                     showDialog = false
                                 },
                             contentAlignment = Alignment.Center,
                         ) {
-                            /** Icon. */
                             Icon(
                                 imageVector = option.imageVector,
                                 contentDescription = null,
@@ -781,9 +645,7 @@ internal fun DimensionIconPicker(
             },
             confirmButton = {},
             dismissButton = {
-                /** Outlined button. */
                 OutlinedButton(onClick = { showDialog = false }) {
-                    /** Text. */
                     Text(text = stringResource(id = R.string.settings_action_cancel))
                 }
             },
@@ -792,102 +654,57 @@ internal fun DimensionIconPicker(
 }
 
 internal val DimensionColorHexOptions = listOf(
-    /** Color. */
     Color(0xFF3F51B5).toDimensionHexString(),
-    /** Color. */
     Color(0xFF4CAF50).toDimensionHexString(),
-    /** Color. */
     Color(0xFFE91E63).toDimensionHexString(),
-    /** Color. */
     Color(0xFF009688).toDimensionHexString(),
-    /** Color. */
     Color(0xFFFF9800).toDimensionHexString(),
-    /** Color. */
     Color(0xFF9C27B0).toDimensionHexString(),
-    /** Color. */
     Color(0xFF00BCD4).toDimensionHexString(),
-    /** Color. */
     Color(0xFF673AB7).toDimensionHexString(),
-    /** Color. */
     Color(0xFF8BC34A).toDimensionHexString(),
-    /** Color. */
     Color(0xFF795548).toDimensionHexString(),
-    /** Color. */
     Color(0xFFFF5722).toDimensionHexString(),
-    /** Color. */
     Color(0xFF607D8B).toDimensionHexString(),
-    /** Color. */
     Color(0xFF6D4C41).toDimensionHexString(),
-    /** Color. */
     Color(0xFF1E88E5).toDimensionHexString(),
-    /** Color. */
     Color(0xFF43A047).toDimensionHexString(),
-    /** Color. */
     Color(0xFFD81B60).toDimensionHexString(),
-    /** Color. */
     Color(0xFF00897B).toDimensionHexString(),
-    /** Color. */
     Color(0xFFFB8C00).toDimensionHexString(),
-    /** Color. */
     Color(0xFF8E24AA).toDimensionHexString(),
-    /** Color. */
     Color(0xFF039BE5).toDimensionHexString(),
-    /** Color. */
     Color(0xFF5E35B1).toDimensionHexString(),
-    /** Color. */
     Color(0xFF7CB342).toDimensionHexString(),
-    /** Color. */
     Color(0xFFE53935).toDimensionHexString(),
-    /** Color. */
     Color(0xFF546E7A).toDimensionHexString(),
-    /** Color. */
     Color(0xFF3949AB).toDimensionHexString(),
-    /** Color. */
     Color(0xFF00838F).toDimensionHexString(),
-    /** Color. */
     Color(0xFF2E7D32).toDimensionHexString(),
-    /** Color. */
     Color(0xFFC2185B).toDimensionHexString(),
-    /** Color. */
     Color(0xFFEF6C00).toDimensionHexString(),
-    /** Color. */
     Color(0xFF6A1B9A).toDimensionHexString(),
-    /** Color. */
     Color(0xFF1565C0).toDimensionHexString(),
-    /** Color. */
     Color(0xFFAD1457).toDimensionHexString(),
-    /** Color. */
     Color(0xFF00695C).toDimensionHexString(),
-    /** Color. */
     Color(0xFF7B1FA2).toDimensionHexString(),
-    /** Color. */
     Color(0xFF0277BD).toDimensionHexString(),
-    /** Color. */
     Color(0xFFF9A825).toDimensionHexString(),
-    /** Color. */
     Color(0xFF558B2F).toDimensionHexString(),
-    /** Color. */
     Color(0xFF8D6E63).toDimensionHexString(),
-    /** Color. */
     Color(0xFF455A64).toDimensionHexString(),
 )
 
 internal fun colorFromHex(hex: String): Color {
-    /** Normalized. */
     val normalized = hex.trim().removePrefix("#")
     return try {
-        /** Color value. */
         val colorValue = normalized.toLong(16)
-        /** If. */
         if (normalized.length <= 6) {
-            /** Color. */
             Color((0xFF000000 or colorValue).toInt())
         } else {
-            /** Color. */
             Color(colorValue.toInt())
         }
     } catch (_: Exception) {
-        /** Color. */
         Color(0xFF757575)
     }
 }

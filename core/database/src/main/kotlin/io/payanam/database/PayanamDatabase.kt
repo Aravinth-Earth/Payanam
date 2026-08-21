@@ -52,8 +52,6 @@ import io.payanam.database.entity.TimeEntryTagEntity
 import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
-
-/** Payanam database schema version. */
 const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
 
 /**
@@ -245,7 +243,6 @@ abstract class PayanamDatabase : RoomDatabase() {
     abstract fun dayMetricDao(): DayMetricDao
 
     companion object {
-        /** Database name. */
         const val DATABASE_NAME = "payanam.db"
     }
 }

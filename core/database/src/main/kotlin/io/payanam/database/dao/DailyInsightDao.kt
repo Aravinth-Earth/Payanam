@@ -18,9 +18,7 @@ interface DailyInsightDao {
      * Get summary for day.
      */
     suspend fun getSummaryForDay(
-        /** Day key. */
         dayKey: String,
-        /** Module. */
         module: String,
     ): DailyInsightEntity?
 
@@ -36,7 +34,6 @@ interface DailyInsightDao {
      */
     suspend fun getSummariesForDays(
         dayKeys: List<String>,
-        /** Module. */
         module: String,
     ): List<DailyInsightEntity>
 
@@ -45,9 +42,7 @@ interface DailyInsightDao {
      * Delete summary for day.
      */
     suspend fun deleteSummaryForDay(
-        /** Day key. */
         dayKey: String,
-        /** Module. */
         module: String,
     )
 }

@@ -16,9 +16,7 @@ import java.nio.file.Path
 
  */
 data class DesktopTaskCatalogState(
-    /** Catalog. */
     val catalog: DesktopTaskCatalogSnapshot,
-    /** Error message. */
     val errorMessage: String? = null,
 )
 

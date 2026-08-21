@@ -40,50 +40,37 @@ import io.payanam.ui.viewmodel.labelResId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun SettingsAutoBackupSection(
-    /** Prefs state. */
     prefsState: AppPreferencesState,
-    /** Prefs view model. */
     prefsViewModel: AppPreferencesViewModel,
-    /** Logger. */
     logger: UnifiedLogger,
-    /** Context. */
     context: Context,
-    /** Manual backup in progress. */
     manualBackupInProgress: Boolean,
 ) {
-    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Column {
-                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_auto_backup_enable),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-                /** Text. */
                 Text(
                     text = if (prefsState.autoBackupEnabled) {
-                        /** String resource. */
                         stringResource(id = R.string.settings_auto_backup_enabled_hint)
                     } else {
-                        /** String resource. */
                         stringResource(id = R.string.settings_disabled)
                     },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            /** Switch. */
             Switch(
                 checked = prefsState.autoBackupEnabled,
                 onCheckedChange = { enabled ->
                     prefsViewModel.setAutoBackupEnabled(enabled)
-                    /** If. */
                     if (enabled) {
                         AutoBackupWorker.schedule(context, prefsState.autoBackupInterval.minutes)
                     } else {
@@ -93,27 +80,22 @@ internal fun SettingsAutoBackupSection(
                 },
             )
         }
-        /** Auto backup failure message card. */
         autoBackupFailureMessageCard(
             errorMessage = prefsState.autoBackupLastErrorMessage,
             errorAt = prefsState.autoBackupLastErrorAt,
             onDismiss = prefsViewModel::dismissAutoBackupFailureMessage,
         )
-        /** If. */
         if (prefsState.autoBackupEnabled) {
             var intervalExpanded by remember { mutableStateOf(false) }
-            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_auto_backup_interval),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            /** Exposed dropdown menu box. */
             ExposedDropdownMenuBox(
                 expanded = intervalExpanded,
                 onExpandedChange = { intervalExpanded = it },
             ) {
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = stringResource(id = prefsState.autoBackupInterval.labelResId),
                     onValueChange = {},
@@ -123,13 +105,11 @@ internal fun SettingsAutoBackupSection(
                         .fillMaxWidth()
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 )
-                /** Dropdown menu. */
                 DropdownMenu(
                     expanded = intervalExpanded,
                     onDismissRequest = { intervalExpanded = false },
                 ) {
                     BackupInterval.entries.forEach { interval ->
-                        /** Dropdown menu item. */
                         DropdownMenuItem(
                             text = { Text(stringResource(id = interval.labelResId)) },
                             onClick = {
@@ -139,7 +119,6 @@ internal fun SettingsAutoBackupSection(
                                 logger.d(
                                     "SettingsScreen.autoBackupInterval",
                                     "Interval updated",
-                                    /** Map of. */
                                     mapOf("interval" to interval.key),
                                 )
                             },
@@ -148,14 +127,12 @@ internal fun SettingsAutoBackupSection(
                 }
             }
             prefsState.autoBackupLastRun?.let { lastRun ->
-                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_auto_backup_last_run, lastRun),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-            /** Outlined button. */
             OutlinedButton(
                 onClick = {
                     prefsViewModel.triggerManualBackupNow()
@@ -164,9 +141,7 @@ internal fun SettingsAutoBackupSection(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = !manualBackupInProgress,
             ) {
-                /** Text. */
                 Text(
-                    /** String resource. */
                     stringResource(
                         id = if (manualBackupInProgress) {
                             R.string.settings_manual_backup_in_progress
@@ -176,36 +151,29 @@ internal fun SettingsAutoBackupSection(
                     ),
                 )
             }
-            /** Row. */
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                /** Column. */
                 Column(modifier = Modifier.fillMaxWidth(0.78f)) {
-                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_backup_rotation_enable),
                         style = MaterialTheme.typography.bodyMedium,
                     )
-                    /** Text. */
                     Text(
                         text = if (prefsState.backupRotationEnabled) {
-                            /** String resource. */
                             stringResource(
                                 id = R.string.settings_backup_rotation_enabled_hint,
                                 prefsState.backupRotationCount,
                             )
                         } else {
-                            /** String resource. */
                             stringResource(id = R.string.settings_backup_rotation_disabled_hint)
                         },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-                /** Switch. */
                 Switch(
                     checked = prefsState.backupRotationEnabled,
                     onCheckedChange = { enabled ->
@@ -214,26 +182,21 @@ internal fun SettingsAutoBackupSection(
                     },
                 )
             }
-            /** If. */
             if (prefsState.backupRotationEnabled) {
                 var rotationCountText by remember(prefsState.backupRotationCount) {
-                    /** Mutable state of. */
                     mutableStateOf(prefsState.backupRotationCount.toString())
                 }
-                /** Text. */
                 Text(
                     text = stringResource(id = R.string.settings_backup_rotation_count),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = rotationCountText,
                     onValueChange = { input ->
                         rotationCountText = input.filter { it.isDigit() }.take(3)
                         logger.d("SettingsScreen.backupRotationCountChanged", "Backup rotation count changed")
                         rotationCountText.toIntOrNull()?.let { count ->
-                            /** If. */
                             if (count in 1..999) {
                                 prefsViewModel.setBackupRotationCount(count)
                             }

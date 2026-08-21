@@ -14,7 +14,6 @@ object NoteMapper {
      * Note entity.
      */
     fun NoteEntity.toDomain(): Note =
-        /** Note. */
         Note(
             id = id,
             title = title,
@@ -29,7 +28,6 @@ object NoteMapper {
      * Note.
      */
     fun Note.toEntity(): NoteEntity =
-        /** Note entity. */
         NoteEntity(
             id = id,
             title = title,

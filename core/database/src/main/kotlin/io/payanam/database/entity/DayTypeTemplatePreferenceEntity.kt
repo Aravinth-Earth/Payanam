@@ -14,7 +14,6 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "day_type_template_preferences",
     foreignKeys = [
-        /** Foreign key. */
         ForeignKey(
             entity = DayPlanTemplateEntity::class,
             parentColumns = ["id"],
@@ -23,7 +22,6 @@ import androidx.room.PrimaryKey
         ),
     ],
     indices = [
-        /** Index. */
         Index("template_id"),
     ],
 )
@@ -33,12 +31,9 @@ import androidx.room.PrimaryKey
 data class DayTypeTemplatePreferenceEntity(
     @PrimaryKey
     @ColumnInfo(name = "day_type")
-    /** Day type. */
     val dayType: String,
     @ColumnInfo(name = "template_id")
-    /** Template id. */
     val templateId: String? = null,
     @ColumnInfo(name = "updated_at")
-    /** Updated at. */
     val updatedAt: String,
 )

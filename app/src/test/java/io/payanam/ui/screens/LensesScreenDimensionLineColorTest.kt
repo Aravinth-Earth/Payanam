@@ -23,7 +23,6 @@ class LensesScreenDimensionLineColorTest {
      * Set up.
      */
     fun setUp() {
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         }
@@ -34,23 +33,15 @@ class LensesScreenDimensionLineColorTest {
      * Tagged dimension line applies color to dimension name span.
      */
     fun taggedDimensionLine_appliesColorToDimensionNameSpan() {
-        /** Label. */
         val label = "Health & Wellness"
-        /** Line. */
         val line = "$label: 1h 0m (planned) vs 45m (actual)"
-        /** Color. */
         val color = Color(0xFF3A7BD5)
-
-        /** Result. */
         val result = taggedDimensionLine(
             line = line,
             dimensionLabel = label,
             dimensionColor = color,
         )
-
-        /** Assert equals. */
         assertEquals(line, result.text)
-        /** Assert true. */
         assertTrue(
             result.spanStyles.any { span ->
                 span.start == 0 &&
@@ -65,19 +56,13 @@ class LensesScreenDimensionLineColorTest {
      * Tagged dimension line returns unstyled text when label missing.
      */
     fun taggedDimensionLine_returnsUnstyledTextWhenLabelMissing() {
-        /** Line. */
         val line = "Unassigned: 30m"
-
-        /** Result. */
         val result = taggedDimensionLine(
             line = line,
             dimensionLabel = "Career & Work",
             dimensionColor = Color.Red,
         )
-
-        /** Assert equals. */
         assertEquals(line, result.text)
-        /** Assert true. */
         assertTrue(result.spanStyles.isEmpty())
     }
 }

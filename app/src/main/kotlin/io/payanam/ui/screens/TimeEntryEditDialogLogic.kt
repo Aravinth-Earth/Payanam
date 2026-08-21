@@ -12,22 +12,16 @@ internal const val EDIT_TIME_ENTRY_CONFIRM_BUTTON_TAG = "edit_time_entry_confirm
 internal fun shouldOpenEditDialogEndDatePicker(_endTime: LocalTime?): Boolean = true
 
 internal fun canSaveEditedTimeEntry(
-    /** Start date. */
     startDate: LocalDate,
-    /** Start time. */
     startTime: LocalTime,
     endDate: LocalDate?,
     endTime: LocalTime?,
 ): Boolean {
-    /** Has any end. */
     val hasAnyEnd = endDate != null || endTime != null
-    /** Has complete end. */
     val hasCompleteEnd = endDate != null && endTime != null
-    /** If. */
     if (hasAnyEnd && !hasCompleteEnd) {
         return false
     }
-    /** If. */
     if (!hasCompleteEnd) {
         return true
     }

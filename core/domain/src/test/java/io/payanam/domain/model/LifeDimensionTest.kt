@@ -33,9 +33,7 @@ class LifeDimensionTest {
      * From display name returns matching enum.
      */
     fun fromDisplayName_returnsMatchingEnum() {
-        /** Result. */
         val result = LifeDimension.fromDisplayName("Career & Work")
-        /** Assert that. */
         assertThat(result).isEqualTo(LifeDimension.CAREER_WORK)
     }
 
@@ -44,9 +42,7 @@ class LifeDimensionTest {
      * From display name returns null for unknown.
      */
     fun fromDisplayName_returnsNullForUnknown() {
-        /** Result. */
         val result = LifeDimension.fromDisplayName("Unknown")
-        /** Assert that. */
         assertThat(result).isNull()
     }
 
@@ -55,9 +51,7 @@ class LifeDimensionTest {
      * From id returns matching enum.
      */
     fun fromId_returnsMatchingEnum() {
-        /** Result. */
         val result = LifeDimension.fromId("dim_career_work")
-        /** Assert that. */
         assertThat(result).isEqualTo(LifeDimension.CAREER_WORK)
     }
 
@@ -66,9 +60,7 @@ class LifeDimensionTest {
      * From id returns null for unknown.
      */
     fun fromId_returnsNullForUnknown() {
-        /** Result. */
         val result = LifeDimension.fromId("dim_unknown")
-        /** Assert that. */
         assertThat(result).isNull()
     }
 
@@ -77,11 +69,8 @@ class LifeDimensionTest {
      * All display names contains all entries.
      */
     fun allDisplayNames_containsAllEntries() {
-        /** Names. */
         val names = LifeDimension.allDisplayNames()
-        /** Assert that. */
         assertThat(names).contains("Health & Wellness")
-        /** Assert that. */
         assertThat(names.size).isEqualTo(LifeDimension.entries.size)
     }
 
@@ -91,15 +80,12 @@ class LifeDimensionTest {
      */
     fun weights_arePositive() {
         LifeDimension.entries.forEach { dimension ->
-            /** Assert that. */
             assertThat(dimension.weight).isGreaterThan(0.0)
         }
     }
 
     private fun initLogger(): UnifiedLogger {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }

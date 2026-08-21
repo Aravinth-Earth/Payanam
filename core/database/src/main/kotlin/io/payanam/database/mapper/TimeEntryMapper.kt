@@ -14,7 +14,6 @@ object TimeEntryMapper {
      * Time entry entity.
      */
     fun TimeEntryEntity.toDomain(): TimeEntry =
-        /** Time entry. */
         TimeEntry(
             id = id,
             lifeIntentionCategory = lifeIntentionCategory,
@@ -33,7 +32,6 @@ object TimeEntryMapper {
      * Time entry.
      */
     fun TimeEntry.toEntity(): TimeEntryEntity =
-        /** Time entry entity. */
         TimeEntryEntity(
             id = id,
             lifeIntentionCategory = lifeIntentionCategory,

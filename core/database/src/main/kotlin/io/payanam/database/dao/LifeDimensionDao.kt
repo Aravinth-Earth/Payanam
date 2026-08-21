@@ -35,11 +35,8 @@ interface LifeDimensionDao {
      * Update label.
      */
     suspend fun updateLabel(
-        /** Dimension id. */
         dimensionId: String,
-        /** Label. */
         label: String,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -55,11 +52,8 @@ interface LifeDimensionDao {
      * Update color.
      */
     suspend fun updateColor(
-        /** Dimension id. */
         dimensionId: String,
-        /** Color hex. */
         colorHex: String,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -75,11 +69,8 @@ interface LifeDimensionDao {
      * Update icon.
      */
     suspend fun updateIcon(
-        /** Dimension id. */
         dimensionId: String,
-        /** Icon key. */
         iconKey: String,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -95,11 +86,8 @@ interface LifeDimensionDao {
      * Update active state.
      */
     suspend fun updateActiveState(
-        /** Dimension id. */
         dimensionId: String,
-        /** Is active. */
         isActive: Int,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -115,11 +103,8 @@ interface LifeDimensionDao {
      * Update weight.
      */
     suspend fun updateWeight(
-        /** Dimension id. */
         dimensionId: String,
-        /** Weight. */
         weight: Double,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -139,9 +124,7 @@ interface LifeDimensionDao {
      * WeightRow.
      */
     data class WeightRow(
-        /** Id. */
         val id: String,
-        /** Weight. */
         val weight: Double,
     )
 }

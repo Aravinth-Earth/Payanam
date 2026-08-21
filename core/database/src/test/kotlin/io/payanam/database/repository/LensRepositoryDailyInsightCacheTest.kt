@@ -55,14 +55,11 @@ class LensRepositoryDailyInsightCacheTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -73,13 +70,10 @@ class LensRepositoryDailyInsightCacheTest {
         timeEntryRepository = FakeTimeEntryRepository()
         taskOccurrenceRepository = FakeTaskOccurrenceRepository()
         dayPlanRepository = FakeDayPlanRepository()
-        /** Encryption manager. */
         val encryptionManager = DatabaseEncryptionManager(context)
-        /** Session manager. */
         val sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
         repository =
-            /** Lens repository impl. */
             LensRepositoryImpl(
                 sessionManager = sessionManager,
                 taskRepository = taskRepository,
@@ -103,14 +97,10 @@ class LensRepositoryDailyInsightCacheTest {
      */
     fun calculateUnifiedSnapshot_readsFromPersistentCacheAfterFirstLoad() =
         runBlocking {
-            /** Day key. */
             val dayKey = "2026-02-19"
-            /** Day date. */
             val dayDate = LocalDate.parse(dayKey)
             taskRepository.tasks =
-                /** List of. */
                 listOf(
-                    /** Task. */
                     Task(
                         id = "task_1",
                         title = "Deep work",
@@ -123,9 +113,7 @@ class LensRepositoryDailyInsightCacheTest {
                     ),
                 )
             dayPlanRepository.allocationsByDay[dayKey] =
-                /** List of. */
                 listOf(
-                    /** Day plan allocation record. */
                     DayPlanAllocationRecord(
                         id = "alloc_1",
                         dayKey = dayKey,
@@ -135,27 +123,16 @@ class LensRepositoryDailyInsightCacheTest {
                         templateId = null,
                     ),
                 )
-
-            /** First. */
             val first = repository.calculateUnifiedSnapshot(dayKey)
-            /** Cached entity. */
             val cachedEntity = dailyInsightDao.getSummaryForDay(dayKey, "lens_unified_snapshot")
 
             taskRepository.tasks = emptyList()
-            /** Second. */
             val second = repository.calculateUnifiedSnapshot(dayKey)
-
-            /** Assert that. */
             assertThat(first).isEqualTo(second)
-            /** Assert that. */
             assertThat(taskRepository.getAllTasksCalls).isEqualTo(1)
-            /** Assert that. */
             assertThat(cachedEntity).isNotNull()
-            /** Assert that. */
             assertThat(cachedEntity?.summaryJson).isNotEmpty()
-            /** Assert that. */
             assertThat(cachedEntity?.plannedMinutes).isEqualTo(first.planning.totalPlannedMinutes)
-            /** Assert that. */
             assertThat(cachedEntity?.actualMinutes).isEqualTo(first.reality.totalActualMinutes)
         }
 
@@ -165,14 +142,10 @@ class LensRepositoryDailyInsightCacheTest {
      */
     fun calculateUnifiedSnapshot_recomputesWhenDayMarkedDirty_thenClearsDirtyMarker() =
         runBlocking {
-            /** Day key. */
             val dayKey = "2026-02-20"
-            /** Day date. */
             val dayDate = LocalDate.parse(dayKey)
             taskRepository.tasks =
-                /** List of. */
                 listOf(
-                    /** Task. */
                     Task(
                         id = "task_1",
                         title = "Focus block",
@@ -186,13 +159,10 @@ class LensRepositoryDailyInsightCacheTest {
                 )
 
             repository.calculateUnifiedSnapshot(dayKey)
-            /** Assert that. */
             assertThat(taskRepository.getAllTasksCalls).isEqualTo(1)
 
             taskRepository.tasks =
-                /** List of. */
                 listOf(
-                    /** Task. */
                     Task(
                         id = "task_2",
                         title = "Changed plan",
@@ -204,7 +174,6 @@ class LensRepositoryDailyInsightCacheTest {
                         dimensionId = "career_work",
                     ),
                 )
-            /** Mark lens day dirty. */
             markLensDayDirty(
                 dailyInsightDao = dailyInsightDao,
                 logger = UnifiedLogger.getInstance(),
@@ -212,19 +181,13 @@ class LensRepositoryDailyInsightCacheTest {
                 changedModules = setOf("task"),
                 reason = "test_dirty",
             )
-
-            /** Recomputed. */
             val recomputed = repository.calculateUnifiedSnapshot(dayKey)
-
-            /** Assert that. */
             assertThat(taskRepository.getAllTasksCalls).isEqualTo(2)
-            /** Assert that. */
             assertThat(
                 recomputed.planning.plannedTasks
                     .single()
                     .taskId,
             ).isEqualTo("task_2")
-            /** Assert that. */
             assertThat(loadLensDirtyDayMetadata(dailyInsightDao, dayKey)).isNull()
         }
 
@@ -234,14 +197,10 @@ class LensRepositoryDailyInsightCacheTest {
      */
     fun calculateUnifiedSnapshot_counts_recurring_plan_once_and_includes_occurrence_duration_when_no_time_entry() =
         runBlocking {
-            /** Day key. */
             val dayKey = "2026-02-21"
-            /** Day date. */
             val dayDate = LocalDate.parse(dayKey)
             taskRepository.tasks =
-                /** List of. */
                 listOf(
-                    /** Task. */
                     Task(
                         id = "habit_1",
                         title = "Morning Walk",
@@ -255,9 +214,7 @@ class LensRepositoryDailyInsightCacheTest {
                     ),
                 )
             taskOccurrenceRepository.occurrencesByDate[dayDate] =
-                /** List of. */
                 listOf(
-                    /** Task occurrence. */
                     TaskOccurrence(
                         id = "occ_1",
                         taskId = "habit_1",
@@ -266,23 +223,13 @@ class LensRepositoryDailyInsightCacheTest {
                         actualDurationMinutes = 25,
                     ),
                 )
-
-            /** Snapshot. */
             val snapshot = repository.calculateUnifiedSnapshot(dayKey)
-
-            /** Assert that. */
             assertThat(snapshot.planning.plannedTasks).isEmpty()
-            /** Assert that. */
             assertThat(snapshot.planning.plannedHabits).hasSize(1)
-            /** Assert that. */
             assertThat(snapshot.planning.totalPlannedMinutes).isEqualTo(30)
-            /** Assert that. */
             assertThat(snapshot.reality.totalActualMinutes).isEqualTo(25)
-            /** Assert that. */
             assertThat(snapshot.reality.actualTimeByDimension["health_wellness"]).isEqualTo(25)
-            /** Assert that. */
             assertThat(snapshot.reality.supplementalActualMinutes).isEqualTo(25)
-            /** Assert that. */
             assertThat(snapshot.reality.supplementalActualByDimension["health_wellness"]).isEqualTo(25)
         }
 
@@ -292,14 +239,10 @@ class LensRepositoryDailyInsightCacheTest {
      */
     fun calculateUnifiedSnapshot_recomputesWhenCachedSnapshotMissingSplitFields() =
         runBlocking {
-            /** Day key. */
             val dayKey = "2026-02-20"
-            /** Day date. */
             val dayDate = LocalDate.parse(dayKey)
             taskRepository.tasks =
-                /** List of. */
                 listOf(
-                    /** Task. */
                     Task(
                         id = "habit_legacy",
                         title = "Hydration",
@@ -313,9 +256,7 @@ class LensRepositoryDailyInsightCacheTest {
                     ),
                 )
             timeEntryRepository.entriesByDate[dayDate] =
-                /** List of. */
                 listOf(
-                    /** Time entry. */
                     TimeEntry(
                         id = "entry_habit_legacy",
                         lifeIntentionCategory = "Health & Wellness",
@@ -327,12 +268,8 @@ class LensRepositoryDailyInsightCacheTest {
                         dimensionId = "health_wellness",
                     ),
                 )
-
-            /** Fresh snapshot. */
             val freshSnapshot = repository.calculateUnifiedSnapshot(dayKey)
-            /** Legacy encoded. */
             val legacyEncoded =
-                /** Encode unified lens snapshot. */
                 encodeUnifiedLensSnapshot(freshSnapshot)
                     .lineSequence()
                     .filterNot { line ->
@@ -341,7 +278,6 @@ class LensRepositoryDailyInsightCacheTest {
                             line.startsWith("reality.habitOnly=")
                     }.joinToString("\n")
             dailyInsightDao.upsert(
-                /** Daily insight entity. */
                 DailyInsightEntity(
                     id = "lens_snapshot_$dayKey",
                     dayKey = dayKey,
@@ -357,26 +293,16 @@ class LensRepositoryDailyInsightCacheTest {
                 ),
             )
             taskRepository.getAllTasksCalls = 0
-
-            /** Recomputed. */
             val recomputed = repository.calculateUnifiedSnapshot(dayKey)
-
-            /** Assert that. */
             assertThat(taskRepository.getAllTasksCalls).isEqualTo(1)
-            /** Assert that. */
             assertThat(recomputed.reality.totalActualMinutes).isEqualTo(2)
-            /** Assert that. */
             assertThat(recomputed.reality.actualHabitMinutes).isEqualTo(2)
-            /** Assert that. */
             assertThat(recomputed.reality.actualTaskMinutes).isEqualTo(0)
-            /** Assert that. */
             assertThat(recomputed.reality.actualTimeOnlyMinutes).isEqualTo(0)
         }
 
     private class FakeTaskRepository : TaskRepository {
-        /** Tasks. */
         var tasks: List<Task> = emptyList()
-        /** Get all tasks calls. */
         var getAllTasksCalls: Int = 0
 
         override fun getAllTasks(): Flow<List<Task>> {
@@ -393,35 +319,28 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun createTask(input: TaskInput): Task = unused("createTask")
 
         override suspend fun updateTask(
-            /** Id. */
             id: String,
-            /** Input. */
             input: TaskInput,
         ): Task = unused("updateTask")
 
         override suspend fun updateTaskScore(
-            /** Id. */
             id: String,
-            /** Score. */
             score: Double,
         ) = unused("updateTaskScore")
 
         override suspend fun deleteTask(id: String) = unused("deleteTask")
 
         override suspend fun completeTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task = unused("completeTask")
 
         override suspend fun skipTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task = unused("skipTask")
 
         override suspend fun missTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task = unused("missTask")
@@ -435,17 +354,13 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun getRecurringTasks(): List<Task> = unused("getRecurringTasks")
 
         override suspend fun updateRecurrenceState(
-            /** Task id. */
             taskId: String,
-            /** New due date. */
             newDueDate: LocalDateTime,
-            /** Last occurrence date. */
             lastOccurrenceDate: LocalDateTime,
         ) = unused("updateRecurrenceState")
     }
 
     private class FakeTimeEntryRepository : TimeEntryRepository {
-        /** Entries by date. */
         val entriesByDate = mutableMapOf<LocalDate, List<TimeEntry>>()
 
         override suspend fun getActiveTimeEntry(): TimeEntry? = unused("getActiveTimeEntry")
@@ -453,9 +368,7 @@ class LensRepositoryDailyInsightCacheTest {
         override fun observeActiveTimeEntry(): Flow<TimeEntry?> = unused("observeActiveTimeEntry")
 
         override fun getTimeEntriesForRange(
-            /** Start. */
             start: LocalDateTime,
-            /** End. */
             end: LocalDateTime,
         ): Flow<List<TimeEntry>> = unused("getTimeEntriesForRange")
 
@@ -466,15 +379,12 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun stopActiveTimeEntry(): TimeEntry? = unused("stopActiveTimeEntry")
 
         override suspend fun stopActiveTimeEntryWithFocus(
-            /** Focus rating. */
             focusRating: Double,
             focusNote: String?,
         ): TimeEntry? = unused("stopActiveTimeEntryWithFocus")
 
         override suspend fun updateTimeEntry(
-            /** Id. */
             id: String,
-            /** Input. */
             input: TimeEntryInput,
         ): TimeEntry = unused("updateTimeEntry")
 
@@ -490,7 +400,6 @@ class LensRepositoryDailyInsightCacheTest {
     }
 
     private class FakeTaskOccurrenceRepository : TaskOccurrenceRepository {
-        /** Occurrences by date. */
         val occurrencesByDate = mutableMapOf<LocalDate, List<TaskOccurrence>>()
 
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> = unused("getOccurrencesByTaskId")
@@ -498,31 +407,23 @@ class LensRepositoryDailyInsightCacheTest {
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> = unused("getOccurrencesForTask")
 
         override suspend fun getOccurrencesForLastNDays(
-            /** Task id. */
             taskId: String,
-            /** Days. */
             days: Int,
         ): List<TaskOccurrence> = unused("getOccurrencesForLastNDays")
 
         override suspend fun getOccurrencesForTasksInLastNDays(
             taskIds: List<String>,
-            /** Days. */
             days: Int,
         ): Map<String, List<TaskOccurrence>> = unused("getOccurrencesForTasksInLastNDays")
 
         override suspend fun getOccurrenceForDate(
-            /** Task id. */
             taskId: String,
-            /** Date. */
             date: LocalDate,
         ): TaskOccurrence? = unused("getOccurrenceForDate")
 
         override suspend fun toggleOccurrence(
-            /** Task id. */
             taskId: String,
-            /** Date. */
             date: LocalDate,
-            /** New status. */
             newStatus: String,
             note: String?,
             reason: String?,
@@ -533,20 +434,15 @@ class LensRepositoryDailyInsightCacheTest {
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> = flowOf(occurrencesByDate[date] ?: emptyList())
 
         override suspend fun deleteOccurrence(
-            /** Task id. */
             taskId: String,
-            /** Date. */
             date: LocalDate,
         ) = unused("deleteOccurrenceByDate")
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) = unused("recordOccurrenceModel")
 
         override suspend fun recordOccurrence(
-            /** Task id. */
             taskId: String,
-            /** Due date. */
             dueDate: LocalDateTime,
-            /** Status. */
             status: String,
             note: String?,
             completionRate: Double?,
@@ -556,7 +452,6 @@ class LensRepositoryDailyInsightCacheTest {
     }
 
     private class FakeDayPlanRepository : DayPlanRepository {
-        /** Allocations by day. */
         val allocationsByDay = mutableMapOf<String, List<DayPlanAllocationRecord>>()
 
         override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> = unused("observeAllocationsForDay")
@@ -567,30 +462,22 @@ class LensRepositoryDailyInsightCacheTest {
             allocationsByDay[dayKey] ?: emptyList()
 
         override suspend fun setAllocation(
-            /** Day key. */
             dayKey: String,
-            /** Dimension id. */
             dimensionId: String,
-            /** Planned minutes. */
             plannedMinutes: Int,
-            /** Source. */
             source: String,
             templateId: String?,
         ) = unused("setAllocation")
 
         override suspend fun setAllocations(
-            /** Day key. */
             dayKey: String,
             allocations: Map<String, Int>,
-            /** Source. */
             source: String,
             templateId: String?,
         ) = unused("setAllocations")
 
         override suspend fun applyTemplateToDay(
-            /** Day key. */
             dayKey: String,
-            /** Template id. */
             templateId: String,
         ) = unused("applyTemplateToDay")
 
@@ -599,26 +486,20 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord = unused("getDayPolicy")
 
         override suspend fun setDayMode(
-            /** Day key. */
             dayKey: String,
-            /** Mode. */
             mode: String,
             templateId: String?,
         ) = unused("setDayMode")
 
         override suspend fun setDayStarred(
-            /** Day key. */
             dayKey: String,
-            /** Is starred. */
             isStarred: Boolean,
         ) = unused("setDayStarred")
 
         override suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord =
-            /** Unused. */
             unused("getDayTypeTemplatePreference")
 
         override suspend fun setDayTypeTemplatePreference(
-            /** Day type. */
             dayType: String,
             templateId: String?,
         ) = unused("setDayTypeTemplatePreference")
@@ -632,16 +513,13 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? = unused("getTemplateById")
 
         override suspend fun createTemplate(
-            /** Name. */
             name: String,
             description: String?,
             allocations: Map<String, Int>,
         ): String = unused("createTemplate")
 
         override suspend fun updateTemplate(
-            /** Id. */
             id: String,
-            /** Name. */
             name: String,
             description: String?,
             allocations: Map<String, Int>,
@@ -652,6 +530,5 @@ class LensRepositoryDailyInsightCacheTest {
 }
 
 private fun unused(methodName: String): Nothing {
-    /** Error. */
     error("Not used in test: $methodName")
 }

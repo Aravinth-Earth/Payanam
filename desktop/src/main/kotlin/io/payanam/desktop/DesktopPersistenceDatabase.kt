@@ -270,9 +270,7 @@ internal class DesktopPersistenceDatabase(
     }
 
     private data class LegacyEntryLocation(
-        /** Entry key. */
         val entryKey: String,
-        /** Path. */
         val path: Path,
     )
 

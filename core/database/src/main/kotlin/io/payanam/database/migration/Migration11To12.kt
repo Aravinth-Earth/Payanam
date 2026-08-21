@@ -21,17 +21,11 @@ val MIGRATION_11_12 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.11_12", "Starting migration from version 11 to 12")
             try {
-                /** Create tags table. */
                 createTagsTable(database)
-                /** Create task tags table. */
                 createTaskTagsTable(database)
-                /** Create note tags table. */
                 createNoteTagsTable(database)
-                /** Create time entry tags table. */
                 createTimeEntryTagsTable(database)
-                /** Create time goals table. */
                 createTimeGoalsTable(database)
-                /** Create time rules table. */
                 createTimeRulesTable(database)
                 logger.i("Migration.11_12", "Migration from 11 to 12 completed successfully")
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {

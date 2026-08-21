@@ -83,13 +83,9 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
  * Screen.
  */
 sealed class Screen(
-    /** Route. */
     val route: String,
-    /** Title res. */
     val titleRes: Int,
-    /** Selected icon. */
     val selectedIcon: ImageVector,
-    /** Unselected icon. */
     val unselectedIcon: ImageVector,
 ) {
     data object Tasks : Screen(
@@ -147,25 +143,15 @@ sealed class Screen(
  * Routes.
  */
 object Routes {
-    /** Passphrase unlock. */
     const val PASSPHRASE_UNLOCK = "passphrase_unlock"
-    /** Passphrase setup. */
     const val PASSPHRASE_SETUP = "passphrase_setup"
-    /** Passphrase change. */
     const val PASSPHRASE_CHANGE = "passphrase_change"
-    /** Database init. */
     const val DATABASE_INIT = "database_init"
-    /** Focus mode selection. */
     const val FOCUS_MODE_SELECTION = "focus_mode_selection"
-    /** Add task. */
     const val ADD_TASK = "add_task"
-    /** Task detail. */
     const val TASK_DETAIL = "task_detail/{taskId}"
-    /** Edit task. */
     const val EDIT_TASK = "edit_task/{taskId}"
-    /** Score detail. */
     const val SCORE_DETAIL = "score_detail/{type}/{key}"
-    /** Scoring config. */
     const val SCORING_CONFIG = "scoring_config"
 
     /**
@@ -181,8 +167,6 @@ object Routes {
      */
     fun scoreDetail(type: String, key: String) = "score_detail/$type/$key"
 }
-
-/** Bottom nav items. */
 val bottomNavItems = listOf(
     Screen.Tasks,
     Screen.Habits,
@@ -211,14 +195,10 @@ fun PayanamNavHost(
     onUnlockReturnRouteConsumed: () -> Unit = {},
     appPreferencesViewModel: AppPreferencesViewModel? = null,
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
-    /** Nav controller. */
     val navController = rememberNavController()
     val navBackStackEntry by navController.currentBackStackEntryAsState()
-    /** Current route. */
     val currentRoute = navBackStackEntry?.destination?.route
-    /** Current resolved route. */
     val currentResolvedRoute = navBackStackEntry?.resolveConcreteRoute()
     var pendingTimeQuickStartRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingTimeStopTrackingRequestId by remember { mutableStateOf<Long?>(null) }
@@ -229,9 +209,7 @@ fun PayanamNavHost(
         appPreferencesViewModel?.uiState?.collectAsState()
             ?: remember { mutableStateOf(AppPreferencesState()) }
         )
-    /** Backup failure message. */
     val backupFailureMessage = preferencesState.autoBackupLastErrorMessage
-    /** Backup failure at. */
     val backupFailureAt = preferencesState.autoBackupLastErrorAt
 
     // Check if a route is allowed given current feature flags and preferences.
@@ -240,9 +218,7 @@ fun PayanamNavHost(
      * Is route allowed.
      */
     fun isRouteAllowed(route: String): Boolean {
-        /** Allowed. */
         val allowed = NavRoutePolicy.isAllowed(route, FeatureFlags.minimalModeEnabled)
-        /** If. */
         if (!allowed) {
             logger.d("PayanamNavHost.isRouteAllowed", "Route blocked by minimal mode", mapOf("route" to route))
         } else if (route in NavRoutePolicy.startupGateRoutes) {
@@ -252,37 +228,30 @@ fun PayanamNavHost(
     }
 
     // Filter bottom navigation items based on tab visibility and minimal mode
-    /** Visible bottom nav items. */
     val visibleBottomNavItems = remember(preferencesState.tabVisibility, FeatureFlags.minimalModeEnabled) {
         bottomNavItems.filter { screen ->
-            /** Is allowed. */
             val isAllowed = if (FeatureFlags.minimalModeEnabled) {
                 screen.route in NavRoutePolicy.minimalModeAllowedTabs
             } else {
-                /** True. */
                 true
             }
             (
                 screen.route == "settings" || // Settings tab is always visible
                     preferencesState.tabVisibility[screen.route] != false
                 ) && // Show if not explicitly hidden
-                /** Is allowed. */
                 isAllowed // And allowed by feature flags
         }
     }
 
     // Hide bottom bar on first-run setup routes.
-    /** Show bottom bar. */
     val showBottomBar = currentRoute != Routes.PASSPHRASE_SETUP &&
         currentRoute != Routes.PASSPHRASE_UNLOCK &&
         currentRoute != Routes.PASSPHRASE_CHANGE &&
         currentRoute != Routes.DATABASE_INIT &&
         currentRoute != Routes.FOCUS_MODE_SELECTION
-    /** Navigate to top level. */
     val navigateToTopLevel: (String) -> Unit = remember(navController) {
         { route ->
             navController.navigate(route) {
-                /** Pop up to. */
                 popUpTo(navController.graph.findStartDestination().id) {
                     saveState = true
                 }
@@ -291,23 +260,14 @@ fun PayanamNavHost(
             }
         }
     }
-
-    /** Launched effect. */
     LaunchedEffect(
-        /** External command. */
         externalCommand,
-        /** Current route. */
         currentRoute,
-        /** Should show passphrase unlock. */
         shouldShowPassphraseUnlock,
-        /** Should show passphrase setup. */
         shouldShowPassphraseSetup,
-        /** Should show database init. */
         shouldShowDatabaseInit,
-        /** Should show focus mode onboarding. */
         shouldShowFocusModeOnboarding,
     ) {
-        /** If. */
         if (shouldShowPassphraseUnlock || currentRoute == Routes.PASSPHRASE_UNLOCK ||
             shouldShowPassphraseSetup || currentRoute == Routes.PASSPHRASE_SETUP ||
             currentRoute == Routes.PASSPHRASE_CHANGE ||
@@ -316,24 +276,18 @@ fun PayanamNavHost(
         ) {
             return@LaunchedEffect
         }
-
-        /** When. */
         when (val command = externalCommand) {
             is ExternalNavigationCommand.OpenTimeScreen -> {
-                /** If. */
                 if (command.openQuickStart) {
                     pendingTimeQuickStartRequestId = command.requestId
                 }
-                /** If. */
                 if (command.openStopTracking) {
                     pendingTimeStopTrackingRequestId = command.requestId
                 }
-                /** Navigate to top level. */
                 navigateToTopLevel(Screen.Time.route)
                 logger.i(
                     "PayanamNavHost",
                     "Handled external navigation command",
-                    /** Map of. */
                     mapOf(
                         "route" to Screen.Time.route,
                         "source" to command.source,
@@ -341,29 +295,22 @@ fun PayanamNavHost(
                         "openStopTracking" to command.openStopTracking,
                     ),
                 )
-                /** On external command consumed. */
                 onExternalCommandConsumed()
             }
 
             null -> Unit
         }
     }
-
-    /** Launched effect. */
     LaunchedEffect(shouldShowPassphraseUnlock, currentRoute, resumeToRouteAfterUnlock) {
-        /** If. */
         if (!shouldShowPassphraseUnlock || currentResolvedRoute == null) {
             return@LaunchedEffect
         }
-        /** If. */
         if (resumeToRouteAfterUnlock != null && pendingReturnRouteAfterUnlock != resumeToRouteAfterUnlock) {
             pendingReturnRouteAfterUnlock = resumeToRouteAfterUnlock
         }
-        /** If. */
         if (currentResolvedRoute == Routes.PASSPHRASE_UNLOCK) {
             return@LaunchedEffect
         }
-        /** If. */
         if (shouldCaptureReturnRouteForUnlock(currentResolvedRoute)) {
             pendingReturnRouteAfterUnlock = currentResolvedRoute
             (navController.context as? io.payanam.MainActivity)?.requestSilentUnlock(currentResolvedRoute)
@@ -371,7 +318,6 @@ fun PayanamNavHost(
         logger.i(
             "PayanamNavHost",
             "Routing to passphrase unlock for silent re-auth",
-            /** Map of. */
             mapOf(
                 "currentRoute" to currentResolvedRoute,
                 "returnRoute" to (pendingReturnRouteAfterUnlock ?: "none"),
@@ -381,25 +327,18 @@ fun PayanamNavHost(
             launchSingleTop = true
         }
     }
-
-    /** Disposable effect. */
     DisposableEffect(navController) {
-        /** Listener. */
         val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
-            /** Route. */
             val route = destination.route ?: return@OnDestinationChangedListener
             logger.i(
                 "PayanamNavHost.destinationChanged",
                 "Navigation event",
-                /** Map of. */
                 mapOf("route" to route),
             )
-            /** If. */
             if (FeatureFlags.minimalModeEnabled && !isRouteAllowed(route)) {
                 logger.w(
                     "PayanamNavHost.backStackGuard",
                     "Popping disabled route from back stack",
-                    /** Map of. */
                     mapOf("route" to route),
                 )
                 controller.popBackStack()
@@ -408,31 +347,22 @@ fun PayanamNavHost(
         navController.addOnDestinationChangedListener(listener)
         onDispose { navController.removeOnDestinationChangedListener(listener) }
     }
-
-    /** Scaffold. */
     Scaffold(
         bottomBar = {
-            /** If. */
             if (showBottomBar) {
                 NavigationBar {
-                    /** Current destination. */
                     val currentDestination = navBackStackEntry?.destination
 
                     visibleBottomNavItems.forEach { screen ->
-                        /** Selected. */
                         val selected = currentDestination?.hierarchy?.any {
                             it.route == screen.route
                         } == true
-                        /** Tab label. */
                         val tabLabel = androidx.compose.ui.res.stringResource(id = screen.titleRes)
-
-                        /** Navigation bar item. */
                         NavigationBarItem(
                             modifier = Modifier.semantics {
                                 contentDescription = tabLabel
                             },
                             icon = {
-                                /** Icon. */
                                 Icon(
                                     imageVector = if (selected) screen.selectedIcon else screen.unselectedIcon,
                                     contentDescription = null,
@@ -442,16 +372,13 @@ fun PayanamNavHost(
                             alwaysShowLabel = false,
                             selected = selected,
                             onClick = {
-                                /** If. */
                                 if (isRouteAllowed(screen.route)) {
                                     logger.i("PayanamNavHost", "Navigating to screen", mapOf("route" to screen.route))
-                                    /** Navigate to top level. */
                                     navigateToTopLevel(screen.route)
                                 } else {
                                     logger.w(
                                         "PayanamNavHost",
                                         "Navigation blocked by feature flags",
-                                        /** Map of. */
                                         mapOf(
                                             "route" to screen.route,
                                             "minimalModeEnabled" to FeatureFlags.minimalModeEnabled,
@@ -465,59 +392,43 @@ fun PayanamNavHost(
             }
         },
     ) { innerPadding ->
-        /** If. */
         if (!backupFailureMessage.isNullOrBlank()) {
-            /** Alert dialog. */
             AlertDialog(
                 onDismissRequest = {
                     appPreferencesViewModel?.dismissAutoBackupFailureMessage()
                 },
                 title = {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.backup_failure_dialog_title))
                 },
                 text = {
-                    /** Text. */
                     Text(
                         backupFailureAt?.let {
                             androidx.compose.ui.res.stringResource(
                                 id = io.payanam.R.string.backup_failure_dialog_message_with_time,
-                                /** It. */
                                 it,
-                                /** Backup failure message. */
                                 backupFailureMessage,
                             )
                         } ?: androidx.compose.ui.res.stringResource(
                             id = io.payanam.R.string.backup_failure_dialog_message_without_time,
-                            /** Backup failure message. */
                             backupFailureMessage,
                         ),
                     )
                 },
                 confirmButton = {
-                    /** Text button. */
                     TextButton(
                         onClick = { appPreferencesViewModel?.dismissAutoBackupFailureMessage() },
                     ) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_dismiss_error_message))
                     }
                 },
             )
         }
-
-        /** Landing route. */
         val landingRoute = preferencesState.launchDestination.route
-        /** Landing ready. */
         val landingReady = !preferencesState.isLoading && landingRoute.isNotEmpty()
             && !shouldShowPassphraseSetup && !shouldShowPassphraseUnlock
             && !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding
-
-        /** Start destination. */
         val startDestination = remember(landingReady) {
-            /** If. */
             if (landingReady) {
-                /** Landing route. */
                 landingRoute
             } else {
                 when {
@@ -529,32 +440,23 @@ fun PayanamNavHost(
                 }
             }
         }
-
-        /** If. */
         if (startDestination == null) {
-            /** Box. */
             Box(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center,
             ) {
-                /** Circular progress indicator. */
                 CircularProgressIndicator()
             }
             return@Scaffold
         }
-
-        /** Nav host. */
         NavHost(
             navController = navController,
             startDestination = startDestination,
             modifier = Modifier.padding(innerPadding),
         ) {
-            /** Composable. */
             composable(Routes.PASSPHRASE_SETUP) {
-                /** Database passphrase setup screen. */
                 DatabasePassphraseSetupScreen(
                     onPassphraseConfigured = {
-                        /** Next route. */
                         val nextRoute = when {
                             shouldShowDatabaseInit -> Routes.DATABASE_INIT
                             shouldShowFocusModeOnboarding -> Routes.FOCUS_MODE_SELECTION
@@ -562,21 +464,16 @@ fun PayanamNavHost(
                         }
                         logger.i("PayanamNavHost", "Passphrase configured, continuing startup flow", mapOf("nextRoute" to nextRoute))
                         navController.navigate(nextRoute) {
-                            /** Pop up to. */
                             popUpTo(Routes.PASSPHRASE_SETUP) { inclusive = true }
                         }
                     },
                 )
             }
-            /** Composable. */
             composable(Routes.PASSPHRASE_UNLOCK) {
-                /** Database passphrase unlock screen. */
                 DatabasePassphraseUnlockScreen(
                     onPassphraseUnlocked = {
                         logger.i("PayanamNavHost", "Passphrase unlocked; continuing startup flow")
-                        /** On passphrase unlocked. */
                         onPassphraseUnlocked()
-                        /** Next route. */
                         val nextRoute = when {
                             shouldShowDatabaseInit -> Routes.DATABASE_INIT
                             shouldShowFocusModeOnboarding -> Routes.FOCUS_MODE_SELECTION
@@ -584,25 +481,20 @@ fun PayanamNavHost(
                             else -> Screen.Lenses.route
                         }
                         pendingReturnRouteAfterUnlock = null
-                        /** On unlock return route consumed. */
                         onUnlockReturnRouteConsumed()
                         navController.navigate(nextRoute) {
-                            /** Pop up to. */
                             popUpTo(Routes.PASSPHRASE_UNLOCK) { inclusive = true }
                         }
                     },
                     onForgotPassphraseReset = {
                         logger.w("PayanamNavHost", "Forgot-passphrase reset completed; navigating to setup")
                         navController.navigate(Routes.PASSPHRASE_SETUP) {
-                            /** Pop up to. */
                             popUpTo(Routes.PASSPHRASE_UNLOCK) { inclusive = true }
                         }
                     },
                 )
             }
-            /** Composable. */
             composable(Routes.PASSPHRASE_CHANGE) {
-                /** Database passphrase change screen. */
                 DatabasePassphraseChangeScreen(
                     onPassphraseChanged = {
                         logger.i("PayanamNavHost", "Passphrase changed successfully")
@@ -612,48 +504,37 @@ fun PayanamNavHost(
             }
 
             // Database initialization screen (shown only on first launch or when no DB)
-            /** Composable. */
             composable(Routes.DATABASE_INIT) {
-                /** Database init screen. */
                 DatabaseInitScreen(
                     onDatabaseReady = {
                         logger.i("PayanamNavHost", "Database init reported ready; delegating startup flow re-evaluation", mapOf("from" to "DatabaseInit"))
-                        /** On database ready. */
                         onDatabaseReady()
                     },
                 )
             }
 
             // Focus Mode Selection screen (shown after database init on first launch)
-            /** Composable. */
             composable(Routes.FOCUS_MODE_SELECTION) {
-                /** Focus mode selection screen. */
                 FocusModeSelectionScreen(
                     onPresetSelected = { preset ->
                         logger.i(
                             "PayanamNavHost",
                             "Focus mode preset selected, navigating to Lenses screen",
-                            /** Map of. */
                             mapOf("preset" to preset.presetId),
                         )
-                        /** Prefs view model. */
                         val prefsViewModel = appPreferencesViewModel
-                        /** Check not null. */
                         checkNotNull(prefsViewModel) {
                             "AppPreferencesViewModel is required when showing Focus Mode onboarding."
                         }
                         prefsViewModel.setActivePreset(preset)
                         prefsViewModel.markFocusModeOnboardingCompleted()
                         navController.navigate(Screen.Lenses.route) {
-                            /** Pop up to. */
                             popUpTo(Routes.FOCUS_MODE_SELECTION) { inclusive = true }
                         }
                     },
                 )
             }
-            /** Composable. */
             composable(Screen.Tasks.route) {
-                /** Tasks screen. */
                 TasksScreen(
                     mode = TasksScreenMode.TASKS_ONLY,
                     onNavigateToAddTask = {
@@ -666,20 +547,16 @@ fun PayanamNavHost(
                     },
                 )
             }
-            /** Composable. */
             composable(Screen.Time.route) {
-                /** Time screen. */
                 TimeScreen(
                     openStartTrackingDialogRequestId = pendingTimeQuickStartRequestId,
                     onOpenStartTrackingDialogHandled = { handledRequestId ->
-                        /** If. */
                         if (pendingTimeQuickStartRequestId == handledRequestId) {
                             pendingTimeQuickStartRequestId = null
                         }
                     },
                     openStopTrackingDialogRequestId = pendingTimeStopTrackingRequestId,
                     onOpenStopTrackingDialogHandled = { handledRequestId ->
-                        /** If. */
                         if (pendingTimeStopTrackingRequestId == handledRequestId) {
                             pendingTimeStopTrackingRequestId = null
                         }
@@ -690,14 +567,10 @@ fun PayanamNavHost(
                     },
                 )
             }
-            /** Composable. */
             composable(Screen.Notes.route) {
-                /** Notes screen. */
                 NotesScreen()
             }
-            /** Composable. */
             composable(Screen.Habits.route) {
-                /** Tasks screen. */
                 TasksScreen(
                     mode = TasksScreenMode.HABITS_ONLY,
                     onNavigateToAddTask = {
@@ -710,40 +583,31 @@ fun PayanamNavHost(
                     },
                 )
             }
-            /** Composable. */
             composable(Screen.Journal.route) {
-                /** Day screen. */
                 DayScreen(
                     mode = DayScreenMode.JOURNAL_ONLY,
                 )
             }
-            /** Composable. */
             composable(Screen.Lenses.route) {
-                /** Lenses screen. */
                 LensesScreen(
                     onOpenTime = {
                         logger.i("PayanamNavHost", "Navigating to time from unified lenses", mapOf())
-                        /** Navigate to top level. */
                         navigateToTopLevel(Screen.Time.route)
                     },
                     onOpenTasks = {
                         logger.i("PayanamNavHost", "Navigating to tasks from unified lenses", mapOf())
-                        /** Navigate to top level. */
                         navigateToTopLevel(Screen.Tasks.route)
                     },
                     onOpenHabits = {
                         logger.i("PayanamNavHost", "Navigating to habits from unified lenses", mapOf())
-                        /** Navigate to top level. */
                         navigateToTopLevel(Screen.Habits.route)
                     },
                     onOpenJournal = {
                         logger.i("PayanamNavHost", "Navigating to journal from unified lenses", mapOf())
-                        /** Navigate to top level. */
                         navigateToTopLevel(Screen.Journal.route)
                     },
                     onOpenNotes = {
                         logger.i("PayanamNavHost", "Navigating to notes from unified lenses", mapOf())
-                        /** Navigate to top level. */
                         navigateToTopLevel(Screen.Notes.route)
                     },
                     onOpenScoreDetail = { type, key ->
@@ -752,9 +616,7 @@ fun PayanamNavHost(
                     },
                 )
             }
-            /** Composable. */
             composable(Screen.Settings.route) {
-                /** Settings screen. */
                 SettingsScreen(
                     onNavigateToPassphraseChange = {
                         logger.i("PayanamNavHost", "Navigating to passphrase change", mapOf())
@@ -766,30 +628,23 @@ fun PayanamNavHost(
                     },
                     onNavigateToDatabaseInit = {
                         logger.i("PayanamNavHost", "Delete all data complete; restarting process for clean DB init", mapOf())
-                        /** On restart after delete. */
                         onRestartAfterDelete()
                     },
                 )
             }
 
             // Non-bottom-nav routes
-            /** Composable. */
             composable(Routes.ADD_TASK) {
-                /** Add task screen. */
                 AddTaskScreen(
                     onNavigateBack = { navController.popBackStack() },
                     onTaskSaved = { navController.popBackStack() },
                 )
             }
-
-            /** Composable. */
             composable(
                 route = Routes.TASK_DETAIL,
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                /** Task id. */
                 val taskId = backStackEntry.arguments?.getString("taskId") ?: return@composable
-                /** Task detail screen. */
                 TaskDetailScreen(
                     taskId = taskId,
                     onNavigateBack = { navController.popBackStack() },
@@ -799,55 +654,38 @@ fun PayanamNavHost(
                     },
                 )
             }
-
-            /** Composable. */
             composable(
                 route = Routes.SCORE_DETAIL,
                 arguments =
-                    /** List of. */
                     listOf(
-                        /** Nav argument. */
                         navArgument("type") { type = NavType.StringType },
-                        /** Nav argument. */
                         navArgument("key") { type = NavType.StringType },
                     ),
             ) { backStackEntry ->
-                /** Type name. */
                 val typeName = backStackEntry.arguments?.getString("type") ?: return@composable
-                /** Key. */
                 val key = backStackEntry.arguments?.getString("key") ?: return@composable
-                /** Type. */
                 val type =
-                    /** If. */
                     if (typeName == "DAY") ScoreDetailType.DAY
                     else ScoreDetailType.DIMENSION
                 logger.i("PayanamNavHost", "Opening score detail", mapOf("type" to typeName, "key" to key))
-                /** Score detail screen. */
                 ScoreDetailScreen(
                     type = type,
                     key = key,
                     onNavigateBack = { navController.popBackStack() },
                 )
             }
-
-            /** Composable. */
             composable(
                 route = Routes.EDIT_TASK,
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
             ) { backStackEntry ->
-                /** Task id. */
                 val taskId = backStackEntry.arguments?.getString("taskId") ?: return@composable
-                /** Edit task screen. */
                 EditTaskScreen(
                     taskId = taskId,
                     onNavigateBack = { navController.popBackStack() },
                     onTaskSaved = { navController.popBackStack() },
                 )
             }
-
-            /** Composable. */
             composable(Routes.SCORING_CONFIG) {
-                /** Scoring config screen. */
                 ScoringConfigScreen(
                     onNavigateBack = { navController.popBackStack() },
                 )
@@ -865,9 +703,7 @@ internal fun shouldCaptureReturnRouteForUnlock(route: String): Boolean = route !
     route != Routes.FOCUS_MODE_SELECTION
 
 internal fun NavBackStackEntry.resolveConcreteRoute(): String? {
-    /** Route. */
     val route = destination.route ?: return null
-    /** Task id. */
     val taskId = arguments?.getString("taskId")
     return resolveConcreteRoute(route, taskId)
 }

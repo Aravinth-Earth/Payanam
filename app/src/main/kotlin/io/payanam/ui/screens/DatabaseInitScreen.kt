@@ -75,14 +75,10 @@ fun DatabaseInitScreen(
     onDatabaseReady: () -> Unit,
     viewModel: DatabaseInitViewModel = hiltViewModel(),
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
     val uiState by viewModel.uiState.collectAsState()
-    /** Context. */
     val context = LocalContext.current
-    /** Passphrase mismatch error. */
     val passphraseMismatchError = androidx.compose.ui.res.stringResource(id = R.string.db_passphrase_error_mismatch)
-    /** Scope. */
     val scope = rememberCoroutineScope()
 
     var debugExportMessage by rememberSaveable { mutableStateOf<String?>(null) }
@@ -95,21 +91,15 @@ fun DatabaseInitScreen(
     var showCreatePassphraseConfirm by rememberSaveable { mutableStateOf(false) }
     var showImportPassphrase by rememberSaveable { mutableStateOf(false) }
     var hasFinishedOnboarding by rememberSaveable { mutableStateOf(false) }
-
-    /** Import launcher. */
     val importLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let { viewModel.importDatabase(it, onSuccess = onDatabaseReady) }
     }
-
-    /** If. */
     if (uiState.showCreateNewWipeConfirm) {
-        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = { viewModel.cancelCreateNewWipe() },
             title = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_confirm_title)) },
             text = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_confirm_create_new_body)) },
             confirmButton = {
-                /** Button. */
                 Button(
                     onClick = {
                         logger.i("DatabaseInitScreen", "User confirmed create new with wipe")
@@ -119,24 +109,18 @@ fun DatabaseInitScreen(
                 ) { Text(androidx.compose.ui.res.stringResource(R.string.loc_continue)) }
             },
             dismissButton = {
-                /** Text button. */
                 TextButton(onClick = { viewModel.cancelCreateNewWipe() }) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(R.string.settings_action_cancel))
                 }
             },
         )
     }
-
-    /** If. */
     if (uiState.showImportWipeConfirm) {
-        /** Alert dialog. */
         AlertDialog(
             onDismissRequest = { viewModel.cancelImportWipe() },
             title = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_confirm_title)) },
             text = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_confirm_import_body)) },
             confirmButton = {
-                /** Button. */
                 Button(
                     onClick = {
                         logger.i("DatabaseInitScreen", "User confirmed import with wipe")
@@ -146,25 +130,19 @@ fun DatabaseInitScreen(
                 ) { Text(androidx.compose.ui.res.stringResource(R.string.loc_continue)) }
             },
             dismissButton = {
-                /** Text button. */
                 TextButton(onClick = { viewModel.cancelImportWipe() }) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(R.string.settings_action_cancel))
                 }
             },
         )
     }
-
-    /** When. */
     when (uiState.restoreResult) {
         is RestoreResult.RestoredOk -> AlertDialog(
             onDismissRequest = { viewModel.dismissRestoreResult() },
             title = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_restore_ok_title)) },
             text = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_restore_ok_body)) },
             confirmButton = {
-                /** Button. */
                 Button(onClick = { viewModel.dismissRestoreResult() }) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(R.string.loc_ok))
                 }
             },
@@ -175,9 +153,7 @@ fun DatabaseInitScreen(
             title = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_restore_failed_title)) },
             text = { Text(androidx.compose.ui.res.stringResource(R.string.db_init_wipe_restore_failed_body)) },
             confirmButton = {
-                /** Button. */
                 Button(onClick = { viewModel.dismissRestoreResult() }) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(R.string.loc_ok))
                 }
             },
@@ -185,13 +161,10 @@ fun DatabaseInitScreen(
 
         null -> { /* nothing */ }
     }
-
-    /** Surface. */
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -199,24 +172,20 @@ fun DatabaseInitScreen(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            /** Icon. */
             Icon(
                 imageVector = Icons.Default.Storage,
                 contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_database_title),
                 modifier = Modifier.size(80.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-            /** Spacer. */
             Spacer(modifier = Modifier.height(24.dp))
 
             when {
                 uiState.awaitingDimensionSetup -> {
-                    /** Surface. */
                     Surface(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background,
                     ) {
-                        /** Mandatory dimension setup section. */
                         MandatoryDimensionSetupSection(
                             isSaving = uiState.isCreating,
                             onSave = { dimensionInputs ->
@@ -230,34 +199,26 @@ fun DatabaseInitScreen(
                 }
 
                 uiState.awaitingImportPassphrase -> {
-                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Lock,
                         contentDescription = null,
                         modifier = Modifier.size(64.dp),
                         tint = MaterialTheme.colorScheme.primary,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = R.string.db_import_passphrase_prompt_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = R.string.db_import_passphrase_prompt_desc),
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Outlined text field. */
                     OutlinedTextField(
                         value = importPassphraseInput,
                         onValueChange = { importPassphraseInput = it },
@@ -265,22 +226,18 @@ fun DatabaseInitScreen(
                         label = { Text(androidx.compose.ui.res.stringResource(id = R.string.db_passphrase_input_label)) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
                         keyboardActions = KeyboardActions(onDone = {
-                            /** If. */
                             if (importPassphraseInput.isNotBlank() && !uiState.isImporting) {
                                 logger.i("DatabaseInitScreen", "Import passphrase submitted from IME action")
                                 viewModel.resumeImportWithPassphrase(importPassphraseInput, onSuccess = {
                                     importPassphraseInput = ""
                                     showImportPassphrase = false
-                                    /** On database ready. */
                                     onDatabaseReady()
                                 })
                             }
                         }),
                         visualTransformation = if (showImportPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
-                            /** Icon button. */
                             IconButton(onClick = { showImportPassphrase = !showImportPassphrase }) {
-                                /** Icon. */
                                 Icon(
                                     imageVector = if (showImportPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = androidx.compose.ui.res.stringResource(
@@ -294,27 +251,20 @@ fun DatabaseInitScreen(
                     )
 
                     uiState.importPassphraseError?.let { err ->
-                        /** Spacer. */
                         Spacer(modifier = Modifier.height(4.dp))
-                        /** Text. */
                         Text(
                             text = err,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Button. */
                     Button(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Import passphrase submitted")
                             viewModel.resumeImportWithPassphrase(importPassphraseInput, onSuccess = {
                                 importPassphraseInput = ""
                                 showImportPassphrase = false
-                                /** On database ready. */
                                 onDatabaseReady()
                             })
                         },
@@ -323,23 +273,16 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = importPassphraseInput.isNotBlank() && !uiState.isImporting,
                     ) {
-                        /** If. */
                         if (uiState.isImporting) {
-                            /** Circular progress indicator. */
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary,
                             )
                         } else {
-                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = R.string.db_import_passphrase_prompt_action))
                         }
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Import passphrase cancelled")
@@ -352,31 +295,24 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = !uiState.isImporting,
                     ) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = R.string.settings_action_cancel))
                     }
                 }
 
                 showCreatePassphraseForm -> {
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = R.string.db_passphrase_setup_title),
                         style = MaterialTheme.typography.headlineSmall,
                         fontWeight = FontWeight.Bold,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = R.string.db_passphrase_no_recovery_warning),
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                         textAlign = TextAlign.Center,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Outlined text field. */
                     OutlinedTextField(
                         value = createPassphrase,
                         onValueChange = {
@@ -388,9 +324,7 @@ fun DatabaseInitScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphrase) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
-                            /** Icon button. */
                             IconButton(onClick = { showCreatePassphrase = !showCreatePassphrase }) {
-                                /** Icon. */
                                 Icon(
                                     imageVector = if (showCreatePassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = androidx.compose.ui.res.stringResource(
@@ -402,9 +336,7 @@ fun DatabaseInitScreen(
                         singleLine = true,
                         enabled = !uiState.isCreating,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-                    /** Outlined text field. */
                     OutlinedTextField(
                         value = createPassphraseConfirm,
                         onValueChange = {
@@ -416,9 +348,7 @@ fun DatabaseInitScreen(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphraseConfirm) VisualTransformation.None else PasswordVisualTransformation(),
                         trailingIcon = {
-                            /** Icon button. */
                             IconButton(onClick = { showCreatePassphraseConfirm = !showCreatePassphraseConfirm }) {
-                                /** Icon. */
                                 Icon(
                                     imageVector = if (showCreatePassphraseConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility,
                                     contentDescription = androidx.compose.ui.res.stringResource(
@@ -432,25 +362,17 @@ fun DatabaseInitScreen(
                     )
 
                     createPassphraseError?.let { err ->
-                        /** Spacer. */
                         Spacer(modifier = Modifier.height(4.dp))
-                        /** Text. */
                         Text(
                             text = err,
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.error,
                         )
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Button. */
                     Button(
                         onClick = {
-                            /** Validation. */
                             val validation = PassphrasePolicy.validate(createPassphrase)
-                            /** If. */
                             if (!validation.isValid) {
                                 createPassphraseError = passphraseValidationMessage(context, validation.reasonCode)
                             } else if (createPassphrase != createPassphraseConfirm) {
@@ -465,23 +387,16 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = createPassphrase.isNotBlank() && createPassphraseConfirm.isNotBlank() && !uiState.isCreating,
                     ) {
-                        /** If. */
                         if (uiState.isCreating) {
-                            /** Circular progress indicator. */
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary,
                             )
                         } else {
-                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = R.string.db_passphrase_setup_action))
                         }
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Create DB passphrase form cancelled")
@@ -497,87 +412,67 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = !uiState.isCreating,
                     ) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = R.string.loc_back))
                     }
                 }
 
                 uiState.isChecking -> {
-                    /** Circular progress indicator. */
                     CircularProgressIndicator()
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_checking_database_status))
                 }
 
                 uiState.bootIssue != null -> {
-                    /** Boot issue. */
                     val bootIssue = uiState.bootIssue!!
-                    /** Emphasize update. */
                     val emphasizeUpdate = bootIssue.type == DatabaseBootIssueType.DB_TOO_NEW
-                    /** Title color. */
                     val titleColor = if (emphasizeUpdate) {
                         MaterialTheme.colorScheme.tertiary
                     } else {
                         MaterialTheme.colorScheme.error
                     }
-                    /** Container color. */
                     val containerColor = if (emphasizeUpdate) {
                         MaterialTheme.colorScheme.tertiaryContainer
                     } else {
                         MaterialTheme.colorScheme.errorContainer
                     }
-                    /** On container color. */
                     val onContainerColor = if (emphasizeUpdate) {
                         MaterialTheme.colorScheme.onTertiaryContainer
                     } else {
                         MaterialTheme.colorScheme.onErrorContainer
                     }
-
-                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.Info,
                         contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_warning),
                         modifier = Modifier.size(64.dp),
                         tint = titleColor,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = bootIssueTitleRes(bootIssue.type)),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                         color = titleColor,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(8.dp))
-
-                    /** Card. */
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = containerColor,
                         ),
                     ) {
-                        /** Column. */
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            /** Text. */
                             Text(
                                 text = androidx.compose.ui.res.stringResource(id = bootIssueHeadlineRes(bootIssue.type)),
                                 fontWeight = FontWeight.Bold,
                                 color = onContainerColor,
                             )
-                            /** Text. */
                             Text(
                                 text = bootIssueBodyText(bootIssue, uiState.corruptionMessage),
                                 color = onContainerColor,
                             )
-                            /** Text. */
                             Text(
                                 text = androidx.compose.ui.res.stringResource(
                                     id = if (emphasizeUpdate) {
@@ -591,17 +486,12 @@ fun DatabaseInitScreen(
                             )
                         }
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.i(
                                 "DatabaseInitScreen",
                                 "Recheck database status clicked",
-                                /** Map of. */
                                 mapOf("issueType" to bootIssue.type.name),
                             )
                             viewModel.retryDatabaseStatusCheck()
@@ -611,14 +501,9 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = !uiState.isChecking && !uiState.isCreating && !uiState.isImporting,
                     ) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = R.string.db_init_action_recheck_database))
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(12.dp))
-
-                    /** Button. */
                     Button(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Import database clicked", mapOf())
@@ -629,27 +514,18 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = !uiState.isCreating && !uiState.isImporting,
                     ) {
-                        /** If. */
                         if (uiState.isImporting) {
-                            /** Circular progress indicator. */
                             CircularProgressIndicator(
                                 modifier = Modifier.size(24.dp),
                                 color = MaterialTheme.colorScheme.onPrimary,
                             )
                         } else {
-                            /** Icon. */
                             Icon(Icons.Default.CloudUpload, contentDescription = null)
-                            /** Spacer. */
                             Spacer(modifier = Modifier.width(8.dp))
-                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_valid_database))
                         }
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Create new database clicked (boot issue path)", mapOf())
@@ -660,45 +536,34 @@ fun DatabaseInitScreen(
                             .height(56.dp),
                         enabled = !uiState.isCreating && !uiState.isImporting,
                     ) {
-                        /** Icon. */
                         Icon(Icons.Default.Add, contentDescription = null)
-                        /** Spacer. */
                         Spacer(modifier = Modifier.width(8.dp))
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_create_new_empty_database))
                     }
                 }
 
                 uiState.databaseExists -> {
-                    /** Text. */
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_existing_database_found),
                         style = MaterialTheme.typography.headlineMedium,
                         fontWeight = FontWeight.Bold,
                     )
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(16.dp))
-
-                    /** Card. */
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
                             containerColor = MaterialTheme.colorScheme.surfaceVariant,
                         ),
                     ) {
-                        /** Column. */
                         Column(
                             modifier = Modifier.padding(16.dp),
                             verticalArrangement = Arrangement.spacedBy(8.dp),
                         ) {
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_size), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(
                                     androidx.compose.ui.res.stringResource(
                                         id = io.payanam.R.string.settings_database_size_value,
@@ -706,79 +571,56 @@ fun DatabaseInitScreen(
                                     ),
                                 )
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_last_modified), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(
                                     uiState.lastModified?.takeIf { it > 0 }?.let {
-                                        /** Simple date format. */
                                         SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
                                             .format(Date(it))
                                     } ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_not_available),
                                 )
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_tasks), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(uiState.taskCount.toString())
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_time_entries), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(uiState.timeEntryCount.toString())
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_journal_entries), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(uiState.journeyEntryCount.toString())
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_notes), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(uiState.noteCount.toString())
                             }
-                            /** Row. */
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween,
                             ) {
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_schema_version), fontWeight = FontWeight.Medium)
-                                /** Text. */
                                 Text(uiState.databaseSchemaVersion.toString())
                             }
                         }
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(24.dp))
-
-                    /** Button. */
                     Button(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Continue with existing database", mapOf("taskCount" to uiState.taskCount.toString()))
@@ -788,18 +630,11 @@ fun DatabaseInitScreen(
                             .fillMaxWidth()
                             .height(56.dp),
                     ) {
-                        /** Icon. */
                         Icon(Icons.Default.Storage, contentDescription = null)
-                        /** Spacer. */
                         Spacer(modifier = Modifier.width(8.dp))
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_continue_with_existing_database))
                     }
-
-                    /** Spacer. */
                     Spacer(modifier = Modifier.height(12.dp))
-
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = {
                             logger.i("DatabaseInitScreen", "Import database (existing) clicked", mapOf())
@@ -809,44 +644,33 @@ fun DatabaseInitScreen(
                             .fillMaxWidth()
                             .height(56.dp),
                     ) {
-                        /** Icon. */
                         Icon(Icons.Default.CloudUpload, contentDescription = null)
-                        /** Spacer. */
                         Spacer(modifier = Modifier.width(8.dp))
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_different_database))
                     }
                 }
 
                 else -> {
-                    /** If. */
                     if (!hasFinishedOnboarding) {
-                        /** App onboarding intro screen. */
                         AppOnboardingIntroScreen(
                             onFinished = {
                                 hasFinishedOnboarding = true
                             },
                         )
                     } else {
-                        /** Text. */
                         Text(
                             text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_welcome_to_payanam),
                             style = MaterialTheme.typography.headlineMedium,
                             fontWeight = FontWeight.Bold,
                         )
-                        /** Spacer. */
                         Spacer(modifier = Modifier.height(8.dp))
-                        /** Text. */
                         Text(
                             text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_database_found_choose_start),
                             style = MaterialTheme.typography.bodyMedium,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                             textAlign = TextAlign.Center,
                         )
-                        /** Spacer. */
                         Spacer(modifier = Modifier.height(32.dp))
-
-                        /** Button. */
                         Button(
                             onClick = {
                                 logger.i("DatabaseInitScreen", "Create new database (no existing) clicked", mapOf())
@@ -857,18 +681,11 @@ fun DatabaseInitScreen(
                                 .height(56.dp),
                             enabled = !uiState.isCreating && !uiState.isImporting,
                         ) {
-                            /** Icon. */
                             Icon(Icons.Default.Add, contentDescription = null)
-                            /** Spacer. */
                             Spacer(modifier = Modifier.width(8.dp))
-                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_create_new_empty_database))
                         }
-
-                        /** Spacer. */
                         Spacer(modifier = Modifier.height(16.dp))
-
-                        /** Outlined button. */
                         OutlinedButton(
                             onClick = {
                                 logger.i("DatabaseInitScreen", "Import database (no existing) clicked", mapOf())
@@ -879,31 +696,22 @@ fun DatabaseInitScreen(
                                 .height(56.dp),
                             enabled = !uiState.isCreating && !uiState.isImporting,
                         ) {
-                            /** If. */
                             if (uiState.isImporting) {
-                                /** Circular progress indicator. */
                                 CircularProgressIndicator(
                                     modifier = Modifier.size(24.dp),
                                     color = MaterialTheme.colorScheme.primary,
                                 )
                             } else {
-                                /** Icon. */
                                 Icon(Icons.Default.CloudUpload, contentDescription = null)
-                                /** Spacer. */
                                 Spacer(modifier = Modifier.width(8.dp))
-                                /** Text. */
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_existing_database))
                             }
                         }
                     }
                 }
             }
-
-            /** If. */
             if (!uiState.awaitingDimensionSetup && (hasFinishedOnboarding || uiState.databaseExists || uiState.bootIssue != null || showCreatePassphraseForm || uiState.awaitingImportPassphrase || uiState.isChecking)) {
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(16.dp))
-                /** Database init log export actions. */
                 DatabaseInitLogExportActions(
                     logger = logger,
                     context = context,
@@ -915,27 +723,22 @@ fun DatabaseInitScreen(
             }
 
             uiState.errorMessage?.let { error ->
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(16.dp))
-                /** Card. */
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(
                         containerColor = MaterialTheme.colorScheme.errorContainer,
                     ),
                 ) {
-                    /** Row. */
                     Row(
                         modifier = Modifier.padding(16.dp),
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        /** Icon. */
                         Icon(
                             Icons.Default.Info,
                             contentDescription = null,
                             tint = MaterialTheme.colorScheme.onErrorContainer,
                         )
-                        /** Text. */
                         Text(
                             text = error,
                             color = MaterialTheme.colorScheme.onErrorContainer,

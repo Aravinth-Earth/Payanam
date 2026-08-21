@@ -31,79 +31,55 @@ import java.time.format.DateTimeFormatter
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun RescheduleDialog(
-    /** Current due date. */
     currentDueDate: LocalDateTime,
     onConfirm: (LocalDateTime) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    /** Prefs. */
     val prefs = LocalAppPreferences.current
-    /** Date formatter. */
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    /** Time pattern. */
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
-    /** Time formatter. */
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
     var selectedDate by remember { mutableStateOf(currentDueDate.toLocalDate()) }
     var selectedTime by remember { mutableStateOf(currentDueDate.toLocalTime().withSecond(0).withNano(0)) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-
-    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_reschedule_task)) },
         text = {
-            /** Column. */
             Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_new_due_date_and_time),
                 )
-                /** Row. */
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    /** Outlined button. */
                     OutlinedButton(onClick = { showDatePicker = true }) {
-                        /** Text. */
                         Text(selectedDate.format(dateFormatter))
                     }
-                    /** Outlined button. */
                     OutlinedButton(onClick = { showTimePicker = true }) {
-                        /** Text. */
                         Text(selectedTime.format(timeFormatter))
                     }
                 }
             }
         },
         confirmButton = {
-            /** Text button. */
             TextButton(onClick = { onConfirm(LocalDateTime.of(selectedDate, selectedTime)) }) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_reschedule))
             }
         },
         dismissButton = {
-            /** Text button. */
             TextButton(onClick = onDismiss) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
             }
         },
     )
-
-    /** If. */
     if (showDatePicker) {
-        /** Date picker state. */
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault())
                 .toInstant().toEpochMilli(),
         )
-
-        /** Date picker dialog. */
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
-                /** Text button. */
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
@@ -114,26 +90,19 @@ internal fun RescheduleDialog(
                         showDatePicker = false
                     },
                 ) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_ok))
                 }
             },
             dismissButton = {
-                /** Text button. */
                 TextButton(onClick = { showDatePicker = false }) {
-                    /** Text. */
                     Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
                 }
             },
         ) {
-            /** Date picker. */
             DatePicker(state = datePickerState)
         }
     }
-
-    /** If. */
     if (showTimePicker) {
-        /** Time picker dialog. */
         TimePickerDialog(
             initialTime = selectedTime,
             onConfirm = { newTime ->
@@ -148,38 +117,29 @@ internal fun RescheduleDialog(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun TimePickerDialog(
-    /** Initial time. */
     initialTime: LocalTime,
     onConfirm: (LocalTime) -> Unit,
     onDismiss: () -> Unit,
 ) {
-    /** Time picker state. */
     val timePickerState = rememberTimePickerState(
         initialHour = initialTime.hour,
         initialMinute = initialTime.minute,
     )
-    /** Alert dialog. */
     AlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
-            /** Text button. */
             TextButton(onClick = {
-                /** On confirm. */
                 onConfirm(LocalTime.of(timePickerState.hour, timePickerState.minute))
             }) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_ok))
             }
         },
         dismissButton = {
-            /** Text button. */
             TextButton(onClick = onDismiss) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
             }
         },
         text = {
-            /** Time picker. */
             TimePicker(state = timePickerState)
         },
     )

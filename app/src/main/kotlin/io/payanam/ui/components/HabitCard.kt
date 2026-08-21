@@ -65,7 +65,6 @@ import java.util.Locale
  * Get life dimension color.
  */
 fun getLifeDimensionColor(dimensionId: String): Color {
-    /** Preferences. */
     val preferences = io.payanam.ui.viewmodel.LocalAppPreferences.current
     return preferences.colorForDimensionId(dimensionId)
         ?: MaterialTheme.colorScheme.primary
@@ -75,15 +74,10 @@ fun getLifeDimensionColor(dimensionId: String): Color {
  * Status for a single day's checkmark in the habit grid.
  */
 enum class CheckmarkStatus {
-    /** Completed. */
     COMPLETED, // Green check - task done
-    /** Skipped. */
     SKIPPED, // Grey dash - intentionally skipped
-    /** Missed. */
     MISSED, // Red X - missed/not done
-    /** Pending. */
     PENDING, // Hollow circle - not yet due (future)
-    /** Unknown. */
     UNKNOWN, // Faded - no data
 }
 
@@ -97,13 +91,9 @@ private val dayNumberFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(
  * DayCheckmark.
  */
 data class DayCheckmark(
-    /** Date. */
     val date: LocalDate,
-    /** Status. */
     val status: CheckmarkStatus,
-    /** Has note. */
     val hasNote: Boolean = false,
-    /** Note. */
     val note: String? = null,
 )
 
@@ -123,14 +113,9 @@ fun calculateButtonCount(
     minButtons: Int = 3,
     maxButtons: Int = 10,
 ): Int {
-    /** Configuration. */
     val configuration = LocalConfiguration.current
-    /** Screen width dp. */
     val screenWidthDp = configuration.screenWidthDp.dp
-
-    /** Available width. */
     val availableWidth = screenWidthDp - scoreRingWidth - labelWidth - horizontalPadding - 16.dp
-    /** Count. */
     val count = (availableWidth / buttonWidth).toInt()
 
     return count.coerceIn(minButtons, maxButtons)
@@ -145,30 +130,22 @@ fun calculateButtonCount(
  * Score ring.
  */
 fun ScoreRing(
-    /** Score. */
     score: Double,
     modifier: Modifier = Modifier,
     size: Dp = 28.dp, // Slightly smaller to free title space
     strokeWidth: Dp = 3.dp, // Reduced from 4dp
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
-    /** Score color value. */
     val scoreColorValue = scoreColor(score.toFloat())
-
-    /** Box. */
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center,
     ) {
-        /** Canvas. */
         Canvas(modifier = Modifier.size(size)) {
-            /** Stroke width px. */
             val strokeWidthPx = strokeWidth.toPx()
-            /** Radius. */
             val radius = (size.toPx() - strokeWidthPx) / 2
 
             // Background circle
-            /** Draw circle. */
             drawCircle(
                 color = backgroundColor,
                 radius = radius,
@@ -176,7 +153,6 @@ fun ScoreRing(
             )
 
             // Progress arc
-            /** Draw arc. */
             drawArc(
                 color = scoreColorValue,
                 startAngle = -90f,
@@ -187,7 +163,6 @@ fun ScoreRing(
         }
 
         // Score percentage text
-        /** Text. */
         Text(
             text = "${(score.toFloat() * 100).toInt()}",
             style = MaterialTheme.typography.labelSmall, // Reduced from labelMedium
@@ -209,7 +184,6 @@ fun ScoreRing(
  * Checkmark button.
  */
 fun CheckmarkButton(
-    /** Checkmark. */
     checkmark: DayCheckmark,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
@@ -217,12 +191,8 @@ fun CheckmarkButton(
     size: Dp = 28.dp,
     shortToggleEnabled: Boolean = true,
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
-    /** Haptic. */
     val haptic = LocalHapticFeedback.current
-
-    /** Background color. */
     val backgroundColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.9f)
         CheckmarkStatus.SKIPPED -> Color(0xFF9E9E9E).copy(alpha = 0.6f)
@@ -230,14 +200,10 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> Color.Transparent
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     }
-
-    /** Border color. */
     val borderColor = when (checkmark.status) {
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         else -> Color.Transparent
     }
-
-    /** Icon color. */
     val iconColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color.White
         CheckmarkStatus.SKIPPED -> Color.White
@@ -245,8 +211,6 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     }
-
-    /** Box. */
     Box(
         modifier = modifier
             .size(size)
@@ -260,26 +224,21 @@ fun CheckmarkButton(
             .combinedClickable(
                 onClick = {
                     logger.i("CheckmarkButton", "Checkmark clicked", mapOf("date" to checkmark.date.toString(), "status" to checkmark.status.name, "shortToggle" to shortToggleEnabled.toString()))
-                    /** If. */
                     if (shortToggleEnabled) {
                         haptic.performHapticFeedback(HapticFeedbackType.LongPress)
                     }
-                    /** On click. */
                     onClick()
                 },
                 onLongClick = {
                     logger.i("CheckmarkButton", "Checkmark long clicked", mapOf("date" to checkmark.date.toString(), "status" to checkmark.status.name))
                     haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                    /** On long click. */
                     onLongClick()
                 },
             ),
         contentAlignment = Alignment.Center,
     ) {
-        /** When. */
         when (checkmark.status) {
             CheckmarkStatus.COMPLETED -> {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_completed),
@@ -289,7 +248,6 @@ fun CheckmarkButton(
             }
 
             CheckmarkStatus.SKIPPED -> {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Remove,
                     contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_skipped),
@@ -299,7 +257,6 @@ fun CheckmarkButton(
             }
 
             CheckmarkStatus.MISSED -> {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Close,
                     contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_missed),
@@ -310,7 +267,6 @@ fun CheckmarkButton(
 
             CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> {
                 // Question mark for pending/not filled
-                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.QuestionMark,
                     contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_not_filled),
@@ -321,9 +277,7 @@ fun CheckmarkButton(
         }
 
         // Notes indicator dot
-        /** If. */
         if (checkmark.hasNote) {
-            /** Box. */
             Box(
                 modifier = Modifier
                     .align(Alignment.TopEnd)
@@ -353,17 +307,13 @@ fun CheckmarkPanel(
     modifier: Modifier = Modifier,
     shortToggleEnabled: Boolean = true,
 ) {
-    /** Row. */
     Row(
         modifier = modifier,
         horizontalArrangement = Arrangement.spacedBy(3.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        /** For. */
         for (index in checkmarks.indices.reversed()) {
-            /** Checkmark. */
             val checkmark = checkmarks[index]
-            /** Checkmark button. */
             CheckmarkButton(
                 checkmark = checkmark,
                 onClick = { onCheckmarkClick(checkmark) },
@@ -391,7 +341,6 @@ fun CheckmarkPanel(
  * Habit card.
  */
 fun HabitCard(
-    /** Task. */
     task: Task,
     checkmarks: List<DayCheckmark>,
     onCardClick: () -> Unit,
@@ -402,14 +351,10 @@ fun HabitCard(
     shortToggleEnabled: Boolean = true,
     latestL1RunningAvg: Double? = null,
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
-    /** Display checkmarks. */
     val displayCheckmarks = remember(checkmarks, buttonCount) {
         checkmarks.take(buttonCount)
     }
-
-    /** Card. */
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -417,14 +362,12 @@ fun HabitCard(
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
     ) {
-        /** Row. */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
                 .combinedClickable(
                     onClick = {
                         logger.i("HabitCard", "Card clicked", mapOf("taskId" to task.id, "taskTitle" to task.title))
-                        /** On card click. */
                         onCardClick()
                     },
                     onLongClick = { }, // Could add multi-select later
@@ -434,7 +377,6 @@ fun HabitCard(
         ) {
             // Life dimension color bar indicator (Phase 4: use dimensionId)
             task.dimensionId?.let { dimensionId ->
-                /** Box. */
                 Box(
                     modifier = Modifier
                         .width(2.dp) // Reduced from 4dp
@@ -442,20 +384,17 @@ fun HabitCard(
                         .clip(RoundedCornerShape(2.dp))
                         .background(getLifeDimensionColor(dimensionId)),
                 )
-                /** Spacer. */
                 Spacer(modifier = Modifier.width(4.dp)) // Reduced from 8dp
             }
 
             // Score Ring — Inc 4: shows the habit's latest L1 runningAvg as a
             // percentage (ScoreRing renders 0..1; text shows score*100).
-            /** Score ring. */
             ScoreRing(
                 score = latestL1RunningAvg ?: 0.0,
                 modifier = Modifier.padding(end = 4.dp),
             )
 
             // Title (takes remaining space after checkmarks)
-            /** Text. */
             Text(
                 text = task.title,
                 style = MaterialTheme.typography.labelMedium,
@@ -466,7 +405,6 @@ fun HabitCard(
             )
 
             // Checkmark Panel (Canvas-based)
-            /** Checkmark panel canvas. */
             CheckmarkPanelCanvas(
                 checkmarks = displayCheckmarks,
                 onCheckmarkClick = onCheckmarkClick,
@@ -486,20 +424,15 @@ fun HabitCard(
  * Day header row.
  */
 fun DayHeaderRow(
-    /** Button count. */
     buttonCount: Int,
     modifier: Modifier = Modifier,
     scoreRingWidth: Dp = 28.dp + 6.dp, // ring + padding (reduced)
     scoreRingPadding: Dp = 0.dp,
 ) {
-    /** Today. */
     val today = LocalDate.now()
-    /** Weekday formatter. */
     val weekdayFormatter = remember(Locale.getDefault()) {
         DateTimeFormatter.ofPattern("EEE").withLocale(Locale.getDefault())
     }
-
-    /** Row. */
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -507,39 +440,28 @@ fun DayHeaderRow(
         verticalAlignment = Alignment.CenterVertically,
     ) {
         // Account for life dimension bar (3dp + 6dp spacing)
-        /** Spacer. */
         Spacer(modifier = Modifier.width(9.dp))
 
         // Spacer for score ring
-        /** Spacer. */
         Spacer(modifier = Modifier.width(scoreRingWidth + scoreRingPadding))
 
         // Spacer for title area
-        /** Spacer. */
         Spacer(modifier = Modifier.weight(1f))
 
         // Day labels (most recent on right) - like uHabits
-        /** Row. */
         Row(
             horizontalArrangement = Arrangement.spacedBy(3.dp),
         ) {
             (buttonCount - 1 downTo 0).forEach { daysAgo ->
-                /** Date. */
                 val date = today.minusDays(daysAgo.toLong())
-                /** Weekday. */
                 val weekday = date.format(weekdayFormatter).uppercase().take(3)
-                /** Day num. */
                 val dayNum = date.format(dayNumberFormatter)
-                /** Is today. */
                 val isToday = daysAgo == 0
-
-                /** Column. */
                 Column(
                     modifier = Modifier.size(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,
                     verticalArrangement = Arrangement.Center,
                 ) {
-                    /** Text. */
                     Text(
                         text = weekday,
                         style = MaterialTheme.typography.labelSmall.copy(
@@ -552,7 +474,6 @@ fun DayHeaderRow(
                         },
                         fontWeight = if (isToday) FontWeight.Bold else FontWeight.Normal,
                     )
-                    /** Text. */
                     Text(
                         text = dayNum,
                         style = MaterialTheme.typography.labelSmall.copy(

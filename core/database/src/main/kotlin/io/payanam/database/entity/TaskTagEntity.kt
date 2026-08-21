@@ -11,14 +11,12 @@ import androidx.room.Index
     tableName = "task_tags",
     primaryKeys = ["task_id", "tag_id"],
     foreignKeys = [
-        /** Foreign key. */
         ForeignKey(
             entity = TaskEntity::class,
             parentColumns = ["id"],
             childColumns = ["task_id"],
             onDelete = ForeignKey.CASCADE,
         ),
-        /** Foreign key. */
         ForeignKey(
             entity = TagEntity::class,
             parentColumns = ["id"],
@@ -33,12 +31,9 @@ import androidx.room.Index
  */
 data class TaskTagEntity(
     @ColumnInfo(name = "task_id")
-    /** Task id. */
     val taskId: String,
     @ColumnInfo(name = "tag_id")
-    /** Tag id. */
     val tagId: String,
     @ColumnInfo(name = "created_at")
-    /** Created at. */
     val createdAt: String,
 )

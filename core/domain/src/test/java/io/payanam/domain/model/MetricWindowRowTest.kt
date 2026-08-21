@@ -15,7 +15,6 @@ class MetricWindowRowTest {
      * Habit summary satisfies metric window row contract.
      */
     fun habitSummarySatisfiesMetricWindowRowContract() {
-        /** Habit. */
         val habit = HabitL1Summary(
             habitId = "habit-1",
             dayKey = "2026-08-14",
@@ -26,26 +25,15 @@ class MetricWindowRowTest {
             streakNet = 6,
             posContinue = 31,
         )
-
-        /** Row. */
         val row: MetricWindowRow = habit
-        /** Assert equals. */
         assertEquals("habit-1", row.key)
-        /** Assert equals. */
         assertEquals("habit-1", row.label)
-        /** Assert equals. */
         assertEquals("2026-08-14", row.dayKey)
-        /** Assert equals. */
         assertEquals(0.82000, row.score, 0.0)
-        /** Assert equals. */
         assertEquals(0.78000, row.runningAvg, 0.0)
-        /** Assert equals. */
         assertEquals(0.10000, row.progress, 0.0)
-        /** Assert equals. */
         assertEquals(3, row.streakPos)
-        /** Assert equals. */
         assertEquals(6, row.streakNet)
-        /** Assert equals. */
         assertEquals(31, row.posContinue)
     }
 }

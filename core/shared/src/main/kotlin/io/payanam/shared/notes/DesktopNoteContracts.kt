@@ -11,21 +11,13 @@ import kotlinx.serialization.Serializable
 
  */
 data class DesktopNoteRecord(
-    /** Id. */
     val id: String,
-    /** Title. */
     val title: String,
-    /** Details. */
     val details: String? = null,
-    /** Dimension id. */
     val dimensionId: String = DesktopNoteContracts.DEFAULT_DIMENSION_ID,
-    /** Dimension label. */
     val dimensionLabel: String = DesktopNoteContracts.DEFAULT_DIMENSION_LABEL,
-    /** Tags. */
     val tags: List<String> = emptyList(),
-    /** Created at iso. */
     val createdAtIso: String,
-    /** Updated at iso. */
     val updatedAtIso: String,
 )
 
@@ -35,9 +27,7 @@ data class DesktopNoteRecord(
 
  */
 data class DesktopNotesSnapshot(
-    /** Schema version. */
     val schemaVersion: Int = DesktopNoteContracts.SCHEMA_VERSION,
-    /** Notes. */
     val notes: List<DesktopNoteRecord> = emptyList(),
 )
 
@@ -45,11 +35,8 @@ data class DesktopNotesSnapshot(
  * DesktopNoteContracts.
  */
 object DesktopNoteContracts {
-    /** S c h e m a  v e r s i o n. */
     const val SCHEMA_VERSION = 1
-    /** D e f a u l t  d i m e n s i o n  i d. */
     const val DEFAULT_DIMENSION_ID = "dim_work_livelihood"
-    /** D e f a u l t  d i m e n s i o n  l a b e l. */
     const val DEFAULT_DIMENSION_LABEL = "Work & Livelihood"
 
     /**
@@ -61,15 +48,12 @@ object DesktopNoteContracts {
      * Create record.
      */
     fun createRecord(
-        /** Id. */
         id: String,
-        /** Title. */
         title: String,
         details: String?,
         dimensionId: String?,
         dimensionLabel: String?,
         tags: List<String>,
-        /** Now. */
         now: LocalDateTime,
     ): DesktopNoteRecord {
         return DesktopNoteRecord(
@@ -88,15 +72,12 @@ object DesktopNoteContracts {
      * Update record.
      */
     fun updateRecord(
-        /** Existing. */
         existing: DesktopNoteRecord,
-        /** Title. */
         title: String,
         details: String?,
         dimensionId: String?,
         dimensionLabel: String?,
         tags: List<String>,
-        /** Now. */
         now: LocalDateTime,
     ): DesktopNoteRecord {
         return existing.copy(
@@ -110,7 +91,6 @@ object DesktopNoteContracts {
     }
 
     private fun normalizeTags(tags: List<String>): List<String> =
-        /** Tags. */
         tags
             .map(String::trim)
             .filter(String::isNotEmpty)

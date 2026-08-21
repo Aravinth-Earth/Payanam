@@ -15,13 +15,9 @@ private const val DESKTOP_BOOTSTRAP_SCHEMA_VERSION = 1
 
  */
 data class DesktopBootstrapSnapshot(
-    /** Schema version. */
     val schemaVersion: Int = DESKTOP_BOOTSTRAP_SCHEMA_VERSION,
-    /** Database lifecycle ready. */
     val databaseLifecycleReady: Boolean = false,
-    /** Last startup completed at epoch millis. */
     val lastStartupCompletedAtEpochMillis: Long? = null,
-    /** Last launch route storage key. */
     val lastLaunchRouteStorageKey: String? = null,
 )
 

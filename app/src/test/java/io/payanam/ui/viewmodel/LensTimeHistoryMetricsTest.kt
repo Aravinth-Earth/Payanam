@@ -38,9 +38,7 @@ class LensTimeHistoryMetricsTest {
      * Set up.
      */
     fun setUp() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -51,29 +49,18 @@ class LensTimeHistoryMetricsTest {
      * Build time module day metrics negative but improved delta increments streak.
      */
     fun buildTimeModuleDayMetrics_negativeButImprovedDelta_incrementsStreak() {
-        /** Start. */
         val start = LocalDate.of(2026, 2, 15)
-        /** Days. */
         val days = listOf(
             start to snapshotWithSingleDimension(planned = 100, actual = 100),
             start.plusDays(1) to snapshotWithSingleDimension(planned = 100, actual = 50),
             start.plusDays(2) to snapshotWithSingleDimension(planned = 100, actual = 40),
         )
-
-        /** Metrics. */
         val metrics = buildTimeModuleDayMetrics(days)
-
-        /** Assert equals. */
         assertEquals(3, metrics.size)
-        /** Assert equals. */
         assertEquals(-0.5, metrics[1].progressDelta, 0.000001)
-        /** Assert equals. */
         assertEquals(-0.1, metrics[2].progressDelta, 0.000001)
-        /** Assert equals. */
         assertEquals(1, metrics[2].progressStreak)
-        /** Assert equals. */
         assertEquals(1, metrics[2].perDimensionScores.size)
-        /** Assert equals. */
         assertEquals(0.4, metrics[2].perDimensionScores.values.first(), 0.000001)
     }
 
@@ -82,35 +69,23 @@ class LensTimeHistoryMetricsTest {
      * Build time module history summary returns ranks against all history.
      */
     fun buildTimeModuleHistorySummary_returnsRanksAgainstAllHistory() {
-        /** First day. */
         val firstDay = LocalDate.of(2026, 2, 10)
-        /** Snapshots. */
         val snapshots: Map<String, UnifiedLensSnapshot> = linkedMapOf(
             firstDay.toString() to snapshotWithSingleDimension(planned = 100, actual = 100),
             firstDay.plusDays(1).toString() to snapshotWithSingleDimension(planned = 100, actual = 90),
             firstDay.plusDays(2).toString() to snapshotWithSingleDimension(planned = 100, actual = 80),
         )
-        /** Repo. */
         val repo = FakeHistoryLensRepository(firstTrackedDate = firstDay, snapshots = snapshots)
-
-        /** Summary. */
         val summary = runBlocking {
-            /** Build time module history summary. */
             buildTimeModuleHistorySummary(
                 lensRepository = repo,
                 focusDate = firstDay.plusDays(2),
             )
         }
-
-        /** Assert not null. */
         assertNotNull(summary)
-        /** Assert equals. */
         assertEquals(3, summary?.totalDays)
-        /** Assert true. */
         assertTrue((summary?.dayScoreRank ?: 0) >= 1)
-        /** Assert true. */
         assertTrue((summary?.progressRank ?: 0) >= 1)
-        /** Assert true. */
         assertTrue((summary?.streakRank ?: 0) >= 1)
     }
 
@@ -119,7 +94,6 @@ class LensTimeHistoryMetricsTest {
      * Calculate per dimension time scores returns scores for all available dimensions.
      */
     fun calculatePerDimensionTimeScores_returnsScoresForAllAvailableDimensions() {
-        /** Result. */
         val result = calculatePerDimensionTimeScores(
             plannedByDimension = mapOf(
                 "dim_physical_health" to 120,
@@ -130,14 +104,9 @@ class LensTimeHistoryMetricsTest {
                 "dim_learning_growth" to 30,
             ),
         )
-
-        /** Assert equals. */
         assertEquals(3, result.size)
-        /** Assert equals. */
         assertEquals(1.0, result["dim_physical_health"] ?: 0.0, 0.000001)
-        /** Assert not null. */
         assertNotNull(result["dim_work_livelihood"])
-        /** Assert not null. */
         assertNotNull(result["dim_learning_growth"])
     }
 
@@ -146,7 +115,6 @@ class LensTimeHistoryMetricsTest {
      * Calculate weighted time module score uses canonical dimension weights for legacy ids.
      */
     fun calculateWeightedTimeModuleScore_usesCanonicalDimensionWeightsForLegacyIds() {
-        /** Weighted. */
         val weighted = calculateWeightedTimeModuleScore(
             plannedByDimension = mapOf(
                 "dim_work_livelihood" to 100,
@@ -157,13 +125,10 @@ class LensTimeHistoryMetricsTest {
                 "dim_community_service" to 0,
             ),
         )
-
-        /** Assert equals. */
         assertEquals(1.0 / 1.7, weighted, 0.000001)
     }
 
     private fun snapshotWithSingleDimension(planned: Int, actual: Int): UnifiedLensSnapshot {
-        /** Dim. */
         val dim = "dim_physical_health"
         return UnifiedLensSnapshot(
             planning = PlanningLensData(

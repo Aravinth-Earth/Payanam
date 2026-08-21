@@ -18,18 +18,11 @@ import androidx.room.Entity
  * DayMetricEntity.
  */
 data class DayMetricEntity(
-    /** Day key. */
     val dayKey: String,
-    /** Day score. */
     val dayScore: Double,
-    /** Running avg. */
     val runningAvg: Double,
-    /** Progress. */
     val progress: Double,
-    /** Streak pos. */
     val streakPos: Int,
-    /** Streak net. */
     val streakNet: Int,
-    /** Pos continue. */
     val posContinue: Int,
 )

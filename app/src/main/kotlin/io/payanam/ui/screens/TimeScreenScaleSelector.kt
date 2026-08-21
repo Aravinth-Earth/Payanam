@@ -20,37 +20,30 @@ private val logger = UnifiedLogger.getInstance()
 
 @Composable
 internal fun TimeScalePresetSelector(
-    /** Selected preset. */
     selectedPreset: TimeScalePreset,
     onApplyPreset: (TimeScalePreset) -> Unit,
 ) {
     var showScaleMenu by remember { mutableStateOf(false) }
     androidx.compose.foundation.layout.Box {
-        /** Outlined button. */
         OutlinedButton(
             onClick = { showScaleMenu = true },
             shape = RoundedCornerShape(20.dp),
         ) {
-            /** Text. */
             Text(stringResource(id = selectedPreset.labelResId))
         }
-        /** Dropdown menu. */
         DropdownMenu(
             expanded = showScaleMenu,
             onDismissRequest = { showScaleMenu = false },
         ) {
             TIME_SCALE_PRESETS.forEach { preset ->
-                /** Dropdown menu item. */
                 DropdownMenuItem(
                     text = { Text(stringResource(id = preset.labelResId)) },
                     onClick = {
                         logger.d(
                             "TimeScaleSelector.apply",
                             "User selected explicit time scale preset",
-                            /** Map of. */
                             mapOf("slotMinutes" to preset.slotMinutes.toString()),
                         )
-                        /** On apply preset. */
                         onApplyPreset(preset)
                         showScaleMenu = false
                     },

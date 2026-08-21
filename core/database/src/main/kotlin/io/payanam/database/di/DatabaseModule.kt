@@ -40,7 +40,6 @@ object DatabaseModule {
      */
     fun provideDatabaseSessionManager(
         @ApplicationContext context: Context,
-        /** Encryption manager. */
         encryptionManager: DatabaseEncryptionManager,
     ): DatabaseSessionManager = DatabaseSessionManager(context, encryptionManager)
 
@@ -50,28 +49,17 @@ object DatabaseModule {
      * Provide lens repository.
      */
     fun provideLensRepository(
-        /** Session manager. */
         sessionManager: DatabaseSessionManager,
-        /** Task repository. */
         taskRepository: TaskRepository,
-        /** Time entry repository. */
         timeEntryRepository: TimeEntryRepository,
-        /** Task occurrence repository. */
         taskOccurrenceRepository: TaskOccurrenceRepository,
-        /** Day plan repository. */
         dayPlanRepository: DayPlanRepository,
     ): LensRepository =
-        /** Lens repository impl. */
         LensRepositoryImpl(
-            /** Session manager. */
             sessionManager,
-            /** Task repository. */
             taskRepository,
-            /** Time entry repository. */
             timeEntryRepository,
-            /** Task occurrence repository. */
             taskOccurrenceRepository,
-            /** Day plan repository. */
             dayPlanRepository,
         )
 }

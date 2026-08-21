@@ -24,7 +24,6 @@ class InsightsDimensionContractTest {
      * Set up.
      */
     fun setUp() {
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         }
@@ -35,15 +34,9 @@ class InsightsDimensionContractTest {
      * Time entry dimension id prefers explicit entry dimension.
      */
     fun timeEntryDimensionId_prefers_explicit_entry_dimension() {
-        /** Task. */
         val task = task("t1", "dim_financial")
-        /** Entry. */
         val entry = entry("e1", taskId = "t1", dimensionId = "dim_learning_growth", category = "Relationships")
-
-        /** Resolved. */
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, mapOf(task.id to task))
-
-        /** Assert equals. */
         assertEquals("dim_learning_growth", resolved)
     }
 
@@ -52,15 +45,9 @@ class InsightsDimensionContractTest {
      * Time entry dimension id uses task dimension when entry dimension missing.
      */
     fun timeEntryDimensionId_uses_task_dimension_when_entry_dimension_missing() {
-        /** Task. */
         val task = task("t1", "dim_mental_health")
-        /** Entry. */
         val entry = entry("e2", taskId = "t1", dimensionId = null, category = "Health & Wellness")
-
-        /** Resolved. */
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, mapOf(task.id to task))
-
-        /** Assert equals. */
         assertEquals("dim_mental_health", resolved)
     }
 
@@ -69,13 +56,8 @@ class InsightsDimensionContractTest {
      * Time entry dimension id falls back to category mapping.
      */
     fun timeEntryDimensionId_falls_back_to_category_mapping() {
-        /** Entry. */
         val entry = entry("e3", taskId = null, dimensionId = null, category = "Learning")
-
-        /** Resolved. */
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, emptyMap())
-
-        /** Assert equals. */
         assertEquals("dim_learning_growth", resolved)
     }
 
@@ -84,7 +66,6 @@ class InsightsDimensionContractTest {
      * Note dimension id uses canonical dimension id.
      */
     fun noteDimensionId_uses_canonical_dimension_id() {
-        /** Note. */
         val note = io.payanam.domain.model.Note(
             id = "n1",
             title = "Note",
@@ -93,16 +74,11 @@ class InsightsDimensionContractTest {
             updatedAt = LocalDateTime.of(2026, 2, 15, 10, 0),
             dimensionId = "dim_mental_health",
         )
-
-        /** Resolved. */
         val resolved = InsightsDimensionContract.noteDimensionId(note)
-
-        /** Assert equals. */
         assertEquals("dim_mental_health", resolved)
     }
 
     private fun task(id: String, dimensionId: String): Task {
-        /** Now. */
         val now = LocalDateTime.of(2026, 2, 15, 10, 0)
         return Task(
             id = id,
@@ -114,7 +90,6 @@ class InsightsDimensionContractTest {
     }
 
     private fun entry(id: String, taskId: String?, dimensionId: String?, category: String): TimeEntry {
-        /** Start. */
         val start = LocalDate.of(2026, 2, 15).atTime(8, 0)
         return TimeEntry(
             id = id,

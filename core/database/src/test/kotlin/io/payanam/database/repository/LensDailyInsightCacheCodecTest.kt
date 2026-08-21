@@ -21,21 +21,16 @@ class LensDailyInsightCacheCodecTest {
      * Encode decode round trips unified snapshot.
      */
     fun encodeDecode_roundTripsUnifiedSnapshot() {
-        /** Snapshot. */
         val snapshot =
-            /** Unified lens snapshot. */
             UnifiedLensSnapshot(
                 planning =
-                    /** Planning lens data. */
                     PlanningLensData(
                         dayKey = "2026-02-19",
                         totalPlannedMinutes = 180,
                         plannedTimeByDimension = mapOf("career_work" to 120, "health_wellness" to 60),
                         budgetAllocationsByDimension = mapOf("career_work" to 150),
                         plannedTasks =
-                            /** List of. */
                             listOf(
-                                /** Task plan item. */
                                 TaskPlanItem(
                                     taskId = "task_1",
                                     title = "Deep work",
@@ -46,9 +41,7 @@ class LensDailyInsightCacheCodecTest {
                                 ),
                             ),
                         plannedHabits =
-                            /** List of. */
                             listOf(
-                                /** Habit plan item. */
                                 HabitPlanItem(
                                     habitId = "habit_1",
                                     title = "Walk",
@@ -61,16 +54,13 @@ class LensDailyInsightCacheCodecTest {
                         planCompletenessScore = 0.82f,
                     ),
                 reality =
-                    /** Reality lens data. */
                     RealityLensData(
                         dayKey = "2026-02-19",
                         totalActualMinutes = 140,
                         actualTimeByDimension = mapOf("career_work" to 100, "health_wellness" to 40),
                         budgetAllocationsByDimension = mapOf("career_work" to 150),
                         completedTasks =
-                            /** List of. */
                             listOf(
-                                /** Task reality item. */
                                 TaskRealityItem(
                                     taskId = "task_1",
                                     title = "Deep work",
@@ -82,9 +72,7 @@ class LensDailyInsightCacheCodecTest {
                                 ),
                             ),
                         completedHabits =
-                            /** List of. */
                             listOf(
-                                /** Habit reality item. */
                                 HabitRealityItem(
                                     habitId = "habit_1",
                                     title = "Walk",
@@ -99,13 +87,8 @@ class LensDailyInsightCacheCodecTest {
                         adherenceScore = 0.77f,
                     ),
             )
-
-        /** Encoded. */
         val encoded = encodeUnifiedLensSnapshot(snapshot)
-        /** Decoded. */
         val decoded = decodeUnifiedLensSnapshot(snapshot.planning.dayKey, encoded)
-
-        /** Assert that. */
         assertThat(decoded).isEqualTo(snapshot)
     }
 }

@@ -26,49 +26,38 @@ import androidx.compose.ui.unit.dp
 import io.payanam.common.logging.UnifiedLogger
 
 internal data class LensTimeSplitItem(
-    /** Label. */
     val label: String,
-    /** Minutes. */
     val minutes: Int,
 )
 
 @Composable
 internal fun LensTimeSplitCard(
-    /** Title. */
     title: String,
     items: List<LensTimeSplitItem>,
 ) {
-    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
-    /** Launched effect. */
     LaunchedEffect(title, items.size) {
         logger.d(
             "LensesScreenTimeSplitSection.LensTimeSplitCard",
             "Rendered compact time split card",
-            /** Map of. */
             mapOf("title" to title, "itemCount" to items.size),
         )
     }
-    /** Card. */
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.32f)),
     ) {
-        /** Column. */
         Column(
             modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp),
             verticalArrangement = Arrangement.spacedBy(6.dp),
         ) {
-            /** Text. */
             Text(text = title, style = MaterialTheme.typography.labelMedium, fontWeight = FontWeight.SemiBold)
             items.chunked(2).forEach { pair ->
-                /** Row. */
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
                     pair.forEachIndexed { index, item ->
-                        /** Lens time split tile. */
                         LensTimeSplitTile(
                             label = item.label,
                             value = formatMinutes(item.minutes),
@@ -76,9 +65,7 @@ internal fun LensTimeSplitCard(
                             modifier = Modifier.weight(1f),
                         )
                     }
-                    /** If. */
                     if (pair.size < 2) {
-                        /** Spacer. */
                         Spacer(modifier = Modifier.weight(1f))
                     }
                 }
@@ -89,37 +76,28 @@ internal fun LensTimeSplitCard(
 
 @Composable
 private fun LensTimeSplitTile(
-    /** Label. */
     label: String,
-    /** Value. */
     value: String,
-    /** Marker index. */
     markerIndex: Int,
     modifier: Modifier = Modifier,
 ) {
-    /** Marker color. */
     val markerColor = when (markerIndex) {
         0 -> MaterialTheme.colorScheme.primary
         1 -> MaterialTheme.colorScheme.tertiary
         else -> MaterialTheme.colorScheme.secondary
     }
-    /** Row. */
     Row(
         modifier = modifier.padding(vertical = 2.dp),
         horizontalArrangement = Arrangement.spacedBy(6.dp),
         verticalAlignment = Alignment.CenterVertically,
     ) {
-        /** Box. */
         Box(
             modifier = Modifier
                 .size(8.dp)
                 .background(color = markerColor, shape = CircleShape),
         )
-        /** Column. */
         Column(verticalArrangement = Arrangement.spacedBy(1.dp)) {
-            /** Text. */
             Text(text = label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            /** Text. */
             Text(text = value, style = MaterialTheme.typography.bodySmall, fontWeight = FontWeight.Medium)
         }
     }

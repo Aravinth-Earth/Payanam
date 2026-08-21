@@ -16,23 +16,16 @@ import androidx.room.PrimaryKey
  */
 data class TimeRuleEntity(
     @PrimaryKey
-    /** Id. */
     val id: String,
-    /** Name. */
     val name: String,
     @ColumnInfo(name = "rule_type")
-    /** Rule type. */
     val ruleType: String,
     @ColumnInfo(name = "config_json")
-    /** Config json. */
     val configJson: String? = null,
     @ColumnInfo(name = "is_active")
-    /** Is active. */
     val isActive: Int = 1,
     @ColumnInfo(name = "created_at")
-    /** Created at. */
     val createdAt: String,
     @ColumnInfo(name = "updated_at")
-    /** Updated at. */
     val updatedAt: String,
 )

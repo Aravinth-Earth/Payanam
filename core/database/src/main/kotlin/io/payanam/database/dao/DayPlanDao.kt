@@ -38,9 +38,7 @@ interface DayPlanDao {
      * Get allocation for day and dimension.
      */
     suspend fun getAllocationForDayAndDimension(
-        /** Day key. */
         dayKey: String,
-        /** Dimension id. */
         dimensionId: String,
     ): DayPlanAllocationEntity?
 
@@ -49,9 +47,7 @@ interface DayPlanDao {
      * Get allocations for range.
      */
     suspend fun getAllocationsForRange(
-        /** Start day key. */
         startDayKey: String,
-        /** End day key. */
         endDayKey: String,
     ): List<DayPlanAllocationEntity>
 
@@ -144,9 +140,7 @@ interface DayPlanDao {
      * Soft delete template.
      */
     suspend fun softDeleteTemplate(
-        /** Id. */
         id: String,
-        /** Updated at. */
         updatedAt: String,
     )
 

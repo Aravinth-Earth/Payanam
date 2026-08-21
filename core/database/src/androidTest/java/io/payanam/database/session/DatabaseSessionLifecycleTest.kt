@@ -30,7 +30,6 @@ class DatabaseSessionLifecycleTest {
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -43,7 +42,6 @@ class DatabaseSessionLifecycleTest {
         logger.d(
             "DatabaseSessionLifecycleTest.setUp",
             "Test setup complete",
-            /** Map of. */
             mapOf("testPassphraseLength" to testPassphrase.length),
         )
     }
@@ -64,24 +62,18 @@ class DatabaseSessionLifecycleTest {
     fun openDatabase_createsNewDatabaseSession() =
         runTest {
             // Arrange: Configure passphrase first
-            /** Config result. */
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
-            /** Assert that. */
             assertThat(configResult).isTrue()
 
             // Act: Open a new database with passphrase
-            /** Result. */
             val result = sessionManager.openDatabase(testPassphrase)
 
             // Assert: Database opens successfully
-            /** Assert that. */
             assertThat(result.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isTrue()
             logger.i(
                 "DatabaseSessionLifecycleTest.openDatabase_createsNewDatabaseSession",
                 "Database session created successfully",
-                /** Map of. */
                 mapOf("isOpen" to sessionManager.isOpen.value),
             )
         }
@@ -93,28 +85,20 @@ class DatabaseSessionLifecycleTest {
     fun openDatabase_idempotentWithSamePassphrase() =
         runTest {
             // Arrange: Configure passphrase
-            /** Config result. */
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
-            /** Assert that. */
             assertThat(configResult).isTrue()
 
             // Act: Open database twice with same passphrase
-            /** Result1. */
             val result1 = sessionManager.openDatabase(testPassphrase)
-            /** Result2. */
             val result2 = sessionManager.openDatabase(testPassphrase)
 
             // Assert: Both operations succeed and DB remains open
-            /** Assert that. */
             assertThat(result1.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(result2.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isTrue()
             logger.d(
                 "DatabaseSessionLifecycleTest.openDatabase_idempotentWithSamePassphrase",
                 "Database reopened idempotently",
-                /** Map of. */
                 mapOf("secondOpenSucceeded" to result2.isSuccess),
             )
         }
@@ -126,24 +110,18 @@ class DatabaseSessionLifecycleTest {
     fun openDatabase_withDifferentPassphraseRejectsWrongKey() =
         runTest {
             // Arrange: Configure encryption with passphrase
-            /** Config result. */
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
-            /** Assert that. */
             assertThat(configResult).isTrue()
 
             // Open database with initial passphrase
-            /** Result1. */
             val result1 = sessionManager.openDatabase(testPassphrase)
-            /** Assert that. */
             assertThat(result1.isSuccess).isTrue()
 
             // Close the session to reset state
             sessionManager.closeDatabase()
 
             // Act: Try to open with wrong passphrase (note: this tests failure handling in encryption layer)
-            /** Wrong passphrase. */
             val wrongPassphrase = "WrongPassword123!"
-            /** Result2. */
             val result2 = sessionManager.openDatabase(wrongPassphrase)
 
             // Assert: Open fails due to incorrect passphrase
@@ -151,7 +129,6 @@ class DatabaseSessionLifecycleTest {
             logger.d(
                 "DatabaseSessionLifecycleTest.openDatabase_withDifferentPassphraseRejectsWrongKey",
                 "Wrong passphrase attempt result",
-                /** Map of. */
                 mapOf("failedAsExpected" to result2.isFailure),
             )
         }
@@ -163,28 +140,20 @@ class DatabaseSessionLifecycleTest {
     fun closeDatabase_nullifiesDatabaseReference() =
         runTest {
             // Arrange: Configure passphrase and open database
-            /** Config result. */
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
-            /** Assert that. */
             assertThat(configResult).isTrue()
-
-            /** Open result. */
             val openResult = sessionManager.openDatabase(testPassphrase)
-            /** Assert that. */
             assertThat(openResult.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isTrue()
 
             // Act: Close database
             sessionManager.closeDatabase()
 
             // Assert: Database reference is cleared and state is reset
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isFalse()
             logger.d(
                 "DatabaseSessionLifecycleTest.closeDatabase_nullifiesDatabaseReference",
                 "Database closed successfully",
-                /** Map of. */
                 mapOf("isClosed" to !sessionManager.isOpen.value),
             )
         }
@@ -200,16 +169,13 @@ class DatabaseSessionLifecycleTest {
         // Act & Assert: Attempting to get passphrase without open DB throws
         try {
             sessionManager.requireOpenPassphrase()
-            /** Assert that. */
             assertThat(false).isTrue() // Should not reach here
         } catch (e: IllegalStateException) {
             logger.d(
                 "DatabaseSessionLifecycleTest.requireOpenPassphrase_throwsWhenDatabaseNotOpen",
                 "Expected exception thrown",
-                /** Map of. */
                 mapOf("exceptionMessage" to e.message),
             )
-            /** Assert that. */
             assertThat(e.message).contains("DB not open")
         }
     }
@@ -225,16 +191,13 @@ class DatabaseSessionLifecycleTest {
         // Act & Assert: Attempting to get database while closed throws
         try {
             sessionManager.requireDatabase()
-            /** Assert that. */
             assertThat(false).isTrue() // Should not reach here
         } catch (e: IllegalStateException) {
             logger.d(
                 "DatabaseSessionLifecycleTest.requireDatabase_throwsWhenDatabaseNotOpen",
                 "Expected exception thrown",
-                /** Map of. */
                 mapOf("exceptionMessage" to e.message),
             )
-            /** Assert that. */
             assertThat(e.message).contains("DB not open")
         }
     }
@@ -246,37 +209,27 @@ class DatabaseSessionLifecycleTest {
     fun openDatabase_multipleSequentialOperations() =
         runTest {
             // Arrange: Configure passphrase
-            /** Config result. */
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
-            /** Assert that. */
             assertThat(configResult).isTrue()
 
             // Test sequence: open -> close -> reopen with same passphrase
             // Act: First open
-            /** Result1. */
             val result1 = sessionManager.openDatabase(testPassphrase)
-            /** Assert that. */
             assertThat(result1.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isTrue()
 
             // Act: Close
             sessionManager.closeDatabase()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isFalse()
 
             // Act: Reopen with same passphrase
-            /** Result2. */
             val result2 = sessionManager.openDatabase(testPassphrase)
-            /** Assert that. */
             assertThat(result2.isSuccess).isTrue()
-            /** Assert that. */
             assertThat(sessionManager.isOpen.value).isTrue()
 
             logger.i(
                 "DatabaseSessionLifecycleTest.openDatabase_multipleSequentialOperations",
                 "Sequential open-close-reopen cycle completed successfully",
-                /** Map of. */
                 mapOf(
                     "firstOpenSuccess" to result1.isSuccess,
                     "reopenSuccess" to result2.isSuccess,

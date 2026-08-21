@@ -36,12 +36,10 @@ class AddTaskViewModel @Inject constructor(
 
     private val logger = UnifiedLogger.getInstance()
     private val _tagSuggestions = MutableStateFlow<List<String>>(emptyList())
-    /** Tag suggestions. */
     val tagSuggestions: StateFlow<List<String>> = _tagSuggestions.asStateFlow()
 
     init {
         logger.d("AddTaskViewModel.init", "ViewModel initialized")
-        /** Observe tag suggestions. */
         observeTagSuggestions()
     }
 
@@ -54,7 +52,6 @@ class AddTaskViewModel @Inject constructor(
                     logger.d(
                         "AddTaskViewModel.observeTagSuggestions",
                         "Tag suggestion stream updated",
-                        /** Map of. */
                         mapOf("count" to names.size),
                     )
                 }
@@ -65,12 +62,9 @@ class AddTaskViewModel @Inject constructor(
      * Create task.
      */
     fun createTask(
-        /** Title. */
         title: String,
         description: String? = null,
-        /** Dimension id. */
         dimensionId: String,
-        /** Dimension label. */
         dimensionLabel: String,
         dueDate: LocalDateTime? = null,
         impactLevel: String = "Moderate Impact",
@@ -91,21 +85,17 @@ class AddTaskViewModel @Inject constructor(
         onResult: (Result<Unit>) -> Unit = {},
     ) {
         // For recurring tasks, set a default due date if none provided
-        /** Effective due date. */
         val effectiveDueDate = if (recurrenceEnabled && dueDate == null) {
             // Set default due date to today at the specified time, or 9 AM if no time
-            /** Default time. */
             val defaultTime = LocalTime.of(9, 0) // Default 9 AM
             LocalDateTime.of(LocalDate.now(), defaultTime)
         } else {
-            /** Due date. */
             dueDate
         }
 
         logger.i(
             "AddTaskViewModel.createTask",
             "Creating new task",
-            /** Map of. */
             mapOf(
                 "title" to title,
                 "dimensionId" to dimensionId,
@@ -119,7 +109,6 @@ class AddTaskViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
-                /** Input. */
                 val input = TaskInput(
                     title = title,
                     description = description,
@@ -141,35 +130,28 @@ class AddTaskViewModel @Inject constructor(
                     blockedReason = blockedReason,
                     externalDependency = externalDependency,
                 )
-                /** Task. */
                 val task = taskRepository.createTask(input)
-                /** If. */
                 if (tags.isNotEmpty()) {
                     tagRepository.replaceTaskTags(task.id, tags)
                     logger.i(
                         "AddTaskViewModel.createTask",
                         "Task tags replaced",
-                        /** Map of. */
                         mapOf("taskId" to task.id, "tagCount" to tags.size),
                     )
                 }
 
                 // Calculate and update score
-                /** If. */
                 if (FeatureFlags.scoringEnabled) {
-                    /** Score. */
                     val score = ElegantTaskScoring.calculateScore(task)
                     taskRepository.updateTaskScore(task.id, score)
                     logger.d(
                         "AddTaskViewModel.createTask",
                         "Task score updated after create",
-                        /** Map of. */
                         mapOf("taskId" to task.id, "score" to score),
                     )
                 }
 
                 // Schedule reminder if applicable
-                /** If. */
                 if (FeatureFlags.remindersEnabled) {
                     try {
                         notificationScheduler.scheduleForTask(task)
@@ -177,9 +159,7 @@ class AddTaskViewModel @Inject constructor(
                         logger.e(
                             "AddTaskViewModel.createTask",
                             "Failed to schedule reminder",
-                            /** E. */
                             e,
-                            /** Map of. */
                             mapOf(
                                 "taskId" to task.id,
                             ),
@@ -190,7 +170,6 @@ class AddTaskViewModel @Inject constructor(
                 logger.i(
                     "AddTaskViewModel.createTask",
                     "Task created successfully",
-                    /** Map of. */
                     mapOf(
                         "id" to task.id,
                         "title" to title,
@@ -199,12 +178,10 @@ class AddTaskViewModel @Inject constructor(
                     ),
                 )
                 Timber.d("Task created: $title")
-                /** Launch. */
                 launch(Dispatchers.Main.immediate) { onResult(Result.success(Unit)) }
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("AddTaskViewModel.createTask", "Failed to create task", e)
                 Timber.e(e, "Error creating task")
-                /** Launch. */
                 launch(Dispatchers.Main.immediate) { onResult(Result.failure(e)) }
             }
         }

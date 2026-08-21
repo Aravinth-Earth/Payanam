@@ -24,7 +24,6 @@ class UpdateCheckerParseTest {
 
     @Test
     fun `parseReleases extracts all channels with build numbers and asset urls`() {
-        /** Body. */
         val body = """
             [
               {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev",
@@ -35,29 +34,19 @@ class UpdateCheckerParseTest {
                "assets":[{"name":"Payanam_Android_1558_20260801.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/latest-stable/Payanam_Android_1558_20260801.apk"}]}
             ]
         """.trimIndent()
-        /** Statuses. */
         val statuses = parseReleases(body)
-        /** Assert equals. */
         assertEquals(3, statuses.size)
-        /** Dev. */
         val dev = statuses.first { it.channel == UpdateChannel.DEV }
-        /** Assert equals. */
         assertEquals(1562, dev.buildNumber)
-        /** Assert true. */
         assertTrue(dev.apkDownloadUrl?.endsWith(".apk") == true)
-        /** Beta. */
         val beta = statuses.first { it.channel == UpdateChannel.BETA }
-        /** Assert equals. */
         assertEquals(1560, beta.buildNumber)
-        /** Stable. */
         val stable = statuses.first { it.channel == UpdateChannel.STABLE }
-        /** Assert equals. */
         assertEquals(1558, stable.buildNumber)
     }
 
     @Test
     fun `parseReleases ignores non-channel tags and missing assets`() {
-        /** Body. */
         val body = """
             [
               {"tag_name":"v1.2.3","name":"Release v1.2.3","html_url":"url","assets":[]},
@@ -65,29 +54,21 @@ class UpdateCheckerParseTest {
               {"tag_name":"latest-nightly","name":"Nightly","html_url":"url","assets":[]}
             ]
         """.trimIndent()
-        /** Statuses. */
         val statuses = parseReleases(body)
-        /** Assert equals. */
         assertEquals(1, statuses.size)
-        /** Assert equals. */
         assertEquals(UpdateChannel.DEV, statuses[0].channel)
-        /** Assert null. */
         assertNull(statuses[0].apkDownloadUrl)
     }
 
     @Test
     fun `parseReleases handles garbage body`() {
-        /** Assert equals. */
         assertEquals(emptyList<ChannelStatus>(), parseReleases("not json at all"))
-        /** Assert equals. */
         assertEquals(emptyList<ChannelStatus>(), parseReleases(""))
-        /** Assert equals. */
         assertEquals(emptyList<ChannelStatus>(), parseReleases("[]"))
     }
 
     @Test
     fun `parseReleases skips malformed entries`() {
-        /** Body. */
         val body = """
             [
               {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"url"},
@@ -95,17 +76,13 @@ class UpdateCheckerParseTest {
               "not-an-object"
             ]
         """.trimIndent()
-        /** Statuses. */
         val statuses = parseReleases(body)
-        /** Assert equals. */
         assertEquals(1, statuses.size)
-        /** Assert equals. */
         assertEquals(UpdateChannel.DEV, statuses[0].channel)
     }
 
     @Test
     fun `parseReleases picks first apk asset only`() {
-        /** Body. */
         val body = """
             [
               {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"url",
@@ -116,11 +93,8 @@ class UpdateCheckerParseTest {
                ]}
             ]
         """.trimIndent()
-        /** Statuses. */
         val statuses = parseReleases(body)
-        /** Assert equals. */
         assertEquals(1, statuses.size)
-        /** Assert equals. */
         assertEquals("url/Payanam_Android_1562.apk", statuses[0].apkDownloadUrl)
     }
 
@@ -130,23 +104,16 @@ class UpdateCheckerParseTest {
 
     @Test
     fun `failure message maps known reasons`() {
-        /** Assert equals. */
         assertEquals("download_error_space", downloadFailureMessage(DownloadManager.ERROR_INSUFFICIENT_SPACE))
-        /** Assert equals. */
         assertEquals("download_error_http", downloadFailureMessage(DownloadManager.ERROR_UNHANDLED_HTTP_CODE))
-        /** Assert equals. */
         assertEquals("download_failed", downloadFailureMessage(DownloadManager.ERROR_UNKNOWN))
-        /** Assert equals. */
         assertEquals("download_failed", downloadFailureMessage(99999))      // unknown
     }
 
     @Test
     fun `paused message maps wifi and retry reasons`() {
-        /** Assert equals. */
         assertEquals("download_paused_wifi", downloadPausedMessage(DownloadManager.PAUSED_WAITING_FOR_NETWORK))
-        /** Assert equals. */
         assertEquals("download_paused_retry", downloadPausedMessage(DownloadManager.PAUSED_WAITING_TO_RETRY))
-        /** Assert equals. */
         assertEquals("download_paused", downloadPausedMessage(99999))
     }
 }

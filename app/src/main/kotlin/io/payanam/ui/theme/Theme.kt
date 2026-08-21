@@ -42,18 +42,14 @@ fun PayanamTheme(
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    /** Dark theme. */
     val darkTheme = when (themeMode) {
         ThemeModeOption.DARK -> true
         ThemeModeOption.LIGHT -> false
         ThemeModeOption.SYSTEM -> isSystemInDarkTheme()
     }
-    /** Color scheme. */
     val colorScheme = when {
         dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            /** Context. */
             val context = LocalContext.current
-            /** If. */
             if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
         }
 
@@ -61,19 +57,13 @@ fun PayanamTheme(
 
         else -> LightColorScheme
     }
-
-    /** Typography. */
     val typography = buildTypography(fontFamily)
-    /** Launched effect. */
     LaunchedEffect(themeMode, fontFamily, darkTheme, dynamicColor) {
-        /** Signature. */
         val signature = "${themeMode.key}:${fontFamily.key}:$darkTheme:$dynamicColor"
-        /** If. */
         if (lastThemeSignature != signature) {
             logger.i(
                 "Theme.PayanamTheme",
                 "Applied app theme preferences",
-                /** Map of. */
                 mapOf(
                     "themeMode" to themeMode.key,
                     "fontFamily" to fontFamily.key,
@@ -84,8 +74,6 @@ fun PayanamTheme(
             lastThemeSignature = signature
         }
     }
-
-    /** Material theme. */
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,

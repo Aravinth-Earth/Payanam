@@ -37,9 +37,7 @@ class NoteMapperTest {
      * To domain parses zulu dates.
      */
     fun toDomain_parsesZuluDates() {
-        /** Entity. */
         val entity =
-            /** Note entity. */
             NoteEntity(
                 id = "note-1",
                 title = "Title",
@@ -48,12 +46,8 @@ class NoteMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
-        /** Domain. */
         val domain = entity.toDomain()
-        /** Assert that. */
         assertThat(domain.createdAt.hour).isEqualTo(8)
-        /** Assert that. */
         assertThat(domain.updatedAt.hour).isEqualTo(9)
     }
 
@@ -62,11 +56,8 @@ class NoteMapperTest {
      * Round trip preserves fields.
      */
     fun roundTrip_preservesFields() {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
-        /** Note. */
         val note =
-            /** Note. */
             Note(
                 id = "note-2",
                 title = "RoundTrip",
@@ -76,21 +67,12 @@ class NoteMapperTest {
                 updatedAt = now,
                 dimensionId = "dim_recreation",
             )
-
-        /** Entity. */
         val entity = note.toEntity()
-        /** Round trip. */
         val roundTrip = entity.toDomain()
-
-        /** Assert that. */
         assertThat(roundTrip.title).isEqualTo(note.title)
-        /** Assert that. */
         assertThat(roundTrip.lifeIntentionCategory).isEqualTo(note.lifeIntentionCategory)
-        /** Assert that. */
         assertThat(roundTrip.dimensionId).isEqualTo("dim_recreation")
-        /** Assert that. */
         assertThat(entity.dimensionId).isEqualTo("dim_recreation")
-        /** Assert that. */
         assertThat(entity.dayKey).isEqualTo("2026-01-31")
     }
 
@@ -99,11 +81,8 @@ class NoteMapperTest {
      * To entity handles null details.
      */
     fun toEntity_handlesNullDetails() {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
-        /** Note. */
         val note =
-            /** Note. */
             Note(
                 id = "note-3",
                 title = "NullDetails",
@@ -111,17 +90,12 @@ class NoteMapperTest {
                 createdAt = now,
                 updatedAt = now,
             )
-
-        /** Entity. */
         val entity = note.toEntity()
-        /** Assert that. */
         assertThat(entity.details).isNull()
     }
 
     private fun initLogger(): UnifiedLogger {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }

@@ -43,7 +43,6 @@ class NotesViewModelTest {
      * Set up.
      */
     fun setUp() {
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         }
@@ -65,10 +64,8 @@ class NotesViewModelTest {
      * Set dimension filter uses dimension ids for filtering.
      */
     fun setDimensionFilter_uses_dimensionIds_for_filtering() = runTest {
-        /** Now. */
         val now = LocalDateTime.of(2026, 3, 15, 10, 0)
         noteRepository.notes.value = listOf(
-            /** Note. */
             Note(
                 id = "n1",
                 title = "Learn Kotlin",
@@ -77,7 +74,6 @@ class NotesViewModelTest {
                 createdAt = now,
                 updatedAt = now,
             ),
-            /** Note. */
             Note(
                 id = "n2",
                 title = "Volunteer",
@@ -87,21 +83,13 @@ class NotesViewModelTest {
                 updatedAt = now,
             ),
         )
-
-        /** View model. */
         val viewModel = NotesViewModel(noteRepository, tagRepository)
-        /** Advance until idle. */
         advanceUntilIdle()
 
         viewModel.setDimensionFilter("dim_learning_growth")
-        /** Advance until idle. */
         advanceUntilIdle()
-
-        /** State. */
         val state = viewModel.uiState.value
-        /** Assert equals. */
         assertEquals("dim_learning_growth", state.selectedDimensionId)
-        /** Assert equals. */
         assertEquals(listOf("n1"), state.filteredNotes.map { it.id })
     }
 
@@ -110,9 +98,7 @@ class NotesViewModelTest {
      * Create note preserves selected dimension id and label.
      */
     fun createNote_preserves_selected_dimension_id_and_label() = runTest {
-        /** View model. */
         val viewModel = NotesViewModel(noteRepository, tagRepository)
-        /** Advance until idle. */
         advanceUntilIdle()
 
         viewModel.createNote(
@@ -122,12 +108,8 @@ class NotesViewModelTest {
             dimensionLabel = "Mental Health",
             tags = listOf("tag1"),
         )
-        /** Advance until idle. */
         advanceUntilIdle()
-
-        /** Assert equals. */
         assertEquals(
-            /** Note input. */
             NoteInput(
                 title = "Journal idea",
                 details = "Details",
@@ -136,14 +118,11 @@ class NotesViewModelTest {
             ),
             noteRepository.lastCreateInput,
         )
-        /** Assert equals. */
         assertEquals(listOf("tag1"), tagRepository.noteTags["created-note"])
     }
 
     private class FakeNoteRepository : NoteRepository {
-        /** Notes. */
         val notes = MutableStateFlow<List<Note>>(emptyList())
-        /** Last create input. */
         var lastCreateInput: NoteInput? = null
 
         override fun getAllNotes(): Flow<List<Note>> = notes
@@ -173,7 +152,6 @@ class NotesViewModelTest {
     }
 
     private class FakeTagRepository : TagRepository {
-        /** Note tags. */
         val noteTags = mutableMapOf<String, List<String>>()
 
         override fun observeAllTags(): Flow<List<Tag>> = flowOf(emptyList())

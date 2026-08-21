@@ -40,12 +40,9 @@ interface JournalRepository {
      * Get a specific response.
      */
     suspend fun getResponse(
-        /** Entry id. */
         entryId: String,
-        /** Scope. */
         scope: JournalPromptScope,
         dimensionKey: String?,
-        /** Prompt key. */
         promptKey: String
     ): DayJournalResponse?
     
@@ -133,9 +130,7 @@ interface TaskOccurrenceRepository {
      * Used for building checkmark grids in habit view.
      */
     suspend fun getOccurrencesForLastNDays(
-        /** Task id. */
         taskId: String,
-        /** Days. */
         days: Int
     ): List<io.payanam.domain.model.TaskOccurrence>
     
@@ -145,7 +140,6 @@ interface TaskOccurrenceRepository {
      */
     suspend fun getOccurrencesForTasksInLastNDays(
         taskIds: List<String>,
-        /** Days. */
         days: Int
     ): Map<String, List<io.payanam.domain.model.TaskOccurrence>>
     
@@ -154,7 +148,6 @@ interface TaskOccurrenceRepository {
      * Returns existing occurrence or null if none exists.
      */
     suspend fun getOccurrenceForDate(
-        /** Task id. */
         taskId: String,
         date: java.time.LocalDate
     ): io.payanam.domain.model.TaskOccurrence?
@@ -167,10 +160,8 @@ interface TaskOccurrenceRepository {
      * @return The updated/created occurrence
      */
     suspend fun toggleOccurrence(
-        /** Task id. */
         taskId: String,
         date: java.time.LocalDate,
-        /** New status. */
         newStatus: String,
         note: String? = null,
         reason: String? = null,
@@ -189,7 +180,6 @@ interface TaskOccurrenceRepository {
      * Used when clearing/resetting checkmarks to PENDING state.
      */
     suspend fun deleteOccurrence(
-        /** Task id. */
         taskId: String,
         date: java.time.LocalDate
     )
@@ -203,10 +193,8 @@ interface TaskOccurrenceRepository {
      * Record a new occurrence with parameters (legacy).
      */
     suspend fun recordOccurrence(
-        /** Task id. */
         taskId: String,
         dueDate: java.time.LocalDateTime,
-        /** Status. */
         status: String, // completed | skipped | missed
         note: String? = null,
         completionRate: Double? = null
@@ -227,14 +215,10 @@ interface NotificationRepository {
      * Schedule a notification for a task.
      */
     suspend fun scheduleNotification(
-        /** Task id. */
         taskId: String,
         scheduledAt: java.time.LocalDateTime,
-        /** Notification type. */
         notificationType: String,
-        /** Title. */
         title: String,
-        /** Body. */
         body: String
     ): String // Returns notification ID
     
@@ -268,18 +252,11 @@ interface NotificationRepository {
  * Scheduled notification data class.
  */
 data class ScheduledNotification(
-    /** Id. */
     val id: String,
-    /** Task id. */
     val taskId: String,
-    /** Scheduled at. */
     val scheduledAt: java.time.LocalDateTime,
-    /** Notification type. */
     val notificationType: String,
-    /** Title. */
     val title: String,
-    /** Body. */
     val body: String,
-    /** Is delivered. */
     val isDelivered: Boolean
 )

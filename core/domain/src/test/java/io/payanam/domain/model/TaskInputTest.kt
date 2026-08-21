@@ -34,13 +34,9 @@ class TaskInputTest {
      * Task input allows optional fields.
      */
     fun taskInput_allowsOptionalFields() {
-        /** Input. */
         val input = TaskInput(title = "Test")
-        /** Assert that. */
         assertThat(input.description).isNull()
-        /** Assert that. */
         assertThat(input.dueDate).isNull()
-        /** Assert that. */
         assertThat(input.notificationMode).isNull()
     }
 
@@ -49,9 +45,7 @@ class TaskInputTest {
      * Task input exposes all fields.
      */
     fun taskInput_exposesAllFields() {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
-        /** Input. */
         val input = TaskInput(
             title = "Title",
             description = "Desc",
@@ -74,46 +68,25 @@ class TaskInputTest {
             notificationMode = "custom",
             customNotificationMinutes = 15
         )
-
-        /** Assert that. */
         assertThat(input.title).isEqualTo("Title")
-        /** Assert that. */
         assertThat(input.description).isEqualTo("Desc")
-        /** Assert that. */
         assertThat(input.status).isEqualTo("pending")
-        /** Assert that. */
         assertThat(input.dueDate).isEqualTo(now)
-        /** Assert that. */
         assertThat(input.archivedAt).isEqualTo(now.plusDays(1))
-        /** Assert that. */
         assertThat(input.recurrenceEnabled).isTrue()
-        /** Assert that. */
         assertThat(input.recurrenceRule).isEqualTo("FREQ=DAILY")
-        /** Assert that. */
         assertThat(input.durationMinutes).isEqualTo(45)
-        /** Assert that. */
         assertThat(input.impactLevel).isEqualTo("High Impact")
-        /** Assert that. */
         assertThat(input.goalAlignment).isEqualTo("Strong Alignment")
-        /** Assert that. */
         assertThat(input.energyLevel).isEqualTo("High")
-        /** Assert that. */
         assertThat(input.controlLevel).isEqualTo("Self")
-        /** Assert that. */
         assertThat(input.lifeIntentionCategory).isEqualTo("Health & Wellness")
-        /** Assert that. */
         assertThat(input.explicitUrgency).isEqualTo(0.8)
-        /** Assert that. */
         assertThat(input.focusRequired).isEqualTo(0.6)
-        /** Assert that. */
         assertThat(input.blockedReason).isEqualTo("WAITING")
-        /** Assert that. */
         assertThat(input.completionRate).isEqualTo(0.9)
-        /** Assert that. */
         assertThat(input.externalDependency).isEqualTo("Vendor")
-        /** Assert that. */
         assertThat(input.notificationMode).isEqualTo("custom")
-        /** Assert that. */
         assertThat(input.customNotificationMinutes).isEqualTo(15)
     }
 
@@ -122,17 +95,13 @@ class TaskInputTest {
      * Note input holds values.
      */
     fun noteInput_holdsValues() {
-        /** Input. */
         val input = NoteInput(
             title = "Note",
             details = "Details",
             lifeIntentionCategory = "Recreation"
         )
-        /** Assert that. */
         assertThat(input.title).isEqualTo("Note")
-        /** Assert that. */
         assertThat(input.details).isEqualTo("Details")
-        /** Assert that. */
         assertThat(input.lifeIntentionCategory).isEqualTo("Recreation")
     }
 
@@ -141,12 +110,10 @@ class TaskInputTest {
      * Journal response input defaults to null response.
      */
     fun journalResponseInput_defaultsToNullResponse() {
-        /** Input. */
         val input = DayJournalResponseInput(
             scope = JournalPromptScope.OVERALL,
             promptKey = "gratitude"
         )
-        /** Assert that. */
         assertThat(input.responseText).isNull()
     }
 
@@ -155,21 +122,15 @@ class TaskInputTest {
      * Journal response input exposes fields.
      */
     fun journalResponseInput_exposesFields() {
-        /** Input. */
         val input = DayJournalResponseInput(
             scope = JournalPromptScope.DIMENSION,
             dimensionKey = "health",
             promptKey = "energy",
             responseText = "High"
         )
-
-        /** Assert that. */
         assertThat(input.scope).isEqualTo(JournalPromptScope.DIMENSION)
-        /** Assert that. */
         assertThat(input.dimensionKey).isEqualTo("health")
-        /** Assert that. */
         assertThat(input.promptKey).isEqualTo("energy")
-        /** Assert that. */
         assertThat(input.responseText).isEqualTo("High")
     }
 
@@ -178,16 +139,12 @@ class TaskInputTest {
      * Journal prompt scope values are stable.
      */
     fun journalPromptScope_valuesAreStable() {
-        /** Assert that. */
         assertThat(JournalPromptScope.valueOf("OVERALL")).isEqualTo(JournalPromptScope.OVERALL)
-        /** Assert that. */
         assertThat(JournalPromptScope.valueOf("DIMENSION")).isEqualTo(JournalPromptScope.DIMENSION)
     }
 
     private fun initLogger(): UnifiedLogger {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }

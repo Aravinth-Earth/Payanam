@@ -17,9 +17,7 @@ import kotlinx.coroutines.flow.Flow
  * NoteTagNameRow.
  */
 data class NoteTagNameRow(
-    /** Note id. */
     val noteId: String,
-    /** Tag name. */
     val tagName: String,
 )
 
@@ -39,7 +37,6 @@ interface TagDao {
         SELECT * FROM tags
         WHERE normalized_name LIKE :normalizedPrefix || '%'
         ORDER BY usage_count DESC, name ASC
-        /** Limit. */
         LIMIT :limit
         """,
     )
@@ -47,9 +44,7 @@ interface TagDao {
      * Search by prefix.
      */
     fun searchByPrefix(
-        /** Normalized prefix. */
         normalizedPrefix: String,
-        /** Limit. */
         limit: Int,
     ): Flow<List<TagEntity>>
 
@@ -84,11 +79,8 @@ interface TagDao {
      * Mark used.
      */
     suspend fun markUsed(
-        /** Tag id. */
         tagId: String,
-        /** Used at. */
         usedAt: String,
-        /** Updated at. */
         updatedAt: String,
     )
 

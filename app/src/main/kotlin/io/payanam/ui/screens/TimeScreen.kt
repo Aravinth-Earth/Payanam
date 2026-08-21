@@ -93,20 +93,14 @@ fun TimeScreen(
     onNavigateToTask: (String) -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
-    /** Time tag editor view model. */
     val timeTagEditorViewModel: TimeTagEditorViewModel = hiltViewModel()
     val timeTagEditorState by timeTagEditorViewModel.uiState.collectAsState()
-    /** Time visuals view model. */
     val timeVisualsViewModel: TimeVisualsViewModel = hiltViewModel()
     val timeVisualsState by timeVisualsViewModel.uiState.collectAsState()
-    /** Day plan view model. */
     val dayPlanViewModel: DayPlanViewModel = hiltViewModel()
     val dayPlanState by dayPlanViewModel.uiState.collectAsState()
-    /** Prefs view model. */
     val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
-    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
-    /** Prefs. */
     val prefs = LocalAppPreferences.current
     var showStartTrackingDialog by remember { mutableStateOf(false) }
     var activeModalTarget by remember { mutableStateOf<TimeBlockModalTarget?>(null) }
@@ -117,82 +111,55 @@ fun TimeScreen(
     var lastAutoScrollHourHeightDp by remember { mutableStateOf<Float?>(null) }
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
     var hasObservedTimelineRefresh by remember { mutableStateOf(false) }
-    /** Scroll state. */
     val scrollState = rememberScrollState()
-    /** Context. */
     val context = LocalContext.current
-    /** Density. */
     val density = LocalDensity.current
-    /** Lifecycle owner. */
     val lifecycleOwner = LocalLifecycleOwner.current
-    /** Coroutine scope. */
     val coroutineScope = rememberCoroutineScope()
-    /** Snackbar host state. */
     val snackbarHostState = remember { SnackbarHostState() }
-    /** Action failed reason placeholder. */
     val actionFailedReasonPlaceholder = "__TIME_ERROR_REASON__"
-    /** Action failed message template. */
     val actionFailedMessageTemplate = stringResource(
         id = R.string.loc_action_failed_with_reason,
-        /** Action failed reason placeholder. */
         actionFailedReasonPlaceholder,
     )
-    /** Tagged title label placeholder. */
     val taggedTitleLabelPlaceholder = "__TAG_LABEL__"
-    /** Tagged title hint placeholder. */
     val taggedTitleHintPlaceholder = "__TAG_HINT__"
-    /** Tagged title template. */
     val taggedTitleTemplate = stringResource(
         id = R.string.loc_tagged_title,
-        /** Tagged title label placeholder. */
         taggedTitleLabelPlaceholder,
-        /** Tagged title hint placeholder. */
         taggedTitleHintPlaceholder,
     )
-    /** Launched effect. */
     LaunchedEffect(prefs.timeHourHeightDp) {
         timeHourHeightDp = prefs.timeHourHeightDp
     }
-    /** Launched effect. */
     LaunchedEffect(openStartTrackingDialogRequestId) {
-        /** Request id. */
         val requestId = openStartTrackingDialogRequestId ?: return@LaunchedEffect
         showStartTrackingDialog = true
         logger.i(
             "TimeScreen.externalQuickStart",
             "Opened start tracking dialog from external command",
-            /** Map of. */
             mapOf(
                 "requestId" to requestId,
             ),
         )
-        /** On open start tracking dialog handled. */
         onOpenStartTrackingDialogHandled(requestId)
     }
-    /** Launched effect. */
     LaunchedEffect(openStopTrackingDialogRequestId, uiState.activeEntry?.id) {
-        /** Request id. */
         val requestId = openStopTrackingDialogRequestId ?: return@LaunchedEffect
-        /** Active entry. */
         val activeEntry = uiState.activeEntry
-        /** If. */
         if (activeEntry != null) {
             activeModalTarget = TimeBlockModalTarget.ExistingEntry(activeEntry)
             logger.i(
                 "TimeScreen.externalStop",
                 "Opened stop tracking dialog from external command",
-                /** Map of. */
                 mapOf(
                     "requestId" to requestId,
                 ),
             )
         }
-        /** On open stop tracking dialog handled. */
         onOpenStopTrackingDialogHandled(requestId)
     }
-    /** Launched effect. */
     LaunchedEffect(activeModalTarget) {
-        /** When. */
         when (val target = activeModalTarget) {
             is TimeBlockModalTarget.ExistingEntry -> {
                 timeTagEditorViewModel.loadEntryTags(target.entry.id)
@@ -210,24 +177,17 @@ fun TimeScreen(
             }
         }
     }
-    /** Launched effect. */
     LaunchedEffect(uiState.selectedDate, uiState.activeEntry?.id, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
-            /** While. */
             while (true) {
                 currentTime = LocalDateTime.now()
-                /** Delay millis. */
                 val delayMillis = if (uiState.activeEntry != null) 1_000L else 60_000L
-                /** Delay. */
                 delay(delayMillis)
             }
         }
     }
-    /** Launched effect. */
     LaunchedEffect(uiState.error) {
-        /** Error. */
         val error = uiState.error ?: return@LaunchedEffect
-        /** Message. */
         val message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error)
         snackbarHostState.showSnackbar(
             message = message,
@@ -236,56 +196,42 @@ fun TimeScreen(
         )
         viewModel.clearError()
     }
-    /** Date formatter. */
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
     }
-    /** Is today. */
     val isToday = uiState.selectedDate == currentTime.toLocalDate()
-    /** Day plan action label. */
     val dayPlanActionLabel = resolveDayPlanActionLabel(
         dayMode = dayPlanState.dayMode,
         resolvedTemplateName = dayPlanState.resolvedTemplateForDay?.name,
         planLabel = stringResource(id = R.string.loc_day_plan_short),
         customModeLabel = stringResource(id = R.string.loc_day_plan_mode_custom),
         formatLabelWithHint = { label, hint ->
-            /** Tagged title template. */
             taggedTitleTemplate
                 .replace(taggedTitleLabelPlaceholder, label)
                 .replace(taggedTitleHintPlaceholder, hint)
         },
     )
-    /** Selected scale preset. */
     val selectedScalePreset = remember(timeHourHeightDp) {
-        /** Nearest time scale preset. */
         nearestTimeScalePreset(timeHourHeightDp)
     }
     /**
      * Auto scroll to current time.
      */
     suspend fun autoScrollToCurrentTime(reason: String) {
-        /** If. */
         if (uiState.selectedDate != LocalDate.now()) {
-            /** Return. */
             return
         }
-        /** Now. */
         val now = LocalDateTime.now()
         currentTime = now
-        /** Current minutes. */
         val currentMinutes = now.hour * 60 + now.minute
-        /** Hour height. */
         val hourHeight = timeHourHeightDp.dp
-        /** Minute height px. */
         val minuteHeightPx = with(density) { (hourHeight / 60f).toPx() }
-        /** Target px. */
         val targetPx = (currentMinutes * minuteHeightPx - with(density) { (hourHeight * 2).toPx() })
         scrollState.animateScrollTo(targetPx.coerceAtLeast(0f).toInt())
         lastAutoScrollHourHeightDp = timeHourHeightDp
         logger.d(
             "TimeScreen.autoScroll",
             "Auto-scrolled to current time",
-            /** Map of. */
             mapOf(
                 "date" to uiState.selectedDate.toString(),
                 "hourHeightDp" to String.format(Locale.US, "%.1f", timeHourHeightDp),
@@ -293,36 +239,26 @@ fun TimeScreen(
             ),
         )
     }
-    /** Launched effect. */
     LaunchedEffect(uiState.selectedDate, prefs.isLoading) {
-        /** If. */
         if (prefs.isLoading) return@LaunchedEffect
-        /** If. */
         if (
-            /** Should auto scroll on initial date selection. */
             shouldAutoScrollOnInitialDateSelection(
                 selectedDate = uiState.selectedDate,
                 today = LocalDate.now(),
                 preferencesLoading = prefs.isLoading,
             )
         ) {
-            /** Auto scroll to current time. */
             autoScrollToCurrentTime("date_change")
         }
-        /** If. */
         if (!FeatureFlags.minimalModeEnabled) {
             timeVisualsViewModel.loadForDate(uiState.selectedDate)
         }
-        /** If. */
         if (FeatureFlags.plansCtaEnabled) {
             dayPlanViewModel.loadDayPlan(uiState.selectedDate.toString())
         }
     }
-    /** Launched effect. */
     LaunchedEffect(timeHourHeightDp) {
-        /** If. */
         if (
-            /** Should auto scroll for hour height change. */
             shouldAutoScrollForHourHeightChange(
                 selectedDate = uiState.selectedDate,
                 today = LocalDate.now(),
@@ -330,13 +266,10 @@ fun TimeScreen(
                 lastAutoScrollHourHeightDp = lastAutoScrollHourHeightDp,
             )
         ) {
-            /** Auto scroll to current time. */
             autoScrollToCurrentTime("hour_height_change")
         }
     }
-    /** Launched effect. */
     LaunchedEffect(uiState.timeEntries, uiState.pastOccurrences) {
-        /** If. */
         if (!hasObservedTimelineRefresh) {
             hasObservedTimelineRefresh = true
             return@LaunchedEffect
@@ -344,39 +277,30 @@ fun TimeScreen(
         logger.d(
             "TimeScreen.visualRefresh",
             "Refreshing top time visuals from latest timeline data",
-            /** Map of. */
             mapOf(
                 "date" to uiState.selectedDate.toString(),
                 "entryCount" to uiState.timeEntries.size.toString(),
                 "occurrenceCount" to uiState.pastOccurrences.size.toString(),
             ),
         )
-        /** If. */
         if (!FeatureFlags.minimalModeEnabled) {
             timeVisualsViewModel.loadForDate(uiState.selectedDate)
         }
     }
-    /** If. */
     if (showDayPlanTemplateScreen) {
-        /** Day plan template screen. */
         DayPlanTemplateScreen(viewModel = dayPlanViewModel, onNavigateBack = {
             showDayPlanTemplateScreen = false
             dayPlanViewModel.loadDayPlan(uiState.selectedDate.toString())
         })
-        /** Return. */
         return
     }
-    /** Disposable effect. */
     DisposableEffect(lifecycleOwner, uiState.selectedDate) {
-        /** Observer. */
         val observer = LifecycleEventObserver { _, event ->
-            /** If. */
             if (
                 event == Lifecycle.Event.ON_RESUME &&
                 uiState.selectedDate == LocalDate.now()
             ) {
                 coroutineScope.launch {
-                    /** Auto scroll to current time. */
                     autoScrollToCurrentTime("resume")
                 }
             }
@@ -386,12 +310,9 @@ fun TimeScreen(
             lifecycleOwner.lifecycle.removeObserver(observer)
         }
     }
-    /** Scaffold. */
     Scaffold(
         snackbarHost = {
-            /** Snackbar host. */
             SnackbarHost(snackbarHostState) { data ->
-                /** Snackbar. */
                 Snackbar(
                     snackbarData = data,
                     containerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -401,44 +322,34 @@ fun TimeScreen(
             }
         },
         topBar = {
-            /** Top app bar. */
             TopAppBar(
                 title = {
-                    /** Row. */
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp),
                     ) {
-                        /** Icon button. */
                         IconButton(
                             onClick = {
-                                /** Target date. */
                                 val targetDate = uiState.selectedDate.minusDays(1)
                                 logger.d(
                                     "TimeScreen.dayNav",
                                     "Navigating to previous day",
-                                    /** Map of. */
                                     mapOf("fromDate" to uiState.selectedDate.toString(), "toDate" to targetDate.toString()),
                                 )
                                 viewModel.navigateToPreviousDay()
                             },
                         ) {
-                            /** Icon. */
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                                /** String resource. */
                                 stringResource(id = R.string.loc_previous_day),
                             )
                         }
-                        /** Text button. */
                         TextButton(onClick = {
                             logger.d("TimeScreen.dateTapped", "Date header tapped to open picker")
                             showDatePicker = true
                         }) {
-                            /** Text. */
                             Text(
                                 text = if (isToday) {
-                                    /** String resource. */
                                     stringResource(id = R.string.loc_today)
                                 } else {
                                     uiState.selectedDate.format(dateFormatter)
@@ -446,60 +357,48 @@ fun TimeScreen(
                                 style = MaterialTheme.typography.titleMedium,
                             )
                         }
-                        /** Icon button. */
                         IconButton(
                             onClick = {
-                                /** Target date. */
                                 val targetDate = uiState.selectedDate.plusDays(1)
                                 logger.d(
                                     "TimeScreen.dayNav",
                                     "Navigating to next day",
-                                    /** Map of. */
                                     mapOf("fromDate" to uiState.selectedDate.toString(), "toDate" to targetDate.toString()),
                                 )
                                 viewModel.navigateToNextDay()
                             },
                         ) {
-                            /** Icon. */
                             Icon(
                                 Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                                /** String resource. */
                                 stringResource(id = R.string.loc_next_day),
                             )
                         }
                     }
                 },
                 actions = {
-                    /** If. */
                     if (!isToday) {
-                        /** Text button. */
                         TextButton(
                             onClick = {
                                 logger.d(
                                     "TimeScreen.dayNav",
                                     "Navigating to today",
-                                    /** Map of. */
                                     mapOf("fromDate" to uiState.selectedDate.toString(), "toDate" to LocalDate.now().toString()),
                                 )
                                 viewModel.navigateToToday()
                             },
                         ) {
-                            /** Text. */
                             Text(stringResource(id = R.string.loc_today))
                         }
                     }
-                    /** Time scale preset selector. */
                     TimeScalePresetSelector(
                         selectedPreset = selectedScalePreset,
                         onApplyPreset = { preset ->
-                            /** Preset hour height dp. */
                             val presetHourHeightDp = hourHeightDpForSlotMinutes(preset.slotMinutes)
                             timeHourHeightDp = presetHourHeightDp
                             prefsViewModel.setTimeHourHeightDp(presetHourHeightDp)
                             logger.d(
                                 "TimeScreen.scalePreset",
                                 "Applied explicit time scale preset",
-                                /** Map of. */
                                 mapOf(
                                     "slotMinutes" to preset.slotMinutes.toString(),
                                     "hourHeightDp" to String.format(Locale.US, "%.2f", presetHourHeightDp),
@@ -508,15 +407,10 @@ fun TimeScreen(
                         },
                     )
                     uiState.activeEntry?.let { active ->
-                        /** Duration. */
                         val duration = Duration.between(active.startedAt, currentTime)
-                        /** Minutes. */
                         val minutes = duration.toMinutes()
-                        /** Hours. */
                         val hours = minutes / 60
-                        /** Mins. */
                         val mins = minutes % 60
-                        /** Filled icon button. */
                         FilledIconButton(
                             onClick = {
                                 logger.d("TimeScreen.stopTrackingTapped", "Stop tracking button tapped")
@@ -526,30 +420,23 @@ fun TimeScreen(
                                 containerColor = MaterialTheme.colorScheme.error,
                             ),
                         ) {
-                            /** Icon. */
                             Icon(Icons.Default.Stop, stringResource(id = R.string.loc_stop_tracking))
                         }
-                        /** Text. */
                         Text(
                             text = stringResource(
                                 id = R.string.loc_duration_hours_minutes_compact,
-                                /** Hours. */
                                 hours,
-                                /** Mins. */
                                 mins,
                             ),
                             style = MaterialTheme.typography.labelMedium,
                             modifier = Modifier.padding(end = 8.dp),
                         )
                     }
-                    /** If. */
                     if (FeatureFlags.plansCtaEnabled) {
-                        /** Icon button. */
                         IconButton(onClick = {
                             logger.d("TimeScreen.dayPlanTapped", "Day plan button tapped")
                             showDayPlanDialog = true
                         }) {
-                            /** Text. */
                             Text(
                                 text = dayPlanActionLabel,
                                 style = MaterialTheme.typography.labelMedium,
@@ -560,12 +447,10 @@ fun TimeScreen(
             )
         },
         floatingActionButton = {
-            /** Column. */
             Column(
                 horizontalAlignment = Alignment.End,
                 verticalArrangement = Arrangement.spacedBy(8.dp),
             ) {
-                /** Floating action button. */
                 FloatingActionButton(
                     onClick = {
                         logger.d("TimeScreen.addEntryFabTapped", "Add time entry FAB tapped")
@@ -573,41 +458,33 @@ fun TimeScreen(
                     },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
                 ) {
-                    /** Icon. */
                     Icon(Icons.Default.Add, stringResource(id = R.string.loc_add_time_entry))
                 }
-                /** If. */
                 if (uiState.activeEntry == null) {
-                    /** Floating action button. */
                     FloatingActionButton(
                         onClick = {
                             logger.d("TimeScreen.startTrackingFabTapped", "Start tracking FAB tapped")
                             showStartTrackingDialog = true
                         },
                     ) {
-                        /** Icon. */
                         Icon(Icons.Default.PlayArrow, stringResource(id = R.string.loc_start_tracking))
                     }
                 }
             }
         },
     ) { padding ->
-        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding),
         ) {
-            /** If. */
             if (!FeatureFlags.minimalModeEnabled) {
-                /** Column. */
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 8.dp, vertical = 6.dp),
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
-                    /** Time dimension compact overview panel. */
                     TimeDimensionCompactOverviewPanel(
                         rows = timeVisualsState.perDimension,
                         visibleDimensions = prefs.visibleDimensions(),
@@ -616,11 +493,8 @@ fun TimeScreen(
                     )
                 }
             }
-            /** Box. */
             Box(modifier = Modifier.weight(1f)) {
-                /** If. */
                 if (shouldShowTimelineLoadingPlaceholder(uiState.isLoading, uiState.isDateContentReady)) {
-                    /** Column. */
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
@@ -628,9 +502,7 @@ fun TimeScreen(
                         verticalArrangement = Arrangement.Center,
                         horizontalAlignment = Alignment.CenterHorizontally,
                     ) {
-                        /** Circular progress indicator. */
                         CircularProgressIndicator()
-                        /** Text. */
                         Text(
                             text = stringResource(id = R.string.loc_time_screen_loading_timeline),
                             style = MaterialTheme.typography.bodyMedium,
@@ -638,7 +510,6 @@ fun TimeScreen(
                         )
                     }
                 } else {
-                    /** Time calendar view. */
                     TimeCalendarView(
                         selectedDate = uiState.selectedDate,
                         entries = uiState.timeEntries,
@@ -660,18 +531,15 @@ fun TimeScreen(
                             logger.d(
                                 "TimeScreen.plannedTaskTap",
                                 "Tapped planned task block",
-                                /** Map of. */
                                 mapOf("taskId" to task.id, "date" to uiState.selectedDate.toString()),
                             )
                             activeModalTarget = TimeBlockModalTarget.TaskBlock(task = task, occurrence = null)
                         },
                         onPastOccurrenceClick = { occurrence, task ->
-                            /** If. */
                             if (task != null) {
                                 logger.d(
                                     "TimeScreen.pastOccurrenceTap",
                                     "Tapped past occurrence block",
-                                    /** Map of. */
                                     mapOf(
                                         "taskId" to task.id,
                                         "occurrenceId" to occurrence.id,
@@ -682,7 +550,6 @@ fun TimeScreen(
                             }
                         },
                         onGapClick = { startTime, endTime ->
-                            /** Val. */
                             val (gapStart, gapEnd) = resolveGapConvertDateTimeRange(
                                 selectedDate = uiState.selectedDate,
                                 gapStartTime = startTime,
@@ -692,7 +559,6 @@ fun TimeScreen(
                             logger.d(
                                 "TimeScreen.gapTap",
                                 "Tapped empty time gap",
-                                /** Map of. */
                                 mapOf(
                                     "date" to uiState.selectedDate.toString(),
                                     "gapStart" to gapStart.toString(),
@@ -706,7 +572,6 @@ fun TimeScreen(
             }
         }
     }
-    /** Time screen planning dialogs. */
     TimeScreenPlanningDialogs(
         showDatePicker = showDatePicker,
         showStartTrackingDialog = showStartTrackingDialog,
@@ -726,7 +591,6 @@ fun TimeScreen(
             logger.d(
                 "TimeScreen.datePicker",
                 "Date selected from picker",
-                /** Map of. */
                 mapOf("fromDate" to uiState.selectedDate.toString(), "toDate" to date.toString()),
             )
             viewModel.loadEntriesForDate(date)
@@ -758,9 +622,7 @@ fun TimeScreen(
         onDismissDayPlan = { showDayPlanDialog = false },
     )
     activeModalTarget?.let { target ->
-        /** Fallback dimension definition. */
         val fallbackDimensionDefinition = DimensionTaxonomyCatalog.WORK_LIVELIHOOD
-        /** Fallback dimension. */
         val fallbackDimension = prefs.visibleDimensionOptions().firstOrNull() ?: DimensionOption(
             id = fallbackDimensionDefinition.id,
             canonicalId = fallbackDimensionDefinition.id,
@@ -769,7 +631,6 @@ fun TimeScreen(
             isVisible = true,
             iconKey = fallbackDimensionDefinition.defaultIconKey,
         )
-        /** Initial context. */
         val initialContext = buildTimeBlockModalInitialContext(
             target = target,
             selectedDate = uiState.selectedDate,
@@ -777,13 +638,11 @@ fun TimeScreen(
             fallbackDimensionId = fallbackDimension.id,
             fallbackDimensionLabel = fallbackDimension.label,
         )
-        /** Dimension options. */
         val dimensionOptions = if (target is TimeBlockModalTarget.ExistingEntry) {
             prefs.optionsForSelection(initialContext.initialDimensionId)
         } else {
             prefs.visibleDimensionOptions()
         }
-        /** Initial dimension option. */
         val initialDimensionOption = dimensionOptions.firstOrNull { it.id == initialContext.initialDimensionId }
             ?: DimensionOption(
                 id = initialContext.initialDimensionId,
@@ -791,16 +650,13 @@ fun TimeScreen(
                 color = MaterialTheme.colorScheme.primary,
                 isVisible = true,
             )
-        /** Initial tags. */
         val initialTags = when (target) {
             is TimeBlockModalTarget.ExistingEntry -> timeTagEditorState.editingEntryTags
             is TimeBlockModalTarget.TaskBlock -> timeTagEditorState.editingTaskTags
             else -> emptyList()
         }
-        /** Task action state. */
         val taskActionState = when (target) {
             is TimeBlockModalTarget.TaskBlock -> {
-                /** Task block action state. */
                 TaskBlockActionState(
                     task = target.task,
                     isCompletedBlock = target.occurrence != null || target.task.status == "completed",
@@ -809,7 +665,6 @@ fun TimeScreen(
 
             else -> null
         }
-        /** Time block modal dialog. */
         TimeBlockModalDialog(
             title = stringResource(id = initialContext.titleResId),
             tasks = uiState.taskPickerTasks,
@@ -831,7 +686,6 @@ fun TimeScreen(
             taskActionState = taskActionState,
             onConfirmTimeEntry = { dimension, taskId, startDate, startTime, endDate, endTime, focusRating, focusNote, tags ->
                 logger.d("TimeBlockModal.actionTapped", "Modal action tapped", mapOf("action" to "confirm"))
-                /** When. */
                 when (target) {
                     is TimeBlockModalTarget.ExistingEntry -> {
                         viewModel.updateTimeEntry(
@@ -851,9 +705,7 @@ fun TimeScreen(
                     }
 
                     else -> {
-                        /** Safe end date. */
                         val safeEndDate = endDate ?: startDate
-                        /** Safe end time. */
                         val safeEndTime = endTime ?: startTime
                         viewModel.createManualEntry(
                             dimensionId = dimension.id,
@@ -869,7 +721,6 @@ fun TimeScreen(
                                 timeTagEditorViewModel.saveEntryTags(created.id, tags)
                             },
                         )
-                        /** If. */
                         if (target is TimeBlockModalTarget.TaskBlock) {
                             timeTagEditorViewModel.saveTaskTags(target.task.id, tags)
                         }
@@ -908,7 +759,6 @@ fun TimeScreen(
             onStartTaskTracking = (target as? TimeBlockModalTarget.TaskBlock)?.let { taskBlock ->
                 {
                     logger.d("TimeBlockModal.actionTapped", "Modal action tapped", mapOf("action" to "start_task_tracking"))
-                    /** Dimension. */
                     val dimension = dimensionOptions.firstOrNull { it.id == taskBlock.task.dimensionId }
                         ?: DimensionOption(
                             id = taskBlock.task.dimensionId ?: fallbackDimension.id,
@@ -975,7 +825,6 @@ fun TimeScreen(
                 {
                     logger.d("TimeBlockModal.actionTapped", "Modal action tapped", mapOf("action" to "edit_task"))
                     activeModalTarget = null
-                    /** On navigate to task. */
                     onNavigateToTask(taskBlock.task.id)
                 }
             },
@@ -988,34 +837,24 @@ fun TimeScreen(
 }
 
 internal fun shouldAutoScrollForHourHeightChange(
-    /** Selected date. */
     selectedDate: LocalDate,
-    /** Today. */
     today: LocalDate,
-    /** Current hour height dp. */
     currentHourHeightDp: Float,
     lastAutoScrollHourHeightDp: Float?,
     epsilonDp: Float = 0.1f,
 ): Boolean {
-    /** If. */
     if (selectedDate != today) return false
-    /** Previous. */
     val previous = lastAutoScrollHourHeightDp ?: return false
     return abs(previous - currentHourHeightDp) > epsilonDp
 }
 
 internal fun shouldAutoScrollOnInitialDateSelection(
-    /** Selected date. */
     selectedDate: LocalDate,
-    /** Today. */
     today: LocalDate,
-    /** Preferences loading. */
     preferencesLoading: Boolean,
 ): Boolean = selectedDate == today && !preferencesLoading
 
 internal fun shouldShowTimelineLoadingPlaceholder(
-    /** Is loading. */
     isLoading: Boolean,
-    /** Is date content ready. */
     isDateContentReady: Boolean,
 ): Boolean = isLoading && !isDateContentReady

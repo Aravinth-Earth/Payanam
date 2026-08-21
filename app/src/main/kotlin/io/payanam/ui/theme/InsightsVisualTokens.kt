@@ -15,15 +15,10 @@ import io.payanam.common.logging.UnifiedLogger
  * InsightsVisualTokens.
  */
 data class InsightsVisualTokens(
-    /** Card container. */
     val cardContainer: Color,
-    /** Chart track. */
     val chartTrack: Color,
-    /** Chart primary. */
     val chartPrimary: Color,
-    /** Quality gap. */
     val qualityGap: Color,
-    /** Quality overlap. */
     val qualityOverlap: Color,
 )
 
@@ -32,11 +27,8 @@ data class InsightsVisualTokens(
  * Remember insights visual tokens.
  */
 fun rememberInsightsVisualTokens(): InsightsVisualTokens {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
-    /** Color scheme. */
     val colorScheme = MaterialTheme.colorScheme
-    /** Tokens. */
     val tokens = InsightsVisualTokens(
         cardContainer = colorScheme.surfaceVariant.copy(alpha = 0.45f),
         chartTrack = lerp(colorScheme.surface, colorScheme.outlineVariant, 0.25f),
@@ -47,7 +39,6 @@ fun rememberInsightsVisualTokens(): InsightsVisualTokens {
     logger.d(
         "InsightsVisualTokens.rememberInsightsVisualTokens",
         "Resolved insight/time visual tokens",
-        /** Map of. */
         mapOf("isLightScheme" to colorScheme.background.luminance().let { (it > 0.5f).toString() }),
     )
     return tokens

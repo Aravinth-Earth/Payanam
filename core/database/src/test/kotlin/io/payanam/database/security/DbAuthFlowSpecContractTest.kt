@@ -25,9 +25,7 @@ class DbAuthFlowSpecContractTest {
      * Set up.
      */
     fun setUp() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -36,7 +34,6 @@ class DbAuthFlowSpecContractTest {
         logger.d(
             "DbAuthFlowSpecContractTest.setUp",
             "Loaded DB flow spec for security assertions",
-            /** Map of. */
             mapOf("length" to specJson.length),
         )
     }
@@ -46,13 +43,9 @@ class DbAuthFlowSpecContractTest {
      * Disable biometric flow routes directly to cleanup without passphrase step.
      */
     fun disableBiometricFlow_routesDirectlyToCleanupWithoutPassphraseStep() {
-        /** Assert that. */
         assertThat(specJson).contains("\"id\": \"TBIOSEC013\"")
-        /** Assert that. */
         assertThat(specJson).contains("\"to\": \"BIOSEC_DELETE_KEY\"")
-        /** Assert that. */
         assertThat(specJson).doesNotContain("\"to\": \"BIOSEC_DISABLE_VERIFY\"")
-        /** Assert that. */
         assertThat(specJson).doesNotContain("\"id\": \"BIOSEC_DISABLE_VERIFY\"")
     }
 
@@ -61,31 +54,24 @@ class DbAuthFlowSpecContractTest {
      * Biometric enable contract requires strong keystore wrapping and manual unlock guard.
      */
     fun biometricEnableContract_requiresStrongKeystoreWrappingAndManualUnlockGuard() {
-        /** Assert that. */
         assertThat(specJson).contains("setUserAuthenticationRequired=true")
-        /** Assert that. */
         assertThat(specJson).contains("manual passphrase unlock")
-        /** Assert that. */
         assertThat(specJson).contains("Biometric not enabled or not available")
     }
 
     private fun loadSpecJson(): String {
-        /** Candidate paths. */
         val candidatePaths =
-            /** List of. */
             listOf(
                 "docs/db/db-flow-boot-entry-flows.json",
                 "../docs/db/db-flow-boot-entry-flows.json",
                 "../../docs/db/db-flow-boot-entry-flows.json",
             )
-        /** Existing. */
         val existing =
             candidatePaths.map(::File).firstOrNull { it.exists() }
                 ?: error("Unable to locate db-flow-boot-entry-flows.json from test working directory")
         logger.i(
             "DbAuthFlowSpecContractTest.loadSpecJson",
             "Resolved canonical DB flow spec path",
-            /** Map of. */
             mapOf("path" to existing.path),
         )
         return existing.readText()

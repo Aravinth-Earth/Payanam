@@ -29,10 +29,8 @@ class ScoringConfigDaoTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -55,17 +53,11 @@ class ScoringConfigDaoTest {
      */
     fun upsertConfig_and_getConfig() =
         runBlocking {
-            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
-
-            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
-            /** Assert that. */
             assertThat(retrieved).isNotNull()
-            /** Assert that. */
             assertThat(retrieved?.dimensionWeight).isEqualTo(2.5)
-            /** Assert that. */
             assertThat(retrieved?.impactCritical).isEqualTo(1.0)
         }
 
@@ -75,15 +67,10 @@ class ScoringConfigDaoTest {
      */
     fun observeConfig_emitsConfig() =
         runBlocking {
-            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
-
-            /** Observed. */
             val observed = scoringConfigDao.observeConfig().first()
-            /** Assert that. */
             assertThat(observed).isNotNull()
-            /** Assert that. */
             assertThat(observed?.dimensionWeight).isEqualTo(2.5)
         }
 
@@ -93,9 +80,7 @@ class ScoringConfigDaoTest {
      */
     fun getConfig_returnsNullWhenNoConfig() =
         runBlocking {
-            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
-            /** Assert that. */
             assertThat(retrieved).isNull()
         }
 
@@ -105,17 +90,12 @@ class ScoringConfigDaoTest {
      */
     fun upsertConfig_replacesExistingConfig() =
         runBlocking {
-            /** Config1. */
             val config1 = createTestScoringConfig(dimensionWeight = 2.0)
-            /** Config2. */
             val config2 = createTestScoringConfig(dimensionWeight = 3.0)
 
             scoringConfigDao.upsertConfig(config1)
             scoringConfigDao.upsertConfig(config2)
-
-            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
-            /** Assert that. */
             assertThat(retrieved?.dimensionWeight).isEqualTo(3.0)
         }
 
@@ -125,15 +105,11 @@ class ScoringConfigDaoTest {
      */
     fun deleteConfig_removesConfig() =
         runBlocking {
-            /** Config. */
             val config = createTestScoringConfig()
             scoringConfigDao.upsertConfig(config)
 
             scoringConfigDao.deleteConfig()
-
-            /** Retrieved. */
             val retrieved = scoringConfigDao.getConfig()
-            /** Assert that. */
             assertThat(retrieved).isNull()
         }
 

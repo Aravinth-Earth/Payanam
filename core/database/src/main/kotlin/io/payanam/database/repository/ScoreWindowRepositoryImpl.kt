@@ -17,25 +17,20 @@ import javax.inject.Singleton
  */
 class ScoreWindowRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : ScoreWindowRepository {
         private val logger = UnifiedLogger.getInstance()
 
         override suspend fun getDimensionWindow(start: String, end: String): List<MetricWindowRow> {
-            /** Db. */
             val db = sessionManager.requireDatabase()
-            /** Rows. */
             val rows = db.dimensionMetricDao().getForWindow(start, end)
             logger.d(
                 "ScoreWindowRepositoryImpl.getDimensionWindow",
                 "Loaded dimension metric window",
-                /** Map of. */
                 mapOf("start" to start, "end" to end, "rows" to rows.size),
             )
             return rows.map {
-                /** Dimension metric row. */
                 DimensionMetricRow(
                     dimensionId = it.dimensionId,
                     dayKey = it.dayKey,
@@ -50,18 +45,14 @@ class ScoreWindowRepositoryImpl
         }
 
         override suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow> {
-            /** Db. */
             val db = sessionManager.requireDatabase()
-            /** Rows. */
             val rows = db.dayMetricDao().getForWindow(start, end)
             logger.d(
                 "ScoreWindowRepositoryImpl.getDayWindow",
                 "Loaded day metric window",
-                /** Map of. */
                 mapOf("start" to start, "end" to end, "rows" to rows.size),
             )
             return rows.map {
-                /** Day metric row. */
                 DayMetricRow(
                     dayKey = it.dayKey,
                     score = it.dayScore,

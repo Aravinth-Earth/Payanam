@@ -36,40 +36,28 @@ import io.payanam.ui.viewmodel.labelResId
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun settingsAppearanceSection(
-    /** Prefs state. */
     prefsState: AppPreferencesState,
-    /** Prefs view model. */
     prefsViewModel: AppPreferencesViewModel,
-    /** Logger. */
     logger: UnifiedLogger,
-    /** Font family expanded. */
     fontFamilyExpanded: Boolean,
     onFontFamilyExpandedChange: (Boolean) -> Unit,
 ) {
-    /** If. */
     if (prefsState.isLoading) {
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_loading_preferences),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Return. */
         return
     }
-
-    /** Column. */
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_app_language),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Single choice segmented button row. */
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             AppLanguageOption.entries.forEachIndexed { index, option ->
-                /** Segmented button. */
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = AppLanguageOption.entries.size),
                     onClick = {
@@ -78,33 +66,27 @@ internal fun settingsAppearanceSection(
                     },
                     selected = prefsState.appLanguage == option,
                 ) {
-                    /** Label res. */
                     val labelRes = when (option) {
                         AppLanguageOption.SYSTEM -> R.string.settings_language_option_system
                         AppLanguageOption.ENGLISH -> R.string.settings_language_option_english
                         AppLanguageOption.TAMIL -> R.string.settings_language_option_tamil
                     }
-                    /** Text. */
                     Text(text = stringResource(id = labelRes), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_app_language_help),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_theme_mode),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Single choice segmented button row. */
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             ThemeModeOption.entries.forEachIndexed { index, option ->
-                /** Segmented button. */
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeModeOption.entries.size),
                     onClick = {
@@ -113,23 +95,19 @@ internal fun settingsAppearanceSection(
                     },
                     selected = prefsState.themeMode == option,
                 ) {
-                    /** Text. */
                     Text(text = stringResource(id = option.labelResId), style = MaterialTheme.typography.labelSmall)
                 }
             }
         }
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_font_family),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Exposed dropdown menu box. */
         ExposedDropdownMenuBox(
             expanded = fontFamilyExpanded,
             onExpandedChange = onFontFamilyExpandedChange,
         ) {
-            /** Outlined text field. */
             OutlinedTextField(
                 value = stringResource(id = prefsState.fontFamily.labelResId),
                 onValueChange = {},
@@ -139,18 +117,15 @@ internal fun settingsAppearanceSection(
                     .fillMaxWidth()
                     .menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
-            /** Dropdown menu. */
             DropdownMenu(
                 expanded = fontFamilyExpanded,
                 onDismissRequest = { onFontFamilyExpandedChange(false) },
             ) {
                 FontFamilyOption.entries.forEach { option ->
-                    /** Dropdown menu item. */
                     DropdownMenuItem(
                         text = { Text(stringResource(id = option.labelResId)) },
                         onClick = {
                             prefsViewModel.setFontFamily(option)
-                            /** On font family expanded change. */
                             onFontFamilyExpandedChange(false)
                             logger.d("SettingsScreen.fontFamily", "Font family updated", mapOf("family" to option.key))
                         },
@@ -158,16 +133,13 @@ internal fun settingsAppearanceSection(
                 }
             }
         }
-        /** Text. */
         Text(
             text = stringResource(id = R.string.settings_time_format),
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Single choice segmented button row. */
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             TimeFormatOption.entries.forEachIndexed { index, option ->
-                /** Segmented button. */
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeFormatOption.entries.size),
                     onClick = {
@@ -176,7 +148,6 @@ internal fun settingsAppearanceSection(
                     },
                     selected = prefsState.timeFormat == option,
                 ) {
-                    /** Text. */
                     Text(text = stringResource(id = option.labelResId), style = MaterialTheme.typography.labelSmall)
                 }
             }

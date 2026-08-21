@@ -14,7 +14,6 @@ object TaskMapper {
      * Task entity.
      */
     fun TaskEntity.toDomain(): Task =
-        /** Task. */
         Task(
             id = id,
             title = title,
@@ -50,7 +49,6 @@ object TaskMapper {
      * Task.
      */
     fun Task.toEntity(): TaskEntity =
-        /** Task entity. */
         TaskEntity(
             id = id,
             title = title,

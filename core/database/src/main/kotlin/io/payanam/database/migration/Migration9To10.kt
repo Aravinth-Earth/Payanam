@@ -22,13 +22,9 @@ val MIGRATION_9_10 =
             logger.i("Migration.9_10", "Starting migration from version 9 to 10")
 
             try {
-                /** Create daily insights table. */
                 createDailyInsightsTable(database)
-                /** Add day key columns. */
                 addDayKeyColumns(database)
-                /** Backfill day key values. */
                 backfillDayKeyValues(database)
-                /** Create day key indexes. */
                 createDayKeyIndexes(database)
                 logger.i("Migration.9_10", "Migration from 9 to 10 completed successfully")
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {

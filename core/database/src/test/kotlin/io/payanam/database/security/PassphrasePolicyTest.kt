@@ -23,9 +23,7 @@ class PassphrasePolicyTest {
      * Set up.
      */
     fun setUp() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -38,12 +36,9 @@ class PassphrasePolicyTest {
      * Validate rejects short passphrase.
      */
     fun validate_rejectsShortPassphrase() {
-        /** Result. */
         val result = PassphrasePolicy.validate("Ab1!")
         logger.d("PassphrasePolicyTest.validate_rejectsShortPassphrase", "Validation result", mapOf("isValid" to result.isValid))
-        /** Assert that. */
         assertThat(result.isValid).isFalse()
-        /** Assert that. */
         assertThat(result.reasonCode).isEqualTo("min_length")
     }
 
@@ -52,12 +47,9 @@ class PassphrasePolicyTest {
      * Validate rejects missing uppercase.
      */
     fun validate_rejectsMissingUppercase() {
-        /** Result. */
         val result = PassphrasePolicy.validate("lowercase12!")
         logger.d("PassphrasePolicyTest.validate_rejectsMissingUppercase", "Validation result", mapOf("isValid" to result.isValid))
-        /** Assert that. */
         assertThat(result.isValid).isFalse()
-        /** Assert that. */
         assertThat(result.reasonCode).isEqualTo("missing_uppercase")
     }
 
@@ -66,12 +58,9 @@ class PassphrasePolicyTest {
      * Validate accepts strong passphrase.
      */
     fun validate_acceptsStrongPassphrase() {
-        /** Result. */
         val result = PassphrasePolicy.validate("S3cure!Passphrase")
         logger.d("PassphrasePolicyTest.validate_acceptsStrongPassphrase", "Validation result", mapOf("isValid" to result.isValid))
-        /** Assert that. */
         assertThat(result.isValid).isTrue()
-        /** Assert that. */
         assertThat(result.reasonCode).isNull()
     }
 }

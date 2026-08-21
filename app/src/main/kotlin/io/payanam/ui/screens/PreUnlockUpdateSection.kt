@@ -47,20 +47,15 @@ import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
  * Pre unlock update section.
  */
 fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
     val downloadState by viewModel.downloadState.collectAsState()
     val checking by viewModel.checking.collectAsState()
     val resultMessage by viewModel.checkResultMessage.collectAsState()
 
     // State-driven single button (same pattern as Settings update section).
-    /** Button label. */
     val buttonLabel: String
-    /** Button enabled. */
     val buttonEnabled: Boolean
-    /** Button action. */
     val buttonAction: () -> Unit
-    /** Show progress. */
     val showProgress: Boolean
 
     when {
@@ -71,7 +66,6 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             showProgress = false
         }
         downloadState is DownloadUiState.Downloading -> {
-            /** D. */
             val d = downloadState as DownloadUiState.Downloading
             buttonLabel = stringResource(
                 id = R.string.pre_unlock_update_downloading,
@@ -112,27 +106,21 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             showProgress = false
         }
     }
-
-    /** Message. */
     val message = when {
         resultMessage == "up_to_date" -> stringResource(id = R.string.pre_unlock_update_up_to_date)
         resultMessage?.startsWith("check_failed") == true -> stringResource(id = R.string.pre_unlock_update_check_failed)
         downloadState is DownloadUiState.Failed -> stringResource(id = R.string.pre_unlock_update_download_failed)
         else -> null
     }
-
-    /** Column. */
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            /** Text. */
             Text(
                 text = stringResource(id = R.string.settings_about_version_label),
                 style = MaterialTheme.typography.labelSmall.copy(
@@ -141,7 +129,6 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 ),
                 color = Color.White.copy(alpha = 0.4f),
             )
-            /** Text. */
             Text(
                 text = stringResource(
                     id = R.string.pre_unlock_update_build_value,
@@ -152,31 +139,25 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 fontWeight = FontWeight.SemiBold,
             )
         }
-
-        /** Card. */
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
             shape = RoundedCornerShape(10.dp),
             border = BorderStroke(1.dp, Color.White.copy(alpha = 0.12f)),
             modifier = Modifier.fillMaxWidth(),
         ) {
-            /** Column. */
             Column(
                 modifier = Modifier.padding(12.dp),
                 verticalArrangement = Arrangement.spacedBy(10.dp),
             ) {
                 // Hatch button — bordered 40dp, gradient when emphasized (mirrors
                 // the screen's DiagnosticButton visual language).
-                /** Is emphasized. */
                 val isEmphasized = buttonLabel == stringResource(id = R.string.settings_update_install_now_button) ||
                     buttonLabel == stringResource(id = R.string.pre_unlock_update_download_install)
-                /** Box. */
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(40.dp)
                         .then(
-                            /** If. */
                             if (isEmphasized) {
                                 Modifier.background(
                                     brush = Brush.horizontalGradient(
@@ -187,7 +168,6 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                                 Modifier.border(
                                     1.dp,
                                     Color.White.copy(alpha = 0.2f),
-                                    /** Rounded corner shape. */
                                     RoundedCornerShape(8.dp),
                                 )
                             },
@@ -196,15 +176,12 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                             logger.i(
                                 "PreUnlockUpdateSection.buttonTapped",
                                 "Hatch action tapped",
-                                /** Map of. */
                                 mapOf("label" to buttonLabel),
                             )
-                            /** Button action. */
                             buttonAction()
                         },
                     contentAlignment = Alignment.Center,
                 ) {
-                    /** Text. */
                     Text(
                         text = buttonLabel,
                         color = if (isEmphasized) Color.White else Color.White.copy(alpha = if (buttonEnabled) 0.6f else 0.3f),
@@ -212,23 +189,19 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                         fontWeight = if (isEmphasized) FontWeight.Bold else FontWeight.Normal,
                     )
                 }
-                /** If. */
                 if (message != null) {
-                    /** Text. */
                     Text(
                         text = message,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (resultMessage?.startsWith("check_failed") == true ||
                             downloadState is DownloadUiState.Failed
                         ) {
-                            /** Color. */
                             Color(0xFFF28B82)
                         } else {
                             Color.White.copy(alpha = 0.55f)
                         },
                     )
                 }
-                /** Text. */
                 Text(
                     text = stringResource(id = R.string.pre_unlock_update_hint),
                     style = MaterialTheme.typography.labelSmall,
@@ -236,15 +209,11 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 )
             }
         }
-
-        /** If. */
         if (showProgress) {
             // Minimal progress bar placeholder — mirrors the mock; real progress
             // bar added with the Downloading state visuals.
-            /** Spacer. */
             Spacer(modifier = Modifier.height(4.dp))
         }
-        /** Spacer. */
         Spacer(modifier = Modifier.width(0.dp))
     }
 }

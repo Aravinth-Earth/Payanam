@@ -34,10 +34,8 @@ interface TaskDao {
         """
         SELECT * FROM tasks
         WHERE status = 'pending'
-        /** And. */
         AND (
             day_key = :date
-            /** Or. */
             OR (day_key IS NULL AND date(dueDate) = date(:date))
         )
         ORDER BY taskScore DESC
@@ -65,9 +63,7 @@ interface TaskDao {
      * Get task by import ref.
      */
     suspend fun getTaskByImportRef(
-        /** Source. */
         source: String,
-        /** Import id. */
         importId: String,
     ): TaskEntity?
 
@@ -94,17 +90,13 @@ interface TaskDao {
     @Query(
         """
         SELECT * FROM tasks 
-        /** Where. */
         WHERE (
             status = 'pending'
-            /** And. */
             AND (
                 day_key = :today
-                /** Or. */
                 OR (day_key IS NULL AND date(dueDate) = date(:today))
             )
         )
-        /** Or. */
         OR (recurrenceEnabled = 1 AND status = 'pending')
         ORDER BY taskScore DESC
     """,
@@ -149,12 +141,9 @@ interface TaskDao {
      * Update status.
      */
     suspend fun updateStatus(
-        /** Id. */
         id: String,
-        /** Status. */
         status: String,
         completedAt: String?,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -163,13 +152,9 @@ interface TaskDao {
      * Update status with archive.
      */
     suspend fun updateStatusWithArchive(
-        /** Id. */
         id: String,
-        /** Status. */
         status: String,
-        /** Archived at. */
         archivedAt: String,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -178,11 +163,8 @@ interface TaskDao {
      * Update task score.
      */
     suspend fun updateTaskScore(
-        /** Id. */
         id: String,
-        /** Score. */
         score: Double,
-        /** Updated at. */
         updatedAt: String,
     )
 
@@ -199,13 +181,9 @@ interface TaskDao {
      * Bulk map import source dimension.
      */
     suspend fun bulkMapImportSourceDimension(
-        /** Source. */
         source: String,
-        /** Dimension id. */
         dimensionId: String,
-        /** Life intention category. */
         lifeIntentionCategory: String,
-        /** Updated at. */
         updatedAt: String,
     ): Int
 
@@ -230,15 +208,10 @@ interface TaskDao {
      * Update recurrence state.
      */
     suspend fun updateRecurrenceState(
-        /** Id. */
         id: String,
-        /** New due date. */
         newDueDate: String,
-        /** Day key. */
         dayKey: String,
-        /** Last occurrence date. */
         lastOccurrenceDate: String,
-        /** Updated at. */
         updatedAt: String,
     )
 }

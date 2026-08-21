@@ -400,17 +400,11 @@ private fun advanceDesktopNoteDialogDimension(
 }
 
 private data class DesktopNoteDialogState(
-    /** Is visible. */
     val isVisible: Boolean,
-    /** Editing note id. */
     val editingNoteId: String?,
-    /** Title. */
     val title: String,
-    /** Details. */
     val details: String,
-    /** Tags raw. */
     val tagsRaw: String,
-    /** Dimension id. */
     val dimensionId: String,
 ) {
     companion object {
@@ -448,9 +442,7 @@ private data class DesktopNoteDialogState(
 }
 
 private data class DesktopNoteDimensionOption(
-    /** Id. */
     val id: String,
-    /** Fallback label. */
     val fallbackLabel: String,
 )
 

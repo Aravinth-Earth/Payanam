@@ -22,13 +22,9 @@ val MIGRATION_15_16 =
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.15_16", "Starting migration from version 15 to 16")
             try {
-                /** Create day plan policies table. */
                 createDayPlanPoliciesTable(database)
-                /** Create day type template preferences table. */
                 createDayTypeTemplatePreferencesTable(database)
-                /** Backfill day plan policies from legacy settings. */
                 backfillDayPlanPoliciesFromLegacySettings(database)
-                /** Backfill day type template preferences from legacy settings. */
                 backfillDayTypeTemplatePreferencesFromLegacySettings(database)
                 logger.i("Migration.15_16", "Migration from version 15 to 16 completed successfully")
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
@@ -76,18 +72,12 @@ private fun backfillDayPlanPoliciesFromLegacySettings(database: SupportSQLiteDat
     database.execSQL(
         """
         INSERT OR REPLACE INTO day_plan_policies (
-            /** Day key. */
             day_key,
-            /** Mode. */
             mode,
-            /** Template id. */
             template_id,
-            /** Is starred. */
             is_starred,
-            /** Updated at. */
             updated_at
         )
-        /** Select. */
         SELECT
             day_keys.day_key AS day_key,
             CASE lower(COALESCE(mode_setting.value, 'auto'))
@@ -96,30 +86,24 @@ private fun backfillDayPlanPoliciesFromLegacySettings(database: SupportSQLiteDat
                 ELSE 'auto'
             END AS mode,
             template_setting.value AS template_id,
-            /** Case. */
             CASE
                 WHEN starred_setting.value = '1' THEN 1
                 ELSE 0
             END AS is_starred,
-            /** Coalesce. */
             COALESCE(
                 mode_setting.updatedAt,
                 template_setting.updatedAt,
                 starred_setting.updatedAt,
-                /** Strftime. */
                 strftime('%Y-%m-%dT%H:%M:%f','now')
             ) AS updated_at
-        /** From. */
         FROM (
             SELECT substr(`key`, 15) AS day_key
             FROM app_settings
             WHERE `key` LIKE 'day_plan_mode_%'
-            /** Union. */
             UNION
             SELECT substr(`key`, 19) AS day_key
             FROM app_settings
             WHERE `key` LIKE 'day_plan_template_%'
-            /** Union. */
             UNION
             SELECT substr(`key`, 18) AS day_key
             FROM app_settings
@@ -139,19 +123,13 @@ private fun backfillDayTypeTemplatePreferencesFromLegacySettings(database: Suppo
     database.execSQL(
         """
         INSERT OR REPLACE INTO day_type_template_preferences (
-            /** Day type. */
             day_type,
-            /** Template id. */
             template_id,
-            /** Updated at. */
             updated_at
         )
-        /** Select. */
         SELECT
-            /** Substr. */
             substr(`key`, 24) AS day_type,
             value AS template_id,
-            /** Coalesce. */
             COALESCE(updatedAt, strftime('%Y-%m-%dT%H:%M:%f','now')) AS updated_at
         FROM app_settings
         WHERE `key` LIKE 'day_plan_auto_template_%'

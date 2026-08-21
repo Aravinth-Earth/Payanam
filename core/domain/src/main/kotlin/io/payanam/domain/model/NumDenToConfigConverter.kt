@@ -42,19 +42,11 @@ object NumDenToConfigConverter {
      * @return canonical CONFIG string; falls back to DAILY for unparseable input
      */
     fun convert(rule: String?, anchorDate: LocalDate?): String {
-        /** Normalized. */
         val normalized = rule?.trim().orEmpty()
-        /** If. */
         if (normalized.isBlank()) return RecurrenceConfig.daily().serialize()
-
-        /** Frequency. */
         val frequency = Frequency.parse(normalized)
-        /** Num. */
         val num = frequency.numerator
-        /** Den. */
         val den = frequency.denominator
-
-        /** Config. */
         val config = when {
             // 1/1 or n/n → daily
             num >= den -> RecurrenceConfig.daily()
@@ -70,7 +62,6 @@ object NumDenToConfigConverter {
             // Everything else: interval of (denominator / numerator) days
             // e.g. 1/7 → every 7 days, 1/30 → every 30 days, 2/7 handled above
             else -> {
-                /** Interval. */
                 val interval = den / num
                 RecurrenceConfig.everyNDays(interval.coerceAtLeast(1), anchorDate)
             }

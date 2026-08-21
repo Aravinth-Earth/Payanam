@@ -35,19 +35,15 @@ class JournalRepositoryIntegrityTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .build()
-        /** Encryption manager. */
         val encryptionManager = DatabaseEncryptionManager(context)
-        /** Session manager. */
         val sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
         repository = JournalRepositoryImpl(sessionManager)
@@ -67,16 +63,10 @@ class JournalRepositoryIntegrityTest {
      */
     fun getOrCreateEntry_returnsExistingWhenPresent() =
         runBlocking {
-            /** First. */
             val first = repository.getOrCreateEntry(LocalDate.of(2026, 2, 20))
-            /** Second. */
             val second = repository.getOrCreateEntry(LocalDate.of(2026, 2, 20))
-
-            /** Assert that. */
             assertThat(first.id).isEqualTo(second.id)
-            /** Assert that. */
             assertThat(first.entryDate).isEqualTo("2026-02-20")
-            /** Assert that. */
             assertThat(repository.getAllJournalEntries().first()).hasSize(1)
         }
 
@@ -86,41 +76,30 @@ class JournalRepositoryIntegrityTest {
      */
     fun saveResponse_insertsThenUpdatesByNaturalKey() =
         runBlocking {
-            /** Entry. */
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 21))
-
-            /** Inserted. */
             val inserted =
                 repository.saveResponse(
                     entryId = entry.id,
                     input =
-                        /** Day journal response input. */
                         DayJournalResponseInput(
                             scope = JournalPromptScope.OVERALL,
                             promptKey = "gratitude",
                             responseText = "first",
                         ),
                 )
-            /** Updated. */
             val updated =
                 repository.saveResponse(
                     entryId = entry.id,
                     input =
-                        /** Day journal response input. */
                         DayJournalResponseInput(
                             scope = JournalPromptScope.OVERALL,
                             promptKey = "gratitude",
                             responseText = "second",
                         ),
                 )
-
-            /** Responses. */
             val responses = repository.getResponsesByEntryId(entry.id)
-            /** Assert that. */
             assertThat(responses).hasSize(1)
-            /** Assert that. */
             assertThat(inserted.id).isEqualTo(updated.id)
-            /** Assert that. */
             assertThat(responses.single().responseText).isEqualTo("second")
         }
 
@@ -130,12 +109,10 @@ class JournalRepositoryIntegrityTest {
      */
     fun upsertResponse_updatesExistingAndInsertsMissing() =
         runBlocking {
-            /** Entry. */
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 22))
             repository.saveResponse(
                 entryId = entry.id,
                 input =
-                    /** Day journal response input. */
                     DayJournalResponseInput(
                         scope = JournalPromptScope.OVERALL,
                         promptKey = "reflection",
@@ -144,7 +121,6 @@ class JournalRepositoryIntegrityTest {
             )
 
             repository.upsertResponse(
-                /** Day journal response. */
                 DayJournalResponse(
                     id = "response-fixed-id",
                     entryId = entry.id,
@@ -155,7 +131,6 @@ class JournalRepositoryIntegrityTest {
                 ),
             )
             repository.upsertResponse(
-                /** Day journal response. */
                 DayJournalResponse(
                     id = "response-dimension",
                     entryId = entry.id,
@@ -165,14 +140,9 @@ class JournalRepositoryIntegrityTest {
                     responseText = "added",
                 ),
             )
-
-            /** Responses. */
             val responses = repository.getResponsesByEntryId(entry.id)
-            /** Assert that. */
             assertThat(responses).hasSize(2)
-            /** Assert that. */
             assertThat(responses.first { it.promptKey == "reflection" }.responseText).isEqualTo("new")
-            /** Assert that. */
             assertThat(responses.first { it.promptKey == "wins" }.responseText).isEqualTo("added")
         }
 
@@ -182,12 +152,10 @@ class JournalRepositoryIntegrityTest {
      */
     fun getResponse_and_totalCount_areConsistent() =
         runBlocking {
-            /** Entry. */
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 23))
             repository.saveResponse(
                 entryId = entry.id,
                 input =
-                    /** Day journal response input. */
                     DayJournalResponseInput(
                         scope = JournalPromptScope.DIMENSION,
                         dimensionKey = "career_work",
@@ -195,8 +163,6 @@ class JournalRepositoryIntegrityTest {
                         responseText = "good",
                     ),
             )
-
-            /** Response. */
             val response =
                 repository.getResponse(
                     entryId = entry.id,
@@ -204,12 +170,8 @@ class JournalRepositoryIntegrityTest {
                     dimensionKey = "career_work",
                     promptKey = "focus",
                 )
-
-            /** Assert that. */
             assertThat(response).isNotNull()
-            /** Assert that. */
             assertThat(response?.responseText).isEqualTo("good")
-            /** Assert that. */
             assertThat(repository.getTotalResponseCount().first()).isEqualTo(1)
         }
 }

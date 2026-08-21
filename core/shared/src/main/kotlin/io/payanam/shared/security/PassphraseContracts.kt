@@ -7,9 +7,7 @@ package io.payanam.shared.security
 
  */
 data class SharedPassphraseValidation(
-    /** Is valid. */
     val isValid: Boolean,
-    /** Reason code. */
     val reasonCode: String?,
 )
 
@@ -23,23 +21,18 @@ object SharedPassphrasePolicy {
      * Validate.
      */
     fun validate(passphrase: String): SharedPassphraseValidation {
-        /** If. */
         if (passphrase.length < MIN_LENGTH) {
             return SharedPassphraseValidation(isValid = false, reasonCode = "min_length")
         }
-        /** If. */
         if (!passphrase.any { it.isUpperCase() }) {
             return SharedPassphraseValidation(isValid = false, reasonCode = "missing_uppercase")
         }
-        /** If. */
         if (!passphrase.any { it.isLowerCase() }) {
             return SharedPassphraseValidation(isValid = false, reasonCode = "missing_lowercase")
         }
-        /** If. */
         if (!passphrase.any { it.isDigit() }) {
             return SharedPassphraseValidation(isValid = false, reasonCode = "missing_digit")
         }
-        /** If. */
         if (!passphrase.any { !it.isLetterOrDigit() }) {
             return SharedPassphraseValidation(isValid = false, reasonCode = "missing_symbol")
         }

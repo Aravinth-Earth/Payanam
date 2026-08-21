@@ -58,16 +58,12 @@ import io.payanam.shared.settings.FocusModePreset
 fun FocusModeSelectionScreen(
     onPresetSelected: (FocusModePreset) -> Unit,
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
     var selectedPreset by remember { mutableStateOf(FocusModePreset.FULL_SUITE) }
-
-    /** Surface. */
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
     ) {
-        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -75,109 +71,83 @@ fun FocusModeSelectionScreen(
                 .verticalScroll(rememberScrollState()),
             horizontalAlignment = Alignment.CenterHorizontally,
         ) {
-            /** Spacer. */
             Spacer(modifier = Modifier.height(32.dp))
 
             // Icon
-            /** Icon. */
             Icon(
                 imageVector = Icons.Default.Visibility,
                 contentDescription = stringResource(R.string.focus_mode_title),
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(24.dp))
 
             // Title
-            /** Text. */
             Text(
                 text = stringResource(R.string.choose_your_focus),
                 style = MaterialTheme.typography.headlineMedium,
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(12.dp))
 
             // Explanation
-            /** Text. */
             Text(
                 text = stringResource(R.string.focus_mode_explanation),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(32.dp))
 
             // Preset Cards
             FocusModePreset.entries.forEach { preset ->
-                /** Preset card. */
                 PresetCard(
                     preset = preset,
                     isSelected = selectedPreset == preset,
                     onSelected = { selectedPreset = preset },
                 )
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(12.dp))
             }
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(24.dp))
 
             // Continue Button
-            /** Button. */
             Button(
                 onClick = {
                     logger.i(
                         "FocusModeSelectionScreen",
                         "User selected preset",
-                        /** Map of. */
                         mapOf("preset" to selectedPreset.presetId),
                     )
-                    /** On preset selected. */
                     onPresetSelected(selectedPreset)
                 },
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(56.dp),
             ) {
-                /** Text. */
                 Text(
                     text = stringResource(R.string.loc_continue),
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(12.dp))
 
             // Skip link
-            /** Text button. */
             TextButton(
                 onClick = {
                     logger.i(
                         "FocusModeSelectionScreen",
                         "User skipped preset selection",
-                        /** Map of. */
                         mapOf("defaultPreset" to FocusModePreset.FULL_SUITE.presetId),
                     )
-                    /** On preset selected. */
                     onPresetSelected(FocusModePreset.FULL_SUITE)
                 },
             ) {
-                /** Text. */
                 Text(
                     text = stringResource(R.string.skip_focus_mode),
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-
-            /** Spacer. */
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -185,19 +155,15 @@ fun FocusModeSelectionScreen(
 
 @Composable
 private fun PresetCard(
-    /** Preset. */
     preset: FocusModePreset,
-    /** Is selected. */
     isSelected: Boolean,
     onSelected: () -> Unit,
 ) {
-    /** Card. */
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onSelected() }
             .then(
-                /** If. */
                 if (isSelected) {
                     Modifier.border(
                         width = 2.dp,
@@ -205,7 +171,6 @@ private fun PresetCard(
                         shape = RoundedCornerShape(12.dp),
                     )
                 } else {
-                    /** Modifier. */
                     Modifier
                 },
             ),
@@ -218,7 +183,6 @@ private fun PresetCard(
         },
         shape = RoundedCornerShape(12.dp),
     ) {
-        /** Row. */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -226,19 +190,14 @@ private fun PresetCard(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Radio button
-            /** Radio button. */
             RadioButton(
                 selected = isSelected,
                 onClick = { onSelected() },
             )
-
-            /** Spacer. */
             Spacer(modifier = Modifier.width(12.dp))
 
             // Text content
-            /** Column. */
             Column(modifier = Modifier.weight(1f)) {
-                /** Text. */
                 Text(
                     text = stringResource(
                         id = when (preset) {
@@ -256,11 +215,7 @@ private fun PresetCard(
                         MaterialTheme.colorScheme.onSurface
                     },
                 )
-
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(4.dp))
-
-                /** Text. */
                 Text(
                     text = stringResource(
                         id = when (preset) {
@@ -279,14 +234,11 @@ private fun PresetCard(
                 )
 
                 // Show visible tabs count
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(8.dp))
-                /** Row. */
                 Row(
                     horizontalArrangement = Arrangement.spacedBy(4.dp),
                     verticalAlignment = Alignment.CenterVertically,
                 ) {
-                    /** Icon. */
                     Icon(
                         imageVector = Icons.Default.CheckCircle,
                         contentDescription = null,
@@ -297,7 +249,6 @@ private fun PresetCard(
                             MaterialTheme.colorScheme.onSurfaceVariant
                         },
                     )
-                    /** Text. */
                     Text(
                         text = "${preset.visibleTabs.size} tabs visible",
                         style = MaterialTheme.typography.labelSmall,
@@ -311,9 +262,7 @@ private fun PresetCard(
             }
 
             // Selected indicator
-            /** If. */
             if (isSelected) {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.Default.Check,
                     contentDescription = null,

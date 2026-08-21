@@ -11,14 +11,12 @@ import androidx.room.Index
     tableName = "note_tags",
     primaryKeys = ["note_id", "tag_id"],
     foreignKeys = [
-        /** Foreign key. */
         ForeignKey(
             entity = NoteEntity::class,
             parentColumns = ["id"],
             childColumns = ["note_id"],
             onDelete = ForeignKey.CASCADE,
         ),
-        /** Foreign key. */
         ForeignKey(
             entity = TagEntity::class,
             parentColumns = ["id"],
@@ -33,12 +31,9 @@ import androidx.room.Index
  */
 data class NoteTagEntity(
     @ColumnInfo(name = "note_id")
-    /** Note id. */
     val noteId: String,
     @ColumnInfo(name = "tag_id")
-    /** Tag id. */
     val tagId: String,
     @ColumnInfo(name = "created_at")
-    /** Created at. */
     val createdAt: String,
 )

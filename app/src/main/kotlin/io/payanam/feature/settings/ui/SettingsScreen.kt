@@ -62,20 +62,13 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
  */
 fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToPassphraseChange: () -> Unit = {}, onNavigateToScoringConfig: () -> Unit = {}, onNavigateToDatabaseInit: () -> Unit = {}) {
     val uiState by viewModel.uiState.collectAsState()
-    /** Activity. */
     val activity = checkNotNull(LocalActivity.current)
-    /** Prefs view model. */
     val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
     val prefsState by prefsViewModel.uiState.collectAsState()
-    /** Snackbar host state. */
     val snackbarHostState = remember { SnackbarHostState() }
-    /** Context. */
     val context = activity
-    /** Logger. */
     val logger = remember { UnifiedLogger.getInstance() }
-    /** Encryption manager. */
     val encryptionManager = remember(context) { DatabaseEncryptionManager(context) }
-    /** Scope. */
     val scope = rememberCoroutineScope()
     var expandedSection by remember { mutableStateOf<SettingsSection?>(null) }
     var fontFamilyExpanded by remember { mutableStateOf(false) }
@@ -84,27 +77,20 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showBulkMapDialog by remember { mutableStateOf(false) }
     var selectedBulkMapDimensionId by remember { mutableStateOf(prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()) }
-    /** Launched effect. */
     LaunchedEffect(prefsState.dimensionPreferences, selectedBulkMapDimensionId) {
-        /** If. */
         if (selectedBulkMapDimensionId.isBlank()) {
             selectedBulkMapDimensionId = prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()
             return@LaunchedEffect
         }
-        /** If. */
         if (prefsState.dimensionPreferences.none { it.id == selectedBulkMapDimensionId }) {
             selectedBulkMapDimensionId = prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()
         }
     }
-    /** Launched effect. */
     LaunchedEffect(Unit) { prefsViewModel.refreshAutoBackupStatusFromStorage() }
-    /** Launched effect. */
     LaunchedEffect(viewModel.navigateToDatabaseInit) { viewModel.navigateToDatabaseInit.collect { onNavigateToDatabaseInit() } }
     val manualBackupInProgress by prefsViewModel.manualBackupInProgress.collectAsState()
     val habitScoreDiagnosticsInProgress by prefsViewModel.habitScoreDiagnosticsInProgress.collectAsState()
-    /** Launched effect. */
     LaunchedEffect(Unit) { prefsViewModel.habitScoreDiagnosticsMessage.collect { snackbarHostState.showSnackbar(it) } }
-    /** Export launcher. */
     val exportLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.CreateDocument("application/octet-stream"),
     ) { uri ->
@@ -112,20 +98,16 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             viewModel.exportData(destinationUri = it)
         }
     }
-    /** On database import source selected. */
     val onDatabaseImportSourceSelected: (Uri?) -> Unit = { uri ->
         uri?.let {
             pendingImportUri = it
             showImportConfirmDialog = true
         }
     }
-    /** Import folder launcher. */
     val importFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree(), onDatabaseImportSourceSelected)
-    /** Import uhabits launcher. */
     val importUhabitsLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importUhabitsData(it) }
     }
-    /** Settings import feedback effects. */
     SettingsImportFeedbackEffects(
         uiState = uiState,
         snackbarHostState = snackbarHostState,
@@ -133,9 +115,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
         dimensionPreferences = prefsState.dimensionPreferences,
         viewModel = viewModel,
     )
-    /** If. */
     if (showImportConfirmDialog) {
-        /** Import database confirm dialog. */
         ImportDatabaseConfirmDialog(
             showEncryptedModeWarning = encryptionManager.isEncryptionEnabled(),
             onConfirm = {
@@ -151,9 +131,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             },
         )
     }
-    /** If. */
     if (uiState.showDeleteExportPrompt) {
-        /** Delete export prompt dialog. */
         DeleteExportPromptDialog(
             onBackUpFirst = {
                 viewModel.dismissDeleteExportPrompt()
@@ -166,17 +144,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             onDismiss = { viewModel.dismissDeleteExportPrompt() },
         )
     }
-    /** If. */
     if (showDeleteConfirmDialog) {
-        /** Delete all data confirm dialog. */
         DeleteAllDataConfirmDialog(onConfirm = {
             viewModel.deleteDatabase()
             showDeleteConfirmDialog = false
         }, onDismiss = { showDeleteConfirmDialog = false })
     }
-    /** If. */
     if (uiState.awaitingImportPassphrase) {
-        /** Import encrypted db passphrase dialog. */
         ImportEncryptedDbPassphraseDialog(
             passphraseError = uiState.importPassphraseError,
             isVerifying = uiState.isImporting,
@@ -184,17 +158,13 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             onDismiss = { viewModel.cancelImportPassphrase() },
         )
     }
-    /** If. */
     if (showBulkMapDialog) {
-        /** Bulk map imported habits dialog. */
         BulkMapImportedHabitsDialog(
             selectedDimensionId = selectedBulkMapDimensionId,
             dimensionPreferences = prefsState.dimensionPreferences,
             onSelectedDimensionChange = { selectedBulkMapDimensionId = it },
             onConfirm = {
-                /** Selected dimension. */
                 val selectedDimension = prefsState.dimensionPreferences.firstOrNull { it.id == selectedBulkMapDimensionId }
-                /** If. */
                 if (selectedDimension != null) {
                     viewModel.bulkMapImportedHabitsToDimension(
                         targetDimensionId = selectedDimension.id,
@@ -206,16 +176,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             onDismiss = { showBulkMapDialog = false },
         )
     }
-    /** Scaffold. */
     Scaffold(
         topBar = {
-            /** Top app bar. */
             TopAppBar(title = { Text(stringResource(id = R.string.settings_title)) })
         },
         snackbarHost = {
-            /** Snackbar host. */
             SnackbarHost(snackbarHostState) { data ->
-                /** Snackbar. */
                 Snackbar(
                     snackbarData = data,
                     containerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -225,7 +191,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             }
         },
     ) { paddingValues ->
-        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -234,7 +199,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_appearance_title),
                 icon = Icons.Default.Palette,
@@ -244,7 +208,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.APPEARANCE)
                 },
             ) {
-                /** Settings appearance section. */
                 settingsAppearanceSection(
                     prefsState = prefsState,
                     prefsViewModel = prefsViewModel,
@@ -253,7 +216,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     onFontFamilyExpandedChange = { fontFamilyExpanded = it },
                 )
             }
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_default_landing_title),
                 icon = Icons.Default.Timer,
@@ -263,15 +225,12 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.DEFAULT_LANDING)
                 },
             ) {
-                /** Settings default landing section. */
                 SettingsDefaultLandingSection(
                     prefsState = prefsState,
                     prefsViewModel = prefsViewModel,
                 )
             }
-            /** If. */
             if (FeatureFlags.focusModeSettingsEnabled) {
-                /** Settings card. */
                 SettingsCard(
                     title = stringResource(id = R.string.focus_mode_title),
                     icon = Icons.Default.Visibility,
@@ -281,7 +240,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         expandedSection = expandedSection.toggle(SettingsSection.FOCUS_MODE)
                     },
                 ) {
-                    /** Focus mode settings content. */
                     focusModeSettingsContent(
                         prefsState = prefsState,
                         onSetActivePreset = { preset -> prefsViewModel.setActivePreset(preset) },
@@ -289,7 +247,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     )
                 }
             }
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_life_dimensions_title),
                 icon = Icons.Default.Category,
@@ -299,9 +256,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.DIMENSIONS)
                 },
             ) {
-                /** Column. */
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
-                    /** Text. */
                     Text(
                         text = stringResource(id = R.string.settings_life_dimensions_description),
                         style = MaterialTheme.typography.bodySmall,
@@ -323,7 +278,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                             )
                         } + prefsState.dynamicDimensionOptions
                         ).distinctBy { it.id }.forEach { preference ->
-                        /** Dimension preference card. */
                         DimensionPreferenceCard(
                             preference = preference,
                             usedColorHexes = (
@@ -337,13 +291,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 .filterNot { it == preference.iconKey }
                                 .toSet(),
                             onLabelCommit = { label ->
-                                /** Resolved. */
                                 val resolved = label.ifBlank { preference.label }
                                 prefsViewModel.setDimensionLabel(preference.id, resolved)
                                 logger.d(
                                     "SettingsScreen.dimensionLabel",
                                     "Dimension label updated",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id),
                                 )
                             },
@@ -352,7 +304,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 logger.i(
                                     "SettingsScreen.dimensionLabel",
                                     "Dimension label reset",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id),
                                 )
                             },
@@ -361,7 +312,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 logger.d(
                                     "SettingsScreen.dimensionColor",
                                     "Dimension color updated",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id),
                                 )
                             },
@@ -370,7 +320,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 logger.d(
                                     "SettingsScreen.dimensionIcon",
                                     "Dimension icon updated",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id, "iconKey" to iconKey),
                                 )
                             },
@@ -379,7 +328,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 logger.i(
                                     "SettingsScreen.dimensionWeight",
                                     "Dimension weight updated",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id, "weight" to weight),
                                 )
                             },
@@ -388,7 +336,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                                 logger.i(
                                     "SettingsScreen.dimensionVisibility",
                                     "Dimension visibility updated",
-                                    /** Map of. */
                                     mapOf("dimensionId" to preference.id, "visible" to !preference.isVisible),
                                 )
                             },
@@ -396,9 +343,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     }
                 }
             }
-            /** If. */
             if (!FeatureFlags.minimalModeEnabled) {
-                /** Settings card. */
                 SettingsCard(
                     title = stringResource(id = R.string.settings_auto_track_habit_time_title),
                     icon = Icons.Default.Timer,
@@ -408,7 +353,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         expandedSection = expandedSection.toggle(SettingsSection.AUTO_TRACK_HABIT_TIME)
                     },
                 ) {
-                    /** Auto tracking section. */
                     AutoTrackingSection(
                         prefsState = prefsState,
                         prefsViewModel = prefsViewModel,
@@ -416,7 +360,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     )
                 }
             }
-            /** Insights charts visibility settings card. */
             InsightsChartsVisibilitySettingsCard(
                 expanded = expandedSection == SettingsSection.TIME_INSIGHTS,
                 onToggleExpanded = {
@@ -427,7 +370,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 prefsViewModel = prefsViewModel,
                 logger = logger,
             )
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_auto_backup_title),
                 icon = Icons.Default.Backup,
@@ -437,7 +379,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.AUTO_BACKUP)
                 },
             ) {
-                /** Settings auto backup section. */
                 SettingsAutoBackupSection(
                     prefsState = prefsState,
                     prefsViewModel = prefsViewModel,
@@ -446,9 +387,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     manualBackupInProgress = manualBackupInProgress,
                 )
             }
-            /** If. */
             if (FeatureFlags.scoreSettingsEnabled) {
-                /** Settings card. */
                 SettingsCard(
                     title = stringResource(id = R.string.settings_scoring_title),
                     icon = Icons.Default.Category,
@@ -458,26 +397,21 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         expandedSection = expandedSection.toggle(SettingsSection.SCORING)
                     },
                 ) {
-                    /** Column. */
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        /** Text. */
                         Text(
                             text = stringResource(id = R.string.settings_scoring_description),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
-                        /** Outlined button. */
                         OutlinedButton(
                             onClick = onNavigateToScoringConfig,
                             modifier = Modifier.fillMaxWidth(),
                         ) {
-                            /** Text. */
                             Text(stringResource(id = R.string.settings_action_configure_scoring))
                         }
                     }
                 }
             }
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_debug_title),
                 icon = Icons.Default.Info,
@@ -487,34 +421,27 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.DEBUG)
                 },
             ) {
-                /** Column. */
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    /** Row. */
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
                         Column {
-                            /** Text. */
                             Text(
                                 text = stringResource(id = R.string.settings_debug_enable),
                                 style = MaterialTheme.typography.bodyMedium,
                             )
-                            /** Text. */
                             Text(
                                 text = if (prefsState.debugLoggingEnabled) {
-                                    /** String resource. */
                                     stringResource(id = R.string.settings_debug_enabled_hint)
                                 } else {
-                                    /** String resource. */
                                     stringResource(id = R.string.settings_debug_disabled_hint)
                                 },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
-                        /** Switch. */
                         Switch(
                             checked = prefsState.debugLoggingEnabled,
                             onCheckedChange = { enabled ->
@@ -523,7 +450,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                             },
                         )
                     }
-                    /** Debug log export actions. */
                     DebugLogExportActions(
                         logger = logger,
                         scope = scope,
@@ -534,7 +460,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     )
                 }
             }
-            /** Settings card. */
             SettingsCard(
                 title = stringResource(id = R.string.settings_security_title),
                 icon = Icons.Default.Timer,
@@ -544,7 +469,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     expandedSection = expandedSection.toggle(SettingsSection.SECURITY)
                 },
             ) {
-                /** Database security preferences section. */
                 DatabaseSecurityPreferencesSection(
                     uiState = uiState,
                     context = context,
@@ -553,7 +477,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     onEnableBiometricRequested = viewModel::enableBiometricUnlockWithVerification,
                 )
             }
-            /** Database stats settings section. */
             DatabaseStatsSettingsSection(
                 expanded = expandedSection == SettingsSection.DATABASE,
                 onToggleExpanded = {
@@ -564,9 +487,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 onDeleteArtifact = viewModel::deleteDatabaseArtifact,
                 onCleanStaleArtifacts = viewModel::cleanStaleArtifacts,
             )
-            /** If. */
             if (FeatureFlags.minimalModeEnabled) {
-                /** Minimal data management section. */
                 MinimalDataManagementSection(
                     expanded = expandedSection == SettingsSection.DATA_MANAGEMENT,
                     onToggleExpanded = {
@@ -575,7 +496,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     },
                     onChangePassphraseClick = {
                         logger.d("SettingsScreen.dataActionTapped", "Data management action tapped", mapOf("action" to "change_passphrase"))
-                        /** On navigate to passphrase change. */
                         onNavigateToPassphraseChange()
                     },
                     onDeleteAllDataClick = {
@@ -586,7 +506,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     isImporting = uiState.isImporting,
                 )
             } else {
-                /** Data management settings section. */
                 DataManagementSettingsSection(
                     expanded = expandedSection == SettingsSection.DATA_MANAGEMENT,
                     onToggleExpanded = {
@@ -612,7 +531,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     },
                     onChangePassphraseClick = {
                         logger.d("SettingsScreen.dataActionTapped", "Data management action tapped", mapOf("action" to "change_passphrase"))
-                        /** On navigate to passphrase change. */
                         onNavigateToPassphraseChange()
                     },
                     onDeleteAllDataClick = {
@@ -621,7 +539,6 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     },
                 )
             }
-            /** About settings section. */
             AboutSettingsSection(
                 expanded = expandedSection == SettingsSection.ABOUT,
                 onToggleExpanded = {

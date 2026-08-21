@@ -10,15 +10,10 @@ import java.nio.file.Path
 
  */
 data class DesktopDatabaseSnapshot(
-    /** Database file path. */
     val databaseFilePath: String,
-    /** Has artifacts. */
     val hasArtifacts: Boolean,
-    /** Init completed. */
     val initCompleted: Boolean,
-    /** Database size kb. */
     val databaseSizeKb: Long,
-    /** Database last modified ms. */
     val databaseLastModifiedMs: Long,
 )
 

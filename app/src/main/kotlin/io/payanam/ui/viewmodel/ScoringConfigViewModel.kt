@@ -20,13 +20,9 @@ import javax.inject.Inject
  * UI state for Scoring Configuration screen.
  */
 data class ScoringConfigUiState(
-    /** Config. */
     val config: ScoringConfig = ScoringConfig.defaults(),
-    /** Is loading. */
     val isLoading: Boolean = true,
-    /** Is saving. */
     val isSaving: Boolean = false,
-    /** Has changes. */
     val hasChanges: Boolean = false,
 )
 
@@ -44,20 +40,17 @@ class ScoringConfigViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
 
     private val _uiState = MutableStateFlow(ScoringConfigUiState())
-    /** Ui state. */
     val uiState: StateFlow<ScoringConfigUiState> = _uiState.asStateFlow()
 
     private var originalConfig: ScoringConfig = ScoringConfig.defaults()
 
     init {
-        /** Load config. */
         loadConfig()
     }
 
     private fun loadConfig() {
         viewModelScope.launch {
             logger.d("ScoringConfigViewModel.loadConfig", "Loading scoring config")
-            /** Config. */
             val config = scoringConfigRepository.getConfig()
             originalConfig = config
             _uiState.value = _uiState.value.copy(
@@ -163,7 +156,6 @@ class ScoringConfigViewModel @Inject constructor(
      * Set dimension value.
      */
     fun setDimensionValue(dimensionId: String, value: Double) {
-        /** Canonical id. */
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: dimensionId
         updateConfig {
             it.copy(
@@ -176,7 +168,6 @@ class ScoringConfigViewModel @Inject constructor(
      * Set dimension value.
      */
     fun setDimensionValue(dimension: LifeDimension, value: Double) {
-        /** Set dimension value. */
         setDimensionValue(dimension.id, value)
     }
 
@@ -208,8 +199,6 @@ class ScoringConfigViewModel @Inject constructor(
         viewModelScope.launch {
             logger.i("ScoringConfigViewModel.resetToDefaults", "Resetting to defaults")
             scoringConfigRepository.resetToDefaults()
-
-            /** Defaults. */
             val defaults = ScoringConfig.defaults()
             originalConfig = defaults
             _uiState.value = _uiState.value.copy(
@@ -231,9 +220,7 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     private fun updateConfig(update: (ScoringConfig) -> ScoringConfig) {
-        /** New config. */
         val newConfig = update(_uiState.value.config)
-        /** Has changes. */
         val hasChanges = newConfig != originalConfig
         logger.d("ScoringConfigViewModel.updateConfig", "Config updated", mapOf("hasChanges" to hasChanges))
         _uiState.value = _uiState.value.copy(

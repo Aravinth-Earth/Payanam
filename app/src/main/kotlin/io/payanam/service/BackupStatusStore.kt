@@ -20,9 +20,7 @@ import javax.inject.Singleton
  * BackupFailureStatus.
  */
 data class BackupFailureStatus(
-    /** Message. */
     val message: String,
-    /** Recorded at display. */
     val recordedAtDisplay: String?,
 )
 
@@ -30,11 +28,8 @@ data class BackupFailureStatus(
  * BackupStatusSnapshot.
  */
 data class BackupStatusSnapshot(
-    /** Last success at millis. */
     val lastSuccessAtMillis: Long = 0L,
-    /** Last success display. */
     val lastSuccessDisplay: String? = null,
-    /** Latest failure. */
     val latestFailure: BackupFailureStatus? = null,
 )
 
@@ -48,16 +43,13 @@ class BackupStatusStore @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
     private val prefs = context.getSharedPreferences(BACKUP_META_PREFS, Context.MODE_PRIVATE)
     private val _status = MutableStateFlow(loadSnapshot())
-    /** Status. */
     val status: StateFlow<BackupStatusSnapshot> = _status.asStateFlow()
 
     /**
      * Record success.
      */
     fun recordSuccess(recordedAtMillis: Long) {
-        /** Effective millis. */
         val effectiveMillis = recordedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
-        /** Display timestamp. */
         val displayTimestamp = formatBackupTimestamp(effectiveMillis)
         prefs.edit()
             .putLong(KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, effectiveMillis)
@@ -70,7 +62,6 @@ class BackupStatusStore @Inject constructor(
         logger.i(
             "BackupStatusStore.recordSuccess",
             "Recorded backup success status",
-            /** Map of. */
             mapOf("recordedAt" to displayTimestamp),
         )
     }
@@ -79,9 +70,7 @@ class BackupStatusStore @Inject constructor(
      * Record failure.
      */
     fun recordFailure(message: String) {
-        /** Recorded at millis. */
         val recordedAtMillis = System.currentTimeMillis()
-        /** Display timestamp. */
         val displayTimestamp = formatBackupTimestamp(recordedAtMillis)
         prefs.edit()
             .putLong(KEY_LAST_BACKUP_FAILURE_AT_MILLIS, recordedAtMillis)
@@ -92,7 +81,6 @@ class BackupStatusStore @Inject constructor(
         logger.w(
             "BackupStatusStore.recordFailure",
             "Recorded backup failure status",
-            /** Map of. */
             mapOf("recordedAt" to displayTimestamp, "message" to message.take(200)),
         )
     }
@@ -118,19 +106,14 @@ class BackupStatusStore @Inject constructor(
     }
 
     private fun loadSnapshot(): BackupStatusSnapshot {
-        /** Success millis. */
         val successMillis = prefs.getLong(KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, 0L)
-        /** Success display. */
         val successDisplay = prefs.getString(KEY_LAST_BACKUP_SUCCESS_DISPLAY, null)
-        /** Failure message. */
         val failureMessage = prefs.getString(KEY_LAST_BACKUP_FAILURE_MESSAGE, null)?.takeIf { it.isNotBlank() }
-        /** Failure display. */
         val failureDisplay = prefs.getString(KEY_LAST_BACKUP_FAILURE_DISPLAY, null)
         return BackupStatusSnapshot(
             lastSuccessAtMillis = successMillis,
             lastSuccessDisplay = successDisplay,
             latestFailure = failureMessage?.let {
-                /** Backup failure status. */
                 BackupFailureStatus(
                     message = it,
                     recordedAtDisplay = failureDisplay,
@@ -140,21 +123,13 @@ class BackupStatusStore @Inject constructor(
     }
 
     companion object {
-        /** Backup meta prefs. */
         const val BACKUP_META_PREFS = "payanam_backup_meta"
-        /** Key backup rotation enabled. */
         const val KEY_BACKUP_ROTATION_ENABLED = "backup_rotation_enabled"
-        /** Key backup rotation count. */
         const val KEY_BACKUP_ROTATION_COUNT = "backup_rotation_count"
-        /** Key last backup success at millis. */
         const val KEY_LAST_BACKUP_SUCCESS_AT_MILLIS = "last_backup_success_at_millis"
-        /** Key last backup success display. */
         const val KEY_LAST_BACKUP_SUCCESS_DISPLAY = "last_backup_success_display"
-        /** Key last backup failure at millis. */
         const val KEY_LAST_BACKUP_FAILURE_AT_MILLIS = "last_backup_failure_at_millis"
-        /** Key last backup failure display. */
         const val KEY_LAST_BACKUP_FAILURE_DISPLAY = "last_backup_failure_display"
-        /** Key last backup failure message. */
         const val KEY_LAST_BACKUP_FAILURE_MESSAGE = "last_backup_failure_message"
 
         /**

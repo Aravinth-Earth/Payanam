@@ -28,7 +28,6 @@ import javax.inject.Singleton
  */
 class TaskRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : TaskRepository {
@@ -49,7 +48,6 @@ class TaskRepositoryImpl
                 logger.d(
                     "TaskRepositoryImpl.getTasksByStatus",
                     "Tasks emitted for status",
-                    /** Map of. */
                     mapOf("status" to status, "count" to entities.size),
                 )
                 entities.map { it.toDomain() }
@@ -62,7 +60,6 @@ class TaskRepositoryImpl
                 logger.d(
                     "TaskRepositoryImpl.getTasksDueOn",
                     "Tasks emitted for due date",
-                    /** Map of. */
                     mapOf("date" to date.toString(), "count" to entities.size),
                 )
                 entities.map { it.toDomain() }
@@ -70,9 +67,7 @@ class TaskRepositoryImpl
         }
 
         override suspend fun getTaskById(id: String): Task? {
-            /** Task. */
             val task =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .taskDao()
@@ -81,7 +76,6 @@ class TaskRepositoryImpl
             logger.d(
                 "TaskRepositoryImpl.getTaskById",
                 "Fetched task by id",
-                /** Map of. */
                 mapOf("id" to id, "found" to (task != null)),
             )
             return task
@@ -91,7 +85,6 @@ class TaskRepositoryImpl
             logger.i(
                 "TaskRepositoryImpl.createTask",
                 "Creating task",
-                /** Map of. */
                 mapOf(
                     "title" to input.title,
                     "status" to (input.status ?: "pending"),
@@ -100,29 +93,19 @@ class TaskRepositoryImpl
                     "recurrenceRule" to (input.recurrenceRule ?: "none"),
                 ),
             )
-
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Id. */
             val id = UUID.randomUUID().toString()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve dimension id. */
                 resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
-            /** Resolved dimension label. */
             val resolvedDimensionLabel =
-                /** Resolve dimension label. */
                 resolveDimensionLabel(
                     explicitLabel = input.lifeIntentionCategory,
                     resolvedDimensionId = resolvedDimensionId,
                 )
-
-            /** Task. */
             val task =
-                /** Task. */
                 Task(
                     id = id,
                     title = input.title,
@@ -152,12 +135,10 @@ class TaskRepositoryImpl
                 )
 
             sessionManager.requireDatabase().taskDao().insert(task.toEntity())
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(task.dueDate?.toLocalDate(), "task_created")
             logger.i(
                 "TaskRepositoryImpl.createTask",
                 "Task created successfully",
-                /** Map of. */
                 mapOf(
                     "id" to id,
                     "title" to task.title,
@@ -168,15 +149,12 @@ class TaskRepositoryImpl
 
         @Suppress("CyclomaticComplexMethod")
         override suspend fun updateTask(
-            /** Id. */
             id: String,
-            /** Input. */
             input: TaskInput,
         ): Task {
             logger.i(
                 "TaskRepositoryImpl.updateTask",
                 "Updating task",
-                /** Map of. */
                 mapOf(
                     "id" to id,
                     "title" to input.title,
@@ -184,27 +162,19 @@ class TaskRepositoryImpl
                     "hasDueDate" to (input.dueDate != null),
                 ),
             )
-            /** Existing. */
             val existing =
                 sessionManager.requireDatabase().taskDao().getTaskById(id)
                     ?: throw IllegalArgumentException("Task not found: $id")
-
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve dimension id. */
                 resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
-            /** Resolved dimension label. */
             val resolvedDimensionLabel =
                 input.lifeIntentionCategory
                     ?: resolvedDimensionId?.let { resolveDimensionLabel(null, it) }
                     ?: existing.lifeIntentionCategory
-
-            /** Updated. */
             val updated =
                 existing.copy(
                     title = input.title,
@@ -234,14 +204,11 @@ class TaskRepositoryImpl
                 )
 
             sessionManager.requireDatabase().taskDao().update(updated)
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(existing.dayKey?.let(LocalDate::parse), "task_updated_previous_day")
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(updated.dayKey?.let(LocalDate::parse), "task_updated_target_day")
             logger.i(
                 "TaskRepositoryImpl.updateTask",
                 "Task updated successfully",
-                /** Map of. */
                 mapOf("id" to id, "dimensionId" to (updated.dimensionId ?: "none")),
             )
             return updated.toDomain()
@@ -249,29 +216,24 @@ class TaskRepositoryImpl
 
         override suspend fun deleteTask(id: String) {
             logger.w("TaskRepositoryImpl.deleteTask", "Deleting task", mapOf("id" to id))
-            /** Existing. */
             val existing = sessionManager.requireDatabase().taskDao().getTaskById(id)
             sessionManager.requireDatabase().taskDao().deleteById(id)
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(existing?.dayKey?.let(LocalDate::parse), "task_deleted")
             logger.i("TaskRepositoryImpl.deleteTask", "Task deleted", mapOf("id" to id))
         }
 
         override suspend fun completeTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task {
             logger.i(
                 "TaskRepositoryImpl.completeTask",
                 "Completing task",
-                /** Map of. */
                 mapOf(
                     "id" to id,
                     "hasNote" to (note != null),
                 ),
             )
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateStatus(
                 id = id,
@@ -279,19 +241,16 @@ class TaskRepositoryImpl
                 completedAt = PersistedDateTime.format(now),
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task id. */
             markDirtyForTaskId(id, "task_completed")
             logger.i("TaskRepositoryImpl.completeTask", "Task marked as completed", mapOf("id" to id))
             return getTaskById(id)!!
         }
 
         override suspend fun skipTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task {
             logger.i("TaskRepositoryImpl.skipTask", "Skipping task", mapOf("id" to id, "hasNote" to (note != null)))
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateStatus(
                 id = id,
@@ -299,19 +258,16 @@ class TaskRepositoryImpl
                 completedAt = null,
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task id. */
             markDirtyForTaskId(id, "task_skipped")
             logger.i("TaskRepositoryImpl.skipTask", "Task marked as skipped", mapOf("id" to id))
             return getTaskById(id)!!
         }
 
         override suspend fun missTask(
-            /** Id. */
             id: String,
             note: String?,
         ): Task {
             logger.i("TaskRepositoryImpl.missTask", "Marking task as missed", mapOf("id" to id, "hasNote" to (note != null)))
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateStatus(
                 id = id,
@@ -319,7 +275,6 @@ class TaskRepositoryImpl
                 completedAt = null,
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task id. */
             markDirtyForTaskId(id, "task_missed")
             logger.i("TaskRepositoryImpl.missTask", "Task marked as missed", mapOf("id" to id))
             return getTaskById(id)!!
@@ -327,7 +282,6 @@ class TaskRepositoryImpl
 
         override suspend fun archiveTask(id: String): Task {
             logger.i("TaskRepositoryImpl.archiveTask", "Archiving task", mapOf("id" to id))
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateStatusWithArchive(
                 id = id,
@@ -335,37 +289,30 @@ class TaskRepositoryImpl
                 archivedAt = PersistedDateTime.format(now),
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task id. */
             markDirtyForTaskId(id, "task_archived")
             logger.i("TaskRepositoryImpl.archiveTask", "Task archived", mapOf("id" to id))
             return getTaskById(id)!!
         }
 
         override suspend fun updateTaskScore(
-            /** Id. */
             id: String,
-            /** Score. */
             score: Double,
         ) {
             logger.d(
                 "TaskRepositoryImpl.updateTaskScore",
                 "Updating task score",
-                /** Map of. */
                 mapOf("id" to id, "score" to String.format(Locale.getDefault(), "%.3f", score)),
             )
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateTaskScore(
                 id = id,
                 score = score,
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task id. */
             markDirtyForTaskId(id, "task_score_updated")
         }
 
         override fun getOverdueTasks(): Flow<List<Task>> {
-            /** Now. */
             val now = PersistedDateTime.format(LocalDateTime.now())
             return sessionManager.requireDatabase().taskDao().getOverdueTasks(now).map { entities ->
                 logger.d("TaskRepositoryImpl.getOverdueTasks", "Overdue tasks emitted", mapOf("count" to entities.size))
@@ -374,7 +321,6 @@ class TaskRepositoryImpl
         }
 
         override fun getTodaysTasks(): Flow<List<Task>> {
-            /** Today. */
             val today = LocalDate.now().format(dateFormatter)
             return sessionManager.requireDatabase().taskDao().getTodaysTasks(today).map { entities ->
                 logger.d("TaskRepositoryImpl.getTodaysTasks", "Today's tasks emitted", mapOf("count" to entities.size))
@@ -383,9 +329,7 @@ class TaskRepositoryImpl
         }
 
         override suspend fun getRecurringTasks(): List<Task> {
-            /** Tasks. */
             val tasks =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .taskDao()
@@ -396,14 +340,10 @@ class TaskRepositoryImpl
         }
 
         override suspend fun updateRecurrenceState(
-            /** Task id. */
             taskId: String,
-            /** New due date. */
             newDueDate: LocalDateTime,
-            /** Last occurrence date. */
             lastOccurrenceDate: LocalDateTime,
         ) {
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().taskDao().updateRecurrenceState(
                 id = taskId,
@@ -412,12 +352,10 @@ class TaskRepositoryImpl
                 lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
                 updatedAt = PersistedDateTime.format(now),
             )
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
                 "TaskRepositoryImpl.updateRecurrenceState",
                 "Recurrence state updated",
-                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "newDueDate" to newDueDate.toString(),
@@ -426,47 +364,36 @@ class TaskRepositoryImpl
         }
 
         private suspend fun markDirtyForTaskId(
-            /** Task id. */
             taskId: String,
-            /** Reason. */
             reason: String,
         ) {
-            /** Day. */
             val day =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .taskDao()
                     .getTaskById(taskId)
                     ?.dayKey
                     ?.let(LocalDate::parse)
-            /** Mark dirty for task day. */
             markDirtyForTaskDay(day, reason)
         }
 
         private suspend fun markDirtyForTaskDay(
             day: LocalDate?,
-            /** Reason. */
             reason: String,
         ) {
-            /** If. */
             if (day == null) {
                 logger.d(
                     "TaskRepositoryImpl.markDirtyForTaskDay",
                     "Dirty-mark skipped: task has no due day",
-                    /** Map of. */
                     mapOf("reason" to reason),
                 )
-                /** Return. */
                 return
             }
             logger.d(
                 "TaskRepositoryImpl.markDirtyForTaskDay",
                 "Marking daily insight dirty due to task mutation",
-                /** Map of. */
                 mapOf("day" to day.format(dateFormatter), "reason" to reason),
             )
-            /** Mark lens day dirty. */
             markLensDayDirty(
                 dailyInsightDao = sessionManager.requireDatabase().dailyInsightDao(),
                 logger = logger,
@@ -486,10 +413,8 @@ class TaskRepositoryImpl
                 logger.w(
                     "TaskRepositoryImpl.resolveDimensionId",
                     "Ignoring non-canonical task category label during dimension resolution",
-                    /** Map of. */
                     mapOf("categoryLabel" to label),
                 )
-                /** Null. */
                 null
             }
 

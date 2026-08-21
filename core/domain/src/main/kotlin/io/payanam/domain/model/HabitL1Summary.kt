@@ -7,7 +7,6 @@ package io.payanam.domain.model
  * Mirrors the 6 self-gov metrics carried by every metric row.
  */
 data class HabitL1Summary(
-    /** Habit id. */
     val habitId: String,
     override val dayKey: String,
     override val score: Double,

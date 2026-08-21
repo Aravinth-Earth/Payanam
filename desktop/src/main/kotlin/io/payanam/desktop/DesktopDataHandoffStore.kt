@@ -18,11 +18,8 @@ import java.util.zip.ZipOutputStream
 
  */
 data class DesktopDataHandoffSnapshot(
-    /** Export file path. */
     val exportFilePath: String,
-    /** Export completed. */
     val exportCompleted: Boolean,
-    /** Import completed. */
     val importCompleted: Boolean,
 )
 

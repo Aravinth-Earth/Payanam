@@ -40,28 +40,22 @@ internal object InsightsDimensionContract {
      * 3) canonical default if no explicit dimension is present
      */
     fun timeEntryDimensionId(
-        /** Entry. */
         entry: TimeEntry,
         taskById: Map<String, Task>,
     ): String {
-        /** Explicit dimension. */
         val explicitDimension = entry.dimensionId
-        /** If. */
         if (!explicitDimension.isNullOrBlank()) {
             return explicitDimension
         }
-        /** Task dimension. */
         val taskDimension = entry.taskId?.let { taskId ->
             taskById[taskId]?.let(::taskDimensionId)
         }
-        /** If. */
         if (!taskDimension.isNullOrBlank()) {
             return taskDimension
         }
         logger?.w(
             "InsightsDimensionContract.timeEntryDimensionId",
             "Missing canonical time-entry dimension; using default",
-            /** Map of. */
             mapOf(
                 "entryId" to entry.id,
                 "lifeIntentionCategory" to (entry.lifeIntentionCategory ?: "none"),

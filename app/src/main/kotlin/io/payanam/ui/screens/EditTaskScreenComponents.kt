@@ -40,43 +40,24 @@ import java.time.LocalDateTime
  * EditTaskInput.
  */
 data class EditTaskInput(
-    /** Title. */
     val title: String,
-    /** Description. */
     val description: String?,
-    /** Dimension id. */
     val dimensionId: String,
-    /** Dimension label. */
     val dimensionLabel: String,
-    /** Due date. */
     val dueDate: LocalDateTime?,
-    /** Impact level. */
     val impactLevel: String,
-    /** Goal alignment. */
     val goalAlignment: String,
-    /** Energy level. */
     val energyLevel: String,
-    /** Control level. */
     val controlLevel: String,
-    /** Duration minutes. */
     val durationMinutes: Int,
-    /** Recurrence enabled. */
     val recurrenceEnabled: Boolean,
-    /** Recurrence rule. */
     val recurrenceRule: String?,
-    /** Notification mode. */
     val notificationMode: String,
-    /** Custom notification minutes. */
     val customNotificationMinutes: Int?,
-    /** Explicit urgency. */
     val explicitUrgency: Double?,
-    /** Focus required. */
     val focusRequired: Double?,
-    /** Blocked reason. */
     val blockedReason: String?,
-    /** External dependency. */
     val externalDependency: String?,
-    /** Tags. */
     val tags: List<String> = emptyList(),
 )
 
@@ -97,27 +78,22 @@ internal fun resolveAlignmentIndex(level: String): Int = when (level) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun EditLifeDimensionDropdown(
-    /** Selected dimension id. */
     selectedDimensionId: String,
     options: List<DimensionOption>,
     onSelect: (DimensionOption) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-    /** Selected dimension. */
     val selectedDimension = options.firstOrNull { it.id == selectedDimensionId }
-    /** Exposed dropdown menu box. */
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
     ) {
-        /** Outlined text field. */
         OutlinedTextField(
             value = selectedDimension?.label ?: selectedDimensionId,
             onValueChange = {},
             readOnly = true,
             leadingIcon = {
                 selectedDimension?.let { dimension ->
-                    /** Dimension dropdown badge. */
                     DimensionDropdownBadge(
                         label = dimension.label,
                         color = dimension.color,
@@ -131,16 +107,13 @@ internal fun EditLifeDimensionDropdown(
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-        /** Exposed dropdown menu. */
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
         ) {
             options.forEach { dimension ->
-                /** Dropdown menu item. */
                 DropdownMenuItem(
                     text = {
-                        /** Dimension dropdown badge label row. */
                         DimensionDropdownBadgeLabelRow(
                             label = dimension.label,
                             color = dimension.color,
@@ -150,7 +123,6 @@ internal fun EditLifeDimensionDropdown(
                         )
                     },
                     onClick = {
-                        /** On select. */
                         onSelect(dimension)
                         expanded = false
                     },
@@ -163,26 +135,20 @@ internal fun EditLifeDimensionDropdown(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun EditScoringSegmentedRow(
-    /** Label. */
     label: String,
     options: List<String>,
-    /** Selected index. */
     selectedIndex: Int,
     onSelect: (Int) -> Unit,
 ) {
     Column {
-        /** Text. */
         Text(
             text = label,
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Spacer. */
         Spacer(modifier = Modifier.height(4.dp))
-        /** Single choice segmented button row. */
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, option ->
-                /** Segmented button. */
                 SegmentedButton(
                     shape = SegmentedButtonDefaults.itemShape(
                         index = index,
@@ -191,7 +157,6 @@ internal fun EditScoringSegmentedRow(
                     onClick = { onSelect(index) },
                     selected = index == selectedIndex,
                 ) {
-                    /** Text. */
                     Text(
                         text = option.split(" ").first(),
                         style = MaterialTheme.typography.labelSmall,
@@ -205,14 +170,11 @@ internal fun EditScoringSegmentedRow(
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun EditTimePickerDialog(
-    /** Initial hour. */
     initialHour: Int,
-    /** Initial minute. */
     initialMinute: Int,
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
-    /** Time picker state. */
     val timePickerState = rememberTimePickerState(
         initialHour = initialHour,
         initialMinute = initialMinute,
@@ -221,22 +183,17 @@ internal fun EditTimePickerDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_select_time)) },
         text = {
-            /** Time picker. */
             TimePicker(state = timePickerState)
         },
         confirmButton = {
-            /** Text button. */
             TextButton(
                 onClick = { onConfirm(timePickerState.hour, timePickerState.minute) },
             ) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_ok))
             }
         },
         dismissButton = {
-            /** Text button. */
             TextButton(onClick = onDismiss) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
             }
         },

@@ -79,22 +79,14 @@ fun AddTaskScreen(
     onTaskSaved: () -> Unit = {},
 ) {
     val tagSuggestions by viewModel.tagSuggestions.collectAsState()
-    /** Prefs. */
     val prefs = LocalAppPreferences.current
-    /** Dimension options. */
     val dimensionOptions = prefs.visibleDimensionOptions()
-    /** Snackbar host state. */
     val snackbarHostState = remember { SnackbarHostState() }
-    /** Scope. */
     val scope = rememberCoroutineScope()
-    /** Unknown error message. */
     val unknownErrorMessage = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_unknown_error_occurred)
-    /** Action failed placeholder. */
     val actionFailedPlaceholder = "__ACTION_FAILED_REASON__"
-    /** Action failed template. */
     val actionFailedTemplate = androidx.compose.ui.res.stringResource(
         id = io.payanam.R.string.loc_action_failed_with_reason,
-        /** Action failed placeholder. */
         actionFailedPlaceholder,
     )
     var title by remember { mutableStateOf("") }
@@ -102,17 +94,13 @@ fun AddTaskScreen(
     var selectedDimensionId by remember { mutableStateOf(dimensionOptions.firstOrNull()?.id.orEmpty()) }
     var selectedDimensionLabel by remember { mutableStateOf(dimensionOptions.firstOrNull()?.label.orEmpty()) }
     androidx.compose.runtime.LaunchedEffect(dimensionOptions, selectedDimensionId) {
-        /** If. */
         if (selectedDimensionId.isBlank()) {
-            /** First. */
             val first = dimensionOptions.firstOrNull() ?: return@LaunchedEffect
             selectedDimensionId = first.id
             selectedDimensionLabel = first.label
             return@LaunchedEffect
         }
-        /** If. */
         if (dimensionOptions.none { it.id == selectedDimensionId }) {
-            /** First. */
             val first = dimensionOptions.firstOrNull() ?: return@LaunchedEffect
             selectedDimensionId = first.id
             selectedDimensionLabel = first.label
@@ -145,62 +133,46 @@ fun AddTaskScreen(
     var blockedReason by remember { mutableStateOf("") }
     var externalDependency by remember { mutableStateOf("") }
     var tagsInput by remember { mutableStateOf("") }
-    /** Impact values. */
     val impactValues = listOf("Minimal Impact", "Moderate Impact", "Major Impact")
-    /** Alignment values. */
     val alignmentValues = listOf("Low Alignment", "Moderate Alignment", "High Alignment")
-    /** Energy values. */
     val energyValues = listOf("Low", "Moderate", "High")
-    /** Control values. */
     val controlValues = listOf("Full Control", "Mostly Controllable", "Office/Colleagues Dependent", "External Dependent")
-    /** Impact options. */
     val impactOptions = listOf(
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_minimal_impact),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_moderate_impact),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_major_impact),
     )
-    /** Alignment options. */
     val alignmentOptions = listOf(
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_low_alignment),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_moderate_alignment),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_high_alignment),
     )
-    /** Energy options. */
     val energyOptions = listOf(
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_low),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_moderate),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_high),
     )
-    /** Control options. */
     val controlOptions = listOf(
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_full_control),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_mostly_controllable),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_office_colleagues_dependent),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_external_dependent),
     )
-    /** Task type options. */
     val taskTypeOptions = listOf(
         false to androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_one_time),
         true to androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_recurring),
     )
-    /** Notification options. */
     val notificationOptions = listOf(
         "auto" to androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_auto),
         "custom" to androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_custom),
         "off" to androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_off),
     )
-    /** Date formatter. */
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
-    /** Time pattern. */
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
-    /** Time formatter. */
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
-    /** Scaffold. */
     Scaffold(
         snackbarHost = {
-            /** Snackbar host. */
             SnackbarHost(snackbarHostState) { data ->
-                /** Snackbar. */
                 Snackbar(
                     snackbarData = data,
                     containerColor = MaterialTheme.colorScheme.inverseSurface,
@@ -210,13 +182,10 @@ fun AddTaskScreen(
             }
         },
         topBar = {
-            /** Top app bar. */
             TopAppBar(
                 title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add_task)) },
                 navigationIcon = {
-                    /** Icon button. */
                     IconButton(onClick = onNavigateBack) {
-                        /** Icon. */
                         Icon(
                             imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_back),
@@ -226,7 +195,6 @@ fun AddTaskScreen(
             )
         },
     ) { padding ->
-        /** Column. */
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -235,7 +203,6 @@ fun AddTaskScreen(
                 .verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
-            /** Outlined text field. */
             OutlinedTextField(
                 value = title,
                 onValueChange = { title = it },
@@ -244,17 +211,13 @@ fun AddTaskScreen(
                 modifier = Modifier.fillMaxWidth(),
                 singleLine = true,
             )
-            /** If. */
             if (FeatureFlags.recurringTasksEnabled) {
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_type),
                     style = MaterialTheme.typography.labelLarge,
                 )
-                /** Single choice segmented button row. */
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     taskTypeOptions.forEachIndexed { index, option ->
-                        /** Segmented button. */
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(
                                 index = index,
@@ -262,10 +225,8 @@ fun AddTaskScreen(
                             ),
                             onClick = {
                                 recurrenceEnabled = option.first
-                                /** If. */
                                 if (recurrenceEnabled) {
                                     selectedDate = null
-                                    /** If. */
                                     if (selectedTime == null) {
                                         selectedTime = LocalTime.of(9, 0) // Default 9 AM for new recurring
                                     }
@@ -274,7 +235,6 @@ fun AddTaskScreen(
                             },
                             selected = recurrenceEnabled == option.first,
                         ) {
-                            /** Text. */
                             Text(
                                 text = option.second,
                                 style = MaterialTheme.typography.labelSmall,
@@ -282,38 +242,30 @@ fun AddTaskScreen(
                         }
                     }
                 }
-                /** If. */
                 if (recurrenceEnabled) {
-                    /** Row. */
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically,
                     ) {
-                        /** Column. */
                         Column(modifier = Modifier.weight(1f)) {
-                            /** Text. */
                             Text(
                                 text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_recurrence_pattern),
                                 style = MaterialTheme.typography.labelSmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
-                            /** Text. */
                             Text(
                                 text = recurrenceDisplayName,
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        /** Text button. */
                         TextButton(onClick = { showRecurrenceDialog = true }) {
-                            /** Text. */
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_change))
                         }
                     }
                 }
             }
-            /** Text. */
             Text(
                 text = if (recurrenceEnabled) {
                     androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_time_of_day)
@@ -322,35 +274,26 @@ fun AddTaskScreen(
                 },
                 style = MaterialTheme.typography.labelLarge,
             )
-            /** If. */
             if (recurrenceEnabled) {
-                /** Outlined button. */
                 OutlinedButton(
                     onClick = { showTimePicker = true },
                     modifier = Modifier.fillMaxWidth(),
                 ) {
-                    /** Text. */
                     Text(
                         text = selectedTime?.format(timeFormatter)
                             ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_select_time),
                     )
                 }
-                /** If. */
                 if (selectedTime != null) {
-                    /** Calculated first occurrence. */
                     val calculatedFirstOccurrence = run {
-                        /** Config. */
                         val config = RecurrenceConfig.parse(recurrenceRule)
-                        /** Next dates. */
                         val nextDates = config.getScheduledDatesInRange(
                             LocalDate.now(),
                             LocalDate.now().plusMonths(1),
                         )
                         nextDates.firstOrNull()?.atTime(selectedTime!!)
                     }
-                    /** If. */
                     if (calculatedFirstOccurrence != null) {
-                        /** Surface. */
                         Surface(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -358,18 +301,15 @@ fun AddTaskScreen(
                             color = MaterialTheme.colorScheme.surfaceVariant,
                             shape = RoundedCornerShape(8.dp),
                         ) {
-                            /** Column. */
                             Column(
                                 modifier = Modifier.padding(12.dp),
                                 verticalArrangement = Arrangement.spacedBy(4.dp),
                             ) {
-                                /** Text. */
                                 Text(
                                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_first_occurrence),
                                     style = MaterialTheme.typography.labelSmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
-                                /** Text. */
                                 Text(
                                     text = calculatedFirstOccurrence.format(
                                         DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
@@ -381,35 +321,29 @@ fun AddTaskScreen(
                     }
                 }
             } else {
-                /** Row. */
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = { showDatePicker = true },
                         modifier = Modifier.weight(1f),
                     ) {
-                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
                             contentDescription = null,
                             modifier = Modifier.padding(end = 8.dp),
                         )
-                        /** Text. */
                         Text(
                             text = selectedDate?.format(dateFormatter)
                                 ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_select_date),
                         )
                     }
-                    /** Outlined button. */
                     OutlinedButton(
                         onClick = { showTimePicker = true },
                         modifier = Modifier.weight(1f),
                         enabled = selectedDate != null,
                     ) {
-                        /** Text. */
                         Text(
                             text = selectedTime?.format(timeFormatter)
                                 ?: androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_select_time),
@@ -417,17 +351,13 @@ fun AddTaskScreen(
                     }
                 }
             }
-            /** If. */
             if (FeatureFlags.remindersEnabled) {
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_reminder_notifications),
                     style = MaterialTheme.typography.labelLarge,
                 )
-                /** Single choice segmented button row. */
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     notificationOptions.forEachIndexed { index, option ->
-                        /** Segmented button. */
                         SegmentedButton(
                             shape = SegmentedButtonDefaults.itemShape(
                                 index = index,
@@ -436,14 +366,11 @@ fun AddTaskScreen(
                             onClick = { notificationMode = option.first },
                             selected = notificationMode == option.first,
                         ) {
-                            /** Text. */
                             Text(text = option.second, style = MaterialTheme.typography.labelSmall)
                         }
                     }
                 }
-                /** If. */
                 if (notificationMode == "custom") {
-                    /** Outlined text field. */
                     OutlinedTextField(
                         value = customNotificationMinutes,
                         onValueChange = { value ->
@@ -457,7 +384,6 @@ fun AddTaskScreen(
                     )
                 }
             }
-            /** Outlined text field. */
             OutlinedTextField(
                 value = description,
                 onValueChange = { description = it },
@@ -467,12 +393,10 @@ fun AddTaskScreen(
                 minLines = 2,
                 maxLines = 4,
             )
-            /** Text. */
             Text(
                 text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_life_dimension),
                 style = MaterialTheme.typography.labelLarge,
             )
-            /** Life dimension dropdown. */
             LifeDimensionDropdown(
                 selectedDimensionId = selectedDimensionId,
                 options = dimensionOptions,
@@ -481,67 +405,56 @@ fun AddTaskScreen(
                     selectedDimensionLabel = it.label
                 },
             )
-            /** Text. */
             Text(
                 text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_estimated_duration),
                 style = MaterialTheme.typography.labelLarge,
             )
-            /** Duration minutes picker field. */
             DurationMinutesPickerField(
                 label = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_duration),
                 minutes = durationMinutes,
                 enabled = true,
                 onMinutesChange = { durationMinutes = it ?: 1 },
             )
-            /** If. */
             if (FeatureFlags.scoringEnabled) {
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_properties),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                /** Scoring segmented row. */
                 ScoringSegmentedRow(
                     label = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_impact),
                     options = impactOptions,
                     selectedIndex = impactIndex,
                     onSelect = { impactIndex = it },
                 )
-                /** Scoring segmented row. */
                 ScoringSegmentedRow(
                     label = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_goal_alignment),
                     options = alignmentOptions,
                     selectedIndex = alignmentIndex,
                     onSelect = { alignmentIndex = it },
                 )
-                /** Scoring segmented row. */
                 ScoringSegmentedRow(
                     label = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_energy_required),
                     options = energyOptions,
                     selectedIndex = energyIndex,
                     onSelect = { energyIndex = it },
                 )
-                /** Scoring segmented row. */
                 ScoringSegmentedRow(
                     label = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_control_level),
                     options = controlOptions.map { it.split(" ").first() }, // Shortened labels
                     selectedIndex = controlIndex,
                     onSelect = { controlIndex = it },
                 )
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_additional_properties),
                     style = MaterialTheme.typography.titleMedium,
                     modifier = Modifier.padding(top = 8.dp),
                 )
-                /** Text. */
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_optional_fields_note),
                     style = MaterialTheme.typography.labelSmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = explicitUrgency,
                     onValueChange = { value ->
@@ -554,7 +467,6 @@ fun AddTaskScreen(
                     singleLine = true,
                     supportingText = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_independent_of_due_date_leave_empty_to_skip)) },
                 )
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = focusRequired,
                     onValueChange = { value ->
@@ -567,7 +479,6 @@ fun AddTaskScreen(
                     singleLine = true,
                     supportingText = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_concentration_level_needed)) },
                 )
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = blockedReason,
                     onValueChange = { blockedReason = it },
@@ -577,7 +488,6 @@ fun AddTaskScreen(
                     singleLine = true,
                     supportingText = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_leave_empty_if_not_blocked)) },
                 )
-                /** Outlined text field. */
                 OutlinedTextField(
                     value = externalDependency,
                     onValueChange = { externalDependency = it },
@@ -588,40 +498,30 @@ fun AddTaskScreen(
                     supportingText = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_external_factors_or_people_this_depends_on)) },
                 )
             }
-            /** If. */
             if (FeatureFlags.tagsEnabled) {
-                /** Tag editor field. */
                 TagEditorField(
                     rawValue = tagsInput,
                     onValueChange = { tagsInput = it },
                     suggestions = tagSuggestions,
                 )
             }
-            /** Spacer. */
             Spacer(modifier = Modifier.height(16.dp))
-            /** Button. */
             Button(
                 onClick = {
-                    /** Due date time. */
                     val dueDateTime = if (selectedDate != null) {
                         LocalDateTime.of(selectedDate, selectedTime ?: LocalTime.MIDNIGHT)
                     } else {
-                        /** Null. */
                         null
                     }
-                    /** Custom minutes. */
                     val customMinutes = customNotificationMinutes.toIntOrNull()
-                    /** Normalized custom minutes. */
                     val normalizedCustomMinutes = if (notificationMode == "custom") {
                         customMinutes?.takeIf { it > 0 }
                     } else {
-                        /** Null. */
                         null
                     }
                     logger.i(
                         "AddTaskScreen.onSave",
                         "Saving task",
-                        /** Map of. */
                         mapOf(
                             "title" to title,
                             "recurrenceEnabled" to recurrenceEnabled,
@@ -653,10 +553,8 @@ fun AddTaskScreen(
                         tags = parseTagsInput(tagsInput),
                         onResult = { result ->
                             result.onSuccess {
-                                /** On task saved. */
                                 onTaskSaved()
                             }.onFailure { error ->
-                                /** Message. */
                                 val message = error.message ?: unknownErrorMessage
                                 scope.launch {
                                     snackbarHostState.showSnackbar(
@@ -670,34 +568,26 @@ fun AddTaskScreen(
                 modifier = Modifier.fillMaxWidth(),
                 enabled = title.isNotBlank() && selectedDimensionId.isNotBlank(),
             ) {
-                /** Text. */
                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_save_task))
             }
-            /** Spacer. */
             Spacer(modifier = Modifier.height(32.dp))
         }
-        /** If. */
         if (showRecurrenceDialog) {
-            /** Enhanced recurrence picker dialog. */
             EnhancedRecurrencePickerDialog(
                 currentRRule = recurrenceRule,
                 onRRuleSelected = { recurrenceRule = it },
                 onDismiss = { showRecurrenceDialog = false },
             )
         }
-        /** If. */
         if (showDatePicker) {
-            /** Date picker state. */
             val datePickerState = rememberDatePickerState(
                 initialSelectedDateMillis = selectedDate?.atStartOfDay(ZoneId.systemDefault())
                     ?.toInstant()?.toEpochMilli()
                     ?: System.currentTimeMillis(),
             )
-            /** Date picker dialog. */
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
                 confirmButton = {
-                    /** Text button. */
                     TextButton(
                         onClick = {
                             datePickerState.selectedDateMillis?.let { millis ->
@@ -708,25 +598,19 @@ fun AddTaskScreen(
                             showDatePicker = false
                         },
                     ) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_ok))
                     }
                 },
                 dismissButton = {
-                    /** Text button. */
                     TextButton(onClick = { showDatePicker = false }) {
-                        /** Text. */
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
                     }
                 },
             ) {
-                /** Date picker. */
                 DatePicker(state = datePickerState)
             }
         }
-        /** If. */
         if (showTimePicker) {
-            /** Time picker dialog. */
             TimePickerDialog(
                 onDismiss = { showTimePicker = false },
                 onConfirm = { hour, minute ->

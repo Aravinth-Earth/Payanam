@@ -17,9 +17,7 @@ import java.util.UUID
 
  */
 data class DesktopNotesState(
-    /** Snapshot. */
     val snapshot: DesktopNotesSnapshot,
-    /** Error message. */
     val errorMessage: String? = null,
 )
 

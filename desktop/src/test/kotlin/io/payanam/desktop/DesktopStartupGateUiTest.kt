@@ -24,7 +24,6 @@ class DesktopStartupGateUiTest {
 
     @Test
     fun `startup gate renders setup mode and forwards configured passphrase`() {
-        /** Configured passphrase. */
         var configuredPassphrase: String? = null
         composeRule.setContent {
             MaterialTheme(colors = desktopColorPalette().materialColors) {
@@ -122,7 +121,6 @@ class DesktopStartupGateUiTest {
 
     @Test
     fun `setup gate blocks submit when confirmation does not match`() {
-        /** Configured passphrase. */
         var configuredPassphrase: String? = null
         composeRule.setContent {
             MaterialTheme(colors = desktopColorPalette().materialColors) {

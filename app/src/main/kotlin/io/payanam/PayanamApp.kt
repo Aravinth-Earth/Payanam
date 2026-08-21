@@ -33,12 +33,10 @@ class PayanamApp : Application() {
         super.onCreate()
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
-        /** Logger. */
         val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
         logger.i(
             "PayanamApp.onCreate",
             "Application starting",
-            /** Map of. */
             mapOf(
                 "versionName" to BuildConfig.VERSION_NAME,
                 "versionCode" to BuildConfig.VERSION_CODE,
@@ -47,19 +45,14 @@ class PayanamApp : Application() {
         )
 
         // Initialize Timber logging for dev
-        /** If. */
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-
-        /** Log previous process exit reason. */
         logPreviousProcessExitReason(logger)
         CrashSafeBreadcrumbs.dumpToLoggerAndClear(this, "PayanamApp.onCreate")
-        /** Install global crash logging. */
         installGlobalCrashLogging(logger)
 
         // Create notification channels
-        /** Create notification channels. */
         createNotificationChannels()
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
 
@@ -68,9 +61,7 @@ class PayanamApp : Application() {
         // there would eagerly build the DB-session chain before the crash
         // handler is installed; a failure would crash with no log export).
         try {
-            /** Checker. */
             val checker = EntryPointAccessors.fromApplication(
-                /** This. */
                 this,
                 AppStartUpdateCheckerEntryPoint::class.java,
             ).appStartUpdateChecker()
@@ -93,7 +84,6 @@ class PayanamApp : Application() {
     }
 
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {
-        /** Previous handler. */
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
             logger.eSync(
@@ -112,7 +102,6 @@ class PayanamApp : Application() {
             // Documents/payanam[-debug]/exported-logs/ so it is reachable via the
             // Files app even when the app itself cannot start (crash loop).
             // Best-effort on a separate thread with a hard cap; never blocks.
-            /** Export thread. */
             val exportThread = Thread {
                 try {
                     // Explicit final flush so the crash line (eSync above) and
@@ -136,7 +125,6 @@ class PayanamApp : Application() {
         logger.i(
             "PayanamApp.installGlobalCrashLogging",
             "Installed default uncaught exception handler",
-            /** Map of. */
             mapOf("hasPreviousHandler" to (previousHandler != null)),
         )
     }
@@ -147,18 +135,13 @@ class PayanamApp : Application() {
      */
     private fun logPreviousProcessExitReason(logger: UnifiedLogger) {
         // Check sentinel written by DatabaseSessionManager before inactivity kill
-        /** Prefs. */
         val prefs = getSharedPreferences(PREFS_PROCESS_LIFECYCLE, Context.MODE_PRIVATE)
-        /** Last exit reason. */
         val lastExitReason = prefs.getString(KEY_LAST_EXIT_REASON, null)
-        /** Last exit ts. */
         val lastExitTs = prefs.getLong(KEY_LAST_EXIT_TIMESTAMP, 0L)
-        /** If. */
         if (lastExitReason != null) {
             logger.i(
                 "PayanamApp.processRestart",
                 "Previous process exit was app-initiated",
-                /** Map of. */
                 mapOf(
                     "reason" to lastExitReason,
                     "exitTimestamp" to lastExitTs,
@@ -168,20 +151,14 @@ class PayanamApp : Application() {
         }
 
         // System-level exit reasons (API 30+)
-        /** If. */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            /** Am. */
             val am = getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
-            /** Reasons. */
             val reasons = am.getHistoricalProcessExitReasons(packageName, 0, 3)
-            /** If. */
             if (reasons.isNotEmpty()) {
-                /** For. */
                 for (info in reasons) {
                     logger.i(
                         "PayanamApp.processRestart",
                         "System process exit record",
-                        /** Map of. */
                         mapOf(
                             "reason" to info.reason,
                             "reasonDescription" to describeExitReason(info.reason),
@@ -199,7 +176,6 @@ class PayanamApp : Application() {
     }
 
     private fun describeExitReason(reason: Int): String {
-        /** If. */
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) return "unknown"
         return when (reason) {
             ApplicationExitInfo.REASON_EXIT_SELF -> "EXIT_SELF"
@@ -220,68 +196,48 @@ class PayanamApp : Application() {
     }
 
     private fun createNotificationChannels() {
-        /** Logger. */
         val logger = UnifiedLogger.getInstance()
         logger.d("PayanamApp.createNotificationChannels", "Creating notification channels")
-
-        /** If. */
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            /** Notification manager. */
             val notificationManager = getSystemService(NotificationManager::class.java)
 
             // Time Tracking channel (ongoing, low priority - no sound)
-            /** Tracking channel. */
             val trackingChannel = NotificationChannel(
-                /** Channel tracking. */
                 CHANNEL_TRACKING,
-                /** Get string. */
                 getString(R.string.notification_channel_tracking),
                 NotificationManager.IMPORTANCE_LOW,
             ).apply {
                 description = getString(R.string.tracking_notification_channel_description)
-                /** Set show badge. */
                 setShowBadge(false)
             }
 
             // Task Reminders channel (higher priority for due dates)
-            /** Reminders channel. */
             val remindersChannel = NotificationChannel(
-                /** Channel task reminders. */
                 CHANNEL_TASK_REMINDERS,
-                /** Get string. */
                 getString(R.string.notification_channel_reminders),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = getString(R.string.task_reminders_channel_description)
-                /** Enable vibration. */
                 enableVibration(true)
             }
 
             // Habit Tracking channel (recurring tasks)
-            /** Habit channel. */
             val habitChannel = NotificationChannel(
-                /** Channel habit tracking. */
                 CHANNEL_HABIT_TRACKING,
-                /** Get string. */
                 getString(R.string.notification_channel_habits),
                 NotificationManager.IMPORTANCE_DEFAULT,
             ).apply {
                 description = getString(R.string.habit_tracking_channel_description)
-                /** Enable vibration. */
                 enableVibration(true)
             }
 
             // Missed Tasks channel (alerts when overdue)
-            /** Missed channel. */
             val missedChannel = NotificationChannel(
-                /** Channel missed tasks. */
                 CHANNEL_MISSED_TASKS,
-                /** Get string. */
                 getString(R.string.notification_channel_missed),
                 NotificationManager.IMPORTANCE_HIGH,
             ).apply {
                 description = getString(R.string.missed_tasks_channel_description)
-                /** Enable vibration. */
                 enableVibration(true)
             }
 
@@ -293,7 +249,6 @@ class PayanamApp : Application() {
             logger.i(
                 "PayanamApp.createNotificationChannels",
                 "Channels created successfully",
-                /** Map of. */
                 mapOf(
                     "tracking" to CHANNEL_TRACKING,
                     "reminders" to CHANNEL_TASK_REMINDERS,
@@ -307,19 +262,12 @@ class PayanamApp : Application() {
     }
 
     companion object {
-        /** Channel tracking. */
         const val CHANNEL_TRACKING = "tracking_channel"
-        /** Channel task reminders. */
         const val CHANNEL_TASK_REMINDERS = "task_reminders"
-        /** Channel habit tracking. */
         const val CHANNEL_HABIT_TRACKING = "habit_tracking"
-        /** Channel missed tasks. */
         const val CHANNEL_MISSED_TASKS = "missed_tasks"
-        /** Prefs process lifecycle. */
         const val PREFS_PROCESS_LIFECYCLE = "payanam_process_lifecycle"
-        /** Key last exit reason. */
         const val KEY_LAST_EXIT_REASON = "last_exit_reason"
-        /** Key last exit timestamp. */
         const val KEY_LAST_EXIT_TIMESTAMP = "last_exit_timestamp"
     }
 }

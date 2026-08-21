@@ -29,10 +29,8 @@ class TaskDaoTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -55,17 +53,11 @@ class TaskDaoTest {
      */
     fun insert_and_getTaskById() =
         runBlocking {
-            /** Task. */
             val task = createTestTask("task-1", "Test Task")
             taskDao.insert(task)
-
-            /** Retrieved. */
             val retrieved = taskDao.getTaskById("task-1")
-            /** Assert that. */
             assertThat(retrieved).isNotNull()
-            /** Assert that. */
             assertThat(retrieved?.id).isEqualTo("task-1")
-            /** Assert that. */
             assertThat(retrieved?.title).isEqualTo("Test Task")
         }
 
@@ -75,19 +67,13 @@ class TaskDaoTest {
      */
     fun getAllTasks_returnsArchivedAndNonArchivedTasks() {
         runBlocking {
-            /** Active task. */
             val activeTask = createTestTask("task-1", "Active", status = "pending")
-            /** Archived task. */
             val archivedTask = createTestTask("task-2", "Archived", status = "archived")
 
             taskDao.insert(activeTask)
             taskDao.insert(archivedTask)
-
-            /** Tasks. */
             val tasks = taskDao.getAllTasks().first()
-            /** Assert that. */
             assertThat(tasks).hasSize(2)
-            /** Assert that. */
             assertThat(tasks.map { it.id }).containsExactly("task-1", "task-2")
         }
     }
@@ -98,19 +84,13 @@ class TaskDaoTest {
      */
     fun getTasksByStatus_filtersCorrectly() =
         runBlocking {
-            /** Pending task. */
             val pendingTask = createTestTask("task-1", "Pending", status = "pending")
-            /** Completed task. */
             val completedTask = createTestTask("task-2", "Completed", status = "completed")
 
             taskDao.insert(pendingTask)
             taskDao.insert(completedTask)
-
-            /** Pending tasks. */
             val pendingTasks = taskDao.getTasksByStatus("pending").first()
-            /** Assert that. */
             assertThat(pendingTasks).hasSize(1)
-            /** Assert that. */
             assertThat(pendingTasks[0].status).isEqualTo("pending")
         }
 
@@ -120,17 +100,12 @@ class TaskDaoTest {
      */
     fun updateStatus_updatesCorrectly() =
         runBlocking {
-            /** Task. */
             val task = createTestTask("task-1", "Test")
             taskDao.insert(task)
 
             taskDao.updateStatus("task-1", "completed", "2026-02-02T10:00:00Z", "2026-02-02T10:00:00Z")
-
-            /** Updated. */
             val updated = taskDao.getTaskById("task-1")
-            /** Assert that. */
             assertThat(updated?.status).isEqualTo("completed")
-            /** Assert that. */
             assertThat(updated?.completedAt).isEqualTo("2026-02-02T10:00:00Z")
         }
 
@@ -140,15 +115,11 @@ class TaskDaoTest {
      */
     fun delete_removesTask() =
         runBlocking {
-            /** Task. */
             val task = createTestTask("task-1", "Test")
             taskDao.insert(task)
 
             taskDao.delete(task)
-
-            /** Retrieved. */
             val retrieved = taskDao.getTaskById("task-1")
-            /** Assert that. */
             assertThat(retrieved).isNull()
         }
 
@@ -158,24 +129,17 @@ class TaskDaoTest {
      */
     fun getTodaysTasks_includesDueTodayAndRecurring() =
         runBlocking {
-            /** Due today. */
             val dueToday = createTestTask("task-1", "Due Today", dueDate = "2026-02-02T10:00:00Z")
-            /** Recurring. */
             val recurring = createTestTask("task-2", "Recurring", recurrenceEnabled = 1)
 
             taskDao.insert(dueToday)
             taskDao.insert(recurring)
-
-            /** Todays tasks. */
             val todaysTasks = taskDao.getTodaysTasks("2026-02-02").first()
-            /** Assert that. */
             assertThat(todaysTasks).hasSize(2)
         }
 
     private fun createTestTask(
-        /** Id. */
         id: String,
-        /** Title. */
         title: String,
         status: String = "pending",
         dueDate: String? = null,

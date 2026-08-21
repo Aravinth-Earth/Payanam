@@ -92,7 +92,6 @@ interface TaskRepository {
      * Sets new due date and records last occurrence (Inc 4b: decay score removed).
      */
     suspend fun updateRecurrenceState(
-        /** Task id. */
         taskId: String,
         newDueDate: java.time.LocalDateTime,
         lastOccurrenceDate: java.time.LocalDateTime

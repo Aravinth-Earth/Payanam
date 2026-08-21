@@ -17,15 +17,10 @@ internal object RecurrenceConfigCodec {
      * Parse.
      */
     fun parse(rule: String?): RecurrenceConfig {
-        /** If. */
         if (rule.isNullOrBlank()) return daily(startDate = null)
-
-        /** If. */
         if (rule.startsWith("CONFIG:")) {
             return parseConfig(rule.removePrefix("CONFIG:"))
         }
-
-        /** If. */
         if (Frequency.isSerializedRule(rule)) {
             return parseFrequencyRule(rule)
         }
@@ -100,36 +95,23 @@ internal object RecurrenceConfigCodec {
     )
 
     private fun parseConfig(config: String): RecurrenceConfig {
-        /** Parts. */
         val parts = config.split("|").associate { part ->
-            /** Kv. */
             val kv = part.split("=", limit = 2)
-            /** If. */
             if (kv.size == 2) kv[0] to kv[1] else kv[0] to ""
         }
-
-        /** Type. */
         val type = RecurrenceType.valueOf(parts["type"] ?: "DAILY")
-        /** Weekdays. */
         val weekdays = parts["weekdays"]?.split(",")
             ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
-        /** Monthly dates. */
         val monthlyDates = parts["monthlyDates"]?.split(",")
             ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
-        /** Interval. */
         val interval = parts["interval"]?.toIntOrNull() ?: 1
-        /** Freq. */
         val freq = parts["freq"]?.split("/")
-        /** Freq num. */
         val freqNum = freq?.getOrNull(0)?.toIntOrNull() ?: 1
-        /** Freq den. */
         val freqDen = freq?.getOrNull(1)?.toIntOrNull() ?: 1
-        /** Start date. */
         val startDate = parts["start"]?.let {
             try {
                 LocalDate.parse(it)
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) { // detekt:ignore:TooGenericExceptionCaught
-                /** Null. */
                 null
             }
         }
@@ -146,7 +128,6 @@ internal object RecurrenceConfigCodec {
     }
 
     private fun parseFrequencyRule(rule: String): RecurrenceConfig {
-        /** Frequency. */
         val frequency = Frequency.parse(rule)
         return RecurrenceConfig(
             type = RecurrenceType.FREQUENCY,
@@ -157,28 +138,18 @@ internal object RecurrenceConfigCodec {
     }
 
     private fun parseRRule(rrule: String): RecurrenceConfig {
-        /** Parts. */
         val parts = rrule.uppercase().split(";").associate { part ->
-            /** Kv. */
             val kv = part.split("=", limit = 2)
-            /** If. */
             if (kv.size == 2) kv[0] to kv[1] else kv[0] to ""
         }
-
-        /** Freq. */
         val freq = parts["FREQ"] ?: "DAILY"
-        /** Interval. */
         val interval = parts["INTERVAL"]?.toIntOrNull() ?: 1
-        /** By day. */
         val byDay = parts["BYDAY"]
-        /** By month day. */
         val byMonthDay = parts["BYMONTHDAY"]
 
         return when {
             byMonthDay != null -> {
-                /** Dates. */
                 val dates = byMonthDay.split(",").mapNotNull { it.toIntOrNull() }.toSet()
-                /** Recurrence config. */
                 RecurrenceConfig(
                     type = RecurrenceType.MONTHLY_DATES,
                     monthlyDates = dates
@@ -186,9 +157,7 @@ internal object RecurrenceConfigCodec {
             }
 
             byDay != null -> {
-                /** Weekdays. */
                 val weekdays = byDay.split(",").mapNotNull { day ->
-                    /** When. */
                     when (day.trim()) {
                         "MO" -> 1
                         "TU" -> 2
@@ -200,12 +169,9 @@ internal object RecurrenceConfigCodec {
                         else -> null
                     }
                 }.toSet()
-                /** If. */
                 if (weekdays == setOf(1, 2, 3, 4, 5)) {
-                    /** Recurrence config. */
                     RecurrenceConfig(type = RecurrenceType.WEEKDAYS_ONLY)
                 } else {
-                    /** Recurrence config. */
                     RecurrenceConfig(
                         type = RecurrenceType.SPECIFIC_WEEKDAYS,
                         weekdays = weekdays

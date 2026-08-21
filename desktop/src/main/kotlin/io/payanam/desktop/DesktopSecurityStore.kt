@@ -22,13 +22,9 @@ private const val PBKDF2_KEY_LENGTH = 256
 
  */
 data class DesktopSecuritySnapshot(
-    /** Schema version. */
     val schemaVersion: Int = DESKTOP_SECURITY_SCHEMA_VERSION,
-    /** Has passphrase configured. */
     val hasPassphraseConfigured: Boolean = false,
-    /** Failed unlock attempts. */
     val failedUnlockAttempts: Int = 0,
-    /** Locked until epoch millis. */
     val lockedUntilEpochMillis: Long? = null,
 )
 
@@ -43,7 +39,6 @@ sealed interface DesktopPassphraseActionResult {
     
      */
     data class ValidationFailed(
-        /** Reason code. */
         val reasonCode: String,
     ) : DesktopPassphraseActionResult
 
@@ -52,9 +47,7 @@ sealed interface DesktopPassphraseActionResult {
     
      */
     data class UnlockFailed(
-        /** Failed attempts. */
         val failedAttempts: Int,
-        /** Lockout seconds remaining. */
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
 
@@ -63,7 +56,6 @@ sealed interface DesktopPassphraseActionResult {
     
      */
     data class Locked(
-        /** Lockout seconds remaining. */
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
 }

@@ -11,9 +11,7 @@ import androidx.compose.ui.graphics.Color
 
 internal object DesktopTheme {
     internal data class Palette(
-        /** Material colors. */
         val materialColors: Colors,
-        /** Background. */
         val background: Color,
     )
 

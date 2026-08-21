@@ -17,42 +17,26 @@ import kotlinx.serialization.json.jsonPrimitive
  * BackupJsonContract.
  */
 object BackupJsonContract {
-    /** S c h e m a  v e r s i o n. */
     const val SCHEMA_VERSION = 1
-    /** S c h e m a  v e r s i o n  k e y. */
     const val SCHEMA_VERSION_KEY = "schemaVersion"
-    /** E x p o r t e d  a t  k e y. */
     const val EXPORTED_AT_KEY = "exportedAt"
-    /** M o d u l e s  k e y. */
     const val MODULES_KEY = "modules"
-    /** T a s k s  k e y. */
     const val TASKS_KEY = "tasks"
-    /** T a s k  o c c u r r e n c e s  k e y. */
     const val TASK_OCCURRENCES_KEY = "taskOccurrences"
-    /** T a s k  r e s c h e d u l e s  k e y. */
     const val TASK_RESCHEDULES_KEY = "taskReschedules"
-    /** T i m e  e n t r i e s  k e y. */
     const val TIME_ENTRIES_KEY = "timeEntries"
-    /** N o t e s  k e y. */
     const val NOTES_KEY = "notes"
-    /** D a y  j o u r n a l  e n t r i e s  k e y. */
     const val DAY_JOURNAL_ENTRIES_KEY = "dayJournalEntries"
-    /** D a y  j o u r n a l  r e s p o n s e s  k e y. */
     const val DAY_JOURNAL_RESPONSES_KEY = "dayJournalResponses"
-    /** J o u r n a l  n o t e s  k e y. */
     const val JOURNAL_NOTES_KEY = "journalNotes"
 
     private val reservedRootKeys = setOf(
-        /** S c h e m a  v e r s i o n  k e y. */
         SCHEMA_VERSION_KEY,
-        /** E x p o r t e d  a t  k e y. */
         EXPORTED_AT_KEY,
-        /** M o d u l e s  k e y. */
         MODULES_KEY
     )
 
     internal fun legacyModulesRoot(root: JsonObject): JsonObject =
-        /** Json object. */
         JsonObject(root.filterKeys { it !in reservedRootKeys })
 }
 
@@ -63,9 +47,7 @@ object BackupJsonContract {
  * ImportMode.
  */
 enum class ImportMode  {
-    /** Replace. */
     REPLACE,
-    /** Merge. */
     MERGE,
 }
 
@@ -75,11 +57,8 @@ enum class ImportMode  {
 
  */
 data class DataModuleSelection(
-    /** Tasks. */
     val tasks: Boolean = true,
-    /** Time entries. */
     val timeEntries: Boolean = true,
-    /** Notes. */
     val notes: Boolean = true
 ) {
     /**
@@ -95,28 +74,20 @@ data class DataModuleSelection(
  */
 data class BackupModulePayloads(
     @SerialName(BackupJsonContract.TASKS_KEY)
-    /** Tasks. */
     val tasks: JsonArray? = null,
     @SerialName(BackupJsonContract.TASK_OCCURRENCES_KEY)
-    /** Task occurrences. */
     val taskOccurrences: JsonArray? = null,
     @SerialName(BackupJsonContract.TASK_RESCHEDULES_KEY)
-    /** Task reschedules. */
     val taskReschedules: JsonArray? = null,
     @SerialName(BackupJsonContract.TIME_ENTRIES_KEY)
-    /** Time entries. */
     val timeEntries: JsonArray? = null,
     @SerialName(BackupJsonContract.NOTES_KEY)
-    /** Notes. */
     val notes: JsonArray? = null,
     @SerialName(BackupJsonContract.DAY_JOURNAL_ENTRIES_KEY)
-    /** Day journal entries. */
     val dayJournalEntries: JsonArray? = null,
     @SerialName(BackupJsonContract.DAY_JOURNAL_RESPONSES_KEY)
-    /** Day journal responses. */
     val dayJournalResponses: JsonArray? = null,
     @SerialName(BackupJsonContract.JOURNAL_NOTES_KEY)
-    /** Journal notes. */
     val journalNotes: JsonArray? = null
 )
 
@@ -127,13 +98,10 @@ data class BackupModulePayloads(
  */
 data class BackupPayloadEnvelope(
     @SerialName(BackupJsonContract.SCHEMA_VERSION_KEY)
-    /** Schema version. */
     val schemaVersion: Int = BackupJsonContract.SCHEMA_VERSION,
     @SerialName(BackupJsonContract.EXPORTED_AT_KEY)
-    /** Exported at. */
     val exportedAt: String? = null,
     @SerialName(BackupJsonContract.MODULES_KEY)
-    /** Modules. */
     val modules: BackupModulePayloads = BackupModulePayloads()
 )
 

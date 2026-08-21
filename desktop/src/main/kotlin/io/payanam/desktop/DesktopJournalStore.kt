@@ -16,13 +16,9 @@ import java.time.LocalDateTime
 
  */
 data class DesktopJournalState(
-    /** Snapshot. */
     val snapshot: JournalSnapshot,
-    /** Selected date iso. */
     val selectedDateIso: String,
-    /** Last saved date iso. */
     val lastSavedDateIso: String? = null,
-    /** Error message. */
     val errorMessage: String? = null,
 )
 

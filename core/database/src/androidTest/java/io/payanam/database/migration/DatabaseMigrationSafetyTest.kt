@@ -30,7 +30,6 @@ class DatabaseMigrationSafetyTest {
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "android-test", 0)
         }
@@ -44,16 +43,12 @@ class DatabaseMigrationSafetyTest {
         logger.i(
             "DatabaseMigrationSafetyTest.supported_schema_floor_is_locked_to_closed_beta_baseline",
             "Validating schema floor",
-            /** Map of. */
             mapOf(
                 "minimumSupported" to DatabaseHealthChecker.MIN_MIGRATABLE_VERSION,
                 "currentSchema" to PAYANAM_DATABASE_SCHEMA_VERSION,
             ),
         )
-
-        /** Assert that. */
         assertThat(DatabaseHealthChecker.MIN_MIGRATABLE_VERSION).isEqualTo(16)
-        /** Assert that. */
         assertThat(PAYANAM_DATABASE_SCHEMA_VERSION).isAtLeast(DatabaseHealthChecker.MIN_MIGRATABLE_VERSION)
     }
 
@@ -62,20 +57,14 @@ class DatabaseMigrationSafetyTest {
      * Only supported schema snapshot is retained for current release.
      */
     fun only_supported_schema_snapshot_is_retained_for_current_release() {
-        /** Schema asset path. */
         val schemaAssetPath = "$SCHEMA_ASSET_DIR/${PAYANAM_DATABASE_SCHEMA_VERSION}.json"
         context.assets.open(schemaAssetPath).use { stream ->
-            /** Assert that. */
             assertThat(stream.available()).isGreaterThan(0)
         }
-
-        /** Unsupported snapshot. */
         val unsupportedSnapshot =
             runCatching {
                 context.assets.open("$SCHEMA_ASSET_DIR/15.json").close()
             }
-
-        /** Assert that. */
         assertThat(unsupportedSnapshot.isFailure).isTrue()
     }
 

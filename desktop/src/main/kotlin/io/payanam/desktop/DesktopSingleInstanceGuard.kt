@@ -23,7 +23,6 @@ internal sealed interface DesktopSingleInstanceAcquireResult {
     
      */
     data class Acquired(
-        /** Lease. */
         val lease: DesktopSingleInstanceLease,
     ) : DesktopSingleInstanceAcquireResult
 
@@ -32,30 +31,21 @@ internal sealed interface DesktopSingleInstanceAcquireResult {
     
      */
     data class AlreadyRunning(
-        /** Details. */
         val details: DesktopRunningInstanceDetails,
     ) : DesktopSingleInstanceAcquireResult
 }
 
 internal data class DesktopRunningInstanceDetails(
-    /** Process id. */
     val processId: Long?,
-    /** Build name. */
     val buildName: String?,
-    /** Version display name. */
     val versionDisplayName: String?,
-    /** Acquired at. */
     val acquiredAt: String?,
-    /** Log file path. */
     val logFilePath: String?,
-    /** Executable path. */
     val executablePath: String?,
 )
 
 internal data class DesktopProcessInfo(
-    /** Executable path. */
     val executablePath: String?,
-    /** Started at. */
     val startedAt: String?,
 )
 

@@ -291,9 +291,7 @@ private fun desktopJournalPromptFields(
 }
 
 private data class DesktopJournalDimensionOption(
-    /** Id. */
     val id: String,
-    /** Label. */
     val label: String,
 )
 

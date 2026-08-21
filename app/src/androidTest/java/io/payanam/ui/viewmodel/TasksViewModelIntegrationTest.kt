@@ -41,7 +41,6 @@ import java.time.LocalDateTime
 class TasksViewModelIntegrationTest {
 
     @get:Rule
-    /** Instant task executor rule. */
     val instantTaskExecutorRule = InstantTaskExecutorRule()
 
     private val testDispatcher = StandardTestDispatcher()
@@ -101,15 +100,10 @@ class TasksViewModelIntegrationTest {
         // When - ViewModel is created
         // Then - should have default state
         viewModel.uiState.test {
-            /** Initial state. */
             val initialState = awaitItem()
-            /** Assert that. */
             assertThat(initialState.tasks).isEmpty()
-            /** Assert that. */
             assertThat(initialState.currentFilter).isEqualTo(TaskFilter.ACTIVE)
-            /** Assert that. */
             assertThat(initialState.currentSort).isEqualTo(TaskSortOption.SCORE_DESC)
-            /** Assert that. */
             assertThat(initialState.isLoading).isFalse()
         }
     }
@@ -120,17 +114,13 @@ class TasksViewModelIntegrationTest {
      */
     fun loadTasks_updatesStateWithRepositoryData() = runTest {
         // Given
-        /** Test tasks. */
         val testTasks = listOf(
-            /** Create test task. */
             createTestTask("task-1", "Task 1"),
-            /** Create test task. */
             createTestTask("task-2", "Task 2"),
         )
         `when`(taskRepository.getTasksByStatus("pending")).thenReturn(flowOf(testTasks))
 
         // When - ViewModel is created (triggers loadTasks in init)
-        /** View model. */
         val viewModel = TasksViewModel(
             taskRepository = taskRepository,
             taskOccurrenceRepository = taskOccurrenceRepository,
@@ -140,11 +130,8 @@ class TasksViewModelIntegrationTest {
 
         // Then
         viewModel.uiState.test {
-            /** State. */
             val state = awaitItem()
-            /** Assert that. */
             assertThat(state.tasks).hasSize(2)
-            /** Assert that. */
             assertThat(state.tasks.map { it.title }).containsExactly("Task 1", "Task 2")
         }
     }
@@ -155,7 +142,6 @@ class TasksViewModelIntegrationTest {
      */
     fun setFilter_updatesCurrentFilterAndReloadsTasks() = runTest {
         // Given
-        /** Completed tasks. */
         val completedTasks = listOf(createTestTask("completed", "Completed Task").copy(status = "completed"))
         `when`(taskRepository.getTasksByStatus("completed")).thenReturn(flowOf(completedTasks))
 
@@ -164,13 +150,9 @@ class TasksViewModelIntegrationTest {
 
         // Then
         viewModel.uiState.test {
-            /** State. */
             val state = awaitItem()
-            /** Assert that. */
             assertThat(state.currentFilter).isEqualTo(TaskFilter.COMPLETED)
-            /** Assert that. */
             assertThat(state.tasks).hasSize(1)
-            /** Assert that. */
             assertThat(state.tasks.first().title).isEqualTo("Completed Task")
         }
     }
@@ -181,7 +163,6 @@ class TasksViewModelIntegrationTest {
      */
     fun setSortOption_updatesCurrentSortAndReloadsTasks() = runTest {
         // Given
-        /** Tasks. */
         val tasks = listOf(createTestTask("task-1", "Task 1"))
         `when`(taskRepository.getTasksByStatus("pending")).thenReturn(flowOf(tasks))
 
@@ -190,9 +171,7 @@ class TasksViewModelIntegrationTest {
 
         // Then
         viewModel.uiState.test {
-            /** State. */
             val state = awaitItem()
-            /** Assert that. */
             assertThat(state.currentSort).isEqualTo(TaskSortOption.TITLE_ASC)
         }
     }
@@ -219,7 +198,6 @@ class TasksViewModelIntegrationTest {
      */
     fun deleteTask_removesTaskAndRefreshesList() = runTest {
         // Given
-        /** Task. */
         val task = createTestTask("task-1", "Test Task")
         `when`(taskRepository.getTasksByStatus("pending")).thenReturn(flowOf(listOf(task)), flowOf(emptyList()))
 
@@ -228,11 +206,8 @@ class TasksViewModelIntegrationTest {
 
         // Then
         viewModel.uiState.test {
-            /** Await item. */
             awaitItem() // Initial state
-            /** State after delete. */
             val stateAfterDelete = awaitItem()
-            /** Assert that. */
             assertThat(stateAfterDelete.tasks).isEmpty()
         }
     }
@@ -243,7 +218,6 @@ class TasksViewModelIntegrationTest {
      */
     fun loadTodaysTasks_loadsTasksForTodayFilter() = runTest {
         // Given
-        /** Todays tasks. */
         val todaysTasks = listOf(createTestTask("today", "Today's Task"))
         `when`(taskRepository.getTodaysTasks()).thenReturn(flowOf(todaysTasks))
 
@@ -252,19 +226,14 @@ class TasksViewModelIntegrationTest {
 
         // Then
         viewModel.uiState.test {
-            /** State. */
             val state = awaitItem()
-            /** Assert that. */
             assertThat(state.currentFilter).isEqualTo(TaskFilter.TODAY)
-            /** Assert that. */
             assertThat(state.tasks).hasSize(1)
-            /** Assert that. */
             assertThat(state.tasks.first().title).isEqualTo("Today's Task")
         }
     }
 
     private fun createTestTask(id: String, title: String): Task {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         return Task(
             id = id,

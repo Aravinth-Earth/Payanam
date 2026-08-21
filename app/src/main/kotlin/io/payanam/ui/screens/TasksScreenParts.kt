@@ -36,26 +36,17 @@ import io.payanam.ui.viewmodel.TasksChromeUiState
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun TasksTopBar(
-    /** Mode. */
     mode: TasksScreenMode,
-    /** Effective tab index. */
     effectiveTabIndex: Int,
-    /** Chrome state. */
     chromeState: TasksChromeUiState,
-    /** Show habit sort menu. */
     showHabitSortMenu: Boolean,
     onShowHabitSortMenuChange: (Boolean) -> Unit,
-    /** Show habit filter menu. */
     showHabitFilterMenu: Boolean,
     onShowHabitFilterMenuChange: (Boolean) -> Unit,
-    /** Habit search active. */
     habitSearchActive: Boolean,
     onToggleHabitSearch: () -> Unit,
-    /** Habit search query. */
     habitSearchQuery: String,
-    /** Habit visible count. */
     habitVisibleCount: Int,
-    /** Show task sort menu. */
     showTaskSortMenu: Boolean,
     onShowTaskSortMenuChange: (Boolean) -> Unit,
     onSetHabitSortOption: (HabitSortOption) -> Unit,
@@ -65,46 +56,33 @@ internal fun TasksTopBar(
     onToggleDueTodayOnly: () -> Unit,
     onSetTaskSortOption: (TaskSortOption) -> Unit,
 ) {
-    /** Logger. */
     val logger = UnifiedLogger.getInstance()
-    /** Top app bar. */
     TopAppBar(
         title = {
             Column {
-                /** Title res. */
                 val titleRes = when (mode) {
                     TasksScreenMode.HABITS_ONLY -> io.payanam.R.string.loc_habits
                     TasksScreenMode.TASKS_ONLY -> io.payanam.R.string.settings_database_tasks
                     TasksScreenMode.COMBINED -> io.payanam.R.string.settings_database_tasks
                 }
-                /** Text. */
                 Text(text = stringResource(id = titleRes))
-                /** Subtitle. */
                 val subtitle = if (effectiveTabIndex == 0) {
-                    /** Filter active. */
                     val filterActive = !chromeState.showCompletedHabits || chromeState.hideAllMarkedToday || chromeState.showArchivedHabits || chromeState.dueTodayOnly
                     // Show "x of y" only when search/filter actually narrows the list;
                     // blank search query or no filters -> plain count.
-                    /** Search narrows. */
                     val searchNarrows = habitSearchActive && habitSearchQuery.isNotBlank()
-                    /** If. */
                     if (searchNarrows || filterActive) {
-                        /** String resource. */
                         stringResource(
                             id = io.payanam.R.string.loc_habits_count_filtered,
-                            /** Habit visible count. */
                             habitVisibleCount,
                             chromeState.recurringTaskCount,
                         )
                     } else {
-                        /** String resource. */
                         stringResource(id = io.payanam.R.string.loc_habits_count, chromeState.recurringTaskCount)
                     }
                 } else {
-                    /** String resource. */
                     stringResource(id = io.payanam.R.string.loc_tasks_count, chromeState.oneTimeTaskCount)
                 }
-                /** Text. */
                 Text(
                     text = subtitle,
                     style = MaterialTheme.typography.bodySmall,
@@ -113,16 +91,12 @@ internal fun TasksTopBar(
             }
         },
         actions = {
-            /** If. */
             if (effectiveTabIndex == 0) {
-                /** If. */
                 if (!habitSearchActive) {
                     Box {
                         androidx.compose.material3.IconButton(onClick = {
-                            /** On toggle habit search. */
                             onToggleHabitSearch()
                         }) {
-                            /** Icon. */
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = stringResource(id = io.payanam.R.string.loc_search_habits),
@@ -134,13 +108,10 @@ internal fun TasksTopBar(
                 Box {
                     androidx.compose.material3.IconButton(onClick = {
                         logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
-                        /** On show habit sort menu change. */
                         onShowHabitSortMenuChange(true)
                     }) {
-                        /** Icon. */
                         Icon(Icons.Default.Sort, contentDescription = stringResource(id = io.payanam.R.string.loc_sort_habits))
                     }
-                    /** Dropdown menu. */
                     DropdownMenu(
                         expanded = showHabitSortMenu,
                         onDismissRequest = { onShowHabitSortMenuChange(false) },
@@ -148,31 +119,23 @@ internal fun TasksTopBar(
                         HabitSortOption.entries
                             .filter { FeatureFlags.scoringEnabled || it.legacyCategory() }
                             .forEach { option ->
-                                /** Dropdown menu item. */
                                 DropdownMenuItem(
                                     text = {
-                                        /** Row. */
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            /** If. */
                                             if (chromeState.habitSortOption == option) {
-                                                /** Icon. */
                                                 Icon(
                                                     Icons.Default.Check,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(18.dp),
                                                 )
-                                                /** Spacer. */
                                                 Spacer(modifier = Modifier.width(8.dp))
                                             }
-                                            /** Text. */
                                             Text(habitSortLabel(option))
                                         }
                                     },
                                     onClick = {
                                         logger.d("TasksScreen.sortOptionSelected", "Sort option selected", mapOf("tab" to "habits", "option" to option.name))
-                                        /** On set habit sort option. */
                                         onSetHabitSortOption(option)
-                                        /** On show habit sort menu change. */
                                         onShowHabitSortMenuChange(false)
                                     },
                                 )
@@ -183,125 +146,96 @@ internal fun TasksTopBar(
                 Box {
                     androidx.compose.material3.IconButton(onClick = {
                         logger.d("TasksScreen.filterMenuOpened", "Filter menu opened", mapOf("tab" to "habits"))
-                        /** On show habit filter menu change. */
                         onShowHabitFilterMenuChange(true)
                     }) {
-                        /** Icon. */
                         Icon(
                             imageVector = Icons.Default.Archive,
                             contentDescription = stringResource(id = io.payanam.R.string.loc_filter_habits),
                         )
                     }
-                    /** Dropdown menu. */
                     DropdownMenu(
                         expanded = showHabitFilterMenu,
                         onDismissRequest = { onShowHabitFilterMenuChange(false) },
                     ) {
-                        /** Dropdown menu item. */
                         DropdownMenuItem(
                             text = {
-                                /** Row. */
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
                                         checked = !chromeState.showCompletedHabits,
                                         onCheckedChange = null,
                                     )
-                                    /** Spacer. */
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    /** Text. */
                                     Text(stringResource(id = io.payanam.R.string.loc_hide_completed_today))
                                 }
                             },
                             onClick = {
                                 logger.d("TasksScreen.hideCompletedToggled", "Hide completed toggled", mapOf("tab" to "habits", "value" to chromeState.showCompletedHabits))
-                                /** On toggle show completed habits. */
                                 onToggleShowCompletedHabits()
                             },
                         )
-                        /** Dropdown menu item. */
                         DropdownMenuItem(
                             text = {
-                                /** Row. */
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
                                         checked = chromeState.hideAllMarkedToday,
                                         onCheckedChange = null,
                                     )
-                                    /** Spacer. */
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    /** Text. */
                                     Text(stringResource(id = io.payanam.R.string.loc_hide_all_marked_today))
                                 }
                             },
                             onClick = {
                                 logger.d("TasksScreen.hideAllMarkedToggled", "Hide all marked toggled", mapOf("tab" to "habits", "value" to chromeState.hideAllMarkedToday))
-                                /** On toggle hide all marked today. */
                                 onToggleHideAllMarkedToday()
                             },
                         )
-                        /** Dropdown menu item. */
                         DropdownMenuItem(
                             text = {
-                                /** Row. */
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
                                         checked = chromeState.dueTodayOnly,
                                         onCheckedChange = null,
                                     )
-                                    /** Spacer. */
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    /** Text. */
                                     Text(stringResource(id = io.payanam.R.string.loc_due_today_only))
                                 }
                             },
                             onClick = {
                                 logger.d("TasksScreen.dueTodayToggled", "Due today only toggled", mapOf("tab" to "habits", "value" to chromeState.dueTodayOnly))
-                                /** On toggle due today only. */
                                 onToggleDueTodayOnly()
                             },
                         )
-                        /** Dropdown menu item. */
                         DropdownMenuItem(
                             text = {
-                                /** Row. */
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
                                         checked = chromeState.showArchivedHabits,
                                         onCheckedChange = null,
                                     )
-                                    /** Spacer. */
                                     Spacer(modifier = Modifier.width(8.dp))
-                                    /** Text. */
                                     Text(stringResource(id = io.payanam.R.string.loc_show_archived))
                                 }
                             },
                             onClick = {
                                 logger.d("TasksScreen.showArchivedToggled", "Show archived toggled", mapOf("tab" to "habits", "value" to !chromeState.showArchivedHabits))
-                                /** On toggle show archived habits. */
                                 onToggleShowArchivedHabits()
                             },
                         )
                     }
                 }
             }
-
-            /** If. */
             if (effectiveTabIndex == 1) {
                 Box {
                     androidx.compose.material3.IconButton(onClick = {
                         logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "tasks"))
-                        /** On show task sort menu change. */
                         onShowTaskSortMenuChange(true)
                     }) {
-                        /** Icon. */
                         Icon(Icons.Default.Sort, contentDescription = stringResource(id = io.payanam.R.string.loc_sort_tasks))
                     }
-                    /** Dropdown menu. */
                     DropdownMenu(
                         expanded = showTaskSortMenu,
                         onDismissRequest = { onShowTaskSortMenuChange(false) },
                     ) {
-                        /** Scoring hidden sorts. */
                         val scoringHiddenSorts = setOf(
                             TaskSortOption.SCORE_DESC,
                             TaskSortOption.SCORE_ASC,
@@ -311,31 +245,23 @@ internal fun TasksTopBar(
                         TaskSortOption.entries
                             .filter { FeatureFlags.scoringEnabled || it !in scoringHiddenSorts }
                             .forEach { option ->
-                                /** Dropdown menu item. */
                                 DropdownMenuItem(
                                     text = {
-                                        /** Row. */
                                         Row(verticalAlignment = Alignment.CenterVertically) {
-                                            /** If. */
                                             if (chromeState.currentSort == option) {
-                                                /** Icon. */
                                                 Icon(
                                                     Icons.Default.Check,
                                                     contentDescription = null,
                                                     modifier = Modifier.size(18.dp),
                                                 )
-                                                /** Spacer. */
                                                 Spacer(modifier = Modifier.width(8.dp))
                                             }
-                                            /** Text. */
                                             Text(taskSortLabel(option))
                                         }
                                     },
                                     onClick = {
                                         logger.d("TasksScreen.sortOptionSelected", "Sort option selected", mapOf("tab" to "tasks", "option" to option.name))
-                                        /** On set task sort option. */
                                         onSetTaskSortOption(option)
-                                        /** On show task sort menu change. */
                                         onShowTaskSortMenuChange(false)
                                     },
                                 )

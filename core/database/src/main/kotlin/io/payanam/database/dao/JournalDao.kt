@@ -74,7 +74,6 @@ interface JournalDao {
         """
         SELECT * FROM day_journal_responses 
         WHERE entryId = :entryId AND scope = :scope 
-        /** And. */
         AND (dimensionKey = :dimensionKey OR (dimensionKey IS NULL AND :dimensionKey IS NULL)) 
         AND promptKey = :promptKey
     """,
@@ -83,12 +82,9 @@ interface JournalDao {
      * Get response.
      */
     suspend fun getResponse(
-        /** Entry id. */
         entryId: String,
-        /** Scope. */
         scope: String,
         dimensionKey: String?,
-        /** Prompt key. */
         promptKey: String,
     ): DayJournalResponseEntity?
 

@@ -19,17 +19,10 @@ interface MetricWindowRow {
 
     /** Day this row belongs to, ISO yyyy-MM-dd. */
     val dayKey: String
-
-    /** Score. */
     val score: Double
-    /** Running avg. */
     val runningAvg: Double
-    /** Progress. */
     val progress: Double
-    /** Streak pos. */
     val streakPos: Int
-    /** Streak net. */
     val streakNet: Int
-    /** Pos continue. */
     val posContinue: Int
 }

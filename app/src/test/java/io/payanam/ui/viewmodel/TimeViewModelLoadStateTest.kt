@@ -20,7 +20,6 @@ import java.time.LocalDate
  */
 class TimeViewModelLoadStateTest {
     private val logger: UnifiedLogger by lazy {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
     }
@@ -38,15 +37,12 @@ class TimeViewModelLoadStateTest {
      * Is time screen date content ready false until all required sections are loaded.
      */
     fun isTimeScreenDateContentReady_false_until_all_required_sections_are_loaded() {
-        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = false,
             occurrencesLoaded = true,
             needsOccurrences = true,
         )
-
-        /** Assert false. */
         assertFalse(isReady)
     }
 
@@ -55,15 +51,12 @@ class TimeViewModelLoadStateTest {
      * Is time screen date content ready true when entries planned tasks and occurrences are loaded.
      */
     fun isTimeScreenDateContentReady_true_when_entries_planned_tasks_and_occurrences_are_loaded() {
-        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = true,
             occurrencesLoaded = true,
             needsOccurrences = true,
         )
-
-        /** Assert true. */
         assertTrue(isReady)
     }
 
@@ -72,15 +65,12 @@ class TimeViewModelLoadStateTest {
      * Is time screen date content ready true without occurrences when minimal mode contract applies.
      */
     fun isTimeScreenDateContentReady_true_without_occurrences_when_minimal_mode_contract_applies() {
-        /** Is ready. */
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
             plannedTasksLoaded = true,
             occurrencesLoaded = false,
             needsOccurrences = false,
         )
-
-        /** Assert true. */
         assertTrue(isReady)
     }
 
@@ -89,14 +79,9 @@ class TimeViewModelLoadStateTest {
      * Should use todays planned tasks true only for today.
      */
     fun shouldUseTodaysPlannedTasks_true_only_for_today() {
-        /** Today. */
         val today = LocalDate.of(2026, 4, 9)
-
-        /** Assert true. */
         assertTrue(shouldUseTodaysPlannedTasks(today, today))
-        /** Assert equals. */
         assertEquals(false, shouldUseTodaysPlannedTasks(today.minusDays(1), today))
-        /** Assert equals. */
         assertEquals(false, shouldUseTodaysPlannedTasks(today.plusDays(1), today))
     }
 }

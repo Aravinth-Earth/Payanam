@@ -28,7 +28,6 @@ import javax.inject.Singleton
  */
 class JournalRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : JournalRepository {
@@ -37,18 +36,11 @@ class JournalRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         override suspend fun getOrCreateEntry(date: LocalDate): DayJournalEntry {
-            /** Date str. */
             val dateStr = date.format(dateFormatter)
-
-            /** Entry. */
             var entry = sessionManager.requireDatabase().journalDao().getEntryForDate(dateStr)
-            /** If. */
             if (entry == null) {
-                /** Now. */
                 val now = LocalDateTime.now()
-                /** New entry. */
                 val newEntry =
-                    /** Day journal entry entity. */
                     DayJournalEntryEntity(
                         id = UUID.randomUUID().toString(),
                         entryDate = dateStr,
@@ -64,7 +56,6 @@ class JournalRepositoryImpl
         }
 
         override fun observeEntry(date: LocalDate): Flow<DayJournalEntry?> {
-            /** Date str. */
             val dateStr = date.format(dateFormatter)
             logger.d("JournalRepositoryImpl.observeEntry", "Subscribing to journal entry", mapOf("date" to dateStr))
             return sessionManager
@@ -82,31 +73,20 @@ class JournalRepositoryImpl
         }
 
         override suspend fun saveResponse(
-            /** Entry id. */
             entryId: String,
-            /** Input. */
             input: DayJournalResponseInput,
         ): DayJournalResponse {
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Scope str. */
             val scopeStr = input.scope.name
-
-            /** Existing. */
             val existing = sessionManager.requireDatabase().journalDao().getResponse(entryId, scopeStr, input.dimensionKey, input.promptKey)
-
-            /** Entity. */
             val entity =
-                /** If. */
                 if (existing != null) {
-                    /** Existing. */
                     existing
                         .copy(
                             responseText = input.responseText,
                             updatedAt = now.format(dateTimeFormatter),
                         ).also { sessionManager.requireDatabase().journalDao().updateResponse(it) }
                 } else {
-                    /** Day journal response entity. */
                     DayJournalResponseEntity(
                         id = UUID.randomUUID().toString(),
                         entryId = entryId,
@@ -122,7 +102,6 @@ class JournalRepositoryImpl
             logger.i(
                 "JournalRepositoryImpl.saveResponse",
                 "Saved journal response",
-                /** Map of. */
                 mapOf(
                     "entryId" to entryId,
                     "scope" to scopeStr,
@@ -134,17 +113,12 @@ class JournalRepositoryImpl
         }
 
         override suspend fun getResponse(
-            /** Entry id. */
             entryId: String,
-            /** Scope. */
             scope: JournalPromptScope,
             dimensionKey: String?,
-            /** Prompt key. */
             promptKey: String,
         ): DayJournalResponse? {
-            /** Response. */
             val response =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .journalDao()
@@ -153,7 +127,6 @@ class JournalRepositoryImpl
             logger.d(
                 "JournalRepositoryImpl.getResponse",
                 "Fetched journal response",
-                /** Map of. */
                 mapOf(
                     "entryId" to entryId,
                     "scope" to scope.name,
@@ -165,9 +138,7 @@ class JournalRepositoryImpl
         }
 
         override suspend fun getEntryByDate(dateString: String): DayJournalEntry? {
-            /** Entry. */
             val entry =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .journalDao()
@@ -176,7 +147,6 @@ class JournalRepositoryImpl
             logger.d(
                 "JournalRepositoryImpl.getEntryByDate",
                 "Fetched journal entry by date",
-                /** Map of. */
                 mapOf(
                     "date" to dateString,
                     "found" to (entry != null),
@@ -186,9 +156,7 @@ class JournalRepositoryImpl
         }
 
         override suspend fun insertEntry(entry: DayJournalEntry) {
-            /** Entity. */
             val entity =
-                /** Day journal entry entity. */
                 DayJournalEntryEntity(
                     id = entry.id,
                     entryDate = entry.entryDate,
@@ -200,9 +168,7 @@ class JournalRepositoryImpl
         }
 
         override suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse> {
-            /** Responses. */
             val responses =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .journalDao()
@@ -211,7 +177,6 @@ class JournalRepositoryImpl
             logger.d(
                 "JournalRepositoryImpl.getResponsesByEntryId",
                 "Fetched responses for entry",
-                /** Map of. */
                 mapOf(
                     "entryId" to entryId,
                     "count" to responses.size,
@@ -221,9 +186,7 @@ class JournalRepositoryImpl
         }
 
         override suspend fun upsertResponse(response: DayJournalResponse) {
-            /** Now. */
             val now = LocalDateTime.now().format(dateTimeFormatter)
-            /** Existing. */
             val existing =
                 sessionManager.requireDatabase().journalDao().getResponse(
                     response.entryId,
@@ -231,10 +194,7 @@ class JournalRepositoryImpl
                     response.dimensionKey,
                     response.promptKey,
                 )
-
-            /** If. */
             if (existing != null) {
-                /** Updated. */
                 val updated =
                     existing.copy(
                         responseText = response.responseText,
@@ -243,9 +203,7 @@ class JournalRepositoryImpl
                 sessionManager.requireDatabase().journalDao().updateResponse(updated)
                 logger.d("JournalRepositoryImpl.upsertResponse", "Response updated", mapOf("id" to response.id))
             } else {
-                /** Entity. */
                 val entity =
-                    /** Day journal response entity. */
                     DayJournalResponseEntity(
                         id = response.id,
                         entryId = response.entryId,
@@ -275,7 +233,6 @@ class JournalRepositoryImpl
 
         // Mappers
         private fun DayJournalEntryEntity.toDomain() =
-            /** Day journal entry. */
             DayJournalEntry(
                 id = id,
                 entryDate = entryDate,
@@ -284,7 +241,6 @@ class JournalRepositoryImpl
             )
 
         private fun DayJournalResponseEntity.toDomain() =
-            /** Day journal response. */
             DayJournalResponse(
                 id = id,
                 entryId = entryId,

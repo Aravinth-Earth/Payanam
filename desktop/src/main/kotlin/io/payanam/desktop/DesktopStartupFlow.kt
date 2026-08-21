@@ -7,21 +7,13 @@ package io.payanam.desktop
 
  */
 data class DesktopStartupRuntimeState(
-    /** Has passphrase configured. */
     val hasPassphraseConfigured: Boolean,
-    /** Has database artifacts. */
     val hasDatabaseArtifacts: Boolean,
-    /** Database lifecycle ready. */
     val databaseLifecycleReady: Boolean,
-    /** Session open. */
     val sessionOpen: Boolean,
-    /** Focus mode onboarding completed. */
     val focusModeOnboardingCompleted: Boolean,
-    /** Security file path. */
     val securityFilePath: String,
-    /** Database file path. */
     val databaseFilePath: String,
-    /** Lockout seconds remaining. */
     val lockoutSecondsRemaining: Long = 0L,
 )
 

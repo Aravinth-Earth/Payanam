@@ -40,7 +40,6 @@ interface LensReflectionDao {
      * Get reflections for dimension.
      */
     fun getReflectionsForDimension(
-        /** Day key. */
         dayKey: String,
         dimensionId: String?,
     ): Flow<List<LensReflectionEntity>>
@@ -96,7 +95,6 @@ interface LensReflectionDao {
      * Mark reflection addressed.
      */
     suspend fun markReflectionAddressed(
-        /** Id. */
         id: String,
         note: String?,
     )

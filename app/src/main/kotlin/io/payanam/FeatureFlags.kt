@@ -13,29 +13,19 @@ import io.payanam.common.logging.UnifiedLogger
  */
 object FeatureFlags {
     private val logger = UnifiedLogger.getInstance()
-
-    /** Minimal mode enabled. */
     val minimalModeEnabled: Boolean = BuildConfig.MINIMAL_MODE
-    /** Scoring enabled. */
     val scoringEnabled: Boolean = BuildConfig.SCORING_ENABLED
-    /** Recurring tasks enabled. */
     val recurringTasksEnabled: Boolean = BuildConfig.RECURRING_TASKS_ENABLED
-    /** Reminders enabled. */
     val remindersEnabled: Boolean = BuildConfig.REMINDERS_ENABLED
-    /** Tags enabled. */
     val tagsEnabled: Boolean = BuildConfig.TAGS_ENABLED
-    /** Plans cta enabled. */
     val plansCtaEnabled: Boolean = BuildConfig.PLANS_CTA_ENABLED
-    /** Focus mode settings enabled. */
     val focusModeSettingsEnabled: Boolean = BuildConfig.FOCUS_MODE_SETTINGS_ENABLED
-    /** Score settings enabled. */
     val scoreSettingsEnabled: Boolean = BuildConfig.SCORE_SETTINGS_ENABLED
 
     init {
         logger.i(
             "FeatureFlags",
             "Loaded feature flags",
-            /** Map of. */
             mapOf(
                 "minimalModeEnabled" to minimalModeEnabled.toString(),
                 "scoringEnabled" to scoringEnabled.toString(),

@@ -32,24 +32,18 @@ class DayPlanRepositoryTemplateResolutionTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .build()
-        /** Seed life dimensions. */
         seedLifeDimensions()
-        /** Encryption manager. */
         val encryptionManager = DatabaseEncryptionManager(context)
-        /** Session manager. */
         val sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
         repository = DayPlanRepositoryImpl(sessionManager)
@@ -69,9 +63,7 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun autoMode_usesConfiguredWeekdayTemplate() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
-            /** Template id. */
             val templateId =
                 repository.createTemplate(
                     name = "Weekday Plan",
@@ -79,15 +71,9 @@ class DayPlanRepositoryTemplateResolutionTest {
                     allocations = mapOf("career_work" to 180),
                 )
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, templateId)
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).hasSize(1)
-            /** Assert that. */
             assertThat(allocations.first().plannedMinutes).isEqualTo(180)
-            /** Assert that. */
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_TEMPLATE_AUTO)
         }
 
@@ -97,9 +83,7 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun customMode_overridesAutoTemplate() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
-            /** Template id. */
             val templateId =
                 repository.createTemplate(
                     name = "Weekday Focus",
@@ -112,15 +96,9 @@ class DayPlanRepositoryTemplateResolutionTest {
                 allocations = mapOf("career_work" to 90),
                 source = DayPlanRepository.SOURCE_MANUAL,
             )
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).hasSize(1)
-            /** Assert that. */
             assertThat(allocations.first().plannedMinutes).isEqualTo(90)
-            /** Assert that. */
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_MANUAL)
         }
 
@@ -130,16 +108,13 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun autoMode_starredDay_prefersStarredTemplate() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
-            /** Weekday template id. */
             val weekdayTemplateId =
                 repository.createTemplate(
                     name = "Weekday Base",
                     description = null,
                     allocations = mapOf("career_work" to 180),
                 )
-            /** Starred template id. */
             val starredTemplateId =
                 repository.createTemplate(
                     name = "Starred Focus",
@@ -149,17 +124,10 @@ class DayPlanRepositoryTemplateResolutionTest {
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, weekdayTemplateId)
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_STARRED, starredTemplateId)
             repository.setDayStarred(dayKey, true)
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).hasSize(1)
-            /** Assert that. */
             assertThat(allocations.first().templateId).isEqualTo(starredTemplateId)
-            /** Assert that. */
             assertThat(allocations.first().plannedMinutes).isEqualTo(60)
-            /** Assert that. */
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_TEMPLATE_AUTO)
         }
 
@@ -169,9 +137,7 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun setDayMode_template_persistsPolicy() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
-            /** Template id. */
             val templateId =
                 repository.createTemplate(
                     name = "Template Policy",
@@ -184,15 +150,9 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = templateId,
             )
-
-            /** Policy. */
             val policy = repository.getDayPolicy(dayKey)
-
-            /** Assert that. */
             assertThat(policy.mode).isEqualTo(DayPlanRepository.MODE_TEMPLATE)
-            /** Assert that. */
             assertThat(policy.templateId).isEqualTo(templateId)
-            /** Assert that. */
             assertThat(policy.isStarred).isFalse()
         }
 
@@ -202,14 +162,9 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun getDayPolicy_withoutPersistedPolicy_returnsAutoDefaults() =
         runBlocking {
-            /** Policy. */
             val policy = repository.getDayPolicy(nextWeekday())
-
-            /** Assert that. */
             assertThat(policy.mode).isEqualTo(DayPlanRepository.MODE_AUTO)
-            /** Assert that. */
             assertThat(policy.templateId).isNull()
-            /** Assert that. */
             assertThat(policy.isStarred).isFalse()
         }
 
@@ -219,9 +174,7 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun autoMode_usesWeekendTemplate_onWeekendDay() =
         runBlocking {
-            /** Weekend day key. */
             val weekendDayKey = nextWeekend()
-            /** Template id. */
             val templateId =
                 repository.createTemplate(
                     name = "Weekend Plan",
@@ -229,17 +182,10 @@ class DayPlanRepositoryTemplateResolutionTest {
                     allocations = mapOf("learning" to 120),
                 )
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKEND, templateId)
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(weekendDayKey)
-
-            /** Assert that. */
             assertThat(allocations).hasSize(1)
-            /** Assert that. */
             assertThat(allocations.first().templateId).isEqualTo(templateId)
-            /** Assert that. */
             assertThat(allocations.first().plannedMinutes).isEqualTo(120)
-            /** Assert that. */
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_TEMPLATE_AUTO)
         }
 
@@ -249,7 +195,6 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun templateMode_withoutTemplateId_fallsBackToExplicitAllocations() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
             repository.setAllocations(
                 dayKey = dayKey,
@@ -261,15 +206,9 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = null,
             )
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).hasSize(1)
-            /** Assert that. */
             assertThat(allocations.first().plannedMinutes).isEqualTo(45)
-            /** Assert that. */
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_MANUAL)
         }
 
@@ -280,11 +219,7 @@ class DayPlanRepositoryTemplateResolutionTest {
     fun dayTypePreference_acceptsNullTemplateId() =
         runBlocking {
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, null)
-
-            /** Preference. */
             val preference = repository.getDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY)
-
-            /** Assert that. */
             assertThat(preference.templateId).isNull()
         }
 
@@ -294,14 +229,9 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun customMode_withoutExplicitAllocations_returnsEmptyEffectiveAllocations() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
             repository.setDayMode(dayKey = dayKey, mode = DayPlanRepository.MODE_CUSTOM)
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).isEmpty()
         }
 
@@ -311,9 +241,7 @@ class DayPlanRepositoryTemplateResolutionTest {
      */
     fun templateMode_withInactiveTemplate_returnsEmptyWithoutExplicitFallback() =
         runBlocking {
-            /** Day key. */
             val dayKey = nextWeekday()
-            /** Template id. */
             val templateId =
                 repository.createTemplate(
                     name = "Temporary Template",
@@ -326,34 +254,24 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = templateId,
             )
-
-            /** Allocations. */
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
-            /** Assert that. */
             assertThat(allocations).isEmpty()
         }
 
     private fun seedLifeDimensions() {
-        /** Db. */
         val db = database.openHelper.writableDatabase
-        /** Now. */
         val now = "2026-01-01T00:00:00"
-        /** Dims. */
         val dims = listOf("career_work", "health_wellness", "learning")
         dims.forEachIndexed { index, id ->
             db.execSQL(
                 """INSERT OR IGNORE INTO life_dimensions (id, key, label, color, sortOrder, isActive, weight, createdAt, updatedAt)
-                   /** Values. */
                    VALUES ('$id', '$id', '$id', '#FF5722', $index, 1, 1.0, '$now', '$now')""",
             )
         }
     }
 
     private fun nextWeekday(): String {
-        /** Date. */
         var date = LocalDate.now().plusDays(1)
-        /** While. */
         while (date.dayOfWeek.value >= 6) {
             date = date.plusDays(1)
         }
@@ -361,9 +279,7 @@ class DayPlanRepositoryTemplateResolutionTest {
     }
 
     private fun nextWeekend(): String {
-        /** Date. */
         var date = LocalDate.now().plusDays(1)
-        /** While. */
         while (date.dayOfWeek.value < 6) {
             date = date.plusDays(1)
         }

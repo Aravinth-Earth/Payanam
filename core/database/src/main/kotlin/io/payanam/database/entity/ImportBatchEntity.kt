@@ -12,9 +12,7 @@ import androidx.room.PrimaryKey
 @Entity(
     tableName = "import_batches",
     indices = [
-        /** Index. */
         Index("source"),
-        /** Index. */
         Index("importedAt"),
     ],
 )
@@ -23,16 +21,10 @@ import androidx.room.PrimaryKey
  */
 data class ImportBatchEntity(
     @PrimaryKey
-    /** Id. */
     val id: String,
-    /** Source. */
     val source: String,
-    /** Imported at. */
     val importedAt: String,
-    /** Version. */
     val version: String? = null,
-    /** File hash. */
     val fileHash: String? = null,
-    /** Notes. */
     val notes: String? = null,
 )

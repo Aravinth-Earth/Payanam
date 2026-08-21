@@ -27,7 +27,6 @@ class TimeVisualsDrillInInteractionTest {
      * Set up.
      */
     fun setUp() {
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
         }
@@ -45,15 +44,12 @@ class TimeVisualsDrillInInteractionTest {
      */
     fun toggleDimensionFilter_behaves_as_drill_in_toggle() {
         viewModel.toggleDimensionFilter("dim_learning")
-        /** Assert equals. */
         assertEquals("dim_learning", viewModel.uiState.value.selectedDimensionFilterId)
 
         viewModel.toggleDimensionFilter("dim_learning")
-        /** Assert equals. */
         assertEquals(null, viewModel.uiState.value.selectedDimensionFilterId)
 
         viewModel.toggleDimensionFilter("dim_financial")
-        /** Assert equals. */
         assertEquals("dim_financial", viewModel.uiState.value.selectedDimensionFilterId)
     }
 }

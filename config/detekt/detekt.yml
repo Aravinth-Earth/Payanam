@@ -28,6 +28,11 @@ output-reports:
 # Scope: public API documentation and a small set of high-value safety/style rules.
 # Broad complexity/naming/performance rules are intentionally NOT enabled to avoid
 # requiring large refactors outside the KDoc-enforcement campaign.
+#
+# KDoc policy: require PURPOSE documentation on public classes and on public
+# non-composable functions. Public properties and @Composable UI functions are
+# exempt — their names and types are self-describing, and forcing docs on them
+# produces name-restating noise (e.g. "/** Text. */") with no reader value.
 
 comments:
   active: true
@@ -39,9 +44,10 @@ comments:
     excludes: ['**/test/**', '**/androidTest/**']
   UndocumentedPublicFunction:
     active: true
+    ignoreAnnotated: ['Composable']
     excludes: ['**/test/**', '**/androidTest/**']
   UndocumentedPublicProperty:
-    active: true
+    active: false
     excludes: ['**/test/**', '**/androidTest/**']
 
 exceptions:

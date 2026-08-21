@@ -28,45 +28,28 @@ import javax.inject.Inject
  * TaskDetailUiState.
  */
 data class TaskDetailUiState(
-    /** Task. */
     val task: Task? = null,
-    /** Is loading. */
     val isLoading: Boolean = true,
-    /** Error. */
     val error: String? = null,
-    /** Occurrence history. */
     val occurrenceHistory: List<TaskOccurrence> = emptyList(),
-    /** Is loading occurrences. */
     val isLoadingOccurrences: Boolean = false,
-    /** Reschedule history. */
     val rescheduleHistory: List<TaskReschedule> = emptyList(),
-    /** Is loading reschedules. */
     val isLoadingReschedules: Boolean = false,
-    /** Completion stats. */
     val completionStats: CompletionStats? = null,
-    /** Latest l1. */
     val latestL1: io.payanam.domain.model.HabitL1Summary? = null,
 
     // Activity detail window (Part C): range switcher + pagination
-    /** Window size days. */
     val windowSizeDays: Int = 7,
-    /** Window end. */
     val windowEnd: java.time.LocalDate = java.time.LocalDate.now(),
-    /** Window rows. */
     val windowRows: List<io.payanam.domain.model.HabitL1Summary> = emptyList(),
-    /** Window occurrences. */
     val windowOccurrences: Map<String, io.payanam.domain.model.TaskOccurrence> = emptyMap(),
-    /** Is loading window. */
     val isLoadingWindow: Boolean = false,
     // true = chart view, false = table view
-    /** Show chart view. */
     val showChartView: Boolean = true,
 
     // Dialog states
-    /** Show status note dialog. */
     val showStatusNoteDialog: Boolean = false,
     // "complete", "skip", "miss"
-    /** Pending status action. */
     val pendingStatusAction: String? = null,
 )
 
@@ -86,7 +69,6 @@ class TaskDetailViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
 
     private val _uiState = MutableStateFlow(TaskDetailUiState())
-    /** Ui state. */
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
 
     private var currentTaskId: String? = null
@@ -99,14 +81,11 @@ class TaskDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
             try {
-                /** Task. */
                 val task = taskRepository.getTaskById(taskId)
                 // Inc 4: latest L1 score roll-up state (6 metrics) for the detail card
-                /** Latest l1. */
                 val latestL1 = if (task?.recurrenceEnabled == true) {
                     runCatching { habitMetricRepository.getLatestForHabit(taskId) }.getOrNull()
                 } else {
-                    /** Null. */
                     null
                 }
                 _uiState.update {
@@ -119,23 +98,16 @@ class TaskDetailViewModel @Inject constructor(
                 }
 
                 // Load occurrence history and stats if task is recurring
-                /** If. */
                 if (task?.recurrenceEnabled == true) {
-                    /** Load occurrence history. */
                     loadOccurrenceHistory(taskId)
-                    /** Load completion stats. */
                     loadCompletionStats(task)
-                    /** Load activity window. */
                     loadActivityWindow(taskId)
                 }
-
-                /** Load reschedule history. */
                 loadRescheduleHistory(taskId)
 
                 logger.i(
                     "TaskDetailViewModel.loadTask",
                     "Task loaded",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "found" to (task != null),
@@ -154,13 +126,11 @@ class TaskDetailViewModel @Inject constructor(
     private fun loadCompletionStats(task: Task) {
         viewModelScope.launch {
             try {
-                /** Stats. */
                 val stats = recurrenceManager.getCompletionStats(task)
                 _uiState.update { it.copy(completionStats = stats) }
                 logger.d(
                     "TaskDetailViewModel.loadCompletionStats",
                     "Stats loaded",
-                    /** Map of. */
                     mapOf(
                         "taskId" to task.id,
                         "rate7d" to stats.completionRate7Days,
@@ -178,7 +148,6 @@ class TaskDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingOccurrences = true) }
             try {
-                /** Occurrences. */
                 val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(taskId)
                 _uiState.update {
                     it.copy(
@@ -189,7 +158,6 @@ class TaskDetailViewModel @Inject constructor(
                 logger.d(
                     "TaskDetailViewModel.loadOccurrenceHistory",
                     "Loaded occurrences",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "count" to occurrences.size,
@@ -207,7 +175,6 @@ class TaskDetailViewModel @Inject constructor(
     /** Range options (days): 7d / 30d / 90d / 180d / 365d / all-time. */
     fun setWindowSizeDays(days: Int) {
         _uiState.update { it.copy(windowSizeDays = days, windowEnd = java.time.LocalDate.now()) }
-        /** Load activity window. */
         loadActivityWindow(currentTaskId ?: return)
     }
 
@@ -215,12 +182,10 @@ class TaskDetailViewModel @Inject constructor(
      * Shift window back.
      */
     fun shiftWindowBack() {
-        /** S. */
         val s = _uiState.value
         _uiState.update {
             it.copy(windowEnd = it.windowEnd.minusDays(it.windowSizeDays.toLong()))
         }
-        /** Load activity window. */
         loadActivityWindow(currentTaskId ?: return)
     }
 
@@ -228,17 +193,13 @@ class TaskDetailViewModel @Inject constructor(
      * Shift window forward.
      */
     fun shiftWindowForward() {
-        /** S. */
         val s = _uiState.value
-        /** If. */
         if (s.windowEnd >= java.time.LocalDate.now()) return // cannot go past today
         _uiState.update {
             it.copy(windowEnd = it.windowEnd.plusDays(it.windowSizeDays.toLong()).let { end ->
-                /** If. */
                 if (end > java.time.LocalDate.now()) java.time.LocalDate.now() else end
             })
         }
-        /** Load activity window. */
         loadActivityWindow(currentTaskId ?: return)
     }
 
@@ -247,7 +208,6 @@ class TaskDetailViewModel @Inject constructor(
      */
     fun jumpWindowToToday() {
         _uiState.update { it.copy(windowEnd = java.time.LocalDate.now()) }
-        /** Load activity window. */
         loadActivityWindow(currentTaskId ?: return)
     }
 
@@ -260,18 +220,14 @@ class TaskDetailViewModel @Inject constructor(
 
     private fun loadActivityWindow(taskId: String) {
         viewModelScope.launch {
-            /** S. */
             val s = _uiState.value
             _uiState.update { it.copy(isLoadingWindow = true) }
             try {
-                /** Val. */
                 val (start, end) = windowBounds(s.windowSizeDays, s.windowEnd)
-                /** Rows. */
                 val rows = runCatching {
                     habitMetricRepository.getForHabitRange(taskId, start.toString(), end.toString())
                 }.getOrDefault(emptyList())
                 // Occurrences in window keyed by dayKey — raw status for the table.
-                /** Occs. */
                 val occs = taskOccurrenceRepository.getOccurrencesByTaskId(taskId)
                     .filter { it.occurrenceDate.take(10) in start.toString()..end.toString() }
                     .associateBy { it.occurrenceDate.take(10) }
@@ -285,7 +241,6 @@ class TaskDetailViewModel @Inject constructor(
                 logger.d(
                     "TaskDetailViewModel.loadActivityWindow",
                     "Loaded activity window",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "start" to start.toString(),
@@ -308,7 +263,6 @@ class TaskDetailViewModel @Inject constructor(
          * Window bounds.
          */
         fun windowBounds(sizeDays: Int, end: java.time.LocalDate): Pair<java.time.LocalDate, java.time.LocalDate> {
-            /** Start. */
             val start = if (sizeDays > 0) end.minusDays((sizeDays - 1).toLong()) else java.time.LocalDate.of(2020, 1, 1)
             return start to end
         }
@@ -318,7 +272,6 @@ class TaskDetailViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingReschedules = true) }
             try {
-                /** Reschedules. */
                 val reschedules = taskRescheduleRepository.getReschedulesByTaskId(taskId)
                 _uiState.update {
                     it.copy(
@@ -329,7 +282,6 @@ class TaskDetailViewModel @Inject constructor(
                 logger.d(
                     "TaskDetailViewModel.loadRescheduleHistory",
                     "Loaded reschedules",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "count" to reschedules.size,
@@ -371,21 +323,15 @@ class TaskDetailViewModel @Inject constructor(
      * Complete task with optional note and record occurrence
      */
     fun completeTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
-        /** Task id. */
         val taskId = currentTaskId ?: return
-        /** Task. */
         val task = _uiState.value.task ?: return
 
         viewModelScope.launch {
             try {
-                /** If. */
                 if (task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)) {
-                    /** Record occurrence. */
                     recordOccurrence(taskId, "completed", note, reason)
                     recurrenceManager.onTaskCompleted(task, note, reason, nextDueStrategy)
-                    /** Updated task. */
                     val updatedTask = taskRepository.getTaskById(taskId)
-                    /** If. */
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
@@ -393,9 +339,7 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
                                 "Failed to schedule next recurring reminder",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
@@ -403,20 +347,15 @@ class TaskDetailViewModel @Inject constructor(
                         }
                     }
                     // Reload task to get updated score
-                    /** Load task. */
                     loadTask(taskId)
                 } else {
                     taskRepository.completeTask(taskId, note)
 
                     // Handle recurring task completion with score update
-                    /** If. */
                     if (task.recurrenceEnabled) {
-                        /** Record occurrence. */
                         recordOccurrence(taskId, "completed", note, reason)
                         recurrenceManager.onTaskCompleted(task, note, reason, nextDueStrategy)
-                        /** Updated task. */
                         val updatedTask = taskRepository.getTaskById(taskId)
-                        /** If. */
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
@@ -424,9 +363,7 @@ class TaskDetailViewModel @Inject constructor(
                                 logger.e(
                                     "TaskDetailViewModel.completeTask",
                                     "Failed to schedule next recurring reminder",
-                                    /** E. */
                                     e,
-                                    /** Map of. */
                                     mapOf(
                                         "taskId" to taskId,
                                     ),
@@ -434,7 +371,6 @@ class TaskDetailViewModel @Inject constructor(
                             }
                         }
                         // Reload task to get updated score
-                        /** Load task. */
                         loadTask(taskId)
                     } else {
                         try {
@@ -443,9 +379,7 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
                                 "Failed to cancel reminders",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
@@ -457,15 +391,12 @@ class TaskDetailViewModel @Inject constructor(
                 logger.i(
                     "TaskDetailViewModel.completeTask",
                     "Task completed",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "hasNote" to (note != null),
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
-                /** Hide status dialog. */
                 hideStatusDialog()
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
@@ -478,21 +409,15 @@ class TaskDetailViewModel @Inject constructor(
      * Skip task with optional note and record occurrence
      */
     fun skipTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
-        /** Task id. */
         val taskId = currentTaskId ?: return
-        /** Task. */
         val task = _uiState.value.task ?: return
 
         viewModelScope.launch {
             try {
-                /** If. */
                 if (task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)) {
-                    /** Record occurrence. */
                     recordOccurrence(taskId, "skipped", note, reason)
                     recurrenceManager.onTaskSkipped(task, note, reason, nextDueStrategy)
-                    /** Updated task. */
                     val updatedTask = taskRepository.getTaskById(taskId)
-                    /** If. */
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
@@ -500,9 +425,7 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
                                 "Failed to schedule next recurring reminder",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
@@ -510,20 +433,15 @@ class TaskDetailViewModel @Inject constructor(
                         }
                     }
                     // Reload task to get updated score
-                    /** Load task. */
                     loadTask(taskId)
                 } else {
                     taskRepository.skipTask(taskId, note)
 
                     // Handle recurring task skip with score update (skips apply decay)
-                    /** If. */
                     if (task.recurrenceEnabled) {
-                        /** Record occurrence. */
                         recordOccurrence(taskId, "skipped", note, reason)
                         recurrenceManager.onTaskSkipped(task, note, reason, nextDueStrategy)
-                        /** Updated task. */
                         val updatedTask = taskRepository.getTaskById(taskId)
-                        /** If. */
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
@@ -531,9 +449,7 @@ class TaskDetailViewModel @Inject constructor(
                                 logger.e(
                                     "TaskDetailViewModel.skipTask",
                                     "Failed to schedule next recurring reminder",
-                                    /** E. */
                                     e,
-                                    /** Map of. */
                                     mapOf(
                                         "taskId" to taskId,
                                     ),
@@ -541,7 +457,6 @@ class TaskDetailViewModel @Inject constructor(
                             }
                         }
                         // Reload task to get updated score
-                        /** Load task. */
                         loadTask(taskId)
                     } else {
                         try {
@@ -550,9 +465,7 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
                                 "Failed to cancel reminders",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
@@ -564,15 +477,12 @@ class TaskDetailViewModel @Inject constructor(
                 logger.i(
                     "TaskDetailViewModel.skipTask",
                     "Task skipped",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "reason" to (reason ?: "none"),
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
-                /** Hide status dialog. */
                 hideStatusDialog()
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
@@ -585,21 +495,15 @@ class TaskDetailViewModel @Inject constructor(
      * Mark task as missed with optional note and record occurrence
      */
     fun missTask(note: String? = null, reason: String? = null) {
-        /** Task id. */
         val taskId = currentTaskId ?: return
-        /** Task. */
         val task = _uiState.value.task ?: return
 
         viewModelScope.launch {
             try {
-                /** If. */
                 if (task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)) {
-                    /** Record occurrence. */
                     recordOccurrence(taskId, "missed", note, reason)
                     recurrenceManager.onTaskMissed(task, note, reason)
-                    /** Updated task. */
                     val updatedTask = taskRepository.getTaskById(taskId)
-                    /** If. */
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
@@ -607,29 +511,22 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.missTask",
                                 "Failed to schedule next recurring reminder",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
                             )
                         }
                     }
-                    /** Load task. */
                     loadTask(taskId)
                 } else {
                     taskRepository.missTask(taskId, note)
 
                     // Record occurrence with missed status for recurring tasks (applies decay)
-                    /** If. */
                     if (task.recurrenceEnabled) {
-                        /** Record occurrence. */
                         recordOccurrence(taskId, "missed", note, reason)
                         recurrenceManager.onTaskMissed(task, note, reason)
-                        /** Updated task. */
                         val updatedTask = taskRepository.getTaskById(taskId)
-                        /** If. */
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
@@ -637,16 +534,13 @@ class TaskDetailViewModel @Inject constructor(
                                 logger.e(
                                     "TaskDetailViewModel.missTask",
                                     "Failed to schedule next recurring reminder",
-                                    /** E. */
                                     e,
-                                    /** Map of. */
                                     mapOf(
                                         "taskId" to taskId,
                                     ),
                                 )
                             }
                         }
-                        /** Load task. */
                         loadTask(taskId)
                     } else {
                         try {
@@ -655,9 +549,7 @@ class TaskDetailViewModel @Inject constructor(
                             logger.e(
                                 "TaskDetailViewModel.missTask",
                                 "Failed to cancel reminders",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
@@ -669,15 +561,12 @@ class TaskDetailViewModel @Inject constructor(
                 logger.i(
                     "TaskDetailViewModel.missTask",
                     "Task marked as missed",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "reason" to (reason ?: "none"),
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
-                /** Hide status dialog. */
                 hideStatusDialog()
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
@@ -688,7 +577,6 @@ class TaskDetailViewModel @Inject constructor(
 
     private suspend fun recordOccurrence(taskId: String, status: String, note: String?, reason: String?) {
         try {
-            /** Occurrence. */
             val occurrence = TaskOccurrence(
                 id = java.util.UUID.randomUUID().toString(),
                 taskId = taskId,
@@ -705,7 +593,6 @@ class TaskDetailViewModel @Inject constructor(
             logger.d(
                 "TaskDetailViewModel.recordOccurrence",
                 "Occurrence recorded",
-                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                     "status" to status,
@@ -714,7 +601,6 @@ class TaskDetailViewModel @Inject constructor(
             )
 
             // Reload occurrence history
-            /** Load occurrence history. */
             loadOccurrenceHistory(taskId)
         } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
             logger.e("TaskDetailViewModel.recordOccurrence", "Error recording occurrence", e)
@@ -725,7 +611,6 @@ class TaskDetailViewModel @Inject constructor(
      * Archive task.
      */
     fun archiveTask() {
-        /** Task id. */
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
             try {
@@ -736,9 +621,7 @@ class TaskDetailViewModel @Inject constructor(
                     logger.e(
                         "TaskDetailViewModel.archiveTask",
                         "Failed to cancel reminders",
-                        /** E. */
                         e,
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                         ),
@@ -756,30 +639,23 @@ class TaskDetailViewModel @Inject constructor(
      * Reschedule task.
      */
     fun rescheduleTask(newDueDate: LocalDateTime) {
-        /** Task id. */
         val taskId = currentTaskId ?: return
-        /** Task. */
         val task = _uiState.value.task ?: return
-        /** Previous due date. */
         val previousDueDate = task.dueDate
-        /** If. */
         if (previousDueDate == null) {
             logger.w(
                 "TaskDetailViewModel.rescheduleTask",
                 "Task has no due date",
-                /** Map of. */
                 mapOf(
                     "taskId" to taskId,
                 ),
             )
             _uiState.update { it.copy(error = null) }
-            /** Return. */
             return
         }
 
         viewModelScope.launch {
             try {
-                /** Updated task. */
                 val updatedTask = taskRepository.updateTask(
                     id = taskId,
                     input = io.payanam.domain.model.TaskInput(
@@ -787,7 +663,6 @@ class TaskDetailViewModel @Inject constructor(
                         dueDate = newDueDate,
                     ),
                 )
-                /** Was overdue. */
                 val wasOverdue = previousDueDate.isBefore(LocalDateTime.now())
                 taskRescheduleRepository.recordReschedule(
                     taskId = taskId,
@@ -796,7 +671,6 @@ class TaskDetailViewModel @Inject constructor(
                     wasOverdue = wasOverdue,
                 )
                 _uiState.update { it.copy(task = updatedTask) }
-                /** Load reschedule history. */
                 loadRescheduleHistory(taskId)
 
                 try {
@@ -805,9 +679,7 @@ class TaskDetailViewModel @Inject constructor(
                     logger.e(
                         "TaskDetailViewModel.rescheduleTask",
                         "Failed to reschedule reminder",
-                        /** E. */
                         e,
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                         ),
@@ -817,7 +689,6 @@ class TaskDetailViewModel @Inject constructor(
                 logger.i(
                     "TaskDetailViewModel.rescheduleTask",
                     "Task rescheduled",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "from" to previousDueDate.toString(),
@@ -829,9 +700,7 @@ class TaskDetailViewModel @Inject constructor(
                 logger.e(
                     "TaskDetailViewModel.rescheduleTask",
                     "Error rescheduling task",
-                    /** E. */
                     e,
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                     ),
@@ -845,7 +714,6 @@ class TaskDetailViewModel @Inject constructor(
      * Delete task.
      */
     fun deleteTask() {
-        /** Task id. */
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
             try {
@@ -855,9 +723,7 @@ class TaskDetailViewModel @Inject constructor(
                     logger.e(
                         "TaskDetailViewModel.deleteTask",
                         "Failed to cancel reminders",
-                        /** E. */
                         e,
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                         ),

@@ -6,7 +6,6 @@ import io.payanam.database.entity.LifeDimensionEntity
 import io.payanam.domain.model.ConfiguredLifeDimension
 
 internal fun LifeDimensionEntity.toConfiguredLifeDimension(): ConfiguredLifeDimension =
-    /** Configured life dimension. */
     ConfiguredLifeDimension(
         id = id,
         key = key,

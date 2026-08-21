@@ -61,21 +61,16 @@ private val DONUT_UNASSIGNED_COLOR = Color(0xFF9E9E9E)
 
 @Composable
 internal fun DimensionSplitSection(
-    /** State. */
     state: DimensionSplitState,
     onWindowSelect: (DimensionSplitWindow) -> Unit,
     onShiftLeft: () -> Unit,
     onShiftRight: () -> Unit,
 ) {
-    /** App prefs. */
     val appPrefs = LocalAppPreferences.current
-
-    /** Launched effect. */
     LaunchedEffect(state.window, state.windowOffset, state.totalMinutes) {
         logger.d(
             "DimensionSplitSection",
             "Rendering dimension split",
-            /** Map of. */
             mapOf(
                 "window" to state.window.name,
                 "offset" to state.windowOffset,
@@ -84,10 +79,7 @@ internal fun DimensionSplitSection(
             ),
         )
     }
-
-    /** Column. */
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        /** Text. */
         Text(
             text = stringResource(id = R.string.loc_lens_dim_split_title),
             style = MaterialTheme.typography.titleSmall,
@@ -95,7 +87,6 @@ internal fun DimensionSplitSection(
         )
 
         // Window selector chips
-        /** Row. */
         Row(
             modifier = Modifier
                 .fillMaxWidth()
@@ -103,16 +94,12 @@ internal fun DimensionSplitSection(
             horizontalArrangement = Arrangement.spacedBy(6.dp),
         ) {
             DimensionSplitWindow.entries.forEach { window ->
-                /** Is selected. */
                 val isSelected = state.window == window
-                /** Label. */
                 val label = windowChipLabel(window)
-                /** Box. */
                 Box(
                     modifier = Modifier
                         .clip(RoundedCornerShape(16.dp))
                         .background(
-                            /** If. */
                             if (isSelected) {
                                 MaterialTheme.colorScheme.primary
                             } else {
@@ -122,7 +109,6 @@ internal fun DimensionSplitSection(
                         .clickable { onWindowSelect(window) }
                         .padding(horizontal = 12.dp, vertical = 6.dp),
                 ) {
-                    /** Text. */
                     Text(
                         text = label,
                         style = MaterialTheme.typography.labelSmall,
@@ -138,19 +124,16 @@ internal fun DimensionSplitSection(
         }
 
         // Date range label with optional shift arrows
-        /** Row. */
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            /** Icon button. */
             IconButton(
                 onClick = onShiftLeft,
                 enabled = state.canShiftLeft,
                 modifier = Modifier.size(32.dp),
             ) {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
                     contentDescription = null,
@@ -161,19 +144,14 @@ internal fun DimensionSplitSection(
                     },
                 )
             }
-
-            /** Column. */
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                /** Text. */
                 Text(
                     text = rangeLabelFor(state),
                     style = MaterialTheme.typography.labelMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                     textAlign = TextAlign.Center,
                 )
-                /** If. */
                 if (state.isClamped && state.requestedDays > 0) {
-                    /** Text. */
                     Text(
                         text = stringResource(
                             id = R.string.loc_lens_dim_split_clamped_info,
@@ -187,14 +165,11 @@ internal fun DimensionSplitSection(
                     )
                 }
             }
-
-            /** Icon button. */
             IconButton(
                 onClick = onShiftRight,
                 enabled = state.canShiftRight,
                 modifier = Modifier.size(32.dp),
             ) {
-                /** Icon. */
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
                     contentDescription = null,
@@ -206,63 +181,45 @@ internal fun DimensionSplitSection(
                 )
             }
         }
-
-        /** If. */
         if (state.totalMinutes == 0 && !state.isLoading) {
-            /** Text. */
             Text(
                 text = stringResource(id = R.string.loc_lens_dim_split_no_data),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            /** Return. */
             return
         }
 
         // Build ordered slices: assigned dims sorted desc, then unassigned
-        /** Slices. */
         val slices = buildSlices(state, appPrefs)
 
         // Donut chart
-        /** Dimension donut chart. */
         DimensionDonutChart(slices = slices, totalMinutes = state.totalMinutes)
-
-        /** Spacer. */
         Spacer(modifier = Modifier.height(4.dp))
 
         // Legend
         slices.forEach { slice ->
-            /** Dimension legend row. */
             DimensionLegendRow(slice = slice, totalMinutes = state.totalMinutes)
         }
     }
 }
 
 private data class DimensionSlice(
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Icon key. */
     val iconKey: String,
-    /** Label. */
     val label: String,
-    /** Color. */
     val color: Color,
-    /** Minutes. */
     val minutes: Int,
 )
 
 private fun buildSlices(state: DimensionSplitState, appPrefs: AppPreferencesState): List<DimensionSlice> {
-    /** Assigned. */
     val assigned = state.byDimension
         .filterKeys { it != null }
         .entries
         .sortedByDescending { it.value }
         .map { (id, minutes) ->
-            /** Label. */
             val label = appPrefs.labelForDimensionId(id) ?: id ?: ""
-            /** Color. */
             val color = appPrefs.colorForDimensionId(id) ?: DONUT_UNASSIGNED_COLOR
-            /** Dimension slice. */
             DimensionSlice(
                 dimensionId = id,
                 iconKey = appPrefs.iconKeyForDimensionId(id) ?: DimensionIconCatalog.defaultIconKeyForDimensionId(id),
@@ -271,9 +228,7 @@ private fun buildSlices(state: DimensionSplitState, appPrefs: AppPreferencesStat
                 minutes = minutes,
             )
         }
-    /** Unassigned minutes. */
     val unassignedMinutes = state.byDimension[null] ?: 0
-    /** Unassigned slice. */
     val unassignedSlice = DimensionSlice(
         dimensionId = null,
         iconKey = DimensionIconCatalog.defaultIconKeyForDimensionId(null),
@@ -286,32 +241,23 @@ private fun buildSlices(state: DimensionSplitState, appPrefs: AppPreferencesStat
 
 @Composable
 private fun DimensionDonutChart(slices: List<DimensionSlice>, totalMinutes: Int) {
-    /** Unassigned label. */
     val unassignedLabel = stringResource(id = R.string.loc_dimension_fallback_unassigned)
-    /** Resolved slices. */
     val resolvedSlices = remember(slices, unassignedLabel) {
         slices.map { if (it.label.isEmpty()) it.copy(label = unassignedLabel) else it }
     }
-    /** Sweep angles. */
     val sweepAngles = remember(resolvedSlices, totalMinutes) {
-        /** If. */
         if (totalMinutes == 0) {
-            /** Empty list. */
             emptyList()
         } else {
             resolvedSlices.map { slice -> (slice.minutes.toFloat() / totalMinutes) * 360f }
         }
     }
-    /** Center label. */
     val centerLabel = remember(totalMinutes) { formatMinutes(totalMinutes) }
-    /** Dominant slice. */
     val dominantSlice = remember(resolvedSlices) {
         resolvedSlices.filter { it.dimensionId != null }
             .maxByOrNull { it.minutes }
             ?: resolvedSlices.firstOrNull()
     }
-
-    /** Box. */
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -319,20 +265,13 @@ private fun DimensionDonutChart(slices: List<DimensionSlice>, totalMinutes: Int)
         contentAlignment = Alignment.Center,
     ) {
         androidx.compose.foundation.Canvas(modifier = Modifier.size(160.dp)) {
-            /** Stroke width. */
             val strokeWidth = 28.dp.toPx()
-            /** Inset. */
             val inset = strokeWidth / 2f
-            /** Arc rect. */
             val arcRect = androidx.compose.ui.geometry.Rect(inset, inset, size.width - inset, size.height - inset)
-            /** Start angle. */
             var startAngle = -90f
-            /** Gap angle. */
             val gapAngle = if (resolvedSlices.size > 1) 1.5f else 0f
             sweepAngles.forEachIndexed { index, sweep ->
-                /** Effective sweep. */
                 val effectiveSweep = (sweep - gapAngle).coerceAtLeast(0.5f)
-                /** Draw arc. */
                 drawArc(
                     color = resolvedSlices[index].color,
                     startAngle = startAngle,
@@ -345,20 +284,16 @@ private fun DimensionDonutChart(slices: List<DimensionSlice>, totalMinutes: Int)
                 startAngle += sweep
             }
         }
-        /** Column. */
         Column(horizontalAlignment = Alignment.CenterHorizontally) {
             dominantSlice?.let { slice ->
-                /** Dimension compact badge. */
                 DimensionCompactBadge(
                     label = slice.label,
                     color = slice.color,
                     iconOption = DimensionIconCatalog.resolve(slice.iconKey, slice.dimensionId),
                     size = 28.dp,
                 )
-                /** Spacer. */
                 Spacer(modifier = Modifier.height(4.dp))
             }
-            /** Text. */
             Text(
                 text = centerLabel,
                 style = MaterialTheme.typography.labelLarge,
@@ -372,19 +307,14 @@ private fun DimensionDonutChart(slices: List<DimensionSlice>, totalMinutes: Int)
 
 @Composable
 private fun DimensionLegendRow(slice: DimensionSlice, totalMinutes: Int) {
-    /** Unassigned label. */
     val unassignedLabel = stringResource(id = R.string.loc_dimension_fallback_unassigned)
-    /** Label. */
     val label = slice.label.ifEmpty { unassignedLabel }
-    /** Pct. */
     val pct = if (totalMinutes > 0) ((slice.minutes.toFloat() / totalMinutes) * 100).toInt() else 0
-    /** Row. */
     Row(
         modifier = Modifier.fillMaxWidth(),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        /** Dimension badge label row. */
         DimensionBadgeLabelRow(
             label = label,
             color = slice.color,
@@ -393,15 +323,12 @@ private fun DimensionLegendRow(slice: DimensionSlice, totalMinutes: Int) {
             labelColor = MaterialTheme.colorScheme.onSurface,
             badgeSize = 24.dp,
         )
-        /** Text. */
         Text(
             text = formatMinutes(slice.minutes),
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        /** Spacer. */
         Spacer(modifier = Modifier.width(4.dp))
-        /** Text. */
         Text(
             text = "$pct%",
             style = MaterialTheme.typography.labelSmall,
@@ -425,9 +352,7 @@ private fun windowChipLabel(window: DimensionSplitWindow): String = when (window
 }
 
 private fun rangeLabelFor(state: DimensionSplitState): String {
-    /** Today. */
     val today = LocalDate.now()
-    /** Yesterday. */
     val yesterday = today.minusDays(1)
     return when (state.window) {
         DimensionSplitWindow.W1 -> when (state.effectiveEnd) {

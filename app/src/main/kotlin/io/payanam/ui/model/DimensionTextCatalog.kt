@@ -53,14 +53,11 @@ object DimensionTextCatalog {
      * Localized label.
      */
     fun localizedLabel(context: Context, canonicalId: String?): String? {
-        /** Res id. */
         val resId = labelResIdForCanonicalId(canonicalId) ?: return null
         return resolveLocalizedString(context, resId, null).also {
-            /** Logger or null. */
             loggerOrNull()?.d(
                 "DimensionTextCatalog.localizedLabel",
                 "Resolved localized canonical dimension label",
-                /** Map of. */
                 mapOf("canonicalId" to (canonicalId ?: "none")),
             )
         }
@@ -70,25 +67,20 @@ object DimensionTextCatalog {
      * Localized description.
      */
     fun localizedDescription(context: Context, canonicalId: String?): String? {
-        /** Res id. */
         val resId = descriptionResIdForCanonicalId(canonicalId) ?: return null
         return resolveLocalizedString(context, resId, null).also {
-            /** Logger or null. */
             loggerOrNull()?.d(
                 "DimensionTextCatalog.localizedDescription",
                 "Resolved localized canonical dimension description",
-                /** Map of. */
                 mapOf("canonicalId" to (canonicalId ?: "none")),
             )
         }
     }
 
     private fun resolveLocalizedString(context: Context, resId: Int, languageTag: String?): String? = runCatching {
-        /** If. */
         if (languageTag.isNullOrBlank()) {
             context.getString(resId)
         } else {
-            /** Config. */
             val config = android.content.res.Configuration(context.resources.configuration)
             config.setLocale(java.util.Locale.forLanguageTag(languageTag))
             context.createConfigurationContext(config).getString(resId)

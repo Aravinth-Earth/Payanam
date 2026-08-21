@@ -29,10 +29,8 @@ class NoteDaoTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
-            /** Room. */
             Room
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .fallbackToDestructiveMigration()
@@ -55,17 +53,11 @@ class NoteDaoTest {
      */
     fun insert_and_getNoteById() {
         runBlocking {
-            /** Note. */
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
-
-            /** Retrieved. */
             val retrieved = noteDao.getNoteById("note-1")
-            /** Assert that. */
             assertThat(retrieved).isNotNull()
-            /** Assert that. */
             assertThat(retrieved?.id).isEqualTo("note-1")
-            /** Assert that. */
             assertThat(retrieved?.title).isEqualTo("Test Note")
         }
     }
@@ -76,19 +68,13 @@ class NoteDaoTest {
      */
     fun getAllNotes_returnsAllNotes() {
         runBlocking {
-            /** Note1. */
             val note1 = createTestNote("note-1", "Note 1", "health")
-            /** Note2. */
             val note2 = createTestNote("note-2", "Note 2", "career")
 
             noteDao.insert(note1)
             noteDao.insert(note2)
-
-            /** Notes. */
             val notes = noteDao.getAllNotes().first()
-            /** Assert that. */
             assertThat(notes).hasSize(2)
-            /** Assert that. */
             assertThat(notes.map { it.id }).containsExactly("note-2", "note-1") // Ordered by updatedAt DESC
         }
     }
@@ -99,22 +85,15 @@ class NoteDaoTest {
      */
     fun getNotesByDimension_filtersCorrectly() {
         runBlocking {
-            /** Health note. */
             val healthNote = createTestNote("note-1", "Health Note", "health")
-            /** Career note. */
             val careerNote = createTestNote("note-2", "Career Note", "career")
-            /** Another health note. */
             val anotherHealthNote = createTestNote("note-3", "Another Health", "health")
 
             noteDao.insert(healthNote)
             noteDao.insert(careerNote)
             noteDao.insert(anotherHealthNote)
-
-            /** Health notes. */
             val healthNotes = noteDao.getNotesByDimension("health").first()
-            /** Assert that. */
             assertThat(healthNotes).hasSize(2)
-            /** Assert that. */
             assertThat(healthNotes.map { it.id }).containsExactly("note-3", "note-1")
         }
     }
@@ -125,17 +104,11 @@ class NoteDaoTest {
      */
     fun update_modifiesNote() {
         runBlocking {
-            /** Note. */
             val note = createTestNote("note-1", "Original Title", "health")
             noteDao.insert(note)
-
-            /** Updated note. */
             val updatedNote = note.copy(title = "Updated Title", updatedAt = "2026-02-02T11:00:00Z")
             noteDao.update(updatedNote)
-
-            /** Retrieved. */
             val retrieved = noteDao.getNoteById("note-1")
-            /** Assert that. */
             assertThat(retrieved?.title).isEqualTo("Updated Title")
         }
     }
@@ -146,15 +119,11 @@ class NoteDaoTest {
      */
     fun delete_removesNote() {
         runBlocking {
-            /** Note. */
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
 
             noteDao.delete(note)
-
-            /** Retrieved. */
             val retrieved = noteDao.getNoteById("note-1")
-            /** Assert that. */
             assertThat(retrieved).isNull()
         }
     }
@@ -165,25 +134,18 @@ class NoteDaoTest {
      */
     fun deleteById_removesNote() {
         runBlocking {
-            /** Note. */
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
 
             noteDao.deleteById("note-1")
-
-            /** Retrieved. */
             val retrieved = noteDao.getNoteById("note-1")
-            /** Assert that. */
             assertThat(retrieved).isNull()
         }
     }
 
     private fun createTestNote(
-        /** Id. */
         id: String,
-        /** Title. */
         title: String,
-        /** Dimension. */
         dimension: String,
         details: String? = "Test details",
     ) = NoteEntity(

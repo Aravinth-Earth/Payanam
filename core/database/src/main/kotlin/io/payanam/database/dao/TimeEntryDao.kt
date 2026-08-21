@@ -40,9 +40,7 @@ interface TimeEntryDao {
      * Get time entries for range.
      */
     fun getTimeEntriesForRange(
-        /** Start. */
         start: String,
-        /** End. */
         end: String,
     ): Flow<List<TimeEntryEntity>>
 
@@ -58,11 +56,8 @@ interface TimeEntryDao {
      * Get time entries for date.
      */
     fun getTimeEntriesForDate(
-        /** Day start. */
         dayStart: String,
-        /** Day end. */
         dayEnd: String,
-        /** Current time. */
         currentTime: String,
     ): Flow<List<TimeEntryEntity>>
 
@@ -77,9 +72,7 @@ interface TimeEntryDao {
      * Get by import ref.
      */
     suspend fun getByImportRef(
-        /** Source. */
         source: String,
-        /** Import id. */
         importId: String,
     ): TimeEntryEntity?
 
@@ -134,14 +127,11 @@ interface TimeEntryDao {
      * Stop entry.
      */
     suspend fun stopEntry(
-        /** Id. */
         id: String,
-        /** Ended at. */
         endedAt: String,
         focusRating: Double?,
         focusNote: String?,
         focusRatedAt: String?,
-        /** Updated at. */
         updatedAt: String,
     )
 

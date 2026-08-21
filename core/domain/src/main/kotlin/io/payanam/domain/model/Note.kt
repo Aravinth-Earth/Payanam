@@ -8,19 +8,12 @@ import java.time.LocalDateTime
  * Note model for general notes/ideas.
  */
 data class Note(
-    /** Id. */
     val id: String,
-    /** Title. */
     val title: String,
-    /** Details. */
     val details: String? = null,
-    /** Life intention category. */
     val lifeIntentionCategory: String,
-    /** Created at. */
     val createdAt: LocalDateTime,
-    /** Updated at. */
     val updatedAt: LocalDateTime,
-    /** Dimension id. */
     val dimensionId: String? = null
 )
 
@@ -28,12 +21,8 @@ data class Note(
  * NoteInput.
  */
 data class NoteInput(
-    /** Title. */
     val title: String,
-    /** Details. */
     val details: String? = null,
-    /** Life intention category. */
     val lifeIntentionCategory: String,
-    /** Dimension id. */
     val dimensionId: String? = null
 )

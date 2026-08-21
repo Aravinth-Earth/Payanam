@@ -29,7 +29,6 @@ import javax.inject.Singleton
  */
 class NoteRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : NoteRepository {
@@ -50,7 +49,6 @@ class NoteRepositoryImpl
                 logger.d(
                     "NoteRepositoryImpl.getNotesByDimension",
                     "Notes emitted for dimension",
-                    /** Map of. */
                     mapOf(
                         "dimension" to dimension,
                         "count" to entities.size,
@@ -66,7 +64,6 @@ class NoteRepositoryImpl
                 logger.d(
                     "NoteRepositoryImpl.getNotesForDate",
                     "Notes emitted for date",
-                    /** Map of. */
                     mapOf(
                         "date" to date.toString(),
                         "count" to entities.size,
@@ -77,9 +74,7 @@ class NoteRepositoryImpl
         }
 
         override suspend fun getNoteById(id: String): Note? {
-            /** Note. */
             val note =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .journalDao()
@@ -91,28 +86,19 @@ class NoteRepositoryImpl
 
         override suspend fun createNote(input: NoteInput): Note {
             logger.i("NoteRepositoryImpl.createNote", "Creating new note")
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Id. */
             val id = UUID.randomUUID().toString()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve dimension id. */
                 resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
-            /** Resolved dimension label. */
             val resolvedDimensionLabel =
-                /** Resolve dimension label. */
                 resolveDimensionLabel(
                     explicitLabel = input.lifeIntentionCategory,
                     resolvedDimensionId = resolvedDimensionId,
                 )
-
-            /** Note. */
             val note =
-                /** Journal note entity. */
                 JournalNoteEntity(
                     id = id,
                     title = input.title,
@@ -126,7 +112,6 @@ class NoteRepositoryImpl
 
             sessionManager.requireDatabase().withTransaction {
                 sessionManager.requireDatabase().journalDao().insertNote(note)
-                /** Sync legacy note shadow. */
                 syncLegacyNoteShadow(note)
             }
 
@@ -135,37 +120,26 @@ class NoteRepositoryImpl
         }
 
         override suspend fun updateNote(
-            /** Id. */
             id: String,
-            /** Input. */
             input: NoteInput,
         ): Note {
             logger.i("NoteRepositoryImpl.updateNote", "Updating note", mapOf("id" to id))
-            /** Existing. */
             val existing =
                 sessionManager.requireDatabase().journalDao().getNoteById(id)
                     ?: run {
                         logger.w("NoteRepositoryImpl.updateNote", "Note not found for update", mapOf("id" to id))
                         throw IllegalArgumentException("Note not found: $id")
                     }
-
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve dimension id. */
                 resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
-            /** Resolved dimension label. */
             val resolvedDimensionLabel =
-                /** Resolved dimension id. */
                 resolvedDimensionId
                     ?.let { resolveDimensionLabel(null, it) }
                     ?: existing.lifeIntentionCategory
-
-            /** Updated. */
             val updated =
                 existing.copy(
                     title = input.title,
@@ -178,7 +152,6 @@ class NoteRepositoryImpl
 
             sessionManager.requireDatabase().withTransaction {
                 sessionManager.requireDatabase().journalDao().updateNote(updated)
-                /** Sync legacy note shadow. */
                 syncLegacyNoteShadow(updated)
             }
 
@@ -198,7 +171,6 @@ class NoteRepositoryImpl
         private suspend fun syncLegacyNoteShadow(note: JournalNoteEntity) {
             // Keep the notes shadow table in sync for tag foreign keys and read paths that still use it.
             sessionManager.requireDatabase().noteDao().insert(
-                /** Note entity. */
                 NoteEntity(
                     id = note.id,
                     title = note.title,
@@ -213,7 +185,6 @@ class NoteRepositoryImpl
         }
 
         private fun JournalNoteEntity.toDomain(): Note =
-            /** Note entity. */
             NoteEntity(
                 id = id,
                 title = title,
@@ -235,10 +206,8 @@ class NoteRepositoryImpl
                 logger.w(
                     "NoteRepositoryImpl.resolveDimensionId",
                     "Ignoring non-canonical note category label during dimension resolution",
-                    /** Map of. */
                     mapOf("categoryLabel" to label),
                 )
-                /** Null. */
                 null
             }
 

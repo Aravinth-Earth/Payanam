@@ -25,16 +25,13 @@ import javax.inject.Singleton
  */
 class TimeEntryRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : TimeEntryRepository {
         private val logger = UnifiedLogger.getInstance()
 
         override suspend fun getActiveTimeEntry(): TimeEntry? {
-            /** Entry. */
             val entry =
-                /** Session manager. */
                 sessionManager
                     .requireDatabase()
                     .timeEntryDao()
@@ -43,7 +40,6 @@ class TimeEntryRepositoryImpl
             logger.d(
                 "TimeEntryRepositoryImpl.getActiveTimeEntry",
                 "Fetched active time entry snapshot",
-                /** Map of. */
                 mapOf("hasActiveEntry" to (entry != null)),
             )
             return entry
@@ -55,15 +51,12 @@ class TimeEntryRepositoryImpl
             }
 
         override fun getTimeEntriesForRange(
-            /** Start. */
             start: LocalDateTime,
-            /** End. */
             end: LocalDateTime,
         ): Flow<List<TimeEntry>> {
             logger.d(
                 "TimeEntryRepositoryImpl.getTimeEntriesForRange",
                 "Subscribing to time entries for range",
-                /** Map of. */
                 mapOf("start" to start.toString(), "end" to end.toString()),
             )
             return sessionManager
@@ -76,7 +69,6 @@ class TimeEntryRepositoryImpl
                     logger.d(
                         "TimeEntryRepositoryImpl.getTimeEntriesForRange",
                         "Time entries emitted for range",
-                        /** Map of. */
                         mapOf("count" to entities.size),
                     )
                     entities.map { it.toDomain() }
@@ -84,11 +76,8 @@ class TimeEntryRepositoryImpl
         }
 
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> {
-            /** Day start. */
             val dayStart = date.atStartOfDay()
-            /** Day end. */
             val dayEnd = dayStart.plusDays(1)
-            /** Now. */
             val now = LocalDateTime.now()
             return sessionManager
                 .requireDatabase()
@@ -101,7 +90,6 @@ class TimeEntryRepositoryImpl
                     logger.d(
                         "TimeEntryRepositoryImpl.getTimeEntriesForDate",
                         "Time entries emitted for day",
-                        /** Map of. */
                         mapOf("date" to date.toString(), "count" to entities.size),
                     )
                     entities.map { it.toDomain() }
@@ -112,7 +100,6 @@ class TimeEntryRepositoryImpl
             logger.i(
                 "TimeEntryRepositoryImpl.startTimeEntry",
                 "Starting time entry",
-                /** Map of. */
                 mapOf(
                     "dimensionId" to (input.dimensionId ?: "unknown"),
                     "taskId" to (input.taskId ?: "none"),
@@ -121,24 +108,15 @@ class TimeEntryRepositoryImpl
             )
 
             // Stop any existing active entry first
-            /** Stop active time entry. */
             stopActiveTimeEntry()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve persisted dimension id. */
                 resolvePersistedDimensionId(
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
-
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Id. */
             val id = UUID.randomUUID().toString()
-
-            /** Entity. */
             val entity =
-                /** Time entry entity. */
                 TimeEntryEntity(
                     id = id,
                     lifeIntentionCategory = input.lifeIntentionCategory,
@@ -155,12 +133,10 @@ class TimeEntryRepositoryImpl
                 )
 
             sessionManager.requireDatabase().timeEntryDao().insert(entity)
-            /** Mark dirty for day. */
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_started")
             logger.i(
                 "TimeEntryRepositoryImpl.startTimeEntry",
                 "Time entry started",
-                /** Map of. */
                 mapOf(
                     "id" to id,
                     "dimensionId" to (input.dimensionId ?: "unknown"),
@@ -170,18 +146,15 @@ class TimeEntryRepositoryImpl
         }
 
         override suspend fun stopActiveTimeEntry(): TimeEntry? =
-            /** Stop active time entry internal. */
             stopActiveTimeEntryInternal(
                 focusRating = 0.0,
                 focusNote = null,
             )
 
         override suspend fun stopActiveTimeEntryWithFocus(
-            /** Focus rating. */
             focusRating: Double,
             focusNote: String?,
         ): TimeEntry? =
-            /** Stop active time entry internal. */
             stopActiveTimeEntryInternal(
                 focusRating = focusRating.coerceIn(0.0, 1.0),
                 focusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() },
@@ -191,9 +164,7 @@ class TimeEntryRepositoryImpl
             focusRating: Double?,
             focusNote: String?,
         ): TimeEntry? {
-            /** Active. */
             val active = sessionManager.requireDatabase().timeEntryDao().getActiveTimeEntry()
-            /** If. */
             if (active == null) {
                 logger.d("TimeEntryRepositoryImpl.stopActiveTimeEntry", "No active entry to stop")
                 return null
@@ -202,14 +173,11 @@ class TimeEntryRepositoryImpl
             logger.i(
                 "TimeEntryRepositoryImpl.stopActiveTimeEntry",
                 "Stopping active entry",
-                /** Map of. */
                 mapOf(
                     "id" to active.id,
                     "dimensionId" to (active.dimensionId ?: "unknown"),
                 ),
             )
-
-            /** Now. */
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().timeEntryDao().stopEntry(
                 id = active.id,
@@ -230,35 +198,26 @@ class TimeEntryRepositoryImpl
         }
 
         override suspend fun updateTimeEntry(
-            /** Id. */
             id: String,
-            /** Input. */
             input: TimeEntryInput,
         ): TimeEntry {
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntry",
                 "Updating time entry",
-                /** Map of. */
                 mapOf(
                     "id" to id,
                     "taskId" to (input.taskId ?: "none"),
                     "dimensionId" to (input.dimensionId ?: "resolved_from_category"),
                 ),
             )
-            /** Existing. */
             val existing =
                 sessionManager.requireDatabase().timeEntryDao().getById(id)
                     ?: throw IllegalArgumentException("TimeEntry not found: $id")
-
-            /** Now. */
             val now = LocalDateTime.now()
-
-            /** Updated. */
             val updated =
                 existing.copy(
                     lifeIntentionCategory = input.lifeIntentionCategory,
                     dimensionId =
-                        /** Resolve persisted dimension id. */
                         resolvePersistedDimensionId(
                             dimensionId = input.dimensionId,
                             lifeIntentionCategory = input.lifeIntentionCategory,
@@ -276,12 +235,10 @@ class TimeEntryRepositoryImpl
 
             sessionManager.requireDatabase().timeEntryDao().update(updated)
             existing.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_updated_previous_day") }
-            /** Mark dirty for day. */
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_updated_target_day")
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntry",
                 "Time entry updated",
-                /** Map of. */
                 mapOf("id" to id, "dayKey" to updated.dayKey),
             )
             return updated.toDomain()
@@ -289,7 +246,6 @@ class TimeEntryRepositoryImpl
 
         override suspend fun deleteTimeEntry(id: String) {
             logger.w("TimeEntryRepositoryImpl.deleteTimeEntry", "Deleting time entry", mapOf("id" to id))
-            /** Existing. */
             val existing = sessionManager.requireDatabase().timeEntryDao().getById(id)
             sessionManager.requireDatabase().timeEntryDao().deleteById(id)
             existing?.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_deleted") }
@@ -300,7 +256,6 @@ class TimeEntryRepositoryImpl
             logger.i(
                 "TimeEntryRepositoryImpl.createTimeEntry",
                 "Creating explicit time entry",
-                /** Map of. */
                 mapOf(
                     "taskId" to (input.taskId ?: "none"),
                     "dimensionId" to (input.dimensionId ?: "resolved_from_category"),
@@ -308,21 +263,14 @@ class TimeEntryRepositoryImpl
                     "endedAt" to (input.endedAt?.toString() ?: "none"),
                 ),
             )
-            /** Now. */
             val now = LocalDateTime.now()
-            /** Id. */
             val id = UUID.randomUUID().toString()
-            /** Resolved dimension id. */
             val resolvedDimensionId =
-                /** Resolve persisted dimension id. */
                 resolvePersistedDimensionId(
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
-
-            /** Entity. */
             val entity =
-                /** Time entry entity. */
                 TimeEntryEntity(
                     id = id,
                     lifeIntentionCategory = input.lifeIntentionCategory,
@@ -339,12 +287,10 @@ class TimeEntryRepositoryImpl
                 )
 
             sessionManager.requireDatabase().timeEntryDao().insert(entity)
-            /** Mark dirty for day. */
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_created")
             logger.i(
                 "TimeEntryRepositoryImpl.createTimeEntry",
                 "Time entry created",
-                /** Map of. */
                 mapOf("id" to id, "dayKey" to entity.dayKey),
             )
             return entity.toDomain()
@@ -364,23 +310,16 @@ class TimeEntryRepositoryImpl
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntryDirect",
                 "Updating time entry via domain model",
-                /** Map of. */
                 mapOf("id" to entry.id, "taskId" to (entry.taskId ?: "none")),
             )
-            /** Existing. */
             val existing =
                 sessionManager.requireDatabase().timeEntryDao().getById(entry.id)
                     ?: throw IllegalArgumentException("TimeEntry not found: ${entry.id}")
-
-            /** Now. */
             val now = LocalDateTime.now()
-
-            /** Updated. */
             val updated =
                 existing.copy(
                     lifeIntentionCategory = entry.lifeIntentionCategory,
                     dimensionId =
-                        /** Resolve persisted dimension id. */
                         resolvePersistedDimensionId(
                             dimensionId = entry.dimensionId,
                             lifeIntentionCategory = entry.lifeIntentionCategory,
@@ -398,29 +337,23 @@ class TimeEntryRepositoryImpl
 
             sessionManager.requireDatabase().timeEntryDao().update(updated)
             existing.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_direct_updated_previous_day") }
-            /** Mark dirty for day. */
             markDirtyForDay(entry.startedAt.toLocalDate(), "time_entry_direct_updated_target_day")
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntryDirect",
                 "Time entry updated via domain model",
-                /** Map of. */
                 mapOf("id" to entry.id, "dayKey" to updated.dayKey),
             )
         }
 
         private suspend fun markDirtyForDay(
-            /** Day. */
             day: LocalDate,
-            /** Reason. */
             reason: String,
         ) {
             logger.d(
                 "TimeEntryRepositoryImpl.markDirtyForDay",
                 "Marking daily insight dirty due to time entry mutation",
-                /** Map of. */
                 mapOf("day" to day.toString(), "reason" to reason),
             )
-            /** Mark lens day dirty. */
             markLensDayDirty(
                 dailyInsightDao = sessionManager.requireDatabase().dailyInsightDao(),
                 logger = logger,
@@ -433,29 +366,22 @@ class TimeEntryRepositoryImpl
 
 internal fun resolvePersistedDimensionId(
     dimensionId: String?,
-    /** Life intention category. */
     lifeIntentionCategory: String,
     fallbackDimensionId: String? = null,
 ): String? {
-    /** Normalized dimension id. */
     val normalizedDimensionId = normalizeOptionalIdentifier(dimensionId)
-    /** Canonical dimension id. */
     val canonicalDimensionId = normalizedDimensionId?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
-    /** If. */
     if (canonicalDimensionId == null && normalizedDimensionId != null) {
         UnifiedLogger.getInstance().w(
             "TimeEntryRepositoryImpl.resolvePersistedDimensionId",
             "Ignoring non-canonical dimension id",
-            /** Map of. */
             mapOf("dimensionId" to normalizedDimensionId),
         )
     }
-    /** If. */
     if (canonicalDimensionId == null && lifeIntentionCategory.isNotBlank()) {
         UnifiedLogger.getInstance().w(
             "TimeEntryRepositoryImpl.resolvePersistedDimensionId",
             "Ignoring non-canonical time-entry category label during dimension resolution",
-            /** Map of. */
             mapOf("lifeIntentionCategory" to lifeIntentionCategory),
         )
     }

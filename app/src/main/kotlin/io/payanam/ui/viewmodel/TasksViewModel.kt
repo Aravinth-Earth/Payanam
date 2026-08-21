@@ -52,12 +52,9 @@ class TasksViewModel @Inject constructor(
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TasksUiState())
-    /** Ui state. */
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
-    /** Chrome ui state. */
     val chromeUiState: StateFlow<TasksChromeUiState> = uiState
         .map { state ->
-            /** Tasks chrome ui state. */
             TasksChromeUiState(
                 isLoading = state.isLoading,
                 recurringTaskCount = state.recurringTasks.size,
@@ -77,10 +74,8 @@ class TasksViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = TasksChromeUiState(),
         )
-    /** Habits tab ui state. */
     val habitsTabUiState: StateFlow<HabitsTabUiState> = uiState
         .map { state ->
-            /** Habits tab ui state. */
             HabitsTabUiState(
                 rows = state.visibleHabitRows,
                 totalHabitCount = state.recurringTasks.size,
@@ -90,10 +85,8 @@ class TasksViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = HabitsTabUiState(),
         )
-    /** Tasks tab ui state. */
     val tasksTabUiState: StateFlow<TasksTabUiState> = uiState
         .map { state ->
-            /** Tasks tab ui state. */
             TasksTabUiState(
                 rows = state.filteredTaskRows,
                 currentFilter = state.currentFilter,
@@ -113,15 +106,10 @@ class TasksViewModel @Inject constructor(
         // hide-all-marked filter unapplied on launch (rows were shaped with
         // the default flags and clobbered the flag-only update).
         viewModelScope.launch {
-            /** Load saved sort option. */
             loadSavedSortOption()
-            /** Load saved filter option. */
             loadSavedFilterOption()
-            /** Load saved habit sort option. */
             loadSavedHabitSortOption()
-            /** Load saved visibility toggles. */
             loadSavedVisibilityToggles()
-            /** Load tasks. */
             loadTasks()
         }
     }
@@ -129,22 +117,17 @@ class TasksViewModel @Inject constructor(
     /** Persisted visibility toggles: showArchived / showCompleted / hideAllMarked. */
     private suspend fun loadSavedVisibilityToggles() {
         try {
-                /** Show archived. */
                 val showArchived = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_SHOW_ARCHIVED_HABITS) == "true"
-                /** Show completed. */
                 val showCompleted = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_SHOW_COMPLETED_HABITS) == "true"
-                /** Hide all marked. */
                 val hideAllMarked = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) == "true"
-                /** Due today only. */
                 val dueTodayOnly = appSettingsRepository
                     .getSetting(AppPreferencesViewModel.KEY_DUE_TODAY_ONLY) == "true"
                 logger.d(
                     "TasksViewModel.loadSavedVisibilityToggles",
                     "Loaded persisted visibility toggles",
-                    /** Map of. */
                     mapOf(
                         "showArchived" to showArchived,
                         "showCompleted" to showCompleted,
@@ -166,14 +149,10 @@ class TasksViewModel @Inject constructor(
     }
     private suspend fun loadSavedSortOption() {
         try {
-                /** Saved sort key. */
                 val savedSortKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_TASK_SORT_OPTION)
-                /** Sort option. */
                 val sortOption = TaskSortOption.fromKey(savedSortKey)
                 _uiState.update { state ->
-                    /** Filtered. */
                     val filtered = if (state.tasks.isNotEmpty()) {
-                        /** Filter and sort tasks. */
                         filterAndSortTasks(state.tasks, state.currentFilter, sortOption)
                     } else {
                         state.filteredTasks
@@ -191,14 +170,10 @@ class TasksViewModel @Inject constructor(
     }
     private suspend fun loadSavedFilterOption() {
         try {
-                /** Saved filter key. */
                 val savedFilterKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_TASK_FILTER_OPTION)
-                /** Filter option. */
                 val filterOption = TaskFilter.fromKey(savedFilterKey)
                 _uiState.update { state ->
-                    /** Filtered. */
                     val filtered = if (state.tasks.isNotEmpty()) {
-                        /** Filter and sort tasks. */
                         filterAndSortTasks(state.tasks, filterOption, state.currentSort)
                     } else {
                         state.filteredTasks
@@ -216,9 +191,7 @@ class TasksViewModel @Inject constructor(
     }
     private suspend fun loadSavedHabitSortOption() {
         try {
-                /** Saved habit sort key. */
                 val savedHabitSortKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_HABIT_SORT_OPTION)
-                /** Habit sort option. */
                 val habitSortOption = HabitSortOption.fromKey(savedHabitSortKey)
                 _uiState.update { it.copy(habitSortOption = habitSortOption) }
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
@@ -227,7 +200,6 @@ class TasksViewModel @Inject constructor(
     }
     private fun loadTasks() {
         tasksLoadJob?.cancel()
-        /** Start time. */
         val startTime = System.currentTimeMillis()
         PerfBaselineTelemetry.markEvent(screen = "tasks", event = "load_tasks_start")
         logger.d("TasksViewModel.loadTasks", "Loading tasks from repository")
@@ -240,43 +212,31 @@ class TasksViewModel @Inject constructor(
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }
                 .collect { tasks ->
-                    /** Now. */
                     val now = LocalDateTime.now()
-                    /** Today. */
                     val today = LocalDate.now()
-                    /** State. */
                     val state = _uiState.value
-                    /** Active tasks. */
                     val activeTasks = tasks.filter { it.status != "archived" }
-                    /** Recurring source. */
                     val recurringSource = if (FeatureFlags.minimalModeEnabled) {
-                        /** Empty list. */
                         emptyList()
                     } else if (state.showArchivedHabits) {
                         tasks.filter { it.recurrenceEnabled }
                     } else {
                         activeTasks.filter { it.recurrenceEnabled }
                     }
-                    /** One time. */
                     val oneTime = tasks.filter { !it.recurrenceEnabled }
-                    /** Active one time. */
                     val activeOneTime = activeTasks.filter { !it.recurrenceEnabled }
-                    /** Today count. */
                     val todayCount = activeOneTime.count { task ->
                         task.dueDate?.toLocalDate() == today &&
                             task.status != "completed" && task.status != "archived"
                     }
-                    /** Overdue count. */
                     val overdueCount = activeOneTime.count { task ->
                         task.dueDate?.isBefore(now) == true &&
                             task.status != "completed" && task.status != "archived"
                     }
-                    /** Future count. */
                     val futureCount = activeOneTime.count { it.status != "completed" && it.status != "archived" && (it.dueDate == null || it.dueDate?.toLocalDate()?.isAfter(today) == true) }
                     logger.i(
                         "TasksViewModel.loadTasks",
                         "Tasks loaded successfully",
-                        /** Map of. */
                         mapOf(
                             "total" to tasks.size,
                             "recurring" to recurringSource.size,
@@ -286,24 +246,18 @@ class TasksViewModel @Inject constructor(
                             "future" to futureCount,
                         ),
                     )
-                    /** Checkmark build start. */
                     val checkmarkBuildStart = System.currentTimeMillis()
-                    /** Task ids. */
                     val taskIds = recurringSource.map { it.id }
                     // Inc 4: latest L1 score roll-up state per habit (sort + card ring).
                     // Fetched on the real load path (loadTasks), not the dead
                     // refreshRecurringTasksList path.
-                    /** Latest l1. */
                     val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
-                    /** Occurrences map. */
                     val occurrencesMap = if (taskIds.isNotEmpty()) {
                         PerfBaselineTelemetry.incrementQuery(screen = "habits", source = "getOccurrencesForTasksInLastNDays")
                         taskOccurrenceRepository.getOccurrencesForTasksInLastNDays(taskIds, HABIT_OCCURRENCE_LOOKBACK_DAYS)
                     } else {
-                        /** Empty map. */
                         emptyMap()
                     }
-                    /** Checkmark payload. */
                     val checkmarkPayload = buildHabitCheckmarkPayload(
                         tasks = recurringSource,
                         occurrencesMap = occurrencesMap,
@@ -312,7 +266,6 @@ class TasksViewModel @Inject constructor(
                     )
                     // Due-today evaluation for the filter; frequency habits with
                     // a denominator beyond the lookback window fetch full history.
-                    /** Due today by task id. */
                     val dueTodayByTaskId = buildDueTodayByTaskId(
                         tasks = recurringSource,
                         occurrencesMap = occurrencesMap,
@@ -324,28 +277,20 @@ class TasksViewModel @Inject constructor(
                         event = "checkmark_payload_prepared",
                         data = mapOf("habitCount" to recurringSource.size, "durationMs" to (System.currentTimeMillis() - checkmarkBuildStart)),
                     )
-                    /** List shaping start. */
                     val listShapingStart = System.currentTimeMillis()
-                    /** Prepared state. */
                     val preparedState = withContext(Dispatchers.Default) {
                         // Fresh read: the pre-suspension snapshot (`state`) may
                         // predate persisted-preference updates applied while the
                         // DB queries above were in flight.
-                        /** Shaping state. */
                         val shapingState = _uiState.value
-                        /** Filtered sorted. */
                         val filteredSorted = filterAndSortTasks(tasks, shapingState.currentFilter, shapingState.currentSort)
-                        /** Sorted recurring. */
                         val sortedRecurring = sortHabits(
-                            /** Recurring source. */
                             recurringSource,
                             shapingState.habitSortOption,
                             checkmarkPayload.taskCheckmarks,
                             checkmarkPayload.todayStatusByTaskId,
-                            /** Latest l1. */
                             latestL1,
                         )
-                        /** Visible recurring. */
                         val visibleRecurring = visibleHabitsForDisplay(
                             habits = sortedRecurring,
                             todayStatusByTaskId = checkmarkPayload.todayStatusByTaskId,
@@ -354,9 +299,7 @@ class TasksViewModel @Inject constructor(
                             dueTodayOnly = shapingState.dueTodayOnly,
                             dueTodayByTaskId = dueTodayByTaskId,
                         )
-                        /** Filtered one time. */
                         val filteredOneTime = filteredSorted.filterNot { it.recurrenceEnabled }
-                        /** Visible habit rows. */
                         val visibleHabitRows = TasksRowCacheManager.buildHabitRows(
                             tasks = sortedRecurring,
                             checkmarksByTaskId = checkmarkPayload.taskCheckmarks,
@@ -367,16 +310,13 @@ class TasksViewModel @Inject constructor(
                             dueTodayByTaskId = dueTodayByTaskId,
                             latestL1ByHabit = latestL1,
                         )
-                        /** Filtered task rows. */
                         val filteredTaskRows = TasksRowCacheManager.buildTaskRows(filteredOneTime)
-                        /** Filter counts. */
                         val filterCounts = buildTaskFilterCounts(
                             oneTimeTasks = oneTime,
                             todayCount = todayCount,
                             overdueCount = overdueCount,
                             futureCount = futureCount,
                         )
-                        /** Prepared task state. */
                         PreparedTaskState(
                             filteredTasks = filteredSorted,
                             filteredOneTimeTasks = filteredOneTime,
@@ -400,7 +340,6 @@ class TasksViewModel @Inject constructor(
                         logger.d(
                             "TasksViewModel.loadTasks",
                             "Applying initial filter and sort",
-                            /** Map of. */
                             mapOf(
                                 "currentFilter" to currentState.currentFilter.displayName,
                                 "currentSort" to currentState.currentSort.displayName,
@@ -427,12 +366,10 @@ class TasksViewModel @Inject constructor(
                             overdueCount = overdueCount,
                         ).applyVisibilityRows()
                     }
-                    /** End time. */
                     val endTime = System.currentTimeMillis()
                     logger.i(
                         "TasksViewModel.loadTasks",
                         "Complete task loading finished",
-                        /** Map of. */
                         mapOf(
                             "totalLoadTimeMs" to (endTime - startTime),
                             "taskCount" to tasks.size,
@@ -458,7 +395,6 @@ class TasksViewModel @Inject constructor(
         logger.i(
             "TasksViewModel.toggleCheckmark",
             "CHECKMARK_TOGGLE_START",
-            /** Map of. */
             mapOf(
                 "taskId" to taskId,
                 "date" to date.toString(),
@@ -466,11 +402,8 @@ class TasksViewModel @Inject constructor(
         )
         viewModelScope.launch {
             try {
-                /** Current checkmarks. */
                 val currentCheckmarks = _uiState.value.taskCheckmarks[taskId] ?: return@launch
-                /** Checkmark. */
                 val checkmark = currentCheckmarks.find { it.date == date } ?: return@launch
-                /** New status. */
                 val newStatus = when (checkmark.status) {
                     CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> "completed"
                     CheckmarkStatus.COMPLETED -> "missed"
@@ -480,7 +413,6 @@ class TasksViewModel @Inject constructor(
                 logger.d(
                     "TasksViewModel.toggleCheckmark",
                     "STATUS_CALCULATED",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "date" to date.toString(),
@@ -488,12 +420,10 @@ class TasksViewModel @Inject constructor(
                         "newStatus" to newStatus,
                     ),
                 )
-                /** Task. */
                 val task = _uiState.value.tasks.find { it.id == taskId }
                 logger.d(
                     "TasksViewModel.toggleCheckmark",
                     "TASK_LOOKUP",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "taskFound" to (task != null).toString(),
@@ -501,12 +431,10 @@ class TasksViewModel @Inject constructor(
                         "isRecurring" to (task?.recurrenceEnabled?.toString() ?: "null"),
                     ),
                 )
-                /** If. */
                 if (task?.recurrenceEnabled == true && newStatus == "completed") {
                     logger.i(
                         "TasksViewModel.toggleCheckmark",
                         "RECURRING_TASK_COMPLETION_DIALOG_SHOWN",
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                             "taskTitle" to task.title,
@@ -524,13 +452,11 @@ class TasksViewModel @Inject constructor(
                 logger.d(
                     "TasksViewModel.toggleCheckmark",
                     "PROCEEDING_WITH_DIRECT_TOGGLE",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "newStatus" to newStatus,
                     ),
                 )
-                /** Occurrence. */
                 val occurrence = taskOccurrenceRepository.toggleOccurrence(
                     taskId = taskId,
                     date = date,
@@ -542,7 +468,6 @@ class TasksViewModel @Inject constructor(
                 logger.i(
                     "TasksViewModel.toggleCheckmark",
                     "CHECKMARK_TOGGLED_SUCCESS",
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "date" to date.toString(),
@@ -552,15 +477,12 @@ class TasksViewModel @Inject constructor(
                 // Recompute L1/L2/L3 FIRST so refreshed rows carry the
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
-                /** Refresh checkmarks for task. */
                 refreshCheckmarksForTask(taskId)
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "TasksViewModel.toggleCheckmark",
                     "CHECKMARK_TOGGLE_FAILED",
-                    /** E. */
                     e,
-                    /** Map of. */
                     mapOf(
                         "taskId" to taskId,
                         "date" to date.toString(),
@@ -585,13 +507,10 @@ class TasksViewModel @Inject constructor(
      * Confirm completion.
      */
     fun confirmCompletion(actualCompletedAt: LocalDateTime?, actualDurationMinutes: Int?) {
-        /** Task. */
         val task = _uiState.value.completionDialogTask ?: return
-        /** Date. */
         val date = _uiState.value.completionDialogDate ?: return
         viewModelScope.launch {
             try {
-                /** Occurrence. */
                 val occurrence = taskOccurrenceRepository.toggleOccurrence(
                     taskId = task.id,
                     date = date,
@@ -603,7 +522,6 @@ class TasksViewModel @Inject constructor(
                 logger.i(
                     "TasksViewModel.confirmCompletion",
                     "Completion confirmed",
-                    /** Map of. */
                     mapOf(
                         "taskId" to task.id,
                         "date" to date.toString(),
@@ -611,20 +529,15 @@ class TasksViewModel @Inject constructor(
                         "actualDurationMinutes" to actualDurationMinutes?.toString(),
                     ),
                 )
-                /** Refresh checkmarks for task. */
                 refreshCheckmarksForTask(task.id)
                 scoreRollupCascadeService.recalcForStatusChange(task.id, date)
-                /** Create time entry for habit use case. */
                 createTimeEntryForHabitUseCase(task, actualCompletedAt, actualDurationMinutes)
-                /** Dismiss completion dialog. */
                 dismissCompletionDialog()
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e(
                     "TasksViewModel.confirmCompletion",
                     "Failed to confirm completion",
-                    /** E. */
                     e,
-                    /** Map of. */
                     mapOf(
                         "taskId" to task.id,
                         "date" to date.toString(),
@@ -637,31 +550,24 @@ class TasksViewModel @Inject constructor(
      * Update checkmark.
      */
     fun updateCheckmark(
-        /** Task id. */
         taskId: String,
-        /** Date. */
         date: LocalDate,
-        /** Status. */
         status: CheckmarkStatus,
-        /** Note. */
         note: String,
     ) {
         viewModelScope.launch {
             try {
-                /** If. */
                 if (status == CheckmarkStatus.PENDING) {
                     taskOccurrenceRepository.deleteOccurrence(taskId, date)
                     logger.i(
                         "TasksViewModel.updateCheckmark",
                         "Checkmark cleared (deleted)",
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                             "date" to date.toString(),
                         ),
                     )
                 } else {
-                    /** Status str. */
                     val statusStr = when (status) {
                         CheckmarkStatus.COMPLETED -> "completed"
                         CheckmarkStatus.SKIPPED -> "skipped"
@@ -677,7 +583,6 @@ class TasksViewModel @Inject constructor(
                     logger.i(
                         "TasksViewModel.updateCheckmark",
                         "Checkmark updated",
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                             "date" to date.toString(),
@@ -689,7 +594,6 @@ class TasksViewModel @Inject constructor(
                 // Recompute L1/L2/L3 FIRST so refreshed rows carry the
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
-                /** Refresh checkmarks for task. */
                 refreshCheckmarksForTask(taskId)
             } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
                 logger.e("TasksViewModel.updateCheckmark", "Failed to update checkmark", e)
@@ -698,27 +602,18 @@ class TasksViewModel @Inject constructor(
     }
     private suspend fun refreshCheckmarksForTask(taskId: String) {
         try {
-            /** Today. */
             val today = LocalDate.now()
-            /** Occurrences. */
             val occurrences = taskOccurrenceRepository.getOccurrencesForLastNDays(taskId, HABIT_OCCURRENCE_LOOKBACK_DAYS)
-            /** Checkmarks. */
             val checkmarks = buildCheckmarksForTask(occurrences = occurrences, today = today, days = HABIT_CHECKMARK_HISTORY_DAYS)
-            /** Today status. */
             val todayStatus = checkmarks.firstOrNull()?.status ?: CheckmarkStatus.UNKNOWN
             // Inc 4: refresh the L1 map after a toggle so the ring/sort follow
             // the just-updated metric.
-            /** Fallback l1. */
             val fallbackL1 = _uiState.value.latestL1ByHabit
-            /** Latest l1. */
             val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(fallbackL1)
             // E1: recompute the due-today flag after every mark — a FREQUENCY
             // habit whose quota just became satisfied is no longer due.
-            /** Task. */
             val task = _uiState.value.recurringTasks.find { it.id == taskId }
-            /** Due today. */
             val dueToday = if (task != null) {
-                /** Compute due today for task. */
                 computeDueTodayForTask(
                     task = task,
                     occurrences = occurrences,
@@ -729,21 +624,14 @@ class TasksViewModel @Inject constructor(
                 _uiState.value.dueTodayByTaskId[taskId] ?: true
             }
             _uiState.update { state ->
-                /** Updated checkmarks. */
                 val updatedCheckmarks = state.taskCheckmarks + (taskId to checkmarks)
-                /** Updated today status. */
                 val updatedTodayStatus = state.todayHabitStatusByTaskId + (taskId to todayStatus)
-                /** Updated due today. */
                 val updatedDueToday = state.dueTodayByTaskId + (taskId to dueToday)
-                /** Sorted recurring. */
                 val sortedRecurring = sortHabits(
                     state.recurringTasks,
                     state.habitSortOption,
-                    /** Updated checkmarks. */
                     updatedCheckmarks,
-                    /** Updated today status. */
                     updatedTodayStatus,
-                    /** Latest l1. */
                     latestL1,
                 )
                 state.copy(
@@ -779,26 +667,20 @@ class TasksViewModel @Inject constructor(
     private suspend fun refreshRecurringTasksList() {
         try {
             PerfBaselineTelemetry.incrementQuery(screen = "habits", source = "refresh_getAllTasks")
-            /** All tasks. */
             val allTasks = taskRepository.getAllTasks().first()
-            /** Recurring. */
             val recurring = if (_uiState.value.showArchivedHabits) {
                 allTasks.filter { it.recurrenceEnabled }
             } else {
                 allTasks.filter { it.status != "archived" && it.recurrenceEnabled }
             }
             // Inc 4: latest L1 score roll-up state per habit (sort + card ring)
-            /** Latest l1. */
             val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
             _uiState.update { state ->
-                /** Sorted recurring. */
                 val sortedRecurring = sortHabits(
-                    /** Recurring. */
                     recurring,
                     state.habitSortOption,
                     state.taskCheckmarks,
                     state.todayHabitStatusByTaskId,
-                    /** Latest l1. */
                     latestL1,
                 )
                 state.copy(
@@ -842,7 +724,6 @@ class TasksViewModel @Inject constructor(
             }
         }
         _uiState.update { state ->
-            /** Sorted. */
             val sorted = filterAndSortTasks(state.tasks, state.currentFilter, sortOption)
             state.copy(
                 currentSort = sortOption,
@@ -856,24 +737,20 @@ class TasksViewModel @Inject constructor(
      * Set filter.
      */
     fun setFilter(
-        /** Filter. */
         filter: TaskFilter,
         interactionId: String? = null,
         interactionStartMs: Long? = null,
     ) {
-        /** Compute start ms. */
         val computeStartMs = SystemClock.elapsedRealtime()
         logger.d(
             "TasksViewModel.setFilter",
             "Filter changed",
-            /** Map of. */
             mapOf(
                 "filter" to filter.displayName,
                 "interactionId" to interactionId,
                 "interactionStartMs" to interactionStartMs,
             ),
         )
-        /** If. */
         if (interactionId != null) {
             PerfBaselineTelemetry.markEvent(
                 screen = "tasks",
@@ -894,23 +771,18 @@ class TasksViewModel @Inject constructor(
             }
         }
         _uiState.update { state ->
-            /** Filtered. */
             val filtered = filterAndSortTasks(state.tasks, filter, state.currentSort)
-            /** Compute end ms. */
             val computeEndMs = SystemClock.elapsedRealtime()
-            /** Compute duration ms. */
             val computeDurationMs = computeEndMs - computeStartMs
             logger.d(
                 "TasksViewModel.setFilter",
                 "Tasks filtered",
-                /** Map of. */
                 mapOf(
                     "resultCount" to filtered.size,
                     "interactionId" to interactionId,
                     "computeDurationMs" to computeDurationMs,
                 ),
             )
-            /** If. */
             if (interactionId != null) {
                 PerfBaselineTelemetry.markEvent(
                     screen = "tasks",
@@ -931,9 +803,7 @@ class TasksViewModel @Inject constructor(
                 filteredTaskRows = TasksRowCacheManager.buildTaskRows(filtered.filterNot { it.recurrenceEnabled }),
             )
         }
-        /** If. */
         if (interactionId != null) {
-            /** State applied ms. */
             val stateAppliedMs = SystemClock.elapsedRealtime()
             PerfBaselineTelemetry.markEvent(
                 screen = "tasks",
@@ -953,7 +823,6 @@ class TasksViewModel @Inject constructor(
         logger.i(
             "TasksViewModel.setHabitSortOption",
             "User changed habit sort option",
-            /** Map of. */
             mapOf(
                 "newHabitSort" to option.displayName,
                 "newHabitSortKey" to option.key,
@@ -970,7 +839,6 @@ class TasksViewModel @Inject constructor(
             }
         }
         _uiState.update { state ->
-            /** Sorted. */
             val sorted = sortHabits(state.recurringTasks, option, state.taskCheckmarks, state.todayHabitStatusByTaskId, state.latestL1ByHabit)
             state.copy(
                 habitSortOption = option,
@@ -1001,14 +869,11 @@ class TasksViewModel @Inject constructor(
      */
     fun toggleShowArchivedHabits() {
         _uiState.update { state ->
-            /** New value. */
             val newValue = !state.showArchivedHabits
             logger.d("TasksViewModel.toggleShowArchivedHabits", "Toggled", mapOf("showArchived" to newValue))
             state.copy(showArchivedHabits = newValue)
         }
-        /** Persist visibility toggle. */
         persistVisibilityToggle(AppPreferencesViewModel.KEY_SHOW_ARCHIVED_HABITS) { it.showArchivedHabits }
-        /** Load tasks. */
         loadTasks()
     }
     /**
@@ -1016,7 +881,6 @@ class TasksViewModel @Inject constructor(
      */
     fun toggleShowCompletedHabits() {
         _uiState.update { state ->
-            /** New value. */
             val newValue = !state.showCompletedHabits
             logger.d("TasksViewModel.toggleShowCompletedHabits", "Toggled", mapOf("showCompleted" to newValue))
             state.copy(
@@ -1041,7 +905,6 @@ class TasksViewModel @Inject constructor(
                 ),
             )
         }
-        /** Persist visibility toggle. */
         persistVisibilityToggle(AppPreferencesViewModel.KEY_SHOW_COMPLETED_HABITS) { it.showCompletedHabits }
     }
 
@@ -1061,12 +924,10 @@ class TasksViewModel @Inject constructor(
      */
     fun toggleHideAllMarkedToday() {
         _uiState.update { state ->
-            /** New value. */
             val newValue = !state.hideAllMarkedToday
             logger.d("TasksViewModel.toggleHideAllMarkedToday", "Toggled", mapOf("hideAllMarked" to newValue))
             state.copy(hideAllMarkedToday = newValue).applyVisibilityRows()
         }
-        /** Persist visibility toggle. */
         persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
 
@@ -1075,12 +936,10 @@ class TasksViewModel @Inject constructor(
      */
     fun toggleDueTodayOnly() {
         _uiState.update { state ->
-            /** New value. */
             val newValue = !state.dueTodayOnly
             logger.d("TasksViewModel.toggleDueTodayOnly", "Toggled", mapOf("dueTodayOnly" to newValue))
             state.copy(dueTodayOnly = newValue).applyVisibilityRows()
         }
-        /** Persist visibility toggle. */
         persistVisibilityToggle(AppPreferencesViewModel.KEY_DUE_TODAY_ONLY) { it.dueTodayOnly }
     }
 
@@ -1094,7 +953,6 @@ class TasksViewModel @Inject constructor(
      * after list shaping captured the default flags and got clobbered).
      */
     private fun TasksUiState.applyVisibilityRows(): TasksUiState =
-        /** Copy. */
         copy(
             visibleRecurringTasks = visibleHabitsForDisplay(
                 habits = recurringTasks,
@@ -1122,29 +980,22 @@ class TasksViewModel @Inject constructor(
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))
         viewModelScope.launch {
             try {
-                /** Task. */
                 val task = taskRepository.getTaskById(taskId)
-                /** If. */
                 if (task == null) {
                     logger.w("TasksViewModel.completeTask", "Task not found", mapOf("taskId" to taskId))
                     return@launch
                 }
-                /** Is frequency habit. */
                 val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
-                /** If. */
                 if (!isFrequencyHabit) {
                     taskRepository.completeTask(taskId, note)
                 }
-                /** If. */
                 if (task.recurrenceEnabled) {
-                    /** If. */
                     if (FeatureFlags.minimalModeEnabled) {
                         logger.i("TasksViewModel.completeTask", "Minimal mode: skipping recurrence processing for recurring task", mapOf("taskId" to taskId))
                         notificationScheduler.cancelForTask(taskId)
                         logger.i("TasksViewModel.completeTask", "Task completed successfully", mapOf("taskId" to taskId))
                         return@launch
                     }
-                    /** Occurrence. */
                     val occurrence = TaskOccurrence(
                         id = java.util.UUID.randomUUID().toString(),
                         taskId = taskId,
@@ -1156,9 +1007,7 @@ class TasksViewModel @Inject constructor(
                     )
                     taskOccurrenceRepository.recordOccurrence(occurrence)
                     recurrenceManager.onTaskCompleted(task, note = note, reason = "tasks_tab_action")
-                    /** Updated task. */
                     val updatedTask = taskRepository.getTaskById(taskId)
-                    /** If. */
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
@@ -1166,16 +1015,13 @@ class TasksViewModel @Inject constructor(
                             logger.e(
                                 "TasksViewModel.completeTask",
                                 "Failed to schedule next recurring reminder",
-                                /** E. */
                                 e,
-                                /** Map of. */
                                 mapOf(
                                     "taskId" to taskId,
                                 ),
                             )
                         }
                     }
-                    /** Refresh checkmarks for task. */
                     refreshCheckmarksForTask(taskId)
                     scoreRollupCascadeService.recalcForStatusChange(taskId, LocalDate.now())
                 } else {
@@ -1203,9 +1049,7 @@ class TasksViewModel @Inject constructor(
                     logger.e(
                         "TasksViewModel.archiveTask",
                         "Failed to cancel reminders",
-                        /** E. */
                         e,
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                         ),
@@ -1232,9 +1076,7 @@ class TasksViewModel @Inject constructor(
                     logger.e(
                         "TasksViewModel.deleteTask",
                         "Failed to cancel reminders",
-                        /** E. */
                         e,
-                        /** Map of. */
                         mapOf(
                             "taskId" to taskId,
                         ),

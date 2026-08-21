@@ -30,7 +30,6 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
      */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -38,11 +37,8 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
         dbDir = dbFile.parentFile ?: error("DB parent directory should exist")
         tempBackupDir = File(dbDir, "payanam_temp_backup")
         dbFile.delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm").delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-journal").delete()
         tempBackupDir.deleteRecursively()
     }
@@ -53,11 +49,8 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
      */
     fun tearDown() {
         dbFile.delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm").delete()
-        /** File. */
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-journal").delete()
         tempBackupDir.deleteRecursively()
     }
@@ -68,22 +61,15 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
      */
     fun cleanupStaleArtifacts_recoversPrimaryFromTempBackupWhenPrimaryMissing() {
         tempBackupDir.mkdirs()
-        /** Backup db. */
         val backupDb = File(tempBackupDir, PayanamDatabase.DATABASE_NAME)
         backupDb.writeText("backup-db-payload")
-        /** Backup wal. */
         val backupWal = File(tempBackupDir, "${PayanamDatabase.DATABASE_NAME}-wal")
         backupWal.writeText("wal-payload")
 
         DatabaseArtifactJanitor.cleanupStaleArtifacts(context, "DatabaseArtifactJanitorTempBackupRecoveryTest")
-
-        /** Assert that. */
         assertThat(dbFile.exists()).isTrue()
-        /** Assert that. */
         assertThat(dbFile.readText()).isEqualTo("backup-db-payload")
-        /** Assert that. */
         assertThat(File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").exists()).isTrue()
-        /** Assert that. */
         assertThat(tempBackupDir.exists()).isFalse()
     }
 
@@ -93,14 +79,10 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
      */
     fun cleanupStaleArtifacts_preservesTempBackupWhenRecoveryNotPossibleAndPrimaryMissing() {
         tempBackupDir.mkdirs()
-        /** File. */
         File(tempBackupDir, "note.txt").writeText("manual-inspection")
 
         DatabaseArtifactJanitor.cleanupStaleArtifacts(context, "DatabaseArtifactJanitorTempBackupRecoveryTest")
-
-        /** Assert that. */
         assertThat(dbFile.exists()).isFalse()
-        /** Assert that. */
         assertThat(tempBackupDir.exists()).isTrue()
     }
 }

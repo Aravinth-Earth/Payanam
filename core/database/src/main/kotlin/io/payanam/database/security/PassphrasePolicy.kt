@@ -15,7 +15,6 @@ object PassphrasePolicy {
      * Validate.
      */
     fun validate(passphrase: String): PassphraseValidation {
-        /** If. */
         if (passphrase.length < MIN_LENGTH) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "min_length"))
             return PassphraseValidation(
@@ -23,7 +22,6 @@ object PassphrasePolicy {
                 reasonCode = "min_length",
             )
         }
-        /** If. */
         if (!passphrase.any { it.isUpperCase() }) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "missing_uppercase"))
             return PassphraseValidation(
@@ -31,7 +29,6 @@ object PassphrasePolicy {
                 reasonCode = "missing_uppercase",
             )
         }
-        /** If. */
         if (!passphrase.any { it.isLowerCase() }) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "missing_lowercase"))
             return PassphraseValidation(
@@ -39,7 +36,6 @@ object PassphrasePolicy {
                 reasonCode = "missing_lowercase",
             )
         }
-        /** If. */
         if (!passphrase.any { it.isDigit() }) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "missing_digit"))
             return PassphraseValidation(
@@ -47,7 +43,6 @@ object PassphrasePolicy {
                 reasonCode = "missing_digit",
             )
         }
-        /** If. */
         if (!passphrase.any { !it.isLetterOrDigit() }) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "missing_symbol"))
             return PassphraseValidation(
@@ -64,8 +59,6 @@ object PassphrasePolicy {
  * PassphraseValidation.
  */
 data class PassphraseValidation(
-    /** Is valid. */
     val isValid: Boolean,
-    /** Reason code. */
     val reasonCode: String?,
 )

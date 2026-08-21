@@ -8,72 +8,59 @@ package io.payanam.domain.model
  * Matches LIFE_INTENTIONS from archive-v0.0.2/src/utils/elegantTaskScoring.ts
  */
 enum class LifeDimension(
-    /** Id. */
     val id: String,
-    /** Display name. */
     val displayName: String,
-    /** Weight. */
     val weight: Double,
-    /** Description. */
     val description: String
 ) {
-    /** Career work. */
     CAREER_WORK(
         id = "dim_career_work",
         displayName = "Career & Work",
         weight = 1.0,
         description = "Professional development and work-related tasks"
     ),
-    /** Health wellness. */
     HEALTH_WELLNESS(
         id = "dim_health_wellness",
         displayName = "Health & Wellness",
         weight = 1.0,
         description = "Physical and mental health activities"
     ),
-    /** Relationships. */
     RELATIONSHIPS(
         id = "dim_relationships",
         displayName = "Relationships",
         weight = 0.9,
         description = "Family, friends, and social connections"
     ),
-    /** Personal growth. */
     PERSONAL_GROWTH(
         id = "dim_personal_growth",
         displayName = "Personal Growth",
         weight = 0.85,
         description = "Self-improvement and personal development"
     ),
-    /** Financial. */
     FINANCIAL(
         id = "dim_financial",
         displayName = "Financial",
         weight = 0.8,
         description = "Financial planning and management"
     ),
-    /** Spiritual. */
     SPIRITUAL(
         id = "dim_spiritual",
         displayName = "Spiritual",
         weight = 0.75,
         description = "Spiritual practices and mindfulness"
     ),
-    /** Recreation. */
     RECREATION(
         id = "dim_recreation",
         displayName = "Recreation",
         weight = 0.7,
         description = "Hobbies, leisure, and entertainment"
     ),
-    /** Learning. */
     LEARNING(
         id = "dim_learning",
         displayName = "Learning",
         weight = 0.8,
         description = "Education and skill acquisition"
     ),
-    /** Contribution. */
     CONTRIBUTION(
         id = "dim_contribution",
         displayName = "Contribution",

@@ -30,7 +30,6 @@ object DatabaseFileGuard {
     }
 
     private fun primaryDbNames(): Set<String> {
-        /** Base name. */
         val baseName = PayanamDatabase.DATABASE_NAME
         return setOf(baseName, "$baseName-wal", "$baseName-shm", "$baseName-journal")
     }
@@ -40,21 +39,15 @@ object DatabaseFileGuard {
      * traceability. Returns true if the file was deleted (or did not exist).
      */
     fun safeDelete(
-        /** File. */
         file: File,
-        /** Intent. */
         intent: DeleteIntent,
-        /** Caller. */
         caller: String,
     ): Boolean {
-        /** Is primary. */
         val isPrimary = primaryDbNames().contains(file.name)
-        /** If. */
         if (isPrimary) {
             logger.i(
                 "DatabaseFileGuard.safeDelete",
                 "Primary DB file deletion authorized",
-                /** Map of. */
                 mapOf(
                     "file" to file.name,
                     "intent" to intent.name,
@@ -65,14 +58,11 @@ object DatabaseFileGuard {
             )
         }
         return if (file.exists()) {
-            /** Deleted. */
             val deleted = file.delete()
-            /** If. */
             if (!deleted) {
                 logger.w(
                     "DatabaseFileGuard.safeDelete",
                     "Failed to delete file",
-                    /** Map of. */
                     mapOf(
                         "file" to file.name,
                         "intent" to intent.name,
@@ -80,10 +70,8 @@ object DatabaseFileGuard {
                     ),
                 )
             }
-            /** Deleted. */
             deleted
         } else {
-            /** True. */
             true
         }
     }
@@ -92,17 +80,13 @@ object DatabaseFileGuard {
      * Recursively deletes [dir]. Logs intent for traceability.
      */
     fun safeDeleteDir(
-        /** Dir. */
         dir: File,
-        /** Intent. */
         intent: DeleteIntent,
-        /** Caller. */
         caller: String,
     ): Boolean {
         logger.i(
             "DatabaseFileGuard.safeDeleteDir",
             "Directory deletion authorized",
-            /** Map of. */
             mapOf(
                 "dir" to dir.name,
                 "intent" to intent.name,

@@ -29,7 +29,6 @@ import javax.inject.Singleton
  */
 class TagRepositoryImpl
     @Inject
-    /** Constructor. */
     constructor(
         private val sessionManager: DatabaseSessionManager,
     ) : TagRepository {
@@ -44,17 +43,13 @@ class TagRepositoryImpl
         }
 
         override fun searchTagsByPrefix(
-            /** Query. */
             query: String,
-            /** Limit. */
             limit: Int,
         ): Flow<List<Tag>> {
-            /** Normalized prefix. */
             val normalizedPrefix = normalizeTagName(query)
             logger.d(
                 "TagRepositoryImpl.searchTagsByPrefix",
                 "Subscribing to tag prefix search",
-                /** Map of. */
                 mapOf(
                     "prefix" to normalizedPrefix,
                     "limit" to limit,
@@ -80,14 +75,12 @@ class TagRepositoryImpl
         }
 
         override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> {
-            /** If. */
             if (noteIds.isEmpty()) {
                 return emptyMap()
             }
             logger.d(
                 "TagRepositoryImpl.getTagNamesForNotes",
                 "Loading note tags in batch",
-                /** Map of. */
                 mapOf("noteCount" to noteIds.size),
             )
             return sessionManager.requireDatabase()
@@ -104,11 +97,9 @@ class TagRepositoryImpl
         }
 
         override suspend fun replaceTaskTags(
-            /** Task id. */
             taskId: String,
             tagNames: List<String>,
         ) {
-            /** Replace tags. */
             replaceTags(
                 ownerId = taskId,
                 tagNames = tagNames,
@@ -116,7 +107,6 @@ class TagRepositoryImpl
                 insertLinks = { tagIds, now ->
                     sessionManager.requireDatabase().tagDao().insertTaskTags(
                         tagIds.map { tagId ->
-                            /** Task tag entity. */
                             TaskTagEntity(taskId = taskId, tagId = tagId, createdAt = now)
                         },
                     )
@@ -125,11 +115,9 @@ class TagRepositoryImpl
         }
 
         override suspend fun replaceNoteTags(
-            /** Note id. */
             noteId: String,
             tagNames: List<String>,
         ) {
-            /** Replace tags. */
             replaceTags(
                 ownerId = noteId,
                 tagNames = tagNames,
@@ -137,7 +125,6 @@ class TagRepositoryImpl
                 insertLinks = { tagIds, now ->
                     sessionManager.requireDatabase().tagDao().insertNoteTags(
                         tagIds.map { tagId ->
-                            /** Note tag entity. */
                             NoteTagEntity(noteId = noteId, tagId = tagId, createdAt = now)
                         },
                     )
@@ -146,11 +133,9 @@ class TagRepositoryImpl
         }
 
         override suspend fun replaceTimeEntryTags(
-            /** Time entry id. */
             timeEntryId: String,
             tagNames: List<String>,
         ) {
-            /** Replace tags. */
             replaceTags(
                 ownerId = timeEntryId,
                 tagNames = tagNames,
@@ -158,7 +143,6 @@ class TagRepositoryImpl
                 insertLinks = { tagIds, now ->
                     sessionManager.requireDatabase().tagDao().insertTimeEntryTags(
                         tagIds.map { tagId ->
-                            /** Time entry tag entity. */
                             TimeEntryTagEntity(timeEntryId = timeEntryId, tagId = tagId, createdAt = now)
                         },
                     )
@@ -167,45 +151,34 @@ class TagRepositoryImpl
         }
 
         private suspend fun replaceTags(
-            /** Owner id. */
             ownerId: String,
             tagNames: List<String>,
             clearOwnerTags: suspend (String) -> Unit,
             insertLinks: suspend (List<String>, String) -> Unit,
         ) {
-            /** Clean names. */
             val cleanNames =
-                /** Tag names. */
                 tagNames
                     .map { it.trim() }
                     .filter { it.isNotEmpty() }
                     .distinctBy { normalizeTagName(it) }
 
             sessionManager.requireDatabase().withTransaction {
-                /** Clear owner tags. */
                 clearOwnerTags(ownerId)
-                /** If. */
                 if (cleanNames.isEmpty()) {
                     logger.d(
                         "TagRepositoryImpl.replaceTags",
                         "Cleared tags for owner with empty input",
-                        /** Map of. */
                         mapOf(
                             "ownerId" to ownerId,
                         ),
                     )
                     return@withTransaction
                 }
-
-                /** Now. */
                 val now = LocalDateTime.now().format(formatter)
-                /** Tag ids. */
                 val tagIds =
                     cleanNames.map { tagName ->
-                        /** Ensure tag exists. */
                         ensureTagExists(tagName, now)
                     }
-                /** Insert links. */
                 insertLinks(tagIds, now)
                 tagIds.forEach { tagId ->
                     sessionManager.requireDatabase().tagDao().markUsed(tagId, usedAt = now, updatedAt = now)
@@ -214,7 +187,6 @@ class TagRepositoryImpl
                 logger.i(
                     "TagRepositoryImpl.replaceTags",
                     "Updated owner tags",
-                    /** Map of. */
                     mapOf(
                         "ownerId" to ownerId,
                         "tagCount" to tagIds.size.toString(),
@@ -224,23 +196,15 @@ class TagRepositoryImpl
         }
 
         private suspend fun ensureTagExists(
-            /** Tag name. */
             tagName: String,
-            /** Now. */
             now: String,
         ): String {
-            /** Normalized. */
             val normalized = normalizeTagName(tagName)
-            /** Existing. */
             val existing = sessionManager.requireDatabase().tagDao().getByNormalizedName(normalized)
-            /** If. */
             if (existing != null) {
                 return existing.id
             }
-
-            /** Entity. */
             val entity =
-                /** Tag entity. */
                 TagEntity(
                     id = UUID.randomUUID().toString(),
                     name = tagName,

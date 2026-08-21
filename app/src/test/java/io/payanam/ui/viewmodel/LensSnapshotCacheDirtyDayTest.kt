@@ -39,9 +39,7 @@ class LensSnapshotCacheDirtyDayTest {
      * Setup.
      */
     fun setup() {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
@@ -54,16 +52,12 @@ class LensSnapshotCacheDirtyDayTest {
      * Get or load recomputes when day is marked dirty.
      */
     fun getOrLoad_recomputesWhenDayIsMarkedDirty() = runBlocking {
-        /** Day key. */
         val dayKey = "2026-02-20"
         cache.getOrLoad(dayKey)
-        /** Assert equals. */
         assertEquals(1, repository.calculateCalls)
 
         repository.dirtyDays = setOf(dayKey)
         cache.getOrLoad(dayKey)
-
-        /** Assert equals. */
         assertEquals(2, repository.calculateCalls)
     }
 
@@ -72,21 +66,15 @@ class LensSnapshotCacheDirtyDayTest {
      * Load for days batches unique day keys.
      */
     fun loadForDays_batchesUniqueDayKeys() = runBlocking {
-        /** Day a. */
         val dayA = "2026-02-20"
-        /** Day b. */
         val dayB = "2026-02-21"
 
         cache.loadForDays(listOf(dayA, dayA, dayB))
-
-        /** Assert equals. */
         assertEquals(2, repository.calculateCalls)
     }
 
     private class FakeLensRepository : LensRepository {
-        /** Calculate calls. */
         var calculateCalls: Int = 0
-        /** Dirty days. */
         var dirtyDays: Set<String> = emptySet()
 
         override suspend fun getFirstTrackedDate(): LocalDate? = null

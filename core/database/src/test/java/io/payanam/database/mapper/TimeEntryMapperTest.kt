@@ -37,9 +37,7 @@ class TimeEntryMapperTest {
      * To domain parses zulu dates.
      */
     fun toDomain_parsesZuluDates() {
-        /** Entity. */
         val entity =
-            /** Time entry entity. */
             TimeEntryEntity(
                 id = "entry-1",
                 lifeIntentionCategory = "Career & Work",
@@ -49,12 +47,8 @@ class TimeEntryMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
-        /** Domain. */
         val domain = entity.toDomain()
-        /** Assert that. */
         assertThat(domain.startedAt.hour).isEqualTo(8)
-        /** Assert that. */
         assertThat(domain.endedAt?.hour).isEqualTo(9)
     }
 
@@ -63,9 +57,7 @@ class TimeEntryMapperTest {
      * To domain handles blank end time.
      */
     fun toDomain_handlesBlankEndTime() {
-        /** Entity. */
         val entity =
-            /** Time entry entity. */
             TimeEntryEntity(
                 id = "entry-blank",
                 lifeIntentionCategory = "Career & Work",
@@ -75,10 +67,7 @@ class TimeEntryMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
-        /** Domain. */
         val domain = entity.toDomain()
-        /** Assert that. */
         assertThat(domain.endedAt).isNull()
     }
 
@@ -87,11 +76,8 @@ class TimeEntryMapperTest {
      * Round trip preserves fields.
      */
     fun roundTrip_preservesFields() {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
-        /** Entry. */
         val entry =
-            /** Time entry. */
             TimeEntry(
                 id = "entry-2",
                 lifeIntentionCategory = "Learning",
@@ -102,23 +88,13 @@ class TimeEntryMapperTest {
                 updatedAt = now,
                 dimensionId = "dim_learning",
             )
-
-        /** Entity. */
         val entity = entry.toEntity()
-        /** Round trip. */
         val roundTrip = entity.toDomain()
-
-        /** Assert that. */
         assertThat(roundTrip.lifeIntentionCategory).isEqualTo(entry.lifeIntentionCategory)
-        /** Assert that. */
         assertThat(roundTrip.dimensionId).isEqualTo("dim_learning")
-        /** Assert that. */
         assertThat(roundTrip.taskId).isEqualTo(entry.taskId)
-        /** Assert that. */
         assertThat(entity.dimensionId).isEqualTo("dim_learning")
-        /** Assert that. */
         assertThat(entity.dayKey).isEqualTo("2026-01-31")
-        /** Assert that. */
         assertThat(roundTrip.endedAt?.minute).isEqualTo(30)
     }
 
@@ -127,11 +103,8 @@ class TimeEntryMapperTest {
      * To entity handles null end time.
      */
     fun toEntity_handlesNullEndTime() {
-        /** Now. */
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
-        /** Entry. */
         val entry =
-            /** Time entry. */
             TimeEntry(
                 id = "entry-3",
                 lifeIntentionCategory = "Learning",
@@ -139,17 +112,12 @@ class TimeEntryMapperTest {
                 createdAt = now,
                 updatedAt = now,
             )
-
-        /** Entity. */
         val entity = entry.toEntity()
-        /** Assert that. */
         assertThat(entity.endedAt).isNull()
     }
 
     private fun initLogger(): UnifiedLogger {
-        /** Context. */
         val context = ApplicationProvider.getApplicationContext<Context>()
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }

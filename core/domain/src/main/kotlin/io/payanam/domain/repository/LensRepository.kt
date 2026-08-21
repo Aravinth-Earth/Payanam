@@ -172,13 +172,9 @@ interface LensRepository {
  * One proportional block for the stacked dimension trend bar chart.
  */
 data class DimensionTrendBlock(
-    /** Start date. */
     val startDate: LocalDate,
-    /** End date. */
     val endDate: LocalDate,
-    /** By dimension. */
     val byDimension: Map<String?, Int>,
-    /** Total possible minutes. */
     val totalPossibleMinutes: Int
 )
 
@@ -186,11 +182,8 @@ data class DimensionTrendBlock(
  * One entry segment for the 24h heatmap.
  */
 data class HeatmapEntrySegment(
-    /** Start minute. */
     val startMinute: Int,
-    /** Duration minutes. */
     val durationMinutes: Int,
-    /** Dimension id. */
     val dimensionId: String?
 )
 
@@ -198,9 +191,7 @@ data class HeatmapEntrySegment(
  * One day's heatmap data for the daily timeline chart.
  */
 data class HeatmapDayData(
-    /** Day key. */
     val dayKey: String,
-    /** Segments. */
     val segments: List<HeatmapEntrySegment>
 )
 
@@ -208,9 +199,7 @@ data class HeatmapDayData(
  * Canonical planning + reality aggregate for one day.
  */
 data class UnifiedLensSnapshot(
-    /** Planning. */
     val planning: PlanningLensData,
-    /** Reality. */
     val reality: RealityLensData
 )
 
@@ -218,21 +207,13 @@ data class UnifiedLensSnapshot(
  * Planning lens data for a specific day.
  */
 data class PlanningLensData(
-    /** Day key. */
     val dayKey: String,
-    /** Total planned minutes. */
     val totalPlannedMinutes: Int,
-    /** Planned time by dimension. */
     val plannedTimeByDimension: Map<String, Int>, // dimensionId -> minutes (from tasks/habits)
-    /** Budget allocations by dimension. */
     val budgetAllocationsByDimension: Map<String, Int>, // dimensionId -> budget minutes (from day plan)
-    /** Planned tasks. */
     val plannedTasks: List<TaskPlanItem>,
-    /** Planned habits. */
     val plannedHabits: List<HabitPlanItem>,
-    /** Time goals. */
     val timeGoals: List<TimeGoalItem>,
-    /** Plan completeness score. */
     val planCompletenessScore: Float // 0.0 to 1.0
 )
 
@@ -240,33 +221,19 @@ data class PlanningLensData(
  * Reality lens data for a specific day.
  */
 data class RealityLensData(
-    /** Day key. */
     val dayKey: String,
-    /** Total actual minutes. */
     val totalActualMinutes: Int,
-    /** Actual time by dimension. */
     val actualTimeByDimension: Map<String, Int>, // dimensionId -> minutes
-    /** Budget allocations by dimension. */
     val budgetAllocationsByDimension: Map<String, Int>, // dimensionId -> budget minutes (from day plan)
-    /** Completed tasks. */
     val completedTasks: List<TaskRealityItem>,
-    /** Completed habits. */
     val completedHabits: List<HabitRealityItem>,
-    /** Untracked minutes. */
     val untrackedMinutes: Int,
-    /** Focus gap minutes. */
     val focusGapMinutes: Int, // Planned focus - actual focus
-    /** Adherence score. */
     val adherenceScore: Float, // 0.0 to 1.0
-    /** Supplemental actual minutes. */
     val supplementalActualMinutes: Int = 0, // occurrence-based minutes not represented by time entries
-    /** Supplemental actual by dimension. */
     val supplementalActualByDimension: Map<String, Int> = emptyMap(),
-    /** Actual time only minutes. */
     val actualTimeOnlyMinutes: Int = 0, // time-entry minutes not linked to task/habit
-    /** Actual task minutes. */
     val actualTaskMinutes: Int = 0, // time-entry minutes linked to one-time tasks
-    /** Actual habit minutes. */
     val actualHabitMinutes: Int = 0 // recurring-habit minutes (entry-linked + supplemental occurrences)
 )
 
@@ -274,17 +241,11 @@ data class RealityLensData(
  * Planned task item for Planning Lens.
  */
 data class TaskPlanItem(
-    /** Task id. */
     val taskId: String,
-    /** Title. */
     val title: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Estimated minutes. */
     val estimatedMinutes: Int,
-    /** Due date. */
     val dueDate: String,
-    /** Priority. */
     val priority: String
 )
 
@@ -292,19 +253,12 @@ data class TaskPlanItem(
  * Completed/missed task item for Reality Lens.
  */
 data class TaskRealityItem(
-    /** Task id. */
     val taskId: String,
-    /** Title. */
     val title: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Actual minutes. */
     val actualMinutes: Int?,
-    /** Completed at. */
     val completedAt: String?,
-    /** Status. */
     val status: String, // completed | skipped | missed
-    /** Adherence gap. */
     val adherenceGap: Int? // estimated - actual minutes
 )
 
@@ -312,15 +266,10 @@ data class TaskRealityItem(
  * Planned habit item for Planning Lens.
  */
 data class HabitPlanItem(
-    /** Habit id. */
     val habitId: String,
-    /** Title. */
     val title: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Estimated minutes. */
     val estimatedMinutes: Int,
-    /** Recurrence rule. */
     val recurrenceRule: String
 )
 
@@ -328,17 +277,11 @@ data class HabitPlanItem(
  * Completed habit item for Reality Lens.
  */
 data class HabitRealityItem(
-    /** Habit id. */
     val habitId: String,
-    /** Title. */
     val title: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Actual minutes. */
     val actualMinutes: Int?,
-    /** Completed at. */
     val completedAt: String?,
-    /** Status. */
     val status: String // completed | skipped | missed
 )
 
@@ -346,15 +289,10 @@ data class HabitRealityItem(
  * Time goal item for Planning Lens.
  */
 data class TimeGoalItem(
-    /** Goal id. */
     val goalId: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Dimension label. */
     val dimensionLabel: String,
-    /** Target minutes. */
     val targetMinutes: Int,
-    /** Is active. */
     val isActive: Boolean
 )
 
@@ -389,27 +327,16 @@ data class DailyFocusedHoursStat(val dayKey: String, val focusedHours: Double)
  * Lens reflection record (gap detection).
  */
 data class LensReflectionRecord(
-    /** Id. */
     val id: String,
-    /** Day key. */
     val dayKey: String,
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Reflection type. */
     val reflectionType: String, // untracked_time | missed_task | missed_habit | focus_gap | dimension_gap
-    /** Title. */
     val title: String,
-    /** Description. */
     val description: String?,
-    /** Gap minutes. */
     val gapMinutes: Int?,
-    /** Related entity id. */
     val relatedEntityId: String?,
-    /** Is addressed. */
     val isAddressed: Boolean,
-    /** User note. */
     val userNote: String?,
-    /** Created at. */
     val createdAt: String
 )
 
@@ -419,9 +346,7 @@ data class LensReflectionRecord(
  * dimensionId == "__untracked__" means untracked (synthetic) bucket.
  */
 data class SlotEntry(
-    /** Dimension id. */
     val dimensionId: String?,
-    /** Proportion. */
     val proportion: Float
 )
 
@@ -429,15 +354,11 @@ data class SlotEntry(
  * One 30-min slot in the weekly pattern grid, holding up to 3 ranked candidates.
  */
 data class WeekGridSlot(
-    /** Rank1. */
     val rank1: SlotEntry?,
-    /** Rank2. */
     val rank2: SlotEntry?,
-    /** Rank3. */
     val rank3: SlotEntry?
 ) {
     companion object {
-        /** Empty. */
         val EMPTY = WeekGridSlot(null, null, null)
     }
 }
@@ -446,9 +367,7 @@ data class WeekGridSlot(
  * One day column in the weekly pattern grid.
  */
 data class WeekGridDay(
-    /** Day of week. */
     val dayOfWeek: java.time.DayOfWeek,
-    /** Slots. */
     val slots: List<WeekGridSlot>
 )
 
@@ -456,7 +375,6 @@ data class WeekGridDay(
  * Full 7-column × 48-row weekly behavioral pattern grid.
  */
 data class WeekGridData(
-    /** Days. */
     val days: List<WeekGridDay>
 )
 
@@ -466,9 +384,7 @@ data class WeekGridData(
  * null = tracked-unassigned won, "__minute_untracked__" = untracked won, else = dimensionId string.
  */
 data class MinutePatternDay(
-    /** Day of week. */
     val dayOfWeek: java.time.DayOfWeek,
-    /** Minute winners. */
     val minuteWinners: List<String?>
 )
 
@@ -476,6 +392,5 @@ data class MinutePatternDay(
  * Full 7-column × 1440-row minute-level behavioral pattern grid.
  */
 data class MinutePatternData(
-    /** Days. */
     val days: List<MinutePatternDay>
 )

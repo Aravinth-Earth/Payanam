@@ -17,29 +17,21 @@ class SettingsFoundationContractsTest {
         val selection = DataModuleSelection(tasks = true, timeEntries = false, notes = true)
 
         val snapshot = SettingsFoundationContracts.snapshot(moduleSelection = selection)
-
-        /** Assert that. */
         assertThat(snapshot.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
-        /** Assert that. */
         assertThat(snapshot.moduleSelection).isEqualTo(selection)
     }
 
     @Test
     fun `default areas preserve the current desktop foundation order`() {
         val snapshot = SettingsFoundationContracts.snapshot()
-
-        /** Assert that. */
         assertThat(snapshot.areas.map { it.id }).containsExactly(
             "settings_transfer",
             "settings_structure",
             "tasks_time",
             "notes_lenses",
         ).inOrder()
-        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.SharedReady)).isEqualTo(1)
-        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.ExtractionNext)).isEqualTo(2)
-        /** Assert that. */
         assertThat(snapshot.areasWithStatus(FoundationReadiness.AndroidOnly)).isEqualTo(1)
     }
 }

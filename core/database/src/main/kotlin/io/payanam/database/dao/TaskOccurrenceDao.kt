@@ -62,11 +62,8 @@ interface TaskOccurrenceDao {
      * Get occurrences for task in range.
      */
     suspend fun getOccurrencesForTaskInRange(
-        /** Task id. */
         taskId: String,
-        /** Start date. */
         startDate: String,
-        /** End date. */
         endDate: String,
     ): List<TaskOccurrenceEntity>
 
@@ -85,9 +82,7 @@ interface TaskOccurrenceDao {
      * Get occurrence for task on date.
      */
     suspend fun getOccurrenceForTaskOnDate(
-        /** Task id. */
         taskId: String,
-        /** Date. */
         date: String,
     ): TaskOccurrenceEntity?
 
@@ -109,9 +104,7 @@ interface TaskOccurrenceDao {
      */
     suspend fun getOccurrencesForTasksInRange(
         taskIds: List<String>,
-        /** Start date. */
         startDate: String,
-        /** End date. */
         endDate: String,
     ): List<TaskOccurrenceEntity>
 
@@ -130,9 +123,7 @@ interface TaskOccurrenceDao {
      * Update occurrence.
      */
     suspend fun updateOccurrence(
-        /** Id. */
         id: String,
-        /** Status. */
         status: String,
         statusReason: String?,
         note: String?,

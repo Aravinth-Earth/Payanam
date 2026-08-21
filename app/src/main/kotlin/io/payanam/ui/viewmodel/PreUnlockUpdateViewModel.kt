@@ -54,15 +54,12 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
 
     private val _downloadState = MutableStateFlow<DownloadUiState>(DownloadUiState.Idle)
-    /** Download state. */
     val downloadState: StateFlow<DownloadUiState> = _downloadState.asStateFlow()
 
     private val _checking = MutableStateFlow(false)
-    /** Checking. */
     val checking: StateFlow<Boolean> = _checking.asStateFlow()
 
     private val _checkResultMessage = MutableStateFlow<String?>(null)
-    /** Check result message. */
     val checkResultMessage: StateFlow<String?> = _checkResultMessage.asStateFlow()
 
     /** Latest build number found by the last check (DEV channel). */
@@ -74,23 +71,17 @@ class PreUnlockUpdateViewModel @Inject constructor(
     /** Cooldown guard: 60s between manual checks (mirrors Settings rate guards). */
     private var lastCheckTimestampMs = 0L
     private val checkCooldownMs = 60_000L
-
-    /** Current build number. */
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
     fun checkForUpdate() {
-        /** Now. */
         val now = System.currentTimeMillis()
-        /** If. */
         if (now - lastCheckTimestampMs < checkCooldownMs) {
             logger.d(
                 "PreUnlockUpdateChecker.check",
                 "Check skipped — cooldown active",
-                /** Map of. */
                 mapOf("elapsedMs" to (now - lastCheckTimestampMs)),
             )
-            /** Return. */
             return
         }
         lastCheckTimestampMs = now
@@ -100,33 +91,26 @@ class PreUnlockUpdateViewModel @Inject constructor(
             logger.i(
                 "PreUnlockUpdateChecker.check",
                 "Manual update check requested (pre-unlock hatch)",
-                /** Map of. */
                 mapOf("currentBuild" to currentBuildNumber, "channel" to UpdateChannel.DEV.name),
             )
             try {
-                /** Result. */
                 val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV)
-                /** If. */
                 if (result.error != null) {
                     logger.e(
                         "PreUnlockUpdateChecker.check",
                         "Check failed",
-                        /** Null. */
                         null,
-                        /** Map of. */
                         mapOf("error" to result.error.name),
                     )
                     _checkResultMessage.value = "check_failed_${result.error.name}"
                 } else if (result.isUpdateAvailable) {
                     latestBuildNumber = result.latestBuildNumber
                     latestReleaseUrl = result.releaseUrl
-                    /** Selected. */
                     val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
                     latestApkUrl = selected?.apkDownloadUrl
                     logger.i(
                         "PreUnlockUpdateChecker.check",
                         "Update available",
-                        /** Map of. */
                         mapOf(
                             "latestBuild" to (result.latestBuildNumber ?: -1),
                             "releaseUrl" to (result.releaseUrl ?: ""),
@@ -152,25 +136,19 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     /** User tapped "Download & install" (manual only). */
     fun download() {
-        /** Url. */
         val url = latestApkUrl ?: run {
             logger.d("PreUnlockUpdateChecker.download", "No download URL available — check first")
-            /** Return. */
             return
         }
-        /** File name. */
         val fileName = url.substringAfterLast('/')
         viewModelScope.launch {
             _downloadState.value = DownloadUiState.Idle
             logger.i(
                 "PreUnlockUpdateChecker.download",
                 "Manual download requested",
-                /** Map of. */
                 mapOf("fileName" to fileName),
             )
-            /** Id. */
             val id = AutoDownloadManager.enqueue(context, url, fileName, wifiOnly = false)
-            /** If. */
             if (id == null) {
                 _downloadState.value = DownloadUiState.Failed("enqueue_failed")
                 logger.e("PreUnlockUpdateChecker.download", "Enqueue failed", null)
@@ -178,29 +156,21 @@ class PreUnlockUpdateViewModel @Inject constructor(
             }
             pollJob?.cancel()
             pollJob = viewModelScope.launch(Dispatchers.IO) {
-                /** While. */
                 while (isActive) {
-                    /** State. */
                     val state = AutoDownloadManager.queryProgress(context, id)
                     _downloadState.value = state
-                    /** If. */
                     if (state is DownloadUiState.Downloaded) {
                         logger.i(
                             "PreUnlockUpdateChecker.download",
                             "Download complete",
-                            /** Map of. */
                             mapOf("fileName" to fileName),
                         )
-                        /** Break. */
                         break
                     }
-                    /** If. */
                     if (state is DownloadUiState.Failed) {
                         logger.e("PreUnlockUpdateChecker.download", "Download failed", null, mapOf("fileName" to fileName))
-                        /** Break. */
                         break
                     }
-                    /** Delay. */
                     delay(1_000L)
                 }
             }
@@ -209,47 +179,32 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     /** User tapped "Install now" — launch the system installer (manual only). */
     fun install() {
-        /** Path. */
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
-            /** Return. */
             return
         }
-        /** File. */
         val file = File(path)
-        /** If. */
         if (!file.exists()) {
             _downloadState.value = DownloadUiState.Failed("file_missing")
             logger.e("PreUnlockUpdateChecker.install", "File missing at install time", null, mapOf("path" to path))
-            /** Return. */
             return
         }
         try {
-            /** Uri. */
             val uri: Uri = FileProvider.getUriForFile(
-                /** Context. */
                 context,
                 "${context.packageName}.fileprovider",
-                /** File. */
                 file,
             )
-            /** Intent. */
             val intent = Intent(Intent.ACTION_VIEW).apply {
-                /** Set data and type. */
                 setDataAndType(uri, "application/vnd.android.package-archive")
-                /** Add flags. */
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                /** Add flags. */
                 addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
             }
-            /** Resolved. */
             val resolved: android.content.ComponentName? = intent.resolveActivity(context.packageManager)
-            /** Resolved installer name. */
             val resolvedInstallerName = resolved?.className ?: "none"
             logger.i(
                 "PreUnlockUpdateChecker.install",
                 "Install handoff to system installer",
-                /** Map of. */
                 mapOf(
                     "fileName" to file.name,
                     "resolvedInstaller" to resolvedInstallerName,

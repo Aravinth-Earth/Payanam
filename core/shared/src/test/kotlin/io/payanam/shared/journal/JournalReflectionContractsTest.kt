@@ -22,10 +22,7 @@ class JournalReflectionContractsTest {
                 response = "  Family time  ",
                 now = now,
             )
-
-        /** Assert that. */
         assertThat(snapshot.days).hasSize(1)
-        /** Assert that. */
         assertThat(snapshot.days.single().overallResponses["gratitude"]).isEqualTo("Family time")
     }
 
@@ -51,8 +48,6 @@ class JournalReflectionContractsTest {
                 response = "   ",
                 now = now.plusMinutes(15),
             )
-
-        /** Assert that. */
         assertThat(cleared.days.single().dimensionResponses).doesNotContainKey("dim_learning_growth")
     }
 }

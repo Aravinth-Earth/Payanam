@@ -22,7 +22,6 @@ class LensHistoryBackfillCoordinatorTest {
      * Set up.
      */
     fun setUp() {
-        /** If. */
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(androidx.test.core.app.ApplicationProvider.getApplicationContext(), "test", 0)
         }
@@ -34,21 +33,13 @@ class LensHistoryBackfillCoordinatorTest {
      * Next limit after returns expected progressive sequence.
      */
     fun next_limit_after_returns_expected_progressive_sequence() {
-        /** Assert equals. */
         assertEquals(14, coordinator.nextLimitAfter(7))
-        /** Assert equals. */
         assertEquals(30, coordinator.nextLimitAfter(14))
-        /** Assert equals. */
         assertEquals(60, coordinator.nextLimitAfter(30))
-        /** Assert equals. */
         assertEquals(90, coordinator.nextLimitAfter(60))
-        /** Assert equals. */
         assertEquals(180, coordinator.nextLimitAfter(90))
-        /** Assert equals. */
         assertEquals(365, coordinator.nextLimitAfter(180))
-        /** Assert equals. */
         assertEquals(Int.MAX_VALUE, coordinator.nextLimitAfter(365))
-        /** Assert equals. */
         assertEquals(null, coordinator.nextLimitAfter(Int.MAX_VALUE))
     }
 }

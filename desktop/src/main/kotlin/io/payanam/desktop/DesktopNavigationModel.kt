@@ -10,9 +10,7 @@ import io.payanam.shared.settings.DesktopTopLevelRoute
 
  */
 data class DesktopNavigationModel(
-    /** Launch route. */
     val launchRoute: DesktopTopLevelRoute,
-    /** Primary routes. */
     val primaryRoutes: List<DesktopTopLevelRoute>,
 )
 

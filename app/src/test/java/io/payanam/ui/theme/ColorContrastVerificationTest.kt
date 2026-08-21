@@ -16,7 +16,6 @@ class ColorContrastVerificationTest {
 
     @Test
     fun `life dimension colors have accessible text contrast`() {
-        /** Colors. */
         val colors = mapOf(
             "CareerWork" to LifeDimensionColors.CareerWork,
             "HealthWellness" to LifeDimensionColors.HealthWellness,
@@ -31,14 +30,12 @@ class ColorContrastVerificationTest {
         )
 
         colors.forEach { (name, background) ->
-            /** Assert accessible text contrast. */
             assertAccessibleTextContrast(name, background)
         }
     }
 
     @Test
     fun `status colors have accessible text contrast`() {
-        /** Colors. */
         val colors = mapOf(
             "Pending" to StatusColors.Pending,
             "Completed" to StatusColors.Completed,
@@ -48,32 +45,24 @@ class ColorContrastVerificationTest {
         )
 
         colors.forEach { (name, background) ->
-            /** Assert accessible text contrast. */
             assertAccessibleTextContrast(name, background)
         }
     }
 
     @Test
     fun `score colors have accessible text contrast`() {
-        /** Backgrounds. */
         val backgrounds = listOf(0.0f, 0.2f, 0.4f, 0.6f, 0.8f, 1.0f)
             .map { score -> "score=$score" to scoreColor(score) }
 
         backgrounds.forEach { (name, background) ->
-            /** Assert accessible text contrast. */
             assertAccessibleTextContrast(name, background)
         }
     }
 
     private fun assertAccessibleTextContrast(name: String, background: Color) {
-        /** White ratio. */
         val whiteRatio = contrastRatio(background, Color.White)
-        /** Black ratio. */
         val blackRatio = contrastRatio(background, Color.Black)
-        /** Best ratio. */
         val bestRatio = max(whiteRatio, blackRatio)
-
-        /** Assert true. */
         assertTrue(
             "$name background has insufficient text contrast (best ratio=$bestRatio)",
             bestRatio >= MIN_TEXT_CONTRAST_RATIO,
@@ -81,24 +70,16 @@ class ColorContrastVerificationTest {
     }
 
     private fun contrastRatio(background: Color, foreground: Color): Double {
-        /** L1. */
         val l1 = relativeLuminance(background)
-        /** L2. */
         val l2 = relativeLuminance(foreground)
-        /** Lighter. */
         val lighter = max(l1, l2)
-        /** Darker. */
         val darker = min(l1, l2)
-        /** Return. */
         return (lighter + 0.05) / (darker + 0.05)
     }
 
     private fun relativeLuminance(color: Color): Double {
-        /** R. */
         val r = linearize(color.red.toDouble())
-        /** G. */
         val g = linearize(color.green.toDouble())
-        /** B. */
         val b = linearize(color.blue.toDouble())
         return 0.2126 * r + 0.7152 * g + 0.0722 * b
     }

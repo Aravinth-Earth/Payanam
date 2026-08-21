@@ -17,9 +17,7 @@ interface HabitMetricDao {
 
     /** Projection for MAX(dayKey) GROUP BY habitId — avoids loading all rows. */
     data class HabitIdDayKey(
-        /** Habit id. */
         val habitId: String,
-        /** Max day key. */
         val maxDayKey: String,
     )
 

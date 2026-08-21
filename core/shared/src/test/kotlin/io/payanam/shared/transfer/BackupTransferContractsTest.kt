@@ -15,24 +15,19 @@ class BackupTransferContractsTest {
 
     @Test
     fun `default module selection has an active selection`() {
-        /** Assert that. */
         assertThat(DataModuleSelection().hasSelection()).isTrue()
     }
 
     @Test
     fun `empty module selection reports no active modules`() {
-        /** Assert that. */
         assertThat(
-            /** Data module selection. */
             DataModuleSelection(tasks = false, timeEntries = false, notes = false).hasSelection()
         ).isFalse()
     }
 
     @Test
     fun `single selected module still reports active selection`() {
-        /** Assert that. */
         assertThat(
-            /** Data module selection. */
             DataModuleSelection(tasks = false, timeEntries = true, notes = false).hasSelection()
         ).isTrue()
     }
@@ -41,53 +36,36 @@ class BackupTransferContractsTest {
     fun `data module selection copy and destructuring preserve module flags`() {
         val defaults = DataModuleSelection()
         val copied = defaults.copy(timeEntries = false, notes = false)
-        /** Val. */
         val (tasks, timeEntries, notes) = copied
-
-        /** Assert that. */
         assertThat(defaults.tasks).isTrue()
-        /** Assert that. */
         assertThat(defaults.timeEntries).isTrue()
-        /** Assert that. */
         assertThat(defaults.notes).isTrue()
-
-        /** Assert that. */
         assertThat(tasks).isTrue()
-        /** Assert that. */
         assertThat(timeEntries).isFalse()
-        /** Assert that. */
         assertThat(notes).isFalse()
     }
 
     @Test
     fun `backup json contract keeps schema version stable`() {
-        /** Assert that. */
         assertThat(BackupJsonContract.SCHEMA_VERSION).isEqualTo(1)
-        /** Assert that. */
         assertThat(BackupJsonContract.MODULES_KEY).isEqualTo("modules")
     }
 
     @Test
     fun `data module selection supports stable json round trip`() {
         val json = Json.encodeToString(
-            /** Data module selection. */
             DataModuleSelection(tasks = true, timeEntries = false, notes = true)
         )
-        /** Assert that. */
         assertThat(json).isNotEmpty()
 
         val decoded = Json.decodeFromString<DataModuleSelection>(json)
-
-        /** Assert that. */
         assertThat(decoded).isEqualTo(
-            /** Data module selection. */
             DataModuleSelection(tasks = true, timeEntries = false, notes = true)
         )
     }
 
     @Test
     fun `import mode exposes both supported paths`() {
-        /** Assert that. */
         assertThat(ImportMode.entries).containsExactly(ImportMode.REPLACE, ImportMode.MERGE).inOrder()
     }
 
@@ -104,16 +82,10 @@ class BackupTransferContractsTest {
         val encoded = BackupPayloadJson.encode(payload)
         val root = Json.parseToJsonElement(encoded).jsonObject
         val modules = root[BackupJsonContract.MODULES_KEY]!!.jsonObject
-
-        /** Assert that. */
         assertThat(root[BackupJsonContract.SCHEMA_VERSION_KEY]!!.toString()).isEqualTo("1")
-        /** Assert that. */
         assertThat(root[BackupJsonContract.EXPORTED_AT_KEY]!!.toString()).isEqualTo("\"2026-03-26T09:00:00\"")
-        /** Assert that. */
         assertThat(modules[BackupJsonContract.TASKS_KEY]!!.jsonArray).hasSize(1)
-        /** Assert that. */
         assertThat(modules[BackupJsonContract.NOTES_KEY]!!.jsonArray).hasSize(1)
-        /** Assert that. */
         assertThat(modules.containsKey(BackupJsonContract.TIME_ENTRIES_KEY)).isFalse()
     }
 
@@ -126,20 +98,12 @@ class BackupTransferContractsTest {
         )
         val payload = BackupPayloadEnvelope(modules = modules)
         val defaultPayload = BackupPayloadEnvelope()
-
-        /** Assert that. */
         assertThat(payload.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
-        /** Assert that. */
         assertThat(payload.exportedAt).isNull()
-        /** Assert that. */
         assertThat(payload.modules.taskReschedules).hasSize(1)
-        /** Assert that. */
         assertThat(payload.modules.dayJournalEntries).hasSize(1)
-        /** Assert that. */
         assertThat(payload.modules.dayJournalResponses).hasSize(1)
-        /** Assert that. */
         assertThat(defaultPayload.modules).isEqualTo(BackupModulePayloads())
-        /** Assert that. */
         assertThat(defaultPayload.modules.tasks).isNull()
     }
 
@@ -165,16 +129,10 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
-        /** Assert that. */
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
-        /** Assert that. */
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T09:00:00")
-        /** Assert that. */
         assertThat(decoded.modules.tasks).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.timeEntries).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.notes).isNull()
     }
 
@@ -196,16 +154,10 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
-        /** Assert that. */
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
-        /** Assert that. */
         assertThat(decoded.exportedAt).isNull()
-        /** Assert that. */
         assertThat(decoded.modules.tasks).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.journalNotes).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.taskOccurrences).isNull()
     }
 
@@ -224,14 +176,9 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
-        /** Assert that. */
         assertThat(decoded.schemaVersion).isEqualTo(3)
-        /** Assert that. */
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T10:30:00")
-        /** Assert that. */
         assertThat(decoded.modules.tasks).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.timeEntries).isNull()
     }
 
@@ -249,10 +196,7 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
-        /** Assert that. */
         assertThat(decoded.modules.timeEntries).hasSize(1)
-        /** Assert that. */
         assertThat(decoded.modules.tasks).isNull()
     }
 
@@ -275,21 +219,15 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
-        /** Assert that. */
         assertThat(decoded.modules.tasks).isNull()
-        /** Assert that. */
         assertThat(decoded.modules.timeEntries).isNull()
-        /** Assert that. */
         assertThat(decoded.modules.notes).isNull()
-        /** Assert that. */
         assertThat(decoded.modules.journalNotes).hasSize(1)
     }
 
     @Test
     fun `backup module payloads expose all module arrays through copy and getters`() {
         val modules =
-            /** Backup module payloads. */
             BackupModulePayloads(
                 tasks = Json.parseToJsonElement("""[{"id":"task-1"}]""").jsonArray,
                 taskOccurrences = Json.parseToJsonElement("""[{"id":"occ-1"}]""").jsonArray,
@@ -301,22 +239,13 @@ class BackupTransferContractsTest {
                 journalNotes = Json.parseToJsonElement("""[{"id":"journal-note-1"}]""").jsonArray,
             )
         val copied = modules.copy()
-
-        /** Assert that. */
         assertThat(copied.tasks).hasSize(1)
-        /** Assert that. */
         assertThat(copied.taskOccurrences).hasSize(1)
-        /** Assert that. */
         assertThat(copied.taskReschedules).hasSize(1)
-        /** Assert that. */
         assertThat(copied.timeEntries).hasSize(1)
-        /** Assert that. */
         assertThat(copied.notes).hasSize(1)
-        /** Assert that. */
         assertThat(copied.dayJournalEntries).hasSize(1)
-        /** Assert that. */
         assertThat(copied.dayJournalResponses).hasSize(1)
-        /** Assert that. */
         assertThat(copied.journalNotes).hasSize(1)
     }
 
@@ -336,8 +265,6 @@ class BackupTransferContractsTest {
             ).jsonObject
 
         val filtered = BackupJsonContract.legacyModulesRoot(legacyRoot)
-
-        /** Assert that. */
         assertThat(filtered.keys).containsExactly("notes", "timeEntries")
     }
 }

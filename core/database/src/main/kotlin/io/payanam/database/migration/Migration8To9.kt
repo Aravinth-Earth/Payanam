@@ -24,11 +24,8 @@ val MIGRATION_8_9 =
             logger.i("Migration.8_9", "Starting migration from version 8 to 9")
 
             try {
-                /** Create import batches table. */
                 createImportBatchesTable(database)
-                /** Add import metadata columns. */
                 addImportMetadataColumns(database)
-                /** Create import metadata indexes. */
                 createImportMetadataIndexes(database)
 
                 logger.i("Migration.8_9", "Migration from 8 to 9 completed successfully")
@@ -36,9 +33,7 @@ val MIGRATION_8_9 =
                 logger.e(
                     "Migration.8_9",
                     "Migration failed",
-                    /** E. */
                     e,
-                    /** Map of. */
                     mapOf(
                         "error" to (e.message ?: "Unknown error"),
                     ),

@@ -17,18 +17,11 @@ import androidx.room.PrimaryKey
  */
 data class UserPreferenceEntity(
     @PrimaryKey
-    /** Key. */
     val key: String,
-    /** Value type. */
     val valueType: String,
-    /** String value. */
     val stringValue: String? = null,
-    /** Int value. */
     val intValue: Int? = null,
-    /** Double value. */
     val doubleValue: Double? = null,
-    /** Bool value. */
     val boolValue: Int? = null,
-    /** Updated at. */
     val updatedAt: String,
 )

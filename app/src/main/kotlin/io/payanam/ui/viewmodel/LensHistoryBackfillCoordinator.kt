@@ -27,7 +27,6 @@ internal class LensHistoryBackfillCoordinator(
      * Cancel.
      */
     fun cancel() {
-        /** If. */
         if (backfillJob?.isActive == true) {
             logger.d("LensHistoryBackfillCoordinator.cancel", "Cancelling active backfill job")
         }
@@ -43,14 +42,10 @@ internal class LensHistoryBackfillCoordinator(
      * Schedule.
      */
     fun schedule(
-        /** Scope. */
         scope: CoroutineScope,
-        /** Lens repository. */
         lensRepository: LensRepository,
-        /** Focus date. */
         focusDate: LocalDate,
         seededDataByDay: Map<String, UnifiedLensSnapshot>,
-        /** Expected range. */
         expectedRange: ResolvedLensWindowRange,
         maxHistoryLimit: Int = Int.MAX_VALUE,
         loadSnapshot: suspend (String, Map<String, UnifiedLensSnapshot>) -> UnifiedLensSnapshot,
@@ -60,20 +55,15 @@ internal class LensHistoryBackfillCoordinator(
         backfillJob?.cancel()
         backfillJob = scope.launch {
             try {
-                /** Last applied days. */
                 var lastAppliedDays = 0
-                /** For. */
                 for (historyLimit in PROGRESSIVE_HISTORY_LIMITS) {
-                    /** If. */
                     if (historyLimit > maxHistoryLimit) {
                         return@launch
                     }
-                    /** If. */
                     if (!isCurrentSelection()) {
                         logger.d(
                             "LensHistoryBackfillCoordinator.schedule",
                             "Ignoring stale time-history backfill",
-                            /** Map of. */
                             mapOf(
                                 "mode" to expectedRange.mode.name,
                                 "window" to expectedRange.window.name,
@@ -82,9 +72,7 @@ internal class LensHistoryBackfillCoordinator(
                         )
                         return@launch
                     }
-                    /** Summary. */
                     val summary = withContext(Dispatchers.Default) {
-                        /** Build time module history summary. */
                         buildTimeModuleHistorySummary(
                             lensRepository = lensRepository,
                             focusDate = focusDate,
@@ -93,23 +81,17 @@ internal class LensHistoryBackfillCoordinator(
                             snapshotLoader = { dayKey -> loadSnapshot(dayKey, seededDataByDay) },
                         )
                     } ?: return@launch
-
-                    /** If. */
                     if (summary.totalDays <= lastAppliedDays) {
-                        /** If. */
                         if (summary.totalDays < historyLimit || historyLimit == Int.MAX_VALUE) {
                             return@launch
                         }
-                        /** Continue. */
                         continue
                     }
-                    /** On backfill ready. */
                     onBackfillReady(summary)
                     lastAppliedDays = summary.totalDays
                     logger.d(
                         "LensHistoryBackfillCoordinator.schedule",
                         "Time-history backfill applied",
-                        /** Map of. */
                         mapOf(
                             "days" to summary.totalDays,
                             "historyLimit" to historyLimit,
@@ -118,11 +100,9 @@ internal class LensHistoryBackfillCoordinator(
                             "pageIndex" to expectedRange.pageIndex,
                         ),
                     )
-                    /** If. */
                     if (summary.totalDays < historyLimit || historyLimit == Int.MAX_VALUE) {
                         return@launch
                     }
-                    /** Yield. */
                     yield()
                 }
             } catch (_: CancellationException) {
