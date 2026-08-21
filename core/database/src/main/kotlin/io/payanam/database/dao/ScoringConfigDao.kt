@@ -10,34 +10,33 @@ import io.payanam.database.entity.ScoringConfigEntity
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Data access object for scoring configuration.
+ * Data access object for scoring configuration — a single-row table (id = 1)
+ * holding the tunable weights/thresholds the scoring engine reads.
  */
 @Dao
-/**
- * Defines the contract for scoring config dao.
- */
 interface ScoringConfigDao {
     @Query("SELECT * FROM scoring_config WHERE id = 1")
     /**
-     * Returns the config.
+     * Returns the scoring configuration row (always id = 1), or null when no
+     * config has been seeded yet.
      */
     suspend fun getConfig(): ScoringConfigEntity?
 
     @Query("SELECT * FROM scoring_config WHERE id = 1")
     /**
-     * Registers the observe config.
+     * Emits the scoring configuration as a [Flow] (null until seeded).
      */
     fun observeConfig(): Flow<ScoringConfigEntity?>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the upsert config.
+     * Inserts or replaces the scoring configuration row.
      */
     suspend fun upsertConfig(config: ScoringConfigEntity)
 
     @Query("DELETE FROM scoring_config WHERE id = 1")
     /**
-     * Removes the delete config.
+     * Deletes the scoring configuration row (id = 1), resetting to unseeded.
      */
     suspend fun deleteConfig()
 }

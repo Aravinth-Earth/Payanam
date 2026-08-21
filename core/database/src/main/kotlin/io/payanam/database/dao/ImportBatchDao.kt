@@ -9,12 +9,13 @@ import io.payanam.database.entity.ImportBatchEntity
 
 @Dao
 /**
- * Defines the contract for import batch dao.
+ * Room DAO for the `import_batches` table: one [ImportBatchEntity] per external
+ * import run, used to group and reconcile imported rows.
  */
 interface ImportBatchDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert.
+     * Inserts or replaces an import-batch record.
      */
     suspend fun insert(batch: ImportBatchEntity)
 }

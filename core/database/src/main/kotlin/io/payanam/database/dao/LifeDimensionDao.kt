@@ -9,7 +9,9 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * Defines the contract for life dimension dao.
+ * Room DAO for the `life_dimensions` table: the five fixed life-intention
+ * dimensions (Health, Work, etc.) whose label, color, icon, active flag, and
+ * scoring weight the user can customize.
  */
 interface LifeDimensionDao {
     @Query(
@@ -19,7 +21,8 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Registers the observe all dimensions.
+     * Emits all dimensions ordered by their display order, then id, as a
+     * [Flow].
      */
     fun observeAllDimensions(): Flow<List<LifeDimensionEntity>>
 
@@ -32,7 +35,8 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Updates the update label.
+     * Updates the user-visible [label] of one dimension and stamps
+     * [updatedAt].
      */
     suspend fun updateLabel(
         dimensionId: String,
@@ -49,7 +53,8 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Updates the update color.
+     * Updates the [colorHex] used to render one dimension and stamps
+     * [updatedAt].
      */
     suspend fun updateColor(
         dimensionId: String,
@@ -66,7 +71,8 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Updates the update icon.
+     * Updates the [iconKey] (icon identifier) for one dimension and stamps
+     * [updatedAt].
      */
     suspend fun updateIcon(
         dimensionId: String,
@@ -83,7 +89,8 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Updates the update active state.
+     * Toggles whether one dimension is [isActive] (counts toward scoring) and
+     * stamps [updatedAt].
      */
     suspend fun updateActiveState(
         dimensionId: String,
@@ -100,7 +107,9 @@ interface LifeDimensionDao {
         """,
     )
     /**
-     * Updates the update weight.
+     * Updates the scoring [weight] of one dimension and stamps [updatedAt].
+     * Weight influences how much this dimension contributes to the overall
+     * life score.
      */
     suspend fun updateWeight(
         dimensionId: String,
@@ -110,17 +119,21 @@ interface LifeDimensionDao {
 
     @Query("SELECT weight FROM life_dimensions WHERE id = :dimensionId")
     /**
-     * Performs the weight for.
+     * Returns the scoring weight of one dimension, or null when the row is
+     * missing.
      */
     suspend fun weightFor(dimensionId: String): Double?
 
     @Query("SELECT id, weight FROM life_dimensions")
     /**
-     * Performs the all weights.
+     * Returns every dimension's id and weight — the minimal projection needed
+     * to compute a weighted overall score.
      */
     suspend fun allWeights(): List<WeightRow>
+
     /**
-     * Holds the weight row.
+     * Minimal projection of (dimension id, weight) used when computing the
+     * weighted life score without loading full entities.
      */
     data class WeightRow(
         val id: String,

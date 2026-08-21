@@ -12,36 +12,39 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * Defines the contract for task occurrence dao.
+ * Room DAO for the `task_occurrences` table: the per-day instances of a task
+ * (one row per scheduled day), tracking completion status and actuals. Read
+ * methods are [Flow]; writes are single-shot.
  */
 interface TaskOccurrenceDao {
     @Query("SELECT * FROM task_occurrences")
     /**
-     * Returns the all occurrences.
+     * Returns every occurrence row across all tasks.
      */
     suspend fun getAllOccurrences(): List<TaskOccurrenceEntity>
 
     @Query("SELECT COUNT(*) FROM task_occurrences")
     /**
-     * Performs the count all occurrences.
+     * Returns the total number of occurrence rows.
      */
     suspend fun countAllOccurrences(): Int
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate ASC")
     /**
-     * Returns the occurrences for task for backfill.
+     * Returns all occurrences for [taskId] ordered oldest-due-first. Used by
+     * the backfill process that recomputes past completion state.
      */
     suspend fun getOccurrencesForTaskForBackfill(taskId: String): List<TaskOccurrenceEntity>
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate DESC")
     /**
-     * Returns the occurrences for task.
+     * Emits all occurrences for [taskId], newest-due-first, as a [Flow].
      */
     fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrenceEntity>>
 
     @Query("SELECT * FROM task_occurrences WHERE date(dueDate) = date(:date)")
     /**
-     * Returns the occurrences for date.
+     * Emits occurrences whose `dueDate` falls on [date], as a [Flow].
      */
     fun getOccurrencesForDate(date: String): Flow<List<TaskOccurrenceEntity>>
 
@@ -51,15 +54,16 @@ interface TaskOccurrenceDao {
      */
     @Query(
         """
-        SELECT * FROM task_occurrences 
-        WHERE taskId = :taskId 
-        AND date(dueDate) >= date(:startDate) 
+        SELECT * FROM task_occurrences
+        WHERE taskId = :taskId
+        AND date(dueDate) >= date(:startDate)
         AND date(dueDate) <= date(:endDate)
         ORDER BY dueDate DESC
-    """,
+        """,
     )
     /**
-     * Returns the occurrences for task in range.
+     * Returns occurrences for [taskId] within the inclusive [startDate]..[endDate]
+     * window, newest-first. Backs the habit-view checkmark grid.
      */
     suspend fun getOccurrencesForTaskInRange(
         taskId: String,
@@ -72,14 +76,14 @@ interface TaskOccurrenceDao {
      */
     @Query(
         """
-        SELECT * FROM task_occurrences 
-        WHERE taskId = :taskId 
+        SELECT * FROM task_occurrences
+        WHERE taskId = :taskId
         AND date(dueDate) = date(:date)
         LIMIT 1
-    """,
+        """,
     )
     /**
-     * Returns the occurrence for task on date.
+     * Returns the single occurrence for [taskId] on [date], or null.
      */
     suspend fun getOccurrenceForTaskOnDate(
         taskId: String,
@@ -92,15 +96,17 @@ interface TaskOccurrenceDao {
      */
     @Query(
         """
-        SELECT * FROM task_occurrences 
-        WHERE taskId IN (:taskIds) 
-        AND date(dueDate) >= date(:startDate) 
+        SELECT * FROM task_occurrences
+        WHERE taskId IN (:taskIds)
+        AND date(dueDate) >= date(:startDate)
         AND date(dueDate) <= date(:endDate)
         ORDER BY taskId, dueDate DESC
-    """,
+        """,
     )
     /**
-     * Returns the occurrences for tasks in range.
+     * Returns occurrences for all [taskIds] within the inclusive window,
+     * ordered by task then newest-due-first. Bulk variant for rendering many
+     * habit grids at once.
      */
     suspend fun getOccurrencesForTasksInRange(
         taskIds: List<String>,
@@ -113,14 +119,16 @@ interface TaskOccurrenceDao {
      */
     @Query(
         """
-        UPDATE task_occurrences 
+        UPDATE task_occurrences
         SET status = :status, statusReason = :statusReason, note = :note, completedAt = :completedAt,
             actualCompletedAt = :actualCompletedAt, actualDurationMinutes = :actualDurationMinutes
         WHERE id = :id
-    """,
+        """,
     )
     /**
-     * Updates the update occurrence.
+     * Records the outcome of an occurrence: [status] (done/skipped/partial),
+     * its [statusReason] and [note], plus the actual completion time and
+     * duration. Updates the row with [id].
      */
     suspend fun updateOccurrence(
         id: String,
@@ -134,49 +142,50 @@ interface TaskOccurrenceDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert.
+     * Inserts or replaces an occurrence row.
      */
     suspend fun insert(occurrence: TaskOccurrenceEntity)
 
     @Query("DELETE FROM task_occurrences WHERE id = :id")
     /**
-     * Removes the delete by id.
+     * Deletes the occurrence with [id].
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM task_occurrences")
     /**
-     * Removes the delete all.
+     * Deletes every occurrence row.
      */
     suspend fun deleteAll()
 }
 
 @Dao
 /**
- * Defines the contract for task reschedule dao.
+ * Room DAO for the `task_reschedules` audit table: one row per time a task's
+ * schedule was pushed, keeping a history of reschedule events.
  */
 interface TaskRescheduleDao {
     @Query("SELECT * FROM task_reschedules")
     /**
-     * Returns the all reschedules.
+     * Returns every reschedule record.
      */
     suspend fun getAllReschedules(): List<TaskRescheduleEntity>
 
     @Query("SELECT * FROM task_reschedules WHERE taskId = :taskId ORDER BY rescheduledAt DESC")
     /**
-     * Returns the reschedules for task.
+     * Emits the reschedule history for [taskId], newest-first, as a [Flow].
      */
     fun getReschedulesForTask(taskId: String): Flow<List<TaskRescheduleEntity>>
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert.
+     * Inserts or replaces a reschedule record.
      */
     suspend fun insert(reschedule: TaskRescheduleEntity)
 
     @Query("DELETE FROM task_reschedules")
     /**
-     * Removes the delete all.
+     * Deletes every reschedule record.
      */
     suspend fun deleteAll()
 }

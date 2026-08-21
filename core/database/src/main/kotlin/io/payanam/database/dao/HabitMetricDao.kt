@@ -11,7 +11,10 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * Defines the contract for habit metric dao.
+ * Room DAO for the `habit_metrics` time-series table: one [HabitMetricEntity]
+ * per habit per day holding cumulative L1 state (running average, progress,
+ * streaks). Because the values are cumulative, the row with the maximum
+ * `dayKey` for a habit is its current state.
  */
 interface HabitMetricDao {
 
@@ -23,51 +26,54 @@ interface HabitMetricDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the upsert all.
+     * Inserts or replaces a batch of habit-metric rows.
      */
     suspend fun upsertAll(rows: List<HabitMetricEntity>)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the upsert.
+     * Inserts or replaces a single habit-metric row.
      */
     suspend fun upsert(row: HabitMetricEntity)
 
     @Query("DELETE FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :fromDay")
     /**
-     * Removes the delete from.
+     * Deletes metric rows for [habitId] whose `dayKey` is [fromDay] or later.
+     * Used to truncate a corrupted tail before recomputing.
      */
     suspend fun deleteFrom(habitId: String, fromDay: String)
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     /**
-     * Returns the for habit.
+     * Returns every metric row for [habitId], ordered chronologically.
      */
     suspend fun getForHabit(habitId: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     /**
-     * Registers the observe for habit.
+     * Emits every metric row for [habitId], chronologically, as a [Flow].
      */
     fun observeForHabit(habitId: String): Flow<List<HabitMetricEntity>>
 
     /** Window query for the activity detail view (Part C). */
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :start AND dayKey <= :end ORDER BY dayKey ASC")
     /**
-     * Returns the for habit range.
+     * Returns metric rows for [habitId] within the inclusive [start]..[end]
+     * window, ordered chronologically — used by the activity detail view.
      */
     suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics")
     /**
-     * Returns the all.
+     * Returns every habit-metric row across all habits.
      */
     suspend fun getAll(): List<HabitMetricEntity>
 
     /** Max dayKey per habit — O(rows) GROUP BY instead of loading every row. */
     @Query("SELECT habitId, MAX(dayKey) AS maxDayKey FROM habit_metrics GROUP BY habitId")
     /**
-     * Performs the max day key per habit.
+     * Returns the latest `dayKey` for each habit, used to locate each habit's
+     * current (cumulative) state without loading the full history.
      */
     suspend fun maxDayKeyPerHabit(): List<HabitIdDayKey>
 
@@ -86,25 +92,29 @@ interface HabitMetricDao {
         """,
     )
     /**
-     * Returns the latest per habit.
+     * Returns the most recent metric row for every habit (its current L1 state).
+     * The join against MAX(dayKey) per habit makes the single row per habit
+     * deterministic rather than relying on SQLite's arbitrary group pick.
      */
     suspend fun getLatestPerHabit(): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     /**
-     * Performs the latest before.
+     * Returns the most recent metric row for [habitId] strictly before
+     * [dayKey], or null. Used to compute deltas against the prior day.
      */
     suspend fun latestBefore(habitId: String, dayKey: String): HabitMetricEntity?
 
     @Query("SELECT * FROM habit_metrics WHERE dayKey = :dayKey")
     /**
-     * Performs the for day.
+     * Returns every habit's metric row for [dayKey] (all habits that recorded
+     * that day).
      */
     suspend fun forDay(dayKey: String): List<HabitMetricEntity>
 
     @Query("SELECT COUNT(*) FROM habit_metrics")
     /**
-     * Performs the count.
+     * Returns the total number of habit-metric rows.
      */
     suspend fun count(): Int
 }

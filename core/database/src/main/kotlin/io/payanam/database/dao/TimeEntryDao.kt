@@ -13,31 +13,34 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * Defines the contract for time entry dao.
+ * Room DAO for the `time_entries` table: tracked work sessions. An entry with a
+ * null `endedAt` is currently running. Reads are exposed as [Flow].
  */
 interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL LIMIT 1")
     /**
-     * Returns the active time entry.
+     * Returns the single running entry (null `endedAt`), or null when nothing
+     * is being tracked.
      */
     suspend fun getActiveTimeEntry(): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL LIMIT 1")
     /**
-     * Registers the observe active time entry.
+     * Emits the running entry (null `endedAt`) as a [Flow], or null.
      */
     fun observeActiveTimeEntry(): Flow<TimeEntryEntity?>
 
     @Query(
         """
-        SELECT * FROM time_entries 
-        WHERE datetime(startedAt) >= datetime(:start) 
+        SELECT * FROM time_entries
+        WHERE datetime(startedAt) >= datetime(:start)
         AND datetime(startedAt) <= datetime(:end)
         ORDER BY startedAt ASC
-    """,
+        """,
     )
     /**
-     * Returns the time entries for range.
+     * Emits entries whose `startedAt` falls within the inclusive [start]..[end]
+     * window, ordered oldest-first, as a [Flow].
      */
     fun getTimeEntriesForRange(
         start: String,
@@ -46,14 +49,16 @@ interface TimeEntryDao {
 
     @Query(
         """
-        SELECT * FROM time_entries 
+        SELECT * FROM time_entries
         WHERE datetime(startedAt) < datetime(:dayEnd)
         AND datetime(COALESCE(endedAt, :currentTime)) > datetime(:dayStart)
         ORDER BY startedAt ASC
-    """,
+        """,
     )
     /**
-     * Returns the time entries for date.
+     * Emits entries overlapping the day bounded by [dayStart]..[dayEnd]. An
+     * ongoing entry (null `endedAt`) is treated as ending at [currentTime] so it
+     * still counts for the current day, as a [Flow].
      */
     fun getTimeEntriesForDate(
         dayStart: String,
@@ -63,13 +68,14 @@ interface TimeEntryDao {
 
     @Query("SELECT * FROM time_entries WHERE id = :id")
     /**
-     * Returns the by id.
+     * Returns the entry with [id], or null.
      */
     suspend fun getById(id: String): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE import_source = :source AND import_id = :importId LIMIT 1")
     /**
-     * Returns the by import ref.
+     * Returns the entry linked to an external import ([source] + [importId]),
+     * or null. Used for dedupe during import.
      */
     suspend fun getByImportRef(
         source: String,
@@ -78,37 +84,38 @@ interface TimeEntryDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert.
+     * Inserts or replaces a time entry.
      */
     suspend fun insert(entry: TimeEntryEntity)
 
     @Update
     /**
-     * Updates the update.
+     * Updates all columns of an existing time entry.
      */
     suspend fun update(entry: TimeEntryEntity)
 
     @Delete
     /**
-     * Removes the delete.
+     * Deletes the given [entry] row.
      */
     suspend fun delete(entry: TimeEntryEntity)
 
     @Query("DELETE FROM time_entries WHERE id = :id")
     /**
-     * Removes the delete by id.
+     * Deletes the entry with [id].
      */
     suspend fun deleteById(id: String)
 
     @Query("DELETE FROM time_entries")
     /**
-     * Removes the delete all.
+     * Deletes every time-entry row.
      */
     suspend fun deleteAll()
 
     @Query("UPDATE time_entries SET taskId = NULL WHERE taskId IS NOT NULL")
     /**
-     * Removes the clear all task links.
+     * Nulls the `taskId` link on every entry. Used when a task is deleted so
+     * entries are retained as untracked-time history.
      */
     suspend fun clearAllTaskLinks()
 
@@ -124,7 +131,9 @@ interface TimeEntryDao {
         """,
     )
     /**
-     * Performs the stop entry.
+     * Stops a running entry: records [endedAt], the post-session focus
+     * [focusRating] / [focusNote] / [focusRatedAt], and [updatedAt]. Leaving
+     * `endedAt` null keeps the entry running.
      */
     suspend fun stopEntry(
         id: String,
@@ -137,13 +146,14 @@ interface TimeEntryDao {
 
     @Query("SELECT * FROM time_entries ORDER BY startedAt DESC")
     /**
-     * Returns the all.
+     * Emits all entries ordered by start time (newest first) as a [Flow].
      */
     fun getAll(): Flow<List<TimeEntryEntity>>
 
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL ORDER BY startedAt DESC")
     /**
-     * Returns the all active time entries.
+     * Emits all currently-running (null `endedAt`) entries, newest first, as a
+     * [Flow].
      */
     fun getAllActiveTimeEntries(): Flow<List<TimeEntryEntity>>
 }

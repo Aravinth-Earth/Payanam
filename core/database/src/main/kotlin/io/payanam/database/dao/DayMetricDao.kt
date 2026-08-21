@@ -11,61 +11,65 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 /**
- * Defines the contract for day metric dao.
+ * Room DAO for the `day_metrics` time-series table: one [DayMetricEntity] per
+ * day aggregating that day's tracked metrics. Rows are keyed by `dayKey`.
  */
 interface DayMetricDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the upsert all.
+     * Inserts or replaces a batch of daily metric rows.
      */
     suspend fun upsertAll(rows: List<DayMetricEntity>)
 
     @Query("DELETE FROM day_metrics WHERE dayKey >= :fromDay")
     /**
-     * Removes the delete from.
+     * Deletes every metric row whose `dayKey` is [fromDay] or later. Used to
+     * drop a corrupted/partial tail before recomputing.
      */
     suspend fun deleteFrom(fromDay: String)
 
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     /**
-     * Registers the observe all.
+     * Emits all daily metrics ordered chronologically as a [Flow].
      */
     fun observeAll(): Flow<List<DayMetricEntity>>
 
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     /**
-     * Returns the all.
+     * Returns all daily metrics ordered chronologically.
      */
     suspend fun getAll(): List<DayMetricEntity>
 
     @Query("SELECT MIN(dayKey) FROM day_metrics")
     /**
-     * Performs the earliest day key.
+     * Returns the earliest `dayKey` present, or null when the table is empty.
      */
     suspend fun earliestDayKey(): String?
 
     @Query("SELECT * FROM day_metrics WHERE dayKey = :dayKey")
     /**
-     * Performs the for day.
+     * Returns the metric row for [dayKey], or null.
      */
     suspend fun forDay(dayKey: String): DayMetricEntity?
 
     @Query("SELECT * FROM day_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
     /**
-     * Returns the for window.
+     * Returns metric rows whose `dayKey` falls within the inclusive
+     * [start]..[end] window, ordered chronologically.
      */
     suspend fun getForWindow(start: String, end: String): List<DayMetricEntity>
 
     @Query("SELECT * FROM day_metrics WHERE dayKey < :dayKey ORDER BY dayKey DESC LIMIT 1")
     /**
-     * Performs the latest before.
+     * Returns the most recent metric row strictly before [dayKey], or null when
+     * there is none. Used to compute deltas against the prior day.
      */
     suspend fun latestBefore(dayKey: String): DayMetricEntity?
 
     @Query("SELECT COUNT(*) FROM day_metrics")
     /**
-     * Performs the count.
+     * Returns the total number of daily metric rows.
      */
     suspend fun count(): Int
 }

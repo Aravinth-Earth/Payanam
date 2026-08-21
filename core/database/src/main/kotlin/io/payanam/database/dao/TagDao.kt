@@ -12,8 +12,10 @@ import io.payanam.database.entity.TagEntity
 import io.payanam.database.entity.TaskTagEntity
 import io.payanam.database.entity.TimeEntryTagEntity
 import kotlinx.coroutines.flow.Flow
+
 /**
- * Holds the note tag name row.
+ * Holds a (note id, tag name) pair returned when fetching tag names for a batch
+ * of notes — avoids loading full [TagEntity] rows.
  */
 data class NoteTagNameRow(
     val noteId: String,
@@ -22,12 +24,15 @@ data class NoteTagNameRow(
 
 @Dao
 /**
- * Defines the contract for tag dao.
+ * Room DAO for the `tags` table and its three junction tables
+ * ([TaskTagEntity], [NoteTagEntity], [TimeEntryTagEntity]). Tags are matched
+ * case-insensitively via a `normalized_name` column.
  */
 interface TagDao {
     @Query("SELECT * FROM tags ORDER BY usage_count DESC, name ASC")
     /**
-     * Registers the observe all tags.
+     * Emits all tags ordered by popularity (most-used first), then name, as a
+     * [Flow].
      */
     fun observeAllTags(): Flow<List<TagEntity>>
 
@@ -40,7 +45,8 @@ interface TagDao {
         """,
     )
     /**
-     * Performs the search by prefix.
+     * Emits tags whose `normalized_name` starts with [normalizedPrefix],
+     * popularity-ordered, capped at [limit] — backs type-ahead tag entry.
      */
     fun searchByPrefix(
         normalizedPrefix: String,
@@ -49,19 +55,21 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE normalized_name = :normalizedName LIMIT 1")
     /**
-     * Returns the by normalized name.
+     * Returns the tag whose `normalized_name` equals [normalizedName], or null.
+     * Used to reuse an existing tag instead of creating a duplicate.
      */
     suspend fun getByNormalizedName(normalizedName: String): TagEntity?
 
     @Insert(onConflict = OnConflictStrategy.IGNORE)
     /**
-     * Performs the insert.
+     * Inserts a tag, ignoring the row when a tag with the same primary key
+     * already exists. Returns the new row id, or -1 when ignored.
      */
     suspend fun insert(tag: TagEntity): Long
 
     @Update
     /**
-     * Updates the update.
+     * Updates all columns of an existing tag.
      */
     suspend fun update(tag: TagEntity)
 
@@ -75,7 +83,8 @@ interface TagDao {
         """,
     )
     /**
-     * Performs the mark used.
+     * Bumps `usage_count` and records [usedAt] / [updatedAt] when a tag is
+     * applied. Drives the popularity ordering in the read queries.
      */
     suspend fun markUsed(
         tagId: String,
@@ -92,7 +101,7 @@ interface TagDao {
         """,
     )
     /**
-     * Registers the observe tags for task.
+     * Emits the tags linked to [taskId], name-ordered, as a [Flow].
      */
     fun observeTagsForTask(taskId: String): Flow<List<TagEntity>>
 
@@ -105,7 +114,7 @@ interface TagDao {
         """,
     )
     /**
-     * Registers the observe tags for note.
+     * Emits the tags linked to [noteId], name-ordered, as a [Flow].
      */
     fun observeTagsForNote(noteId: String): Flow<List<TagEntity>>
 
@@ -119,7 +128,8 @@ interface TagDao {
         """,
     )
     /**
-     * Returns the tag names for notes.
+     * Returns (note id, tag name) pairs for every tag on any note in [noteIds].
+     * Used to display tag chips without loading full tag rows.
      */
     suspend fun getTagNamesForNotes(noteIds: List<String>): List<NoteTagNameRow>
 
@@ -132,43 +142,44 @@ interface TagDao {
         """,
     )
     /**
-     * Registers the observe tags for time entry.
+     * Emits the tags linked to [timeEntryId], name-ordered, as a [Flow].
      */
     fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<TagEntity>>
 
     @Query("DELETE FROM task_tags WHERE task_id = :taskId")
     /**
-     * Removes the clear task tags.
+     * Removes every task↔tag link for [taskId] (call before re-writing tags).
      */
     suspend fun clearTaskTags(taskId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert task tags.
+     * Inserts or replaces a batch of task↔tag links.
      */
     suspend fun insertTaskTags(links: List<TaskTagEntity>)
 
     @Query("DELETE FROM note_tags WHERE note_id = :noteId")
     /**
-     * Removes the clear note tags.
+     * Removes every note↔tag link for [noteId] (call before re-writing tags).
      */
     suspend fun clearNoteTags(noteId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert note tags.
+     * Inserts or replaces a batch of note↔tag links.
      */
     suspend fun insertNoteTags(links: List<NoteTagEntity>)
 
     @Query("DELETE FROM time_entry_tags WHERE time_entry_id = :timeEntryId")
     /**
-     * Removes the clear time entry tags.
+     * Removes every time-entry↔tag link for [timeEntryId] (call before
+     * re-writing tags).
      */
     suspend fun clearTimeEntryTags(timeEntryId: String)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
-     * Performs the insert time entry tags.
+     * Inserts or replaces a batch of time-entry↔tag links.
      */
     suspend fun insertTimeEntryTags(links: List<TimeEntryTagEntity>)
 }
