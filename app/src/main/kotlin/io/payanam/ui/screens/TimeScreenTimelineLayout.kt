@@ -12,7 +12,7 @@ internal sealed class TimelineItem {
     abstract val startMinutes: Int
     abstract val endMinutes: Int
     /**
-     * Holds the entry.
+     * A tracked time-entry block on the timeline.
      */
     data class Entry(
         val entry: TimeEntry,
@@ -22,7 +22,7 @@ internal sealed class TimelineItem {
         override val id: String = "entry_${entry.id}"
     }
     /**
-     * Holds the planned.
+     * A planned (not-yet-completed) task block on the timeline.
      */
     data class Planned(
         val task: Task,
@@ -33,7 +33,7 @@ internal sealed class TimelineItem {
         override val id: String = "planned_${task.id}"
     }
     /**
-     * Holds the occurrence.
+     * A completed/skipped task occurrence block on the timeline.
      */
     data class Occurrence(
         val occurrence: TaskOccurrence,
@@ -45,6 +45,10 @@ internal sealed class TimelineItem {
     }
 }
 
+/**
+ * One laid-out timeline item: its lane index and the total lane count of its
+ * overlap group (drives column width).
+ */
 internal data class LaneLayoutEntry<T>(
     val item: T,
     val laneIndex: Int,
@@ -58,11 +62,11 @@ internal fun <T> calculateLaneLayout(
 ): List<LaneLayoutEntry<T>> {
     if (items.isEmpty()) return emptyList()
     /**
-     * Holds the active item.
+     * An item currently overlapping others, with its assigned lane.
      */
     data class ActiveItem<T>(val item: T, val laneIndex: Int, val endMinutes: Int)
     /**
-     * Holds the group item.
+     * An item in the not-yet-emitted overlap group.
      */
     data class GroupItem<T>(val item: T, val laneIndex: Int)
     val logger = UnifiedLogger.getInstance()
@@ -72,7 +76,7 @@ internal fun <T> calculateLaneLayout(
     var groupMaxLanes = 0
     val result = mutableListOf<LaneLayoutEntry<T>>()
     /**
-     * Performs the finalize group.
+     * Flushes any pending overlap group into results with its lane count.
      */
     fun finalizeGroup() {
         if (groupItems.isEmpty()) return
