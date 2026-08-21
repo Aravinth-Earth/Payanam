@@ -72,7 +72,8 @@ internal class DesktopSecurityStore(
 ) {
     private val secureRandom = SecureRandom()
     /**
-     * Performs the ensure snapshot.
+     * Current security state, creating a fresh default snapshot when none
+     * exists yet.
      */
     fun ensureSnapshot(): DesktopSecuritySnapshot {
         if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
@@ -83,7 +84,7 @@ internal class DesktopSecurityStore(
         return snapshot
     }
     /**
-     * Loads the load snapshot.
+     * Security state parsed from persisted properties (defaults when absent).
      */
     fun loadSnapshot(): DesktopSecuritySnapshot {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -101,7 +102,7 @@ internal class DesktopSecurityStore(
         )
     }
     /**
-     * Performs the configure passphrase.
+     * Validates and stores a new PBKDF2 salt/hash verifier for [passphrase].
      */
     fun configurePassphrase(passphrase: String): DesktopPassphraseActionResult {
         val validation = SharedPassphrasePolicy.validate(passphrase)
@@ -129,7 +130,8 @@ internal class DesktopSecurityStore(
         return DesktopPassphraseActionResult.Success
     }
     /**
-     * Performs the verify passphrase.
+     * Checks [passphrase] against the stored verifier, enforcing the lockout
+     * policy on failed attempts.
      */
     fun verifyPassphrase(passphrase: String): DesktopPassphraseActionResult {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY).orEmpty()
@@ -186,7 +188,7 @@ internal class DesktopSecurityStore(
         )
     }
     /**
-     * Removes the reset security state.
+     * Clears the passphrase verifier and failure/lockout counters.
      */
     fun resetSecurityState() {
         saveSnapshot(DesktopSecuritySnapshot(), saltBase64 = null, hashBase64 = null)
@@ -197,7 +199,7 @@ internal class DesktopSecurityStore(
         )
     }
     /**
-     * Returns the security file path.
+     * Path of the database file holding the security state.
      */
     fun getSecurityFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
