@@ -26,10 +26,12 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
-@HiltViewModel
 /**
- * Provides the time visuals view model.
+ * Time-screen visuals ViewModel: computes overall/per-dimension day summaries
+ * and the 7-day trend strip, with a fast pre-lookup render, day cache, and a
+ * toggleable dimension filter.
  */
+@HiltViewModel
 class TimeVisualsViewModel @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val taskRepository: TaskRepository,
@@ -44,7 +46,8 @@ class TimeVisualsViewModel @Inject constructor(
     private var inFlightDate: LocalDate? = null
     private var loadJob: Job? = null
     /**
-     * Loads the load for date.
+     * Loads visuals for [date]: fast render before task lookup, then the full
+     * pass with per-dimension rollups and trend figures.
      */
     fun loadForDate(date: LocalDate) {
         if (inFlightDate == date && loadJob?.isActive == true) {
@@ -136,7 +139,7 @@ class TimeVisualsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the toggle dimension filter.
+     * Toggles the per-dimension filter (re-tap clears it).
      */
     fun toggleDimensionFilter(dimensionId: String) {
         _uiState.update { state ->
