@@ -84,9 +84,6 @@ private val dayNumberFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern(
  * Data for a single day's checkmark.
  */
 @Immutable
-/**
- * Holds the day checkmark.
- */
 data class DayCheckmark(
     val date: LocalDate,
     val status: CheckmarkStatus,
