@@ -36,10 +36,13 @@ import timber.log.Timber
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
-@HiltViewModel
 /**
- * Provides the tasks view model.
+ * ViewModel for the Tasks/Habits screen: loads and shapes the task + habit
+ * lists (sort/filter/visibility toggles persisted), and drives habit
+ * checkmark toggling, task complete/archive/delete, and the recomputation of
+ * L1/L2/L3 self-governance metrics after each status change.
  */
+@HiltViewModel
 class TasksViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
@@ -389,7 +392,9 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the toggle checkmark.
+     * Toggles the completion status of [taskId] on [date]: cycles pending→completed→
+     * missed, recording the occurrence and recomputing L1/L2/L3 metrics; for a
+     * recurring task the first completed toggle opens the completion dialog.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun toggleCheckmark(taskId: String, date: LocalDate) {
@@ -493,7 +498,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the dismiss completion dialog.
+     * Dismisses the recurring-task completion dialog without recording anything.
      */
     fun dismissCompletionDialog() {
         _uiState.update {
@@ -505,7 +510,9 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the confirm completion.
+     * Confirms the pending completion dialog: records the occurrence with the
+     * supplied timing, recomputes metrics, creates the linked time entry, and
+     * closes the dialog.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun confirmCompletion(actualCompletedAt: LocalDateTime?, actualDurationMinutes: Int?) {
@@ -549,7 +556,8 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update checkmark.
+     * Sets [taskId]'s checkmark on [date] to [status] (pending clears it); records
+     * the occurrence and recomputes L1/L2/L3 metrics.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateCheckmark(
@@ -714,7 +722,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set sort option.
+     * Changes the one-time task sort order, persists it, and re-shapes the list.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setSortOption(sortOption: TaskSortOption) {
@@ -738,7 +746,8 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set filter.
+     * Changes the task filter (today/overdue/all/...), persists it, re-shapes the
+     * list, and emits perf telemetry for the interaction.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setFilter(
@@ -822,7 +831,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set habit sort option.
+     * Changes the habit sort order, persists it, and re-sorts/reshapes habits.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setHabitSortOption(option: HabitSortOption) {
@@ -871,7 +880,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the toggle show archived habits.
+     * Toggles whether archived habits are shown, persists it, and reloads.
      */
     fun toggleShowArchivedHabits() {
         _uiState.update { state ->
@@ -883,7 +892,7 @@ class TasksViewModel @Inject constructor(
         loadTasks()
     }
     /**
-     * Performs the toggle show completed habits.
+     * Toggles whether completed habits are shown and reshapes the habit rows.
      */
     fun toggleShowCompletedHabits() {
         _uiState.update { state ->
@@ -927,7 +936,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the toggle hide all marked today.
+     * Toggles the "hide all habits already marked today" filter and reshapes rows.
      */
     fun toggleHideAllMarkedToday() {
         _uiState.update { state ->
@@ -938,7 +947,7 @@ class TasksViewModel @Inject constructor(
         persistVisibilityToggle(AppPreferencesViewModel.KEY_HIDE_ALL_MARKED_TODAY) { it.hideAllMarkedToday }
     }
     /**
-     * Performs the toggle due today only.
+     * Toggles the "due today only" habit filter and reshapes rows.
      */
     fun toggleDueTodayOnly() {
         _uiState.update { state ->
@@ -980,7 +989,8 @@ class TasksViewModel @Inject constructor(
             ),
         )
     /**
-     * Performs the complete task.
+     * Completes [taskId] (records the occurrence for recurring tasks, reschedules
+     * the next reminder, and recomputes metrics), then reloads.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTask(taskId: String, note: String? = null) {
@@ -1043,7 +1053,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the archive task.
+     * Archives [taskId] (and cancels its reminders), removing it from active lists.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask(taskId: String) {
@@ -1072,7 +1082,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete task.
+     * Permanently deletes [taskId] (canceling its reminders).
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask(taskId: String) {
@@ -1100,7 +1110,7 @@ class TasksViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the clear error.
+     * Clears the current error message shown on the screen.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
