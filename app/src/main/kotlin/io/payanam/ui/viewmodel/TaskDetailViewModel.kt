@@ -25,7 +25,10 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
 /**
- * Holds the task detail ui state.
+ * UI state for the task-detail screen: the task, occurrence/reschedule
+ * histories, completion stats + latest L1 summary, the paged activity window
+ * (range size, end date, metric rows, per-day occurrences, chart/table
+ * toggle), and the status-note dialog state.
  */
 data class TaskDetailUiState(
     val task: Task? = null,
@@ -53,10 +56,12 @@ data class TaskDetailUiState(
     val pendingStatusAction: String? = null,
 )
 
-@HiltViewModel
 /**
- * Provides the task detail view model.
+ * Task-detail ViewModel: loads a task's full profile (occurrence/reschedule
+ * histories, completion stats, L1 summary, paged activity window) and drives
+ * complete/skip/miss/archive/reschedule/delete actions with reminder updates.
  */
+@HiltViewModel
 class TaskDetailViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
@@ -73,7 +78,9 @@ class TaskDetailViewModel @Inject constructor(
 
     private var currentTaskId: String? = null
     /**
-     * Loads the load task.
+     * Loads task [taskId] with its L1 summary, and — for recurring tasks — its
+     * occurrence history, completion stats, and activity window; also loads
+     * reschedule history for every task.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadTask(taskId: String) {
@@ -180,7 +187,7 @@ class TaskDetailViewModel @Inject constructor(
         loadActivityWindow(currentTaskId ?: return)
     }
     /**
-     * Performs the shift window back.
+     * Moves the activity window one window-length into the past and reloads it.
      */
     fun shiftWindowBack() {
         val s = _uiState.value
@@ -190,7 +197,8 @@ class TaskDetailViewModel @Inject constructor(
         loadActivityWindow(currentTaskId ?: return)
     }
     /**
-     * Performs the shift window forward.
+     * Moves the activity window forward one window-length (clamped to today)
+     * and reloads it.
      */
     fun shiftWindowForward() {
         val s = _uiState.value
@@ -203,14 +211,14 @@ class TaskDetailViewModel @Inject constructor(
         loadActivityWindow(currentTaskId ?: return)
     }
     /**
-     * Performs the jump window to today.
+     * Snaps the activity window back to end at today and reloads it.
      */
     fun jumpWindowToToday() {
         _uiState.update { it.copy(windowEnd = java.time.LocalDate.now()) }
         loadActivityWindow(currentTaskId ?: return)
     }
     /**
-     * Updates the set chart view.
+     * Toggles the activity section between chart and table rendering.
      */
     fun setChartView(chart: Boolean) {
         _uiState.update { it.copy(showChartView = chart) }
@@ -259,7 +267,8 @@ class TaskDetailViewModel @Inject constructor(
     /** Window bounds: [sizeDays] days ending at [end]; sizeDays <= 0 = all-time. */
     internal companion object {
         /**
-         * Performs the window bounds.
+         * Inclusive start/end of an activity window ending at [end]: [sizeDays]
+         * days back, or from 2020-01-01 when [sizeDays] is non-positive (all-time).
          */
         fun windowBounds(sizeDays: Int, end: java.time.LocalDate): Pair<java.time.LocalDate, java.time.LocalDate> {
             val start = if (sizeDays > 0) end.minusDays((sizeDays - 1).toLong()) else java.time.LocalDate.of(2020, 1, 1)
@@ -610,7 +619,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the archive task.
+     * Archives the loaded task and cancels its reminders.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask() {
@@ -638,7 +647,9 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the reschedule task.
+     * Moves the task's due date to [newDueDate]: updates the task, records a
+     * reschedule entry (flagging whether the old date was overdue), reloads
+     * history, and reschedules the reminder.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun rescheduleTask(newDueDate: LocalDateTime) {
@@ -713,7 +724,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete task.
+     * Permanently deletes the loaded task (canceling its reminders).
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask() {
