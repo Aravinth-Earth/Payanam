@@ -32,9 +32,6 @@ import javax.inject.Singleton
  * - Day boundary handling
  */
 @Singleton
-/**
- * Provides the recurrence manager.
- */
 class RecurrenceManager @Inject constructor(
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
@@ -568,7 +565,8 @@ class RecurrenceManager @Inject constructor(
         }
     }
     /**
-     * Returns true when the is frequency habit.
+     * True when the task's recurrence rule is a frequency habit (N times per
+     * M days) rather than a fixed-schedule rule.
      */
     fun isFrequencyHabit(task: Task): Boolean {
         if (!task.recurrenceEnabled) return false
@@ -576,7 +574,8 @@ class RecurrenceManager @Inject constructor(
         return RecurrenceConfig.parse(task.recurrenceRule).type == RecurrenceType.FREQUENCY
     }
     /**
-     * Performs the refresh frequency habit state.
+     * Re-syncs one frequency habit's window state by [taskId] (no-op for
+     * non-frequency tasks).
      */
     suspend fun refreshFrequencyHabitState(taskId: String) {
         val task = taskRepository.getTaskById(taskId) ?: return
