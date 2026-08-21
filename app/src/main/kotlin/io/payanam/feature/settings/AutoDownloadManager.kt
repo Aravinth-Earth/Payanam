@@ -19,7 +19,7 @@ import java.io.File
 sealed class DownloadUiState {
     data object Idle : DownloadUiState()
     /**
-     * Holds the downloading.
+     * APK download in flight with byte progress and a derived percentage.
      */
     data class Downloading(
         val fileName: String,
@@ -36,11 +36,11 @@ sealed class DownloadUiState {
     /** Paused by the system (e.g. waiting for Wi-Fi) — not an error. */
     data class Paused(val message: String) : DownloadUiState()
     /**
-     * Holds the downloaded.
+     * Download finished; [fileName] plus its on-disk path when resolvable.
      */
     data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
     /**
-     * Holds the failed.
+     * Download failed; [message] is a user-displayable reason key.
      */
     data class Failed(val message: String) : DownloadUiState()
 }
@@ -211,7 +211,7 @@ object AutoDownloadManager {
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
             /**
-             * Handles the on receive.
+             * Fires the completion callback when this download's ID matches.
              */
             override fun onReceive(ctx: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
