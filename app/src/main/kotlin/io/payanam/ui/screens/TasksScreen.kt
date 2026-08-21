@@ -84,7 +84,7 @@ import io.payanam.ui.viewmodel.TasksChromeUiState
 import io.payanam.ui.viewmodel.matchesTaskSearch
 import io.payanam.ui.viewmodel.TasksViewModel
 /**
- * Defines the contract for tasks screen mode.
+ * Tasks screen modes: combined tabs, tasks-only, or habits-only.
  */
 enum class TasksScreenMode {
     COMBINED,
@@ -766,7 +766,7 @@ private fun TasksTabContent(
         data = mapOf("rowCount" to displayTasks.size),
     )
     /**
-     * Performs the trace filter selection.
+     * Records a filter tap for the perf trace (start event + pending phase).
      */
     fun traceFilterSelection(filter: TaskFilter) {
         val tapMs = SystemClock.elapsedRealtime()
