@@ -16,7 +16,8 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 /**
- * Holds the time tag editor ui state.
+ * UI state for the time-entry tag editor: global tag suggestions plus the tag
+ * sets of the entry/task currently being edited.
  */
 data class TimeTagEditorUiState(
     val tagSuggestions: List<String> = emptyList(),
@@ -24,10 +25,12 @@ data class TimeTagEditorUiState(
     val editingTaskTags: List<String> = emptyList(),
 )
 
-@HiltViewModel
 /**
- * Provides the time tag editor view model.
+ * Tag-editor ViewModel shared by the Time screen: streams global tag
+ * suggestions and the live tag sets of the entry/task under edit, and
+ * persists tag replacements.
  */
+@HiltViewModel
 class TimeTagEditorViewModel @Inject constructor(
     private val tagRepository: TagRepository,
 ) : ViewModel() {
@@ -53,7 +56,7 @@ class TimeTagEditorViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the load entry tags.
+     * Streams the tags of [entryId] into state (cancels any previous stream).
      */
     fun loadEntryTags(entryId: String?) {
         entryTagsJob?.cancel()
@@ -68,7 +71,7 @@ class TimeTagEditorViewModel @Inject constructor(
         }
     }
     /**
-     * Writes the save entry tags.
+     * Replaces the time entry's full tag set.
      */
     fun saveEntryTags(entryId: String, tags: List<String>) {
         viewModelScope.launch {
@@ -84,7 +87,7 @@ class TimeTagEditorViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the load task tags.
+     * Streams the tags of [taskId] into state (cancels any previous stream).
      */
     fun loadTaskTags(taskId: String?) {
         taskTagsJob?.cancel()
@@ -99,7 +102,7 @@ class TimeTagEditorViewModel @Inject constructor(
         }
     }
     /**
-     * Writes the save task tags.
+     * Replaces the task's full tag set.
      */
     fun saveTaskTags(taskId: String, tags: List<String>) {
         viewModelScope.launch {
