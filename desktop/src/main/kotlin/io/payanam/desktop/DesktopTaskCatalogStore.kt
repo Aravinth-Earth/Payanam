@@ -32,7 +32,8 @@ internal class DesktopTaskCatalogStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Loads the load state.
+     * Task catalog decoded from storage (seeding a default catalog on first
+     * run); carries a decode error message when the payload is unreadable.
      */
     fun loadState(): DesktopTaskCatalogState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -69,7 +70,7 @@ internal class DesktopTaskCatalogStore(
         }
     }
     /**
-     * Returns the catalog file path.
+     * Path of the database file holding the task catalog.
      */
     fun getCatalogFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

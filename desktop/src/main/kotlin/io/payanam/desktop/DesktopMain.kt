@@ -13,7 +13,8 @@ import androidx.compose.ui.window.rememberWindowState
 import java.awt.GraphicsEnvironment
 import kotlin.math.max
 /**
- * Performs the main.
+ * Desktop entry point: enforces single-instance, initializes the session
+ * logger, and launches the Compose window.
  */
 fun main() {
     val singleInstanceResult = DesktopSingleInstanceGuard.acquire()

@@ -15,7 +15,8 @@ data class DesktopRoutePlaceholderContent(
     val details: List<String>,
 )
 /**
- * Performs the desktop route placeholder content.
+ * Placeholder copy for a not-yet-implemented route (null when the route has
+ * real content).
  */
 fun desktopRoutePlaceholderContent(route: DesktopTopLevelRoute): DesktopRoutePlaceholderContent? =
     when (route) {
