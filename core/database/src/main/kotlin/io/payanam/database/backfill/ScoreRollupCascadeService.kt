@@ -624,6 +624,7 @@ class ScoreRollupCascadeService
             try {
                 LocalDate.parse(s.take(10))
             } catch (e: Exception) {
+                logger.w("ScoreRollupCascadeService", "Unparseable date, falling back to today", mapOf("date" to s))
                 LocalDate.now()
             }
     }

@@ -154,6 +154,7 @@ class ScoreRollupBackfillService
                 try {
                     LocalDate.parse(s.take(10))
                 } catch (e: Exception) {
+                    logger.w("ScoreRollupBackfillService", "Skipping occurrence with unparseable date", mapOf("date" to s))
                     null
                 }
 

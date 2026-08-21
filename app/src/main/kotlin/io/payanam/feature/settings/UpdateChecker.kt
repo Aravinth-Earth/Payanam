@@ -81,6 +81,7 @@ internal fun parseReleases(body: String): List<ChannelStatus> {
     val releases = try {
         JSONArray(body)
     } catch (e: Exception) {
+        logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
         return emptyList()
     }
     val statuses = mutableListOf<ChannelStatus>()

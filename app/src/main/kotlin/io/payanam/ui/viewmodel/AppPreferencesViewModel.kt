@@ -1625,6 +1625,7 @@ class AppPreferencesViewModel @Inject constructor(
                 Color(colorLong.toInt())
             }
         } catch (e: Exception) {
+            logger.w("AppPreferencesViewModel.resolveDimensionColor", "Failed to resolve dimension color, using fallback", mapOf("error" to (e.message ?: "unknown")))
             LifeDimensionColors.forDimension("Career & Work")
         }
     }
