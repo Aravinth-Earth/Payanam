@@ -25,7 +25,10 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the tag repository impl.
+ * Room-backed implementation of [TagRepository]. Wraps [TagDao]; tag names are
+ * normalized (trim + lowercase) so matching is case-insensitive and reused
+ * rather than duplicated. The three `replace*` methods share one transactional
+ * clear-and-reinsert path that also bumps each tag's usage count.
  */
 class TagRepositoryImpl
     @Inject
@@ -36,7 +39,7 @@ class TagRepositoryImpl
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Registers the observe all tags.
+         * Emits every tag, popularity-ordered, as a [Flow].
          */
         override fun observeAllTags(): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeAllTags", "Subscribing to all tags")
@@ -46,7 +49,8 @@ class TagRepositoryImpl
         }
 
         /**
-         * Performs the search tags by prefix.
+         * Emits tags whose normalized name starts with the normalized [query],
+         * capped at [limit] — backs type-ahead tag entry.
          */
         override fun searchTagsByPrefix(
             query: String,
@@ -67,7 +71,7 @@ class TagRepositoryImpl
         }
 
         /**
-         * Registers the observe tags for task.
+         * Emits the tags linked to [taskId], as a [Flow].
          */
         override fun observeTagsForTask(taskId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTask", "Subscribing to tags for task", mapOf("taskId" to taskId))
@@ -77,7 +81,7 @@ class TagRepositoryImpl
         }
 
         /**
-         * Registers the observe tags for note.
+         * Emits the tags linked to [noteId], as a [Flow].
          */
         override fun observeTagsForNote(noteId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForNote", "Subscribing to tags for note", mapOf("noteId" to noteId))
@@ -87,7 +91,9 @@ class TagRepositoryImpl
         }
 
         /**
-         * Returns the tag names for notes.
+         * Returns a map of note id → its tag names for every [noteIds] (batched
+         * query; empty input returns an empty map). Used to render tag chips in
+         * lists without per-note round-trips.
          */
         override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> {
             if (noteIds.isEmpty()) {
@@ -105,7 +111,7 @@ class TagRepositoryImpl
         }
 
         /**
-         * Registers the observe tags for time entry.
+         * Emits the tags linked to [timeEntryId], as a [Flow].
          */
         override fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTimeEntry", "Subscribing to tags for time entry", mapOf("timeEntryId" to timeEntryId))
@@ -115,7 +121,9 @@ class TagRepositoryImpl
         }
 
         /**
-         * Performs the replace task tags.
+         * Replaces [taskId]'s entire tag set with [tagNames] in one transaction:
+         * clears existing links, ensures each normalized tag exists, re-links, and
+         * bumps usage counts.
          */
         override suspend fun replaceTaskTags(
             taskId: String,
@@ -136,7 +144,8 @@ class TagRepositoryImpl
         }
 
         /**
-         * Performs the replace note tags.
+         * Replaces [noteId]'s entire tag set with [tagNames] in one transaction
+         * (clear → ensure → re-link → bump usage).
          */
         override suspend fun replaceNoteTags(
             noteId: String,
@@ -157,7 +166,8 @@ class TagRepositoryImpl
         }
 
         /**
-         * Performs the replace time entry tags.
+         * Replaces [timeEntryId]'s entire tag set with [tagNames] in one transaction
+         * (clear → ensure → re-link → bump usage).
          */
         override suspend fun replaceTimeEntryTags(
             timeEntryId: String,

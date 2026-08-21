@@ -25,7 +25,10 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the note repository impl.
+ * Room-backed implementation of [NoteRepository]. Wraps [JournalNoteEntity],
+ * resolves the life-dimension from an explicit id or category label, and keeps
+ * the legacy `notes` shadow table in sync inside a transaction (for tag FKs and
+ * read paths that still read the shadow).
  */
 class NoteRepositoryImpl
     @Inject
@@ -36,7 +39,7 @@ class NoteRepositoryImpl
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Returns the all notes.
+         * Emits every note, mapped to the domain model, as a [Flow] (newest first).
          */
         override fun getAllNotes(): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getAllNotes", "Subscribing to all notes")
@@ -47,7 +50,8 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the notes by dimension.
+         * Emits notes tied to [dimension] (by id or life-intention category),
+         * mapped to the domain model, as a [Flow].
          */
         override fun getNotesByDimension(dimension: String): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesByDimension", "Subscribing to notes by dimension", mapOf("dimension" to dimension))
@@ -65,7 +69,7 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the notes for date.
+         * Emits notes dated [date], mapped to the domain model, as a [Flow].
          */
         override fun getNotesForDate(date: LocalDate): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesForDate", "Subscribing to notes for date", mapOf("date" to date.toString()))
@@ -83,7 +87,7 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the note by id.
+         * Returns the note with [id] mapped to the domain model, or null.
          */
         override suspend fun getNoteById(id: String): Note? {
             val note =
@@ -97,7 +101,9 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Creates the create note.
+         * Creates a note from [input], generating id/timestamps, resolving the
+         * life-dimension, and writing both the journal note and its legacy `notes`
+         * shadow row inside one transaction. Returns the domain [Note].
          */
         override suspend fun createNote(input: NoteInput): Note {
             logger.i("NoteRepositoryImpl.createNote", "Creating new note")
@@ -135,7 +141,11 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Updates the update note.
+         * Applies a partial update from [input] to the note [id]. Missing fields
+         * fall back to current values; the dimension is re-resolved and both the
+         * journal note and legacy shadow are rewritten in a transaction. Throws
+         * [IllegalArgumentException] when [id] does not exist. Returns the domain
+         * [Note].
          */
         override suspend fun updateNote(
             id: String,
@@ -178,7 +188,8 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Removes the delete note.
+         * Deletes the note [id] from both the journal note table and the legacy
+         * `notes` shadow in a single transaction.
          */
         override suspend fun deleteNote(id: String) {
             logger.i("NoteRepositoryImpl.deleteNote", "Deleting note", mapOf("id" to id))
