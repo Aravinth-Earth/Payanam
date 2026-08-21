@@ -47,10 +47,12 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 
-@HiltViewModel
 /**
- * Provides the settings view model.
+ * Settings screen ViewModel: owns database stats/artifact management, the
+ * import/export and uHabits-import flows, the encryption passphrase, biometric
+ * unlock lifecycle, and the self-update channel/auto-download state machine.
  */
+@HiltViewModel
 class SettingsViewModel @Inject constructor(
     @ApplicationContext internal val context: Context,
     internal val sessionManager: DatabaseSessionManager,
@@ -376,7 +378,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Writes the export data.
+     * Public wrapper for exporting the database to [destinationUri] (delegates
+     * to [exportDatabase]) so the UI can bind a one-tap export action.
      */
     fun exportData(
         destinationUri: Uri,
@@ -384,7 +387,8 @@ class SettingsViewModel @Inject constructor(
         exportDatabase(destinationUri)
     }
     /**
-     * Loads the import data.
+     * Public wrapper for importing a database from [sourceUri] (delegates to the
+     * extension-based import pipeline) so the UI can bind a one-tap import.
      */
     fun importData(
         sourceUri: Uri,
@@ -392,7 +396,9 @@ class SettingsViewModel @Inject constructor(
         importDatabase(sourceUri)
     }
     /**
-     * Writes the export database.
+     * Exports the live encrypted database to [destinationUri] via the backup
+     * coordinator, reporting success/failure into [_uiState], then refreshes
+     * stats.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun exportDatabase(
@@ -431,7 +437,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the import uhabits data.
+     * Imports a uHabits database export from [sourceUri], upserting habits and
+     * their repetitions, then refreshes stats. Reports progress/errors into
+     * [_uiState].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun importUhabitsData(sourceUri: Uri) {
@@ -471,7 +479,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the bulk map imported habits to dimension.
+     * Bulk-tags every uHabits-imported task with [targetDimensionId] /
+     * [targetDimensionLabel], so imported habits appear under the chosen life
+     * dimension. Reports the mapped count into [_uiState].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
@@ -521,7 +531,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the generate export file name.
+     * Builds the timestamped filename used when exporting the encrypted database
+     * (e.g. `payanam_backup_encrypted_YYYYMMDD_HHMMSS.db`).
      */
     fun generateExportFileName(
     ): String {
@@ -529,20 +540,22 @@ class SettingsViewModel @Inject constructor(
         return "payanam_backup_encrypted_$timestamp.db"
     }
     /**
-     * Performs the request delete database.
+     * Opens the "delete database" confirmation prompt (sets
+     * [SettingsUiState.showDeleteExportPrompt]).
      */
     fun requestDeleteDatabase() {
         logger.i("SettingsViewModel.requestDeleteDatabase", "Delete database flow initiated")
         _uiState.update { it.copy(showDeleteExportPrompt = true) }
     }
     /**
-     * Performs the dismiss delete export prompt.
+     * Dismisses the "delete database" confirmation prompt without deleting.
      */
     fun dismissDeleteExportPrompt() {
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
     }
     /**
-     * Removes the delete database.
+     * Confirms deletion: wipes every database artifact file, then signals the app
+     * to restart into the DB-init flow.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteDatabase() {
@@ -577,7 +590,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete database artifact.
+     * Deletes a single database artifact by [fileName] (e.g. a stray WAL/SHM
+     * file) and refreshes stats.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteDatabaseArtifact(fileName: String) {
@@ -603,7 +617,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the clean stale artifacts.
+     * Deletes stale/crashed database artifacts left by interrupted import or
+     * encrypt flows, then refreshes stats.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cleanStaleArtifacts() {
@@ -621,25 +636,25 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the clear export result.
+     * Clears the last export result so the success/failure snackbar dismisses.
      */
     fun clearExportResult() {
         _uiState.update { it.copy(exportResult = null) }
     }
     /**
-     * Removes the clear import result.
+     * Clears the last import result so the success/failure snackbar dismisses.
      */
     fun clearImportResult() {
         _uiState.update { it.copy(importResult = null) }
     }
     /**
-     * Removes the clear uhabits import result.
+     * Clears the uHabits import result so its result UI dismisses.
      */
     fun clearUhabitsImportResult() {
         _uiState.update { it.copy(uhabitsImportResult = null) }
     }
     /**
-     * Removes the clear bulk habit mapping result.
+     * Clears the bulk habit-mapping result so its result UI dismisses.
      */
     fun clearBulkHabitMappingResult() {
         _uiState.update { it.copy(bulkHabitMappingResult = null) }
@@ -676,7 +691,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update unlock session timeout minutes.
+     * Persists the auto-lock timeout as [minutes] (clamping via the manager) and
+     * mirrors it into settings storage and [_uiState].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateUnlockSessionTimeoutMinutes(minutes: Int) {
@@ -692,7 +708,8 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the disable biometric unlock.
+     * Turns biometric unlock off: tears down the Keystore-wrapped passphrase and
+     * flips the preference (mirrored into [_uiState]).
      */
     fun disableBiometricUnlock() {
         val disabled = databaseEncryptionManager.disableBiometricUnlock()
@@ -711,7 +728,9 @@ class SettingsViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the enable biometric unlock with verification.
+     * Enables biometric unlock: verifies [passphrase], confirms the device can
+     * authenticate, then runs the system biometric prompt and — on success —
+     * stores the biometric-wrapped passphrase.
      */
     fun enableBiometricUnlockWithVerification(
         activity: FragmentActivity,
@@ -773,7 +792,8 @@ class SettingsViewModel @Inject constructor(
             val executor = ContextCompat.getMainExecutor(context)
             val callback = object : BiometricPrompt.AuthenticationCallback() {
                 /**
-                 * Handles the on authentication succeeded.
+                 * Fired when the biometric prompt authenticates successfully:
+                 * stores the wrapped passphrase and enables the preference.
                  */
                 override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                     logger.i(
@@ -815,7 +835,8 @@ class SettingsViewModel @Inject constructor(
                 }
 
                 /**
-                 * Handles the on authentication error.
+                 * Fired when the biometric prompt is dismissed with a hard error
+                 * (e.g. timeout, negative button): reports failure to the caller.
                  */
                 override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                     logger.w(
@@ -827,7 +848,8 @@ class SettingsViewModel @Inject constructor(
                 }
 
                 /**
-                 * Handles the on authentication failed.
+                 * Fired on a non-fatal unrecognized attempt (a wrong finger); the
+                 * prompt stays open for retry.
                  */
                 override fun onAuthenticationFailed() {
                     logger.w(
@@ -861,7 +883,9 @@ class SettingsViewModel @Inject constructor(
     private var checkCountInWindow = 0
     private var windowStartMs = 0L
     /**
-     * Returns true when the check for update.
+     * Manually checks the release channel for a newer build, honouring the 1-minute
+     * cooldown and 5-checks-per-5-minute rate limit, then surfaces the result and
+     * kicks off auto-download when applicable.
      */
     fun checkForUpdate() {
         val now = System.currentTimeMillis()
