@@ -784,13 +784,13 @@ class AppPreferencesViewModel @Inject constructor(
         saveSetting(KEY_TIME_HOUR_HEIGHT_DP, normalized)
     }
     /**
-     * Updates the set dimension label.
+     * Persists a user-edited display label for [dimension] (resolves to its id).
      */
     fun setDimensionLabel(dimension: LifeDimension, label: String) {
         setDimensionLabel(dimension.id, label)
     }
     /**
-     * Updates the set dimension label.
+     * Persists a user-edited display label for a dimension by [dimensionId].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionLabel(dimensionId: String, label: String) {
@@ -853,13 +853,13 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension color.
+     * Persists a user-edited color for [dimension] (resolves to its id).
      */
     fun setDimensionColor(dimension: LifeDimension, color: Color) {
         setDimensionColor(dimension.id, color)
     }
     /**
-     * Updates the set dimension color.
+     * Persists a user-edited color for a dimension by [dimensionId].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionColor(dimensionId: String, color: Color) {
@@ -931,13 +931,13 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension visibility.
+     * Persists the visible/hidden toggle for [dimension] (resolves to its id).
      */
     fun setDimensionVisibility(dimension: LifeDimension, isVisible: Boolean) {
         setDimensionVisibility(dimension.id, isVisible)
     }
     /**
-     * Updates the set dimension visibility.
+     * Persists the visible/hidden toggle for a dimension by [dimensionId].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {

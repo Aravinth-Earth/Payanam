@@ -128,6 +128,8 @@ class ScoreRollupBackfillService
         private val logger = UnifiedLogger.getInstance()
 
         companion object {
+            private val logger = UnifiedLogger.getInstance()
+
             const val BACKFILL_DONE_KEY = "score_rollup_backfill_v1_done"
 
             /** Self-gov `_compute_streaks` port incl. ceiling fix (spec §9). */

@@ -560,7 +560,7 @@ class RecurrenceManager @Inject constructor(
                     val dayIndex = ChronoUnit.DAYS.between(occDate, today).toInt()
                     dayIndex to occ.status
                 } catch (e: Exception) {
-                    logger.w("RecurrenceManager.buildIndexedOccurrences", "Skipping occurrence with invalid date", mapOf("date" to (indexedOccurrences.toString())))
+                    logger.w("RecurrenceManager.buildIndexedOccurrences", "Skipping occurrence with invalid date", mapOf("date" to occ.occurrenceDate))
                     null
                 }
             }

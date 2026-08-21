@@ -1175,7 +1175,9 @@
 <string name="activity_detail_chart_running_avg">இயங்கு சராசரி</string>
 <string name="activity_detail_chart_streak_pos">தொடர்+</string>
 <string name="activity_detail_col_date">தேதி</string>
+<string name="activity_detail_col_raw">மூல</string>
 <string name="activity_detail_col_streak_pos">தொ+</string>
+<string name="activity_detail_col_continue">தொடர்</string>
      <string name="activity_detail_loading">ஏற்றுகிறது…</string>
 
     <string name="pre_unlock_update_build_value">#%1$d (dev)</string>

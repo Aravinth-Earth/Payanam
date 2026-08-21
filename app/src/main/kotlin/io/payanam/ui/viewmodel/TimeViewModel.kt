@@ -345,13 +345,15 @@ class TimeViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the stop tracking.
+     * Stops the running time entry without recording focus (delegates with
+     * zero rating).
      */
     fun stopTracking() {
         stopTracking(focusRating = 0.0, focusNote = null)
     }
     /**
-     * Performs the stop tracking.
+     * Stops the running time entry and records the supplied [focusRating] (0..1)
+     * plus optional [focusNote].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun stopTracking(focusRating: Double, focusNote: String?) {

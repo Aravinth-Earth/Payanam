@@ -221,7 +221,13 @@ object AutoDownloadManager {
                 }
             }
         }
-        context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        // DOWNLOAD_COMPLETE originates from the system Download Manager (same
+        // app or root only), so the receiver must not be exported.
+        context.registerReceiver(
+            receiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            Context.RECEIVER_NOT_EXPORTED,
+        )
         return receiver
     }
 }
