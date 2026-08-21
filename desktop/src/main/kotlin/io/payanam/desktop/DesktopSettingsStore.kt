@@ -125,7 +125,7 @@ internal class DesktopSettingsStore(
         )
     }
     /**
-     * Returns the get settings file path.
+     * Returns the settings file path.
      */
     fun getSettingsFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

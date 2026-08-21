@@ -30,7 +30,7 @@ import java.io.File
 import java.util.Date
 import javax.inject.Inject
 /**
- * Provides the restore result.
+ * Returns the result.
  */
 sealed class RestoreResult {
     object RestoredOk : RestoreResult()

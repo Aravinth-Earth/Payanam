@@ -87,7 +87,7 @@ suspend fun loadLensDirtyDayMetadata(
     return decodeLensDirtyDayMetadata(dayKey, summary)
 }
 /**
- * Returns the get lens dirty day keys.
+ * Returns the lens dirty day keys.
  */
 suspend fun getLensDirtyDayKeys(
     dailyInsightDao: DailyInsightDao,

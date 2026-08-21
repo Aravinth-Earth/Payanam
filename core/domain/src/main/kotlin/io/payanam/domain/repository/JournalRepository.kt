@@ -63,7 +63,7 @@ interface JournalRepository {
      */
     suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse>
     /**
-     * Returns the get all journal entries.
+     * Returns the all journal entries.
      */
     fun getAllJournalEntries(): Flow<List<DayJournalEntry>>
     

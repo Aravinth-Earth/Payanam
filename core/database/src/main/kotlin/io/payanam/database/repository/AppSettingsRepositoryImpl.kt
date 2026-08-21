@@ -26,7 +26,7 @@ class AppSettingsRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Returns the get setting.
+         * Returns the setting.
          */
         override suspend fun getSetting(key: String): String? {
             logger.d("AppSettingsRepositoryImpl.getSetting", "Getting setting", mapOf("key" to key))
@@ -76,7 +76,7 @@ class AppSettingsRepositoryImpl
         }
 
         /**
-         * Returns the get all settings.
+         * Returns the all settings.
          */
         override fun getAllSettings(): Flow<Map<String, String?>> {
             logger.d("AppSettingsRepositoryImpl.getAllSettings", "Subscribing to all settings")

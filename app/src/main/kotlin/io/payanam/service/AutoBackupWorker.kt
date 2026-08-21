@@ -251,14 +251,14 @@ class AutoBackupWorker(
             return (legacyFlatFiles + sessionDirectoryFiles).sortedByDescending { it.lastModified() }
         }
         /**
-         * Returns the get latest backup success millis.
+         * Returns the latest backup success millis.
          */
         fun getLatestBackupSuccessMillis(context: Context): Long {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             return prefs.getLong(BackupStatusStore.KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, 0L)
         }
         /**
-         * Returns the get latest backup last run display.
+         * Returns the latest backup last run display.
          */
         fun getLatestBackupLastRunDisplay(context: Context): String? {
             val latestFileMillis = getBackupFiles()
@@ -276,7 +276,7 @@ class AutoBackupWorker(
             }
         }
         /**
-         * Returns the get latest backup failure status.
+         * Returns the latest backup failure status.
          */
         fun getLatestBackupFailureStatus(context: Context): AutoBackupFailureStatus? {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)

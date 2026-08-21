@@ -23,7 +23,7 @@ class ScoreWindowRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get dimension window.
+         * Returns the dimension window.
          */
         override suspend fun getDimensionWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()
@@ -48,7 +48,7 @@ class ScoreWindowRepositoryImpl
         }
 
         /**
-         * Returns the get day window.
+         * Returns the day window.
          */
         override suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()

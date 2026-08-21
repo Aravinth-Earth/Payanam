@@ -37,7 +37,7 @@ interface LensReflectionDao {
      */
     @Query("SELECT * FROM lens_reflections WHERE day_key = :dayKey AND dimension_id = :dimensionId")
     /**
-     * Returns the get reflections for dimension.
+     * Returns the reflections for dimension.
      */
     fun getReflectionsForDimension(
         dayKey: String,
@@ -51,7 +51,7 @@ interface LensReflectionDao {
      */
     @Query("SELECT * FROM lens_reflections WHERE day_key = :dayKey ORDER BY created_at DESC")
     /**
-     * Returns the get reflections for day sync.
+     * Returns the reflections for day sync.
      */
     suspend fun getReflectionsForDaySync(dayKey: String): List<LensReflectionEntity>
 

@@ -34,7 +34,7 @@ class TaskOccurrenceRepositoryImpl
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Returns the get occurrences by task id.
+         * Returns the occurrences by task id.
          */
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> =
             sessionManager
@@ -46,7 +46,7 @@ class TaskOccurrenceRepositoryImpl
                 ?: emptyList()
 
         /**
-         * Returns the get occurrences for task.
+         * Returns the occurrences for task.
          */
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> =
             sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTask(taskId).map { entities ->
@@ -54,7 +54,7 @@ class TaskOccurrenceRepositoryImpl
             }
 
         /**
-         * Returns the get occurrences for last ndays.
+         * Returns the occurrences for last ndays.
          */
         override suspend fun getOccurrencesForLastNDays(
             taskId: String,
@@ -85,7 +85,7 @@ class TaskOccurrenceRepositoryImpl
         }
 
         /**
-         * Returns the get occurrences for tasks in last ndays.
+         * Returns the occurrences for tasks in last ndays.
          */
         override suspend fun getOccurrencesForTasksInLastNDays(
             taskIds: List<String>,
@@ -119,7 +119,7 @@ class TaskOccurrenceRepositoryImpl
         }
 
         /**
-         * Returns the get occurrence for date.
+         * Returns the occurrence for date.
          */
         override suspend fun getOccurrenceForDate(
             taskId: String,
@@ -134,7 +134,7 @@ class TaskOccurrenceRepositoryImpl
         }
 
         /**
-         * Returns the get occurrences for date.
+         * Returns the occurrences for date.
          */
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> {
             val dateStr = date.format(dateFormatter)

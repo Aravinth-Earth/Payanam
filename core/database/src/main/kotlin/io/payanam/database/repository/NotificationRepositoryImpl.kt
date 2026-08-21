@@ -67,7 +67,7 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns the get notifications for task.
+         * Returns the notifications for task.
          */
         override suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getNotificationsForTask", "Fetching notifications for task", mapOf("taskId" to taskId))
@@ -89,7 +89,7 @@ class NotificationRepositoryImpl
         }
 
         /**
-         * Returns the get pending notifications.
+         * Returns the pending notifications.
          */
         override suspend fun getPendingNotifications(): List<ScheduledNotification> {
             logger.d("NotificationRepositoryImpl.getPendingNotifications", "Fetching pending notifications")

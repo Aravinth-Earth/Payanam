@@ -15,7 +15,7 @@ import java.time.LocalTime
 internal object TimeVisualsCalculator {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
     /**
-     * Returns the compute day overall.
+     * Returns the day overall.
      */
     fun computeDayOverall(
         selectedDate: LocalDate,
@@ -56,7 +56,7 @@ internal object TimeVisualsCalculator {
         return result
     }
     /**
-     * Returns the compute per dimension.
+     * Returns the per dimension.
      */
     fun computePerDimension(
         selectedDate: LocalDate,

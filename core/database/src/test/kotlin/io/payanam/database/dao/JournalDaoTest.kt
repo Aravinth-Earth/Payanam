@@ -79,7 +79,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Returns the get entry for date returns null when no entry.
+     * Returns the entry for date returns null when no entry.
      */
     fun getEntryForDate_returnsNullWhenNoEntry() {
         runBlocking {
@@ -107,7 +107,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Returns the get responses for entry returns all responses.
+     * Returns the responses for entry returns all responses.
      */
     fun getResponsesForEntry_returnsAllResponses() {
         runBlocking {
@@ -160,7 +160,7 @@ class JournalDaoTest {
 
     @Test
     /**
-     * Returns the get all entries returns all entries.
+     * Returns the all entries returns all entries.
      */
     fun getAllEntries_returnsAllEntries() {
         runBlocking {

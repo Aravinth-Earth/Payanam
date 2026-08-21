@@ -20,13 +20,13 @@ import kotlinx.coroutines.flow.Flow
 interface TaskDao {
     @Query("SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC")
     /**
-     * Returns the get all tasks.
+     * Returns the all tasks.
      */
     fun getAllTasks(): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE status = :status ORDER BY taskScore DESC")
     /**
-     * Returns the get tasks by status.
+     * Returns the tasks by status.
      */
     fun getTasksByStatus(status: String): Flow<List<TaskEntity>>
 
@@ -42,13 +42,13 @@ interface TaskDao {
         """,
     )
     /**
-     * Returns the get tasks due on.
+     * Returns the tasks due on.
      */
     fun getTasksDueOn(date: String): Flow<List<TaskEntity>>
 
     @Query("SELECT * FROM tasks WHERE id = :id")
     /**
-     * Returns the get task by id.
+     * Returns the task by id.
      */
     suspend fun getTaskById(id: String): TaskEntity?
 
@@ -60,7 +60,7 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE import_source = :source AND import_id = :importId LIMIT 1")
     /**
-     * Returns the get task by import ref.
+     * Returns the task by import ref.
      */
     suspend fun getTaskByImportRef(
         source: String,
@@ -83,7 +83,7 @@ interface TaskDao {
     """,
     )
     /**
-     * Returns the get overdue tasks.
+     * Returns the overdue tasks.
      */
     fun getOverdueTasks(now: String): Flow<List<TaskEntity>>
 
@@ -102,7 +102,7 @@ interface TaskDao {
     """,
     )
     /**
-     * Returns the get todays tasks.
+     * Returns the todays tasks.
      */
     fun getTodaysTasks(today: String): Flow<List<TaskEntity>>
 
@@ -189,7 +189,7 @@ interface TaskDao {
 
     @Query("SELECT * FROM tasks WHERE recurrenceEnabled = 1")
     /**
-     * Returns the get recurring tasks.
+     * Returns the recurring tasks.
      */
     suspend fun getRecurringTasks(): List<TaskEntity>
 

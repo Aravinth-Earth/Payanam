@@ -69,7 +69,7 @@ internal class DesktopTaskCatalogStore(
         }
     }
     /**
-     * Returns the get catalog file path.
+     * Returns the catalog file path.
      */
     fun getCatalogFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

@@ -69,7 +69,7 @@ class TaskRescheduleDaoTest {
 
     @Test
     /**
-     * Returns the get reschedules for task empty.
+     * Returns the reschedules for task empty.
      */
     fun getReschedulesForTask_empty() {
         runBlocking {

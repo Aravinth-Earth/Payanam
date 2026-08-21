@@ -76,7 +76,7 @@ class ScoringConfigDaoTest {
 
     @Test
     /**
-     * Returns the get config returns null when no config.
+     * Returns the config returns null when no config.
      */
     fun getConfig_returnsNullWhenNoConfig() =
         runBlocking {

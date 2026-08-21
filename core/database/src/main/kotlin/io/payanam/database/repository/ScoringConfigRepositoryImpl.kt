@@ -27,7 +27,7 @@ class ScoringConfigRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get config.
+         * Returns the config.
          */
         override suspend fun getConfig(): ScoringConfig {
             logger.d("ScoringConfigRepository.getConfig", "Fetching scoring config")

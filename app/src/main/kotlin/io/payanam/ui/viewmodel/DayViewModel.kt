@@ -138,7 +138,7 @@ class DayViewModel @Inject constructor(
         _uiState.update { it.copy(selectedTab = DayTab.SUMMARY) }
     }
     /**
-     * Returns the get formatted date.
+     * Returns the formatted date.
      */
     fun getFormattedDate(): String = _uiState.value.selectedDate.format(displayDateFormatter)
     /**

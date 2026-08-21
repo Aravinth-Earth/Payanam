@@ -15,7 +15,7 @@ import io.payanam.database.entity.DailyInsightEntity
 interface DailyInsightDao {
     @Query("SELECT * FROM daily_insights WHERE day_key = :dayKey AND module = :module AND dimension_id IS NULL LIMIT 1")
     /**
-     * Returns the get summary for day.
+     * Returns the summary for day.
      */
     suspend fun getSummaryForDay(
         dayKey: String,
@@ -30,7 +30,7 @@ interface DailyInsightDao {
 
     @Query("SELECT * FROM daily_insights WHERE module = :module AND dimension_id IS NULL AND day_key IN (:dayKeys)")
     /**
-     * Returns the get summaries for days.
+     * Returns the summaries for days.
      */
     suspend fun getSummariesForDays(
         dayKeys: List<String>,

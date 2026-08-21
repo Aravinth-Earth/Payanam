@@ -35,7 +35,7 @@ class TaskRepositoryImpl
         private val dateFormatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Returns the get all tasks.
+         * Returns the all tasks.
          */
         override fun getAllTasks(): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getAllTasks", "Fetching all tasks")
@@ -46,7 +46,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get tasks by status.
+         * Returns the tasks by status.
          */
         override fun getTasksByStatus(status: String): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksByStatus", "Subscribing tasks by status", mapOf("status" to status))
@@ -61,7 +61,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get tasks due on.
+         * Returns the tasks due on.
          */
         override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksDueOn", "Subscribing tasks due on day", mapOf("date" to date.toString()))
@@ -76,7 +76,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get task by id.
+         * Returns the task by id.
          */
         override suspend fun getTaskById(id: String): Task? {
             val task =
@@ -349,7 +349,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get overdue tasks.
+         * Returns the overdue tasks.
          */
         override fun getOverdueTasks(): Flow<List<Task>> {
             val now = PersistedDateTime.format(LocalDateTime.now())
@@ -360,7 +360,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get todays tasks.
+         * Returns the todays tasks.
          */
         override fun getTodaysTasks(): Flow<List<Task>> {
             val today = LocalDate.now().format(dateFormatter)
@@ -371,7 +371,7 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the get recurring tasks.
+         * Returns the recurring tasks.
          */
         override suspend fun getRecurringTasks(): List<Task> {
             val tasks =

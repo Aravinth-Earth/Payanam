@@ -35,7 +35,7 @@ interface DayMetricDao {
 
     @Query("SELECT * FROM day_metrics ORDER BY dayKey ASC")
     /**
-     * Returns the get all.
+     * Returns the all.
      */
     suspend fun getAll(): List<DayMetricEntity>
 
@@ -53,7 +53,7 @@ interface DayMetricDao {
 
     @Query("SELECT * FROM day_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
     /**
-     * Returns the get for window.
+     * Returns the for window.
      */
     suspend fun getForWindow(start: String, end: String): List<DayMetricEntity>
 

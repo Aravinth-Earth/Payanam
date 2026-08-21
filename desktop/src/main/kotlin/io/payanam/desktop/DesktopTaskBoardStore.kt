@@ -95,7 +95,7 @@ internal class DesktopTaskBoardStore(
         )
     }
     /**
-     * Returns the get board file path.
+     * Returns the board file path.
      */
     fun getBoardFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

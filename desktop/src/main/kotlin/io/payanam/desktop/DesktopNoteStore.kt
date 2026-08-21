@@ -166,7 +166,7 @@ internal class DesktopNoteStore(
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
     /**
-     * Returns the get notes file path.
+     * Returns the notes file path.
      */
     fun getNotesFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

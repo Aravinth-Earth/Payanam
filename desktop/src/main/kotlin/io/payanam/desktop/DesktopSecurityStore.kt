@@ -197,7 +197,7 @@ internal class DesktopSecurityStore(
         )
     }
     /**
-     * Returns the get security file path.
+     * Returns the security file path.
      */
     fun getSecurityFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

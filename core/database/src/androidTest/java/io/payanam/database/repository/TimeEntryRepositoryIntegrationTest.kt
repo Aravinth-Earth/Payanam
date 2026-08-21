@@ -85,7 +85,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get active time entry returns currently active entry.
+     * Returns the active time entry returns currently active entry.
      */
     fun getActiveTimeEntry_returnsCurrentlyActiveEntry() =
         runBlocking {
@@ -104,7 +104,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get active time entry returns null when no active entry.
+     * Returns the active time entry returns null when no active entry.
      */
     fun getActiveTimeEntry_returnsNullWhenNoActiveEntry() =
         runBlocking {
@@ -205,7 +205,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get all time entries returns all entries.
+     * Returns the all time entries returns all entries.
      */
     fun getAllTimeEntries_returnsAllEntries() =
         runBlocking {
@@ -225,7 +225,7 @@ class TimeEntryRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get active time entries returns only active entries.
+     * Returns the active time entries returns only active entries.
      */
     fun getActiveTimeEntries_returnsOnlyActiveEntries() =
         runBlocking {

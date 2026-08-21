@@ -62,7 +62,7 @@ interface DayPlanRepository {
      */
     fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>>
     /**
-     * Returns the get allocations for day.
+     * Returns the allocations for day.
      */
     suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord>
 
@@ -99,7 +99,7 @@ interface DayPlanRepository {
      */
     suspend fun clearDayPlan(dayKey: String)
     /**
-     * Returns the get day policy.
+     * Returns the day policy.
      */
     suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord
     /**
@@ -111,7 +111,7 @@ interface DayPlanRepository {
      */
     suspend fun setDayStarred(dayKey: String, isStarred: Boolean)
     /**
-     * Returns the get day type template preference.
+     * Returns the day type template preference.
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord
     /**
@@ -119,7 +119,7 @@ interface DayPlanRepository {
      */
     suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?)
     /**
-     * Returns the resolve template for day.
+     * Returns the template for day.
      */
     suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord?
 
@@ -133,7 +133,7 @@ interface DayPlanRepository {
      */
     fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>>
     /**
-     * Returns the get template by id.
+     * Returns the template by id.
      */
     suspend fun getTemplateById(id: String): DayPlanTemplateRecord?
     /**

@@ -64,7 +64,7 @@ interface DimensionMetricDao {
     /** Snapshot of every dimension row (used by cascade rebuild). */
     @Query("SELECT * FROM dimension_metrics")
     /**
-     * Returns the get all.
+     * Returns the all.
      */
     suspend fun getAll(): List<DimensionMetricEntity>
 
@@ -111,7 +111,7 @@ interface DimensionMetricDao {
      */
     @Query("SELECT * FROM dimension_metrics WHERE dayKey BETWEEN :start AND :end ORDER BY dayKey ASC")
     /**
-     * Returns the get for window.
+     * Returns the for window.
      */
     suspend fun getForWindow(start: String, end: String): List<DimensionMetricEntity>
 

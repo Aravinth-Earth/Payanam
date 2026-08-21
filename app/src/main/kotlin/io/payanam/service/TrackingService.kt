@@ -104,7 +104,7 @@ class TrackingService : Service() {
      */
     inner class TrackingBinder : Binder() {
         /**
-         * Returns the get service.
+         * Returns the service.
          */
         fun getService(): TrackingService = this@TrackingService
     }

@@ -193,7 +193,7 @@ class DatabaseSessionManager
         }
 
         /**
-         * Returns the open [PayanamDatabase] instance.
+         * Returns the [PayanamDatabase] instance.
          *
          * @throws IllegalStateException if the session has not been opened via [openDatabase].
          */

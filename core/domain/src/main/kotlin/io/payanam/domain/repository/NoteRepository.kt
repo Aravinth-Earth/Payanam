@@ -12,7 +12,7 @@ import java.time.LocalDate
  */
 interface NoteRepository {
     /**
-     * Returns the get all notes.
+     * Returns the all notes.
      */
     fun getAllNotes(): Flow<List<Note>>
     

@@ -23,7 +23,7 @@ interface JournalDao {
     // Day Journal Entry
     @Query("SELECT * FROM day_journal_entries WHERE entryDate = :date")
     /**
-     * Returns the get entry for date.
+     * Returns the entry for date.
      */
     suspend fun getEntryForDate(date: String): DayJournalEntryEntity?
 
@@ -47,26 +47,26 @@ interface JournalDao {
 
     @Query("SELECT * FROM day_journal_entries")
     /**
-     * Returns the get all entries.
+     * Returns the all entries.
      */
     fun getAllEntries(): Flow<List<DayJournalEntryEntity>>
 
     @Query("SELECT * FROM day_journal_responses")
     /**
-     * Returns the get all responses.
+     * Returns the all responses.
      */
     fun getAllResponses(): Flow<List<DayJournalResponseEntity>>
 
     // Day Journal Responses
     @Query("SELECT * FROM day_journal_responses WHERE entryId = :entryId")
     /**
-     * Returns the get responses for entry.
+     * Returns the responses for entry.
      */
     fun getResponsesForEntry(entryId: String): Flow<List<DayJournalResponseEntity>>
 
     @Query("SELECT * FROM day_journal_responses WHERE entryId = :entryId")
     /**
-     * Returns the get responses for entry once.
+     * Returns the responses for entry once.
      */
     suspend fun getResponsesForEntryOnce(entryId: String): List<DayJournalResponseEntity>
 
@@ -79,7 +79,7 @@ interface JournalDao {
     """,
     )
     /**
-     * Returns the get response.
+     * Returns the response.
      */
     suspend fun getResponse(
         entryId: String,
@@ -109,13 +109,13 @@ interface JournalDao {
     // Journal notes
     @Query("SELECT * FROM journal_notes ORDER BY updated_at DESC")
     /**
-     * Returns the get all notes.
+     * Returns the all notes.
      */
     fun getAllNotes(): Flow<List<JournalNoteEntity>>
 
     @Query("SELECT * FROM journal_notes WHERE day_key = :dayKey ORDER BY updated_at DESC")
     /**
-     * Returns the get notes for day.
+     * Returns the notes for day.
      */
     fun getNotesForDay(dayKey: String): Flow<List<JournalNoteEntity>>
 
@@ -128,13 +128,13 @@ interface JournalDao {
         """,
     )
     /**
-     * Returns the get notes by dimension.
+     * Returns the notes by dimension.
      */
     fun getNotesByDimension(dimension: String): Flow<List<JournalNoteEntity>>
 
     @Query("SELECT * FROM journal_notes WHERE id = :id")
     /**
-     * Returns the get note by id.
+     * Returns the note by id.
      */
     suspend fun getNoteById(id: String): JournalNoteEntity?
 
@@ -182,7 +182,7 @@ interface JournalDao {
 interface AppSettingsDao {
     @Query("SELECT * FROM app_settings WHERE `key` = :key")
     /**
-     * Returns the get setting.
+     * Returns the setting.
      */
     suspend fun getSetting(key: String): AppSettingEntity?
 
@@ -194,7 +194,7 @@ interface AppSettingsDao {
 
     @Query("SELECT * FROM app_settings")
     /**
-     * Returns the get all settings.
+     * Returns the all settings.
      */
     fun getAllSettings(): Flow<List<AppSettingEntity>>
 
@@ -218,19 +218,19 @@ interface AppSettingsDao {
 interface ScheduledNotificationDao {
     @Query("SELECT * FROM scheduled_notifications WHERE taskId = :taskId")
     /**
-     * Returns the get notifications for task.
+     * Returns the notifications for task.
      */
     suspend fun getNotificationsForTask(taskId: String): List<ScheduledNotificationEntity>
 
     @Query("SELECT * FROM scheduled_notifications WHERE isDelivered = 0 AND scheduledAt > :now ORDER BY scheduledAt ASC")
     /**
-     * Returns the get pending notifications.
+     * Returns the pending notifications.
      */
     suspend fun getPendingNotifications(now: String): List<ScheduledNotificationEntity>
 
     @Query("SELECT * FROM scheduled_notifications WHERE isDelivered = 0 AND scheduledAt <= :now")
     /**
-     * Returns the get overdue notifications.
+     * Returns the overdue notifications.
      */
     suspend fun getOverdueNotifications(now: String): List<ScheduledNotificationEntity>
 

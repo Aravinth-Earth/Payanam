@@ -397,7 +397,7 @@ object DimensionIconCatalog {
         }
     }
     /**
-     * Returns the resolve.
+     * Returns the result
      */
     fun resolve(key: String?, dimensionId: String? = null): DimensionIconOption {
         val normalized = key?.trim()?.takeIf { it.isNotEmpty() } ?: defaultIconKeyForDimensionId(dimensionId)

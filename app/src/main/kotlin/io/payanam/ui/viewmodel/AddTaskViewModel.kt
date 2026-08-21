@@ -26,7 +26,7 @@ import javax.inject.Inject
 
 @HiltViewModel
 /**
- * Provides the add task view model.
+ * Returns the task view model.
  */
 class AddTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,

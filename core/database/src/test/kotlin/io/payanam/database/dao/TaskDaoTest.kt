@@ -63,7 +63,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Returns the get all tasks returns archived and non archived tasks.
+     * Returns the all tasks returns archived and non archived tasks.
      */
     fun getAllTasks_returnsArchivedAndNonArchivedTasks() {
         runBlocking {
@@ -80,7 +80,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Returns the get tasks by status filters correctly.
+     * Returns the tasks by status filters correctly.
      */
     fun getTasksByStatus_filtersCorrectly() =
         runBlocking {
@@ -125,7 +125,7 @@ class TaskDaoTest {
 
     @Test
     /**
-     * Returns the get todays tasks includes due today and recurring.
+     * Returns the todays tasks includes due today and recurring.
      */
     fun getTodaysTasks_includesDueTodayAndRecurring() =
         runBlocking {

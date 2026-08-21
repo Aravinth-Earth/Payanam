@@ -19,7 +19,7 @@ import kotlinx.coroutines.flow.Flow
 interface ScoringConfigDao {
     @Query("SELECT * FROM scoring_config WHERE id = 1")
     /**
-     * Returns the get config.
+     * Returns the config.
      */
     suspend fun getConfig(): ScoringConfigEntity?
 

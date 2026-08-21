@@ -18,7 +18,7 @@ import kotlinx.coroutines.flow.Flow
 interface TimeEntryDao {
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL LIMIT 1")
     /**
-     * Returns the get active time entry.
+     * Returns the active time entry.
      */
     suspend fun getActiveTimeEntry(): TimeEntryEntity?
 
@@ -37,7 +37,7 @@ interface TimeEntryDao {
     """,
     )
     /**
-     * Returns the get time entries for range.
+     * Returns the time entries for range.
      */
     fun getTimeEntriesForRange(
         start: String,
@@ -53,7 +53,7 @@ interface TimeEntryDao {
     """,
     )
     /**
-     * Returns the get time entries for date.
+     * Returns the time entries for date.
      */
     fun getTimeEntriesForDate(
         dayStart: String,
@@ -63,13 +63,13 @@ interface TimeEntryDao {
 
     @Query("SELECT * FROM time_entries WHERE id = :id")
     /**
-     * Returns the get by id.
+     * Returns the by id.
      */
     suspend fun getById(id: String): TimeEntryEntity?
 
     @Query("SELECT * FROM time_entries WHERE import_source = :source AND import_id = :importId LIMIT 1")
     /**
-     * Returns the get by import ref.
+     * Returns the by import ref.
      */
     suspend fun getByImportRef(
         source: String,
@@ -137,13 +137,13 @@ interface TimeEntryDao {
 
     @Query("SELECT * FROM time_entries ORDER BY startedAt DESC")
     /**
-     * Returns the get all.
+     * Returns the all.
      */
     fun getAll(): Flow<List<TimeEntryEntity>>
 
     @Query("SELECT * FROM time_entries WHERE endedAt IS NULL ORDER BY startedAt DESC")
     /**
-     * Returns the get all active time entries.
+     * Returns the all active time entries.
      */
     fun getAllActiveTimeEntries(): Flow<List<TimeEntryEntity>>
 }

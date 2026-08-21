@@ -245,7 +245,7 @@ data class RecurrenceConfig(
         }
     }
     /**
-     * Returns the get scheduled dates in range.
+     * Returns the scheduled dates in range.
      */
     fun getScheduledDatesInRange(start: LocalDate, end: LocalDate): List<LocalDate> {
         val dates = mutableListOf<LocalDate>()

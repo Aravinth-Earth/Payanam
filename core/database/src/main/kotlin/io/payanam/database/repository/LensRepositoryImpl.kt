@@ -62,7 +62,7 @@ class LensRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get first tracked date.
+         * Returns the first tracked date.
          */
         override suspend fun getFirstTrackedDate(): LocalDate? {
             logger.d("LensRepository.getFirstTrackedDate", "Fetching first tracked date")
@@ -78,7 +78,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get daily focus averages.
+         * Returns the daily focus averages.
          */
         override suspend fun getDailyFocusAverages(): List<DailyFocusStat> {
             logger.d("LensRepository.getDailyFocusAverages", "Fetching daily focus averages")
@@ -87,7 +87,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get daily tracked time stats.
+         * Returns the daily tracked time stats.
          */
         override suspend fun getDailyTrackedTimeStats(): List<DailyTrackedTimeStat> {
             logger.d("LensRepository.getDailyTrackedTimeStats", "Fetching daily tracked time stats")
@@ -96,7 +96,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get daily focused hours stats.
+         * Returns the daily focused hours stats.
          */
         override suspend fun getDailyFocusedHoursStats(): List<DailyFocusedHoursStat> {
             logger.d("LensRepository.getDailyFocusedHoursStats", "Fetching daily focused hours stats")
@@ -105,7 +105,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get average daily time table data.
+         * Returns the average daily time table data.
          */
         override suspend fun getAverageDailyTimeTableData(): AverageDailyTimeTableData? {
             logger.d("LensRepository.getAverageDailyTimeTableData", "Fetching average daily time table")
@@ -116,7 +116,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get dimension trend blocks.
+         * Returns the dimension trend blocks.
          */
         override suspend fun getDimensionTrendBlocks(windowDays: Int): List<DimensionTrendBlock> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
@@ -124,7 +124,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get heatmap days.
+         * Returns the heatmap days.
          */
         override suspend fun getHeatmapDays(): List<HeatmapDayData> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
@@ -132,7 +132,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get week grid data.
+         * Returns the week grid data.
          */
         override suspend fun getWeekGridData(excludeEmptyDays: Boolean): WeekGridData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
@@ -140,7 +140,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get minute pattern data.
+         * Returns the minute pattern data.
          */
         override suspend fun getMinutePatternData(excludeEmptyDays: Boolean): MinutePatternData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
@@ -148,7 +148,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get dimension split for range.
+         * Returns the dimension split for range.
          */
         override suspend fun getDimensionSplitForRange(
             start: LocalDate,
@@ -364,7 +364,7 @@ class LensRepositoryImpl
         }
 
         /**
-         * Returns the get dirty day keys.
+         * Returns the dirty day keys.
          */
         override suspend fun getDirtyDayKeys(dayKeys: Set<String>): Set<String> {
             logger.d("LensRepository.getDirtyDayKeys", "Fetching dirty day keys", mapOf("inputCount" to dayKeys.size))

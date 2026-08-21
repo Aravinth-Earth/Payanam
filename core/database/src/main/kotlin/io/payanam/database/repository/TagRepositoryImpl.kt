@@ -87,7 +87,7 @@ class TagRepositoryImpl
         }
 
         /**
-         * Returns the get tag names for notes.
+         * Returns the tag names for notes.
          */
         override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> {
             if (noteIds.isEmpty()) {

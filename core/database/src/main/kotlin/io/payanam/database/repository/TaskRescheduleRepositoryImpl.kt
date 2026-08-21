@@ -30,7 +30,7 @@ class TaskRescheduleRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get reschedules by task id.
+         * Returns the reschedules by task id.
          */
         override suspend fun getReschedulesByTaskId(taskId: String): List<TaskReschedule> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesByTaskId", "Fetching reschedules", mapOf("taskId" to taskId))
@@ -54,7 +54,7 @@ class TaskRescheduleRepositoryImpl
         }
 
         /**
-         * Returns the get reschedules for task.
+         * Returns the reschedules for task.
          */
         override fun getReschedulesForTask(taskId: String): Flow<List<TaskReschedule>> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesForTask", "Subscribing to reschedules", mapOf("taskId" to taskId))

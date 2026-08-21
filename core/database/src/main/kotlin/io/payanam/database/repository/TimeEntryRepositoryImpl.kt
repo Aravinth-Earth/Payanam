@@ -31,7 +31,7 @@ class TimeEntryRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get active time entry.
+         * Returns the active time entry.
          */
         override suspend fun getActiveTimeEntry(): TimeEntry? {
             val entry =
@@ -57,7 +57,7 @@ class TimeEntryRepositoryImpl
             }
 
         /**
-         * Returns the get time entries for range.
+         * Returns the time entries for range.
          */
         override fun getTimeEntriesForRange(
             start: LocalDateTime,
@@ -85,7 +85,7 @@ class TimeEntryRepositoryImpl
         }
 
         /**
-         * Returns the get time entries for date.
+         * Returns the time entries for date.
          */
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> {
             val dayStart = date.atStartOfDay()
@@ -327,7 +327,7 @@ class TimeEntryRepositoryImpl
         }
 
         /**
-         * Returns the get all time entries.
+         * Returns the all time entries.
          */
         override fun getAllTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAll().map { entities ->
@@ -335,7 +335,7 @@ class TimeEntryRepositoryImpl
             }
 
         /**
-         * Returns the get active time entries.
+         * Returns the active time entries.
          */
         override fun getActiveTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAllActiveTimeEntries().map { entities ->

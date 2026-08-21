@@ -24,7 +24,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Returns the provide database encryption manager.
+     * Returns the database encryption manager.
      */
     fun provideDatabaseEncryptionManager(
         @ApplicationContext context: Context,
@@ -33,7 +33,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Returns the provide database session manager.
+     * Returns the database session manager.
      */
     fun provideDatabaseSessionManager(
         @ApplicationContext context: Context,
@@ -43,7 +43,7 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Returns the provide lens repository.
+     * Returns the lens repository.
      */
     fun provideLensRepository(
         sessionManager: DatabaseSessionManager,

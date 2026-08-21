@@ -71,7 +71,7 @@ class DesktopSessionLogger private constructor(
         appendEntry(level = "ERROR", source = source, message = message, data = errorData)
     }
     /**
-     * Returns the get log path.
+     * Returns the log path.
      */
     fun getLogPath(): Path = logFilePath
 
@@ -186,7 +186,7 @@ class DesktopSessionLogger private constructor(
                 }
             }
         /**
-         * Returns the get instance.
+         * Returns the instance.
          */
         fun getInstance(): DesktopSessionLogger =
             instance ?: error("DesktopSessionLogger not initialized. Call initialize() from desktop main().")

@@ -62,7 +62,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the get allocations for day.
+         * Returns the allocations for day.
          */
         override suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d("DayPlanRepositoryImpl.getAllocationsForDay", "Fetching allocations for day", mapOf("dayKey" to dayKey))
@@ -74,7 +74,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the get effective allocations for day.
+         * Returns the effective allocations for day.
          */
         override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
             logger.d(
@@ -269,7 +269,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the get day policy.
+         * Returns the day policy.
          */
         override suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord {
             logger.d("DayPlanRepositoryImpl.getDayPolicy", "Fetching day policy", mapOf("dayKey" to dayKey))
@@ -334,7 +334,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the get day type template preference.
+         * Returns the day type template preference.
          */
         override suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord {
             require(dayType == DAY_TYPE_WEEKDAY || dayType == DAY_TYPE_WEEKEND || dayType == DAY_TYPE_STARRED) {
@@ -377,7 +377,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the resolve template for day.
+         * Returns the template for day.
          */
         override suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord? {
             logger.d(
@@ -413,7 +413,7 @@ class DayPlanRepositoryImpl
         }
 
         /**
-         * Returns the get template by id.
+         * Returns the template by id.
          */
         override suspend fun getTemplateById(id: String): DayPlanTemplateRecord? {
             logger.d("DayPlanRepositoryImpl.getTemplateById", "Fetching template by id", mapOf("id" to id))

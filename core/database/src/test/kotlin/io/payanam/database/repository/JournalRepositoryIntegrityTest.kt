@@ -59,7 +59,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Returns the get or create entry returns existing when present.
+     * Returns the or create entry returns existing when present.
      */
     fun getOrCreateEntry_returnsExistingWhenPresent() =
         runBlocking {
@@ -148,7 +148,7 @@ class JournalRepositoryIntegrityTest {
 
     @Test
     /**
-     * Returns the get response and total count are consistent.
+     * Returns the response and total count are consistent.
      */
     fun getResponse_and_totalCount_areConsistent() =
         runBlocking {

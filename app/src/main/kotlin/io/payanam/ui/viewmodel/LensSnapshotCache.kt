@@ -23,7 +23,7 @@ internal class LensSnapshotCache(
         val cachedAtMs: Long,
     )
     /**
-     * Returns the get or load.
+     * Returns the or load.
      */
     suspend fun getOrLoad(
         dayKey: String,

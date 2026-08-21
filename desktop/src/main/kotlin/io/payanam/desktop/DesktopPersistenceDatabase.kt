@@ -26,7 +26,7 @@ internal class DesktopPersistenceDatabase(
         migrateLegacyFilesIfNeeded()
     }
     /**
-     * Returns the get database file path.
+     * Returns the database file path.
      */
     fun getDatabaseFilePath(): Path = databaseFilePath
 

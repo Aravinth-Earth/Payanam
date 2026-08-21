@@ -49,7 +49,7 @@ interface TagDao {
 
     @Query("SELECT * FROM tags WHERE normalized_name = :normalizedName LIMIT 1")
     /**
-     * Returns the get by normalized name.
+     * Returns the by normalized name.
      */
     suspend fun getByNormalizedName(normalizedName: String): TagEntity?
 
@@ -119,7 +119,7 @@ interface TagDao {
         """,
     )
     /**
-     * Returns the get tag names for notes.
+     * Returns the tag names for notes.
      */
     suspend fun getTagNamesForNotes(noteIds: List<String>): List<NoteTagNameRow>
 

@@ -150,7 +150,7 @@ internal class DesktopJournalStore(
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
     /**
-     * Returns the get journal file path.
+     * Returns the journal file path.
      */
     fun getJournalFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

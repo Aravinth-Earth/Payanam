@@ -61,7 +61,7 @@ class DatabaseEncryptionManager(
      */
     fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
     /**
-     * Returns the get session timeout minutes.
+     * Returns the session timeout minutes.
      */
     fun getSessionTimeoutMinutes(): Int {
         val stored = prefs.getInt(KEY_SESSION_TIMEOUT_MINUTES, DEFAULT_SESSION_TIMEOUT_MINUTES)
@@ -404,7 +404,7 @@ class DatabaseEncryptionManager(
         !prefs.getString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, null).isNullOrBlank() &&
             !prefs.getString(KEY_BIOMETRIC_WRAPPED_IV, null).isNullOrBlank()
     /**
-     * Returns the get cipher for biometric enrollment.
+     * Returns the cipher for biometric enrollment.
      */
     fun getCipherForBiometricEnrollment(): Cipher {
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -454,7 +454,7 @@ class DatabaseEncryptionManager(
             false
         }
     /**
-     * Returns the get cipher for biometric unlock.
+     * Returns the cipher for biometric unlock.
      */
     fun getCipherForBiometricUnlock(): Cipher {
         val encodedIv =
@@ -494,7 +494,7 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Returns the get unlock remaining seconds.
+     * Returns the unlock remaining seconds.
      */
     fun getUnlockRemainingSeconds(): Long {
         val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)

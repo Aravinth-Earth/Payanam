@@ -116,7 +116,7 @@ internal class DesktopBootstrapStore(
         return updatedSnapshot
     }
     /**
-     * Returns the get bootstrap file path.
+     * Returns the bootstrap file path.
      */
     fun getBootstrapFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 

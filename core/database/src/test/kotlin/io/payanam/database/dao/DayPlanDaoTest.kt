@@ -108,7 +108,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Returns the get allocations for range returns range results.
+     * Returns the allocations for range returns range results.
      */
     fun getAllocationsForRange_returnsRangeResults() =
         runBlocking {
@@ -157,7 +157,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Returns the get planned days returns distinct days.
+     * Returns the planned days returns distinct days.
      */
     fun getPlannedDays_returnsDistinctDays() =
         runBlocking {
@@ -218,7 +218,7 @@ class DayPlanDaoTest {
 
     @Test
     /**
-     * Returns the get active template count counts active.
+     * Returns the active template count counts active.
      */
     fun getActiveTemplateCount_countsActive() =
         runBlocking {

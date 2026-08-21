@@ -66,7 +66,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Returns the get active time entry returns null when no active.
+     * Returns the active time entry returns null when no active.
      */
     fun getActiveTimeEntry_returnsNullWhenNoActive() =
         runBlocking {
@@ -78,7 +78,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Returns the get active time entry returns active entry.
+     * Returns the active time entry returns active entry.
      */
     fun getActiveTimeEntry_returnsActiveEntry() =
         runBlocking {
@@ -108,7 +108,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Returns the get time entries for date filters by date.
+     * Returns the time entries for date filters by date.
      */
     fun getTimeEntriesForDate_filtersByDate() =
         runBlocking {
@@ -216,7 +216,7 @@ class TimeEntryDaoTest {
 
     @Test
     /**
-     * Returns the get all active time entries returns only active.
+     * Returns the all active time entries returns only active.
      */
     fun getAllActiveTimeEntries_returnsOnlyActive() =
         runBlocking {

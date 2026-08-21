@@ -70,7 +70,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Returns the get occurrences for date filters by date.
+     * Returns the occurrences for date filters by date.
      */
     fun getOccurrencesForDate_filtersByDate() =
         runBlocking {
@@ -105,7 +105,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Returns the get occurrences for task in range filters by date range.
+     * Returns the occurrences for task in range filters by date range.
      */
     fun getOccurrencesForTaskInRange_filtersByDateRange() =
         runBlocking {
@@ -167,7 +167,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Returns the get occurrences for tasks in range bulk loads occurrences.
+     * Returns the occurrences for tasks in range bulk loads occurrences.
      */
     fun getOccurrencesForTasksInRange_bulkLoadsOccurrences() =
         runBlocking {
@@ -191,7 +191,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Returns the get all occurrences returns all rows.
+     * Returns the all occurrences returns all rows.
      */
     fun getAllOccurrences_returnsAllRows() =
         runBlocking {
@@ -208,7 +208,7 @@ class TaskOccurrenceDaoTest {
 
     @Test
     /**
-     * Returns the get all reschedules returns all rows.
+     * Returns the all reschedules returns all rows.
      */
     fun getAllReschedules_returnsAllRows() =
         runBlocking {

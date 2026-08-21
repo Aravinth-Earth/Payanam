@@ -45,7 +45,7 @@ object DefaultDimensionLabels {
         DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
     }
     /**
-     * Returns the resolve display label.
+     * Returns the display label.
      */
     fun resolveDisplayLabel(
         context: Context,

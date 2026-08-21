@@ -22,7 +22,7 @@ class HabitMetricRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the get latest per habit.
+         * Returns the latest per habit.
          */
         override suspend fun getLatestPerHabit(): Map<String, HabitL1Summary> {
             val db = sessionManager.requireDatabase()
@@ -36,7 +36,7 @@ class HabitMetricRepositoryImpl
         }
 
         /**
-         * Returns the get latest for habit.
+         * Returns the latest for habit.
          */
         override suspend fun getLatestForHabit(habitId: String): HabitL1Summary? {
             val db = sessionManager.requireDatabase()
@@ -45,7 +45,7 @@ class HabitMetricRepositoryImpl
         }
 
         /**
-         * Returns the get for habit range.
+         * Returns the for habit range.
          */
         override suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitL1Summary> {
             val db = sessionManager.requireDatabase()

@@ -62,7 +62,7 @@ import java.util.Locale
  */
 @Composable
 /**
- * Returns the get life dimension color.
+ * Returns the life dimension color.
  */
 fun getLifeDimensionColor(dimensionId: String): Color {
     val preferences = io.payanam.ui.viewmodel.LocalAppPreferences.current

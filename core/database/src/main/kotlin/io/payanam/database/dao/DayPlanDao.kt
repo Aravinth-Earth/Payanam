@@ -29,13 +29,13 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key = :dayKey ORDER BY dimension_id")
     /**
-     * Returns the get allocations for day.
+     * Returns the allocations for day.
      */
     suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationEntity>
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key = :dayKey AND dimension_id = :dimensionId LIMIT 1")
     /**
-     * Returns the get allocation for day and dimension.
+     * Returns the allocation for day and dimension.
      */
     suspend fun getAllocationForDayAndDimension(
         dayKey: String,
@@ -44,7 +44,7 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_allocations WHERE day_key BETWEEN :startDayKey AND :endDayKey ORDER BY day_key, dimension_id")
     /**
-     * Returns the get allocations for range.
+     * Returns the allocations for range.
      */
     suspend fun getAllocationsForRange(
         startDayKey: String,
@@ -71,7 +71,7 @@ interface DayPlanDao {
 
     @Query("SELECT DISTINCT day_key FROM day_plan_allocations ORDER BY day_key DESC LIMIT :limit")
     /**
-     * Returns the get planned days.
+     * Returns the planned days.
      */
     suspend fun getPlannedDays(limit: Int = 30): List<String>
 
@@ -79,7 +79,7 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_policies WHERE day_key = :dayKey LIMIT 1")
     /**
-     * Returns the get day policy.
+     * Returns the day policy.
      */
     suspend fun getDayPolicy(dayKey: String): DayPlanPolicyEntity?
 
@@ -93,7 +93,7 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_type_template_preferences WHERE day_type = :dayType LIMIT 1")
     /**
-     * Returns the get day type template preference.
+     * Returns the day type template preference.
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceEntity?
 
@@ -119,13 +119,13 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_templates WHERE id = :id")
     /**
-     * Returns the get template by id.
+     * Returns the template by id.
      */
     suspend fun getTemplateById(id: String): DayPlanTemplateEntity?
 
     @Query("SELECT COUNT(*) FROM day_plan_templates WHERE is_active = 1")
     /**
-     * Returns the get active template count.
+     * Returns the active template count.
      */
     suspend fun getActiveTemplateCount(): Int
 
@@ -160,13 +160,13 @@ interface DayPlanDao {
 
     @Query("SELECT * FROM day_plan_template_allocations WHERE template_id = :templateId ORDER BY dimension_id")
     /**
-     * Returns the get template allocations.
+     * Returns the template allocations.
      */
     suspend fun getTemplateAllocations(templateId: String): List<DayPlanTemplateAllocationEntity>
 
     @Query("SELECT * FROM day_plan_template_allocations WHERE template_id IN (:templateIds) ORDER BY template_id, dimension_id")
     /**
-     * Returns the get template allocations for template ids.
+     * Returns the template allocations for template ids.
      */
     suspend fun getTemplateAllocationsForTemplateIds(templateIds: List<String>): List<DayPlanTemplateAllocationEntity>
 

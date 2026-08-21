@@ -64,7 +64,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Returns the get all notes returns all notes.
+     * Returns the all notes returns all notes.
      */
     fun getAllNotes_returnsAllNotes() {
         runBlocking {
@@ -81,7 +81,7 @@ class NoteDaoTest {
 
     @Test
     /**
-     * Returns the get notes by dimension filters correctly.
+     * Returns the notes by dimension filters correctly.
      */
     fun getNotesByDimension_filtersCorrectly() {
         runBlocking {

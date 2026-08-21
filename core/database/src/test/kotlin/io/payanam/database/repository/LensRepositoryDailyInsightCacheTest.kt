@@ -306,7 +306,7 @@ class LensRepositoryDailyInsightCacheTest {
         var getAllTasksCalls: Int = 0
 
         /**
-         * Returns the get all tasks.
+         * Returns the all tasks.
          */
         override fun getAllTasks(): Flow<List<Task>> {
             getAllTasksCalls += 1
@@ -314,12 +314,12 @@ class LensRepositoryDailyInsightCacheTest {
         }
 
         /**
-         * Returns the get tasks by status.
+         * Returns the tasks by status.
          */
         override fun getTasksByStatus(status: String): Flow<List<Task>> = unused("getTasksByStatus")
 
         /**
-         * Returns the get tasks due on.
+         * Returns the tasks due on.
          */
         override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> = unused("getTasksDueOn")
 
@@ -357,12 +357,12 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun archiveTask(id: String): Task = unused("archiveTask")
 
         /**
-         * Returns the get overdue tasks.
+         * Returns the overdue tasks.
          */
         override fun getOverdueTasks(): Flow<List<Task>> = unused("getOverdueTasks")
 
         /**
-         * Returns the get todays tasks.
+         * Returns the todays tasks.
          */
         override fun getTodaysTasks(): Flow<List<Task>> = unused("getTodaysTasks")
 
@@ -386,7 +386,7 @@ class LensRepositoryDailyInsightCacheTest {
         override fun observeActiveTimeEntry(): Flow<TimeEntry?> = unused("observeActiveTimeEntry")
 
         /**
-         * Returns the get time entries for range.
+         * Returns the time entries for range.
          */
         override fun getTimeEntriesForRange(
             start: LocalDateTime,
@@ -394,7 +394,7 @@ class LensRepositoryDailyInsightCacheTest {
         ): Flow<List<TimeEntry>> = unused("getTimeEntriesForRange")
 
         /**
-         * Returns the get time entries for date.
+         * Returns the time entries for date.
          */
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> = flowOf(entriesByDate[date] ?: emptyList())
 
@@ -417,12 +417,12 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry = unused("createTimeEntry")
 
         /**
-         * Returns the get all time entries.
+         * Returns the all time entries.
          */
         override fun getAllTimeEntries(): Flow<List<TimeEntry>> = flowOf(emptyList())
 
         /**
-         * Returns the get active time entries.
+         * Returns the active time entries.
          */
         override fun getActiveTimeEntries(): Flow<List<TimeEntry>> = unused("getActiveTimeEntries")
 
@@ -435,7 +435,7 @@ class LensRepositoryDailyInsightCacheTest {
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> = unused("getOccurrencesByTaskId")
 
         /**
-         * Returns the get occurrences for task.
+         * Returns the occurrences for task.
          */
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> = unused("getOccurrencesForTask")
 
@@ -465,7 +465,7 @@ class LensRepositoryDailyInsightCacheTest {
         ): TaskOccurrence = unused("toggleOccurrence")
 
         /**
-         * Returns the get occurrences for date.
+         * Returns the occurrences for date.
          */
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> = flowOf(occurrencesByDate[date] ?: emptyList())
 

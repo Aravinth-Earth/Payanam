@@ -84,7 +84,7 @@ class TaskRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get all tasks returns all created tasks.
+     * Returns the all tasks returns all created tasks.
      */
     fun getAllTasks_returnsAllCreatedTasks() =
         runBlocking {
@@ -102,7 +102,7 @@ class TaskRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get task by id returns correct task when exists.
+     * Returns the task by id returns correct task when exists.
      */
     fun getTaskById_returnsCorrectTaskWhenExists() =
         runBlocking {
@@ -120,7 +120,7 @@ class TaskRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get task by id returns null when task does not exist.
+     * Returns the task by id returns null when task does not exist.
      */
     fun getTaskById_returnsNullWhenTaskDoesNotExist() =
         runBlocking {
@@ -189,7 +189,7 @@ class TaskRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get todays tasks returns tasks for today.
+     * Returns the todays tasks returns tasks for today.
      */
     fun getTodaysTasks_returnsTasksForToday() =
         runBlocking {

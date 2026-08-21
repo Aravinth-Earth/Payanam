@@ -32,7 +32,7 @@ enum class DesktopStartupMode {
     Ready,
 }
 /**
- * Returns the resolve desktop startup mode.
+ * Returns the desktop startup mode.
  */
 fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): DesktopStartupMode =
     when {

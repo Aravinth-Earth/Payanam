@@ -36,7 +36,7 @@ class JournalRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Returns the get or create entry.
+         * Returns the or create entry.
          */
         override suspend fun getOrCreateEntry(date: LocalDate): DayJournalEntry {
             val dateStr = date.format(dateFormatter)
@@ -72,7 +72,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get responses.
+         * Returns the responses.
          */
         override fun getResponses(entryId: String): Flow<List<DayJournalResponse>> {
             logger.d("JournalRepositoryImpl.getResponses", "Subscribing to journal responses", mapOf("entryId" to entryId))
@@ -125,7 +125,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get response.
+         * Returns the response.
          */
         override suspend fun getResponse(
             entryId: String,
@@ -153,7 +153,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get entry by date.
+         * Returns the entry by date.
          */
         override suspend fun getEntryByDate(dateString: String): DayJournalEntry? {
             val entry =
@@ -189,7 +189,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get responses by entry id.
+         * Returns the responses by entry id.
          */
         override suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse> {
             val responses =
@@ -247,7 +247,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get all journal entries.
+         * Returns the all journal entries.
          */
         override fun getAllJournalEntries(): Flow<List<DayJournalEntry>> {
             logger.d("JournalRepositoryImpl.getAllJournalEntries", "Subscribing to all journal entries")
@@ -257,7 +257,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the get total response count.
+         * Returns the total response count.
          */
         override fun getTotalResponseCount(): Flow<Int> =
             sessionManager.requireDatabase().journalDao().getAllResponses().map { responses ->

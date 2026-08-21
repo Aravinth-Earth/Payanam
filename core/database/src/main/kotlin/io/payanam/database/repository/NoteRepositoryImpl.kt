@@ -36,7 +36,7 @@ class NoteRepositoryImpl
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Returns the get all notes.
+         * Returns the all notes.
          */
         override fun getAllNotes(): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getAllNotes", "Subscribing to all notes")
@@ -47,7 +47,7 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the get notes by dimension.
+         * Returns the notes by dimension.
          */
         override fun getNotesByDimension(dimension: String): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesByDimension", "Subscribing to notes by dimension", mapOf("dimension" to dimension))
@@ -65,7 +65,7 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the get notes for date.
+         * Returns the notes for date.
          */
         override fun getNotesForDate(date: LocalDate): Flow<List<Note>> {
             logger.d("NoteRepositoryImpl.getNotesForDate", "Subscribing to notes for date", mapOf("date" to date.toString()))
@@ -83,7 +83,7 @@ class NoteRepositoryImpl
         }
 
         /**
-         * Returns the get note by id.
+         * Returns the note by id.
          */
         override suspend fun getNoteById(id: String): Note? {
             val note =

@@ -55,7 +55,7 @@ data class SettingsUiState(
     }
 }
 /**
- * Provides the export result.
+ * Returns the result.
  */
 sealed class ExportResult {
     /**
@@ -68,7 +68,7 @@ sealed class ExportResult {
     data class Error(val message: String) : ExportResult()
 }
 /**
- * Provides the import result.
+ * Returns the result.
  */
 sealed class ImportResult {
     /**

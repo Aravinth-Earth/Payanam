@@ -84,7 +84,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get all notes returns all created notes.
+     * Returns the all notes returns all created notes.
      */
     fun getAllNotes_returnsAllCreatedNotes() =
         runBlocking {
@@ -102,7 +102,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get note by id returns correct note when exists.
+     * Returns the note by id returns correct note when exists.
      */
     fun getNoteById_returnsCorrectNoteWhenExists() =
         runBlocking {
@@ -121,7 +121,7 @@ class NoteRepositoryIntegrationTest {
 
     @Test
     /**
-     * Returns the get note by id returns null when note does not exist.
+     * Returns the note by id returns null when note does not exist.
      */
     fun getNoteById_returnsNullWhenNoteDoesNotExist() =
         runBlocking {

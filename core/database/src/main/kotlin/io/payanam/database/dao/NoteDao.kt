@@ -18,19 +18,19 @@ import kotlinx.coroutines.flow.Flow
 interface NoteDao {
     @Query("SELECT * FROM notes ORDER BY updatedAt DESC")
     /**
-     * Returns the get all notes.
+     * Returns the all notes.
      */
     fun getAllNotes(): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE lifeIntentionCategory = :dimension ORDER BY updatedAt DESC")
     /**
-     * Returns the get notes by dimension.
+     * Returns the notes by dimension.
      */
     fun getNotesByDimension(dimension: String): Flow<List<NoteEntity>>
 
     @Query("SELECT * FROM notes WHERE id = :id")
     /**
-     * Returns the get note by id.
+     * Returns the note by id.
      */
     suspend fun getNoteById(id: String): NoteEntity?
 

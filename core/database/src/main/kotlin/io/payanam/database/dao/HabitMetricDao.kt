@@ -41,7 +41,7 @@ interface HabitMetricDao {
 
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId ORDER BY dayKey ASC")
     /**
-     * Returns the get for habit.
+     * Returns the for habit.
      */
     suspend fun getForHabit(habitId: String): List<HabitMetricEntity>
 
@@ -54,13 +54,13 @@ interface HabitMetricDao {
     /** Window query for the activity detail view (Part C). */
     @Query("SELECT * FROM habit_metrics WHERE habitId = :habitId AND dayKey >= :start AND dayKey <= :end ORDER BY dayKey ASC")
     /**
-     * Returns the get for habit range.
+     * Returns the for habit range.
      */
     suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitMetricEntity>
 
     @Query("SELECT * FROM habit_metrics")
     /**
-     * Returns the get all.
+     * Returns the all.
      */
     suspend fun getAll(): List<HabitMetricEntity>
 
@@ -86,7 +86,7 @@ interface HabitMetricDao {
         """,
     )
     /**
-     * Returns the get latest per habit.
+     * Returns the latest per habit.
      */
     suspend fun getLatestPerHabit(): List<HabitMetricEntity>
 

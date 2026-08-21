@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.Flow
 interface TaskOccurrenceDao {
     @Query("SELECT * FROM task_occurrences")
     /**
-     * Returns the get all occurrences.
+     * Returns the all occurrences.
      */
     suspend fun getAllOccurrences(): List<TaskOccurrenceEntity>
 
@@ -29,19 +29,19 @@ interface TaskOccurrenceDao {
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate ASC")
     /**
-     * Returns the get occurrences for task for backfill.
+     * Returns the occurrences for task for backfill.
      */
     suspend fun getOccurrencesForTaskForBackfill(taskId: String): List<TaskOccurrenceEntity>
 
     @Query("SELECT * FROM task_occurrences WHERE taskId = :taskId ORDER BY dueDate DESC")
     /**
-     * Returns the get occurrences for task.
+     * Returns the occurrences for task.
      */
     fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrenceEntity>>
 
     @Query("SELECT * FROM task_occurrences WHERE date(dueDate) = date(:date)")
     /**
-     * Returns the get occurrences for date.
+     * Returns the occurrences for date.
      */
     fun getOccurrencesForDate(date: String): Flow<List<TaskOccurrenceEntity>>
 
@@ -59,7 +59,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Returns the get occurrences for task in range.
+     * Returns the occurrences for task in range.
      */
     suspend fun getOccurrencesForTaskInRange(
         taskId: String,
@@ -79,7 +79,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Returns the get occurrence for task on date.
+     * Returns the occurrence for task on date.
      */
     suspend fun getOccurrenceForTaskOnDate(
         taskId: String,
@@ -100,7 +100,7 @@ interface TaskOccurrenceDao {
     """,
     )
     /**
-     * Returns the get occurrences for tasks in range.
+     * Returns the occurrences for tasks in range.
      */
     suspend fun getOccurrencesForTasksInRange(
         taskIds: List<String>,
@@ -158,13 +158,13 @@ interface TaskOccurrenceDao {
 interface TaskRescheduleDao {
     @Query("SELECT * FROM task_reschedules")
     /**
-     * Returns the get all reschedules.
+     * Returns the all reschedules.
      */
     suspend fun getAllReschedules(): List<TaskRescheduleEntity>
 
     @Query("SELECT * FROM task_reschedules WHERE taskId = :taskId ORDER BY rescheduledAt DESC")
     /**
-     * Returns the get reschedules for task.
+     * Returns the reschedules for task.
      */
     fun getReschedulesForTask(taskId: String): Flow<List<TaskRescheduleEntity>>
 

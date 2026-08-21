@@ -66,7 +66,7 @@ interface TimeEntryRepository {
      */
     suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry
     /**
-     * Returns the get all time entries.
+     * Returns the all time entries.
      */
     fun getAllTimeEntries(): Flow<List<TimeEntry>>
     
