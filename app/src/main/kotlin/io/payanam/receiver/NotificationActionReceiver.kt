@@ -26,9 +26,6 @@ import javax.inject.Inject
  * Handles notification action button clicks.
  */
 @AndroidEntryPoint
-/**
- * Provides the notification action receiver.
- */
 class NotificationActionReceiver : BroadcastReceiver() {
 
     companion object {
@@ -56,7 +53,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Handles the on receive.
+     * Dispatches the tapped action: stop-tracking redirect, complete/skip/miss
+     * (with occurrence + recurrence advancement), or snooze.
      */
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
