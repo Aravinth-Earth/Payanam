@@ -39,104 +39,120 @@ import javax.inject.Singleton
 @Module
 @InstallIn(SingletonComponent::class)
 /**
- * Provides the repository module.
+ * Hilt binding module that wires each concrete Room-backed repository
+ * implementation to its domain-layer repository interface, so the rest of
+ * the app depends only on the abstractions.
  */
 abstract class RepositoryModule {
     @Binds
     @Singleton
     /**
-     * Performs the bind task repository.
+     * Exposes the task repository (CRUD + queries over tasks) as its
+     * domain contract.
      */
     abstract fun bindTaskRepository(impl: TaskRepositoryImpl): TaskRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind habit metric repository.
+     * Exposes the habit-metric repository (daily habit completion stats) as its
+     * domain contract.
      */
     abstract fun bindHabitMetricRepository(impl: HabitMetricRepositoryImpl): HabitMetricRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind score window repository.
+     * Exposes the score-window repository (rolling time windows used by
+     * scoring) as its domain contract.
      */
     abstract fun bindScoreWindowRepository(impl: ScoreWindowRepositoryImpl): ScoreWindowRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind time entry repository.
+     * Exposes the time-entry repository (tracked time spans) as its
+     * domain contract.
      */
     abstract fun bindTimeEntryRepository(impl: TimeEntryRepositoryImpl): TimeEntryRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind note repository.
+     * Exposes the note repository (notes + tags + links) as its
+     * domain contract.
      */
     abstract fun bindNoteRepository(impl: NoteRepositoryImpl): NoteRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind journal repository.
+     * Exposes the journal repository (daily reflections + responses) as its
+     * domain contract.
      */
     abstract fun bindJournalRepository(impl: JournalRepositoryImpl): JournalRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind app settings repository.
+     * Exposes the app-settings repository (key-value user preferences) as its
+     * domain contract.
      */
     abstract fun bindAppSettingsRepository(impl: AppSettingsRepositoryImpl): AppSettingsRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind life dimension catalog repository.
+     * Exposes the life-dimension catalog repository (the canonical dimension
+     * taxonomy + user overrides) as its domain contract.
      */
     abstract fun bindLifeDimensionCatalogRepository(impl: LifeDimensionCatalogRepositoryImpl): LifeDimensionCatalogRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind task occurrence repository.
+     * Exposes the task-occurrence repository (scheduled instances of recurring
+     * tasks) as its domain contract.
      */
     abstract fun bindTaskOccurrenceRepository(impl: TaskOccurrenceRepositoryImpl): TaskOccurrenceRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind task reschedule repository.
+     * Exposes the task-reschedule repository (missed-task deferral records) as
+     * its domain contract.
      */
     abstract fun bindTaskRescheduleRepository(impl: TaskRescheduleRepositoryImpl): TaskRescheduleRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind notification repository.
+     * Exposes the notification repository (scheduled reminders + history) as
+     * its domain contract.
      */
     abstract fun bindNotificationRepository(impl: NotificationRepositoryImpl): NotificationRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind scoring config repository.
+     * Exposes the scoring-config repository (weights + thresholds driving the
+     * score) as its domain contract.
      */
     abstract fun bindScoringConfigRepository(impl: ScoringConfigRepositoryImpl): ScoringConfigRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind tag repository.
+     * Exposes the tag repository (note/task tagging) as its
+     * domain contract.
      */
     abstract fun bindTagRepository(impl: TagRepositoryImpl): TagRepository
 
     @Binds
     @Singleton
     /**
-     * Performs the bind day plan repository.
+     * Exposes the day-plan repository (planned time allocations per day/type)
+     * as its domain contract.
      */
     abstract fun bindDayPlanRepository(impl: DayPlanRepositoryImpl): DayPlanRepository
 }
