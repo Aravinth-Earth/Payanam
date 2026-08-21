@@ -19,7 +19,9 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 /**
- * Holds the notes screen ui state.
+ * UI state for the Notes screen: all notes + the search/dimension-filtered
+ * subset, per-note tag names, tag suggestions for the editor, and
+ * loading/error flags.
  */
 data class NotesScreenUiState(
     val notes: List<Note> = emptyList(),
@@ -32,10 +34,12 @@ data class NotesScreenUiState(
     val error: String? = null,
 )
 
-@HiltViewModel
 /**
- * Provides the notes view model.
+ * Notes-screen ViewModel: observes notes + tags from the repositories,
+ * applies search/dimension filtering, and drives note CRUD with tag
+ * replacement.
  */
+@HiltViewModel
 class NotesViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
     private val tagRepository: TagRepository,
@@ -85,7 +89,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update search query.
+     * Filters the visible notes by [query] (title/details substring).
      */
     fun updateSearchQuery(query: String) {
         _uiState.update { state ->
@@ -96,7 +100,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension filter.
+     * Restricts the visible notes to one life dimension (null = all).
      */
     fun setDimensionFilter(dimensionId: String?) {
         _uiState.update { state ->
@@ -124,7 +128,7 @@ class NotesViewModel @Inject constructor(
         matchesQuery && matchesDimension
     }
     /**
-     * Creates the create note.
+     * Creates a note in [dimensionId] and attaches its initial [tags].
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
@@ -148,7 +152,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the update note.
+     * Saves edits to an existing note and replaces its tag set.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
@@ -177,7 +181,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the delete note.
+     * Permanently deletes a note.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteNote(noteId: String) {
@@ -192,7 +196,7 @@ class NotesViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the clear error.
+     * Clears the current error message shown on the screen.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
