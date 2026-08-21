@@ -44,9 +44,6 @@ import javax.inject.Inject
  * fully diagnosable from one log export.
  */
 @HiltViewModel
-/**
- * Provides the pre unlock update view model.
- */
 class PreUnlockUpdateViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
 ) : ViewModel() {
@@ -220,7 +217,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /**
-     * Handles the on cleared.
+     * Cancels the download progress polling when the ViewModel dies.
      */
     override fun onCleared() {
         pollJob?.cancel()
