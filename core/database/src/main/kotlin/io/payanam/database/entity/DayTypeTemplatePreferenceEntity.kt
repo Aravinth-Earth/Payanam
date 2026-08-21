@@ -25,9 +25,6 @@ import androidx.room.PrimaryKey
         Index("template_id"),
     ],
 )
-/**
- * Holds the day type template preference entity.
- */
 data class DayTypeTemplatePreferenceEntity(
     @PrimaryKey
     @ColumnInfo(name = "day_type")

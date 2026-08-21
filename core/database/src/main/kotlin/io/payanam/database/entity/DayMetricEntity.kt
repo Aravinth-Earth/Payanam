@@ -14,9 +14,6 @@ import androidx.room.Entity
     tableName = "day_metrics",
     primaryKeys = ["dayKey"],
 )
-/**
- * Holds the day metric entity.
- */
 data class DayMetricEntity(
     val dayKey: String,
     val dayScore: Double,

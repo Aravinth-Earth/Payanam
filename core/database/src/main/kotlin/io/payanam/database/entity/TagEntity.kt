@@ -16,7 +16,9 @@ import androidx.room.PrimaryKey
     ],
 )
 /**
- * Holds the tag entity.
+ * A user-defined label that can be attached to notes, tasks, and time entries
+ * via the corresponding `*Tag` join tables. Tracks last-used time for
+ * recency-ordered suggestion.
  */
 data class TagEntity(
     @PrimaryKey

@@ -23,9 +23,6 @@ import androidx.room.PrimaryKey
     ],
     indices = [Index("dimension_id"), Index("day_key")],
 )
-/**
- * Holds the note entity.
- */
 data class NoteEntity(
     @PrimaryKey
     val id: String,

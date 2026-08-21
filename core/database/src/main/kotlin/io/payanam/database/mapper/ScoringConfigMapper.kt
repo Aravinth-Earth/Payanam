@@ -14,7 +14,9 @@ import java.time.format.DateTimeFormatter
 object ScoringConfigMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
     /**
-     * Performs the to domain.
+     * Builds the domain [ScoringConfig] from a [ScoringConfigEntity], mapping
+     * the per-dimension weight columns into the dimension-weight map (with
+     * fallback defaults for dimensions the entity does not store).
      */
     fun toDomain(entity: ScoringConfigEntity): ScoringConfig =
         ScoringConfig(
@@ -80,7 +82,9 @@ object ScoringConfigMapper {
                 ),
         )
     /**
-     * Performs the to entity.
+     * Flattens a domain [ScoringConfig] back into a single-row
+     * [ScoringConfigEntity], spreading the dimension-weight map across the
+     * typed `dimension*` columns.
      */
     fun toEntity(config: ScoringConfig): ScoringConfigEntity {
         val dimensionCareerWork = resolveDimensionWeight(config, LifeDimension.CAREER_WORK, 0.8)

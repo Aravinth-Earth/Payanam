@@ -27,7 +27,8 @@ import androidx.room.Index
     indices = [Index("task_id"), Index("tag_id")],
 )
 /**
- * Holds the task tag entity.
+ * Join row linking a [TaskEntity] to a [TagEntity] (many-to-many).
+ * The composite primary key is the pair of foreign ids.
  */
 data class TaskTagEntity(
     @ColumnInfo(name = "task_id")

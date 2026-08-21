@@ -16,9 +16,6 @@ import androidx.room.PrimaryKey
         Index("importedAt"),
     ],
 )
-/**
- * Holds the import batch entity.
- */
 data class ImportBatchEntity(
     @PrimaryKey
     val id: String,

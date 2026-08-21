@@ -30,9 +30,6 @@ import androidx.room.PrimaryKey
         Index(value = ["taskId", "dueDate"], unique = true),
     ],
 )
-/**
- * Holds the task occurrence entity.
- */
 data class TaskOccurrenceEntity(
     @PrimaryKey
     val id: String,
@@ -63,9 +60,6 @@ data class TaskOccurrenceEntity(
     ],
     indices = [Index("taskId")],
 )
-/**
- * Holds the task reschedule entity.
- */
 data class TaskRescheduleEntity(
     @PrimaryKey
     val id: String,

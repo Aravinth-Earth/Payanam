@@ -41,7 +41,8 @@ internal data class MetricBaseline(
 ) {
     companion object {
         /**
-         * Performs the empty.
+         * Zeroed baseline (no prior rows), used to seed a full rebuild
+         * from the first due day.
          */
         fun empty(): MetricBaseline = MetricBaseline(0.0, 0, null, 0, 0, 0)
 
@@ -116,9 +117,6 @@ internal data class MetricBaseline(
  * recoverable from logs.
  */
 @Singleton
-/**
- * Provides the score rollup backfill service.
- */
 class ScoreRollupBackfillService
     @Inject
     constructor(

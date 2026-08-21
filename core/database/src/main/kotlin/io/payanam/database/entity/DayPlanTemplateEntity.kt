@@ -19,9 +19,6 @@ import androidx.room.PrimaryKey
         Index("is_active"),
     ],
 )
-/**
- * Holds the day plan template entity.
- */
 data class DayPlanTemplateEntity(
     @PrimaryKey
     val id: String,

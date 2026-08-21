@@ -17,9 +17,6 @@ val MIGRATION_12_13 =
     object : Migration(12, 13) {
         private val logger = UnifiedLogger.getInstance()
 
-        /**
-         * Performs the migrate.
-         */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.12_13", "Starting migration from version 12 to 13")

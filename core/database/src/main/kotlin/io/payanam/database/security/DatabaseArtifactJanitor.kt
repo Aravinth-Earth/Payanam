@@ -13,7 +13,10 @@ object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
     private val countTables = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes")
     /**
-     * Performs the cleanup stale artifacts.
+     * Cleans up leftover database artifacts from failed import/encrypt flows:
+     * restores the primary DB from a temp backup if the primary is missing,
+     * deletes orphaned `.enc.tmp`/`.lck`/`.bak`/`.before_*` files, and prunes
+     * old `.corrupt` snapshots beyond the 3 most recent.
      */
     fun cleanupStaleArtifacts(
         context: Context,

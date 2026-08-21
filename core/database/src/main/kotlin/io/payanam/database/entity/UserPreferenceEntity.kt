@@ -12,9 +12,6 @@ import androidx.room.PrimaryKey
  * untyped key-value settings to typed preference storage.
  */
 @Entity(tableName = "user_preferences")
-/**
- * Holds the user preference entity.
- */
 data class UserPreferenceEntity(
     @PrimaryKey
     val key: String,

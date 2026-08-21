@@ -69,7 +69,8 @@ interface DayMetricDao {
 
     @Query("SELECT COUNT(*) FROM day_metrics")
     /**
-     * Returns the total number of daily metric rows.
+     * Total number of L3 daily-metric rows persisted (every calendar day is
+     * dense, so this equals the number of scored days).
      */
     suspend fun count(): Int
 }

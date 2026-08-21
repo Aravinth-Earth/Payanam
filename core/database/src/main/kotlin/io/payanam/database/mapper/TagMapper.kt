@@ -9,7 +9,8 @@ import java.time.format.DateTimeFormatter
 object TagMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
     /**
-     * Performs the tag entity.
+     * Converts a Room [TagEntity] into the domain [Tag] model, parsing the
+     * persisted ISO date-time strings back into [PersistedDateTime].
      */
     fun TagEntity.toDomain(): Tag =
         Tag(

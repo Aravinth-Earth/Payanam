@@ -11,7 +11,8 @@ import io.payanam.domain.model.Note
  */
 object NoteMapper {
     /**
-     * Performs the note entity.
+     * Converts a Room [NoteEntity] into the domain [Note] model, parsing the
+     * persisted ISO date-time strings back into [PersistedDateTime].
      */
     fun NoteEntity.toDomain(): Note =
         Note(
@@ -24,7 +25,8 @@ object NoteMapper {
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
     /**
-     * Performs the note.
+     * Converts a domain [Note] into a Room [NoteEntity], serializing its
+     * date-times to ISO strings for persistence.
      */
     fun Note.toEntity(): NoteEntity =
         NoteEntity(

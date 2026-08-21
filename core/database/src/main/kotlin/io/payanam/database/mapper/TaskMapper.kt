@@ -11,7 +11,9 @@ import io.payanam.domain.model.Task
  */
 object TaskMapper {
     /**
-     * Performs the task entity.
+     * Converts a Room [TaskEntity] into the domain [Task] model, parsing the
+     * persisted ISO date-time strings (including the decay-score legacy field)
+     * back into [PersistedDateTime] values.
      */
     fun TaskEntity.toDomain(): Task =
         Task(
@@ -45,7 +47,8 @@ object TaskMapper {
             lastOccurrenceDate = PersistedDateTime.parseOrDateStart(lastOccurrenceDate),
         )
     /**
-     * Performs the task.
+     * Converts a domain [Task] into a Room [TaskEntity], serializing its
+     * date-times to ISO strings and preserving the decay-score legacy column.
      */
     fun Task.toEntity(): TaskEntity =
         TaskEntity(

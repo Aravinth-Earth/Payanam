@@ -44,9 +44,6 @@ import androidx.room.PrimaryKey
         Index("endedAt"),
     ],
 )
-/**
- * Holds the time entry entity.
- */
 data class TimeEntryEntity(
     @PrimaryKey
     val id: String,

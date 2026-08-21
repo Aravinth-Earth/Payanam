@@ -21,7 +21,9 @@ import androidx.room.PrimaryKey
     indices = [Index("dimension_id"), Index("period"), Index("is_active")],
 )
 /**
- * Holds the time goal entity.
+ * A per-dimension target (e.g. weekly minutes) used to surface whether actual
+ * tracked time meets the user's intended allocation. One row per dimension per
+ * period; [isActive] marks the currently applicable goal.
  */
 data class TimeGoalEntity(
     @PrimaryKey

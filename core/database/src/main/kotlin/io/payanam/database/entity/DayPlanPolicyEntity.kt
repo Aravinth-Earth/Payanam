@@ -27,9 +27,6 @@ import androidx.room.PrimaryKey
         Index("is_starred"),
     ],
 )
-/**
- * Holds the day plan policy entity.
- */
 data class DayPlanPolicyEntity(
     @PrimaryKey
     @ColumnInfo(name = "day_key")

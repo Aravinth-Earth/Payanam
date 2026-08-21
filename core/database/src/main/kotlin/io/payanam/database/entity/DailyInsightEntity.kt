@@ -28,9 +28,6 @@ import androidx.room.PrimaryKey
         Index("generated_at"),
     ],
 )
-/**
- * Holds the daily insight entity.
- */
 data class DailyInsightEntity(
     @PrimaryKey
     val id: String,

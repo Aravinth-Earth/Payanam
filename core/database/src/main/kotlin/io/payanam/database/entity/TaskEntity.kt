@@ -36,9 +36,6 @@ import androidx.room.PrimaryKey
         Index(value = ["import_source", "import_id"]),
     ],
 )
-/**
- * Holds the task entity.
- */
 data class TaskEntity(
     @PrimaryKey
     val id: String,

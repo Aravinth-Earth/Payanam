@@ -16,9 +16,6 @@ import androidx.room.PrimaryKey
         Index("sortOrder"),
     ],
 )
-/**
- * Holds the life dimension entity.
- */
 data class LifeDimensionEntity(
     @PrimaryKey
     val id: String,

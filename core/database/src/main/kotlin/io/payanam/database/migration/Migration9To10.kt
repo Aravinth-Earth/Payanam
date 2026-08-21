@@ -18,9 +18,6 @@ val MIGRATION_9_10 =
     object : Migration(9, 10) {
         private val logger = UnifiedLogger.getInstance()
 
-        /**
-         * Performs the migrate.
-         */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.9_10", "Starting migration from version 9 to 10")

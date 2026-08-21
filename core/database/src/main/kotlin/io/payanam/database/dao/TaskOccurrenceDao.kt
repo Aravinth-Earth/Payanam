@@ -25,7 +25,8 @@ interface TaskOccurrenceDao {
 
     @Query("SELECT COUNT(*) FROM task_occurrences")
     /**
-     * Returns the total number of occurrence rows.
+     * Total number of scheduled task-occurrence rows across all tasks
+     * (completed, skipped, missed, or pending).
      */
     suspend fun countAllOccurrences(): Int
 

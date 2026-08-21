@@ -24,9 +24,6 @@ import androidx.room.PrimaryKey
         Index("created_at"),
     ],
 )
-/**
- * Holds the lens reflection entity.
- */
 data class LensReflectionEntity(
     @PrimaryKey
     val id: String,

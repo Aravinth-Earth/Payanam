@@ -11,7 +11,8 @@ import io.payanam.domain.model.TimeEntry
  */
 object TimeEntryMapper {
     /**
-     * Performs the time entry entity.
+     * Converts a Room [TimeEntryEntity] into the domain [TimeEntry] model,
+     * parsing the persisted ISO date-time strings back into [PersistedDateTime].
      */
     fun TimeEntryEntity.toDomain(): TimeEntry =
         TimeEntry(
@@ -28,7 +29,8 @@ object TimeEntryMapper {
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
     /**
-     * Performs the time entry.
+     * Converts a domain [TimeEntry] into a Room [TimeEntryEntity], serializing
+     * its date-times to ISO strings for persistence.
      */
     fun TimeEntry.toEntity(): TimeEntryEntity =
         TimeEntryEntity(

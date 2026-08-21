@@ -17,9 +17,6 @@ import androidx.room.Index
     primaryKeys = ["dimensionId", "dayKey"],
     indices = [Index("dimensionId"), Index("dayKey")],
 )
-/**
- * Holds the dimension metric entity.
- */
 data class DimensionMetricEntity(
     val dimensionId: String,
     val dayKey: String,

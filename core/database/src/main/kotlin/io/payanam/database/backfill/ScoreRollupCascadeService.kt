@@ -55,9 +55,6 @@ import javax.inject.Singleton
  * positive/edge/error outcome.
  */
 @Singleton
-/**
- * Provides the score rollup cascade service.
- */
 class ScoreRollupCascadeService
     @Inject
     constructor(

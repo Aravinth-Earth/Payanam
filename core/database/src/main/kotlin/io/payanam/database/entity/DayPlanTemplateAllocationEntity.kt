@@ -34,9 +34,6 @@ import androidx.room.PrimaryKey
         Index("dimension_id"),
     ],
 )
-/**
- * Holds the day plan template allocation entity.
- */
 data class DayPlanTemplateAllocationEntity(
     @PrimaryKey
     val id: String,

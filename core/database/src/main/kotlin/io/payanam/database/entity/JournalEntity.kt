@@ -15,9 +15,6 @@ import androidx.room.PrimaryKey
     tableName = "day_journal_entries",
     indices = [Index("entryDate", unique = true)],
 )
-/**
- * Holds the day journal entry entity.
- */
 data class DayJournalEntryEntity(
     @PrimaryKey
     val id: String,
@@ -51,9 +48,6 @@ data class DayJournalEntryEntity(
         Index(value = ["entryId", "scope", "dimensionKey", "promptKey"], unique = true),
     ],
 )
-/**
- * Holds the day journal response entity.
- */
 data class DayJournalResponseEntity(
     @PrimaryKey
     val id: String,
@@ -83,9 +77,6 @@ data class DayJournalResponseEntity(
     ],
     indices = [Index("day_key"), Index("dimension_id"), Index("updated_at")],
 )
-/**
- * Holds the journal note entity.
- */
 data class JournalNoteEntity(
     @PrimaryKey
     val id: String,
@@ -109,9 +100,6 @@ data class JournalNoteEntity(
     tableName = "app_settings",
     indices = [Index("key", unique = true)],
 )
-/**
- * Holds the app setting entity.
- */
 data class AppSettingEntity(
     @PrimaryKey
     val key: String,
@@ -134,9 +122,6 @@ data class AppSettingEntity(
     ],
     indices = [Index("taskId"), Index("scheduledAt")],
 )
-/**
- * Holds the scheduled notification entity.
- */
 data class ScheduledNotificationEntity(
     @PrimaryKey
     val id: String,

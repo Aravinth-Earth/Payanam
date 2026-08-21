@@ -7,7 +7,9 @@ object PassphrasePolicy {
         io.payanam.common.logging.UnifiedLogger
             .getInstance()
     /**
-     * Returns true when the validate.
+     * Validates a candidate database passphrase: requires at least 12
+     * characters and at least one uppercase, lowercase, digit, and symbol,
+     * returning the first failing rule as [PassphraseValidation.reasonCode].
      */
     fun validate(passphrase: String): PassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {
@@ -50,7 +52,9 @@ object PassphrasePolicy {
     }
 }
 /**
- * Holds the passphrase validation.
+ * Result of [PassphrasePolicy.validate]: whether the candidate passphrase is
+ * acceptable, and when rejected the [reasonCode] naming the first failed rule
+ * (e.g. `min_length`, `missing_symbol`).
  */
 data class PassphraseValidation(
     val isValid: Boolean,

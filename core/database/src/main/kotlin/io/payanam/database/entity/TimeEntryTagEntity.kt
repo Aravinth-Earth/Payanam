@@ -27,7 +27,8 @@ import androidx.room.Index
     indices = [Index("time_entry_id"), Index("tag_id")],
 )
 /**
- * Holds the time entry tag entity.
+ * Join row linking a [TimeEntryEntity] to a [TagEntity] (many-to-many).
+ * The composite primary key is the pair of foreign ids.
  */
 data class TimeEntryTagEntity(
     @ColumnInfo(name = "time_entry_id")

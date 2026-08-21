@@ -12,9 +12,6 @@ import androidx.room.PrimaryKey
  * Uses a single row design (id=1) for simplicity - only one config per app.
  */
 @Entity(tableName = "scoring_config")
-/**
- * Holds the scoring config entity.
- */
 data class ScoringConfigEntity(
     @PrimaryKey
     val id: Int = 1,
