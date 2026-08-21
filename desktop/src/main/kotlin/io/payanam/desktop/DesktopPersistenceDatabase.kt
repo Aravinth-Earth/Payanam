@@ -26,13 +26,13 @@ internal class DesktopPersistenceDatabase(
         migrateLegacyFilesIfNeeded()
     }
     /**
-     * Returns the database file path.
+     * Path of the SQLite database file backing all desktop state.
      */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
     @Synchronized
     /**
-     * Loads the read entry.
+     * Payload stored under [entryKey], or null when absent.
      */
     fun readEntry(entryKey: String): String? =
         withConnection { connection ->
@@ -51,12 +51,9 @@ internal class DesktopPersistenceDatabase(
         }
 
     @Synchronized
-    /**
-     * Write entry.
-     */
     @Suppress("MagicNumber")
     /**
-     * Writes the write entry.
+     * Upserts [payload] under [entryKey] with the current timestamp.
      */
     fun writeEntry(
         entryKey: String,
@@ -83,7 +80,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Removes the delete entry.
+     * Removes the entry stored under [entryKey].
      */
     fun deleteEntry(entryKey: String) {
         withConnection { connection ->
@@ -98,7 +95,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Removes the clear state entries.
+     * Wipes every state entry (full desktop-state reset).
      */
     fun clearStateEntries() {
         withConnection { connection ->
@@ -110,13 +107,13 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Returns true when the has entry.
+     * True when [entryKey] exists in the store.
      */
     fun hasEntry(entryKey: String): Boolean = readEntry(entryKey) != null
 
     @Synchronized
     /**
-     * Performs the mark initialized.
+     * Stamps the initialization marker with the current timestamp.
      */
     fun markInitialized() {
         writeEntry(INITIALIZED_ENTRY_KEY, System.currentTimeMillis().toString())
@@ -124,7 +121,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Removes the clear initialized marker.
+     * Deletes the initialization marker (used by reset flows).
      */
     fun clearInitializedMarker() {
         deleteEntry(INITIALIZED_ENTRY_KEY)
@@ -132,13 +129,13 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Returns true when the is initialized.
+     * True when the initialization marker is present.
      */
     fun isInitialized(): Boolean = hasEntry(INITIALIZED_ENTRY_KEY)
 
     @Synchronized
     /**
-     * Performs the database entry count.
+     * Total number of state entries in the store.
      */
     fun databaseEntryCount(): Int =
         withConnection { connection ->
@@ -152,7 +149,7 @@ internal class DesktopPersistenceDatabase(
 
     @Synchronized
     /**
-     * Loads the import legacy files into database.
+     * Re-runs the legacy file migration regardless of its completion marker.
      */
     fun importLegacyFilesIntoDatabase() {
         migrateLegacyFilesIfNeeded(force = true)
