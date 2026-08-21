@@ -35,15 +35,17 @@ object DimensionTextCatalog {
         DimensionTaxonomyCatalog.UNASSIGNED.id to R.string.loc_dimension_desc_unassigned,
     )
     /**
-     * Performs the label res id for canonical id.
+     * String resource for a dimension's name, or null when [canonicalId] is
+     * unknown.
      */
     fun labelResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(labelResIds::get)
     /**
-     * Performs the description res id for canonical id.
+     * String resource for a dimension's description, or null when
+     * [canonicalId] is unknown.
      */
     fun descriptionResIdForCanonicalId(canonicalId: String?): Int? = canonicalId?.let(descriptionResIds::get)
     /**
-     * Performs the localized label.
+     * Localized name for a canonical dimension (null if unknown).
      */
     fun localizedLabel(context: Context, canonicalId: String?): String? {
         val resId = labelResIdForCanonicalId(canonicalId) ?: return null
@@ -56,7 +58,7 @@ object DimensionTextCatalog {
         }
     }
     /**
-     * Performs the localized description.
+     * Localized description for a canonical dimension (null if unknown).
      */
     fun localizedDescription(context: Context, canonicalId: String?): String? {
         val resId = descriptionResIdForCanonicalId(canonicalId) ?: return null
