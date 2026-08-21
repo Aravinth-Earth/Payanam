@@ -56,7 +56,7 @@ internal class DesktopSingleInstanceLease(
     private val lock: FileLock,
 ) : AutoCloseable {
     /**
-     * Performs the record session log path.
+     * Updates the metadata file's log path once the session logger exists.
      */
     fun recordSessionLogPath(logFilePath: Path) {
         DesktopSingleInstanceGuard.writeMetadata(
@@ -68,7 +68,7 @@ internal class DesktopSingleInstanceLease(
     }
 
     /**
-     * Performs the close.
+     * Releases the lock and removes lock/metadata files.
      */
     override fun close() {
         DesktopSingleInstanceGuard.clearTrackedState(lockFilePath = lockFilePath, metadataFilePath = metadataFilePath)
@@ -92,7 +92,8 @@ internal object DesktopSingleInstanceGuard {
     private val trackedDetails = ConcurrentHashMap<Path, DesktopRunningInstanceDetails>()
     private val timestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
     /**
-     * Performs the acquire.
+     * Tries to take the single-instance file lock: acquired lease, or details
+     * of the running instance when the lock is held elsewhere.
      */
     fun acquire(
         runtimeDirectory: Path = DesktopAppPaths.resolveRuntimeDirectory(),
@@ -140,7 +141,8 @@ internal object DesktopSingleInstanceGuard {
         )
     }
     /**
-     * Shows the show already running dialog.
+     * Swing dialog telling the user another instance is running (with its
+     * PID, build, start time, executable, and log path).
      */
     fun showAlreadyRunningDialog(details: DesktopRunningInstanceDetails) {
         val processText = details.processId?.toString() ?: "unknown"

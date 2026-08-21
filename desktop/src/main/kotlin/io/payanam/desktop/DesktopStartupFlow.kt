@@ -17,7 +17,7 @@ data class DesktopStartupRuntimeState(
     val lockoutSecondsRemaining: Long = 0L,
 )
 /**
- * Defines the contract for desktop startup mode.
+ * Which startup gate the desktop app must show before reaching the main UI.
  */
 enum class DesktopStartupMode {
     /** Passphrase has not been configured yet; user must set it up. */
@@ -32,7 +32,8 @@ enum class DesktopStartupMode {
     Ready,
 }
 /**
- * Returns the desktop startup mode.
+ * Picks the startup gate to show, in order: passphrase setup → unlock →
+ * database init → focus-mode onboarding → ready.
  */
 fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): DesktopStartupMode =
     when {
@@ -43,7 +44,8 @@ fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): Desktop
         else -> DesktopStartupMode.Ready
     }
 /**
- * Creates the build desktop startup runtime state.
+ * Aggregates the settings/bootstrap/security/database snapshots into the
+ * single state the startup-mode resolver consumes.
  */
 fun buildDesktopStartupRuntimeState(
     settingsSnapshot: io.payanam.shared.settings.DesktopSettingsSnapshot,

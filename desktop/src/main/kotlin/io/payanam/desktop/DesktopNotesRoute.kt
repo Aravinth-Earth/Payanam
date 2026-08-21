@@ -409,7 +409,7 @@ private data class DesktopNoteDialogState(
 ) {
     companion object {
         /**
-         * Performs the hidden.
+         * Closed dialog state.
          */
         fun hidden(): DesktopNoteDialogState =
             DesktopNoteDialogState(
@@ -421,11 +421,11 @@ private data class DesktopNoteDialogState(
                 dimensionId = DesktopNoteContracts.DEFAULT_DIMENSION_ID,
             )
         /**
-         * Creates the create.
+         * Blank dialog for creating a note.
          */
         fun create(): DesktopNoteDialogState = hidden().copy(isVisible = true)
         /**
-         * Performs the edit.
+         * Dialog pre-filled with [note]'s current values.
          */
         fun edit(note: DesktopNoteRecord): DesktopNoteDialogState =
             DesktopNoteDialogState(

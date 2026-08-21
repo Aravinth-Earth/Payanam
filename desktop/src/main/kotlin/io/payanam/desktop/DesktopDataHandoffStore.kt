@@ -23,7 +23,8 @@ data class DesktopDataHandoffSnapshot(
     val importCompleted: Boolean,
 )
 /**
- * Provides the desktop data handoff store.
+ * Bundles the desktop database/runtime state into export zips for moving
+ * data between machines.
  */
 class DesktopDataHandoffStore(
     private val exportDirectory: Path = DesktopAppPaths.resolveExportDirectory(),
@@ -34,7 +35,7 @@ class DesktopDataHandoffStore(
     private val exportFileNamePattern =
         DateTimeFormatter.ofPattern("'Payanam_Desktop_Handoff_'yyyyMMdd_HHmmss'.zip'")
     /**
-     * Writes the export local state.
+     * Zips the database and runtime directories into a timestamped export file.
      */
     fun exportLocalState(): DesktopDataHandoffSnapshot {
         Files.createDirectories(exportDirectory)
@@ -55,7 +56,8 @@ class DesktopDataHandoffStore(
         )
     }
     /**
-     * Loads the import latest export.
+     * Extracts the newest export zip in the export directory over the app
+     * directories (no-op snapshot when none exists).
      */
     fun importLatestExport(): DesktopDataHandoffSnapshot {
         val exportFilePath =

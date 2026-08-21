@@ -6,15 +6,15 @@ import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 
 /**
- * DesktopNavigationModel.
-
+ * The route the app opens into, plus the visible top-level routes for the
+ * navigation rail.
  */
 data class DesktopNavigationModel(
     val launchRoute: DesktopTopLevelRoute,
     val primaryRoutes: List<DesktopTopLevelRoute>,
 )
 /**
- * Performs the desktop navigation model.
+ * Builds the navigation model from the settings snapshot (visibility-aware).
  */
 fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigationModel =
     DesktopNavigationModel(
@@ -22,7 +22,8 @@ fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigation
         primaryRoutes = settings.visibleRoutes(),
     )
 /**
- * Performs the desktop launch route.
+ * Preferred launch route, falling back to the first visible (or SETTINGS)
+ * when it is hidden.
  */
 fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute {
     val preferredRoute = settings.launchRoute
@@ -33,7 +34,7 @@ fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute 
     }
 }
 /**
- * Performs the desktop top level route.
+ * One-line description of what this route contains (for tooltips/help).
  */
 fun DesktopTopLevelRoute.summary(): String =
     when (this) {
