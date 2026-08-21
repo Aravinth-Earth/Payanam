@@ -65,7 +65,7 @@ private const val DEFAULT_TIME_HOUR_HEIGHT_DP = 60f
 private const val MIN_TIME_HOUR_HEIGHT_DP = 24f
 private const val MAX_TIME_HOUR_HEIGHT_DP = 2880f
 /**
- * Defines the contract for theme mode option.
+ * User-selectable UI theme mode (system / light / dark), persisted by [key].
  */
 enum class ThemeModeOption(val key: String) {
     SYSTEM("system"),
@@ -75,13 +75,13 @@ enum class ThemeModeOption(val key: String) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves the option whose [key] matches, or null when unknown.
          */
         fun fromKey(key: String?): ThemeModeOption? = entries.find { it.key == key }
     }
 }
 /**
- * Defines the contract for font family option.
+ * User-selectable font family, persisted by [key] (falls back to nearest known family).
  */
 enum class FontFamilyOption(val key: String) {
     SANS_SERIF("sans-serif"),
@@ -92,7 +92,7 @@ enum class FontFamilyOption(val key: String) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves the option whose [key] matches, or null when unknown.
          */
         fun fromKey(key: String?): FontFamilyOption? = when (key) {
             "roboto", "nunito", "orbitron", "dosis", "sans-serif" -> SANS_SERIF
@@ -104,7 +104,7 @@ enum class FontFamilyOption(val key: String) {
     }
 }
 /**
- * Defines the contract for time format option.
+ * User-selectable clock format (24h / 12h), persisted by [key].
  */
 enum class TimeFormatOption(val key: String, val use24Hour: Boolean) {
     TWENTY_FOUR("24h", true),
@@ -113,13 +113,13 @@ enum class TimeFormatOption(val key: String, val use24Hour: Boolean) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves the option whose [key] matches, or null when unknown.
          */
         fun fromKey(key: String?): TimeFormatOption? = entries.find { it.key == key }
     }
 }
 /**
- * Defines the contract for app language option.
+ * User-selectable app language (system / English / Tamil), persisted by [key].
  */
 enum class AppLanguageOption(val key: String) {
     SYSTEM("system"),
@@ -129,13 +129,13 @@ enum class AppLanguageOption(val key: String) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves the option whose [key] matches, or null when unknown.
          */
         fun fromKey(key: String?): AppLanguageOption? = entries.find { it.key == key }
     }
 }
 /**
- * Holds the dimension preference.
+ * One configured life-dimension row: label/color/visibility/weight plus its canonical id.
  */
 data class DimensionPreference(
     val key: String,
@@ -150,7 +150,7 @@ data class DimensionPreference(
     val weight: Double = 1.0,
 )
 /**
- * Holds the dimension option.
+ * A selectable dimension option (defaults + dynamic), with resolved icon + visibility.
  */
 data class DimensionOption(
     val id: String,
@@ -164,14 +164,14 @@ data class DimensionOption(
     val weight: Double = 1.0,
 )
 /**
- * Holds the launch destination.
+ * Remembers which screen (route) opens on launch, with an optional task filter.
  */
 data class LaunchDestination(
     val route: String = "",
     val taskFilter: TaskFilter? = null,
 )
 /**
- * Defines the contract for backup interval.
+ * Auto-backup cadence options, persisted by [key] with [minutes] for scheduling.
  */
 enum class BackupInterval(val key: String, val minutes: Long) {
     FIFTEEN_MIN("15m", 15),
@@ -185,7 +185,7 @@ enum class BackupInterval(val key: String, val minutes: Long) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves the option whose [key] matches, or null when unknown.
          */
         fun fromKey(key: String?): BackupInterval? = entries.find { it.key == key }
     }
@@ -227,7 +227,7 @@ val BackupInterval.labelResId: Int
         BackupInterval.DAILY -> R.string.settings_option_backup_daily
     }
 /**
- * Holds the app preferences state.
+ * Snapshot of every user-facing preference, surfaced to the Settings UI.
  */
 data class AppPreferencesState(
     val themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
@@ -505,7 +505,7 @@ private fun dimensionSortOrder(dimensionId: String): Int = DimensionTaxonomyCata
 
 @HiltViewModel
 /**
- * Provides the app preferences view model.
+ * Exposes app settings (theme, language, dimensions, backup, charts) and persists edits.
  */
 class AppPreferencesViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
@@ -737,19 +737,19 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set theme mode.
+     * Persists the chosen UI theme mode.
      */
     fun setThemeMode(mode: ThemeModeOption) {
         saveSetting(KEY_THEME_MODE, mode.key)
     }
     /**
-     * Updates the set app language.
+     * Persists the chosen app language.
      */
     fun setAppLanguage(language: AppLanguageOption) {
         saveSetting(KEY_APP_LANGUAGE, language.key)
     }
     /**
-     * Updates the update system language tag.
+     * Normalizes [languageTag] to a supported tag and updates the runtime system language.
      */
     fun updateSystemLanguageTag(languageTag: String?) {
         val normalizedTag = normalizeSupportedLanguageTag(languageTag)
@@ -764,19 +764,19 @@ class AppPreferencesViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the set font family.
+     * Persists the chosen font family.
      */
     fun setFontFamily(fontFamily: FontFamilyOption) {
         saveSetting(KEY_FONT_FAMILY, fontFamily.key)
     }
     /**
-     * Updates the set time format.
+     * Persists the chosen clock format.
      */
     fun setTimeFormat(timeFormat: TimeFormatOption) {
         saveSetting(KEY_TIME_FORMAT, timeFormat.key)
     }
     /**
-     * Updates the set time hour height dp.
+     * Persists the timeline hour-height (clamped to the supported DP range).
      */
     fun setTimeHourHeightDp(hourHeightDp: Float) {
         val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
@@ -818,7 +818,7 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension weight.
+     * Persists the editable weight for [dimension] (delegates to the id overload).
      */
     fun setDimensionWeight(dimension: LifeDimension, weight: Double) {
         setDimensionWeight(dimension.id, weight)
@@ -882,7 +882,7 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Removes the reset dimension label.
+     * Clears the user-overridden label for a dimension, reverting to the canonical label.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resetDimensionLabel(dimensionId: String) {
@@ -908,7 +908,7 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set dimension icon.
+     * Persists the chosen icon for a dimension and refreshes UI.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
@@ -960,32 +960,32 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set auto backup enabled.
+     * Persists the auto-backup on/off toggle.
      */
     fun setAutoBackupEnabled(enabled: Boolean) {
         saveSetting(KEY_AUTO_BACKUP_ENABLED, enabled.toString())
     }
     /**
-     * Updates the set auto backup interval.
+     * Persists the auto-backup cadence.
      */
     fun setAutoBackupInterval(interval: BackupInterval) {
         saveSetting(KEY_AUTO_BACKUP_INTERVAL, interval.key)
     }
     /**
-     * Updates the set auto backup last run.
+     * Records the last successful auto-backup timestamp.
      */
     fun setAutoBackupLastRun(timestamp: String) {
         saveSetting(KEY_AUTO_BACKUP_LAST_RUN, timestamp)
     }
     /**
-     * Updates the set backup rotation enabled.
+     * Persists backup rotation on/off and syncs to shared prefs.
      */
     fun setBackupRotationEnabled(enabled: Boolean) {
         saveSetting(KEY_BACKUP_ROTATION_ENABLED, enabled.toString())
         syncBackupRotationToSharedPrefs(enabled, _uiState.value.backupRotationCount)
     }
     /**
-     * Updates the set backup rotation count.
+     * Persists the retained-backup count (1-999) and syncs to shared prefs.
      */
     fun setBackupRotationCount(count: Int) {
         val clamped = count.coerceIn(1, 999)
@@ -1000,7 +1000,7 @@ class AppPreferencesViewModel @Inject constructor(
             .apply()
     }
     /**
-     * Performs the refresh auto backup status from storage.
+     * Re-reads backup status from storage and pushes it into UI state.
      */
     fun refreshAutoBackupStatusFromStorage() {
         backupStatusStore.refresh()
@@ -1022,7 +1022,7 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the dismiss auto backup failure message.
+     * Clears the current auto-backup failure message from the UI.
      */
     fun dismissAutoBackupFailureMessage() {
         backupStatusStore.dismissLatestFailure()
@@ -1038,7 +1038,7 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the trigger manual backup now.
+     * Kicks off a manual backup to the app backup directory and refreshes status.
      */
     fun triggerManualBackupNow() {
         _manualBackupInProgress.value = true
@@ -1152,7 +1152,7 @@ class AppPreferencesViewModel @Inject constructor(
         return rows
     }
     /**
-     * Performs the run habit score diagnostics.
+     * Runs the habit-score diagnostics pass and publishes the result to the UI.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun runHabitScoreDiagnostics() {
@@ -1306,21 +1306,21 @@ class AppPreferencesViewModel @Inject constructor(
         }
     }
     /**
-     * Updates the set day boundary hour.
+     * Persists the day-boundary hour (0-5) used for daily rollups.
      */
     fun setDayBoundaryHour(hour: Int) {
         val clampedHour = hour.coerceIn(0, 5)
         saveSetting(KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
     }
     /**
-     * Updates the set debug logging enabled.
+     * Persists the debug-logging toggle and applies it live.
      */
     fun setDebugLoggingEnabled(enabled: Boolean) {
         saveSetting(KEY_DEBUG_LOGGING_ENABLED, enabled.toString())
         UnifiedLogger.setDebugLoggingEnabled(enabled)
     }
     /**
-     * Updates the set auto track habit time global.
+     * Persists the global auto-track-habit-time toggle.
      */
     fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
         saveSetting(KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
@@ -1333,13 +1333,13 @@ class AppPreferencesViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the set auto track dimension preference.
+     * Persists auto-track toggle for the dimension (id or [dimension]).
      */
     fun setAutoTrackDimensionPreference(dimension: LifeDimension, enabled: Boolean) {
         setAutoTrackDimensionPreference(dimension.id, enabled)
     }
     /**
-     * Updates the set auto track dimension preference.
+     * Persists auto-track toggle for the dimension (id or [dimension]).
      */
     fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
         saveSetting("$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
@@ -1403,7 +1403,7 @@ class AppPreferencesViewModel @Inject constructor(
         logger.i("AppPreferencesViewModel.markFocusModeOnboardingCompleted", "Focus mode onboarding marked as completed")
     }
     /**
-     * Updates the set launch destination time.
+     * Makes the Time screen the default launch destination.
      */
     fun setLaunchDestinationTime() {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "time")
@@ -1415,7 +1415,7 @@ class AppPreferencesViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the set launch destination tasks.
+     * Makes the Tasks screen the default launch destination, with an optional [taskFilter].
      */
     fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
@@ -1430,7 +1430,7 @@ class AppPreferencesViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the set launch destination.
+     * Persists the default launch-destination route.
      */
     fun setLaunchDestination(route: String) {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, route)
@@ -1442,112 +1442,112 @@ class AppPreferencesViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the set chart time module enabled.
+     * Toggles the Time insights module on the dashboard.
      */
     fun setChartTimeModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeModuleEnabled", "Time insights module toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time overall snapshot enabled.
+     * Toggles the Time overall-snapshot card.
      */
     fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeOverallSnapshotEnabled", "Time overall snapshot card toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time execution details enabled.
+     * Toggles the Time execution-details card.
      */
     fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_EXECUTION_DETAILS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeExecutionDetailsEnabled", "Time execution details toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time score cards enabled.
+     * Toggles the Time score-cards section.
      */
     fun setChartTimeScoreCardsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_SCORE_CARDS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeScoreCardsEnabled", "Time score cards section toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time overall score card enabled.
+     * Toggles the Time overall score card.
      */
     fun setChartTimeOverallScoreCardEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_OVERALL_SCORE_CARD, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeOverallScoreCardEnabled", "Time overall score card toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time dimension score cards enabled.
+     * Toggles the per-dimension Time score cards.
      */
     fun setChartTimeDimensionScoreCardsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_DIM_SCORE_CARDS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeDimensionScoreCardsEnabled", "Time dimension score cards toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time line graphs enabled.
+     * Toggles the Time line-graphs section.
      */
     fun setChartTimeLineGraphsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_LINE_GRAPHS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeLineGraphsEnabled", "Time line graphs section toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time daily score trend enabled.
+     * Toggles the daily score-trend chart.
      */
     fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_DAILY_SCORE_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeDailyScoreTrendEnabled", "Time daily score trend toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time progress trend enabled.
+     * Toggles the progress-trend chart.
      */
     fun setChartTimeProgressTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_PROGRESS_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeProgressTrendEnabled", "Time progress trend toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time historical ranking enabled.
+     * Toggles the historical-ranking chart.
      */
     fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_HISTORICAL_RANKING, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeHistoricalRankingEnabled", "Time historical ranking toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart time momentum streak enabled.
+     * Toggles the momentum-streak chart.
      */
     fun setChartTimeMomentumStreakEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_MOMENTUM_STREAK, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeMomentumStreakEnabled", "Time momentum streak toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart task module enabled.
+     * Toggles the Task insights module.
      */
     fun setChartTaskModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TASK_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTaskModuleEnabled", "Task insights module toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart habit module enabled.
+     * Toggles the Habit insights module.
      */
     fun setChartHabitModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_HABIT_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartHabitModuleEnabled", "Habit insights module toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart journal module enabled.
+     * Toggles the Journal insights module.
      */
     fun setChartJournalModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_JOURNAL_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartJournalModuleEnabled", "Journal insights module toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart note module enabled.
+     * Toggles the Note insights module.
      */
     fun setChartNoteModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_NOTE_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartNoteModuleEnabled", "Note insights module toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart average daily time enabled.
+     * Toggles the average-daily-time chart.
      */
     fun setChartAverageDailyTimeEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_AVERAGE_DAILY_TIME, enabled.toString())
@@ -1836,49 +1836,49 @@ class AppPreferencesViewModel @Inject constructor(
         else -> null
     }?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
     /**
-     * Updates the set chart dim split enabled.
+     * Toggles the dimension-split chart.
      */
     fun setChartDimSplitEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DIM_SPLIT, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDimSplitEnabled", "Chart dim split toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart dim trend enabled.
+     * Toggles the dimension-trend chart.
      */
     fun setChartDimTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DIM_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDimTrendEnabled", "Chart dim trend toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart daily timeline enabled.
+     * Toggles the daily-timeline chart.
      */
     fun setChartDailyTimelineEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_TIMELINE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDailyTimelineEnabled", "Chart daily timeline toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart weekly pattern enabled.
+     * Toggles the weekly-pattern chart.
      */
     fun setChartWeeklyPatternEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_WEEKLY_PATTERN, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartWeeklyPatternEnabled", "Chart weekly pattern toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart daily rhythm enabled.
+     * Toggles the daily-rhythm chart.
      */
     fun setChartDailyRhythmEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_RHYTHM, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDailyRhythmEnabled", "Chart daily rhythm toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart weekly pattern excl empty.
+     * Toggles excluding empty days from the weekly-pattern chart.
      */
     fun setChartWeeklyPatternExclEmpty(enabled: Boolean) {
         saveSetting(KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartWeeklyPatternExclEmpty", "Chart weekly pattern excl-empty toggled", mapOf("enabled" to enabled))
     }
     /**
-     * Updates the set chart daily rhythm excl empty.
+     * Toggles excluding empty days from the daily-rhythm chart.
      */
     fun setChartDailyRhythmExclEmpty(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled.toString())
