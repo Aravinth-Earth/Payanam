@@ -12,7 +12,7 @@ import io.payanam.common.logging.UnifiedLogger
 
 @Immutable
 /**
- * Holds the insights visual tokens.
+ * Color tokens for the insights screens, derived from the current scheme.
  */
 data class InsightsVisualTokens(
     val cardContainer: Color,

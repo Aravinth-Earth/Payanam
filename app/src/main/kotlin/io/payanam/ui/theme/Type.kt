@@ -23,7 +23,7 @@ private fun resolveFontFamily(option: FontFamilyOption): FontFamily = when (opti
     FontFamilyOption.CURSIVE -> FontFamily.Cursive
 }
 /**
- * Creates the build typography.
+ * Material typography with the user's font-family preference applied.
  */
 fun buildTypography(fontFamilyOption: FontFamilyOption): Typography {
     val fontFamily = resolveFontFamily(fontFamilyOption)
