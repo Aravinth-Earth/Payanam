@@ -23,7 +23,7 @@ internal class LensHistoryBackfillCoordinator(
 ) {
     private var backfillJob: Job? = null
     /**
-     * Returns true when the cancel.
+     * Cancels any active backfill job.
      */
     fun cancel() {
         if (backfillJob?.isActive == true) {
@@ -32,11 +32,13 @@ internal class LensHistoryBackfillCoordinator(
         backfillJob?.cancel()
     }
     /**
-     * Performs the next limit after.
+     * The next progressive-history step above [currentDays] (null when at max).
      */
     fun nextLimitAfter(currentDays: Int): Int? = PROGRESSIVE_HISTORY_LIMITS.firstOrNull { it > currentDays }
     /**
-     * Performs the schedule.
+     * Runs the progressive backfill: rebuilds the time-history summary at
+     * widening day limits (14→365→all), applying each larger result via
+     * [onBackfillReady] while the lens selection is still current.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun schedule(
