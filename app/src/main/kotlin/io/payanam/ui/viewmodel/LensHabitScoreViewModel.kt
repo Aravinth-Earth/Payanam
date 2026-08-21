@@ -54,7 +54,7 @@ data class RadarAxis(
     val displayLabel: String = label,
 ) {
     /**
-     * Performs the today.
+     * Today's value component of [metric] for this row.
      */
     fun today(metric: ScoreMetricColumn): Double? = values[metric]?.first
     /** The running-average component of [metric] for this row. */
@@ -77,10 +77,12 @@ data class LensHabitScoreUiState(
     val error: String? = null,
 )
 
-@HiltViewModel
 /**
- * Provides the lens habit score view model.
+ * Lenses score-matrix ViewModel: loads the 14-day metric window (plus full
+ * history for ordinal ranks), builds dimension/day rows with sparklines and
+ * radar axes, and refreshes on score-change events.
  */
+@HiltViewModel
 class LensHabitScoreViewModel
     @Inject
     constructor(
