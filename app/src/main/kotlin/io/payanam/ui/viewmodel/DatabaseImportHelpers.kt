@@ -66,7 +66,9 @@ internal fun queryTableCount(database: SQLiteDatabase, tableName: String): Int =
 internal object DatabaseImportHelper {
     private val logger = UnifiedLogger.getInstance()
     /**
-     * Performs the resume import with passphrase.
+     * Resumes a pending encrypted import with its passphrase: verifies it can
+     * open the file, adopts it as the local key, health-checks, and completes
+     * setup.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeImportWithPassphrase(
@@ -149,7 +151,8 @@ internal object DatabaseImportHelper {
         }
     }
     /**
-     * Performs the resume encrypted import after unlock.
+     * Finishes an encrypted-DB import after the unlock gate: marks setup
+     * complete, clears the pending import, then invokes the success callback.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeEncryptedImportAfterUnlock(
