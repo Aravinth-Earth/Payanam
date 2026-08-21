@@ -79,7 +79,8 @@ import io.payanam.ui.screens.TimeScreen
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 /**
- * Provides the screen.
+ * Bottom-navigation destinations: route, localized title resource, and
+ * selected/unselected icons.
  */
 sealed class Screen(
     val route: String,
@@ -150,15 +151,15 @@ object Routes {
     const val SCORE_DETAIL = "score_detail/{type}/{key}"
     const val SCORING_CONFIG = "scoring_config"
     /**
-     * Performs the task detail.
+     * Builds the concrete task-detail route for [taskId].
      */
     fun taskDetail(taskId: String) = "task_detail/$taskId"
     /**
-     * Performs the edit task.
+     * Builds the concrete edit-task route for [taskId].
      */
     fun editTask(taskId: String) = "edit_task/$taskId"
     /**
-     * Performs the score detail.
+     * Builds the concrete score-detail route for [type] and [key].
      */
     fun scoreDetail(type: String, key: String) = "score_detail/$type/$key"
 }
@@ -206,9 +207,6 @@ fun PayanamNavHost(
 
     // Check if a route is allowed given current feature flags and preferences.
     // Delegates to NavRoutePolicy for testable logic; logs outcomes for observability.
-    /**
-     * Returns true when the is route allowed.
-     */
     fun isRouteAllowed(route: String): Boolean {
         val allowed = NavRoutePolicy.isAllowed(route, FeatureFlags.minimalModeEnabled)
         if (!allowed) {
