@@ -23,14 +23,17 @@ import io.payanam.feature.settings.AppStartUpdateChecker
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
-@HiltAndroidApp
 /**
- * Provides the payanam app.
+ * Application entry point: initializes logging before anything else, installs
+ * a crash handler that sync-logs and auto-exports the log ZIP, records the
+ * previous process exit reason, and creates notification channels.
  */
+@HiltAndroidApp
 class PayanamApp : Application() {
 
     /**
-     * Handles the on create.
+     * Boot sequence: logger first, crash handler + breadcrumbs, notification
+     * channels, then the lazy app-start update check.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onCreate() {
@@ -75,14 +78,15 @@ class PayanamApp : Application() {
         }
     }
 
+    /**
+     * Hilt entry point for the app-start update check, resolved lazily so
+     * nothing extra is built during super.onCreate().
+     */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
-    /**
-     * Defines the contract for app start update checker entry point.
-     */
     interface AppStartUpdateCheckerEntryPoint {
         /**
-         * Performs the app start update checker.
+         * Resolves the update checker lazily (kept out of super.onCreate()).
          */
         fun appStartUpdateChecker(): AppStartUpdateChecker
     }
