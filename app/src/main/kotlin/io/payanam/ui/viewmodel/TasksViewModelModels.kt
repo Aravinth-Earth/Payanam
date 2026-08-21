@@ -10,7 +10,8 @@ import io.payanam.ui.components.CheckmarkStatus
 import io.payanam.ui.components.DayCheckmark
 import java.time.LocalDate
 /**
- * Defines the contract for task filter.
+ * Filters for the one-time task list; persisted by [key] in app settings and
+ * restored with [fromKey] (defaulting to TODAY).
  */
 enum class TaskFilter(val key: String) {
     ALL("all"),
@@ -25,13 +26,15 @@ enum class TaskFilter(val key: String) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves a stored filter key back to a [TaskFilter], falling back to
+         * [TODAY] for unknown/null keys.
          */
         fun fromKey(key: String?): TaskFilter = entries.find { it.key == key } ?: TODAY
     }
 }
+
 /**
- * Defines the contract for task sort option.
+ * Sort orders for the one-time task list; persisted by [key] in app settings.
  */
 enum class TaskSortOption(val key: String) {
     SCORE_DESC("score_desc"),
@@ -49,13 +52,17 @@ enum class TaskSortOption(val key: String) {
 
     companion object {
         /**
-         * Performs the from key.
+         * Resolves a stored sort key back to a [TaskSortOption], defaulting to
+         * due-date-ascending for unknown/null keys.
          */
         fun fromKey(key: String?): TaskSortOption = entries.find { it.key == key } ?: DUE_DATE_ASC
     }
 }
+
 /**
- * Defines the contract for habit sort option.
+ * Simplified sort orders for the habit list, persisted by [key]. Legacy keys
+ * from the pre-simplification 18-option model are migrated to their nearest
+ * equivalent by [fromKey].
  */
 enum class HabitSortOption(val key: String) {
     BY_NAME("by_name"),
@@ -94,7 +101,9 @@ enum class HabitSortOption(val key: String) {
             "by_position" to BY_NAME,
         )
         /**
-         * Performs the from key.
+         * Resolves a stored sort key to a [HabitSortOption], mapping legacy
+         * pre-simplification keys via [legacyMigration] and defaulting to
+         * [SCORE_HIGH_LOW] for unknown/null.
          */
         fun fromKey(key: String?): HabitSortOption {
             if (key == null) return SCORE_HIGH_LOW
@@ -118,7 +127,8 @@ val HabitSortOption.displayName: String
 
 @Immutable
 /**
- * Holds the task checkmarks.
+ * A habit's checkmark history ([checkmarks], newest first) keyed by [taskId],
+ * used for the streak strip on habit cards.
  */
 data class TaskCheckmarks(
     val taskId: String,
@@ -127,7 +137,8 @@ data class TaskCheckmarks(
 
 @Immutable
 /**
- * Holds the task filter counts.
+ * Per-filter row counts for the one-time task list, shown as filter chips;
+ * looked up by [countFor].
  */
 data class TaskFilterCounts(
     val all: Int = 0,
@@ -140,7 +151,7 @@ data class TaskFilterCounts(
     val notActive: Int = 0,
 ) {
     /**
-     * Performs the count for.
+     * Row count for the given task [filter] chip.
      */
     fun countFor(filter: TaskFilter): Int = when (filter) {
         TaskFilter.ALL -> all
@@ -156,7 +167,10 @@ data class TaskFilterCounts(
 
 @Immutable
 /**
- * Holds the tasks chrome ui state.
+ * Slim chrome-level slice of [TasksUiState] for the app bar / tab headers:
+ * loading flag, list counts, active sort/filter/toggles, and the completion
+ * dialog visibility. Recomputed on every full-state change without forcing
+ * whole-list recompositions.
  */
 data class TasksChromeUiState(
     val isLoading: Boolean = true,
@@ -175,7 +189,7 @@ data class TasksChromeUiState(
 
 @Immutable
 /**
- * Holds the habits tab ui state.
+ * Rendered rows + total-count slice of [TasksUiState] for the Habits tab.
  */
 data class HabitsTabUiState(
     val rows: List<HabitRowUiModel> = emptyList(),
@@ -184,7 +198,8 @@ data class HabitsTabUiState(
 
 @Immutable
 /**
- * Holds the tasks tab ui state.
+ * Rendered rows + active filter/counts/overdue slice of [TasksUiState] for the
+ * one-time Tasks tab.
  */
 data class TasksTabUiState(
     val rows: List<TaskRowUiModel> = emptyList(),
@@ -195,7 +210,10 @@ data class TasksTabUiState(
 
 @Immutable
 /**
- * Holds the tasks ui state.
+ * Complete internal state for the Tasks/Habits screen: raw + filtered task
+ * lists, shaped habit/task rows, checkmark history and today-status maps,
+ * due-today flags, latest L1 summaries per habit, persisted sort/filter/
+ * toggle settings, counts, and the completion-dialog payload.
  */
 data class TasksUiState(
     val tasks: List<Task> = emptyList(),
