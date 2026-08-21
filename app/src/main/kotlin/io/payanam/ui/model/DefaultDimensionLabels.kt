@@ -24,7 +24,7 @@ object DefaultDimensionLabels {
         UNASSIGNED_DIMENSION_ID to R.string.loc_dimension_fallback_unassigned,
     )
     /**
-     * Performs the localized label.
+     * Locale-aware localized name for a canonical dimension (null if unknown).
      */
     fun localizedLabel(context: Context, dimensionId: String, languageTag: String? = null): String? {
         val resId = canonicalLabelResIds[dimensionId]
@@ -37,7 +37,7 @@ object DefaultDimensionLabels {
         }
     }
     /**
-     * Returns true when the canonical label.
+     * Language-neutral canonical name used for storage comparisons.
      */
     fun canonicalLabel(dimensionId: String): String? = if (dimensionId == UNASSIGNED_DIMENSION_ID) {
         CANONICAL_UNASSIGNED_LABEL
@@ -45,7 +45,8 @@ object DefaultDimensionLabels {
         DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
     }
     /**
-     * Returns the display label.
+     * Best display name for a dimension: the localized default unless the user
+     * stored a custom (non-app-owned) label.
      */
     fun resolveDisplayLabel(
         context: Context,
@@ -61,7 +62,8 @@ object DefaultDimensionLabels {
         return trimmed.ifBlank { localizedDefault ?: dimensionId }
     }
     /**
-     * Returns true when the canonicalize stored label.
+     * Normalizes a stored label to canonical form when it matches an
+     * app-owned default translation; custom labels pass through untouched.
      */
     fun canonicalizeStoredLabel(
         context: Context,
@@ -87,7 +89,8 @@ object DefaultDimensionLabels {
         return trimmed
     }
     /**
-     * Returns true when the is app owned default label.
+     * True when [label] equals any built-in default name (any supported
+     * locale) for this dimension — i.e. not user-customized.
      */
     fun isAppOwnedDefaultLabel(context: Context, dimensionId: String, label: String?): Boolean {
         val trimmed = label?.trim().orEmpty()
