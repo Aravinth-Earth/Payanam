@@ -35,7 +35,8 @@ internal class DesktopNoteStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     /**
-     * Loads the load state.
+     * Notes snapshot decoded from storage (seeding an empty one on first
+     * run); carries a decode error message when the payload is unreadable.
      */
     fun loadState(): DesktopNotesState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
@@ -70,7 +71,7 @@ internal class DesktopNoteStore(
         }
     }
     /**
-     * Creates the create note.
+     * Appends a new note and persists the re-sorted snapshot.
      */
     fun createNote(
         title: String,
@@ -103,7 +104,7 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
     /**
-     * Updates the update note.
+     * Replaces a note's fields (error state when the id is unknown).
      */
     fun updateNote(
         noteId: String,
@@ -143,7 +144,7 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
     /**
-     * Removes the delete note.
+     * Drops [noteId] from the snapshot and persists it.
      */
     fun deleteNote(noteId: String): DesktopNotesState {
         val currentState = loadState()
@@ -160,13 +161,13 @@ internal class DesktopNoteStore(
         return DesktopNotesState(snapshot = nextSnapshot)
     }
     /**
-     * Writes the save snapshot.
+     * Serializes and stores the notes snapshot.
      */
     fun saveSnapshot(snapshot: DesktopNotesSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
     /**
-     * Returns the notes file path.
+     * Path of the database file holding the notes payload.
      */
     fun getNotesFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
