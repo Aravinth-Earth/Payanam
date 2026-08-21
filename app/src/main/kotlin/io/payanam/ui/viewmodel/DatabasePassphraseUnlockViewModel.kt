@@ -29,7 +29,9 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
 /**
- * Holds the database passphrase unlock ui state.
+ * UI state for the unlock gate: unlock-in-progress flag, the classified error
+ * reason code, live lockout countdown, and a summary of the local database
+ * file (existence, size, last-modified, storage mode label).
  */
 data class DatabasePassphraseUnlockUiState(
     val isUnlocking: Boolean = false,
@@ -55,10 +57,12 @@ internal fun classifyDatabaseOpenFailureReason(error: Throwable?): String {
     }
 }
 
-@HiltViewModel
 /**
- * Provides the database passphrase unlock view model.
+ * Unlock-gate ViewModel: verifies the passphrase (with lockout enforcement),
+ * opens the encrypted DB session, supports Keystore-backed biometric unlock,
+ * and offers the destructive forgot-passphrase reset.
  */
+@HiltViewModel
 class DatabasePassphraseUnlockViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val encryptionManager: DatabaseEncryptionManager,
@@ -74,7 +78,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         loadDatabaseSummary()
     }
     /**
-     * Performs the refresh lockout state.
+     * Re-reads the lockout countdown from the encryption manager into state
+     * (called on screen focus).
      */
     fun refreshLockoutState() {
         val remaining = encryptionManager.getUnlockRemainingSeconds()
@@ -86,7 +91,9 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         _uiState.update { it.copy(lockoutSecondsRemaining = remaining) }
     }
     /**
-     * Performs the unlock.
+     * Verifies [passphrase] and opens the encrypted DB session on success;
+     * wrong attempts feed the lockout policy and failures surface as reason
+     * codes in state.
      */
     fun unlock(passphrase: String, onSuccess: () -> Unit) {
         logger.i(
@@ -255,7 +262,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         val executor = ContextCompat.getMainExecutor(context)
         val callback = object : BiometricPrompt.AuthenticationCallback() {
             /**
-             * Handles the on authentication succeeded.
+             * Biometric success: unwraps the stored passphrase with the OS-
+             * authenticated cipher and opens the DB session.
              */
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 val authenticatedCipher = result.cryptoObject?.cipher
@@ -312,7 +320,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             }
 
             /**
-             * Handles the on authentication error.
+             * Hard prompt error (negative button, timeout, or sensor lockout):
+             * surfaces a biometric-specific reason code.
              */
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 logger.w(
@@ -333,7 +342,8 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             }
 
             /**
-             * Handles the on authentication failed.
+             * A single unrecognized attempt; the prompt stays open (the system
+             * shows its own retry feedback).
              */
             override fun onAuthenticationFailed() {
                 logger.w(
@@ -360,11 +370,12 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         )
     }
     /**
-     * Returns true when the is biometric unlock enabled.
+     * Whether the user has biometric unlock turned on (drives UI affordances).
      */
     fun isBiometricUnlockEnabled(): Boolean = encryptionManager.isBiometricUnlockEnabled()
     /**
-     * Performs the forgot passphrase reset.
+     * Destructive recovery path: wipes all database artifacts and resets
+     * encryption state so the user can start over with a fresh setup.
      */
     fun forgotPassphraseReset(onSuccess: () -> Unit) {
         logger.w("DatabasePassphraseUnlockViewModel.forgotPassphraseReset", "Forgot-passphrase reset requested")
