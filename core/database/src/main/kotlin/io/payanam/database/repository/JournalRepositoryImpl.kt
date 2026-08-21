@@ -24,7 +24,9 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the journal repository impl.
+ * Room-backed implementation of [JournalRepository]. Wraps [JournalDao], maps
+ * between journal entities and domain models, and upserts day-journal entries
+ * and their scoped (per-scope / per-dimension) prompt responses.
  */
 class JournalRepositoryImpl
     @Inject
@@ -36,7 +38,8 @@ class JournalRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
         /**
-         * Returns the or create entry.
+         * Returns the journal entry for [date], creating and persisting a blank one
+         * when none exists yet. Returns the domain [DayJournalEntry].
          */
         override suspend fun getOrCreateEntry(date: LocalDate): DayJournalEntry {
             val dateStr = date.format(dateFormatter)
@@ -59,7 +62,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Registers the observe entry.
+         * Emits the journal entry for [date], mapped to the domain model (null when
+         * no entry exists), as a [Flow].
          */
         override fun observeEntry(date: LocalDate): Flow<DayJournalEntry?> {
             val dateStr = date.format(dateFormatter)
@@ -72,7 +76,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the responses.
+         * Emits all prompt responses for [entryId], mapped to the domain model, as
+         * a [Flow].
          */
         override fun getResponses(entryId: String): Flow<List<DayJournalResponse>> {
             logger.d("JournalRepositoryImpl.getResponses", "Subscribing to journal responses", mapOf("entryId" to entryId))
@@ -82,7 +87,9 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Writes the save response.
+         * Upserts a single prompt response from [input] for [entryId]. Edits the
+         * existing response when one matches (same scope + dimension + prompt key),
+         * otherwise inserts a new row. Returns the saved domain [DayJournalResponse].
          */
         override suspend fun saveResponse(
             entryId: String,
@@ -125,7 +132,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the response.
+         * Returns the single response for [entryId], [scope], [dimensionKey], and
+         * [promptKey], mapped to the domain model, or null when none matches.
          */
         override suspend fun getResponse(
             entryId: String,
@@ -153,7 +161,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the entry by date.
+         * Returns the journal entry for the ISO date string [dateString], mapped to
+         * the domain model, or null.
          */
         override suspend fun getEntryByDate(dateString: String): DayJournalEntry? {
             val entry =
@@ -174,7 +183,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Performs the insert entry.
+         * Persists a domain [DayJournalEntry] (insert-only; caller owns id and
+         * timestamps).
          */
         override suspend fun insertEntry(entry: DayJournalEntry) {
             val entity =
@@ -189,7 +199,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the responses by entry id.
+         * Returns every response for [entryId] as a one-shot domain list (used by
+         * export/import and bulk reads).
          */
         override suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse> {
             val responses =
@@ -210,7 +221,9 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Performs the upsert response.
+         * Upserts a whole domain [DayJournalResponse] (matches on entry + scope +
+         * dimension + prompt key). Updates the existing row when found, else inserts.
+         * Distinct from [saveResponse], which takes a partial [DayJournalResponseInput].
          */
         override suspend fun upsertResponse(response: DayJournalResponse) {
             val now = LocalDateTime.now().format(dateTimeFormatter)
@@ -247,7 +260,7 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the all journal entries.
+         * Emits every journal entry, mapped to the domain model, as a [Flow].
          */
         override fun getAllJournalEntries(): Flow<List<DayJournalEntry>> {
             logger.d("JournalRepositoryImpl.getAllJournalEntries", "Subscribing to all journal entries")
@@ -257,7 +270,8 @@ class JournalRepositoryImpl
         }
 
         /**
-         * Returns the total response count.
+         * Emits the total number of stored prompt responses, as a [Flow]. Backs the
+         * "X reflections written" style counters in the UI.
          */
         override fun getTotalResponseCount(): Flow<Int> =
             sessionManager.requireDatabase().journalDao().getAllResponses().map { responses ->

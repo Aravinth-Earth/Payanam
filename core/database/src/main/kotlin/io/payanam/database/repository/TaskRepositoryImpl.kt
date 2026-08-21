@@ -24,7 +24,10 @@ import javax.inject.Singleton
 @Singleton
 @Suppress("TooManyFunctions")
 /**
- * Provides the task repository impl.
+ * Room-backed implementation of [TaskRepository]. Wraps [TaskDao], maps between
+ * [TaskEntity] and domain [Task], resolves the life-dimension from an explicit
+ * id or category label, and invalidates the daily-insight cache for affected
+ * days whenever a task mutates.
  */
 class TaskRepositoryImpl
     @Inject
@@ -35,7 +38,7 @@ class TaskRepositoryImpl
         private val dateFormatter = java.time.format.DateTimeFormatter.ISO_LOCAL_DATE
 
         /**
-         * Returns the all tasks.
+         * Emits every task, mapped to the domain model, as a [Flow].
          */
         override fun getAllTasks(): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getAllTasks", "Fetching all tasks")
@@ -46,7 +49,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the tasks by status.
+         * Emits tasks whose status equals [status], mapped to the domain model, as
+         * a [Flow].
          */
         override fun getTasksByStatus(status: String): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksByStatus", "Subscribing tasks by status", mapOf("status" to status))
@@ -61,7 +65,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the tasks due on.
+         * Emits tasks whose `dueDate` falls on [date], mapped to the domain model,
+         * as a [Flow].
          */
         override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> {
             logger.d("TaskRepositoryImpl.getTasksDueOn", "Subscribing tasks due on day", mapOf("date" to date.toString()))
@@ -76,7 +81,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the task by id.
+         * Returns the task with [id] mapped to the domain model, or null when no
+         * such task exists.
          */
         override suspend fun getTaskById(id: String): Task? {
             val task =
@@ -94,7 +100,11 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Creates the create task.
+         * Persists a new task from [input]. Generates the id and timestamps,
+         * defaults every optional field (status = pending, duration = 60 min,
+         * impact/alignment/energy/control to "Moderate"), resolves the life-dimension,
+         * and marks the due day's insight dirty. `taskScore` is left null — the
+         * scoring module fills it later. Returns the created domain [Task].
          */
         override suspend fun createTask(input: TaskInput): Task {
             logger.i(
@@ -164,7 +174,11 @@ class TaskRepositoryImpl
 
         @Suppress("CyclomaticComplexMethod")
         /**
-         * Updates the update task.
+         * Applies a partial update from [input] to the existing task [id]. Missing
+         * fields fall back to the current values; the dimension is re-resolved and
+         * both the old and new due days are marked insight-dirty. Throws
+         * [IllegalArgumentException] when [id] does not exist. Returns the updated
+         * domain [Task].
          */
         override suspend fun updateTask(
             id: String,
@@ -233,7 +247,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Removes the delete task.
+         * Hard-deletes the task [id] and marks its due day insight-dirty. No
+         * archival — the row is removed entirely.
          */
         override suspend fun deleteTask(id: String) {
             logger.w("TaskRepositoryImpl.deleteTask", "Deleting task", mapOf("id" to id))
@@ -244,7 +259,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Performs the complete task.
+         * Marks the task [id] `completed`, stamps `completedAt`, marks the task's
+         * day insight-dirty, and returns the refreshed domain [Task].
          */
         override suspend fun completeTask(
             id: String,
@@ -271,7 +287,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Performs the skip task.
+         * Marks the task [id] `skipped` (no `completedAt`), marks its day
+         * insight-dirty, and returns the refreshed domain [Task].
          */
         override suspend fun skipTask(
             id: String,
@@ -291,7 +308,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Performs the miss task.
+         * Marks the task [id] `missed` (no `completedAt`), marks its day
+         * insight-dirty, and returns the refreshed domain [Task].
          */
         override suspend fun missTask(
             id: String,
@@ -311,7 +329,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Performs the archive task.
+         * Marks the task [id] `archived`, stamps `archivedAt`, marks its day
+         * insight-dirty, and returns the refreshed domain [Task].
          */
         override suspend fun archiveTask(id: String): Task {
             logger.i("TaskRepositoryImpl.archiveTask", "Archiving task", mapOf("id" to id))
@@ -328,7 +347,9 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Updates the update task score.
+         * Writes the scoring module's computed [score] onto the task [id], stamps
+         * `updatedAt`, and marks its day insight-dirty. `score` is null until the
+         * scoring module runs.
          */
         override suspend fun updateTaskScore(
             id: String,
@@ -349,7 +370,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the overdue tasks.
+         * Emits tasks whose due date is before now and whose status is not a
+         * terminal one, mapped to the domain model, as a [Flow].
          */
         override fun getOverdueTasks(): Flow<List<Task>> {
             val now = PersistedDateTime.format(LocalDateTime.now())
@@ -360,7 +382,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the todays tasks.
+         * Emits tasks due on the current day, mapped to the domain model, as a
+         * [Flow].
          */
         override fun getTodaysTasks(): Flow<List<Task>> {
             val today = LocalDate.now().format(dateFormatter)
@@ -371,7 +394,8 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Returns the recurring tasks.
+         * Returns every task with recurrence enabled, mapped to the domain model.
+         * Used by the scheduler that advances due recurring tasks.
          */
         override suspend fun getRecurringTasks(): List<Task> {
             val tasks =
@@ -385,7 +409,9 @@ class TaskRepositoryImpl
         }
 
         /**
-         * Updates the update recurrence state.
+         * Advances a recurring task [taskId] to its next due date: sets `dueDate`
+         * and `dayKey` from [newDueDate], records [lastOccurrenceDate], stamps
+         * `updatedAt`, and marks the new due day insight-dirty.
          */
         override suspend fun updateRecurrenceState(
             taskId: String,
