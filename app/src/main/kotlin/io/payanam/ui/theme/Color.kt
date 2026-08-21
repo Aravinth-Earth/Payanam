@@ -31,7 +31,7 @@ object LifeDimensionColors {
     val Learning = Color(0xFFFFC107) // Amber
     val Contribution = Color(0xFF607D8B) // Blue Grey
     /**
-     * Performs the for dimension id.
+     * Taxonomy color for a canonical dimension id, or null when unrecognized.
      */
     fun forDimensionId(dimensionId: String?): Color? {
         val normalizedId = dimensionId?.trim().orEmpty()
@@ -101,7 +101,7 @@ object StatusColors {
 
 // Score Colors (gradient based on score 0..1)
 /**
- * Performs the score color.
+ * Maps a 0..1 score onto a red→green severity gradient.
  */
 fun scoreColor(score: Float): Color = when {
     score >= 0.8f -> Color(0xFF4CAF50)
