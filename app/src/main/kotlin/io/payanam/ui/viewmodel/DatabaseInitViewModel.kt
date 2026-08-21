@@ -30,14 +30,18 @@ import java.io.File
 import java.util.Date
 import javax.inject.Inject
 /**
- * Returns the result.
+ * Outcome of resuming/completing a database import: [RestoredOk] if the
+ * pre-import backup was successfully restored after a failure, else
+ * [RestoreFailed].
  */
 sealed class RestoreResult {
     object RestoredOk : RestoreResult()
     object RestoreFailed : RestoreResult()
 }
 /**
- * Holds the database init ui state.
+ * Full UI state for the database-initialization screen: health/status of any
+ * existing DB, counts, import/create progress and confirmation prompts, restore
+ * outcome, and the awaiting-passphrase/awaiting-dimension-setup gates.
  */
 data class DatabaseInitUiState(
     val isChecking: Boolean = true,
@@ -64,7 +68,9 @@ data class DatabaseInitUiState(
     val awaitingDimensionSetup: Boolean = false,
 )
 /**
- * Defines the contract for database boot issue type.
+ * The category of problem detected when the existing database cannot be
+ * opened at boot (missing sidecar, version too old/new, invalid schema, open
+ * failure, or repairable/non-repairable generic).
  */
 enum class DatabaseBootIssueType {
     SIDECAR_PRIMARY_MISSING,
@@ -76,7 +82,8 @@ enum class DatabaseBootIssueType {
     NON_REPAIRABLE_GENERIC,
 }
 /**
- * Holds the database boot issue.
+ * A specific boot problem: its [type], an optional human-readable [detailMessage],
+ * and the [detectedVersion] of the offending database.
  */
 data class DatabaseBootIssue(
     val type: DatabaseBootIssueType,
@@ -84,10 +91,13 @@ data class DatabaseBootIssue(
     val detectedVersion: Int = 0,
 )
 
-@HiltViewModel
 /**
- * Provides the database init view model.
+ * ViewModel for the first-run database-initialization screen: checks the
+ * health of any existing DB, and drives the create-new / import / encrypted-
+ * import-resume flows (each with wipe confirmation, safety backup, and
+ * restore-on-failure). Also owns the mandatory life-dimension setup gate.
  */
+@HiltViewModel
 class DatabaseInitViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appSettingsRepository: AppSettingsRepository,
@@ -269,14 +279,17 @@ class DatabaseInitViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the retry database status check.
+     * Re-runs the database health/status check (used by the retry button after
+     * a failure or corruption report).
      */
     fun retryDatabaseStatusCheck() {
         logger.i("DatabaseInitViewModel.retryDatabaseStatusCheck", "Retrying database status check")
         checkDatabaseStatus()
     }
     /**
-     * Creates the create new database.
+     * Starts the "create new database" flow with [passphrase]: if existing DB
+     * artifacts are present, asks for wipe confirmation first, otherwise goes
+     * straight to mandatory dimension setup.
      */
     fun createNewDatabase(passphrase: String) {
         logger.i("DatabaseInitViewModel.createNewDatabase", "Create new database requested")
@@ -293,7 +306,8 @@ class DatabaseInitViewModel @Inject constructor(
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = false)
     }
     /**
-     * Performs the confirm create new.
+     * User confirmed the wipe-then-create: proceeds to mandatory dimension
+     * setup with [passphrase] and [needsWipe] = true.
      */
     fun confirmCreateNew(passphrase: String) {
         logger.i("DatabaseInitViewModel.confirmCreateNew", "User confirmed create new with wipe")
@@ -301,14 +315,14 @@ class DatabaseInitViewModel @Inject constructor(
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = true)
     }
     /**
-     * Returns true when the cancel create new wipe.
+     * Dismisses the create-new wipe confirmation prompt without wiping.
      */
     fun cancelCreateNewWipe() {
         logger.i("DatabaseInitViewModel.cancelCreateNewWipe", "User cancelled create new wipe confirm")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
     }
     /**
-     * Performs the dismiss restore result.
+     * Clears the shown restore outcome and re-checks DB status.
      */
     fun dismissRestoreResult() {
         _uiState.update { it.copy(restoreResult = null) }
@@ -333,7 +347,9 @@ class DatabaseInitViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the complete new database dimension setup.
+     * Finalizes a new database: configures the passphrase, optionally wipes the
+     * old artifacts (with a safety backup), opens the session, and persists the
+     * mandatory life-dimension setup; on failure restores from the backup.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeNewDatabaseDimensionSetup(
@@ -424,7 +440,9 @@ class DatabaseInitViewModel @Inject constructor(
         }
     }
     /**
-     * Loads the import database.
+     * Begins importing a database from [sourceUri]: if existing DB artifacts are
+     * present, asks for wipe confirmation first, otherwise imports immediately;
+     * [onSuccess] runs after a successful import.
      */
     fun importDatabase(sourceUri: Uri, onSuccess: () -> Unit) {
         logger.i(
@@ -449,7 +467,8 @@ class DatabaseInitViewModel @Inject constructor(
         executeImportDatabase(sourceUri, onSuccess)
     }
     /**
-     * Performs the confirm import after wipe.
+     * User confirmed the wipe-then-import: runs the actual import of the
+     * previously-staged [Uri] into the app's database.
      */
     fun confirmImportAfterWipe(onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.confirmImportAfterWipe", "User confirmed import with wipe")
@@ -461,7 +480,7 @@ class DatabaseInitViewModel @Inject constructor(
         executeImportDatabase(uri, cb)
     }
     /**
-     * Returns true when the cancel import wipe.
+     * Dismisses the import wipe confirmation prompt without importing.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cancelImportWipe() {
@@ -473,15 +492,18 @@ class DatabaseInitViewModel @Inject constructor(
 
     private sealed class ImportIOResult {
         /**
-         * Holds the needs passphrase.
+         * The imported file is encrypted: import is paused so the UI can prompt
+         * for the passphrase; [dbFile] and [tempBackupDir] are retained for resume.
          */
         data class NeedsPassphrase(val dbFile: File, val tempBackupDir: File?) : ImportIOResult()
         /**
-         * Holds the completed.
+         * The import finished successfully; [dbFile] is the finalized database and
+         * [passphrase] is the session key (null in plaintext mode).
          */
         data class Completed(val dbFile: File, val passphrase: String?) : ImportIOResult()
         /**
-         * Holds the failed.
+         * The import failed: [cause] is the error, [restoreAttempted]/
+         * [restoreSucceeded] describe whether the pre-import backup was recovered.
          */
         data class Failed(
             val cause: Throwable,
@@ -742,7 +764,9 @@ class DatabaseInitViewModel @Inject constructor(
         }
     }
     /**
-     * Performs the resume import with passphrase.
+     * Resumes an encrypted import using the user-supplied [passphrase]: verifies
+     * it unlocks the staged DB, configures it, health-checks, opens the session,
+     * and on wrong passphrase keeps the prompt open (other failures restore backup).
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
@@ -851,7 +875,8 @@ class DatabaseInitViewModel @Inject constructor(
         }
     }
     /**
-     * Returns true when the cancel import passphrase.
+     * Cancels the encrypted-import passphrase prompt: restores pre-import backup,
+     * deletes the staged file, and returns to the status screen.
      */
     fun cancelImportPassphrase() {
         logger.i("DatabaseInitViewModel.cancelImportPassphrase", "User cancelled imported DB passphrase prompt")
@@ -889,7 +914,8 @@ class DatabaseInitViewModel @Inject constructor(
 
     private fun readDatabaseInitCompletedFlag(dbFile: File): Boolean = dbInitReadInitCompletedFlag(dbFile)
     /**
-     * Performs the continue with existing database.
+     * Marks DB-init as completed for an already-healthy existing database and
+     * proceeds (best-effort; still calls [onSuccess] if the flag write fails).
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
