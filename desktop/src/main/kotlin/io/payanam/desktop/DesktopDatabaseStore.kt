@@ -25,7 +25,8 @@ internal class DesktopDatabaseStore(
 ) {
     private val databaseFilePath: Path = persistenceDatabase.getDatabaseFilePath()
     /**
-     * Loads the load snapshot.
+     * Current database facts: path, artifact presence, init state, size, and
+     * last-modified time.
      */
     fun loadSnapshot(): DesktopDatabaseSnapshot =
         DesktopDatabaseSnapshot(
@@ -36,7 +37,7 @@ internal class DesktopDatabaseStore(
             databaseLastModifiedMs = databaseLastModifiedEpochMillis(),
         )
     /**
-     * Performs the ensure initialized.
+     * Marks the database initialized (idempotent) and returns fresh state.
      */
     fun ensureInitialized(): DesktopDatabaseSnapshot {
         persistenceDatabase.markInitialized()
@@ -48,7 +49,7 @@ internal class DesktopDatabaseStore(
         return loadSnapshot()
     }
     /**
-     * Removes the reset database artifact.
+     * Wipes all state entries and the init marker (destructive reset).
      */
     fun resetDatabaseArtifact(): DesktopDatabaseSnapshot {
         persistenceDatabase.clearStateEntries()
@@ -61,7 +62,7 @@ internal class DesktopDatabaseStore(
         return loadSnapshot()
     }
     /**
-     * Returns the database file path.
+     * Path of the SQLite database file.
      */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
