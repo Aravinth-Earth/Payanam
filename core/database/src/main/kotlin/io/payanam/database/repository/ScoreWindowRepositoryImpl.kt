@@ -13,7 +13,10 @@ import javax.inject.Singleton
 
 @Singleton
 /**
- * Provides the score window repository impl.
+ * Room-backed implementation of [ScoreWindowRepository]. Reads the per-day
+ * ([DayMetricDao]) and per-dimension ([DimensionMetricDao]) time-series
+ * tables and projects them into [MetricWindowRow] domain rows for the
+ * Life Lens scoring UI.
  */
 class ScoreWindowRepositoryImpl
     @Inject
@@ -23,7 +26,8 @@ class ScoreWindowRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Returns the dimension window.
+         * Returns dimension metric rows within the inclusive [start]..[end] window,
+         * each projected as [MetricWindowRow].
          */
         override suspend fun getDimensionWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()
@@ -48,7 +52,8 @@ class ScoreWindowRepositoryImpl
         }
 
         /**
-         * Returns the day window.
+         * Returns day metric rows within the inclusive [start]..[end] window, each
+         * projected as [MetricWindowRow].
          */
         override suspend fun getDayWindow(start: String, end: String): List<MetricWindowRow> {
             val db = sessionManager.requireDatabase()
@@ -72,19 +77,22 @@ class ScoreWindowRepositoryImpl
         }
 
         /**
-         * Performs the earliest day key.
+         * Returns the earliest `dayKey` present in the day-metrics table, or null
+         * when empty.
          */
         override suspend fun earliestDayKey(): String? =
             sessionManager.requireDatabase().dayMetricDao().earliestDayKey()
 
         /**
-         * Performs the earliest dimension day key.
+         * Returns the earliest `dayKey` for one [dimensionId]'s dimension-metric
+         * rows, or null.
          */
         override suspend fun earliestDimensionDayKey(dimensionId: String): String? =
             sessionManager.requireDatabase().dimensionMetricDao().earliestDayKey(dimensionId)
 
         /**
-         * Performs the earliest dimension day key.
+         * Returns the earliest `dayKey` across all dimensions in the
+         * dimension-metrics table, or null.
          */
         override suspend fun earliestDimensionDayKey(): String? =
             sessionManager.requireDatabase().dimensionMetricDao().earliestDayKeyGlobal()
