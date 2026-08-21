@@ -27,13 +27,15 @@ import java.time.format.FormatStyle
 import java.util.UUID
 import javax.inject.Inject
 /**
- * Defines the contract for day tab.
+ * Tabs of the Day screen (currently only the combined SUMMARY view).
  */
 enum class DayTab {
     SUMMARY,
 }
 /**
- * Holds the day ui state.
+ * UI state for the Day screen: selected date/tab, the loaded journal entry
+ * with its overall + per-dimension prompt responses, dates with saves still
+ * in flight, and the last successfully saved date.
  */
 data class DayUiState(
     val isLoading: Boolean = true,
@@ -48,10 +50,12 @@ data class DayUiState(
 val OVERALL_JOURNAL_PROMPTS = JournalReflectionContracts.overallPrompts.map { it.key to it.prompt }
 val DIMENSION_JOURNAL_PROMPTS = JournalReflectionContracts.dimensionPrompts.map { it.key to it.prompt }
 
-@HiltViewModel
 /**
- * Provides the day view model.
+ * Day-screen ViewModel: date navigation (never into the future) and the
+ * day-journal editor — overall + dimension prompt responses persisted with a
+ * 500 ms debounce, keyed per date/scope/prompt.
  */
+@HiltViewModel
 class DayViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
 ) : ViewModel() {
@@ -77,7 +81,7 @@ class DayViewModel @Inject constructor(
         loadDayData()
     }
     /**
-     * Performs the previous day.
+     * Moves the selection back one day and reloads its journal data.
      */
     fun previousDay() {
         val newDate = _uiState.value.selectedDate.minusDays(1)
@@ -86,7 +90,7 @@ class DayViewModel @Inject constructor(
         loadDayData()
     }
     /**
-     * Performs the next day.
+     * Moves the selection forward one day (never beyond today) and reloads.
      */
     fun nextDay() {
         val currentDate = _uiState.value.selectedDate
@@ -105,7 +109,7 @@ class DayViewModel @Inject constructor(
         loadDayData()
     }
     /**
-     * Performs the go to today.
+     * Jumps the selection back to today and reloads its journal data.
      */
     fun goToToday() {
         logger.d("DayViewModel.goToToday", "Navigating to today")
@@ -113,7 +117,7 @@ class DayViewModel @Inject constructor(
         loadDayData()
     }
     /**
-     * Performs the select date.
+     * Selects [date] (clamped to today if in the future) and reloads its data.
      */
     fun selectDate(date: LocalDate) {
         val today = LocalDate.now()
@@ -131,22 +135,24 @@ class DayViewModel @Inject constructor(
         loadDayData()
     }
     /**
-     * Performs the select tab.
+     * Switches tabs; currently pinned to [DayTab.SUMMARY] (the only tab).
      */
     fun selectTab(tab: DayTab) {
         logger.d("DayViewModel.selectTab", "Tab selected", mapOf("tab" to tab.name))
         _uiState.update { it.copy(selectedTab = DayTab.SUMMARY) }
     }
     /**
-     * Returns the formatted date.
+     * Locale-formatted full date label for the header.
      */
     fun getFormattedDate(): String = _uiState.value.selectedDate.format(displayDateFormatter)
     /**
-     * Returns true when the is today.
+     * True when the selected date is today (controls forward-navigation).
      */
     fun isToday(): Boolean = _uiState.value.selectedDate == LocalDate.now()
     /**
-     * Updates the update overall response.
+     * Records the user's answer [response] to overall prompt [promptKey] for
+     * [sourceDate] (only applied if that date is still selected) and queues a
+     * debounced persistence.
      */
     fun updateOverallResponse(sourceDate: LocalDate, promptKey: String, response: String) {
         logger.d(
@@ -176,7 +182,8 @@ class DayViewModel @Inject constructor(
         )
     }
     /**
-     * Updates the update dimension response.
+     * Records the user's answer to a dimension-scoped prompt (canonicalizing
+     * [dimensionId]; non-canonical ids are ignored) and queues a debounced save.
      */
     fun updateDimensionResponse(
         sourceDate: LocalDate,
@@ -349,7 +356,7 @@ class DayViewModel @Inject constructor(
     }
 
     /**
-     * Handles the on cleared.
+     * Cancels all pending debounced journal saves when the ViewModel dies.
      */
     override fun onCleared() {
         pendingJournalSaves.values.forEach { it.cancel() }
