@@ -10,7 +10,8 @@ import java.time.format.DateTimeFormatter
 const val DAILY_INSIGHT_MODULE_UNIFIED_SNAPSHOT = "lens_unified_snapshot"
 const val DAILY_INSIGHT_MODULE_LENS_DIRTY_DAY = "lens_dirty_day"
 /**
- * Holds the lens dirty day metadata.
+ * Tracks which days have stale lens snapshots and which modules changed, so the
+ * next lens refresh only recomputes what's needed.
  */
 data class LensDirtyDayMetadata(
     val dayKey: String,
@@ -19,7 +20,8 @@ data class LensDirtyDayMetadata(
     val reason: String,
 )
 /**
- * Performs the mark lens day dirty.
+ * Marks [dayKey] as dirty for [changedModules], merging into any existing marker and
+ * logging the reason. Stored as a daily_insights row keyed by `lens_dirty_<dayKey>`.
  */
 suspend fun markLensDayDirty(
     dailyInsightDao: DailyInsightDao,
@@ -61,7 +63,7 @@ suspend fun markLensDayDirty(
     )
 }
 /**
- * Removes the clear lens day dirty.
+ * Clears the dirty marker for [dayKey] (lens snapshot is now up to date).
  */
 suspend fun clearLensDayDirty(
     dailyInsightDao: DailyInsightDao,
@@ -76,7 +78,7 @@ suspend fun clearLensDayDirty(
     )
 }
 /**
- * Loads the load lens dirty day metadata.
+ * Reads the dirty-day metadata for [dayKey], or null if the day is clean.
  */
 suspend fun loadLensDirtyDayMetadata(
     dailyInsightDao: DailyInsightDao,
@@ -87,7 +89,7 @@ suspend fun loadLensDirtyDayMetadata(
     return decodeLensDirtyDayMetadata(dayKey, summary)
 }
 /**
- * Returns the lens dirty day keys.
+ * Returns the subset of [dayKeys] that currently have a dirty marker.
  */
 suspend fun getLensDirtyDayKeys(
     dailyInsightDao: DailyInsightDao,

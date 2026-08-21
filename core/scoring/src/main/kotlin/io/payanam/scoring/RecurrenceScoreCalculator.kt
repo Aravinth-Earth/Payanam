@@ -147,7 +147,8 @@ object RecurrenceScoreCalculator {
         }
         
         /**
-         * Performs the calculate rate.
+         * Completion rate over the trailing [days]-day window (dayIndex 0 = today).
+         * Days with no actionable occurrences count as satisfied (1.0).
          */
         fun calculateRate(days: Int): Double {
             val relevant = occurrences.filter { it.first <= days }

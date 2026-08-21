@@ -17,9 +17,6 @@ import kotlinx.coroutines.flow.asSharedFlow
  * catch-up path emits [LocalDate.now] since it spans many days.
  */
 @Singleton
-/**
- * Provides the score change event bus.
- */
 class ScoreChangeEventBus @Inject constructor() {
     private val _events = MutableSharedFlow<LocalDate>(extraBufferCapacity = 16)
     /** Hot stream of score-change dates; replay-free, conflated by SharedFlow. */
