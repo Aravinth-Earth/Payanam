@@ -74,7 +74,8 @@ import javax.inject.Inject
  */
 sealed interface ExternalNavigationCommand {
     /**
-     * Holds the open time screen.
+     * A command from outside the nav graph (widget/notification) asking to open
+     * the Time screen, optionally into quick-start or stop-tracking mode.
      */
     data class OpenTimeScreen(
         val openQuickStart: Boolean,
@@ -84,10 +85,13 @@ sealed interface ExternalNavigationCommand {
     ) : ExternalNavigationCommand
 }
 
-@AndroidEntryPoint
 /**
- * Provides the main activity.
+ * Single-activity entry point: owns the startup gate sequence (database init,
+ * passphrase setup/unlock, focus-mode onboarding), language/theme application,
+ * external navigation intents, DB-session lifecycle (auto-lock touch, WAL
+ * checkpointing), and process-restart handling after DB-replacing operations.
  */
+@AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
     private val pendingExternalCommand = MutableStateFlow<ExternalNavigationCommand?>(null)
@@ -117,7 +121,8 @@ class MainActivity : FragmentActivity() {
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
     /**
-     * Handles the on user interaction.
+     * Keeps the DB session alive: every user interaction resets the auto-lock
+     * idle timer.
      */
     override fun onUserInteraction() {
         super.onUserInteraction()
@@ -125,7 +130,10 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on create.
+     * Startup orchestrator: resolves DB artifact/encryption/health state,
+     * self-heals an invalid boot state, decides which gate to show (database
+     * init / passphrase setup / unlock / focus-mode onboarding), then composes
+     * the app UI with language + theme preferences applied.
      */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -425,7 +433,9 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on start.
+     * Foreground entry: rotates the log session if needed, refreshes the home-
+     * screen widget, and kicks off startup maintenance unless a startup gate
+     * is still pending.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onStart() {
@@ -545,7 +555,8 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on new intent.
+     * Re-handled while the activity is alive (singleTop): captures external
+     * navigation commands from notifications/widgets/deep links.
      */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
@@ -553,7 +564,8 @@ class MainActivity : FragmentActivity() {
         handleExternalNavigationIntent(intent)
     }
     /**
-     * Handles the on resume.
+     * Safety-net relock: if encryption is on but the DB session died while
+     * backgrounded, presents the in-place unlock gate again.
      */
     override fun onResume() {
         super.onResume()
@@ -580,7 +592,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on pause.
+     * Marks the background timestamp used by log-session rotation.
      */
     override fun onPause() {
         super.onPause()
@@ -588,7 +600,8 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on stop.
+     * Durability flush before backgrounding: WAL-checkpoints the encrypted DB
+     * and flushes the log buffer so a process kill loses nothing.
      */
     override fun onStop() {
         super.onStop()
@@ -604,7 +617,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /**
-     * Handles the on destroy.
+     * Final teardown logging for the activity.
      */
     override fun onDestroy() {
         super.onDestroy()
