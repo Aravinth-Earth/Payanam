@@ -10,7 +10,8 @@ import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.round
 /**
- * Holds the time module day metric.
+ * One day's time-module result: day score, day-over-day progress delta,
+ * improving streak length, and per-dimension scores.
  */
 data class TimeModuleDayMetric(
     val dayKey: String,
@@ -20,7 +21,8 @@ data class TimeModuleDayMetric(
     val perDimensionScores: Map<String, Double>,
 )
 /**
- * Holds the time module history summary.
+ * Time-module history for a lens window: the focus day's metric plus its
+ * rank against all loaded days.
  */
 data class TimeModuleHistorySummary(
     val currentDayKey: String,
