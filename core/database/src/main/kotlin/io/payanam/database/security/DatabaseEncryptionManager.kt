@@ -26,7 +26,11 @@ import javax.crypto.spec.PBEKeySpec
 
 @Suppress("TooManyFunctions")
 /**
- * Provides the database encryption manager.
+ * Owns the at-rest encryption metadata for the local database: the PBKDF2
+ * passphrase verifier, the plaintext-vs-encrypted mode flag, biometric
+ * Keystore wrapping, the session timeout, and the unlock lockout counter.
+ * All state is persisted in a private SharedPreferences store and every
+ * mutating step is breadcrumbed for crash-safety.
  */
 class DatabaseEncryptionManager(
     context: Context,
@@ -50,25 +54,29 @@ class DatabaseEncryptionManager(
         sanitizeLegacySecurityState()
     }
     /**
-     * Returns true when the has passphrase configured.
+     * True only when encryption is on AND both the PBKDF2 verifier hash and
+     * salt are present — i.e. a usable passphrase was configured.
      */
     fun hasPassphraseConfigured(): Boolean =
         prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED &&
             !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
             !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank()
     /**
-     * Returns true when the is encryption enabled.
+     * True when the database is stored in encrypted mode (the mode flag says
+     * so); does not itself prove a passphrase verifier exists.
      */
     fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
     /**
-     * Returns the session timeout minutes.
+     * The configured auto-lock duration in minutes, clamped to the
+     * [MIN_SESSION_TIMEOUT_MINUTES]..[MAX_SESSION_TIMEOUT_MINUTES] range.
      */
     fun getSessionTimeoutMinutes(): Int {
         val stored = prefs.getInt(KEY_SESSION_TIMEOUT_MINUTES, DEFAULT_SESSION_TIMEOUT_MINUTES)
         return stored.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
     }
     /**
-     * Updates the set session timeout minutes.
+     * Persists the auto-lock duration, normalizing [minutes] into the allowed
+     * range before writing.
      */
     fun setSessionTimeoutMinutes(minutes: Int) {
         val normalized = minutes.coerceIn(MIN_SESSION_TIMEOUT_MINUTES, MAX_SESSION_TIMEOUT_MINUTES)
@@ -80,14 +88,18 @@ class DatabaseEncryptionManager(
         )
     }
     /**
-     * Returns true when the is biometric unlock enabled.
+     * True only when the biometric preference is set AND the biometric-wrapped
+     * passphrase material actually exists (a stale pref without material is
+     * treated as disabled).
      */
     fun isBiometricUnlockEnabled(): Boolean {
         val enabled = prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
         return enabled && hasBiometricWrappedPassphrase()
     }
     /**
-     * Updates the set biometric unlock enabled.
+     * Turns biometric unlock on/off. Enabling is refused (and logged) unless a
+     * biometric-wrapped passphrase already exists; disabling delegates to the
+     * internal teardown that also clears Keystore material.
      */
     fun setBiometricUnlockEnabled(enabled: Boolean) {
         logger.i(
@@ -117,7 +129,9 @@ class DatabaseEncryptionManager(
         )
     }
     /**
-     * Performs the disable biometric unlock.
+     * Fully tears down biometric unlock: clears the wrapped-passphrase prefs
+     * and deletes the biometric-protected Keystore alias, breadcrumbed and
+     * failure-safe. Returns true on success.
      */
     fun disableBiometricUnlock(): Boolean {
         logger.i(
@@ -166,7 +180,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Performs the configure passphrase.
+     * First-time passphrase setup. Derives and persists the PBKDF2 verifier,
+     * clears any prior biometric material, flips the mode to encrypted, and
+     * records each step via breadcrumbs. Returns true on success.
      */
     fun configurePassphrase(passphrase: String): Boolean {
         logger.i(
@@ -235,7 +251,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Updates the update passphrase.
+     * Changes the passphrase: verifies [currentPassphrase] first, then persists
+     * a fresh verifier and drops biometric wrapping (must be re-enrolled).
+     * Returns false if the current passphrase does not verify.
      */
     fun updatePassphrase(
         currentPassphrase: String,
@@ -267,7 +285,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Removes the reset encryption state.
+     * Wipes all encryption state: clears the security prefs and deletes both
+     * the biometric and legacy Keystore aliases. Used when the user opts out
+     * of encryption entirely. Returns true on success.
      */
     fun resetEncryptionState(): Boolean {
         CrashSafeBreadcrumbs.record(
@@ -298,7 +318,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Performs the backup encryption prefs.
+     * Copies the current encryption prefs into side-car backup keys (prefixed
+     * `_bak_`) so they can be restored after a failed migration. Returns true
+     * on success.
      */
     fun backupEncryptionPrefs(): Boolean {
         logger.i(
@@ -328,7 +350,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Loads the restore encryption prefs.
+     * Restores encryption prefs from the `_bak_` side-car keys, removing the
+     * backups afterwards, then re-sanitizes any legacy state. Returns true on
+     * success.
      */
     fun restoreEncryptionPrefs(): Boolean {
         logger.i(
@@ -359,7 +383,8 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Removes the clear encryption prefs backup.
+     * Deletes the `_bak_` side-car backup keys once a migration is confirmed
+     * good, so stale backups can't shadow live prefs.
      */
     fun clearEncryptionPrefsBackup() {
         val editor = prefs.edit()
@@ -375,7 +400,9 @@ class DatabaseEncryptionManager(
         )
     }
     /**
-     * Performs the verify passphrase.
+     * Validates [passphrase] by re-deriving the PBKDF2 verifier from the stored
+     * salt and comparing it against the stored hash with a constant-time
+     * [MessageDigest.isEqual] to avoid timing leaks.
      */
     fun verifyPassphrase(passphrase: String): Boolean {
         val salt = decodeOrNull(prefs.getString(KEY_VERIFIER_SALT, null))
@@ -398,13 +425,16 @@ class DatabaseEncryptionManager(
         return valid
     }
     /**
-     * Returns true when the has biometric wrapped passphrase.
+     * True when both the biometric-wrapped ciphertext and its IV are stored —
+     * the prerequisite for offering biometric unlock.
      */
     fun hasBiometricWrappedPassphrase(): Boolean =
         !prefs.getString(KEY_BIOMETRIC_WRAPPED_PASSPHRASE, null).isNullOrBlank() &&
             !prefs.getString(KEY_BIOMETRIC_WRAPPED_IV, null).isNullOrBlank()
     /**
-     * Returns the cipher for biometric enrollment.
+     * Builds an AES/GCM cipher in encrypt mode bound to (creating if needed)
+     * the biometric-required Keystore key, for wrapping the passphrase during
+     * biometric enrollment.
      */
     fun getCipherForBiometricEnrollment(): Cipher {
         val cipher = Cipher.getInstance(TRANSFORMATION)
@@ -416,7 +446,9 @@ class DatabaseEncryptionManager(
         return cipher
     }
     /**
-     * Performs the store biometric wrapped passphrase with cipher.
+     * Encrypts [passphrase] with the enrollment [cipher] and persists the
+     * resulting ciphertext + IV. All in-memory key material is zeroed in a
+     * `finally` block after the write. Returns true on success.
      */
     fun storeBiometricWrappedPassphraseWithCipher(
         cipher: Cipher,
@@ -454,7 +486,9 @@ class DatabaseEncryptionManager(
             false
         }
     /**
-     * Returns the cipher for biometric unlock.
+     * Builds an AES/GCM decrypt cipher from the stored biometric IV and the
+     * existing biometric Keystore key, for unwrapping the passphrase during a
+     * biometric unlock.
      */
     fun getCipherForBiometricUnlock(): Cipher {
         val encodedIv =
@@ -473,7 +507,9 @@ class DatabaseEncryptionManager(
         return cipher
     }
     /**
-     * Performs the unwrap passphrase with cipher.
+     * Decrypts the stored biometric-wrapped passphrase using the unlock
+     * [cipher] and returns it as cleartext; the decrypted buffer is zeroed in
+     * `finally` before the string is returned.
      */
     fun unwrapPassphraseWithCipher(cipher: Cipher): String {
         val encodedCipherText =
@@ -494,7 +530,8 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Returns the unlock remaining seconds.
+     * Seconds left on the current unlock lockout (0 if no lockout is active),
+     * derived from the stored lockout-until timestamp.
      */
     fun getUnlockRemainingSeconds(): Long {
         val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)
@@ -506,7 +543,9 @@ class DatabaseEncryptionManager(
         }
     }
     /**
-     * Performs the record failed unlock attempt.
+     * Registers a failed unlock: bumps the attempt counter, computes the
+     * escalating lockout delay via [PassphraseLockoutPolicy], and persists the
+     * new lockout-until timestamp. Returns the applied delay in seconds.
      */
     fun recordFailedUnlockAttempt(): Long {
         val attempts = prefs.getInt(KEY_UNLOCK_FAILED_ATTEMPTS, 0) + 1
@@ -530,7 +569,8 @@ class DatabaseEncryptionManager(
         return delaySeconds
     }
     /**
-     * Removes the reset unlock attempts.
+     * Clears the failed-attempt counter and the lockout-until timestamp, used
+     * after a successful unlock to re-arm the lockout policy.
      */
     fun resetUnlockAttempts() {
         prefs
