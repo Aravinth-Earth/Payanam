@@ -61,7 +61,7 @@ fun TagEditorField(
     }
 }
 /**
- * Performs the parse tags input.
+ * Splits a comma-separated tag string into trimmed, distinct tags.
  */
 fun parseTagsInput(rawTags: String): List<String> = rawTags
     .split(",")
