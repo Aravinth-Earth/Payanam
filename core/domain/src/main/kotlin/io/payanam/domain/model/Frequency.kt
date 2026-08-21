@@ -25,7 +25,7 @@ data class Frequency(
     }
     val toDouble: Double get() = numerator.toDouble() / denominator
     /**
-     * Performs the display name.
+     * Human-readable label (Daily, Weekdays, 3×/week, Monthly...).
      */
     fun displayName(): String = when {
         numerator == denominator -> "Daily"
@@ -41,14 +41,14 @@ data class Frequency(
         else -> "$numerator×/$denominator days"
     }
     /**
-     * Performs the serialize.
+     * Serializes to `"num/den"` or `"num/den!start=YYYY-MM-DD"`.
      */
     fun serialize(): String = buildString {
         append("$numerator/$denominator")
         anchorDate?.let { append("!start=$it") }
     }
     /**
-     * Performs the with anchor.
+     * Returns a copy with [date] set as the recurrence anchor.
      */
     fun withAnchor(date: LocalDate): Frequency = copy(anchorDate = date)
 
@@ -62,11 +62,12 @@ data class Frequency(
         val YEARLY   = Frequency(1, 365)
         private val serializedPattern = Regex("""^\d+/\d+(!start=\d{4}-\d{2}-\d{2})?$""")
         /**
-         * Returns true when the is serialized rule.
+         * Returns true if [rule] matches the `"num/den(!start=...)"` shape.
          */
         fun isSerializedRule(rule: String?): Boolean = !rule.isNullOrBlank() && serializedPattern.matches(rule)
         /**
-         * Performs the parse.
+         * Parses a `"num/den(!start=...)"` string into a [Frequency]; blank
+         * falls back to [DAILY].
          */
         fun parse(s: String?): Frequency {
             if (s.isNullOrBlank()) return DAILY

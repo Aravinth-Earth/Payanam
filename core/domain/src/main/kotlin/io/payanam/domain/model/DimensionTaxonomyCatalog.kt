@@ -7,7 +7,8 @@ package io.payanam.domain.model
 
 import io.payanam.common.logging.UnifiedLogger
 /**
- * Holds the canonical dimension definition.
+ * One canonical life-dimension definition: stable [id], [slug], localized
+ * fallback label/description, display order, and default weight/color/icon.
  */
 data class CanonicalDimensionDefinition(
     val id: String,
@@ -158,13 +159,14 @@ object DimensionTaxonomyCatalog {
         )
     }
     /**
-     * Performs the from canonical id.
+     * Resolves a dimension by its canonical [id]; null when blank/unknown.
      */
     fun fromCanonicalId(id: String?): CanonicalDimensionDefinition? {
         return id?.let(entriesByCanonicalId::get)
     }
     /**
-     * Performs the from any id.
+     * Resolves a dimension by canonical or legacy alias id, warning callers that
+     * pass a non-canonical id (migration guard).
      */
     fun fromAnyId(id: String?): CanonicalDimensionDefinition? {
         if (id.isNullOrBlank()) {
@@ -197,7 +199,8 @@ object DimensionTaxonomyCatalog {
         }
     }
     /**
-     * Performs the from any label.
+     * Rejects label-based lookup (labels are not stable identifiers) and warns;
+     * always returns null — callers must use the canonical id.
      */
     fun fromAnyLabel(label: String?): CanonicalDimensionDefinition? {
         if (label.isNullOrBlank()) {
@@ -216,13 +219,13 @@ object DimensionTaxonomyCatalog {
         return null
     }
     /**
-     * Returns true when the is canonical label.
+     * Returns true if [label] matches a known canonical dimension label.
      */
     fun isCanonicalLabel(label: String?): Boolean {
         return !label.isNullOrBlank() && canonicalLabels.contains(label.trim())
     }
     /**
-     * Performs the default weight for dimension id.
+     * Returns the default scoring weight for [id], or 0.5 when unknown.
      */
     fun defaultWeightForDimensionId(id: String?): Double {
         return fromCanonicalId(id)?.defaultWeight ?: 0.5

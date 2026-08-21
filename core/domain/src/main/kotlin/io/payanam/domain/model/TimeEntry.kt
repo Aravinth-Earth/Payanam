@@ -37,7 +37,8 @@ data class TimeEntry(
     }
 }
 /**
- * Holds the time entry input.
+ * Editable payload for creating/updating a [TimeEntry] (excludes id +
+ * generated timestamps).
  */
 data class TimeEntryInput(
     val lifeIntentionCategory: String,

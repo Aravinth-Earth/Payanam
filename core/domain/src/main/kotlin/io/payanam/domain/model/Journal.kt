@@ -34,7 +34,7 @@ enum class JournalPromptScope {
     DIMENSION
 }
 /**
- * Holds the day journal response input.
+ * Editable payload for a journal prompt response (excludes id + entry link).
  */
 data class DayJournalResponseInput(
     val scope: JournalPromptScope,

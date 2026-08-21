@@ -259,7 +259,7 @@ data class RecurrenceConfig(
         return dates
     }
     /**
-     * Performs the count scheduled occurrences.
+     * Number of scheduled occurrences between [start] and [end] (inclusive).
      */
     fun countScheduledOccurrences(start: LocalDate, end: LocalDate): Int {
         return getScheduledDatesInRange(start, end).size
@@ -268,40 +268,40 @@ data class RecurrenceConfig(
     @Suppress("MagicNumber")
     companion object {
         /**
-         * Performs the parse.
+         * Parses an rrule/CONFIG string into a [RecurrenceConfig] (delegates to [RecurrenceConfigCodec]).
          */
         fun parse(rule: String?): RecurrenceConfig = RecurrenceConfigCodec.parse(rule)
         /**
-         * Performs the daily.
+         * Builds a [RecurrenceType.DAILY] config (delegates to [RecurrenceConfigCodec]).
          */
         fun daily(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.daily(startDate)
         /**
-         * Performs the weekdays.
+         * Builds a Mon-Fri [RecurrenceType.WEEKDAYS_ONLY] config.
          */
         fun weekdays(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.weekdays(startDate)
         /**
-         * Performs the specific weekdays.
+         * Builds a [RecurrenceType.SPECIFIC_WEEKDAYS] config from [DayOfWeek] values.
          */
         fun specificWeekdays(vararg days: DayOfWeek): RecurrenceConfig = RecurrenceConfigCodec.specificWeekdays(*days)
         /**
-         * Performs the specific weekdays.
+         * Builds a [RecurrenceType.SPECIFIC_WEEKDAYS] config from day-of-week ints (1=Mon..7=Sun).
          */
         fun specificWeekdays(days: Set<Int>): RecurrenceConfig = RecurrenceConfigCodec.specificWeekdays(days)
         /**
-         * Performs the monthly on dates.
+         * Builds a [RecurrenceType.MONTHLY_DATES] config (32 = last day of month).
          */
         fun monthlyOnDates(vararg dates: Int): RecurrenceConfig = RecurrenceConfigCodec.monthlyOnDates(*dates)
         /**
-         * Performs the every ndays.
+         * Builds a [RecurrenceType.INTERVAL] config firing every [n] days.
          */
         fun everyNDays(n: Int, startDate: LocalDate? = null): RecurrenceConfig =
             RecurrenceConfigCodec.everyNDays(n, startDate)
         /**
-         * Performs the times per week.
+         * Builds a [RecurrenceType.FREQUENCY] config of [times] per 7 days.
          */
         fun timesPerWeek(times: Int): RecurrenceConfig = RecurrenceConfigCodec.timesPerWeek(times)
         /**
-         * Performs the yearly.
+         * Builds a [RecurrenceType.YEARLY] config (same month/day each year).
          */
         fun yearly(startDate: LocalDate? = null): RecurrenceConfig = RecurrenceConfigCodec.yearly(startDate)
     }
