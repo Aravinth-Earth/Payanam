@@ -74,6 +74,7 @@ class EditTaskViewModel @Inject constructor(
     /**
      * Loads the load task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -99,7 +100,7 @@ class EditTaskViewModel @Inject constructor(
                         "found" to (task != null),
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("EditTaskViewModel.loadTask", "Error loading task", e)
                 Timber.e(e, "Error loading task")
                 _uiState.update {
@@ -111,6 +112,7 @@ class EditTaskViewModel @Inject constructor(
     /**
      * Updates the update task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateTask(input: EditTaskInput) {
         val taskId = currentTaskId ?: return
         logger.i(
@@ -158,7 +160,7 @@ class EditTaskViewModel @Inject constructor(
                 if (FeatureFlags.remindersEnabled) {
                     try {
                         notificationScheduler.scheduleForTask(updatedTask)
-                    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                    } catch (e: Exception) {
                         logger.e(
                             "EditTaskViewModel.updateTask",
                             "Failed to reschedule reminder",
@@ -181,7 +183,7 @@ class EditTaskViewModel @Inject constructor(
                     ),
                 )
                 _uiState.update { it.copy(isSaving = false) }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "EditTaskViewModel.updateTask",
                     "Error updating task",

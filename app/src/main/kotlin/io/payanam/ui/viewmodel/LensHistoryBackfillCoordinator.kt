@@ -38,6 +38,7 @@ internal class LensHistoryBackfillCoordinator(
     /**
      * Performs the schedule.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun schedule(
         scope: CoroutineScope,
         lensRepository: LensRepository,
@@ -104,7 +105,7 @@ internal class LensHistoryBackfillCoordinator(
                 }
             } catch (_: CancellationException) {
                 logger.d("LensHistoryBackfillCoordinator.schedule", "Time-history backfill cancelled")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensHistoryBackfillCoordinator.schedule", "Failed to backfill time history", e)
             }
         }

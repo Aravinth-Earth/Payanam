@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("MagicNumber")
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "SwallowedException")
 
 package io.payanam.ui.viewmodel
 import android.os.SystemClock
@@ -143,7 +143,7 @@ class TasksViewModel @Inject constructor(
                         dueTodayOnly = dueTodayOnly,
                     ).applyVisibilityRows()
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedVisibilityToggles", "Failed to load visibility toggles", e)
             }
     }
@@ -164,7 +164,7 @@ class TasksViewModel @Inject constructor(
                         filteredTaskRows = TasksRowCacheManager.buildTaskRows(filtered.filterNot { it.recurrenceEnabled }),
                     )
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedSortOption", "Failed to load sort option", e)
             }
     }
@@ -185,7 +185,7 @@ class TasksViewModel @Inject constructor(
                         filteredTaskRows = TasksRowCacheManager.buildTaskRows(filtered.filterNot { it.recurrenceEnabled }),
                     )
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedFilterOption", "Failed to load filter option", e)
             }
     }
@@ -194,7 +194,7 @@ class TasksViewModel @Inject constructor(
                 val savedHabitSortKey = appSettingsRepository.getSetting(AppPreferencesViewModel.KEY_HABIT_SORT_OPTION)
                 val habitSortOption = HabitSortOption.fromKey(savedHabitSortKey)
                 _uiState.update { it.copy(habitSortOption = habitSortOption) }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.loadSavedHabitSortOption", "Failed to load habit sort option", e)
             }
     }
@@ -391,6 +391,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Performs the toggle checkmark.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun toggleCheckmark(taskId: String, date: LocalDate) {
         logger.i(
             "TasksViewModel.toggleCheckmark",
@@ -478,7 +479,7 @@ class TasksViewModel @Inject constructor(
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
                 refreshCheckmarksForTask(taskId)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.toggleCheckmark",
                     "CHECKMARK_TOGGLE_FAILED",
@@ -506,6 +507,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Performs the confirm completion.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun confirmCompletion(actualCompletedAt: LocalDateTime?, actualDurationMinutes: Int?) {
         val task = _uiState.value.completionDialogTask ?: return
         val date = _uiState.value.completionDialogDate ?: return
@@ -533,7 +535,7 @@ class TasksViewModel @Inject constructor(
                 scoreRollupCascadeService.recalcForStatusChange(task.id, date)
                 createTimeEntryForHabitUseCase(task, actualCompletedAt, actualDurationMinutes)
                 dismissCompletionDialog()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.confirmCompletion",
                     "Failed to confirm completion",
@@ -549,6 +551,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Updates the update checkmark.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateCheckmark(
         taskId: String,
         date: LocalDate,
@@ -595,7 +598,7 @@ class TasksViewModel @Inject constructor(
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupCascadeService.recalcForStatusChange(taskId, date)
                 refreshCheckmarksForTask(taskId)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.updateCheckmark", "Failed to update checkmark", e)
             }
         }
@@ -660,7 +663,7 @@ class TasksViewModel @Inject constructor(
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("TasksViewModel.refreshCheckmarksForTask", "Failed to refresh checkmarks", e)
         }
     }
@@ -706,20 +709,21 @@ class TasksViewModel @Inject constructor(
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("TasksViewModel.refreshRecurringTasksList", "Failed to refresh", e)
         }
     }
     /**
      * Updates the set sort option.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setSortOption(sortOption: TaskSortOption) {
         viewModelScope.launch {
             try {
                 logger.d("TasksViewModel.setSortOption", "Saving sort option to DB", mapOf("key" to sortOption.key))
                 appSettingsRepository.setSetting(AppPreferencesViewModel.KEY_TASK_SORT_OPTION, sortOption.key)
                 logger.i("TasksViewModel.setSortOption", "Sort option saved to DB successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.setSortOption", "Failed to save sort option to DB", e)
             }
         }
@@ -736,6 +740,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Updates the set filter.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setFilter(
         filter: TaskFilter,
         interactionId: String? = null,
@@ -766,7 +771,7 @@ class TasksViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 appSettingsRepository.setSetting(AppPreferencesViewModel.KEY_TASK_FILTER_OPTION, filter.key)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.setFilter", "Failed to save filter option", e)
             }
         }
@@ -819,6 +824,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Updates the set habit sort option.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setHabitSortOption(option: HabitSortOption) {
         logger.i(
             "TasksViewModel.setHabitSortOption",
@@ -834,7 +840,7 @@ class TasksViewModel @Inject constructor(
                 logger.d("TasksViewModel.setHabitSortOption", "Saving habit sort option to DB", mapOf("key" to option.key))
                 appSettingsRepository.setSetting(AppPreferencesViewModel.KEY_HABIT_SORT_OPTION, option.key)
                 logger.i("TasksViewModel.setHabitSortOption", "Habit sort option saved to DB successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.setHabitSortOption", "Failed to save habit sort option to DB", e)
             }
         }
@@ -909,12 +915,13 @@ class TasksViewModel @Inject constructor(
     }
 
     /** Persist one visibility toggle value as "true"/"false". */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun persistVisibilityToggle(key: String, valueOf: (TasksUiState) -> Boolean) {
         viewModelScope.launch {
             try {
                 appSettingsRepository.setSetting(key, valueOf(_uiState.value).toString())
                 logger.d("TasksViewModel.persistVisibilityToggle", "Visibility toggle saved", mapOf("key" to key))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.persistVisibilityToggle", "Failed to save visibility toggle", e, mapOf("key" to key))
             }
         }
@@ -975,6 +982,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Performs the complete task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTask(taskId: String, note: String? = null) {
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))
         viewModelScope.launch {
@@ -1010,7 +1018,7 @@ class TasksViewModel @Inject constructor(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TasksViewModel.completeTask",
                                 "Failed to schedule next recurring reminder",
@@ -1027,7 +1035,7 @@ class TasksViewModel @Inject constructor(
                     notificationScheduler.cancelForTask(taskId)
                 }
                 logger.i("TasksViewModel.completeTask", "Task completed successfully", mapOf("taskId" to taskId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.completeTask", "Failed to complete task", e, mapOf("taskId" to taskId))
                 Timber.e(e, "Error completing task")
                 _uiState.update { it.copy(error = e.message) }
@@ -1037,6 +1045,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Performs the archive task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask(taskId: String) {
         logger.i("TasksViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -1044,7 +1053,7 @@ class TasksViewModel @Inject constructor(
                 taskRepository.archiveTask(taskId)
                 try {
                     notificationScheduler.cancelForTask(taskId)
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e(
                         "TasksViewModel.archiveTask",
                         "Failed to cancel reminders",
@@ -1055,7 +1064,7 @@ class TasksViewModel @Inject constructor(
                     )
                 }
                 logger.i("TasksViewModel.archiveTask", "Task archived successfully", mapOf("taskId" to taskId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.archiveTask", "Failed to archive task", e, mapOf("taskId" to taskId))
                 Timber.e(e, "Error archiving task")
                 _uiState.update { it.copy(error = e.message) }
@@ -1065,13 +1074,14 @@ class TasksViewModel @Inject constructor(
     /**
      * Removes the delete task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask(taskId: String) {
         logger.w("TasksViewModel.deleteTask", "Deleting task", mapOf("taskId" to taskId))
         viewModelScope.launch {
             try {
                 try {
                     notificationScheduler.cancelForTask(taskId)
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e(
                         "TasksViewModel.deleteTask",
                         "Failed to cancel reminders",
@@ -1083,7 +1093,7 @@ class TasksViewModel @Inject constructor(
                 }
                 taskRepository.deleteTask(taskId)
                 logger.i("TasksViewModel.deleteTask", "Task deleted successfully", mapOf("taskId" to taskId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TasksViewModel.deleteTask", "Failed to delete task", e, mapOf("taskId" to taskId))
                 _uiState.update { it.copy(error = e.message) }
             }

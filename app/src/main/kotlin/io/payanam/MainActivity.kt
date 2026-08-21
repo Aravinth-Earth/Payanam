@@ -427,6 +427,7 @@ class MainActivity : FragmentActivity() {
     /**
      * Handles the on start.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -435,7 +436,7 @@ class MainActivity : FragmentActivity() {
             try {
                 TimeTrackingWidgetProvider.requestUpdate(this@MainActivity)
                 logger.d("MainActivity.onStart", "Requested widget refresh on app start")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("MainActivity.onStart", "Failed to request widget refresh", e)
             }
         }
@@ -461,6 +462,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")
@@ -489,7 +491,7 @@ class MainActivity : FragmentActivity() {
                 } catch (e: CancellationException) {
                     logger.d("MainActivity.onStart", "Startup recurrence maintenance cancelled")
                     throw e
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e("MainActivity.onStart", "Failed to auto-advance recurring tasks", e)
                 }
             }
@@ -500,7 +502,7 @@ class MainActivity : FragmentActivity() {
                 } catch (e: CancellationException) {
                     logger.d("MainActivity.onStart", "Startup reminder scheduling cancelled")
                     throw e
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e("MainActivity.onStart", "Failed to schedule task reminders", e)
                 }
             } else {
@@ -512,7 +514,7 @@ class MainActivity : FragmentActivity() {
             } catch (e: CancellationException) {
                 logger.d("MainActivity.onStart", "Startup auto-backup schedule reconcile cancelled")
                 throw e
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("MainActivity.onStart", "Failed to reconcile auto-backup schedule", e)
             }
         }

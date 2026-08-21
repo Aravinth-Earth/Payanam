@@ -61,6 +61,7 @@ object AutoDownloadManager {
      * pauses/resumes automatically when network changes).
      * Returns the download ID, or null if enqueue failed.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun enqueue(
         context: Context,
         url: String,
@@ -80,13 +81,14 @@ object AutoDownloadManager {
             val id = manager.enqueue(request)
             logger.d("AutoDownloadManager.enqueue", "Download enqueued", mapOf("downloadId" to id, "file" to fileName, "wifiOnly" to wifiOnly))
             id
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("AutoDownloadManager.enqueue", "Enqueue failed", e)
             null
         }
     }
 
     /** Query progress for a download ID; returns null if the row is gone. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun queryProgress(context: Context, downloadId: Long): DownloadUiState {
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
@@ -125,7 +127,7 @@ object AutoDownloadManager {
             } else {
                 DownloadUiState.Failed("download_not_found")
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("AutoDownloadManager.queryProgress", "Query failed", e)
             DownloadUiState.Failed("query_error")
         } finally {
@@ -134,12 +136,13 @@ object AutoDownloadManager {
     }
 
     /** Cancel a download and remove its partial file. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cancel(context: Context, downloadId: Long) {
         try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             manager.remove(downloadId)
             logger.d("AutoDownloadManager.cancel", "Download removed", mapOf("downloadId" to downloadId))
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("AutoDownloadManager.cancel", "Cancel failed", e)
         }
     }
@@ -149,6 +152,7 @@ object AutoDownloadManager {
      * ones. Skips files that don't exist or are not .apk. Best-effort; failures
      * are logged, not thrown.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
         logDownloadsDirState(context, "cleanup_before")
         try {
@@ -164,7 +168,7 @@ object AutoDownloadManager {
                     logger.w("AutoDownloadManager.cleanupOldApks", "Could not delete", mapOf("file" to f.name))
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("AutoDownloadManager.cleanupOldApks", "Cleanup failed", e)
         }
         logDownloadsDirState(context, "cleanup_after")
@@ -175,6 +179,7 @@ object AutoDownloadManager {
      * total bytes, count) under a caller-supplied tag. No behavior change —
      * diagnostics for the re-download/accumulation investigation.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     internal fun logDownloadsDirState(context: Context, tag: String) {
         try {
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
@@ -187,7 +192,7 @@ object AutoDownloadManager {
                 "Downloads dir state",
                 mapOf("tag" to tag, "count" to apks.size, "totalMB" to (totalBytes / 1024 / 1024), "files" to files),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("AutoDownloadManager.logDownloadsDirState", "Dir state log failed", e)
         }
     }

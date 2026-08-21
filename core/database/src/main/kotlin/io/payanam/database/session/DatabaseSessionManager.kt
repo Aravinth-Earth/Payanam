@@ -232,6 +232,7 @@ class DatabaseSessionManager
          * (Activity.onStop, Service.onDestroy, pre-kill) to reduce data-loss window.
          * No-op if the DB session is not open.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun checkpoint() {
             val db = _db ?: return
             try {
@@ -250,7 +251,7 @@ class DatabaseSessionManager
                     "WAL checkpoint completed",
                     mapOf("busy" to busy, "logPages" to logPages, "checkpointedPages" to checkpointedPages),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DatabaseSessionManager.checkpoint", "WAL checkpoint failed", e)
             }
         }
@@ -307,6 +308,7 @@ class DatabaseSessionManager
                 }
         }
 
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun configureWalAutoCheckpoint(db: PayanamDatabase) {
             try {
                 val cursor =
@@ -325,7 +327,7 @@ class DatabaseSessionManager
                     "Configured WAL auto-checkpoint",
                     mapOf("pages" to effectivePages),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.w(
                     "DatabaseSessionManager.configureWalAutoCheckpoint",
                     "Failed to configure WAL auto-checkpoint; using engine default",
@@ -334,6 +336,7 @@ class DatabaseSessionManager
             }
         }
 
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun closeDatabaseForTimeout() {
             logger.i("DatabaseSessionManager.closeDatabaseForTimeout", "Closing DB session after inactivity timeout")
             CrashSafeBreadcrumbs.record(
@@ -350,7 +353,7 @@ class DatabaseSessionManager
                     .putString("last_exit_reason", "inactivity_timeout")
                     .putLong("last_exit_timestamp", System.currentTimeMillis())
                     .apply()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DatabaseSessionManager.closeDatabaseForTimeout", "Failed to write timeout sentinel", e)
             }
             val db = _db

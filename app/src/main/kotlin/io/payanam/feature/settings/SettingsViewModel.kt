@@ -277,6 +277,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** User tapped "Update now" in the popup → launch the system installer. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     internal fun onInstallNow() {
         // Button path (Downloaded state) may not have a pending popup — derive
         // the file from the download state when that's the case.
@@ -302,7 +303,7 @@ class SettingsViewModel @Inject constructor(
             context.startActivity(intent)
             // Install flow handed off to the system; clear pending state.
             _uiState.update { it.copy(pendingInstallPath = null) }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("SettingsViewModel.onInstallNow", "Install launch failed", e)
             _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("install_launch_failed")) }
         }
@@ -312,6 +313,7 @@ class SettingsViewModel @Inject constructor(
     internal fun onInstallLater() {
         _uiState.update { it.copy(pendingInstallPath = null) }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
         viewModelScope.launch {
@@ -367,7 +369,7 @@ class SettingsViewModel @Inject constructor(
                         biometricUnlockEnabled = databaseEncryptionManager.isBiometricUnlockEnabled(),
                     )
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.loadDatabaseStats", "Failed to load stats", e)
                 Timber.e(e, "Error loading database stats")
             }
@@ -392,6 +394,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Writes the export database.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun exportDatabase(
         destinationUri: Uri,
     ) {
@@ -414,7 +417,7 @@ class SettingsViewModel @Inject constructor(
                         exportResult = ExportResult.Success(fileName),
                     )
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.exportDatabase", "Export failed", e)
                 _uiState.update {
                     it.copy(
@@ -430,6 +433,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Loads the import uhabits data.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun importUhabitsData(sourceUri: Uri) {
         logger.i("SettingsViewModel.importUhabitsData", "uHabits import started", mapOf("sourceUri" to sourceUri.toString()))
         viewModelScope.launch {
@@ -455,7 +459,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 loadDatabaseStats()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.importUhabitsData", "uHabits import failed", e)
                 _uiState.update {
                     it.copy(
@@ -469,6 +473,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Performs the bulk map imported habits to dimension.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
         viewModelScope.launch {
             _uiState.update {
@@ -504,7 +509,7 @@ class SettingsViewModel @Inject constructor(
                     )
                 }
                 loadDatabaseStats()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.bulkMapImportedHabitsToDimension", "Bulk mapping failed", e)
                 _uiState.update {
                     it.copy(
@@ -539,6 +544,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Removes the delete database.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteDatabase() {
         logger.i("SettingsViewModel.deleteDatabase", "Delete database confirmed — wiping all artifacts")
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
@@ -557,7 +563,7 @@ class SettingsViewModel @Inject constructor(
                 // Room FDs on deleted files are released by the imminent process kill (restartProcess); no explicit close needed.
                 logger.i("SettingsViewModel.deleteDatabase", "Emitting restart; Room teardown via process kill")
                 _navigateToDatabaseInit.tryEmit(Unit)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "SettingsViewModel.deleteDatabase",
                     "Failed to delete database",
@@ -573,6 +579,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Removes the delete database artifact.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteDatabaseArtifact(fileName: String) {
         logger.i(
             "SettingsViewModel.deleteDatabaseArtifact",
@@ -585,7 +592,7 @@ class SettingsViewModel @Inject constructor(
                     deleteDatabaseArtifactFile(context, fileName)
                 }
                 loadDatabaseStats()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "SettingsViewModel.deleteDatabaseArtifact",
                     "Failed to delete database artifact",
@@ -598,6 +605,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Performs the clean stale artifacts.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cleanStaleArtifacts() {
         logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale artifact cleanup requested")
         viewModelScope.launch {
@@ -607,7 +615,7 @@ class SettingsViewModel @Inject constructor(
                 }
                 logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale cleanup done", mapOf("deleted" to deleted))
                 loadDatabaseStats()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.cleanStaleArtifacts", "Stale cleanup failed", e)
             }
         }
@@ -636,6 +644,7 @@ class SettingsViewModel @Inject constructor(
     fun clearBulkHabitMappingResult() {
         _uiState.update { it.copy(bulkHabitMappingResult = null) }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun syncTimeoutFromDb() {
         viewModelScope.launch {
             try {
@@ -661,7 +670,7 @@ class SettingsViewModel @Inject constructor(
                     _uiState.update { it.copy(unlockSessionTimeoutMinutes = defaultTimeout) }
                     logger.i("SettingsViewModel.syncTimeoutFromDb", "Set default timeout to 2x backup interval: $defaultTimeout min")
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.syncTimeoutFromDb", "Failed to sync timeout from DB", e)
             }
         }
@@ -669,6 +678,7 @@ class SettingsViewModel @Inject constructor(
     /**
      * Updates the update unlock session timeout minutes.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateUnlockSessionTimeoutMinutes(minutes: Int) {
         databaseEncryptionManager.setSessionTimeoutMinutes(minutes)
         val effectiveMinutes = databaseEncryptionManager.getSessionTimeoutMinutes()
@@ -676,7 +686,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             try {
                 appSettingsRepository.setSetting("session_timeout_minutes", effectiveMinutes.toString())
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("SettingsViewModel.updateUnlockSessionTimeoutMinutes", "Failed to persist timeout to DB", e)
             }
         }

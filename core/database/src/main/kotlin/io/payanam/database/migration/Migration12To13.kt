@@ -20,12 +20,13 @@ val MIGRATION_12_13 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.12_13", "Starting migration from version 12 to 13")
             try {
                 createLensReflectionsTable(database)
                 logger.i("Migration.12_13", "Migration from 12 to 13 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("Migration.12_13", "Migration from 12 to 13 failed", e)
                 throw e
             }

@@ -40,6 +40,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
     /**
      * Handles the on receive.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         scope.launch {
@@ -89,7 +90,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         "type" to notificationType,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskReminderReceiver.onReceive", "Failed to deliver reminder", e)
             } finally {
                 pendingResult.finish()

@@ -35,6 +35,7 @@ class AutoBackupWorker(
     /**
      * Performs the do work.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override suspend fun doWork(): Result {
         val trigger = backupTrigger()
         val workId = id.toString()
@@ -67,7 +68,7 @@ class AutoBackupWorker(
             )
 
             Result.success()
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             val elapsedMs = System.currentTimeMillis() - startedAtMillis
             logger.e(
                 "AutoBackupWorker.doWork",

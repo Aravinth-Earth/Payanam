@@ -25,6 +25,7 @@ val MIGRATION_1_2 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.1_2", "Starting migration from version 1 to 2")
 
@@ -131,7 +132,7 @@ val MIGRATION_1_2 =
                 }
 
                 logger.i("Migration.1_2", "Migration from 1 to 2 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.1_2",
                     "Migration failed",
@@ -161,6 +162,7 @@ val MIGRATION_2_3 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.2_3", "Starting migration from version 2 to 3")
 
@@ -256,7 +258,7 @@ val MIGRATION_2_3 =
                 )
 
                 logger.i("Migration.2_3", "Migration from 2 to 3 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.2_3",
                     "Migration failed",
@@ -281,6 +283,7 @@ val MIGRATION_3_4 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.3_4", "Starting migration from version 3 to 4")
 
@@ -330,7 +333,7 @@ val MIGRATION_3_4 =
                 logger.d("Migration.3_4", "Created scoring_config table")
 
                 logger.i("Migration.3_4", "Migration from 3 to 4 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.3_4",
                     "Migration failed",
@@ -360,6 +363,7 @@ val MIGRATION_4_5 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.4_5", "Starting migration from version 4 to 5 (Recurrence Redesign)")
 
@@ -392,7 +396,7 @@ val MIGRATION_4_5 =
                 logger.d("Migration.4_5", "Initialized lastOccurrenceDate from existing occurrences")
 
                 logger.i("Migration.4_5", "Migration from 4 to 5 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.4_5",
                     "Migration failed",
@@ -420,6 +424,7 @@ val MIGRATION_5_6 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.5_6", "Starting migration from version 5 to 6")
 
@@ -442,7 +447,7 @@ val MIGRATION_5_6 =
                 logger.d("Migration.5_6", "Added actualDurationMinutes column")
 
                 logger.i("Migration.5_6", "Migration from 5 to 6 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.5_6",
                     "Migration failed",
@@ -471,6 +476,7 @@ val MIGRATION_6_7 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.6_7", "Starting migration from version 6 to 7")
 
@@ -500,7 +506,7 @@ val MIGRATION_6_7 =
                 logger.d("Migration.6_7", "Added time_entries.focusRatedAt column")
 
                 logger.i("Migration.6_7", "Migration from 6 to 7 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.6_7",
                     "Migration failed",
@@ -529,6 +535,7 @@ val MIGRATION_7_8 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.7_8", "Starting migration from version 7 to 8")
 
@@ -541,7 +548,7 @@ val MIGRATION_7_8 =
                 createDimensionIdIndexes(database)
 
                 logger.i("Migration.7_8", "Migration from 7 to 8 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.7_8",
                     "Migration failed",
@@ -738,6 +745,7 @@ val MIGRATION_16_17 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.16_17", "Starting habit recurrence system migration")
 
@@ -746,7 +754,7 @@ val MIGRATION_16_17 =
                 migrateTasksRecurrence(database)
                 retainTaskReschedules(database)
                 logger.i("Migration.16_17", "Migration 16→17 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("Migration.16_17", "Migration failed", e, mapOf("error" to (e.message ?: "unknown")))
                 throw e
             }
@@ -995,6 +1003,7 @@ val MIGRATION_17_18 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.17_18", "Creating score roll-up metric tables")
 
@@ -1072,7 +1081,7 @@ val MIGRATION_17_18 =
                         "verified" to true,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.17_18",
                     "Migration failed",
@@ -1097,6 +1106,7 @@ val MIGRATION_18_19 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.18_19", "Dropping decay currentScore column from tasks")
 
@@ -1193,7 +1203,7 @@ val MIGRATION_18_19 =
                         "verified" to true,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.18_19",
                     "Migration failed",
@@ -1219,6 +1229,7 @@ val MIGRATION_19_20 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.19_20", "Adding weight column to life_dimensions")
 
@@ -1245,7 +1256,7 @@ val MIGRATION_19_20 =
                         "verified" to true,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.19_20",
                     "Migration failed",
@@ -1282,6 +1293,7 @@ val MIGRATION_20_21 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.20_21", "Deduplicating task_occurrences and adding unique (taskId, day) index")
 
@@ -1389,7 +1401,7 @@ val MIGRATION_20_21 =
                         "uniqueIndexCreated" to indexExists,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.20_21",
                     "Migration failed",

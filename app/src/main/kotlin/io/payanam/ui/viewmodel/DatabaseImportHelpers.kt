@@ -22,6 +22,7 @@ internal data class DatabaseTableCounts(
     val noteCount: Int,
 )
 
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun readDatabaseTableCounts(dbFile: File, logger: UnifiedLogger): DatabaseTableCounts {
     if (!dbFile.exists()) {
         logger.w("readDatabaseTableCounts", "DB file missing while reading table counts", mapOf("path" to dbFile.absolutePath))
@@ -48,7 +49,7 @@ internal fun readDatabaseTableCounts(dbFile: File, logger: UnifiedLogger): Datab
                 )
             }
         }
-    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+    } catch (e: Exception) {
         logger.w("readDatabaseTableCounts", "Failed to read table counts", mapOf("error" to (e.message ?: "unknown")))
         DatabaseTableCounts(0, 0, 0, 0)
     }
@@ -67,6 +68,7 @@ internal object DatabaseImportHelper {
     /**
      * Performs the resume import with passphrase.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeImportWithPassphrase(
         viewModel: DatabaseInitViewModel,
         context: Context,
@@ -141,7 +143,7 @@ internal object DatabaseImportHelper {
             viewModel.clearPendingImport()
             logger.i("DatabaseImportHelper.resumeImportWithPassphrase", "Pending import state cleared; invoking success callback")
             onSuccess()
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("DatabaseImportHelper.resumeImportWithPassphrase", "Failed to resume import", e)
             onError(e.message ?: "Failed to unlock imported database")
         }
@@ -149,6 +151,7 @@ internal object DatabaseImportHelper {
     /**
      * Performs the resume encrypted import after unlock.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeEncryptedImportAfterUnlock(
         viewModel: DatabaseInitViewModel,
         context: Context,
@@ -184,7 +187,7 @@ internal object DatabaseImportHelper {
             viewModel.clearPendingImport()
             logger.i("DatabaseImportHelper.resumeEncryptedImportAfterUnlock", "Pending import state cleared; invoking success callback")
             onSuccess()
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("DatabaseImportHelper.resumeEncryptedImportAfterUnlock", "Failed to resume import", e)
             onError(e.message ?: "Failed to complete encrypted import")
         }

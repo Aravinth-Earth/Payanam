@@ -21,13 +21,14 @@ val MIGRATION_14_15 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.14_15", "Starting migration from version 14 to 15")
             try {
                 createJournalNotesTable(database)
                 backfillJournalNotesFromLegacyNotes(database)
                 logger.i("Migration.14_15", "Migration from version 14 to 15 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("Migration.14_15", "Migration from version 14 to 15 failed", e)
                 throw e
             }

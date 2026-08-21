@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -99,7 +100,7 @@ internal suspend fun persistNewDatabaseDimensionSetup(
                 ),
             )
             insertedRows++
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "DatabaseInitDimensionSetupSupport.persistNewDatabaseDimensionSetup",
                 "Seed row insert failed",

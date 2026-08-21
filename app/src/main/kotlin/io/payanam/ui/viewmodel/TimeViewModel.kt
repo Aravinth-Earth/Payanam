@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -120,6 +121,7 @@ class TimeViewModel @Inject constructor(
         observeActiveEntry()
         observeLastEntry()
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -132,7 +134,7 @@ class TimeViewModel @Inject constructor(
                         )
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TimeViewModel.loadData", "Error loading tasks", e)
             }
         }
@@ -276,6 +278,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the start tracking.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun startTracking(
         dimensionId: String,
         dimensionLabel: String,
@@ -328,7 +331,7 @@ class TimeViewModel @Inject constructor(
                     loadEntriesForDate(_uiState.value.selectedDate)
                 }
                 onSuccess?.invoke()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.startTracking",
                     "Failed to start tracking",
@@ -350,6 +353,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the stop tracking.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun stopTracking(focusRating: Double, focusNote: String?) {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
@@ -378,7 +382,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TimeViewModel.stopTracking", "Failed to stop tracking", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -387,6 +391,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Updates the update time entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateTimeEntry(
         entryId: String,
         dimensionId: String,
@@ -426,7 +431,7 @@ class TimeViewModel @Inject constructor(
                 )
                 timeEntryRepository.updateTimeEntry(entryId, input)
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.updateTimeEntry",
                     "Error updating time entry",
@@ -442,6 +447,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Removes the delete time entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTimeEntry(entryId: String) {
         logger.w("TimeViewModel.deleteTimeEntry", "Deleting time entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -460,7 +466,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TimeViewModel.deleteTimeEntry", "Failed to delete time entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -538,7 +544,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "TimeViewModel.revertTaskCompletionFromTimeTracking",
                 "Failed to revert task completion",
@@ -552,6 +558,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Creates the create manual entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createManualEntry(
         dimensionId: String,
         dimensionLabel: String,
@@ -601,7 +608,7 @@ class TimeViewModel @Inject constructor(
                 )
                 onCreated?.invoke(created)
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.createManualEntry",
                     "Error creating manual entry",
@@ -639,6 +646,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the continue entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun continueEntry(entryId: String) {
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -685,7 +693,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TimeViewModel.continueEntry", "Failed to continue entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -705,6 +713,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the complete task with details.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTaskWithDetails(
         taskId: String,
         note: String?,
@@ -749,7 +758,7 @@ class TimeViewModel @Inject constructor(
                     cancelOneTimeReminder(task.id, "TimeViewModel.completeTaskWithDetails")
                 }
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.completeTaskWithDetails",
                     "Failed to complete task with details",
@@ -765,6 +774,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the skip task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun skipTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.skipTask",
@@ -808,7 +818,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.skipTask",
                     "Failed to skip task",
@@ -824,6 +834,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the miss task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun missTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.missTask",
@@ -867,7 +878,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.missTask",
                     "Failed to miss task",
@@ -883,6 +894,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Performs the archive task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask(taskId: String) {
         logger.i("TimeViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -896,7 +908,7 @@ class TimeViewModel @Inject constructor(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.archiveTask",
                     "Failed to archive task",
@@ -912,6 +924,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Removes the delete task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask(taskId: String) {
         logger.w("TimeViewModel.deleteTask", "Deleting task from time screen", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -919,7 +932,7 @@ class TimeViewModel @Inject constructor(
                 cancelOneTimeReminder(taskId, "TimeViewModel.deleteTask")
                 taskRepository.deleteTask(taskId)
                 loadEntriesForDate(_uiState.value.selectedDate)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.deleteTask",
                     "Failed to delete task",
@@ -991,18 +1004,19 @@ class TimeViewModel @Inject constructor(
         }
         try {
             notificationScheduler.scheduleForTask(updatedTask)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(source, "Failed to schedule next recurring reminder", e, mapOf("taskId" to taskId))
         }
     }
     private suspend fun cancelOneTimeReminder(taskId: String, source: String) {
         try {
             notificationScheduler.cancelForTask(taskId)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(source, "Failed to cancel one-time reminder", e, mapOf("taskId" to taskId))
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun launchTimeEntriesCollection(requestId: Long, date: LocalDate): Job =
         viewModelScope.launch {
             var receivedInitialEntries = false
@@ -1027,7 +1041,7 @@ class TimeViewModel @Inject constructor(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -1035,6 +1049,7 @@ class TimeViewModel @Inject constructor(
             }
         }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun launchPlannedTasksCollection(requestId: Long, date: LocalDate): Job =
         viewModelScope.launch {
             var receivedInitialPlannedTasks = false
@@ -1072,7 +1087,7 @@ class TimeViewModel @Inject constructor(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -1080,6 +1095,7 @@ class TimeViewModel @Inject constructor(
             }
         }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun launchOccurrencesCollection(requestId: Long, date: LocalDate): Job? {
         if (FeatureFlags.minimalModeEnabled) {
             _uiState.update { it.copy(pastOccurrences = emptyList()) }
@@ -1113,7 +1129,7 @@ class TimeViewModel @Inject constructor(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)
                 _uiState.update { it.copy(error = e.message) }

@@ -49,6 +49,7 @@ internal fun buildHabitCheckmarkPayload(
     )
 }
 
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun buildCheckmarksForTask(
     occurrences: List<TaskOccurrence>,
     today: LocalDate,
@@ -57,7 +58,7 @@ internal fun buildCheckmarksForTask(
     val occurrenceMap = occurrences.associateBy { occurrence ->
         try {
             LocalDate.parse(occurrence.occurrenceDate.take(10))
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             tasksHabitCacheLogger.w(
                 "TasksHabitCache.buildCheckmarksForTask",
                 "Skipping occurrence with invalid date",

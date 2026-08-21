@@ -46,6 +46,7 @@ object LifeDimensionColors {
      * All UI should use LocalAppPreferences.current.colorFor() instead.
      * @deprecated Phase 4: Use user-defined colors from AppPreferencesState
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun forDimension(dimension: String): Color {
         // Log warning if called (Phase 4: moving to user preferences)
         // Safe for tests - catch any exceptions from logger
@@ -59,7 +60,7 @@ object LifeDimensionColors {
                     )
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             // Ignore logger errors in test context
         }
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimension)?.id

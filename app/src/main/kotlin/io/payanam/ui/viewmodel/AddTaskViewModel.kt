@@ -60,6 +60,7 @@ class AddTaskViewModel @Inject constructor(
     /**
      * Creates the create task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createTask(
         title: String,
         description: String? = null,
@@ -154,7 +155,7 @@ class AddTaskViewModel @Inject constructor(
                 if (FeatureFlags.remindersEnabled) {
                     try {
                         notificationScheduler.scheduleForTask(task)
-                    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                    } catch (e: Exception) {
                         logger.e(
                             "AddTaskViewModel.createTask",
                             "Failed to schedule reminder",
@@ -178,7 +179,7 @@ class AddTaskViewModel @Inject constructor(
                 )
                 Timber.d("Task created: $title")
                 launch(Dispatchers.Main.immediate) { onResult(Result.success(Unit)) }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("AddTaskViewModel.createTask", "Failed to create task", e)
                 Timber.e(e, "Error creating task")
                 launch(Dispatchers.Main.immediate) { onResult(Result.failure(e)) }

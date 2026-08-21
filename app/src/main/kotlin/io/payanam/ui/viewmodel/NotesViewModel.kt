@@ -61,6 +61,7 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadNotes() {
         logger.d("NotesViewModel.loadNotes", "Loading notes")
         viewModelScope.launch {
@@ -77,7 +78,7 @@ class NotesViewModel @Inject constructor(
                         )
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("NotesViewModel.loadNotes", "Error loading notes", e, null)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
@@ -125,6 +126,7 @@ class NotesViewModel @Inject constructor(
     /**
      * Creates the create note.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -139,7 +141,7 @@ class NotesViewModel @Inject constructor(
                     tagRepository.replaceNoteTags(note.id, tags)
                 }
                 logger.i("NotesViewModel.createNote", "Note created", mapOf("tagCount" to tags.size))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("NotesViewModel.createNote", "Error creating note", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -148,6 +150,7 @@ class NotesViewModel @Inject constructor(
     /**
      * Updates the update note.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -167,7 +170,7 @@ class NotesViewModel @Inject constructor(
                         "tagCount" to tags.size,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("NotesViewModel.updateNote", "Error updating note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -176,12 +179,13 @@ class NotesViewModel @Inject constructor(
     /**
      * Removes the delete note.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
             try {
                 noteRepository.deleteNote(noteId)
                 logger.i("NotesViewModel.deleteNote", "Note deleted", mapOf("noteId" to noteId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("NotesViewModel.deleteNote", "Error deleting note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }
             }

@@ -151,6 +151,7 @@ internal object DatabaseImportSupport {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun readPlaintextDatabaseUserVersion(databaseFile: File, logTag: String): Int? = try {
         SQLiteDatabase.openDatabase(
             databaseFile.absolutePath,
@@ -159,7 +160,7 @@ internal object DatabaseImportSupport {
         ).use { db ->
             db.version
         }
-    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+    } catch (e: Exception) {
         logger.w(
             logTag,
             "Failed to read SQLite user_version from imported database",
@@ -199,6 +200,7 @@ internal object DatabaseImportSupport {
      * Returns true if the header matches the standard SQLite magic ("SQLite format 3\0...").
      * Returns false if the file appears to be SQLCipher-encrypted (random salt header) or corrupt.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
         if (!databaseFile.exists() || databaseFile.length() == 0L) {
             logger.w(
@@ -231,7 +233,7 @@ internal object DatabaseImportSupport {
                 ),
             )
             isStandard
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.w(logTag, "Failed to read database file header for format check", mapOf("error" to (e.message ?: "Unknown")))
             false
         }
@@ -239,6 +241,7 @@ internal object DatabaseImportSupport {
     /**
      * Performs the consolidate wal after import.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
         val walFile = File(dbFile.parent, "${dbFile.name}-wal")
         val shmFile = File(dbFile.parent, "${dbFile.name}-shm")
@@ -320,7 +323,7 @@ internal object DatabaseImportSupport {
                     mapOf("tempDbSurvived" to survived, "tempDbSizeKB" to (tempDb.length() / 1024)),
                 )
                 survived
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.w(
                     logTag,
                     "WAL checkpoint on temp copy failed; preserving WAL to avoid data loss",
@@ -361,7 +364,7 @@ internal object DatabaseImportSupport {
                 )
             }
             checkpointed
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(logTag, "WAL consolidation failed unexpectedly; leaving DB/WAL/SHM unchanged", e)
             false
         } finally {
@@ -389,6 +392,7 @@ internal object DatabaseImportSupport {
      * On success, [databaseFile] is replaced with a standard plaintext SQLite database.
      * Throws if the passphrase is incorrect or the file cannot be opened.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun decryptEncryptedImport(
         context: Context,
         databaseFile: File,
@@ -439,7 +443,7 @@ internal object DatabaseImportSupport {
                 stage = "completed",
                 data = mapOf("sizeKB" to (databaseFile.length() / 1024)),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             tempDecrypted.delete()
             logger.e(logTag, "Encrypted import decrypt failed", e)
             CrashSafeBreadcrumbs.record(
@@ -587,6 +591,7 @@ internal object DatabaseImportSupport {
         return resolved
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun queryDisplayName(context: Context, uri: Uri): String? = try {
         context.contentResolver.query(
             uri,
@@ -602,7 +607,7 @@ internal object DatabaseImportSupport {
                 cursor.getString(index)
             }
         }
-    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+    } catch (e: Exception) {
         logger.w(
             "DatabaseImportSupport.queryDisplayName",
             "Failed to read display name from uri",

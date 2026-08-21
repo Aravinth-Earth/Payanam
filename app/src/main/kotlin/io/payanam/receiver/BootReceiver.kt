@@ -39,6 +39,7 @@ class BootReceiver : BroadcastReceiver() {
     /**
      * Handles the on receive.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val logger = UnifiedLogger.getInstance()
@@ -81,7 +82,7 @@ class BootReceiver : BroadcastReceiver() {
                     } else {
                         logger.i("BootReceiver.onReceive", "Skipped reminder schedule after boot; reminders disabled")
                     }
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e("BootReceiver.onReceive", "Failed to restore tracking after boot", e)
                 }
             }

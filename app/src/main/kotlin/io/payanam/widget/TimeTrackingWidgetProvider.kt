@@ -138,6 +138,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -271,7 +272,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
                         "hasActiveEntry" to (activeEntry != null),
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TimeTrackingWidget.updateWidget",
                     "Failed to update widget",
@@ -379,6 +380,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         return uiMode == Configuration.UI_MODE_NIGHT_YES
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleToggleTracking(context: Context) {
         scope.launch {
             try {
@@ -393,7 +395,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
 
                 // Request widget update
                 requestUpdate(context)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TimeTrackingWidget.handleToggleTracking", "Failed to toggle tracking", e)
             }
         }

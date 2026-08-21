@@ -157,6 +157,7 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun startTrackingSession(
         taskId: String?,
         taskTitle: String?,
@@ -174,7 +175,7 @@ class TrackingService : Service() {
         )
         val parsedStartTime = try {
             LocalDateTime.parse(startTime)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "TrackingService.startTrackingSession",
                 "Failed to parse startTime; using now",

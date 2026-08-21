@@ -45,6 +45,7 @@ object DatabaseHealthChecker {
     /**
      * Returns true when the check database health.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun checkDatabaseHealth(
         context: Context,
         sqlCipherPassphrase: String? = null,
@@ -112,7 +113,7 @@ object DatabaseHealthChecker {
                         )
                     }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "DatabaseHealthChecker.checkDatabaseHealth",
                 "Health check failed",
@@ -256,6 +257,7 @@ object DatabaseHealthChecker {
         return tables
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun checkSchemaIntegrity(
         infoQuery: (String) -> android.database.Cursor,
         indexQuery: (String) -> android.database.Cursor,
@@ -273,7 +275,7 @@ object DatabaseHealthChecker {
                     }
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             issues.add("Cannot check day_journal_entries schema: ${e.message}")
         }
 
@@ -303,7 +305,7 @@ object DatabaseHealthChecker {
                     issues.add("day_journal_responses missing unique composite index")
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             issues.add("Cannot check day_journal_responses schema: ${e.message}")
         }
 
@@ -318,7 +320,7 @@ object DatabaseHealthChecker {
                     issues.add("app_settings missing unique index on key column")
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             issues.add("Cannot check app_settings schema: ${e.message}")
         }
 
@@ -341,7 +343,7 @@ object DatabaseHealthChecker {
                     issues.add("scheduled_notifications missing columns: ${missingColumns.joinToString(", ")}")
                 }
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             issues.add("Cannot check scheduled_notifications schema: ${e.message}")
         }
 

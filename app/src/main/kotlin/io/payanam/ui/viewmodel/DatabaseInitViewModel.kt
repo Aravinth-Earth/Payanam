@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("MagicNumber")
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "SwallowedException")
 
 package io.payanam.ui.viewmodel
 
@@ -169,6 +169,7 @@ class DatabaseInitViewModel @Inject constructor(
         return !databaseInitCompleted && !hasUserData
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -253,7 +254,7 @@ class DatabaseInitViewModel @Inject constructor(
                         )
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.checkDatabaseStatus", "Failed to check database", e)
                 _uiState.update {
                     it.copy(
@@ -334,6 +335,7 @@ class DatabaseInitViewModel @Inject constructor(
     /**
      * Performs the complete new database dimension setup.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeNewDatabaseDimensionSetup(
         dimensionInputs: List<NewDatabaseDimensionInput>,
         onSuccess: () -> Unit,
@@ -388,7 +390,7 @@ class DatabaseInitViewModel @Inject constructor(
                 )
                 _uiState.update { it.copy(isCreating = false, awaitingDimensionSetup = false) }
                 onSuccess()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "DatabaseInitViewModel.completeNewDatabaseDimensionSetup",
                     "Failed to persist mandatory dimension setup",
@@ -461,6 +463,7 @@ class DatabaseInitViewModel @Inject constructor(
     /**
      * Returns true when the cancel import wipe.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cancelImportWipe() {
         logger.i("DatabaseInitViewModel.cancelImportWipe", "User cancelled import wipe confirm")
         pendingImportUri = null
@@ -632,7 +635,7 @@ class DatabaseInitViewModel @Inject constructor(
             )
 
             result = ImportIOResult.Completed(dbFile, encryptionPassphraseForImport)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "DatabaseInitViewModel.executeImportIO",
                 "Import copy/conversion failed; restoring from temp backup",
@@ -741,6 +744,7 @@ class DatabaseInitViewModel @Inject constructor(
     /**
      * Performs the resume import with passphrase.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
         breadcrumb(
@@ -806,7 +810,7 @@ class DatabaseInitViewModel @Inject constructor(
                 _uiState.update { it.copy(isImporting = false, awaitingImportPassphrase = false) }
                 breadcrumb(stage = "resume_import_success_callback")
                 onSuccess()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.resumeImportWithPassphrase", "Failed to resume import with passphrase", e)
                 breadcrumb(
                     stage = "resume_import_failed",
@@ -887,13 +891,14 @@ class DatabaseInitViewModel @Inject constructor(
     /**
      * Performs the continue with existing database.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
                 appSettingsRepository.setSetting("database_init_completed", "true")
                 logger.i("DatabaseInitViewModel.continueWithExistingDatabase", "Database init completed flag set")
                 onSuccess()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.continueWithExistingDatabase", "Failed to set flag", e)
                 onSuccess() // Still proceed
             }

@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("MagicNumber")
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "SwallowedException")
 
 package io.payanam.ui.viewmodel
 
@@ -223,6 +223,7 @@ class DayViewModel @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun scheduleJournalResponseSave(
         sourceDate: LocalDate,
         scope: String,
@@ -342,7 +343,7 @@ class DayViewModel @Inject constructor(
                     "promptKey" to promptKey,
                 ),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("DayViewModel.saveJournalResponse", "Failed to save response", e)
         }
     }
@@ -356,6 +357,7 @@ class DayViewModel @Inject constructor(
         super.onCleared()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDayData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -407,7 +409,7 @@ class DayViewModel @Inject constructor(
                         "dimensionResponses" to dimensionResponses.values.sumOf { it.size },
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DayViewModel.loadDayData", "Failed to load day journal data", e)
                 _uiState.update { it.copy(isLoading = false) }
             }

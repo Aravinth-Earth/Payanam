@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
@@ -34,6 +35,7 @@ class TimeTrackingUseCase @Inject constructor(
      * Stop the active time entry and complete the associated task if any.
      * Returns the stopped time entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun stopTrackingAndCompleteTask(
         focusRating: Double = 0.0,
         focusNote: String? = null,
@@ -122,7 +124,7 @@ class TimeTrackingUseCase @Inject constructor(
                     "isRecurring" to task.recurrenceEnabled.toString(),
                 ),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "TimeTrackingUseCase.completeTaskFromTimeEntry",
                 "Failed to complete task from time entry",

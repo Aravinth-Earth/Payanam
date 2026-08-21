@@ -21,6 +21,7 @@ val MIGRATION_9_10 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.9_10", "Starting migration from version 9 to 10")
 
@@ -30,7 +31,7 @@ val MIGRATION_9_10 =
                 backfillDayKeyValues(database)
                 createDayKeyIndexes(database)
                 logger.i("Migration.9_10", "Migration from 9 to 10 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("Migration.9_10", "Migration from 9 to 10 failed", e)
                 throw e
             }

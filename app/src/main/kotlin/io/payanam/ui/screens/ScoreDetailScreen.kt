@@ -79,6 +79,7 @@ class ScoreDetailViewModel
         /**
          * Loads the load.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun load(type: ScoreDetailType, key: String) {
             viewModelScope.launch {
                 val state = _uiState.value
@@ -115,7 +116,7 @@ class ScoreDetailViewModel
                         "Score detail loaded",
                         mapOf("type" to type.name, "rows" to rows.size),
                     )
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e("ScoreDetailViewModel.load", "Failed to load score detail", e)
                     _uiState.update { it.copy(isLoading = false, error = e.message) }
                 }

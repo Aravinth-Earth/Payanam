@@ -64,6 +64,7 @@ class NotificationScheduler @Inject constructor(
     /**
      * Performs the schedule for task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun scheduleForTask(
         task: Task,
         overrideScheduledAt: LocalDateTime? = null,
@@ -148,7 +149,7 @@ class NotificationScheduler @Inject constructor(
                 title = title,
                 body = body,
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "NotificationScheduler.scheduleForTask",
                 "Failed to persist scheduled notification",
@@ -178,7 +179,7 @@ class NotificationScheduler @Inject constructor(
                     "scheduledAt" to scheduledAt.toString(),
                 ),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "NotificationScheduler.scheduleForTask",
                 "Failed to schedule alarm",

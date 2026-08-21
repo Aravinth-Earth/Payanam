@@ -20,6 +20,7 @@ val MIGRATION_10_11 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.10_11", "Starting migration from version 10 to 11")
 
@@ -27,7 +28,7 @@ val MIGRATION_10_11 =
                 database.execSQL("ALTER TABLE task_occurrences ADD COLUMN statusReason TEXT")
                 logger.d("Migration.10_11", "Added task_occurrences.statusReason column")
                 logger.i("Migration.10_11", "Migration from 10 to 11 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("Migration.10_11", "Migration from 10 to 11 failed", e)
                 throw e
             }

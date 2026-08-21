@@ -27,9 +27,6 @@ import javax.inject.Singleton
  * (AppSettingsRepository + shared UpdatePrefKeys) — no duplication.
  */
 @Singleton
-/**
- * Provides the app start update checker.
- */
 class AppStartUpdateChecker @Inject constructor(
     @ApplicationContext private val context: Context,
     private val appSettingsRepository: AppSettingsRepository,
@@ -38,8 +35,10 @@ class AppStartUpdateChecker @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
     /**
-     * Handles the on app start.
+     * Checks for app updates after the DB session unlocks. Safety net: catches
+     * all exceptions so a failed check never crashes the app.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun onAppStart() {
         scope.launch {
             try {
@@ -107,7 +106,7 @@ class AppStartUpdateChecker @Inject constructor(
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
                     logger.i("AppStartUpdateChecker.onAppStart", "Auto-download enqueued after unlock", mapOf("file" to fileName, "downloadId" to id))
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 // Safety net: never let the startup check crash the app.
                 logger.e("AppStartUpdateChecker.onAppStart", "Start check failed safely", e)
             }

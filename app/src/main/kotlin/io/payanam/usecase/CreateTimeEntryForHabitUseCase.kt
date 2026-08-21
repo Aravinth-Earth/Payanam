@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
@@ -138,7 +139,7 @@ class CreateTimeEntryForHabitUseCase @Inject constructor(
                     "endTime" to completedAt.toString(),
                 ),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "CreateTimeEntryForHabitUseCase.invoke",
                 "Failed to auto-create time entry",

@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty", "TooGenericExceptionCaught", "SwallowedException")
 
 package io.payanam.ui.viewmodel
 
@@ -229,13 +229,14 @@ class LensViewModel @Inject constructor(
     /**
      * Performs the mark reflection addressed.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun markReflectionAddressed(reflectionId: String, note: String?) {
         logger.d("LensViewModel.markReflectionAddressed", "Marking reflection addressed", mapOf("id" to reflectionId))
         viewModelScope.launch {
             try {
                 lensRepository.markReflectionAddressed(reflectionId, note)
                 loadLensData()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.markReflectionAddressed", "Failed to mark reflection addressed", e)
                 _uiState.update {
                     it.copy(
@@ -249,6 +250,7 @@ class LensViewModel @Inject constructor(
     /**
      * Performs the regenerate reflections.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun regenerateReflections() {
         logger.d("LensViewModel.regenerateReflections", "Regenerating reflections")
         viewModelScope.launch {
@@ -256,7 +258,7 @@ class LensViewModel @Inject constructor(
                 val dayKey = _uiState.value.selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 lensRepository.generateReflectionCards(dayKey)
                 loadLensData()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.regenerateReflections", "Failed to regenerate reflections", e)
                 _uiState.update {
                     it.copy(
@@ -380,6 +382,7 @@ class LensViewModel @Inject constructor(
     /**
      * Loads the load lens data.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadLensData() {
         lensLoadJob?.cancel()
         reflectionRefreshJob?.cancel()
@@ -389,7 +392,7 @@ class LensViewModel @Inject constructor(
                 executeLensDataLoad()
             } catch (_: CancellationException) {
                 logger.d("LensViewModel.loadLensData", "Previous lens collector cancelled")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.loadLensData", "Failed to load lens data", e)
                 _uiState.update {
                     it.copy(
@@ -493,39 +496,42 @@ class LensViewModel @Inject constructor(
                 }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadMinimalFocusAverages() {
         viewModelScope.launch {
             try {
                 val avgs = lensRepository.getDailyFocusAverages()
                 _uiState.update { it.copy(dailyFocusAverages = avgs) }
                 logger.d("LensViewModel.loadMinimalFocusAverages", "Loaded daily focus averages", mapOf("count" to avgs.size))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.loadMinimalFocusAverages", "Failed to load daily focus averages", e)
             }
         }
         loadDailyTrackedTimeStats()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDailyTrackedTimeStats() {
         viewModelScope.launch {
             try {
                 val stats = lensRepository.getDailyTrackedTimeStats()
                 _uiState.update { it.copy(dailyTrackedTimeStats = stats) }
                 logger.d("LensViewModel.loadDailyTrackedTimeStats", "Loaded daily tracked time stats", mapOf("count" to stats.size))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.loadDailyTrackedTimeStats", "Failed to load daily tracked time stats", e)
             }
         }
         loadDailyFocusedHoursStats()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDailyFocusedHoursStats() {
         viewModelScope.launch {
             try {
                 val stats = lensRepository.getDailyFocusedHoursStats()
                 _uiState.update { it.copy(dailyFocusedHoursStats = stats) }
                 logger.d("LensViewModel.loadDailyFocusedHoursStats", "Loaded daily focused hours stats", mapOf("count" to stats.size))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.loadDailyFocusedHoursStats", "Failed to load daily focused hours stats", e)
             }
         }
@@ -582,6 +588,7 @@ class LensViewModel @Inject constructor(
         loadDimensionSplit()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDimensionSplit() {
         viewModelScope.launch {
             loadDimensionSplitInternal()
@@ -662,7 +669,7 @@ class LensViewModel @Inject constructor(
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadDimensionSplit", "Failed to load dimension split", e)
             _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(isLoading = false)) }
         }
@@ -724,6 +731,7 @@ class LensViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadMinutePattern(excludeEmptyDays: Boolean = false) {
         viewModelScope.launch {
             loadMinutePatternInternal(excludeEmptyDays)
@@ -739,7 +747,7 @@ class LensViewModel @Inject constructor(
             logger.d("LensViewModel.loadDimensionTrend", "Dimension trend loaded", mapOf("window" to window.name, "blockCount" to blocks.size))
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadDimensionTrend", "Dimension trend load cancelled")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadDimensionTrend", "Failed to load dimension trend", e)
             _uiState.update { it.copy(dimensionTrend = it.dimensionTrend.copy(isLoading = false)) }
         }
@@ -754,7 +762,7 @@ class LensViewModel @Inject constructor(
             logger.d("LensViewModel.loadHeatmap", "Heatmap loaded", mapOf("dayCount" to days.size, "totalSegments" to days.sumOf { it.segments.size }))
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadHeatmap", "Heatmap load cancelled")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadHeatmap", "Failed to load heatmap", e)
             _uiState.update { it.copy(heatmap = it.heatmap.copy(isLoading = false)) }
         }
@@ -769,7 +777,7 @@ class LensViewModel @Inject constructor(
             logger.d("LensViewModel.loadWeekGrid", "Week grid loaded", mapOf("days" to data.days.size))
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadWeekGrid", "Week grid load cancelled")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadWeekGrid", "Failed to load week grid", e)
             _uiState.update { it.copy(weekGrid = it.weekGrid.copy(isLoading = false)) }
         }
@@ -784,7 +792,7 @@ class LensViewModel @Inject constructor(
             logger.d("LensViewModel.loadMinutePattern", "Minute pattern loaded", mapOf("days" to data.days.size))
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadMinutePattern", "Minute pattern load cancelled")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadMinutePattern", "Failed to load minute pattern", e)
             _uiState.update { it.copy(minutePattern = it.minutePattern.copy(isLoading = false)) }
         }
@@ -807,7 +815,7 @@ class LensViewModel @Inject constructor(
             )
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadAverageDailyTime", "Average daily time load cancelled")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("LensViewModel.loadAverageDailyTime", "Failed to load average daily time table", e)
             _uiState.update { it.copy(averageDailyTimeTable = null) }
         }
@@ -847,6 +855,7 @@ class LensViewModel @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun refreshReflections(dayKey: String) {
         reflectionRefreshJob?.cancel()
         reflectionRefreshJob = viewModelScope.launch {
@@ -881,7 +890,7 @@ class LensViewModel @Inject constructor(
                 )
             } catch (_: CancellationException) {
                 logger.d("LensViewModel.refreshReflections", "Reflection refresh cancelled")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("LensViewModel.refreshReflections", "Failed to refresh reflections", e)
             }
         }

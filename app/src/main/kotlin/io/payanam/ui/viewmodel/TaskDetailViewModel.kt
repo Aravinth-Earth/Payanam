@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -74,6 +75,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Loads the load task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -112,7 +114,7 @@ class TaskDetailViewModel @Inject constructor(
                         "recurring" to (task?.recurrenceEnabled ?: false),
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadTask", "Error loading task", e)
                 _uiState.update {
                     it.copy(isLoading = false, error = e.message)
@@ -121,6 +123,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadCompletionStats(task: Task) {
         viewModelScope.launch {
             try {
@@ -136,12 +139,13 @@ class TaskDetailViewModel @Inject constructor(
                         "currentStreak" to stats.currentStreak,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadCompletionStats", "Error loading stats", e)
             }
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadOccurrenceHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingOccurrences = true) }
@@ -161,7 +165,7 @@ class TaskDetailViewModel @Inject constructor(
                         "count" to occurrences.size,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadOccurrenceHistory", "Error loading occurrences", e)
                 _uiState.update { it.copy(isLoadingOccurrences = false) }
             }
@@ -212,6 +216,7 @@ class TaskDetailViewModel @Inject constructor(
         _uiState.update { it.copy(showChartView = chart) }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadActivityWindow(taskId: String) {
         viewModelScope.launch {
             val s = _uiState.value
@@ -244,7 +249,7 @@ class TaskDetailViewModel @Inject constructor(
                         "occurrences" to occs.size,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadActivityWindow", "Error loading activity window", e)
                 _uiState.update { it.copy(isLoadingWindow = false) }
             }
@@ -262,6 +267,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadRescheduleHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingReschedules = true) }
@@ -281,7 +287,7 @@ class TaskDetailViewModel @Inject constructor(
                         "count" to reschedules.size,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadRescheduleHistory", "Error loading reschedules", e)
                 _uiState.update { it.copy(isLoadingReschedules = false) }
             }
@@ -316,6 +322,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Complete task with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -329,7 +336,7 @@ class TaskDetailViewModel @Inject constructor(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
                                 "Failed to schedule next recurring reminder",
@@ -353,7 +360,7 @@ class TaskDetailViewModel @Inject constructor(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
-                            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                            } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.completeTask",
                                     "Failed to schedule next recurring reminder",
@@ -369,7 +376,7 @@ class TaskDetailViewModel @Inject constructor(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
                                 "Failed to cancel reminders",
@@ -392,7 +399,7 @@ class TaskDetailViewModel @Inject constructor(
                     ),
                 )
                 hideStatusDialog()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -402,6 +409,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Skip task with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun skipTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -415,7 +423,7 @@ class TaskDetailViewModel @Inject constructor(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
                                 "Failed to schedule next recurring reminder",
@@ -439,7 +447,7 @@ class TaskDetailViewModel @Inject constructor(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
-                            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                            } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.skipTask",
                                     "Failed to schedule next recurring reminder",
@@ -455,7 +463,7 @@ class TaskDetailViewModel @Inject constructor(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
                                 "Failed to cancel reminders",
@@ -478,7 +486,7 @@ class TaskDetailViewModel @Inject constructor(
                     ),
                 )
                 hideStatusDialog()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -488,6 +496,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Mark task as missed with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun missTask(note: String? = null, reason: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -501,7 +510,7 @@ class TaskDetailViewModel @Inject constructor(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.missTask",
                                 "Failed to schedule next recurring reminder",
@@ -524,7 +533,7 @@ class TaskDetailViewModel @Inject constructor(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
-                            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                            } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.missTask",
                                     "Failed to schedule next recurring reminder",
@@ -539,7 +548,7 @@ class TaskDetailViewModel @Inject constructor(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
-                        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                        } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.missTask",
                                 "Failed to cancel reminders",
@@ -562,7 +571,7 @@ class TaskDetailViewModel @Inject constructor(
                     ),
                 )
                 hideStatusDialog()
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -596,13 +605,14 @@ class TaskDetailViewModel @Inject constructor(
 
             // Reload occurrence history
             loadOccurrenceHistory(taskId)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("TaskDetailViewModel.recordOccurrence", "Error recording occurrence", e)
         }
     }
     /**
      * Performs the archive task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
@@ -610,7 +620,7 @@ class TaskDetailViewModel @Inject constructor(
                 taskRepository.archiveTask(taskId)
                 try {
                     notificationScheduler.cancelForTask(taskId)
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.archiveTask",
                         "Failed to cancel reminders",
@@ -621,7 +631,7 @@ class TaskDetailViewModel @Inject constructor(
                     )
                 }
                 logger.i("TaskDetailViewModel.archiveTask", "Task archived", mapOf("taskId" to taskId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.archiveTask", "Error archiving task", e)
                 _uiState.update { it.copy(error = e.message) }
             }
@@ -630,6 +640,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Performs the reschedule task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun rescheduleTask(newDueDate: LocalDateTime) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -667,7 +678,7 @@ class TaskDetailViewModel @Inject constructor(
 
                 try {
                     notificationScheduler.scheduleForTask(updatedTask)
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.rescheduleTask",
                         "Failed to reschedule reminder",
@@ -688,7 +699,7 @@ class TaskDetailViewModel @Inject constructor(
                         "wasOverdue" to wasOverdue,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "TaskDetailViewModel.rescheduleTask",
                     "Error rescheduling task",
@@ -704,13 +715,14 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Removes the delete task.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
             try {
                 try {
                     notificationScheduler.cancelForTask(taskId)
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.deleteTask",
                         "Failed to cancel reminders",
@@ -722,7 +734,7 @@ class TaskDetailViewModel @Inject constructor(
                 }
                 taskRepository.deleteTask(taskId)
                 logger.i("TaskDetailViewModel.deleteTask", "Task deleted", mapOf("taskId" to taskId))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.deleteTask", "Error deleting task", e)
                 _uiState.update { it.copy(error = e.message) }
             }

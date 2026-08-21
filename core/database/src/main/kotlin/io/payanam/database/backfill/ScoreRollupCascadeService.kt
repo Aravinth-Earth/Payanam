@@ -67,6 +67,7 @@ class ScoreRollupCascadeService
         private val logger = UnifiedLogger.getInstance()
 
         /** Recompute L1/L2/L3 tails after a status change on [date]. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForStatusChange"
@@ -211,7 +212,7 @@ class ScoreRollupCascadeService
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
                 scoreChangeEventBus.emit(date)
                 logger.i(tag, "Score change event emitted", mapOf("date" to date.toString()))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(tag, "CASCADE_FAILED", e, mapOf("taskId" to taskId, "date" to date.toString()))
             }
         }
@@ -222,6 +223,7 @@ class ScoreRollupCascadeService
          * delete the habit's rows and recompute L1 from firstDue → today, then
          * refresh the affected dimension L2 tail and day L3 tail.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcForRuleChange(taskId: String) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForRuleChange"
@@ -291,7 +293,7 @@ class ScoreRollupCascadeService
                 )
                 scoreChangeEventBus.emit(LocalDate.now())
                 logger.i(tag, "Score change event emitted", mapOf("date" to "rule-change"))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
             }
         }
@@ -307,6 +309,7 @@ class ScoreRollupCascadeService
          * O(days × dimensions), which stays small even for decade-long
          * histories (day rows are dense by design).
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcDayOnly(changeDate: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcDayOnly"
@@ -357,12 +360,13 @@ class ScoreRollupCascadeService
                         "ms=${System.currentTimeMillis() - started}",
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(tag, "CASCADE_DAY_ONLY_FAILED", e, mapOf("fromDay" to changeDate.toString()))
             }
         }
 
         /** Startup catch-up: extend every habit's L1 through yesterday, then L2/L3 tails. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun catchUpTail() {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.catchUpTail"
@@ -544,7 +548,7 @@ class ScoreRollupCascadeService
                 )
                 scoreChangeEventBus.emit(LocalDate.now())
                 logger.i(tag, "Score change event emitted", mapOf("date" to "catch-up"))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(tag, "CATCHUP_FAILED", e)
             }
         }
@@ -615,10 +619,11 @@ class ScoreRollupCascadeService
         }
 
         /** Parses a dayKey (or longer timestamp) to a [LocalDate] via the first 10 chars. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun parseDate(s: String): LocalDate =
             try {
                 LocalDate.parse(s.take(10))
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 LocalDate.now()
             }
     }

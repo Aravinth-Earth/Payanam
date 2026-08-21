@@ -165,6 +165,7 @@ class DayPlanViewModel @Inject constructor(
     /**
      * Writes the save day plan.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun saveDayPlan(
         dayKey: String,
         mode: String,
@@ -211,7 +212,7 @@ class DayPlanViewModel @Inject constructor(
                     mapOf("dayKey" to dayKey, "mode" to mode, "templateId" to (templateId ?: "null")),
                 )
                 _uiState.update { it.copy(isLoading = false) }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("DayPlanViewModel.saveDayPlan", "Failed to save day plan", e)
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
             }
@@ -316,6 +317,7 @@ class DayPlanViewModel @Inject constructor(
     /**
      * Writes the save template.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun saveTemplate() {
         val state = _uiState.value
         val name = state.templateName.trim()
@@ -379,7 +381,7 @@ class DayPlanViewModel @Inject constructor(
                     "DayPlanViewModel.saveTemplate",
                     "Failed to save template: ${e.message}",
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 _uiState.update {
                     it.copy(
                         errorMessage = "Failed to save template",

@@ -32,6 +32,7 @@ class PayanamApp : Application() {
     /**
      * Handles the on create.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onCreate() {
         super.onCreate()
 
@@ -69,7 +70,7 @@ class PayanamApp : Application() {
                 AppStartUpdateCheckerEntryPoint::class.java,
             ).appStartUpdateChecker()
             checker.onAppStart()
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
         }
     }

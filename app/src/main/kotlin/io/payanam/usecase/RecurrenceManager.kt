@@ -498,6 +498,7 @@ class RecurrenceManager @Inject constructor(
      * Get completion statistics for a task.
      * Uses frequency-aware calculation that respects the recurrence schedule.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun getCompletionStats(task: Task): CompletionStats {
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
         val today = LocalDate.now()
@@ -532,7 +533,7 @@ class RecurrenceManager @Inject constructor(
                         firstOccurrenceDate = occDate
                     }
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.w(
                     "RecurrenceManager.getCompletionStats",
                     "Failed to parse occurrence date",
@@ -558,7 +559,7 @@ class RecurrenceManager @Inject constructor(
                     val occDate = LocalDate.parse(occ.occurrenceDate.take(10))
                     val dayIndex = ChronoUnit.DAYS.between(occDate, today).toInt()
                     dayIndex to occ.status
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     null
                 }
             }

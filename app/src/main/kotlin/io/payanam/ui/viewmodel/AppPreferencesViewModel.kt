@@ -792,6 +792,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Updates the set dimension label.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionLabel(dimensionId: String, label: String) {
         viewModelScope.launch {
             val normalizedLabel = normalizeDimensionLabelForStorage(
@@ -806,7 +807,7 @@ class AppPreferencesViewModel @Inject constructor(
                     "Dimension label updated in DB-backed catalog",
                     mapOf("dimensionId" to dimensionId),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.setDimensionLabel",
                     "Failed to update dimension label in DB-backed catalog",
@@ -828,6 +829,7 @@ class AppPreferencesViewModel @Inject constructor(
      * the NEXT day-score recalc; this edit triggers an immediate L3-only
      * recalc (self-gov `dim_weight_change` path — L1/L2 untouched).
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionWeight(dimensionId: String, weight: Double) {
         val clamped = weight.coerceIn(0.1, 10.0)
         viewModelScope.launch {
@@ -840,7 +842,7 @@ class AppPreferencesViewModel @Inject constructor(
                 )
                 // L3-only recalc: day scores re-aggregate with new weights.
                 scoreRollupCascadeService.recalcDayOnly(LocalDate.now())
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.setDimensionWeight",
                     "Failed to update dimension weight / recalc day layer",
@@ -859,6 +861,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Updates the set dimension color.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionColor(dimensionId: String, color: Color) {
         viewModelScope.launch {
             try {
@@ -868,7 +871,7 @@ class AppPreferencesViewModel @Inject constructor(
                     "Dimension color updated in DB-backed catalog",
                     mapOf("dimensionId" to dimensionId),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.setDimensionColor",
                     "Failed to update dimension color in DB-backed catalog",
@@ -881,6 +884,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Removes the reset dimension label.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resetDimensionLabel(dimensionId: String) {
         viewModelScope.launch {
             try {
@@ -893,7 +897,7 @@ class AppPreferencesViewModel @Inject constructor(
                     "Dimension label reset to app default in DB-backed catalog",
                     mapOf("dimensionId" to dimensionId),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.resetDimensionLabel",
                     "Failed to reset dimension label in DB-backed catalog",
@@ -906,6 +910,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Updates the set dimension icon.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
         viewModelScope.launch {
             try {
@@ -915,7 +920,7 @@ class AppPreferencesViewModel @Inject constructor(
                     "Dimension icon updated in DB-backed catalog",
                     mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.setDimensionIcon",
                     "Failed to update dimension icon in DB-backed catalog",
@@ -934,6 +939,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Updates the set dimension visibility.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
         viewModelScope.launch {
             try {
@@ -943,7 +949,7 @@ class AppPreferencesViewModel @Inject constructor(
                     "Dimension visibility updated in DB-backed catalog",
                     mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.setDimensionVisibility",
                     "Failed to update dimension visibility in DB-backed catalog",
@@ -1148,6 +1154,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Performs the run habit score diagnostics.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun runHabitScoreDiagnostics() {
         if (_habitScoreDiagnosticsInProgress.value) {
             return
@@ -1281,7 +1288,7 @@ class AppPreferencesViewModel @Inject constructor(
                         occRows.size,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     logTag,
                     "HABIT_SCORE_DIAGNOSTICS_FAILED",
@@ -1551,6 +1558,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Check if focus mode onboarding has been completed.
      */
     suspend fun hasFocusModeOnboardingCompleted(): Boolean = appSettingsRepository.getSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED) == "true"
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun saveSetting(key: String, value: String) {
         viewModelScope.launch {
             try {
@@ -1563,7 +1571,7 @@ class AppPreferencesViewModel @Inject constructor(
                         "value" to value,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.saveSetting",
                     "Failed to update setting",
@@ -1575,6 +1583,7 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun clearSetting(key: String) {
         viewModelScope.launch {
             try {
@@ -1586,7 +1595,7 @@ class AppPreferencesViewModel @Inject constructor(
                         "key" to key,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "AppPreferencesViewModel.saveSetting",
                     "Failed to clear setting",
@@ -1605,6 +1614,7 @@ class AppPreferencesViewModel @Inject constructor(
             saveSetting(key, value)
         }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun parseColor(hex: String): Color {
         val normalized = hex.removePrefix("#")
         return try {
@@ -1614,7 +1624,7 @@ class AppPreferencesViewModel @Inject constructor(
             } else {
                 Color(colorLong.toInt())
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             LifeDimensionColors.forDimension("Career & Work")
         }
     }

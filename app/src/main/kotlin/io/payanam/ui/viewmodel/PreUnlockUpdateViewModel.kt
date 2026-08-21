@@ -74,6 +74,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun checkForUpdate() {
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
@@ -125,7 +126,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                     logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
                     _checkResultMessage.value = "up_to_date"
                 }
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("PreUnlockUpdateChecker.check", "Check threw", e)
                 _checkResultMessage.value = "check_failed_exception"
             } finally {
@@ -178,6 +179,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /** User tapped "Install now" — launch the system installer (manual only). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
@@ -211,7 +213,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                 ),
             )
             context.startActivity(intent)
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             _downloadState.value = DownloadUiState.Failed("install_launch_failed")
             logger.e("PreUnlockUpdateChecker.install", "Install launch failed", e)
         }

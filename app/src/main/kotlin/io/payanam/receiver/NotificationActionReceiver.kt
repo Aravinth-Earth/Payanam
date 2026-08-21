@@ -79,6 +79,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleStopTracking(context: Context, pendingResult: BroadcastReceiver.PendingResult) {
         try {
             val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -90,7 +91,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
             }
             context.startActivity(launchIntent)
             logger.i("NotificationActionReceiver.handleStopTracking", "Redirected stop action to in-app focus dialog")
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("NotificationActionReceiver.handleStopTracking", "Failed to open stop-tracking dialog", e)
         } finally {
             TimeTrackingWidgetProvider.requestUpdate(context)
@@ -98,6 +99,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleTaskAction(
         context: Context,
         intent: Intent,
@@ -198,7 +200,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                         "status" to status,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "NotificationActionReceiver.handleTaskAction",
                     "Failed to handle task action",
@@ -214,6 +216,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleSnooze(context: Context, intent: Intent, pendingResult: BroadcastReceiver.PendingResult) {
         val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
         val dueAtRaw = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT)
@@ -248,7 +251,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                         "taskId" to taskId,
                     ),
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "NotificationActionReceiver.handleSnooze",
                     "Failed to snooze reminder",

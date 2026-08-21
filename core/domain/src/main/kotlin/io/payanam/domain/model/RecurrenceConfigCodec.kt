@@ -86,6 +86,7 @@ internal object RecurrenceConfigCodec {
         startDate = startDate
     )
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun parseConfig(config: String): RecurrenceConfig {
         val parts = config.split("|").associate { part ->
             val kv = part.split("=", limit = 2)
@@ -103,7 +104,7 @@ internal object RecurrenceConfigCodec {
         val startDate = parts["start"]?.let {
             try {
                 LocalDate.parse(it)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) { // detekt:ignore:TooGenericExceptionCaught
+            } catch (e: Exception) { // detekt:ignore:TooGenericExceptionCaught
                 null
             }
         }

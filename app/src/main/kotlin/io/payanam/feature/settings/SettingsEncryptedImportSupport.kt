@@ -31,6 +31,7 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
 /**
  * Updates the settings view model.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
     breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
@@ -196,7 +197,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                         )
                         breadcrumb(stage = "settings_import_reencrypted", data = mapOf("convertedToEncrypted" to encrypted))
                     }
-                } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+                } catch (e: Exception) {
                     if (!pausedForPassphrase) {
                         logger.e(
                             "SettingsViewModel.importDatabase",
@@ -283,7 +284,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e(
                 "SettingsViewModel.importDatabase",
                 "Import failed with exception",
@@ -319,6 +320,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
 /**
  * Updates the settings view model.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
     logger.i("SettingsViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
     breadcrumb(
@@ -403,7 +405,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                     ),
                 )
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+        } catch (e: Exception) {
             logger.e("SettingsViewModel.resumeImportWithPassphrase", "Failed to resume import with passphrase", e)
             breadcrumb(
                 stage = "settings_resume_import_failed",

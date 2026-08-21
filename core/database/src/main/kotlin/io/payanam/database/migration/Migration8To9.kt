@@ -23,6 +23,7 @@ val MIGRATION_8_9 =
         /**
          * Performs the migrate.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.8_9", "Starting migration from version 8 to 9")
 
@@ -32,7 +33,7 @@ val MIGRATION_8_9 =
                 createImportMetadataIndexes(database)
 
                 logger.i("Migration.8_9", "Migration from 8 to 9 completed successfully")
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e(
                     "Migration.8_9",
                     "Migration failed",

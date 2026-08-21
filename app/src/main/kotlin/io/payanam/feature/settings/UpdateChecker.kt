@@ -76,10 +76,11 @@ private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
  * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
  * malformed entries are skipped. Returns an empty list for garbage bodies.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun parseReleases(body: String): List<ChannelStatus> {
     val releases = try {
         JSONArray(body)
-    } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+    } catch (e: Exception) {
         return emptyList()
     }
     val statuses = mutableListOf<ChannelStatus>()
@@ -134,6 +135,7 @@ object UpdateChecker {
      * Fetch release info for ALL channels in one call (list endpoint),
      * then derive the result for the [channel] the user has selected.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun check(currentBuildNumber: Int, channel: UpdateChannel = UpdateChannel.DEV): UpdateCheckResult =
         withContext(Dispatchers.IO) {
             logger.d("UpdateChecker.check", "Starting update check", mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name))
@@ -206,7 +208,7 @@ object UpdateChecker {
             } catch (e: IOException) {
                 logger.w("UpdateChecker.check", "IO error", mapOf("exception" to (e.message ?: "unknown")))
                 UpdateCheckResult(false, null, null, UpdateCheckError.NO_INTERNET)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") e: Exception) {
+            } catch (e: Exception) {
                 logger.e("UpdateChecker.check", "Unexpected error", e)
                 UpdateCheckResult(false, null, null, UpdateCheckError.UNKNOWN)
             }
