@@ -23,14 +23,16 @@ internal class LensSnapshotCache(
         val cachedAtMs: Long,
     )
     /**
-     * Returns the or load.
+     * Snapshot for one day: cache hit (fresh, non-dirty), seed data, or a
+     * repository load that is then cached.
      */
     suspend fun getOrLoad(
         dayKey: String,
         seededDataByDay: Map<String, UnifiedLensSnapshot> = emptyMap(),
     ): UnifiedLensSnapshot = loadForDays(listOf(dayKey), seededDataByDay).getValue(dayKey)
     /**
-     * Loads the load for days.
+     * Batch variant of [getOrLoad]: resolves every requested day, evicting
+     * dirty/expired entries and trimming to the cache cap.
      */
     suspend fun loadForDays(
         dayKeys: List<String>,
