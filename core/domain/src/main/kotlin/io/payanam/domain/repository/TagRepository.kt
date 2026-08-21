@@ -10,7 +10,7 @@ import kotlinx.coroutines.flow.Flow
  */
 interface TagRepository {
     /**
-     * Registers the observe all tags.
+     * Emits the full tag list as a [Flow], for reactive tag-cloud updates.
      */
     fun observeAllTags(): Flow<List<Tag>>
 

@@ -10,23 +10,24 @@ import kotlinx.coroutines.flow.Flow
  */
 interface LifeDimensionCatalogRepository {
     /**
-     * Registers the observe all dimensions.
+     * Emits all five life dimensions (with user-edited label/color/icon/
+     * weight/active state) as a [Flow], for settings + scoring consumers.
      */
     fun observeAllDimensions(): Flow<List<ConfiguredLifeDimension>>
     /**
-     * Updates the update dimension label.
+     * Persists the user-visible [label] for [dimensionId].
      */
     suspend fun updateDimensionLabel(dimensionId: String, label: String)
     /**
-     * Updates the update dimension color.
+     * Persists the display [colorHex] for [dimensionId].
      */
     suspend fun updateDimensionColor(dimensionId: String, colorHex: String)
     /**
-     * Updates the update dimension icon.
+     * Persists the [iconKey] for [dimensionId].
      */
     suspend fun updateDimensionIcon(dimensionId: String, iconKey: String)
     /**
-     * Updates the update dimension active state.
+     * Toggles whether [dimensionId] counts toward scoring.
      */
     suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean)
 

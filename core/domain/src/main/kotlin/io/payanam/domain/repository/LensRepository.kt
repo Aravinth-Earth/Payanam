@@ -12,11 +12,12 @@ import java.time.LocalDate
  */
 @Suppress("TooManyFunctions")
 /**
- * Defines the contract for lens repository.
+ * Aggregates per-day planning + reality data for the lens views (time
+ * tracking, adherence, focus gaps, behavioral patterns).
  */
 interface LensRepository {
     /**
-     * First day with any tracked time entry.
+     * First calendar day that has any tracked time entry, or null.
      */
     suspend fun getFirstTrackedDate(): LocalDate?
 

@@ -63,7 +63,7 @@ interface JournalRepository {
      */
     suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse>
     /**
-     * Returns the all journal entries.
+     * Emits every journal entry as a [Flow], for reactive list/grid updates.
      */
     fun getAllJournalEntries(): Flow<List<DayJournalEntry>>
     

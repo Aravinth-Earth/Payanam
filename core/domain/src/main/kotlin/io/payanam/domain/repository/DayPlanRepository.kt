@@ -4,7 +4,8 @@ package io.payanam.domain.repository
 
 import kotlinx.coroutines.flow.Flow
 /**
- * Holds the day plan allocation record.
+ * One dimension's planned time for a single day (from a custom/day-plan
+ * allocation or a template instantiation).
  */
 data class DayPlanAllocationRecord(
     val id: String,
@@ -15,7 +16,8 @@ data class DayPlanAllocationRecord(
     val templateId: String?
 )
 /**
- * Holds the day plan template record.
+ * A reusable day-plan template: a named bundle of per-dimension planned
+ * minutes that can be applied to any day.
  */
 data class DayPlanTemplateRecord(
     val id: String,
@@ -26,7 +28,7 @@ data class DayPlanTemplateRecord(
     val allocations: List<TemplateAllocationRecord>
 )
 /**
- * Holds the template allocation record.
+ * One dimension's planned minutes inside a [DayPlanTemplateRecord].
  */
 data class TemplateAllocationRecord(
     val id: String,
@@ -35,7 +37,8 @@ data class TemplateAllocationRecord(
     val plannedMinutes: Int
 )
 /**
- * Holds the day plan policy record.
+ * Per-day policy: which mode (auto/template/custom) drives the allocations and
+ * whether the day is starred.
  */
 data class DayPlanPolicyRecord(
     val dayKey: String,
@@ -44,7 +47,8 @@ data class DayPlanPolicyRecord(
     val isStarred: Boolean
 )
 /**
- * Holds the day type template preference record.
+ * Which template, if any, is the default for a given day type (weekday /
+ * weekend / starred).
  */
 data class DayTypeTemplatePreferenceRecord(
     val dayType: String,
@@ -58,11 +62,11 @@ interface DayPlanRepository {
 
     // ---- Day Allocations ----
     /**
-     * Registers the observe allocations for day.
+     * Emits the allocations for [dayKey] as a [Flow], for reactive day-plan UI.
      */
     fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>>
     /**
-     * Returns the allocations for day.
+     * Returns the saved allocations for [dayKey] (no template resolution).
      */
     suspend fun getAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord>
 
@@ -72,7 +76,8 @@ interface DayPlanRepository {
      */
     suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord>
     /**
-     * Updates the set allocation.
+     * Upserts the planned minutes for one dimension on [dayKey] (source tracks
+     * manual vs template-derived).
      */
     suspend fun setAllocation(
         dayKey: String,
@@ -82,7 +87,7 @@ interface DayPlanRepository {
         templateId: String? = null
     )
     /**
-     * Updates the set allocations.
+     * Bulk-upserts planned minutes for several dimensions on [dayKey] at once.
      */
     suspend fun setAllocations(
         dayKey: String,
@@ -91,53 +96,56 @@ interface DayPlanRepository {
         templateId: String? = null
     )
     /**
-     * Updates the apply template to day.
+     * Replaces [dayKey]'s allocations with the [templateId] template's
+     * contents (source = template).
      */
     suspend fun applyTemplateToDay(dayKey: String, templateId: String)
     /**
-     * Removes the clear day plan.
+     * Removes every allocation for [dayKey].
      */
     suspend fun clearDayPlan(dayKey: String)
     /**
-     * Returns the day policy.
+     * Returns the per-day policy (mode + template + starred) for [dayKey].
      */
     suspend fun getDayPolicy(dayKey: String): DayPlanPolicyRecord
     /**
-     * Updates the set day mode.
+     * Sets the planning mode for [dayKey] (auto/template/custom).
      */
     suspend fun setDayMode(dayKey: String, mode: String, templateId: String? = null)
     /**
-     * Updates the set day starred.
+     * Flags [dayKey] as starred (surfaces it above auto/weekend defaults).
      */
     suspend fun setDayStarred(dayKey: String, isStarred: Boolean)
     /**
-     * Returns the day type template preference.
+     * Returns the default template for a day type (weekday/weekend/starred).
      */
     suspend fun getDayTypeTemplatePreference(dayType: String): DayTypeTemplatePreferenceRecord
     /**
-     * Updates the set day type template preference.
+     * Sets the default template for a day type.
      */
     suspend fun setDayTypeTemplatePreference(dayType: String, templateId: String?)
     /**
-     * Returns the template for day.
+     * Resolves the template that applies to [dayKey] (starred > weekend >
+     * weekday > custom), or null.
      */
     suspend fun resolveTemplateForDay(dayKey: String): DayPlanTemplateRecord?
 
     // ---- Templates ----
     /**
-     * Registers the observe active templates.
+     * Emits the active (non-archived) templates as a [Flow].
      */
     fun observeActiveTemplates(): Flow<List<DayPlanTemplateRecord>>
     /**
-     * Registers the observe all templates.
+     * Emits every template (active + archived) as a [Flow].
      */
     fun observeAllTemplates(): Flow<List<DayPlanTemplateRecord>>
     /**
-     * Returns the template by id.
+     * Returns a single template by id, or null.
      */
     suspend fun getTemplateById(id: String): DayPlanTemplateRecord?
     /**
-     * Creates the create template.
+     * Creates a template with [name] and per-dimension [allocations]; returns
+     * the new template id.
      */
     suspend fun createTemplate(
         name: String,
@@ -145,7 +153,7 @@ interface DayPlanRepository {
         allocations: Map<String, Int>
     ): String
     /**
-     * Updates the update template.
+     * Updates the name/description/allocations of an existing template.
      */
     suspend fun updateTemplate(
         id: String,
@@ -154,7 +162,7 @@ interface DayPlanRepository {
         allocations: Map<String, Int>
     )
     /**
-     * Removes the delete template.
+     * Deletes a template by id.
      */
     suspend fun deleteTemplate(id: String)
 
