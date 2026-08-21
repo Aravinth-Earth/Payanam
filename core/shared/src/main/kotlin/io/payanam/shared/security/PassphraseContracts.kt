@@ -3,8 +3,8 @@
 package io.payanam.shared.security
 
 /**
- * SharedPassphraseValidation.
-
+ * Result of passphrase validation: whether it passed and the failure reason code
+ * (min_length / missing_uppercase / missing_lowercase / missing_digit / missing_symbol).
  */
 data class SharedPassphraseValidation(
     val isValid: Boolean,
@@ -13,7 +13,8 @@ data class SharedPassphraseValidation(
 object SharedPassphrasePolicy {
     private const val MIN_LENGTH = 12
     /**
-     * Returns true when the validate.
+     * Validates a passphrase against length + character-class rules; returns the
+     * failure [reasonCode] when invalid.
      */
     fun validate(passphrase: String): SharedPassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {
@@ -37,7 +38,8 @@ object SharedPassphrasePolicy {
 @Suppress("MagicNumber")
 object SharedPassphraseLockoutPolicy {
     /**
-     * Performs the delay seconds for attempt.
+     * Cool-down seconds before the next unlock attempt, escalating with [attemptCount]
+     * (0 until attempt 3, then 30/60/120/300).
      */
     fun delaySecondsForAttempt(attemptCount: Int): Long =
         when {

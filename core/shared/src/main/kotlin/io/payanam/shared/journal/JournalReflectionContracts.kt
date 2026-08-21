@@ -7,8 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 /**
- * JournalPromptDefinition.
-
+ * One journal prompt definition: a stable [key] and the prompt text shown to the user.
  */
 data class JournalPromptDefinition(
     val key: String,
@@ -17,8 +16,7 @@ data class JournalPromptDefinition(
 
 @Serializable
 /**
- * JournalDayRecord.
-
+ * All responses for a single day: overall prompts + per-dimension prompt maps.
  */
 data class JournalDayRecord(
     val dateIso: String,
@@ -30,8 +28,7 @@ data class JournalDayRecord(
 
 @Serializable
 /**
- * JournalSnapshot.
-
+ * Serializable journal state holding every day record for the desktop<->mobile sync.
  */
 data class JournalSnapshot(
     val schemaVersion: Int = JournalReflectionContracts.SCHEMA_VERSION,
@@ -59,18 +56,19 @@ object JournalReflectionContracts {
             JournalPromptDefinition("insight", "Any insights or realizations?"),
         )
     /**
-     * Performs the empty snapshot.
+     * Returns an empty [JournalSnapshot] (no days).
      */
     fun emptySnapshot(): JournalSnapshot = JournalSnapshot()
     /**
-     * Performs the day for date.
+     * Returns the [JournalDayRecord] for [dateIso] within [snapshot], or null.
      */
     fun dayForDate(
         snapshot: JournalSnapshot,
         dateIso: String,
     ): JournalDayRecord? = snapshot.days.firstOrNull { it.dateIso == dateIso }
     /**
-     * Performs the upsert overall response.
+     * Returns a copy of [snapshot] with [response] set for the overall [promptKey] on
+     * [dateIso] (whitespace-only clears the entry).
      */
     fun upsertOverallResponse(
         snapshot: JournalSnapshot,
@@ -86,7 +84,8 @@ object JournalReflectionContracts {
             )
         }
     /**
-     * Performs the upsert dimension response.
+     * Returns a copy of [snapshot] with [response] set for [dimensionId]'s [promptKey]
+     * on [dateIso].
      */
     fun upsertDimensionResponse(
         snapshot: JournalSnapshot,

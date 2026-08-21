@@ -36,7 +36,7 @@ object BackupJsonContract {
         JsonObject(root.filterKeys { it !in reservedRootKeys })
 }
 /**
- * Defines the contract for import mode.
+ * Whether an import replaces the existing data or merges into it.
  */
 enum class ImportMode  {
     REPLACE,
@@ -45,8 +45,7 @@ enum class ImportMode  {
 
 @Serializable
 /**
- * DataModuleSelection.
-
+ * Which data modules (tasks / time entries / notes) to include in a backup or import.
  */
 data class DataModuleSelection(
     val tasks: Boolean = true,
@@ -54,15 +53,14 @@ data class DataModuleSelection(
     val notes: Boolean = true
 ) {
     /**
-     * Returns true when the has selection.
+     * True when at least one module is selected for export/import.
      */
     fun hasSelection(): Boolean = tasks || timeEntries || notes
 }
 
 @Serializable
 /**
- * BackupModulePayloads.
-
+ * Per-module JSON arrays carried inside a backup envelope (each nullable).
  */
 data class BackupModulePayloads(
     @SerialName(BackupJsonContract.TASKS_KEY)
@@ -85,8 +83,7 @@ data class BackupModulePayloads(
 
 @Serializable
 /**
- * BackupPayloadEnvelope.
-
+ * Top-level backup payload: schema version, export timestamp, and module payloads.
  */
 data class BackupPayloadEnvelope(
     @SerialName(BackupJsonContract.SCHEMA_VERSION_KEY)
@@ -104,11 +101,12 @@ object BackupPayloadJson {
         prettyPrint = true
     }
     /**
-     * Performs the encode.
+     * Serializes a [BackupPayloadEnvelope] to pretty JSON.
      */
     fun encode(envelope: BackupPayloadEnvelope): String = json.encodeToString(envelope)
     /**
-     * Performs the decode.
+     * Parses backup JSON into an envelope, tolerating legacy (flat) layouts; missing
+     * modules fall back to empty.
      */
     fun decode(jsonText: String): BackupPayloadEnvelope {
         val root = json.parseToJsonElement(jsonText).jsonObject

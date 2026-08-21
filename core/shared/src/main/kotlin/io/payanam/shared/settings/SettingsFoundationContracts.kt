@@ -5,7 +5,8 @@ package io.payanam.shared.settings
 import io.payanam.shared.transfer.BackupJsonContract
 import io.payanam.shared.transfer.DataModuleSelection
 /**
- * Defines the contract for foundation readiness.
+ * Extraction readiness of a settings area: already shared, ready to extract next, or
+ * still Android-only.
  */
 enum class FoundationReadiness {
     SharedReady,
@@ -14,8 +15,7 @@ enum class FoundationReadiness {
 }
 
 /**
- * FoundationArea.
-
+ * One settings area shown in the foundation-readiness checklist (title + status + blurb).
  */
 data class FoundationArea(
     val id: String,
@@ -25,8 +25,7 @@ data class FoundationArea(
 )
 
 /**
- * SettingsFoundationSnapshot.
-
+ * Serializable snapshot of settings foundation readiness for the desktop<->mobile sync.
  */
 data class SettingsFoundationSnapshot(
     val schemaVersion: Int,
@@ -34,13 +33,13 @@ data class SettingsFoundationSnapshot(
     val areas: List<FoundationArea>,
 ) {
     /**
-     * Performs the areas with status.
+     * Counts foundation areas currently at [status].
      */
     fun areasWithStatus(status: FoundationReadiness): Int = areas.count { it.status == status }
 }
 object SettingsFoundationContracts {
     /**
-     * Performs the snapshot.
+     * Builds a foundation snapshot with the default area checklist.
      */
     fun snapshot(
         moduleSelection: DataModuleSelection = DataModuleSelection(),
@@ -52,7 +51,8 @@ object SettingsFoundationContracts {
             areas = defaultAreas(),
         )
     /**
-     * Performs the default areas.
+     * Returns the built-in foundation area checklist (settings transfer, structure,
+     * tasks/time, notes/lenses).
      */
     fun defaultAreas(): List<FoundationArea> =
         listOf(

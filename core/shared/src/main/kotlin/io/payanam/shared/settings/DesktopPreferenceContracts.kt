@@ -2,7 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
 /**
- * Defines the contract for desktop theme mode.
+ * UI theme selection persisted on desktop (system / light / dark).
  */
 enum class DesktopThemeMode(
     val storageKey: String,
@@ -21,7 +21,7 @@ enum class DesktopThemeMode(
     }
 }
 /**
- * Defines the contract for desktop language.
+ * UI language selection persisted on desktop (system / English / Tamil).
  */
 enum class DesktopLanguage(
     val storageKey: String,
@@ -40,7 +40,7 @@ enum class DesktopLanguage(
     }
 }
 /**
- * Defines the contract for desktop top level route.
+ * Top-level navigation destinations for the desktop shell.
  */
 enum class DesktopTopLevelRoute(
     val storageKey: String,
@@ -64,8 +64,8 @@ enum class DesktopTopLevelRoute(
 }
 
 /**
- * DesktopSettingsSnapshot.
-
+ * Serializable desktop settings state (theme, language, launch route, focus preset,
+ * route visibility) for the desktop<->mobile sync.
  */
 data class DesktopSettingsSnapshot(
     val schemaVersion: Int = DesktopSettingsContracts.SCHEMA_VERSION,
@@ -78,11 +78,11 @@ data class DesktopSettingsSnapshot(
     val sessionLoggingEnabled: Boolean = true,
 ) {
     /**
-     * Returns true when the is route visible.
+     * Whether [route] is currently shown in the desktop nav rail.
      */
     fun isRouteVisible(route: DesktopTopLevelRoute): Boolean = routeVisibility[route] ?: DesktopSettingsContracts.DEFAULT_ROUTE_VISIBLE
     /**
-     * Performs the visible routes.
+     * Returns all currently-visible top-level routes.
      */
     fun visibleRoutes(): List<DesktopTopLevelRoute> = DesktopTopLevelRoute.entries.filter(::isRouteVisible)
 }
@@ -90,19 +90,19 @@ object DesktopSettingsContracts {
     const val SCHEMA_VERSION = 3
     const val DEFAULT_ROUTE_VISIBLE = true
     /**
-     * Performs the default snapshot.
+     * Returns a settings snapshot populated with defaults (dark theme, all routes visible).
      */
     fun defaultSnapshot(): DesktopSettingsSnapshot =
         DesktopSettingsSnapshot(
             routeVisibility = defaultRouteVisibility(),
         )
     /**
-     * Performs the default route visibility.
+     * Returns a map with every route marked visible by default.
      */
     fun defaultRouteVisibility(): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { DEFAULT_ROUTE_VISIBLE }
     /**
-     * Performs the normalize route visibility.
+     * Fills missing routes (SETTINGS is forced visible) from [routeVisibility].
      */
     fun normalizeRouteVisibility(routeVisibility: Map<DesktopTopLevelRoute, Boolean>): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { route ->
@@ -113,7 +113,7 @@ object DesktopSettingsContracts {
             }
         }
     /**
-     * Performs the route visibility for preset.
+     * Returns the route-visibility map implied by [preset] (SETTINGS always visible).
      */
     fun routeVisibilityForPreset(preset: FocusModePreset): Map<DesktopTopLevelRoute, Boolean> =
         DesktopTopLevelRoute.entries.associateWith { route ->

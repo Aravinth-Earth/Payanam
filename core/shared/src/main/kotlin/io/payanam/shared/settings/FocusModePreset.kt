@@ -2,7 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
 /**
- * Defines the contract for focus mode preset.
+ * Curated desktop focus presets: each exposes a subset of top-level routes so the
+ * shell can show a simplified surface.
  */
 enum class FocusModePreset(
     val presetId: String,
@@ -40,7 +41,7 @@ enum class FocusModePreset(
 
     companion object {
         /**
-         * Performs the from preset id.
+         * Resolves a preset from its [presetId]; unknown/blank → [FULL_SUITE].
          */
         fun fromPresetId(presetId: String?): FocusModePreset = entries.firstOrNull { it.presetId == presetId } ?: FULL_SUITE
     }

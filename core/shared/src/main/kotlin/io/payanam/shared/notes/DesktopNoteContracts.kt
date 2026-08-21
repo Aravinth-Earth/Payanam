@@ -7,8 +7,7 @@ import kotlinx.serialization.Serializable
 
 @Serializable
 /**
- * DesktopNoteRecord.
-
+ * One desktop note record (title, details, dimension, tags) for sync.
  */
 data class DesktopNoteRecord(
     val id: String,
@@ -23,8 +22,7 @@ data class DesktopNoteRecord(
 
 @Serializable
 /**
- * DesktopNotesSnapshot.
-
+ * Serializable notes state holding every note for the desktop<->mobile sync.
  */
 data class DesktopNotesSnapshot(
     val schemaVersion: Int = DesktopNoteContracts.SCHEMA_VERSION,
@@ -35,11 +33,12 @@ object DesktopNoteContracts {
     const val DEFAULT_DIMENSION_ID = "dim_work_livelihood"
     const val DEFAULT_DIMENSION_LABEL = "Work & Livelihood"
     /**
-     * Performs the empty snapshot.
+     * Returns an empty [DesktopNotesSnapshot] (no notes).
      */
     fun emptySnapshot(): DesktopNotesSnapshot = DesktopNotesSnapshot()
     /**
-     * Creates the create record.
+     * Builds a [DesktopNoteRecord], trimming fields and falling back to defaults for
+     * blank dimension/tags.
      */
     fun createRecord(
         id: String,
@@ -62,7 +61,8 @@ object DesktopNoteContracts {
         )
     }
     /**
-     * Updates the update record.
+     * Returns a copy of [existing] with the editable fields replaced (keeping its id
+     * + createdAt); trims and normalizes inputs.
      */
     fun updateRecord(
         existing: DesktopNoteRecord,

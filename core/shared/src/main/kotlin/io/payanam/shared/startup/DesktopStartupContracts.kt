@@ -4,17 +4,16 @@ package io.payanam.shared.startup
 
 import io.payanam.shared.settings.DesktopTopLevelRoute
 /**
- * Defines the contract for desktop startup check status.
+ * Whether a desktop startup check passed or needs user attention.
  */
 enum class DesktopStartupCheckStatus {
     Ready,
     AttentionRequired,
 }
 
-/**
- * DesktopStartupCheck.
-
- */
+    /**
+     * One startup readiness gate: title, status, and a human-readable summary.
+     */
 data class DesktopStartupCheck(
     val id: String,
     val title: String,
@@ -23,8 +22,7 @@ data class DesktopStartupCheck(
 )
 
 /**
- * DesktopStartupSnapshot.
-
+ * Serializable desktop startup-readiness snapshot (launch route + checks).
  */
 data class DesktopStartupSnapshot(
     val schemaVersion: Int,
@@ -32,19 +30,18 @@ data class DesktopStartupSnapshot(
     val checks: List<DesktopStartupCheck>,
 ) {
     /**
-     * Performs the requires attention.
+     * Returns true when any startup check is still [AttentionRequired].
      */
     fun requiresAttention(): Boolean = checks.any { it.status == DesktopStartupCheckStatus.AttentionRequired }
     /**
-     * Loads the ready checks.
+     * Count of startup checks that are [Ready].
      */
     fun readyChecks(): Int = checks.count { it.status == DesktopStartupCheckStatus.Ready }
 }
 
-/**
- * DesktopStartupPaths.
-
- */
+    /**
+     * Resolved on-disk paths the desktop shell depends on at startup.
+     */
 data class DesktopStartupPaths(
     val settingsFilePath: String,
     val appDataRoot: String,
@@ -53,10 +50,9 @@ data class DesktopStartupPaths(
     val databaseFilePath: String,
 )
 
-/**
- * DesktopStartupState.
-
- */
+    /**
+     * Live runtime state snapshot (passphrase set, session open, db ready).
+     */
 data class DesktopStartupState(
     val passphraseConfigured: Boolean,
     val sessionOpen: Boolean,
@@ -65,7 +61,7 @@ data class DesktopStartupState(
 object DesktopStartupContracts {
     const val SCHEMA_VERSION = 1
     /**
-     * Performs the snapshot.
+     * Builds the startup snapshot from [paths]/[state], evaluating each readiness gate.
      */
     fun snapshot(
         launchRoute: DesktopTopLevelRoute,
