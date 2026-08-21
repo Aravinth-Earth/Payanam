@@ -25,10 +25,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 
-@Singleton
 /**
- * Provides the notification scheduler.
+ * Schedules task-reminder alarms: persists notification rows, arms exact
+ * (or inexact when permission is missing) AlarmManager alarms, and cancels
+ * both on task changes.
  */
+@Singleton
 class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val taskRepository: TaskRepository,
@@ -40,7 +42,8 @@ class NotificationScheduler @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val zoneId = ZoneId.systemDefault()
     /**
-     * Performs the schedule all pending tasks.
+     * Re-arms reminders for every currently eligible task (app start /
+     * settings change).
      */
     suspend fun scheduleAllPendingTasks() {
         if (!FeatureFlags.remindersEnabled) {
@@ -62,7 +65,8 @@ class NotificationScheduler @Inject constructor(
         }
     }
     /**
-     * Performs the schedule for task.
+     * Arms (or cancels) the reminder for one task: eligibility checks, advance
+     * timing from notification mode, persistence, then the alarm itself.
      */
     @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun scheduleForTask(
@@ -193,7 +197,8 @@ class NotificationScheduler @Inject constructor(
         }
     }
     /**
-     * Performs the schedule snooze.
+     * Reschedules a reminder for a snoozed task (default +15 min when no
+     * explicit [dueAt] is given).
      */
     suspend fun scheduleSnooze(task: Task, dueAt: LocalDateTime?) {
         val now = LocalDateTime.now()
@@ -206,7 +211,7 @@ class NotificationScheduler @Inject constructor(
         )
     }
     /**
-     * Returns true when the cancel for task.
+     * Cancels all pending alarms and visible notifications for [taskId].
      */
     suspend fun cancelForTask(taskId: String) {
         val notifications = notificationRepository.getNotificationsForTask(taskId)
