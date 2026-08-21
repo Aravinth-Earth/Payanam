@@ -15,7 +15,8 @@ import java.time.LocalTime
 internal object TimeVisualsCalculator {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
     /**
-     * Returns the day overall.
+     * Whole-day summary from clipped entry intervals: tracked minutes, focus
+     * share, active blocks, and overlap/gap counts.
      */
     fun computeDayOverall(
         selectedDate: LocalDate,
@@ -56,7 +57,8 @@ internal object TimeVisualsCalculator {
         return result
     }
     /**
-     * Returns the per dimension.
+     * Per-dimension rollup for the day: entry-based tracking plus
+     * occurrence-derived supplemental minutes, with planned-vs-actual deltas.
      */
     fun computePerDimension(
         selectedDate: LocalDate,
