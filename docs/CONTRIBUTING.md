@@ -1,7 +1,28 @@
 # Contributing to Payanam
+Last Updated: 2026-08-22
 
 Payanam is a local-first, FOSS (AGPL-3.0) project. Contributions are welcome — this
 guide keeps the codebase consistent and the quality gates green for everyone.
+
+**Before you start:** read [VISION.md](VISION.md) to understand what Payanam is
+and isn't, and which contributions align with our direction.
+
+## Code of Conduct
+
+- **Be respectful** — We're building a community where privacy, autonomy, and thoughtful design matter
+- **Assume good intent** — Most misunderstandings are just that
+- **Respect the vision** — Contributions should strengthen Payanam's core purpose, not derail it
+- **Value privacy** — Never propose features that compromise user data sovereignty
+
+## Reporting bugs & proposing features
+
+- **Bugs:** check existing [Issues](https://github.com/Aravinth-Earth/Payanam/issues)
+  first, then open one with steps to reproduce, expected vs actual behavior, device
+  info, and screenshots/logs if relevant.
+- **Feature ideas:** check
+  [Discussions](https://github.com/Aravinth-Earth/Payanam/discussions), confirm the
+  idea fits [VISION.md](VISION.md) (user-driven, not feature-bloat), and open a
+  Feature Request discussion describing the problem it solves before writing code.
 
 ## Development setup
 
