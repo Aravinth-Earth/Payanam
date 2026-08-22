@@ -12,9 +12,11 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
+import io.payanam.domain.model.MetricWindowRow
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
+import io.payanam.scoring.ordinalRankToday
 import io.payanam.notification.NotificationScheduler
 import io.payanam.ui.components.CheckmarkStatus
 import io.payanam.ui.perf.PerfBaselineTelemetry
@@ -35,6 +37,8 @@ import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 import javax.inject.Inject
 /**
  * ViewModel for the Tasks/Habits screen: loads and shapes the task + habit
@@ -52,6 +56,8 @@ class TasksViewModel @Inject constructor(
     private val createTimeEntryForHabitUseCase: io.payanam.usecase.CreateTimeEntryForHabitUseCase,
     private val scoreRollupCascadeService: ScoreRollupCascadeService,
     private val habitMetricRepository: io.payanam.domain.repository.HabitMetricRepository,
+    private val scoreWindowRepository: io.payanam.domain.repository.ScoreWindowRepository,
+    private val scoreChangeEventBus: io.payanam.database.event.ScoreChangeEventBus,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TasksUiState())
@@ -88,6 +94,9 @@ class TasksViewModel @Inject constructor(
             started = SharingStarted.WhileSubscribed(5_000),
             initialValue = HabitsTabUiState(),
         )
+    /** Habits day-metrics strip state (7 cascade chips atop the Habits listing). */
+    private val _dayMetricsState = MutableStateFlow(HabitDayMetricsState(isLoading = true))
+    val dayMetricsState: StateFlow<HabitDayMetricsState> = _dayMetricsState.asStateFlow()
     val tasksTabUiState: StateFlow<TasksTabUiState> = uiState
         .map { state ->
             TasksTabUiState(
@@ -115,6 +124,122 @@ class TasksViewModel @Inject constructor(
             loadSavedVisibilityToggles()
             loadTasks()
         }
+        // Day-metrics strip: load once, then refresh whenever the cascade
+        // recomputes (same bus LensHabitScoreViewModel listens to).
+        viewModelScope.launch {
+            loadHabitDayMetrics()
+            scoreChangeEventBus.events.collect {
+                logger.d("TasksViewModel", "Score change event; refreshing day metrics strip")
+                loadHabitDayMetrics()
+            }
+        }
+    }
+
+    /**
+     * Loads the 7-chip Habits day-metrics strip: the 6 cascade metrics from the
+     * DAY row (score / runningAvg / progress / streakPos / streakNet / posContinue)
+     * plus the due-today count, each with its ordinal "X/Y" rank computed across
+     * the DAY row's full history of distinct values. Due rank is a placeholder
+     * (no due-count history model yet) — only its count is real.
+     *
+     * Reuses [scoreWindowRepository] (same source as the Lenses matrix) and the
+     * already-computed due-today map from [loadHabits]. Ranks use the shared
+     * [io.payanam.scoring.ordinalRankToday] helper so both surfaces stay identical.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    fun loadHabitDayMetrics() {
+        viewModelScope.launch {
+            try {
+                val today = LocalDate.now()
+                val todayStr = today.format(DateTimeFormatter.ISO_LOCAL_DATE)
+                val earliest = scoreWindowRepository.earliestDayKey() ?: todayStr
+                // Today's DAY row → 6 metric values.
+                val dayToday = scoreWindowRepository.getDayWindow(todayStr, todayStr)
+                    .maxByOrNull { it.dayKey }
+                // Full DAY history → ordinal ranks per metric.
+                val dayHist = scoreWindowRepository.getDayWindow(earliest, todayStr)
+                val chips = buildDayMetricChips(dayToday, dayHist)
+                _dayMetricsState.value = HabitDayMetricsState(isLoading = false, chips = chips)
+            } catch (e: Exception) {
+                logger.e("TasksViewModel.loadHabitDayMetrics", "Failed to load day metrics strip", e)
+                _dayMetricsState.value = HabitDayMetricsState(isLoading = false, chips = emptyList())
+            }
+        }
+    }
+
+    /**
+     * Builds the 7 chips in natural cascade order (S/A/P/sp/sn/pc, then Due).
+     * [dayToday] supplies today's values; [dayHist] supplies the history for
+     * ordinal ranks. Due count comes from the cached due-today map (real); its
+     * rank is a placeholder until a due-count history model exists.
+     */
+    private fun buildDayMetricChips(
+        dayToday: MetricWindowRow?,
+        dayHist: List<MetricWindowRow>,
+    ): List<DayMetricChipData> {
+        val histByMetric: Map<ScoreMetricColumn, List<Double>> = buildDayHistorySeries(dayHist)
+        // Due count: read the map loadHabits already computed into uiState.
+        val dueMap = _uiState.value.dueTodayByTaskId
+        val dueCount = dueMap.count { it.value }.coerceAtLeast(0)
+        val metrics: List<Pair<ScoreMetricColumn, String>> = listOf(
+            ScoreMetricColumn.SCORE to "Day Score",
+            ScoreMetricColumn.RUNNING_AVG to "Run Avg",
+            ScoreMetricColumn.PROGRESS to "Avg Prog",
+            ScoreMetricColumn.STREAK_POS to "Streak A",
+            ScoreMetricColumn.STREAK_NET to "Streak B",
+            ScoreMetricColumn.POS_CONTINUE to "Streak C",
+        )
+        val cascadeChips = metrics.map { (metric, label) ->
+            val value = dayToday?.let { metricValueForChip(it, metric) } ?: "—"
+            val rank = ordinalRankToday(histByMetric[metric].orEmpty())
+            DayMetricChipData(value = value, rank = rank, label = label)
+        }
+        // Due chip: real count, placeholder rank.
+        val dueChip = DayMetricChipData(
+            value = dueCount.toString(),
+            rank = "—",
+            label = "Due",
+            isPlaceholderRank = true,
+        )
+        return cascadeChips + dueChip
+    }
+
+    /** Extracts [metric]'s value from a DAY row as a display string. */
+    private fun metricValueForChip(row: MetricWindowRow, metric: ScoreMetricColumn): String {
+        val v: Double? = when (metric) {
+            ScoreMetricColumn.SCORE -> row.score
+            ScoreMetricColumn.RUNNING_AVG -> row.runningAvg
+            ScoreMetricColumn.PROGRESS -> row.progress
+            ScoreMetricColumn.STREAK_POS -> row.streakPos.toDouble()
+            ScoreMetricColumn.STREAK_NET -> row.streakNet.toDouble()
+            ScoreMetricColumn.POS_CONTINUE -> row.posContinue.toDouble()
+        }
+        if (v == null) return "—"
+        return when (metric) {
+            ScoreMetricColumn.SCORE, ScoreMetricColumn.RUNNING_AVG ->
+                String.format(Locale.US, "%.2f", v.coerceIn(0.0, 1.0))
+            ScoreMetricColumn.PROGRESS ->
+                if (v > 0.0) "+${String.format(Locale.US, "%.2f", v)}" else String.format(Locale.US, "%.2f", v)
+            else -> v.toLong().toString()
+        }
+    }
+
+    /** Groups the full DAY history into a per-metric value list for ordinal ranking. */
+    private fun buildDayHistorySeries(hist: List<MetricWindowRow>): Map<ScoreMetricColumn, List<Double>> {
+        val out = mutableMapOf<ScoreMetricColumn, MutableList<Double>>()
+        hist.forEach { row ->
+            out.accumulate(ScoreMetricColumn.SCORE, row.score)
+            out.accumulate(ScoreMetricColumn.RUNNING_AVG, row.runningAvg)
+            out.accumulate(ScoreMetricColumn.PROGRESS, row.progress)
+            out.accumulate(ScoreMetricColumn.STREAK_POS, row.streakPos.toDouble())
+            out.accumulate(ScoreMetricColumn.STREAK_NET, row.streakNet.toDouble())
+            out.accumulate(ScoreMetricColumn.POS_CONTINUE, row.posContinue.toDouble())
+        }
+        return out
+    }
+
+    private fun MutableMap<ScoreMetricColumn, MutableList<Double>>.accumulate(metric: ScoreMetricColumn, v: Double) {
+        getOrPut(metric) { mutableListOf() }.add(v)
     }
 
     /** Persisted visibility toggles: showArchived / showCompleted / hideAllMarked. */
