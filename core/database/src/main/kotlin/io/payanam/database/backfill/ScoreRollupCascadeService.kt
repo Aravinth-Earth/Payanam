@@ -100,6 +100,7 @@ class ScoreRollupCascadeService
                     ),
                 )
                 val occurrences = occDao.getOccurrencesForTaskForBackfill(taskId)
+                val hadRowBefore = allHabitRows.any { it.dayKey == dateStr }
                 val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
                     task = task,
                     occurrences = occurrences,
@@ -109,6 +110,18 @@ class ScoreRollupCascadeService
                 )
                 habitDao.deleteFrom(taskId, dateStr)
                 if (rows.isNotEmpty()) habitDao.upsertAll(rows)
+                logger.i(
+                    tag,
+                    "CASCADE_L1_BEFORE",
+                    mapOf(
+                        "taskId" to taskId,
+                        "dimensionId" to (task.dimensionId ?: "dim_unassigned"),
+                        "changeDate" to dateStr,
+                        "hadRowBefore" to hadRowBefore,
+                        "rowsAfter" to rows.size,
+                        "scoreNow" to (rows.find { it.dayKey == dateStr }?.score ?: "null"),
+                    ),
+                )
 
                 // ── L2: affected dimension tail (C1 baseline) ─────────────
                 val dimensionId = task.dimensionId ?: "dim_unassigned"
