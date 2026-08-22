@@ -23,6 +23,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [JournalRepository]. Wraps [JournalDao], maps
+ * between journal entities and domain models, and upserts day-journal entries
+ * and their scoped (per-scope / per-dimension) prompt responses.
+ */
 class JournalRepositoryImpl
     @Inject
     constructor(
@@ -32,9 +37,12 @@ class JournalRepositoryImpl
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Returns the journal entry for [date], creating and persisting a blank one
+         * when none exists yet. Returns the domain [DayJournalEntry].
+         */
         override suspend fun getOrCreateEntry(date: LocalDate): DayJournalEntry {
             val dateStr = date.format(dateFormatter)
-
             var entry = sessionManager.requireDatabase().journalDao().getEntryForDate(dateStr)
             if (entry == null) {
                 val now = LocalDateTime.now()
@@ -53,6 +61,10 @@ class JournalRepositoryImpl
             return entry.toDomain()
         }
 
+        /**
+         * Emits the journal entry for [date], mapped to the domain model (null when
+         * no entry exists), as a [Flow].
+         */
         override fun observeEntry(date: LocalDate): Flow<DayJournalEntry?> {
             val dateStr = date.format(dateFormatter)
             logger.d("JournalRepositoryImpl.observeEntry", "Subscribing to journal entry", mapOf("date" to dateStr))
@@ -63,6 +75,10 @@ class JournalRepositoryImpl
                 .map { it?.toDomain() }
         }
 
+        /**
+         * Emits all prompt responses for [entryId], mapped to the domain model, as
+         * a [Flow].
+         */
         override fun getResponses(entryId: String): Flow<List<DayJournalResponse>> {
             logger.d("JournalRepositoryImpl.getResponses", "Subscribing to journal responses", mapOf("entryId" to entryId))
             return sessionManager.requireDatabase().journalDao().getResponsesForEntry(entryId).map { entities ->
@@ -70,15 +86,18 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Upserts a single prompt response from [input] for [entryId]. Edits the
+         * existing response when one matches (same scope + dimension + prompt key),
+         * otherwise inserts a new row. Returns the saved domain [DayJournalResponse].
+         */
         override suspend fun saveResponse(
             entryId: String,
             input: DayJournalResponseInput,
         ): DayJournalResponse {
             val now = LocalDateTime.now()
             val scopeStr = input.scope.name
-
             val existing = sessionManager.requireDatabase().journalDao().getResponse(entryId, scopeStr, input.dimensionKey, input.promptKey)
-
             val entity =
                 if (existing != null) {
                     existing
@@ -112,6 +131,10 @@ class JournalRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Returns the single response for [entryId], [scope], [dimensionKey], and
+         * [promptKey], mapped to the domain model, or null when none matches.
+         */
         override suspend fun getResponse(
             entryId: String,
             scope: JournalPromptScope,
@@ -137,6 +160,10 @@ class JournalRepositoryImpl
             return response
         }
 
+        /**
+         * Returns the journal entry for the ISO date string [dateString], mapped to
+         * the domain model, or null.
+         */
         override suspend fun getEntryByDate(dateString: String): DayJournalEntry? {
             val entry =
                 sessionManager
@@ -155,6 +182,10 @@ class JournalRepositoryImpl
             return entry
         }
 
+        /**
+         * Persists a domain [DayJournalEntry] (insert-only; caller owns id and
+         * timestamps).
+         */
         override suspend fun insertEntry(entry: DayJournalEntry) {
             val entity =
                 DayJournalEntryEntity(
@@ -167,6 +198,10 @@ class JournalRepositoryImpl
             logger.d("JournalRepositoryImpl.insertEntry", "Entry inserted", mapOf("id" to entry.id))
         }
 
+        /**
+         * Returns every response for [entryId] as a one-shot domain list (used by
+         * export/import and bulk reads).
+         */
         override suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse> {
             val responses =
                 sessionManager
@@ -185,6 +220,11 @@ class JournalRepositoryImpl
             return responses
         }
 
+        /**
+         * Upserts a whole domain [DayJournalResponse] (matches on entry + scope +
+         * dimension + prompt key). Updates the existing row when found, else inserts.
+         * Distinct from [saveResponse], which takes a partial [DayJournalResponseInput].
+         */
         override suspend fun upsertResponse(response: DayJournalResponse) {
             val now = LocalDateTime.now().format(dateTimeFormatter)
             val existing =
@@ -194,7 +234,6 @@ class JournalRepositoryImpl
                     response.dimensionKey,
                     response.promptKey,
                 )
-
             if (existing != null) {
                 val updated =
                     existing.copy(
@@ -220,6 +259,9 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Emits every journal entry, mapped to the domain model, as a [Flow].
+         */
         override fun getAllJournalEntries(): Flow<List<DayJournalEntry>> {
             logger.d("JournalRepositoryImpl.getAllJournalEntries", "Subscribing to all journal entries")
             return sessionManager.requireDatabase().journalDao().getAllEntries().map { entities ->
@@ -227,6 +269,10 @@ class JournalRepositoryImpl
             }
         }
 
+        /**
+         * Emits the total number of stored prompt responses, as a [Flow]. Backs the
+         * "X reflections written" style counters in the UI.
+         */
         override fun getTotalResponseCount(): Flow<Int> =
             sessionManager.requireDatabase().journalDao().getAllResponses().map { responses ->
                 responses.size

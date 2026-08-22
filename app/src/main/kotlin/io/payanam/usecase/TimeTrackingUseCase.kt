@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
@@ -31,6 +32,7 @@ class TimeTrackingUseCase @Inject constructor(
      * Stop the active time entry and complete the associated task if any.
      * Returns the stopped time entry.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun stopTrackingAndCompleteTask(
         focusRating: Double = 0.0,
         focusNote: String? = null,
@@ -45,7 +47,6 @@ class TimeTrackingUseCase @Inject constructor(
                 "hasFocusNote" to (normalizedFocusNote != null).toString(),
             ),
         )
-
         val stoppedEntry = timeEntryRepository.stopActiveTimeEntryWithFocus(
             focusRating = safeFocusRating,
             focusNote = normalizedFocusNote,
@@ -88,7 +89,6 @@ class TimeTrackingUseCase @Inject constructor(
                 logger.w("TimeTrackingUseCase.completeTaskFromTimeEntry", "Task not found", mapOf("taskId" to taskId))
                 return
             }
-
             val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
             if (!isFrequencyHabit) {
                 taskRepository.completeTask(taskId, "Completed via time tracking")
@@ -134,7 +134,7 @@ class TimeTrackingUseCase @Inject constructor(
     }
 
     /**
-     * Record occurrence for a task (adapted from TimeViewModel logic)
+     * Record occurrence for a task (adapted from timeViewModel logic)
      */
     private suspend fun recordOccurrenceForTask(
         taskId: String,
@@ -155,7 +155,6 @@ class TimeTrackingUseCase @Inject constructor(
                 "actualDurationMinutes" to (actualDurationMinutes?.toString() ?: "null"),
             ),
         )
-
         val now = LocalDateTime.now()
         val occurrence = TaskOccurrence(
             id = UUID.randomUUID().toString(),

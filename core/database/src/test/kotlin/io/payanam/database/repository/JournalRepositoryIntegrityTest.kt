@@ -23,11 +23,17 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the journal repository integrity test.
+ */
 class JournalRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: JournalRepositoryImpl
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
@@ -44,26 +50,33 @@ class JournalRepositoryIntegrityTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Returns the or create entry returns existing when present.
+     */
     fun getOrCreateEntry_returnsExistingWhenPresent() =
         runBlocking {
             val first = repository.getOrCreateEntry(LocalDate.of(2026, 2, 20))
             val second = repository.getOrCreateEntry(LocalDate.of(2026, 2, 20))
-
             assertThat(first.id).isEqualTo(second.id)
             assertThat(first.entryDate).isEqualTo("2026-02-20")
             assertThat(repository.getAllJournalEntries().first()).hasSize(1)
         }
 
     @Test
+    /**
+     * Writes the save response inserts then updates by natural key.
+     */
     fun saveResponse_insertsThenUpdatesByNaturalKey() =
         runBlocking {
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 21))
-
             val inserted =
                 repository.saveResponse(
                     entryId = entry.id,
@@ -84,7 +97,6 @@ class JournalRepositoryIntegrityTest {
                             responseText = "second",
                         ),
                 )
-
             val responses = repository.getResponsesByEntryId(entry.id)
             assertThat(responses).hasSize(1)
             assertThat(inserted.id).isEqualTo(updated.id)
@@ -92,6 +104,9 @@ class JournalRepositoryIntegrityTest {
         }
 
     @Test
+    /**
+     * Performs the upsert response updates existing and inserts missing.
+     */
     fun upsertResponse_updatesExistingAndInsertsMissing() =
         runBlocking {
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 22))
@@ -125,7 +140,6 @@ class JournalRepositoryIntegrityTest {
                     responseText = "added",
                 ),
             )
-
             val responses = repository.getResponsesByEntryId(entry.id)
             assertThat(responses).hasSize(2)
             assertThat(responses.first { it.promptKey == "reflection" }.responseText).isEqualTo("new")
@@ -133,6 +147,9 @@ class JournalRepositoryIntegrityTest {
         }
 
     @Test
+    /**
+     * Returns the response and total count are consistent.
+     */
     fun getResponse_and_totalCount_areConsistent() =
         runBlocking {
             val entry = repository.getOrCreateEntry(LocalDate.of(2026, 2, 23))
@@ -146,7 +163,6 @@ class JournalRepositoryIntegrityTest {
                         responseText = "good",
                     ),
             )
-
             val response =
                 repository.getResponse(
                     entryId = entry.id,
@@ -154,7 +170,6 @@ class JournalRepositoryIntegrityTest {
                     dimensionKey = "career_work",
                     promptKey = "focus",
                 )
-
             assertThat(response).isNotNull()
             assertThat(response?.responseText).isEqualTo("good")
             assertThat(repository.getTotalResponseCount().first()).isEqualTo(1)

@@ -4,12 +4,10 @@ package io.payanam.shared.settings
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
 class DesktopPreferenceContractsTest {
     @Test
     fun `default snapshot stays stable for desktop bootstrap`() {
         val snapshot = DesktopSettingsContracts.defaultSnapshot()
-
         assertThat(snapshot.schemaVersion).isEqualTo(DesktopSettingsContracts.SCHEMA_VERSION)
         assertThat(snapshot.themeMode).isEqualTo(DesktopThemeMode.DARK)
         assertThat(snapshot.language).isEqualTo(DesktopLanguage.SYSTEM)
@@ -49,7 +47,6 @@ class DesktopPreferenceContractsTest {
                     DesktopTopLevelRoute.SETTINGS to false,
                 ),
             )
-
         assertThat(normalized[DesktopTopLevelRoute.TASKS]).isFalse()
         assertThat(normalized[DesktopTopLevelRoute.SETTINGS]).isTrue()
     }
@@ -61,7 +58,6 @@ class DesktopPreferenceContractsTest {
         assertThat(FocusModePreset.fromPresetId("simple_tasks")).isEqualTo(FocusModePreset.SIMPLE_TASKS)
         assertThat(FocusModePreset.fromPresetId("full_suite")).isEqualTo(FocusModePreset.FULL_SUITE)
         assertThat(FocusModePreset.fromPresetId("missing")).isEqualTo(FocusModePreset.FULL_SUITE)
-
         assertThat(FocusModePreset.SIMPLE_TIME_HABITS.visibleTabs)
             .containsExactly("time", "habits", "lenses", "settings")
         assertThat(FocusModePreset.SIMPLE_JOURNAL.visibleTabs)
@@ -76,13 +72,11 @@ class DesktopPreferenceContractsTest {
     fun `route visibility preset keeps settings visible and hides unrelated routes`() {
         val tasksVisibility = DesktopSettingsContracts.routeVisibilityForPreset(FocusModePreset.SIMPLE_TASKS)
         val journalVisibility = DesktopSettingsContracts.routeVisibilityForPreset(FocusModePreset.SIMPLE_JOURNAL)
-
         assertThat(tasksVisibility[DesktopTopLevelRoute.TASKS]).isTrue()
         assertThat(tasksVisibility[DesktopTopLevelRoute.LENSES]).isTrue()
         assertThat(tasksVisibility[DesktopTopLevelRoute.SETTINGS]).isTrue()
         assertThat(tasksVisibility[DesktopTopLevelRoute.TIME]).isFalse()
         assertThat(tasksVisibility[DesktopTopLevelRoute.JOURNAL]).isFalse()
-
         assertThat(journalVisibility[DesktopTopLevelRoute.JOURNAL]).isTrue()
         assertThat(journalVisibility[DesktopTopLevelRoute.NOTES]).isTrue()
         assertThat(journalVisibility[DesktopTopLevelRoute.SETTINGS]).isTrue()

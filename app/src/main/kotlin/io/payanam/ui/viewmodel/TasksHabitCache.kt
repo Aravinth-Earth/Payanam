@@ -49,6 +49,7 @@ internal fun buildHabitCheckmarkPayload(
     )
 }
 
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun buildCheckmarksForTask(
     occurrences: List<TaskOccurrence>,
     today: LocalDate,
@@ -66,7 +67,6 @@ internal fun buildCheckmarksForTask(
             null
         }
     }.filterKeys { it != null }.mapKeys { it.key!! }
-
     return (0 until days).map { daysAgo ->
         val date = today.minusDays(daysAgo.toLong())
         val occurrence = occurrenceMap[date]

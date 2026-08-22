@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
@@ -20,16 +22,25 @@ internal class LensHistoryBackfillCoordinator(
     private val logger: UnifiedLogger,
 ) {
     private var backfillJob: Job? = null
-
+    /**
+     * Cancels any active backfill job.
+     */
     fun cancel() {
         if (backfillJob?.isActive == true) {
             logger.d("LensHistoryBackfillCoordinator.cancel", "Cancelling active backfill job")
         }
         backfillJob?.cancel()
     }
-
+    /**
+     * The next progressive-history step above [currentDays] (null when at max).
+     */
     fun nextLimitAfter(currentDays: Int): Int? = PROGRESSIVE_HISTORY_LIMITS.firstOrNull { it > currentDays }
-
+    /**
+     * Runs the progressive backfill: rebuilds the time-history summary at
+     * widening day limits (14→365→all), applying each larger result via
+     * [onBackfillReady] while the lens selection is still current.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun schedule(
         scope: CoroutineScope,
         lensRepository: LensRepository,
@@ -70,7 +81,6 @@ internal class LensHistoryBackfillCoordinator(
                             snapshotLoader = { dayKey -> loadSnapshot(dayKey, seededDataByDay) },
                         )
                     } ?: return@launch
-
                     if (summary.totalDays <= lastAppliedDays) {
                         if (summary.totalDays < historyLimit || historyLimit == Int.MAX_VALUE) {
                             return@launch

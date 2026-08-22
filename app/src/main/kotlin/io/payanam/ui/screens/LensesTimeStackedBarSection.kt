@@ -64,7 +64,6 @@ internal fun DimensionTrendSection(
             ),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -90,7 +89,6 @@ internal fun DimensionTrendSection(
                 )
             }
         }
-
         if (state.blocks.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.loc_lens_dim_split_no_data),
@@ -147,7 +145,6 @@ private fun DimensionTrendBadge(
     val badgeLabel = dominantDimension?.label ?: stringResource(id = R.string.loc_dimension_fallback_unassigned)
     val badgeColor = dominantDimension?.color ?: Color(0xFF9E9E9E)
     val badgeIcon = DimensionIconCatalog.resolve(dominantDimension?.iconKey, dominantDimensionId)
-
     DimensionCompactBadge(
         label = badgeLabel,
         color = badgeColor,
@@ -167,7 +164,6 @@ private fun DimensionTrendBar(
     val totalPossible = block.totalPossibleMinutes.toFloat().coerceAtLeast(1f)
     val trackedTotal = block.byDimension.values.sum().toFloat().coerceAtLeast(0f)
     val untrackedMinutes = (block.totalPossibleMinutes - trackedTotal).coerceAtLeast(0f)
-
     Canvas(
         modifier = Modifier
             .width(28.dp)
@@ -218,7 +214,6 @@ private fun DimensionTrendBar(
 private fun DimensionTrendLegend(appPrefs: AppPreferencesState) {
     val visibleDimensions = appPrefs.visibleDimensions()
     val untrackedColor = Color(0xFF9E9E9E)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()

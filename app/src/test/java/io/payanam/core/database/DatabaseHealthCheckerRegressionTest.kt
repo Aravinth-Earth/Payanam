@@ -31,7 +31,6 @@ class DatabaseHealthCheckerRegressionTest {
         ensureLoggerInitialized()
         val context = ApplicationProvider.getApplicationContext<Context>()
         deleteDatabaseArtifacts(context)
-
         assertFalse(DatabaseHealthChecker.hasDatabaseArtifacts(context))
     }
 
@@ -44,7 +43,6 @@ class DatabaseHealthCheckerRegressionTest {
         val walFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal")
         walFile.parentFile?.mkdirs()
         walFile.writeText("wal-placeholder")
-
         val hasArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(context)
         logger.i(
             "DatabaseHealthCheckerRegressionTest",
@@ -90,9 +88,7 @@ class DatabaseHealthCheckerRegressionTest {
             version = 15,
             fileName = PayanamDatabase.DATABASE_NAME,
         )
-
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
-
         assertFalse(result.isHealthy)
         assertTrue(result.needsRepair)
         assertEquals(15, result.currentVersion)
@@ -111,9 +107,7 @@ class DatabaseHealthCheckerRegressionTest {
             version = PAYANAM_DATABASE_SCHEMA_VERSION,
             fileName = PayanamDatabase.DATABASE_NAME,
         )
-
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
-
         assertTrue(result.isHealthy)
         assertFalse(result.needsMigration)
         assertEquals(PAYANAM_DATABASE_SCHEMA_VERSION, result.currentVersion)
@@ -131,9 +125,7 @@ class DatabaseHealthCheckerRegressionTest {
             version = newerVersion,
             fileName = PayanamDatabase.DATABASE_NAME,
         )
-
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
-
         assertFalse(result.isHealthy)
         assertFalse(result.needsRepair)
         assertEquals(newerVersion, result.currentVersion)

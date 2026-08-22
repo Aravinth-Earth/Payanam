@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -116,7 +118,6 @@ internal fun LensesTimeInsightsScreen(
             ),
         )
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -144,7 +145,6 @@ internal fun LensesTimeInsightsScreen(
             }
             return@Scaffold
         }
-
         if (history == null || history.metrics.isEmpty()) {
             Box(
                 modifier = Modifier
@@ -157,7 +157,6 @@ internal fun LensesTimeInsightsScreen(
             }
             return@Scaffold
         }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -200,7 +199,6 @@ internal fun TimeHistoryQuickStatsRow(history: TimeModuleHistorySummary) {
     val scoreUniqueTotal = scoreValues.toSet().size
     val progressUniqueTotal = progressValues.toSet().size
     val streakUniqueTotal = streakValues.toSet().size
-
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -267,7 +265,6 @@ internal fun LensesTimeInlineCharts(
         }
     }
     val overallLabel = stringResource(id = R.string.loc_lens_group_overall)
-
     val scoreSeries = remember(orderedMetrics, dimensionMeta) {
         buildScoreSeries(orderedMetrics, dimensionIds, dimensionMeta, overallLabel)
     }
@@ -288,7 +285,6 @@ internal fun LensesTimeInlineCharts(
             series.copy(values = denseRanksDescending(series.values).map { it.toDouble() })
         }
     }
-
     val scoreFormatter = remember { scorePercentFormatter() }
     val progressFormatter = remember { signedScoreFormatter() }
     val rankValueFormatter = remember { rankFormatter() }
@@ -425,7 +421,6 @@ private fun MultiSeriesLineChartCard(
             31 * acc + metricSeries.id.hashCode() + metricSeries.values.hashCode()
         }
     }
-
     LaunchedEffect(title, xLabels.size, normalizedSeries.size, scrollEnabled) {
         logger.d(
             "LensesTimeInsightsScreen.MultiSeriesLineChartCard",
@@ -438,7 +433,6 @@ private fun MultiSeriesLineChartCard(
             ),
         )
     }
-
     LaunchedEffect(seriesFingerprint, xValues) {
         modelProducer.runTransaction {
             lineSeries {
@@ -448,7 +442,6 @@ private fun MultiSeriesLineChartCard(
             }
         }
     }
-
     ChartCardContainer(
         title = title,
         showScrollHint = scrollEnabled,
@@ -691,6 +684,9 @@ private fun roundToLensScorePrecision(value: Double): Double = round(value * LEN
 
 private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
     return object : CartesianValueFormatter {
+        /**
+         * Maps a chart x-index to its day label (blank when out of range).
+         */
         override fun format(
             value: Double,
             chartValues: ChartValues,

@@ -112,7 +112,6 @@ internal fun DayPlanDialog(
             }
         }
     }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.loc_day_plan)) },
@@ -148,7 +147,6 @@ internal fun DayPlanDialog(
                         enabled = !isPastDay,
                     )
                 }
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.SpaceBetween,
@@ -163,14 +161,11 @@ internal fun DayPlanDialog(
                         enabled = !isPastDay,
                     )
                 }
-
                 HorizontalDivider()
-
                 Text(
                     text = stringResource(id = R.string.loc_day_plan_auto_defaults),
                     style = MaterialTheme.typography.titleSmall,
                 )
-
                 TemplatePickerRow(
                     label = stringResource(id = R.string.loc_day_type_weekday),
                     selectedTemplateId = weekdayTemplateId,
@@ -192,7 +187,6 @@ internal fun DayPlanDialog(
                     enabled = !isPastDay,
                     onTemplateSelected = { starredTemplateId = it },
                 )
-
                 if (dayMode == DayPlanRepository.MODE_AUTO) {
                     val resolvedText = resolvedTemplateName
                         ?: stringResource(id = R.string.loc_day_plan_auto_unassigned)
@@ -202,7 +196,6 @@ internal fun DayPlanDialog(
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
                 if (dayMode == DayPlanRepository.MODE_TEMPLATE) {
                     Text(
                         text = stringResource(id = R.string.loc_select_template),
@@ -228,7 +221,6 @@ internal fun DayPlanDialog(
                         }
                     }
                 }
-
                 if (dayMode == DayPlanRepository.MODE_CUSTOM || dayMode == DayPlanRepository.MODE_TEMPLATE) {
                     HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp))
                     Text(
@@ -245,7 +237,6 @@ internal fun DayPlanDialog(
                         }
                     }
                 }
-
                 TextButton(
                     onClick = {
                         onDismiss()

@@ -106,7 +106,6 @@ fun calculateButtonCount(
 ): Int {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
-
     val availableWidth = screenWidthDp - scoreRingWidth - labelWidth - horizontalPadding - 16.dp
     val count = (availableWidth / buttonWidth).toInt()
 
@@ -126,7 +125,6 @@ fun ScoreRing(
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val scoreColorValue = scoreColor(score.toFloat())
-
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center,
@@ -180,7 +178,6 @@ fun CheckmarkButton(
 ) {
     val logger = UnifiedLogger.getInstance()
     val haptic = LocalHapticFeedback.current
-
     val backgroundColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.9f)
         CheckmarkStatus.SKIPPED -> Color(0xFF9E9E9E).copy(alpha = 0.6f)
@@ -188,12 +185,10 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> Color.Transparent
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     }
-
     val borderColor = when (checkmark.status) {
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         else -> Color.Transparent
     }
-
     val iconColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color.White
         CheckmarkStatus.SKIPPED -> Color.White
@@ -201,7 +196,6 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     }
-
     Box(
         modifier = modifier
             .size(size)
@@ -340,7 +334,6 @@ fun HabitCard(
     val displayCheckmarks = remember(checkmarks, buttonCount) {
         checkmarks.take(buttonCount)
     }
-
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -416,7 +409,6 @@ fun DayHeaderRow(
     val weekdayFormatter = remember(Locale.getDefault()) {
         DateTimeFormatter.ofPattern("EEE").withLocale(Locale.getDefault())
     }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -441,7 +433,6 @@ fun DayHeaderRow(
                 val weekday = date.format(weekdayFormatter).uppercase().take(3)
                 val dayNum = date.format(dayNumberFormatter)
                 val isToday = daysAgo == 0
-
                 Column(
                     modifier = Modifier.size(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

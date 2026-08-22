@@ -62,7 +62,6 @@ fun DayPlanTemplateScreen(
     val uiState by viewModel.uiState.collectAsState()
     val appPrefs = LocalAppPreferences.current
     val dimensionOptions = appPrefs.visibleDimensions()
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -274,7 +273,6 @@ private fun TemplateEditor(
             style = MaterialTheme.typography.titleLarge,
             fontWeight = FontWeight.SemiBold,
         )
-
         if (errorMessage != null) {
             Text(
                 text = errorMessage,
@@ -282,7 +280,6 @@ private fun TemplateEditor(
                 color = MaterialTheme.colorScheme.error,
             )
         }
-
         OutlinedTextField(
             value = templateName,
             onValueChange = onNameChange,
@@ -290,7 +287,6 @@ private fun TemplateEditor(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-
         OutlinedTextField(
             value = templateDescription,
             onValueChange = onDescriptionChange,
@@ -298,9 +294,7 @@ private fun TemplateEditor(
             modifier = Modifier.fillMaxWidth(),
             singleLine = true,
         )
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
             text = stringResource(id = R.string.loc_planned_minutes),
             style = MaterialTheme.typography.titleSmall,
@@ -339,9 +333,7 @@ private fun TemplateEditor(
                 onAllocationChange(option.id, minutes)
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.End,

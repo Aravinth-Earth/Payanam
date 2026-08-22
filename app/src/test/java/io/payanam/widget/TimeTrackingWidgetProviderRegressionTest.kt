@@ -26,7 +26,6 @@ class TimeTrackingWidgetProviderRegressionTest {
     fun `requestUpdate emits widget refresh broadcast`() {
         val context = ApplicationProvider.getApplicationContext<Application>()
         TimeTrackingWidgetProvider.requestUpdate(context)
-
         val broadcastActions = shadowOf(context).broadcastIntents.map { it.action.orEmpty() }
         logger.i(
             "TimeTrackingWidgetProviderRegressionTest",
@@ -54,14 +53,12 @@ class TimeTrackingWidgetProviderRegressionTest {
             sortOrder = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.sortOrder,
             isActive = true,
         )
-
         val label = resolveWidgetDimensionLabel(
             context = context,
             dimension = dimension,
             canonicalId = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
             languageTag = "en",
         )
-
         assertEquals("Work & Livelihood", label)
     }
 
@@ -78,14 +75,12 @@ class TimeTrackingWidgetProviderRegressionTest {
             sortOrder = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.sortOrder,
             isActive = true,
         )
-
         val label = resolveWidgetDimensionLabel(
             context = context,
             dimension = dimension,
             canonicalId = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
             languageTag = "ta",
         )
-
         assertEquals("Deep Work", label)
     }
 }

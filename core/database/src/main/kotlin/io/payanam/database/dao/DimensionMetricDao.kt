@@ -10,6 +10,11 @@ import io.payanam.database.entity.DimensionMetricEntity
 import kotlinx.coroutines.flow.Flow
 
 @Dao
+/**
+ * Room DAO for the `dimension_metrics` table: per-day, per-dimension aggregate
+ * metrics derived from habits, tasks, and time entries. Rows feed the scoring
+ * cascade.
+ */
 interface DimensionMetricDao {
 
     /** Insert or replace all [rows] (conflict = REPLACE). */

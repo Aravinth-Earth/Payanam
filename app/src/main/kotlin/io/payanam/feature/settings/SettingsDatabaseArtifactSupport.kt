@@ -11,6 +11,11 @@ import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
+/**
+ * Display model for a single database file shown in the Settings > Database
+ * screen. Carries the file name, size in KB, a human-readable last-modified
+ * label, and whether the file is part of the live (active) SQLite set.
+ */
 data class DatabaseArtifactUiModel(
     val fileName: String,
     val sizeKb: Long,
@@ -20,10 +25,20 @@ data class DatabaseArtifactUiModel(
 
 private val activeSuffixes = setOf("", "-wal", "-shm", "-journal")
 
+/**
+ * Returns true when [fileName] names one of the live SQLite files for [dbName]
+ * — the main database plus its `-wal`, `-shm`, and `-journal` companion files.
+ * Anything else (`.bak`, temp import files, orphaned companions) is stale.
+ */
 fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabase.DATABASE_NAME): Boolean = activeSuffixes.any { fileName == "$dbName$it" }
 
 private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
+/**
+ * Lists the database files (main db and its companion suffixes) present in the
+ * app's database directory, sorted by name. Falls back to the primary db file
+ * when the directory is unavailable.
+ */
 fun listDatabaseArtifactFiles(context: Context): List<File> {
     val logger = UnifiedLogger.getInstance()
     val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
@@ -45,6 +60,10 @@ fun listDatabaseArtifactFiles(context: Context): List<File> {
     } ?: emptyList()
 }
 
+/**
+ * Maps this [File] to a [DatabaseArtifactUiModel], formatting its size (KB) and
+ * last-modified timestamp and flagging whether it is an active db artifact.
+ */
 fun File.toDatabaseArtifactUiModel(): DatabaseArtifactUiModel {
     val modifiedLabel = Instant.ofEpochMilli(lastModified())
         .atZone(ZoneId.systemDefault())
@@ -58,6 +77,11 @@ fun File.toDatabaseArtifactUiModel(): DatabaseArtifactUiModel {
     )
 }
 
+/**
+ * Deletes database artifacts that are NOT part of the live set (orphaned
+ * `-wal`/`-shm`/`-journal`/`.bak` files left behind by a failed operation).
+ * Returns the number of files deleted. Active files are never touched.
+ */
 fun deleteStaleArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
     val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
@@ -90,6 +114,11 @@ fun deleteStaleArtifactFiles(context: Context): Int {
     return deletedCount
 }
 
+/**
+ * Deletes a single named database artifact, but only when [fileName] stays
+ * within the database namespace (prevents path/name escape). Returns whether
+ * the delete succeeded.
+ */
 fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
     val logger = UnifiedLogger.getInstance()
     val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
@@ -118,6 +147,11 @@ fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
     return deleted
 }
 
+/**
+ * Wipes every database artifact for a full user-initiated wipe: first removes
+ * the temp backup folder (from create-new/import flows), then deletes every
+ * file in the db directory. Returns the number of items removed.
+ */
 fun deleteAllDatabaseArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
     var deletedCount = 0
@@ -174,6 +208,11 @@ fun deleteAllDatabaseArtifactFiles(context: Context): Int {
     return deletedCount
 }
 
+/**
+ * Deletes the live db files and transient import temp files (`.enc.tmp*`,
+ * `.wal_merge_tmp*`, `.import_decrypt.tmp*`) to recover from a crashed or
+ * interrupted import. Returns the number of files removed.
+ */
 fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
     var deletedCount = 0
@@ -217,6 +256,10 @@ fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     return deletedCount
 }
 
+/**
+ * Deletes the `payanam_temp_backup` folder used by create-new/import flows.
+ * Returns whether the folder was removed (true when it was already absent).
+ */
 fun wipeTempBackupDir(context: Context): Boolean {
     val logger = UnifiedLogger.getInstance()
     val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile ?: return false.also {
@@ -233,6 +276,10 @@ fun wipeTempBackupDir(context: Context): Boolean {
     return deleted
 }
 
+/**
+ * Copies each file to `<name>.before_import_<timestamp>.bak` before an import,
+ * returning the source → backup pairs so the operation can be rolled back.
+ */
 fun backupDatabaseArtifactFiles(files: List<File>): List<Pair<File, File>> {
     val logger = UnifiedLogger.getInstance()
     val timestamp = java.time.LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss_SSS"))
@@ -254,6 +301,11 @@ fun backupDatabaseArtifactFiles(files: List<File>): List<Pair<File, File>> {
     }
 }
 
+/**
+ * Restores database files from a prior [backupDatabaseArtifactFiles] snapshot,
+ * copying each backup back over its original. Returns the number restored;
+ * missing backups are skipped with a warning.
+ */
 fun restoreDatabaseArtifactFiles(mappings: List<Pair<File, File>>): Int {
     val logger = UnifiedLogger.getInstance()
     var restored = 0
@@ -282,6 +334,10 @@ fun restoreDatabaseArtifactFiles(mappings: List<Pair<File, File>>): Int {
     return restored
 }
 
+/**
+ * Deletes the `.bak` backup files created by [backupDatabaseArtifactFiles]
+ * once the import is committed or rolled back. Counts only successful deletes.
+ */
 fun cleanupDatabaseArtifactBackups(mappings: List<Pair<File, File>>) {
     val logger = UnifiedLogger.getInstance()
     var deleted = 0

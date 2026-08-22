@@ -18,11 +18,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the journal dao test.
+ */
 class JournalDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var journalDao: JournalDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -35,16 +41,21 @@ class JournalDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert entry and get entry for date.
+     */
     fun insertEntry_and_getEntryForDate() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val retrieved = journalDao.getEntryForDate("2026-02-02")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("entry-1")
@@ -53,11 +64,13 @@ class JournalDaoTest {
     }
 
     @Test
+    /**
+     * Registers the observe entry for date emits entry.
+     */
     fun observeEntryForDate_emitsEntry() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val observed = journalDao.observeEntryForDate("2026-02-02").first()
             assertThat(observed).isNotNull()
             assertThat(observed?.id).isEqualTo("entry-1")
@@ -65,6 +78,9 @@ class JournalDaoTest {
     }
 
     @Test
+    /**
+     * Returns the entry for date returns null when no entry.
+     */
     fun getEntryForDate_returnsNullWhenNoEntry() {
         runBlocking {
             val retrieved = journalDao.getEntryForDate("2026-02-02")
@@ -73,14 +89,15 @@ class JournalDaoTest {
     }
 
     @Test
+    /**
+     * Performs the insert response and get response.
+     */
     fun insertResponse_and_getResponse() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val response = createTestJournalResponse("response-1", "entry-1", "OVERALL", null, "mood")
             journalDao.insertResponse(response)
-
             val retrieved = journalDao.getResponse("entry-1", "OVERALL", null, "mood")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("response-1")
@@ -89,17 +106,18 @@ class JournalDaoTest {
     }
 
     @Test
+    /**
+     * Returns the responses for entry returns all responses.
+     */
     fun getResponsesForEntry_returnsAllResponses() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val response1 = createTestJournalResponse("response-1", "entry-1", "OVERALL", null, "mood")
             val response2 = createTestJournalResponse("response-2", "entry-1", "DIMENSION", "health", "exercise")
 
             journalDao.insertResponse(response1)
             journalDao.insertResponse(response2)
-
             val responses = journalDao.getResponsesForEntry("entry-1").first()
             assertThat(responses).hasSize(2)
             assertThat(responses.map { it.id }).containsExactly("response-1", "response-2")
@@ -107,39 +125,43 @@ class JournalDaoTest {
     }
 
     @Test
+    /**
+     * Updates the update response modifies response.
+     */
     fun updateResponse_modifiesResponse() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val response = createTestJournalResponse("response-1", "entry-1", "OVERALL", null, "mood")
             journalDao.insertResponse(response)
-
             val updatedResponse = response.copy(responseText = "Feeling great", updatedAt = "2026-02-02T11:00:00Z")
             journalDao.updateResponse(updatedResponse)
-
             val retrieved = journalDao.getResponse("entry-1", "OVERALL", null, "mood")
             assertThat(retrieved?.responseText).isEqualTo("Feeling great")
         }
     }
 
     @Test
+    /**
+     * Removes the delete response removes response.
+     */
     fun deleteResponse_removesResponse() {
         runBlocking {
             val entry = createTestJournalEntry("entry-1", "2026-02-02")
             journalDao.insertEntry(entry)
-
             val response = createTestJournalResponse("response-1", "entry-1", "OVERALL", null, "mood")
             journalDao.insertResponse(response)
 
             journalDao.deleteResponse("response-1")
-
             val retrieved = journalDao.getResponse("entry-1", "OVERALL", null, "mood")
             assertThat(retrieved).isNull()
         }
     }
 
     @Test
+    /**
+     * Returns the all entries returns all entries.
+     */
     fun getAllEntries_returnsAllEntries() {
         runBlocking {
             val entry1 = createTestJournalEntry("entry-1", "2026-02-01")
@@ -147,7 +169,6 @@ class JournalDaoTest {
 
             journalDao.insertEntry(entry1)
             journalDao.insertEntry(entry2)
-
             val entries = journalDao.getAllEntries().first()
             assertThat(entries).hasSize(2)
         }

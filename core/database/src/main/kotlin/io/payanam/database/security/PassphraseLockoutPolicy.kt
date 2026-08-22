@@ -3,10 +3,12 @@
 package io.payanam.database.security
 
 import io.payanam.common.logging.UnifiedLogger
-
 object PassphraseLockoutPolicy {
     private val logger = UnifiedLogger.getInstance()
-
+    /**
+     * Escalating unlock lockout: no delay for the first two attempts, then
+     * 30s, 60s, 120s, and 300s from the 3rd attempt onward.
+     */
     fun delaySecondsForAttempt(attemptCount: Int): Long {
         val delay =
             when {

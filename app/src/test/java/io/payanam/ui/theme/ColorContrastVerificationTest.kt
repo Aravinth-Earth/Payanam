@@ -8,7 +8,6 @@ import org.junit.Test
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.pow
-
 class ColorContrastVerificationTest {
 
     @Test
@@ -60,7 +59,6 @@ class ColorContrastVerificationTest {
         val whiteRatio = contrastRatio(background, Color.White)
         val blackRatio = contrastRatio(background, Color.Black)
         val bestRatio = max(whiteRatio, blackRatio)
-
         assertTrue(
             "$name background has insufficient text contrast (best ratio=$bestRatio)",
             bestRatio >= MIN_TEXT_CONTRAST_RATIO,

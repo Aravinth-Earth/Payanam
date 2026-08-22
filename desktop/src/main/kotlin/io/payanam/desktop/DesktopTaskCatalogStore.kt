@@ -11,6 +11,10 @@ import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * DesktopTaskCatalogState.
+
+ */
 data class DesktopTaskCatalogState(
     val catalog: DesktopTaskCatalogSnapshot,
     val errorMessage: String? = null,
@@ -27,6 +31,10 @@ internal class DesktopTaskCatalogStore(
         },
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Task catalog decoded from storage (seeding a default catalog on first
+     * run); carries a decode error message when the payload is unreadable.
+     */
     fun loadState(): DesktopTaskCatalogState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -49,7 +57,7 @@ internal class DesktopTaskCatalogStore(
                 mapOf("recordCount" to catalog.tasks.size),
             )
             DesktopTaskCatalogState(catalog = catalog)
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             logEvent(
                 "DesktopTaskCatalogStore.loadState",
                 "Failed to decode desktop task catalog",
@@ -61,7 +69,9 @@ internal class DesktopTaskCatalogStore(
             )
         }
     }
-
+    /**
+     * Path of the database file holding the task catalog.
+     */
     fun getCatalogFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun saveCatalog(catalog: DesktopTaskCatalogSnapshot) {

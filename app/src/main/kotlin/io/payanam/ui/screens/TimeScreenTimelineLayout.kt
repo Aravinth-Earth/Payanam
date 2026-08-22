@@ -11,7 +11,9 @@ internal sealed class TimelineItem {
     abstract val id: String
     abstract val startMinutes: Int
     abstract val endMinutes: Int
-
+    /**
+     * A tracked time-entry block on the timeline.
+     */
     data class Entry(
         val entry: TimeEntry,
         override val startMinutes: Int,
@@ -19,7 +21,9 @@ internal sealed class TimelineItem {
     ) : TimelineItem() {
         override val id: String = "entry_${entry.id}"
     }
-
+    /**
+     * A planned (not-yet-completed) task block on the timeline.
+     */
     data class Planned(
         val task: Task,
         val dueDate: java.time.LocalDateTime,
@@ -28,7 +32,9 @@ internal sealed class TimelineItem {
     ) : TimelineItem() {
         override val id: String = "planned_${task.id}"
     }
-
+    /**
+     * A completed/skipped task occurrence block on the timeline.
+     */
     data class Occurrence(
         val occurrence: TaskOccurrence,
         val task: Task?,
@@ -39,6 +45,10 @@ internal sealed class TimelineItem {
     }
 }
 
+/**
+ * One laid-out timeline item: its lane index and the total lane count of its
+ * overlap group (drives column width).
+ */
 internal data class LaneLayoutEntry<T>(
     val item: T,
     val laneIndex: Int,
@@ -51,16 +61,23 @@ internal fun <T> calculateLaneLayout(
     getEnd: (T) -> Int,
 ): List<LaneLayoutEntry<T>> {
     if (items.isEmpty()) return emptyList()
+    /**
+     * An item currently overlapping others, with its assigned lane.
+     */
     data class ActiveItem<T>(val item: T, val laneIndex: Int, val endMinutes: Int)
+    /**
+     * An item in the not-yet-emitted overlap group.
+     */
     data class GroupItem<T>(val item: T, val laneIndex: Int)
-
     val logger = UnifiedLogger.getInstance()
     val sorted = items.sortedBy { getStart(it) }
     val active = mutableListOf<ActiveItem<T>>()
     var groupItems = mutableListOf<GroupItem<T>>()
     var groupMaxLanes = 0
     val result = mutableListOf<LaneLayoutEntry<T>>()
-
+    /**
+     * Flushes any pending overlap group into results with its lane count.
+     */
     fun finalizeGroup() {
         if (groupItems.isEmpty()) return
         groupItems.forEach { entry ->
@@ -69,7 +86,6 @@ internal fun <T> calculateLaneLayout(
         groupItems = mutableListOf()
         groupMaxLanes = 0
     }
-
     for (item in sorted) {
         val start = getStart(item)
         val end = getEnd(item)

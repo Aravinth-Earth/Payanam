@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.theme
 
 import androidx.compose.ui.graphics.Color
@@ -19,7 +21,6 @@ val Pink40 = Color(0xFFFF8F00)
 // Life Dimension Colors (matching original app)
 object LifeDimensionColors {
     private val fallbackLoggedDimensions = mutableSetOf<String>()
-
     val CareerWork = Color(0xFF4CAF50) // Green
     val HealthWellness = Color(0xFF2196F3) // Blue
     val Relationships = Color(0xFFE91E63) // Pink
@@ -29,7 +30,9 @@ object LifeDimensionColors {
     val Recreation = Color(0xFF00BCD4) // Cyan
     val Learning = Color(0xFFFFC107) // Amber
     val Contribution = Color(0xFF607D8B) // Blue Grey
-
+    /**
+     * Taxonomy color for a canonical dimension id, or null when unrecognized.
+     */
     fun forDimensionId(dimensionId: String?): Color? {
         val normalizedId = dimensionId?.trim().orEmpty()
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(normalizedId)?.id
@@ -43,6 +46,7 @@ object LifeDimensionColors {
      * All UI should use LocalAppPreferences.current.colorFor() instead.
      * @deprecated Phase 4: Use user-defined colors from AppPreferencesState
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun forDimension(dimension: String): Color {
         // Log warning if called (Phase 4: moving to user preferences)
         // Safe for tests - catch any exceptions from logger
@@ -96,6 +100,9 @@ object StatusColors {
 }
 
 // Score Colors (gradient based on score 0..1)
+/**
+ * Maps a 0..1 score onto a red→green severity gradient.
+ */
 fun scoreColor(score: Float): Color = when {
     score >= 0.8f -> Color(0xFF4CAF50)
 

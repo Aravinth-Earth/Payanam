@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -20,6 +22,7 @@ internal data class DatabaseTableCounts(
     val noteCount: Int,
 )
 
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun readDatabaseTableCounts(dbFile: File, logger: UnifiedLogger): DatabaseTableCounts {
     if (!dbFile.exists()) {
         logger.w("readDatabaseTableCounts", "DB file missing while reading table counts", mapOf("path" to dbFile.absolutePath))
@@ -62,7 +65,12 @@ internal fun queryTableCount(database: SQLiteDatabase, tableName: String): Int =
 
 internal object DatabaseImportHelper {
     private val logger = UnifiedLogger.getInstance()
-
+    /**
+     * Resumes a pending encrypted import with its passphrase: verifies it can
+     * open the file, adopts it as the local key, health-checks, and completes
+     * setup.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeImportWithPassphrase(
         viewModel: DatabaseInitViewModel,
         context: Context,
@@ -82,7 +90,6 @@ internal object DatabaseImportHelper {
         try {
             val dbFile = viewModel.importDbFile
                 ?: throw IllegalStateException("No pending import to resume")
-
             withContext(Dispatchers.IO) {
                 // Verify the imported DB can be opened with the provided passphrase
                 val canUnlock = DatabaseEncryptionMigrationSupport.canOpenWithSqlCipher(
@@ -134,7 +141,6 @@ internal object DatabaseImportHelper {
                     "Marked database_init_completed during resume path",
                 )
             }
-
             delay(500)
             viewModel.clearPendingImport()
             logger.i("DatabaseImportHelper.resumeImportWithPassphrase", "Pending import state cleared; invoking success callback")
@@ -144,7 +150,11 @@ internal object DatabaseImportHelper {
             onError(e.message ?: "Failed to unlock imported database")
         }
     }
-
+    /**
+     * Finishes an encrypted-DB import after the unlock gate: marks setup
+     * complete, clears the pending import, then invokes the success callback.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun resumeEncryptedImportAfterUnlock(
         viewModel: DatabaseInitViewModel,
         context: Context,
@@ -160,7 +170,6 @@ internal object DatabaseImportHelper {
         try {
             val dbFile = viewModel.importDbFile
                 ?: throw IllegalStateException("No pending import to resume")
-
             withContext(Dispatchers.IO) {
                 logger.i(
                     "DatabaseImportHelper.resumeEncryptedImportAfterUnlock",
@@ -177,7 +186,6 @@ internal object DatabaseImportHelper {
                     "Encrypted import completed successfully",
                 )
             }
-
             delay(500)
             viewModel.clearPendingImport()
             logger.i("DatabaseImportHelper.resumeEncryptedImportAfterUnlock", "Pending import state cleared; invoking success callback")

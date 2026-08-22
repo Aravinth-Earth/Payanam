@@ -526,7 +526,6 @@ internal fun AboutSettingsSection(
                 modifier = Modifier.weight(1f),
             )
         }
-
         Row(
             verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             modifier = Modifier.fillMaxWidth(),
@@ -646,7 +645,6 @@ internal fun AboutSettingsSection(
                 )
             }
         }
-
         val result = uiState.updateCheckResult
         if (result != null && !uiState.isCheckingForUpdate) {
             Spacer(modifier = Modifier.height(8.dp))

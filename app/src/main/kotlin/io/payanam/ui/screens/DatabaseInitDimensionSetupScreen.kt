@@ -76,7 +76,6 @@ internal fun MandatoryDimensionSetupSection(
     var duplicateIconIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
-
     val editableDimensions = remember {
         mutableStateListOf(
             *defaultNewDatabaseDimensionInputs(context)
@@ -92,7 +91,6 @@ internal fun MandatoryDimensionSetupSection(
                 .toTypedArray(),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -104,7 +102,6 @@ internal fun MandatoryDimensionSetupSection(
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )
-
         Text(
             text = stringResource(id = R.string.db_init_dimension_setup_desc),
             style = MaterialTheme.typography.bodyMedium,
@@ -112,7 +109,6 @@ internal fun MandatoryDimensionSetupSection(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
-
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween,
@@ -124,7 +120,6 @@ internal fun MandatoryDimensionSetupSection(
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
             )
-
             TextButton(
                 onClick = {
                     if (editableDimensions.size < MAX_USER_DIMENSIONS) {
@@ -145,7 +140,6 @@ internal fun MandatoryDimensionSetupSection(
                 Text(stringResource(id = R.string.db_init_dimension_setup_add_new_action))
             }
         }
-
         LazyColumn(
             modifier = Modifier
                 .fillMaxWidth()
@@ -189,7 +183,6 @@ internal fun MandatoryDimensionSetupSection(
                 textAlign = TextAlign.Center,
             )
         }
-
         Button(
             onClick = {
                 val dimensionInputs = editableDimensions.map {
@@ -232,7 +225,6 @@ internal fun MandatoryDimensionSetupSection(
                 )
             }
         }
-
         DatabaseInitLogExportActions(
             logger = logger,
             context = context,
@@ -242,7 +234,6 @@ internal fun MandatoryDimensionSetupSection(
             showHint = false,
         )
     }
-
     if (editTargetDimensionId != null || editTargetIsAddMode) {
         DimensionEditDialog(
             isAddMode = editTargetIsAddMode,
@@ -337,7 +328,6 @@ private fun DimensionSetupRow(
                     labelColor = if (item.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
                     badgeSize = 24.dp,
                 )
-
                 if (!item.isEnabled) {
                     Text(
                         text = stringResource(id = R.string.settings_disabled),
@@ -364,7 +354,6 @@ private fun DimensionSetupRow(
                     )
                 }
             }
-
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 IconButton(onClick = onEdit, enabled = item.isEnabled) {
                     Icon(
@@ -373,7 +362,6 @@ private fun DimensionSetupRow(
                         tint = if (item.isEnabled) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
-
                 IconButton(onClick = onToggleEnabled) {
                     Icon(
                         imageVector = if (item.isEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
@@ -402,7 +390,6 @@ private fun DimensionEditDialog(
     var iconKey by remember { mutableStateOf(initialIconKey) }
     var error by remember { mutableStateOf<String?>(null) }
     val requiredNameError = stringResource(id = R.string.db_init_dimension_setup_error_name_required)
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -425,19 +412,16 @@ private fun DimensionEditDialog(
                     singleLine = true,
                     shape = MaterialTheme.shapes.medium,
                 )
-
                 Text(
                     text = stringResource(id = R.string.db_init_dimension_setup_color_label),
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                 )
-
                 val usedActiveColors = existingDimensions
                     .filter { it.isEnabled }
                     .filterNot { !isAddMode && it.id == editingDimensionId }
                     .map { it.colorHex.trim().uppercase(Locale.ROOT) }
                     .toSet()
-
                 DimensionColorPicker(
                     selectedColorHex = colorHex,
                     usedColorHexes = usedActiveColors,

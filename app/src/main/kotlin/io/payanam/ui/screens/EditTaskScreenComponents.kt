@@ -36,6 +36,10 @@ import io.payanam.ui.viewmodel.DimensionOption
 import java.time.LocalDateTime
 
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * Edit-task form fields collected by the edit screen, converted to a
+ * TaskInput on save.
+ */
 data class EditTaskInput(
     val title: String,
     val description: String?,

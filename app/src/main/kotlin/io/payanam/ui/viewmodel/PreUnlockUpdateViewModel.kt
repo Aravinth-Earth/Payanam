@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -66,10 +68,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
     /** Cooldown guard: 60s between manual checks (mirrors Settings rate guards). */
     private var lastCheckTimestampMs = 0L
     private val checkCooldownMs = 60_000L
-
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun checkForUpdate() {
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
@@ -174,6 +176,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /** User tapped "Install now" — launch the system installer (manual only). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
@@ -213,6 +216,9 @@ class PreUnlockUpdateViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Cancels the download progress polling when the ViewModel dies.
+     */
     override fun onCleared() {
         pollJob?.cancel()
         super.onCleared()

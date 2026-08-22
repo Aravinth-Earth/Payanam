@@ -33,7 +33,6 @@ fun TagEditorField(
             suggestion.contains(rawValue.trim(), ignoreCase = true) && suggestion !in selectedTags
         }
         .take(6)
-
     OutlinedTextField(
         value = rawValue,
         onValueChange = onValueChange,
@@ -61,7 +60,9 @@ fun TagEditorField(
         }
     }
 }
-
+/**
+ * Splits a comma-separated tag string into trimmed, distinct tags.
+ */
 fun parseTagsInput(rawTags: String): List<String> = rawTags
     .split(",")
     .map { it.trim() }

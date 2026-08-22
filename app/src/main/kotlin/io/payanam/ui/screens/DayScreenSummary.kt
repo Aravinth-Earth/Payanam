@@ -52,7 +52,6 @@ internal fun SummaryTabContent(
     val selectedDate = uiState.selectedDate
     val isSavingSelectedDate = uiState.pendingJournalSaveDates.contains(selectedDate)
     val hasSavedSelectedDate = uiState.lastSavedJournalDate == selectedDate
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -127,7 +126,6 @@ internal fun SummaryTabContent(
             val dimensionId = dimensionPref.id
             val isExpanded = expandedDimensionId == dimensionId
             val color = dimensionPref.color
-
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -156,7 +154,6 @@ internal fun SummaryTabContent(
                             labelColor = MaterialTheme.colorScheme.onSurface,
                             badgeSize = 24.dp,
                         )
-
                         val responseCount = uiState.dimensionResponses[dimensionId]?.count { it.value.isNotBlank() } ?: 0
                         if (responseCount > 0) {
                             Text(
@@ -166,7 +163,6 @@ internal fun SummaryTabContent(
                             )
                         }
                     }
-
                     if (isExpanded) {
                         Spacer(modifier = Modifier.height(16.dp))
 
@@ -182,7 +178,6 @@ internal fun SummaryTabContent(
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }

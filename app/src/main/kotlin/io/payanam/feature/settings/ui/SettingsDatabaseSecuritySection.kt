@@ -67,7 +67,6 @@ internal fun DatabaseSecurityPreferencesSection(
     val biometricCanAuthenticateCode = remember(context) { biometricCanAuthenticateCode(context) }
     val biometricAvailable = biometricCanAuthenticateCode == BiometricManager.BIOMETRIC_SUCCESS
     val hostActivity = remember(context) { context.findFragmentActivity() }
-
     Text(
         text = stringResource(id = R.string.settings_db_unlock_timeout_title),
         style = MaterialTheme.typography.labelMedium,
@@ -188,7 +187,6 @@ internal fun DatabaseSecurityPreferencesSection(
             Text(text = stringResource(id = R.string.db_passphrase_unlock_biometric_setup_action))
         }
     }
-
     if (showEnableBiometricDialog) {
         AlertDialog(
             onDismissRequest = {

@@ -22,12 +22,18 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task and time repository integrity test.
+ */
 class TaskAndTimeRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var taskRepository: TaskRepositoryImpl
     private lateinit var timeEntryRepository: TimeEntryRepositoryImpl
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
@@ -45,11 +51,17 @@ class TaskAndTimeRepositoryIntegrityTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the task repository status transitions persist expected fields.
+     */
     fun taskRepository_statusTransitionsPersistExpectedFields() =
         runBlocking {
             val completedTask =
@@ -93,26 +105,24 @@ class TaskAndTimeRepositoryIntegrityTest {
             taskRepository.skipTask(skippedTask.id)
             taskRepository.missTask(missedTask.id)
             taskRepository.archiveTask(archivedTask.id)
-
             val completed = taskRepository.getTaskById(completedTask.id)
             val skipped = taskRepository.getTaskById(skippedTask.id)
             val missed = taskRepository.getTaskById(missedTask.id)
             val archived = taskRepository.getTaskById(archivedTask.id)
-
             assertThat(completed?.status).isEqualTo("completed")
             assertThat(completed?.completedAt).isNotNull()
-
             assertThat(skipped?.status).isEqualTo("skipped")
             assertThat(skipped?.completedAt).isNull()
-
             assertThat(missed?.status).isEqualTo("missed")
             assertThat(missed?.completedAt).isNull()
-
             assertThat(archived?.status).isEqualTo("archived")
             assertThat(archived?.archivedAt).isNotNull()
         }
 
     @Test
+    /**
+     * Performs the task repository delete task removes row.
+     */
     fun taskRepository_deleteTask_removesRow() =
         runBlocking {
             val task =
@@ -126,11 +136,13 @@ class TaskAndTimeRepositoryIntegrityTest {
                 )
 
             taskRepository.deleteTask(task.id)
-
             assertThat(taskRepository.getTaskById(task.id)).isNull()
         }
 
     @Test
+    /**
+     * Performs the task repository update task updates due date and status.
+     */
     fun taskRepository_updateTask_updatesDueDateAndStatus() =
         runBlocking {
             val task =
@@ -142,7 +154,6 @@ class TaskAndTimeRepositoryIntegrityTest {
                         lifeIntentionCategory = "Unmapped Category",
                     ),
                 )
-
             val updated =
                 taskRepository.updateTask(
                     task.id,
@@ -153,18 +164,19 @@ class TaskAndTimeRepositoryIntegrityTest {
                         lifeIntentionCategory = "Unmapped Category",
                     ),
                 )
-
             assertThat(updated.title).isEqualTo("Updated title")
             assertThat(updated.status).isEqualTo("completed")
             assertThat(updated.dueDate).isEqualTo(LocalDateTime.of(2026, 2, 23, 14, 0))
         }
 
     @Test
+    /**
+     * Time entry repository start entry stops previous active entry.
+     */
     fun timeEntryRepository_startEntry_stopsPreviousActiveEntry() =
         runBlocking {
             val firstStart = LocalDateTime.of(2026, 2, 20, 9, 0)
             val secondStart = LocalDateTime.of(2026, 2, 20, 10, 0)
-
             val first =
                 timeEntryRepository.startTimeEntry(
                     TimeEntryInput(
@@ -179,17 +191,18 @@ class TaskAndTimeRepositoryIntegrityTest {
                         startedAt = secondStart,
                     ),
                 )
-
             val firstRow = database.timeEntryDao().getById(first.id)
             val secondRow = database.timeEntryDao().getById(second.id)
             val active = database.timeEntryDao().getActiveTimeEntry()
-
             assertThat(firstRow?.endedAt).isNotNull()
             assertThat(secondRow?.endedAt).isNull()
             assertThat(active?.id).isEqualTo(second.id)
         }
 
     @Test
+    /**
+     * Time entry repository stop active with focus persists trimmed focus note.
+     */
     fun timeEntryRepository_stopActiveWithFocus_persistsTrimmedFocusNote() =
         runBlocking {
             val started =
@@ -199,13 +212,11 @@ class TaskAndTimeRepositoryIntegrityTest {
                         startedAt = LocalDateTime.of(2026, 2, 20, 9, 0),
                     ),
                 )
-
             val stopped =
                 timeEntryRepository.stopActiveTimeEntryWithFocus(
                     focusRating = 0.75,
                     focusNote = "  deep session  ",
                 )
-
             val row = database.timeEntryDao().getById(started.id)
             assertThat(stopped?.id).isEqualTo(started.id)
             assertThat(row?.endedAt).isNotNull()
@@ -215,6 +226,9 @@ class TaskAndTimeRepositoryIntegrityTest {
         }
 
     @Test
+    /**
+     * Time entry repository update and delete time entry persists then removes.
+     */
     fun timeEntryRepository_updateAndDeleteTimeEntry_persistsThenRemoves() =
         runBlocking {
             val task =
@@ -247,7 +261,6 @@ class TaskAndTimeRepositoryIntegrityTest {
                     lastOccurrenceDate = null,
                 )
             database.taskDao().insert(task)
-
             val created =
                 timeEntryRepository.createTimeEntry(
                     TimeEntryInput(
@@ -256,7 +269,6 @@ class TaskAndTimeRepositoryIntegrityTest {
                         endedAt = LocalDateTime.of(2026, 2, 20, 9, 30),
                     ),
                 )
-
             val updated =
                 timeEntryRepository.updateTimeEntry(
                     id = created.id,
@@ -270,17 +282,18 @@ class TaskAndTimeRepositoryIntegrityTest {
                             focusNote = "updated note",
                         ),
                 )
-
             assertThat(updated.taskId).isEqualTo("task-link")
             assertThat(updated.startedAt).isEqualTo(LocalDateTime.of(2026, 2, 21, 10, 0))
             assertThat(updated.focusNote).isEqualTo("updated note")
 
             timeEntryRepository.deleteTimeEntry(created.id)
-
             assertThat(database.timeEntryDao().getById(created.id)).isNull()
         }
 
     @Test
+    /**
+     * Resolve persisted dimension id canonicalizes legacy ids and blank task ids normalize to null.
+     */
     fun resolvePersistedDimensionId_canonicalizesLegacyIds_and_blankTaskIdsNormalizeToNull() {
         assertThat(
             resolvePersistedDimensionId(

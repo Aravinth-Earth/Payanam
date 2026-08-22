@@ -1,7 +1,10 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
-
+/**
+ * Curated desktop focus presets: each exposes a subset of top-level routes so the
+ * shell can show a simplified surface.
+ */
 enum class FocusModePreset(
     val presetId: String,
     val nameKey: String,
@@ -33,11 +36,13 @@ enum class FocusModePreset(
         visibleRoutes = DesktopTopLevelRoute.entries.toSet(),
     ),
     ;
-
     val visibleTabs: Set<String>
         get() = visibleRoutes.map(DesktopTopLevelRoute::storageKey).toSet()
 
     companion object {
+        /**
+         * Resolves a preset from its [presetId]; unknown/blank → [FULL_SUITE].
+         */
         fun fromPresetId(presetId: String?): FocusModePreset = entries.firstOrNull { it.presetId == presetId } ?: FULL_SUITE
     }
 }

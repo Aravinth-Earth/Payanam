@@ -74,7 +74,6 @@ class LensHabitScoreViewModelTest {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
-
         val state = vm.uiState.value
         assertEquals(2, state.rows.size)
         assertNotNull(state.dayRow)
@@ -90,7 +89,6 @@ class LensHabitScoreViewModelTest {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
-
         val state = vm.uiState.value
         // 14 days: physical health has rows on 13th and 14th only → 12 nulls + 2 values
         val spark = state.rows[0].sparkline
@@ -109,7 +107,6 @@ class LensHabitScoreViewModelTest {
 
         vm.selectMetric(ScoreMetricColumn.PROGRESS)
         dispatcher.scheduler.advanceUntilIdle()
-
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
         // rankByKey must be derived for the selected metric, not a stale one
         assertTrue(vm.uiState.value.rankByKey.isNotEmpty())
@@ -118,7 +115,6 @@ class LensHabitScoreViewModelTest {
     @Test
     fun `default metric is progress`() = runTest(dispatcher) {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
-
         assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
     }
 
@@ -127,7 +123,6 @@ class LensHabitScoreViewModelTest {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
-
         val axes = vm.uiState.value.radarAxes
         assertEquals(2, axes.size)
         val physical = axes.first { it.key == "dim_physical_health" }
@@ -144,7 +139,6 @@ class LensHabitScoreViewModelTest {
         val vm = LensHabitScoreViewModel(FakeScoreWindowRepository(sampleDims(), sampleDays()), ScoreChangeEventBus())
         vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
         dispatcher.scheduler.advanceUntilIdle()
-
         val labels = vm.uiState.value.rows.map { it.label }
         assertTrue(labels.any { it.contains("Physical", ignoreCase = true) })
         assertTrue(labels.none { it == "dim_physical_health" })

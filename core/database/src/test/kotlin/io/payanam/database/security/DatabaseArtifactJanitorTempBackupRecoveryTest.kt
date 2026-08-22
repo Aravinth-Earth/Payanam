@@ -15,6 +15,9 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the database artifact janitor temp backup recovery test.
+ */
 class DatabaseArtifactJanitorTempBackupRecoveryTest {
     private lateinit var context: Context
     private lateinit var dbFile: File
@@ -22,6 +25,9 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
     private lateinit var tempBackupDir: File
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         if (!UnifiedLogger.isInitialized()) {
@@ -38,6 +44,9 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         dbFile.delete()
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").delete()
@@ -47,6 +56,9 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
     }
 
     @Test
+    /**
+     * Cleanup stale artifacts recovers primary from temp backup when primary missing.
+     */
     fun cleanupStaleArtifacts_recoversPrimaryFromTempBackupWhenPrimaryMissing() {
         tempBackupDir.mkdirs()
         val backupDb = File(tempBackupDir, PayanamDatabase.DATABASE_NAME)
@@ -55,7 +67,6 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
         backupWal.writeText("wal-payload")
 
         DatabaseArtifactJanitor.cleanupStaleArtifacts(context, "DatabaseArtifactJanitorTempBackupRecoveryTest")
-
         assertThat(dbFile.exists()).isTrue()
         assertThat(dbFile.readText()).isEqualTo("backup-db-payload")
         assertThat(File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").exists()).isTrue()
@@ -63,12 +74,14 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
     }
 
     @Test
+    /**
+     * Cleanup stale artifacts preserves temp backup when recovery not possible and primary missing.
+     */
     fun cleanupStaleArtifacts_preservesTempBackupWhenRecoveryNotPossibleAndPrimaryMissing() {
         tempBackupDir.mkdirs()
         File(tempBackupDir, "note.txt").writeText("manual-inspection")
 
         DatabaseArtifactJanitor.cleanupStaleArtifacts(context, "DatabaseArtifactJanitorTempBackupRecoveryTest")
-
         assertThat(dbFile.exists()).isFalse()
         assertThat(tempBackupDir.exists()).isTrue()
     }

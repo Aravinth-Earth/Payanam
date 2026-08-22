@@ -7,7 +7,6 @@ import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
 class UpdateCheckerTest {
 
     private val buildNumberRegex = Regex("""#(\d+)""")

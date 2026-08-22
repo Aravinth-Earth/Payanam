@@ -103,14 +103,12 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             showProgress = false
         }
     }
-
     val message = when {
         resultMessage == "up_to_date" -> stringResource(id = R.string.pre_unlock_update_up_to_date)
         resultMessage?.startsWith("check_failed") == true -> stringResource(id = R.string.pre_unlock_update_check_failed)
         downloadState is DownloadUiState.Failed -> stringResource(id = R.string.pre_unlock_update_download_failed)
         else -> null
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -138,7 +136,6 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 fontWeight = FontWeight.SemiBold,
             )
         }
-
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
             shape = RoundedCornerShape(10.dp),
@@ -209,7 +206,6 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 )
             }
         }
-
         if (showProgress) {
             // Minimal progress bar placeholder — mirrors the mock; real progress
             // bar added with the Downloading state visuals.

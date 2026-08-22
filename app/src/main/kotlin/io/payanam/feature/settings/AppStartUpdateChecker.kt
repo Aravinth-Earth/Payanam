@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.feature.settings
 
 import android.content.Context
@@ -32,7 +34,11 @@ class AppStartUpdateChecker @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
-
+    /**
+     * Checks for app updates after the DB session unlocks. Safety net: catches
+     * all exceptions so a failed check never crashes the app.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun onAppStart() {
         scope.launch {
             try {
@@ -48,7 +54,6 @@ class AppStartUpdateChecker @Inject constructor(
                     logger.d("AppStartUpdateChecker.onAppStart", "Auto-check disabled, skipping start check")
                     return@launch
                 }
-
                 val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
                 val channel = UpdateChannel.fromStorage(channelRaw)
                 val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)

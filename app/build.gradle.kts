@@ -38,8 +38,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1665
-          versionName = "#1665 (20260820_213640)"
+          versionCode = 1672
+          versionName = "#1672 (20260822_122028)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -164,7 +164,6 @@ android {
 detekt {
     toolVersion = libs.versions.detekt.get()
     config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
-    buildUponDefaultConfig = true
 }
 
 spotless {

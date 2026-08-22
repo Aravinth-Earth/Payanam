@@ -11,6 +11,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [HabitMetricRepository]. Reads the per-habit L1
+ * time-series ([HabitMetricEntity]) and maps rows to [HabitL1Summary] (the
+ * cumulative score / running average / progress / streak state).
+ */
 class HabitMetricRepositoryImpl
     @Inject
     constructor(
@@ -18,6 +23,11 @@ class HabitMetricRepositoryImpl
     ) : HabitMetricRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the current L1 state for every habit, keyed by habit id. Uses each
+         * habit's MAX(dayKey) row (cumulative state), so it is one snapshot per
+         * habit.
+         */
         override suspend fun getLatestPerHabit(): Map<String, HabitL1Summary> {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getLatestPerHabit()
@@ -29,12 +39,21 @@ class HabitMetricRepositoryImpl
             return rows.associate { it.habitId to it.toSummary() }
         }
 
+        /**
+         * Returns the current L1 state for one [habitId] (its MAX(dayKey) row), or
+         * null when the habit has no metric history yet.
+         */
         override suspend fun getLatestForHabit(habitId: String): HabitL1Summary? {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getLatestPerHabit()
             return rows.firstOrNull { it.habitId == habitId }?.toSummary()
         }
 
+        /**
+         * Returns the L1 rows for [habitId] within the inclusive [start]..[end]
+         * window (chronological), each mapped to [HabitL1Summary]. Backs the
+         * habit activity-detail view.
+         */
         override suspend fun getForHabitRange(habitId: String, start: String, end: String): List<HabitL1Summary> {
             val db = sessionManager.requireDatabase()
             val rows = db.habitMetricDao().getForHabitRange(habitId, start, end)

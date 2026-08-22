@@ -19,6 +19,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task occurrence dao test.
+ */
 class TaskOccurrenceDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var taskOccurrenceDao: TaskOccurrenceDao
@@ -26,6 +29,9 @@ class TaskOccurrenceDaoTest {
     private lateinit var taskDao: TaskDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -40,63 +46,71 @@ class TaskOccurrenceDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert and get occurrences for task.
+     */
     fun insert_and_getOccurrencesForTask() =
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val occurrence = createTestTaskOccurrence("occ-1", "task-1", "2026-02-02")
             taskOccurrenceDao.insert(occurrence)
-
             val occurrences = taskOccurrenceDao.getOccurrencesForTask("task-1").first()
             assertThat(occurrences).hasSize(1)
             assertThat(occurrences[0].id).isEqualTo("occ-1")
         }
 
     @Test
+    /**
+     * Returns the occurrences for date filters by date.
+     */
     fun getOccurrencesForDate_filtersByDate() =
         runBlocking {
             val task1 = createTestTask("task-1")
             val task2 = createTestTask("task-2")
             taskDao.insert(task1)
             taskDao.insert(task2)
-
             val occurrence1 = createTestTaskOccurrence("occ-1", "task-1", "2026-02-01")
             val occurrence2 = createTestTaskOccurrence("occ-2", "task-2", "2026-02-02")
 
             taskOccurrenceDao.insert(occurrence1)
             taskOccurrenceDao.insert(occurrence2)
-
             val todaysOccurrences = taskOccurrenceDao.getOccurrencesForDate("2026-02-02").first()
             assertThat(todaysOccurrences).hasSize(1)
             assertThat(todaysOccurrences[0].id).isEqualTo("occ-2")
         }
 
     @Test
+    /**
+     * Get occurrence for task on date returns specific occurrence.
+     */
     fun getOccurrenceForTaskOnDate_returnsSpecificOccurrence() =
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val occurrence = createTestTaskOccurrence("occ-1", "task-1", "2026-02-02")
             taskOccurrenceDao.insert(occurrence)
-
             val retrieved = taskOccurrenceDao.getOccurrenceForTaskOnDate("task-1", "2026-02-02")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("occ-1")
         }
 
     @Test
+    /**
+     * Returns the occurrences for task in range filters by date range.
+     */
     fun getOccurrencesForTaskInRange_filtersByDateRange() =
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val occurrence1 = createTestTaskOccurrence("occ-1", "task-1", "2026-01-30")
             val occurrence2 = createTestTaskOccurrence("occ-2", "task-1", "2026-02-02")
             val occurrence3 = createTestTaskOccurrence("occ-3", "task-1", "2026-02-10")
@@ -104,18 +118,19 @@ class TaskOccurrenceDaoTest {
             taskOccurrenceDao.insert(occurrence1)
             taskOccurrenceDao.insert(occurrence2)
             taskOccurrenceDao.insert(occurrence3)
-
             val rangeOccurrences = taskOccurrenceDao.getOccurrencesForTaskInRange("task-1", "2026-02-01", "2026-02-05")
             assertThat(rangeOccurrences).hasSize(1)
             assertThat(rangeOccurrences[0].id).isEqualTo("occ-2")
         }
 
     @Test
+    /**
+     * Updates the update occurrence modifies status.
+     */
     fun updateOccurrence_modifiesStatus() =
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val occurrence = createTestTaskOccurrence("occ-1", "task-1", "2026-02-02", status = "pending")
             taskOccurrenceDao.insert(occurrence)
 
@@ -128,7 +143,6 @@ class TaskOccurrenceDaoTest {
                 actualCompletedAt = "2026-02-02T10:30:00Z",
                 actualDurationMinutes = 30,
             )
-
             val retrieved = taskOccurrenceDao.getOccurrenceForTaskOnDate("task-1", "2026-02-02")
             assertThat(retrieved?.status).isEqualTo("completed")
             assertThat(retrieved?.note).isEqualTo("Completed successfully")
@@ -136,34 +150,36 @@ class TaskOccurrenceDaoTest {
         }
 
     @Test
+    /**
+     * Removes the delete by id removes occurrence.
+     */
     fun deleteById_removesOccurrence() =
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val occurrence = createTestTaskOccurrence("occ-1", "task-1", "2026-02-02")
             taskOccurrenceDao.insert(occurrence)
 
             taskOccurrenceDao.deleteById("occ-1")
-
             val retrieved = taskOccurrenceDao.getOccurrenceForTaskOnDate("task-1", "2026-02-02")
             assertThat(retrieved).isNull()
         }
 
     @Test
+    /**
+     * Returns the occurrences for tasks in range bulk loads occurrences.
+     */
     fun getOccurrencesForTasksInRange_bulkLoadsOccurrences() =
         runBlocking {
             val task1 = createTestTask("task-1")
             val task2 = createTestTask("task-2")
             taskDao.insert(task1)
             taskDao.insert(task2)
-
             val occurrence1 = createTestTaskOccurrence("occ-1", "task-1", "2026-02-02")
             val occurrence2 = createTestTaskOccurrence("occ-2", "task-2", "2026-02-02")
 
             taskOccurrenceDao.insert(occurrence1)
             taskOccurrenceDao.insert(occurrence2)
-
             val bulkOccurrences =
                 taskOccurrenceDao.getOccurrencesForTasksInRange(
                     taskIds = listOf("task-1", "task-2"),
@@ -174,6 +190,9 @@ class TaskOccurrenceDaoTest {
         }
 
     @Test
+    /**
+     * Returns the all occurrences returns all rows.
+     */
     fun getAllOccurrences_returnsAllRows() =
         runBlocking {
             val task1 = createTestTask("task-1")
@@ -183,12 +202,14 @@ class TaskOccurrenceDaoTest {
 
             taskOccurrenceDao.insert(createTestTaskOccurrence("occ-1", "task-1", "2026-02-02"))
             taskOccurrenceDao.insert(createTestTaskOccurrence("occ-2", "task-2", "2026-02-03"))
-
             val allOccurrences = taskOccurrenceDao.getAllOccurrences()
             assertThat(allOccurrences).hasSize(2)
         }
 
     @Test
+    /**
+     * Returns the all reschedules returns all rows.
+     */
     fun getAllReschedules_returnsAllRows() =
         runBlocking {
             val task = createTestTask("task-1")
@@ -196,12 +217,14 @@ class TaskOccurrenceDaoTest {
 
             taskRescheduleDao.insert(createTestReschedule("res-1", "task-1", "2026-02-01", "2026-02-02"))
             taskRescheduleDao.insert(createTestReschedule("res-2", "task-1", "2026-02-02", "2026-02-03"))
-
             val allReschedules = taskRescheduleDao.getAllReschedules()
             assertThat(allReschedules).hasSize(2)
         }
 
     @Test
+    /**
+     * Performs the deleting task cascades occurrence and reschedule rows.
+     */
     fun deletingTask_cascadesOccurrenceAndRescheduleRows() =
         runBlocking {
             val task = createTestTask("task-1")
@@ -210,7 +233,6 @@ class TaskOccurrenceDaoTest {
             taskRescheduleDao.insert(createTestReschedule("res-1", "task-1", "2026-02-01", "2026-02-02"))
 
             taskDao.deleteById("task-1")
-
             assertThat(taskOccurrenceDao.getAllOccurrences()).isEmpty()
             assertThat(taskRescheduleDao.getAllReschedules()).isEmpty()
         }

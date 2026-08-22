@@ -56,7 +56,6 @@ class TaskInputTest {
             notificationMode = "custom",
             customNotificationMinutes = 15
         )
-
         assertThat(input.title).isEqualTo("Title")
         assertThat(input.description).isEqualTo("Desc")
         assertThat(input.status).isEqualTo("pending")
@@ -108,7 +107,6 @@ class TaskInputTest {
             promptKey = "energy",
             responseText = "High"
         )
-
         assertThat(input.scope).isEqualTo(JournalPromptScope.DIMENSION)
         assertThat(input.dimensionKey).isEqualTo("health")
         assertThat(input.promptKey).isEqualTo("energy")

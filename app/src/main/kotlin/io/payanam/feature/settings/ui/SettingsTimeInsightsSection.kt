@@ -26,7 +26,7 @@ import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 
 /**
- * Full SettingsCard wrapper for the insights charts visibility section.
+ * Full settingsCard wrapper for the insights charts visibility section.
  */
 @Composable
 internal fun InsightsChartsVisibilitySettingsCard(
@@ -62,7 +62,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
             style = MaterialTheme.typography.bodySmall,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_time),
             checked = prefsState.chartTimeModuleEnabled,
@@ -92,7 +91,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ChartToggleRow(
                 label = stringResource(id = R.string.settings_insights_time_execution_details_title),
                 checked = prefsState.chartTimeExecutionDetailsEnabled,
@@ -105,7 +103,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ModuleToggleSection(
                 title = stringResource(id = R.string.settings_insights_time_score_cards_title),
                 checked = prefsState.chartTimeScoreCardsEnabled,
@@ -130,7 +127,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         )
                     },
                 )
-
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_dimension_score_cards_title),
                     checked = prefsState.chartTimeDimensionScoreCardsEnabled,
@@ -144,7 +140,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     },
                 )
             }
-
             ModuleToggleSection(
                 title = stringResource(id = R.string.settings_insights_time_line_graphs_title),
                 checked = prefsState.chartTimeLineGraphsEnabled,
@@ -169,7 +164,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         )
                     },
                 )
-
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_progress_trend_title),
                     checked = prefsState.chartTimeProgressTrendEnabled,
@@ -182,7 +176,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         )
                     },
                 )
-
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_historical_ranking_title),
                     checked = prefsState.chartTimeHistoricalRankingEnabled,
@@ -195,7 +188,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                         )
                     },
                 )
-
                 ChartToggleRow(
                     label = stringResource(id = R.string.settings_insights_time_momentum_streak_title),
                     checked = prefsState.chartTimeMomentumStreakEnabled,
@@ -209,7 +201,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     },
                 )
             }
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_time_average_daily_title),
                 checked = prefsState.chartAverageDailyTimeEnabled,
@@ -222,7 +213,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_dim_split_title),
                 checked = prefsState.chartDimSplitEnabled,
@@ -235,7 +225,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_dim_trend_title),
                 checked = prefsState.chartDimTrendEnabled,
@@ -248,7 +237,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_heatmap_title),
                 checked = prefsState.chartDailyTimelineEnabled,
@@ -261,7 +249,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     )
                 },
             )
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_week_grid_title),
                 checked = prefsState.chartWeeklyPatternEnabled,
@@ -289,7 +276,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
                     },
                 )
             }
-
             ChartToggleRow(
                 label = stringResource(id = R.string.loc_lens_minute_pattern_title),
                 checked = prefsState.chartDailyRhythmEnabled,
@@ -318,9 +304,7 @@ internal fun InsightsChartsVisibilitySettingsSection(
                 )
             }
         }
-
         HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
-
         ModuleToggleSection(
             title = stringResource(id = R.string.settings_database_tasks),
             checked = prefsState.chartTaskModuleEnabled,
@@ -334,7 +318,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
-
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_habits),
             checked = prefsState.chartHabitModuleEnabled,
@@ -348,7 +331,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
-
         ModuleToggleSection(
             title = stringResource(id = R.string.loc_journal_notes),
             checked = prefsState.chartJournalModuleEnabled,
@@ -362,7 +344,6 @@ internal fun InsightsChartsVisibilitySettingsSection(
             },
             emptyHint = stringResource(id = R.string.settings_insights_charts_empty_hint),
         )
-
         ModuleToggleSection(
             title = stringResource(id = R.string.settings_database_notes),
             checked = prefsState.chartNoteModuleEnabled,

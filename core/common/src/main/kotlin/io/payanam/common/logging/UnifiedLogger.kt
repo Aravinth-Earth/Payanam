@@ -22,6 +22,15 @@ import java.util.Locale
 import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Append-only, async-buffered logger for the Android app.
+ *
+ * Writes structured entries (level, source, message, sanitized data) to a
+ * per-session file under [Context.getFilesDir]/logs and mirrors them to logcat.
+ * A background scope flushes the in-memory buffer on a fixed interval; callers
+ * may also force a flush. Use the [getInstance] companion accessor after
+ * [initialize].
+ */
 @Suppress("TooManyFunctions")
 class UnifiedLogger private constructor(
     private val context: Context,
@@ -57,6 +66,7 @@ class UnifiedLogger private constructor(
         )
     }
 
+    /** Logs a DEBUG-level entry. No-op unless debug logging is enabled. */
     fun d(
         source: String,
         message: String,
@@ -67,6 +77,7 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /** Logs an INFO-level entry. */
     fun i(
         source: String,
         message: String,
@@ -75,6 +86,7 @@ class UnifiedLogger private constructor(
         log("INFO", source, message, data)
     }
 
+    /** Logs a WARN-level entry. */
     fun w(
         source: String,
         message: String,
@@ -83,6 +95,7 @@ class UnifiedLogger private constructor(
         log("WARN", source, message, data)
     }
 
+    /** Logs an ERROR-level entry, attaching [error] stack/metadata when present. */
     fun e(
         source: String,
         message: String,
@@ -92,6 +105,10 @@ class UnifiedLogger private constructor(
         log("ERROR", source, message, buildErrorData(error, data, MAX_STACK_FRAMES))
     }
 
+    /**
+     * Synchronously logs an ERROR entry and writes it to logcat immediately,
+     * bypassing the async buffer (used where a crash is imminent).
+     */
     fun eSync(
         source: String,
         message: String,
@@ -215,6 +232,7 @@ class UnifiedLogger private constructor(
             else -> value.toString()
         }
 
+    /** Requests an async flush of the buffered entries to disk. */
     fun flush() {
         scope.launch {
             mutex.withLock {
@@ -239,6 +257,7 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /** Returns the session log files on disk, newest first. */
     fun getLogFiles(): List<File> =
         logDir
             .listFiles()
@@ -246,8 +265,13 @@ class UnifiedLogger private constructor(
                 it.extension == "log" && it.name.startsWith("payanam")
             }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
+    /** Returns the absolute path of the active session log file. */
     fun getCurrentLogPath(): String = logFile.absolutePath
 
+    /**
+     * Closes the current session file and opens a new one, returning the new
+     * session's absolute path. Logs a breadcrumb recording [reason].
+     */
     fun startNewSession(reason: String): String {
         val previousLogPath = logFile.absolutePath
         val newLogPath =
@@ -273,6 +297,7 @@ class UnifiedLogger private constructor(
         return newLogPath
     }
 
+    /** Returns the last [lines] of the current session file as a single string. */
     fun getRecentLogs(lines: Int = 100): String =
         try {
             logFile.readLines().takeLast(lines).joinToString("\n")
@@ -306,7 +331,7 @@ class UnifiedLogger private constructor(
                     if (!tmpFile.renameTo(exportFile)) {
                         throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
                     }
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     tmpFile.delete()
                     throw e
                 }
@@ -358,7 +383,7 @@ class UnifiedLogger private constructor(
                         throw IOException("Atomic rename failed: ${tmpZip.name} → ${zipFile.name}")
                     }
                     cleanupOldExports(exportDir, keepLast = EXPORT_RETENTION_KEEP)
-                } catch (e: Exception) {
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
                     tmpZip.delete()
                     throw e
                 }
@@ -430,9 +455,9 @@ class UnifiedLogger private constructor(
             }
         }
         // EOCD magic (PK\x05\x06) must be the last bytes of a complete zip.
-        val tail = zipFile.readBytes().takeLast(22).toByteArray()
+        val tail = zipFile.readBytes().takeLast(EOCD_RECORD_SIZE).toByteArray()
         val eocdMagic = byteArrayOf(0x50, 0x4B, 0x05, 0x06)
-        if (tail.size < 22 || !tail.copyOfRange(0, 4).contentEquals(eocdMagic)) {
+        if (tail.size < EOCD_RECORD_SIZE || !tail.copyOfRange(0, EOCD_MAGIC_SIZE).contentEquals(eocdMagic)) {
             throw IOException("Zip verification failed: EOCD record missing")
         }
     }
@@ -465,6 +490,7 @@ class UnifiedLogger private constructor(
         zos.closeEntry()
     }
 
+    /** Asynchronously prunes old session files, keeping the newest [keepLast]. */
     fun clearOldLogs(keepLast: Int = 10) {
         scope.launch {
             try {
@@ -523,6 +549,10 @@ class UnifiedLogger private constructor(
         private const val MAX_BUFFER_SIZE = 100
         private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
+        // ZIP End-Of-Central-Directory record: fixed 22-byte trailer whose first
+        // 4 bytes are the PK\x05\x06 magic. Used to confirm a written zip is complete.
+        private const val EOCD_RECORD_SIZE = 22
+        private const val EOCD_MAGIC_SIZE = 4
         private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
 
         @Volatile
@@ -531,6 +561,10 @@ class UnifiedLogger private constructor(
         @Volatile
         private var debugLoggingEnabled: Boolean = false
 
+        /**
+         * Creates and memoizes the singleton logger. Safe to call repeatedly;
+         * only the first call constructs an instance. Call from Application.onCreate().
+         */
         fun initialize(
             context: Context,
             @Suppress("UNUSED_PARAMETER") versionName: String,
@@ -542,17 +576,21 @@ class UnifiedLogger private constructor(
                 }
             }
 
+        /** Returns the initialized singleton, throwing if [initialize] was not called. */
         fun getInstance(): UnifiedLogger =
             instance ?: error(
                 "UnifiedLogger not initialized. Call initialize() from Application.onCreate()",
             )
 
+        /** True once [initialize] has constructed the singleton. */
         fun isInitialized(): Boolean = instance != null
 
+        /** Enables/disables DEBUG-level logging at runtime. */
         fun setDebugLoggingEnabled(enabled: Boolean) {
             debugLoggingEnabled = enabled
         }
 
+        /** Returns the current DEBUG-logging toggle state. */
         fun isDebugLoggingEnabled(): Boolean = debugLoggingEnabled
     }
 }

@@ -20,11 +20,17 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the day plan repository template resolution test.
+ */
 class DayPlanRepositoryTemplateResolutionTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: DayPlanRepository
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -44,11 +50,17 @@ class DayPlanRepositoryTemplateResolutionTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the auto mode uses configured weekday template.
+     */
     fun autoMode_usesConfiguredWeekdayTemplate() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -59,15 +71,16 @@ class DayPlanRepositoryTemplateResolutionTest {
                     allocations = mapOf("career_work" to 180),
                 )
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, templateId)
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).hasSize(1)
             assertThat(allocations.first().plannedMinutes).isEqualTo(180)
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_TEMPLATE_AUTO)
         }
 
     @Test
+    /**
+     * Performs the custom mode overrides auto template.
+     */
     fun customMode_overridesAutoTemplate() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -83,15 +96,16 @@ class DayPlanRepositoryTemplateResolutionTest {
                 allocations = mapOf("career_work" to 90),
                 source = DayPlanRepository.SOURCE_MANUAL,
             )
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).hasSize(1)
             assertThat(allocations.first().plannedMinutes).isEqualTo(90)
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_MANUAL)
         }
 
     @Test
+    /**
+     * Performs the auto mode starred day prefers starred template.
+     */
     fun autoMode_starredDay_prefersStarredTemplate() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -110,9 +124,7 @@ class DayPlanRepositoryTemplateResolutionTest {
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, weekdayTemplateId)
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_STARRED, starredTemplateId)
             repository.setDayStarred(dayKey, true)
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).hasSize(1)
             assertThat(allocations.first().templateId).isEqualTo(starredTemplateId)
             assertThat(allocations.first().plannedMinutes).isEqualTo(60)
@@ -120,6 +132,9 @@ class DayPlanRepositoryTemplateResolutionTest {
         }
 
     @Test
+    /**
+     * Updates the set day mode template persists policy.
+     */
     fun setDayMode_template_persistsPolicy() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -135,25 +150,28 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = templateId,
             )
-
             val policy = repository.getDayPolicy(dayKey)
-
             assertThat(policy.mode).isEqualTo(DayPlanRepository.MODE_TEMPLATE)
             assertThat(policy.templateId).isEqualTo(templateId)
             assertThat(policy.isStarred).isFalse()
         }
 
     @Test
+    /**
+     * Get day policy without persisted policy returns auto defaults.
+     */
     fun getDayPolicy_withoutPersistedPolicy_returnsAutoDefaults() =
         runBlocking {
             val policy = repository.getDayPolicy(nextWeekday())
-
             assertThat(policy.mode).isEqualTo(DayPlanRepository.MODE_AUTO)
             assertThat(policy.templateId).isNull()
             assertThat(policy.isStarred).isFalse()
         }
 
     @Test
+    /**
+     * Performs the auto mode uses weekend template on weekend day.
+     */
     fun autoMode_usesWeekendTemplate_onWeekendDay() =
         runBlocking {
             val weekendDayKey = nextWeekend()
@@ -164,9 +182,7 @@ class DayPlanRepositoryTemplateResolutionTest {
                     allocations = mapOf("learning" to 120),
                 )
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKEND, templateId)
-
             val allocations = repository.getEffectiveAllocationsForDay(weekendDayKey)
-
             assertThat(allocations).hasSize(1)
             assertThat(allocations.first().templateId).isEqualTo(templateId)
             assertThat(allocations.first().plannedMinutes).isEqualTo(120)
@@ -174,6 +190,9 @@ class DayPlanRepositoryTemplateResolutionTest {
         }
 
     @Test
+    /**
+     * Template mode without template id falls back to explicit allocations.
+     */
     fun templateMode_withoutTemplateId_fallsBackToExplicitAllocations() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -187,36 +206,39 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = null,
             )
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).hasSize(1)
             assertThat(allocations.first().plannedMinutes).isEqualTo(45)
             assertThat(allocations.first().source).isEqualTo(DayPlanRepository.SOURCE_MANUAL)
         }
 
     @Test
+    /**
+     * Performs the day type preference accepts null template id.
+     */
     fun dayTypePreference_acceptsNullTemplateId() =
         runBlocking {
             repository.setDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY, null)
-
             val preference = repository.getDayTypeTemplatePreference(DayPlanRepository.DAY_TYPE_WEEKDAY)
-
             assertThat(preference.templateId).isNull()
         }
 
     @Test
+    /**
+     * Custom mode without explicit allocations returns empty effective allocations.
+     */
     fun customMode_withoutExplicitAllocations_returnsEmptyEffectiveAllocations() =
         runBlocking {
             val dayKey = nextWeekday()
             repository.setDayMode(dayKey = dayKey, mode = DayPlanRepository.MODE_CUSTOM)
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).isEmpty()
         }
 
     @Test
+    /**
+     * Template mode with inactive template returns empty without explicit fallback.
+     */
     fun templateMode_withInactiveTemplate_returnsEmptyWithoutExplicitFallback() =
         runBlocking {
             val dayKey = nextWeekday()
@@ -232,9 +254,7 @@ class DayPlanRepositoryTemplateResolutionTest {
                 mode = DayPlanRepository.MODE_TEMPLATE,
                 templateId = templateId,
             )
-
             val allocations = repository.getEffectiveAllocationsForDay(dayKey)
-
             assertThat(allocations).isEmpty()
         }
 

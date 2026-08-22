@@ -26,6 +26,9 @@ class PassphraseChangeFlowTest {
     private val newPassphrase = "UpdatedPass456!"
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -50,6 +53,9 @@ class PassphraseChangeFlowTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         encryptionManager.resetEncryptionState()
@@ -57,6 +63,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Configure passphrase sets initial passphrase for new database.
+     */
     fun configurePassphrase_setsInitialPassphraseForNewDatabase() {
         // Act: Configure initial passphrase
         val result = encryptionManager.configurePassphrase(initialPassphrase)
@@ -74,6 +83,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Performs the verify passphrase accepts correct passphrase.
+     */
     fun verifyPassphrase_acceptsCorrectPassphrase() {
         // Arrange: Configure passphrase
         val configResult = encryptionManager.configurePassphrase(initialPassphrase)
@@ -92,6 +104,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Performs the verify passphrase rejects incorrect passphrase.
+     */
     fun verifyPassphrase_rejectsIncorrectPassphrase() {
         // Arrange: Configure passphrase
         val configResult = encryptionManager.configurePassphrase(initialPassphrase)
@@ -111,6 +126,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Updates the update passphrase changes passphrase with verification.
+     */
     fun updatePassphrase_changesPassphraseWithVerification() {
         // Arrange: Configure initial passphrase
         val configResult = encryptionManager.configurePassphrase(initialPassphrase)
@@ -136,6 +154,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Updates the update passphrase fails with incorrect current passphrase.
+     */
     fun updatePassphrase_failsWithIncorrectCurrentPassphrase() {
         // Arrange: Configure initial passphrase
         val configResult = encryptionManager.configurePassphrase(initialPassphrase)
@@ -161,6 +182,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Performs the full passphrase lifecycle set verify change unlock.
+     */
     fun fullPassphraseLifecycle_setVerifyChangeUnlock() =
         runTest {
             // Step 1: Configure initial passphrase
@@ -198,6 +222,9 @@ class PassphraseChangeFlowTest {
         }
 
     @Test
+    /**
+     * Performs the session timeout configuration can be set.
+     */
     fun sessionTimeoutConfiguration_canBeSet() {
         // Act: Set session timeout
         val originalTimeout = encryptionManager.getSessionTimeoutMinutes()
@@ -217,6 +244,9 @@ class PassphraseChangeFlowTest {
     }
 
     @Test
+    /**
+     * Performs the session timeout configuration coerced to valid range.
+     */
     fun sessionTimeoutConfiguration_coercedToValidRange() {
         // Act: Try to set timeout outside valid range
         encryptionManager.setSessionTimeoutMinutes(1) // Below minimum

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam
 
 import android.app.LocaleManager
@@ -67,7 +69,14 @@ import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 
+/**
+ * Sealed set of navigation commands the activity must handle from view models.
+ */
 sealed interface ExternalNavigationCommand {
+    /**
+     * A command from outside the nav graph (widget/notification) asking to open
+     * the Time screen, optionally into quick-start or stop-tracking mode.
+     */
     data class OpenTimeScreen(
         val openQuickStart: Boolean,
         val openStopTracking: Boolean,
@@ -76,6 +85,12 @@ sealed interface ExternalNavigationCommand {
     ) : ExternalNavigationCommand
 }
 
+/**
+ * Single-activity entry point: owns the startup gate sequence (database init,
+ * passphrase setup/unlock, focus-mode onboarding), language/theme application,
+ * external navigation intents, DB-session lifecycle (auto-lock touch, WAL
+ * checkpointing), and process-restart handling after DB-replacing operations.
+ */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
@@ -105,11 +120,21 @@ class MainActivity : FragmentActivity() {
     private var showExternalDeletionWarning = mutableStateOf(false)
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
+    /**
+     * Keeps the DB session alive: every user interaction resets the auto-lock
+     * idle timer.
+     */
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
     }
 
+    /**
+     * Startup orchestrator: resolves DB artifact/encryption/health state,
+     * self-heals an invalid boot state, decides which gate to show (database
+     * init / passphrase setup / unlock / focus-mode onboarding), then composes
+     * the app UI with language + theme preferences applied.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         logger.i("MainActivity.onCreate", "Activity creating")
@@ -128,7 +153,6 @@ class MainActivity : FragmentActivity() {
             postJanitorSnapshot.toLogMap(),
         )
         logPendingRestartMarker(preJanitorSnapshot, postJanitorSnapshot)
-
         val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
         val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
         logger.i(
@@ -193,7 +217,6 @@ class MainActivity : FragmentActivity() {
         } else {
             false
         }
-
         val shouldShowDatabaseInit = resolveShouldShowDatabaseInit(
             hasDatabaseArtifacts = hasDatabaseArtifacts,
             shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
@@ -221,7 +244,6 @@ class MainActivity : FragmentActivity() {
             false
         }
         showFocusModeOnboarding = shouldShowFocusModeOnboarding
-
         val startupHealthLogSummary = resolveStartupHealthLogSummary(
             hasDatabaseArtifacts = hasDatabaseArtifacts,
             shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
@@ -276,7 +298,6 @@ class MainActivity : FragmentActivity() {
                     },
                 )
             }
-
             if (startupGateScreenActive) {
                 val defaultPrefsState = AppPreferencesState()
                 PayanamTheme(
@@ -325,22 +346,18 @@ class MainActivity : FragmentActivity() {
                 logger.i("MainActivity.onCreate", "UI composition complete")
                 return@setContent
             }
-
             val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
             val prefsState by prefsViewModel.uiState.collectAsState()
             var localeGeneration by remember { mutableIntStateOf(0) }
             val currentConfiguration = LocalConfiguration.current
-
             LaunchedEffect(currentConfiguration) {
                 prefsViewModel.updateSystemLanguageTag(resolveSystemLanguageTag())
             }
-
             LaunchedEffect(prefsState.isLoading, prefsState.appLanguage, prefsState.effectiveLanguageTag) {
                 if (prefsState.isLoading) return@LaunchedEffect
                 if (showPassphraseSetup || showPassphraseUnlock) {
                     return@LaunchedEffect
                 }
-
                 val localeChanged = applyLanguagePreference(
                     appLanguage = prefsState.appLanguage,
                     effectiveLanguageTag = prefsState.effectiveLanguageTag,
@@ -415,6 +432,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Foreground entry: rotates the log session if needed, refreshes the home-
+     * screen widget, and kicks off startup maintenance unless a startup gate
+     * is still pending.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -440,7 +463,6 @@ class MainActivity : FragmentActivity() {
             hasEnteredForegroundOnce = true
             return
         }
-
         val backgroundDurationMs = stoppedAtElapsedMs?.let { SystemClock.elapsedRealtime() - it } ?: 0L
         if (backgroundDurationMs < LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS) {
             return
@@ -450,12 +472,12 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")
             return
         }
-
         val appContext = applicationContext
         startupMaintenanceJob = startupMaintenanceScope.launch {
             if (FeatureFlags.minimalModeEnabled) {
@@ -532,11 +554,19 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Re-handled while the activity is alive (singleTop): captures external
+     * navigation commands from notifications/widgets/deep links.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleExternalNavigationIntent(intent)
     }
+    /**
+     * Safety-net relock: if encryption is on but the DB session died while
+     * backgrounded, presents the in-place unlock gate again.
+     */
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
@@ -561,11 +591,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Marks the background timestamp used by log-session rotation.
+     */
     override fun onPause() {
         super.onPause()
         logger.d("MainActivity.onPause", "Activity paused")
     }
 
+    /**
+     * Durability flush before backgrounding: WAL-checkpoints the encrypted DB
+     * and flushes the log buffer so a process kill loses nothing.
+     */
     override fun onStop() {
         super.onStop()
         logger.d("MainActivity.onStop", "Activity stopped")
@@ -579,6 +616,9 @@ class MainActivity : FragmentActivity() {
         logger.flush()
     }
 
+    /**
+     * Final teardown logging for the activity.
+     */
     override fun onDestroy() {
         super.onDestroy()
         logger.i("MainActivity.onDestroy", "Activity destroyed")
@@ -720,12 +760,10 @@ class MainActivity : FragmentActivity() {
     /** Handles an external navigation intent (deep link / route after unlock). */
     private fun handleExternalNavigationIntent(intent: Intent?) {
         if (intent == null) return
-
         val navigateTo = intent.getStringExtra(EXTRA_NAVIGATE_TO)
         if (navigateTo != NAV_TARGET_TIME) {
             return
         }
-
         val source = intent.getStringExtra(EXTRA_NAV_SOURCE) ?: "unknown"
         val openQuickStart = intent.getBooleanExtra(EXTRA_OPEN_TIME_QUICK_START, false)
         val openStopTracking = intent.getBooleanExtra(EXTRA_OPEN_TIME_STOP_TRACKING, false)
@@ -777,7 +815,6 @@ class MainActivity : FragmentActivity() {
         if (currentLanguage == targetLanguage) {
             return false
         }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: use per-app locale API (works with android:localeConfig in manifest)
             val localeManager = getSystemService(LocaleManager::class.java)
@@ -852,7 +889,6 @@ class MainActivity : FragmentActivity() {
         private var startupMaintenanceJob: Job? = null
         private val startupMaintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS = 5_000L
-
         const val EXTRA_NAVIGATE_TO = "navigate_to"
         const val EXTRA_OPEN_TIME_QUICK_START = "open_time_quick_start"
         const val EXTRA_OPEN_TIME_STOP_TRACKING = "open_time_stop_tracking"

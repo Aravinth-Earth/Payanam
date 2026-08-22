@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.service
 
 import android.content.Context
@@ -30,6 +32,11 @@ class AutoBackupWorker(
 
     private val logger = UnifiedLogger.getInstance()
 
+    /**
+     * Runs the backup via [DatabaseBackupCoordinator] (manual or auto trigger
+     * from input data), logging duration and outcome; never retries.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override suspend fun doWork(): Result {
         val trigger = backupTrigger()
         val workId = id.toString()
@@ -47,7 +54,6 @@ class AutoBackupWorker(
             val backupCoordinator = entryPoint().databaseBackupCoordinator()
             val triggerType = if (trigger == BACKUP_TRIGGER_MANUAL) BackupTrigger.MANUAL else BackupTrigger.AUTO
             val result = backupCoordinator.backupToAppBackupDirectory(triggerType)
-
             val elapsedMs = System.currentTimeMillis() - startedAtMillis
             logger.i(
                 "AutoBackupWorker.doWork",
@@ -91,6 +97,9 @@ class AutoBackupWorker(
     )
 
     companion object {
+        /**
+         * Failure status payload kept for settings-screen compatibility.
+         */
         data class AutoBackupFailureStatus(
             val message: String,
             val recordedAtDisplay: String?,
@@ -119,12 +128,10 @@ class AutoBackupWorker(
                     "intervalMinutes" to effectiveInterval,
                 ),
             )
-
             val constraints = Constraints.Builder()
                 .setRequiresBatteryNotLow(true)
                 .setRequiresStorageNotLow(true)
                 .build()
-
             val workRequest = PeriodicWorkRequestBuilder<AutoBackupWorker>(
                 effectiveInterval,
                 TimeUnit.MINUTES,
@@ -160,7 +167,6 @@ class AutoBackupWorker(
         fun runNow(context: Context): UUID {
             val logger = UnifiedLogger.getInstance()
             logger.i("AutoBackupWorker.runNow", "Running manual backup immediately")
-
             val workRequest = OneTimeWorkRequestBuilder<AutoBackupWorker>()
                 .setInputData(
                     Data.Builder()
@@ -199,7 +205,10 @@ class AutoBackupWorker(
                 schedule(context, intervalMinutes)
             }
         }
-
+        /**
+         * Aligns the WorkManager schedule with the current settings at app
+         * start: schedules when enabled, cancels the worker when disabled.
+         */
         suspend fun reconcileSchedule(context: Context, appSettingsRepository: AppSettingsRepository) {
             val logger = UnifiedLogger.getInstance()
             val enabled = appSettingsRepository.getSetting(KEY_AUTO_BACKUP_ENABLED)?.toBoolean() ?: false
@@ -208,7 +217,6 @@ class AutoBackupWorker(
                 cancel(context)
                 return
             }
-
             val intervalMinutes = intervalKeyToMinutes(appSettingsRepository.getSetting(KEY_AUTO_BACKUP_INTERVAL))
             logger.i(
                 "AutoBackupWorker.reconcileSchedule",
@@ -235,25 +243,27 @@ class AutoBackupWorker(
         fun getBackupFiles(): List<File> {
             val backupDir = getBackupDirectory()
             if (!backupDir.exists()) return emptyList()
-
             val legacyFlatFiles = backupDir.listFiles { file ->
                 file.isFile && file.name.startsWith("auto_bk_") && file.name.endsWith(".db")
             }?.toList() ?: emptyList()
-
             val sessionDirectoryFiles = backupDir.listFiles { file ->
                 file.isDirectory && file.name.startsWith("auto_bk_")
             }?.mapNotNull { sessionDir ->
                 File(sessionDir, PayanamDatabase.DATABASE_NAME).takeIf { it.exists() }
             } ?: emptyList()
-
             return (legacyFlatFiles + sessionDirectoryFiles).sortedByDescending { it.lastModified() }
         }
-
+        /**
+         * Epoch millis of the last recorded successful backup (0 if never).
+         */
         fun getLatestBackupSuccessMillis(context: Context): Long {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             return prefs.getLong(BackupStatusStore.KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, 0L)
         }
-
+        /**
+         * Display string for when a backup last ran: the newest of the stored
+         * success timestamp and the latest backup file's mtime.
+         */
         fun getLatestBackupLastRunDisplay(context: Context): String? {
             val latestFileMillis = getBackupFiles()
                 .firstOrNull()
@@ -269,7 +279,9 @@ class AutoBackupWorker(
                 else -> BackupStatusStore.formatBackupTimestamp(effectiveMillis)
             }
         }
-
+        /**
+         * The persisted latest failure (message + display time), if not dismissed.
+         */
         fun getLatestBackupFailureStatus(context: Context): AutoBackupFailureStatus? {
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             val message = prefs.getString(BackupStatusStore.KEY_LAST_BACKUP_FAILURE_MESSAGE, null)
@@ -281,7 +293,9 @@ class AutoBackupWorker(
                 recordedAtDisplay = display,
             )
         }
-
+        /**
+         * Clears the persisted failure so it stops showing on the settings screen.
+         */
         fun dismissLatestBackupFailure(context: Context) {
             context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
                 .edit()

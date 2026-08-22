@@ -14,7 +14,9 @@ import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Rule
 import org.junit.Test
-
+/**
+ * Provides the desktop startup gate ui test.
+ */
 class DesktopStartupGateUiTest {
     @get:Rule
     val composeRule = createComposeRule()

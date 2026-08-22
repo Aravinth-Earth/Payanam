@@ -19,6 +19,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [TaskRescheduleRepository]. Wraps
+ * [TaskRescheduleEntity] and maintains an audit trail of when a task's due date
+ * was pushed (with a flag indicating whether the task was already overdue).
+ */
 class TaskRescheduleRepositoryImpl
     @Inject
     constructor(
@@ -26,6 +31,10 @@ class TaskRescheduleRepositoryImpl
     ) : TaskRescheduleRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns every reschedule record for [taskId] as a one-shot list, ordered
+         * most-recent first.
+         */
         override suspend fun getReschedulesByTaskId(taskId: String): List<TaskReschedule> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesByTaskId", "Fetching reschedules", mapOf("taskId" to taskId))
             val result =
@@ -47,6 +56,10 @@ class TaskRescheduleRepositoryImpl
             return result
         }
 
+        /**
+         * Emits the reschedule history for [taskId], most-recent first, as a
+         * [Flow].
+         */
         override fun getReschedulesForTask(taskId: String): Flow<List<TaskReschedule>> {
             logger.d("TaskRescheduleRepositoryImpl.getReschedulesForTask", "Subscribing to reschedules", mapOf("taskId" to taskId))
             return sessionManager.requireDatabase().taskRescheduleDao().getReschedulesForTask(taskId).map { entities ->
@@ -54,6 +67,9 @@ class TaskRescheduleRepositoryImpl
             }
         }
 
+        /**
+         * Persists a reschedule record from a domain [TaskReschedule] object.
+         */
         override suspend fun recordReschedule(reschedule: TaskReschedule) {
             val entity =
                 TaskRescheduleEntity(
@@ -76,6 +92,11 @@ class TaskRescheduleRepositoryImpl
             )
         }
 
+        /**
+         * Creates and persists a reschedule record from its constituent fields,
+         * generating the id and `rescheduledAt` timestamp. Returns the new domain
+         * [TaskReschedule].
+         */
         override suspend fun recordReschedule(
             taskId: String,
             previousDueDate: LocalDateTime,

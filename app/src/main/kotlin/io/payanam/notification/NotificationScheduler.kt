@@ -25,6 +25,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
 
+/**
+ * Schedules task-reminder alarms: persists notification rows, arms exact
+ * (or inexact when permission is missing) AlarmManager alarms, and cancels
+ * both on task changes.
+ */
 @Singleton
 class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -36,7 +41,10 @@ class NotificationScheduler @Inject constructor(
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val zoneId = ZoneId.systemDefault()
-
+    /**
+     * Re-arms reminders for every currently eligible task (app start /
+     * settings change).
+     */
     suspend fun scheduleAllPendingTasks() {
         if (!FeatureFlags.remindersEnabled) {
             logger.i("NotificationScheduler.scheduleAllPendingTasks", "Reminder scheduling disabled by feature flag")
@@ -56,7 +64,11 @@ class NotificationScheduler @Inject constructor(
             scheduleForTask(task)
         }
     }
-
+    /**
+     * Arms (or cancels) the reminder for one task: eligibility checks, advance
+     * timing from notification mode, persistence, then the alarm itself.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun scheduleForTask(
         task: Task,
         overrideScheduledAt: LocalDateTime? = null,
@@ -99,7 +111,6 @@ class NotificationScheduler @Inject constructor(
             )
             return
         }
-
         val scheduledAt = overrideScheduledAt ?: run {
             val advanceMinutes = resolveAdvanceMinutes(task) ?: run {
                 cancelForTask(task.id)
@@ -114,7 +125,6 @@ class NotificationScheduler @Inject constructor(
             }
             dueAt.minusMinutes(advanceMinutes)
         }
-
         if (!scheduledAt.isAfter(LocalDateTime.now())) {
             cancelForTask(task.id)
             logger.d(
@@ -127,18 +137,14 @@ class NotificationScheduler @Inject constructor(
             )
             return
         }
-
         cancelForTask(task.id)
-
         val notificationType = if (task.recurrenceEnabled) {
             TaskReminderReceiver.TYPE_HABIT_TRACKING
         } else {
             TaskReminderReceiver.TYPE_TASK_REMINDER
         }
-
         val title = context.getString(R.string.task_notification_title, task.title)
         val body = buildNotificationBody(task, dueAt, scheduledAt, isSnoozed)
-
         val notificationId = try {
             notificationRepository.scheduleNotification(
                 taskId = task.id,
@@ -190,7 +196,10 @@ class NotificationScheduler @Inject constructor(
             notificationRepository.cancelNotification(notificationId)
         }
     }
-
+    /**
+     * Reschedules a reminder for a snoozed task (default +15 min when no
+     * explicit [dueAt] is given).
+     */
     suspend fun scheduleSnooze(task: Task, dueAt: LocalDateTime?) {
         val now = LocalDateTime.now()
         val target = dueAt?.takeIf { it.isAfter(now) } ?: now.plusMinutes(DEFAULT_SNOOZE_MINUTES)
@@ -201,7 +210,9 @@ class NotificationScheduler @Inject constructor(
             isSnoozed = true,
         )
     }
-
+    /**
+     * Cancels all pending alarms and visible notifications for [taskId].
+     */
     suspend fun cancelForTask(taskId: String) {
         val notifications = notificationRepository.getNotificationsForTask(taskId)
         notifications.forEach { notification ->
@@ -242,14 +253,12 @@ class NotificationScheduler @Inject constructor(
             putExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_TYPE, notificationType)
             putExtra(TaskReminderReceiver.EXTRA_IS_SNOOZED, isSnoozed)
         }
-
         val pendingIntent = PendingIntent.getBroadcast(
             context,
             requestCodeFor(notificationId),
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
         val triggerAtMillis = scheduledAt.atZone(zoneId).toInstant().toEpochMilli()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {

@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -23,7 +24,12 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
-
+/**
+ * UI state for the task-detail screen: the task, occurrence/reschedule
+ * histories, completion stats + latest L1 summary, the paged activity window
+ * (range size, end date, metric rows, per-day occurrences, chart/table
+ * toggle), and the status-note dialog state.
+ */
 data class TaskDetailUiState(
     val task: Task? = null,
     val isLoading: Boolean = true,
@@ -50,6 +56,11 @@ data class TaskDetailUiState(
     val pendingStatusAction: String? = null,
 )
 
+/**
+ * Task-detail ViewModel: loads a task's full profile (occurrence/reschedule
+ * histories, completion stats, L1 summary, paged activity window) and drives
+ * complete/skip/miss/archive/reschedule/delete actions with reminder updates.
+ */
 @HiltViewModel
 class TaskDetailViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
@@ -66,7 +77,12 @@ class TaskDetailViewModel @Inject constructor(
     val uiState: StateFlow<TaskDetailUiState> = _uiState.asStateFlow()
 
     private var currentTaskId: String? = null
-
+    /**
+     * Loads task [taskId] with its L1 summary, and — for recurring tasks — its
+     * occurrence history, completion stats, and activity window; also loads
+     * reschedule history for every task.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -94,7 +110,6 @@ class TaskDetailViewModel @Inject constructor(
                     loadCompletionStats(task)
                     loadActivityWindow(taskId)
                 }
-
                 loadRescheduleHistory(taskId)
 
                 logger.i(
@@ -115,6 +130,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadCompletionStats(task: Task) {
         viewModelScope.launch {
             try {
@@ -136,6 +152,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadOccurrenceHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingOccurrences = true) }
@@ -169,7 +186,9 @@ class TaskDetailViewModel @Inject constructor(
         _uiState.update { it.copy(windowSizeDays = days, windowEnd = java.time.LocalDate.now()) }
         loadActivityWindow(currentTaskId ?: return)
     }
-
+    /**
+     * Moves the activity window one window-length into the past and reloads it.
+     */
     fun shiftWindowBack() {
         val s = _uiState.value
         _uiState.update {
@@ -177,7 +196,10 @@ class TaskDetailViewModel @Inject constructor(
         }
         loadActivityWindow(currentTaskId ?: return)
     }
-
+    /**
+     * Moves the activity window forward one window-length (clamped to today)
+     * and reloads it.
+     */
     fun shiftWindowForward() {
         val s = _uiState.value
         if (s.windowEnd >= java.time.LocalDate.now()) return // cannot go past today
@@ -188,16 +210,21 @@ class TaskDetailViewModel @Inject constructor(
         }
         loadActivityWindow(currentTaskId ?: return)
     }
-
+    /**
+     * Snaps the activity window back to end at today and reloads it.
+     */
     fun jumpWindowToToday() {
         _uiState.update { it.copy(windowEnd = java.time.LocalDate.now()) }
         loadActivityWindow(currentTaskId ?: return)
     }
-
+    /**
+     * Toggles the activity section between chart and table rendering.
+     */
     fun setChartView(chart: Boolean) {
         _uiState.update { it.copy(showChartView = chart) }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadActivityWindow(taskId: String) {
         viewModelScope.launch {
             val s = _uiState.value
@@ -239,12 +266,17 @@ class TaskDetailViewModel @Inject constructor(
 
     /** Window bounds: [sizeDays] days ending at [end]; sizeDays <= 0 = all-time. */
     internal companion object {
+        /**
+         * Inclusive start/end of an activity window ending at [end]: [sizeDays]
+         * days back, or from 2020-01-01 when [sizeDays] is non-positive (all-time).
+         */
         fun windowBounds(sizeDays: Int, end: java.time.LocalDate): Pair<java.time.LocalDate, java.time.LocalDate> {
             val start = if (sizeDays > 0) end.minusDays((sizeDays - 1).toLong()) else java.time.LocalDate.of(2020, 1, 1)
             return start to end
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadRescheduleHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingReschedules = true) }
@@ -299,6 +331,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Complete task with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -374,7 +407,6 @@ class TaskDetailViewModel @Inject constructor(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
                 hideStatusDialog()
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
@@ -386,6 +418,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Skip task with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun skipTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -461,7 +494,6 @@ class TaskDetailViewModel @Inject constructor(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
                 hideStatusDialog()
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
@@ -473,6 +505,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Mark task as missed with optional note and record occurrence
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun missTask(note: String? = null, reason: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -546,7 +579,6 @@ class TaskDetailViewModel @Inject constructor(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
-
                 hideStatusDialog()
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
@@ -586,7 +618,10 @@ class TaskDetailViewModel @Inject constructor(
             logger.e("TaskDetailViewModel.recordOccurrence", "Error recording occurrence", e)
         }
     }
-
+    /**
+     * Archives the loaded task and cancels its reminders.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun archiveTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
@@ -611,7 +646,12 @@ class TaskDetailViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Moves the task's due date to [newDueDate]: updates the task, records a
+     * reschedule entry (flagging whether the old date was overdue), reloads
+     * history, and reschedules the reminder.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun rescheduleTask(newDueDate: LocalDateTime) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -683,7 +723,10 @@ class TaskDetailViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Permanently deletes the loaded task (canceling its reminders).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {

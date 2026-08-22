@@ -18,12 +18,18 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task reschedule dao test.
+ */
 class TaskRescheduleDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var taskRescheduleDao: TaskRescheduleDao
     private lateinit var taskDao: TaskDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -37,19 +43,23 @@ class TaskRescheduleDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert and get reschedules for task.
+     */
     fun insert_and_getReschedulesForTask() {
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val reschedule = createTestTaskReschedule("res-1", "task-1")
             taskRescheduleDao.insert(reschedule)
-
             val reschedules = taskRescheduleDao.getReschedulesForTask("task-1").first()
             assertThat(reschedules).hasSize(1)
             assertThat(reschedules[0].id).isEqualTo("res-1")
@@ -58,27 +68,30 @@ class TaskRescheduleDaoTest {
     }
 
     @Test
+    /**
+     * Returns the reschedules for task empty.
+     */
     fun getReschedulesForTask_empty() {
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val reschedules = taskRescheduleDao.getReschedulesForTask("task-1").first()
             assertThat(reschedules).isEmpty()
         }
     }
 
     @Test
+    /**
+     * Performs the insert multiple reschedules.
+     */
     fun insert_multiple_reschedules() {
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val reschedule1 = createTestTaskReschedule("res-1", "task-1")
             val reschedule2 = createTestTaskReschedule("res-2", "task-1")
             taskRescheduleDao.insert(reschedule1)
             taskRescheduleDao.insert(reschedule2)
-
             val reschedules = taskRescheduleDao.getReschedulesForTask("task-1").first()
             assertThat(reschedules).hasSize(2)
             assertThat(reschedules.map { it.id }).containsExactly("res-1", "res-2")
@@ -86,16 +99,17 @@ class TaskRescheduleDaoTest {
     }
 
     @Test
+    /**
+     * Performs the insert replace on conflict.
+     */
     fun insert_replace_on_conflict() {
         runBlocking {
             val task = createTestTask("task-1")
             taskDao.insert(task)
-
             val reschedule1 = createTestTaskReschedule("res-1", "task-1")
             val reschedule2 = reschedule1.copy(newDueDate = "2026-02-04") // Same ID, different data
             taskRescheduleDao.insert(reschedule1)
             taskRescheduleDao.insert(reschedule2) // Should replace due to OnConflictStrategy.REPLACE
-
             val reschedules = taskRescheduleDao.getReschedulesForTask("task-1").first()
             assertThat(reschedules).hasSize(1)
             assertThat(reschedules[0].newDueDate).isEqualTo("2026-02-04")

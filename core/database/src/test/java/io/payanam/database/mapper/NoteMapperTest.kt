@@ -17,16 +17,25 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the note mapper test.
+ */
 class NoteMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         logger = initLogger()
         logger.d("NoteMapperTest.setup", "Logger initialized for tests")
     }
 
     @Test
+    /**
+     * Performs the to domain parses zulu dates.
+     */
     fun toDomain_parsesZuluDates() {
         val entity =
             NoteEntity(
@@ -37,13 +46,15 @@ class NoteMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
         val domain = entity.toDomain()
         assertThat(domain.createdAt.hour).isEqualTo(8)
         assertThat(domain.updatedAt.hour).isEqualTo(9)
     }
 
     @Test
+    /**
+     * Performs the round trip preserves fields.
+     */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
         val note =
@@ -56,10 +67,8 @@ class NoteMapperTest {
                 updatedAt = now,
                 dimensionId = "dim_recreation",
             )
-
         val entity = note.toEntity()
         val roundTrip = entity.toDomain()
-
         assertThat(roundTrip.title).isEqualTo(note.title)
         assertThat(roundTrip.lifeIntentionCategory).isEqualTo(note.lifeIntentionCategory)
         assertThat(roundTrip.dimensionId).isEqualTo("dim_recreation")
@@ -68,6 +77,9 @@ class NoteMapperTest {
     }
 
     @Test
+    /**
+     * Performs the to entity handles null details.
+     */
     fun toEntity_handlesNullDetails() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
         val note =
@@ -78,7 +90,6 @@ class NoteMapperTest {
                 createdAt = now,
                 updatedAt = now,
             )
-
         val entity = note.toEntity()
         assertThat(entity.details).isNull()
     }

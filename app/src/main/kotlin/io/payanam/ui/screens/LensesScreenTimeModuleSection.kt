@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.background
@@ -105,7 +107,6 @@ internal fun TimeModuleSectionContent(
     val streakValues = orderedMetrics.map { it.progressStreak.toDouble() }
     val progressByDay = buildPerDimensionProgressByDay(ascendingMetrics, timeDimensionIds)
     val streakByDay = buildPerDimensionStreakByDay(ascendingMetrics, timeDimensionIds, progressByDay)
-
     LaunchedEffect(timeDimensionIds.size, orderedMetrics.size) {
         logger.d(
             "LensesScreen.TimeModuleSectionContent",
@@ -113,7 +114,6 @@ internal fun TimeModuleSectionContent(
             mapOf("dimensionCards" to timeDimensionIds.size, "historyDays" to orderedMetrics.size),
         )
     }
-
     if (overallScoreCardEnabled && history != null) {
         LensTimeMetricsCard(
             appPrefs = appPrefs,
@@ -140,7 +140,6 @@ internal fun TimeModuleSectionContent(
             ),
         )
     }
-
     if (dimensionScoreCardsEnabled && history != null) {
         if (timeDimensionIds.isEmpty()) {
             Text(stringResource(id = R.string.loc_lens_no_dimension_distribution))
@@ -168,7 +167,6 @@ internal fun TimeModuleSectionContent(
                 val currentDimensionStreak = currentMetric?.dayKey?.let { dayKey ->
                     streakByDay[dayKey]?.get(id)
                 } ?: 0
-
                 LensTimeMetricsCard(
                     appPrefs = appPrefs,
                     dimensionId = id,
@@ -197,7 +195,6 @@ internal fun TimeModuleSectionContent(
             }
         }
     }
-
     if (lineGraphsEnabled && history != null) {
         LensesTimeInlineCharts(
             history = history,
@@ -403,7 +400,6 @@ private fun buildPerDimensionStreakByDay(
 internal fun MinimalFocusBarChart(items: List<DailyFocusStat>) {
     val maxBarHeightDp = 100f
     val colorScheme = MaterialTheme.colorScheme
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (items.isEmpty()) {
             Text(
@@ -529,7 +525,6 @@ private fun focusColor(
 internal fun MinimalTrackedTimeBarChart(items: List<DailyTrackedTimeStat>) {
     val maxBarHeightDp = 100f
     val colorScheme = MaterialTheme.colorScheme
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (items.isEmpty()) {
             Text(
@@ -539,7 +534,6 @@ internal fun MinimalTrackedTimeBarChart(items: List<DailyTrackedTimeStat>) {
             )
             return
         }
-
         val overallAvg = items.map { it.trackedPercent }.average()
         val rolling7Avg = items.takeLast(7).map { it.trackedPercent }.average()
         Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -589,7 +583,6 @@ internal fun MinimalTrackedTimeBarChart(items: List<DailyTrackedTimeStat>) {
                 }
             }
         }
-
         Row(
             modifier = Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()),
             horizontalArrangement = Arrangement.spacedBy(6.dp),
@@ -633,7 +626,6 @@ internal fun MinimalFocusedHoursBarChart(items: List<DailyFocusedHoursStat>) {
     val maxBarHeightDp = 100f
     val maxHours = 24.0
     val colorScheme = MaterialTheme.colorScheme
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (items.isEmpty()) {
             Text(
@@ -643,7 +635,6 @@ internal fun MinimalFocusedHoursBarChart(items: List<DailyFocusedHoursStat>) {
             )
             return
         }
-
         val validHours = items.map { it.focusedHours }
         val overallAvg = validHours.average()
         val rolling7Avg = items.takeLast(7).map { it.focusedHours }.average()
@@ -694,7 +685,6 @@ internal fun MinimalFocusedHoursBarChart(items: List<DailyFocusedHoursStat>) {
                 }
             }
         }
-
         Row(
             modifier = Modifier
                 .fillMaxWidth()

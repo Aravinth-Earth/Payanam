@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MaxLineLength", "UnusedPrivateProperty")
+
 package io.payanam.database.backfill
 
 import android.content.Context
@@ -39,6 +41,9 @@ import java.time.LocalDateTime
  */
 @RunWith(RobolectricTestRunner::class)
 @OptIn(ExperimentalCoroutinesApi::class)
+/**
+ * Provides the score rollup cascade service test.
+ */
 class ScoreRollupCascadeServiceTest {
 
     private lateinit var db: PayanamDatabase
@@ -49,6 +54,9 @@ class ScoreRollupCascadeServiceTest {
     private lateinit var eventBus: ScoreChangeEventBus
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         UnifiedLogger.initialize(context, "test", 0)
@@ -76,6 +84,9 @@ class ScoreRollupCascadeServiceTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         db.close()
     }
@@ -125,9 +136,7 @@ class ScoreRollupCascadeServiceTest {
         insertTask("h1")
         val today = LocalDate.now()
         insertOccurrence("h1", today)
-
         val (_, events) = captureEvents { service.recalcForStatusChange("h1", today) }
-
         val rows = db.habitMetricDao().observeForHabit("h1").first()
         assertTrue("L1 rows exist", rows.isNotEmpty())
         assertEquals(today.toString(), rows.last().dayKey)
@@ -143,9 +152,7 @@ class ScoreRollupCascadeServiceTest {
         // status=missed). Missed status is NOT counted as 1.0 → 0.0 row.
         insertOccurrence("h2", LocalDate.now().minusDays(2), status = "completed")
         insertOccurrence("h2", yesterday, status = "missed")
-
         val (_, events) = captureEvents { service.recalcForStatusChange("h2", yesterday) }
-
         val rows = db.habitMetricDao().observeForHabit("h2").first()
         val yRow = rows.firstOrNull { it.dayKey == yesterday.toString() }
         assertEquals(0.0, yRow?.score ?: -1.0, 1e-9)
@@ -157,9 +164,7 @@ class ScoreRollupCascadeServiceTest {
         insertTask("h3", dimensionId = "dim_x")
         val today = LocalDate.now()
         insertOccurrence("h3", today)
-
         val (_, events) = captureEvents { service.recalcForStatusChange("h3", today) }
-
         val dimRows = db.dimensionMetricDao().observeForDimension("dim_x").first()
         assertTrue("dimension rows exist", dimRows.isNotEmpty())
         assertEquals(today.toString(), dimRows.last().dayKey)
@@ -177,14 +182,11 @@ class ScoreRollupCascadeServiceTest {
         insertOccurrence("h4", start)
         // Rebuild full L1 via cascade (creates history through yesterday)
         service.recalcForStatusChange("h4", start)
-
         val before = db.habitMetricDao().observeForHabit("h4").first()
         val beforeMax = before.maxOfOrNull { it.dayKey }!!
         // Simulate stale state: delete tail rows to mimic "no rows for recent days"
         db.habitMetricDao().deleteFrom("h4", LocalDate.now().minusDays(2).toString())
-
         val (_, events) = captureEvents { service.catchUpTail() }
-
         val after = db.habitMetricDao().observeForHabit("h4").first()
         val afterMax = after.maxOfOrNull { it.dayKey }!!
         assertEquals(LocalDate.now().minusDays(1).toString(), afterMax) // extended through yesterday
@@ -200,7 +202,6 @@ class ScoreRollupCascadeServiceTest {
         val today = LocalDate.now()
         insertOccurrence("h5", today)
         service.recalcForStatusChange("h5", today)
-
         val before = db.habitMetricDao().observeForHabit("h5").first()
         service.catchUpTail()
         val after = db.habitMetricDao().observeForHabit("h5").first()
@@ -218,7 +219,6 @@ class ScoreRollupCascadeServiceTest {
         )
 
         service.recalcForStatusChange("h6", today)
-
         val rows = db.habitMetricDao().observeForHabit("h6").first()
         assertTrue("stale future row removed", rows.none { it.dayKey > today.toString() })
     }
@@ -236,7 +236,6 @@ class ScoreRollupCascadeServiceTest {
         // from weekend days are stale and must be removed by the full rebuild.
         db.taskDao().updateRecurrenceRule("h7", "CONFIG:type=WEEKDAYS_ONLY")
         service.recalcForRuleChange("h7")
-
         val rows = db.habitMetricDao().observeForHabit("h7").first()
         val weekend = rows.filter { it.dayKey < today.toString() && !isWeekday(it.dayKey) }
         assertTrue("weekend rows removed after rule change", weekend.isEmpty())
@@ -266,7 +265,6 @@ class ScoreRollupCascadeServiceTest {
         val today = LocalDate.now()
         insertOccurrence("h8", today)
         service.recalcForStatusChange("h8", today)
-
         val l1Before = db.habitMetricDao().getAll()
         val l2Before = db.dimensionMetricDao().getAll()
         val dayBefore = db.dayMetricDao().getAll()
@@ -277,14 +275,11 @@ class ScoreRollupCascadeServiceTest {
         // (h8 is the only habit), so dim_x=1.0 keeps the day score unchanged —
         // but the weight row must be persisted and L1/L2 untouched.
         db.lifeDimensionDao().updateWeight("dim_health", 5.0, "2026-08-08T00:00:00")
-
         val (_, events) = captureEvents { service.recalcDayOnly(today) }
-
         val l1After = db.habitMetricDao().getAll()
         val l2After = db.dimensionMetricDao().getAll()
         assertEquals("L1 untouched", l1Before, l1After)
         assertEquals("L2 untouched", l2Before, l2After)
-
         val dayAfter = db.dayMetricDao().getAll()
         assertEquals("day rows preserved", dayBefore.size, dayAfter.size)
         // dim_x score 1.0 with weight 1.0 (weighted avg over present dims)
@@ -311,7 +306,6 @@ class ScoreRollupCascadeServiceTest {
         db.lifeDimensionDao().updateWeight("dim_x", 9.0, "2026-08-08T00:00:00")
         val dayCountBefore = db.dayMetricDao().getAll().size
         val (_, events) = captureEvents { service.recalcDayOnly(LocalDate.now()) }
-
         val dayAfter = db.dayMetricDao().getAll()
         val pastRow = dayAfter.firstOrNull { it.dayKey == past.toString() }
         // Both dims at 1.0 → weighted avg = (1*1 + 9*1)/10 = 1.0 (same value

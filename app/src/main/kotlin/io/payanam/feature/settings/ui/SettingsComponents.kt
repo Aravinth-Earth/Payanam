@@ -76,7 +76,6 @@ internal fun DimensionPreferenceCard(
     var editLabel by remember(preference.id) { mutableStateOf(preference.label) }
     var editWeight by remember(preference.id) { mutableFloatStateOf(preference.weight.toFloat()) }
     val logger = remember { UnifiedLogger.getInstance() }
-
     Column(modifier = Modifier.fillMaxWidth()) {
         Row(
             modifier = Modifier
@@ -131,7 +130,6 @@ internal fun DimensionPreferenceCard(
                 )
             }
         }
-
         AnimatedVisibility(visible = isEditing) {
             Column(
                 modifier = Modifier
@@ -162,7 +160,6 @@ internal fun DimensionPreferenceCard(
                         )
                     }
                 }
-
                 if (preference.hasCustomLabelOverride &&
                     preference.id != "dim_unassigned" &&
                     DimensionTaxonomyCatalog.fromCanonicalId(preference.id) != null
@@ -182,13 +179,11 @@ internal fun DimensionPreferenceCard(
                         Text(text = stringResource(id = R.string.loc_reset_to_defaults))
                     }
                 }
-
                 DimensionColorPicker(
                     selectedColorHex = preference.color.toDimensionHexString(),
                     usedColorHexes = usedColorHexes,
                     onSelect = { colorHex -> onColorSelected(io.payanam.ui.components.colorFromHex(colorHex)) },
                 )
-
                 DimensionIconPicker(
                     selectedIconKey = preference.iconKey,
                     usedIconKeys = usedIconKeys,
@@ -241,7 +236,6 @@ internal fun DimensionPreferenceCard(
                         )
                     }
                 }
-
                 TextButton(
                     onClick = {
                         isEditing = false
@@ -270,7 +264,6 @@ internal fun DimensionPreferenceCard(
                 }
             }
         }
-
         HorizontalDivider(
             thickness = 0.5.dp,
             color = MaterialTheme.colorScheme.outlineVariant.copy(alpha = 0.5f),
@@ -327,7 +320,6 @@ internal fun SettingsCard(
                     },
                 )
             }
-
             if (expanded) {
                 Spacer(modifier = Modifier.height(12.dp))
                 content()
@@ -372,7 +364,6 @@ internal fun DatabaseArtifactsSection(
         style = MaterialTheme.typography.titleSmall,
         fontWeight = FontWeight.SemiBold,
     )
-
     if (artifacts.isEmpty()) {
         Text(
             text = stringResource(id = R.string.settings_database_files_empty),
@@ -381,10 +372,8 @@ internal fun DatabaseArtifactsSection(
         )
         return
     }
-
     val activeArtifacts = artifacts.filter { it.isActive }
     val staleArtifacts = artifacts.filter { !it.isActive }
-
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         activeArtifacts.forEach { artifact ->
             Row(
@@ -412,7 +401,6 @@ internal fun DatabaseArtifactsSection(
                 }
             }
         }
-
         if (staleArtifacts.isNotEmpty()) {
             HorizontalDivider(
                 modifier = Modifier.padding(vertical = 4.dp),

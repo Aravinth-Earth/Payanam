@@ -14,6 +14,10 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [AppSettingsRepository]. Thin key/value wrapper
+ * around the `app_settings` table (nullable values, timestamped updates).
+ */
 class AppSettingsRepositoryImpl
     @Inject
     constructor(
@@ -22,6 +26,9 @@ class AppSettingsRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Returns the value for [key], or null when unset.
+         */
         override suspend fun getSetting(key: String): String? {
             logger.d("AppSettingsRepositoryImpl.getSetting", "Getting setting", mapOf("key" to key))
             return sessionManager
@@ -31,6 +38,9 @@ class AppSettingsRepositoryImpl
                 ?.value
         }
 
+        /**
+         * Emits the value for [key] (null when unset), as a [Flow].
+         */
         override fun observeSetting(key: String): Flow<String?> {
             logger.d("AppSettingsRepositoryImpl.observeSetting", "Subscribing to setting", mapOf("key" to key))
             return sessionManager
@@ -40,6 +50,11 @@ class AppSettingsRepositoryImpl
                 .map { it?.value }
         }
 
+        /**
+         * Saves [key] → [value] (upserts, stamps `updatedAt`). Passing null for
+         * [value] deletes the key (Room's REPLACE on the same primary key replaces
+         * the null value; but callers typically use [deleteSetting] to remove).
+         */
         override suspend fun setSetting(
             key: String,
             value: String?,
@@ -55,11 +70,17 @@ class AppSettingsRepositoryImpl
             logger.d("AppSettingsRepositoryImpl.setSetting", "Setting saved", mapOf("key" to key))
         }
 
+        /**
+         * Deletes the setting for [key].
+         */
         override suspend fun deleteSetting(key: String) {
             sessionManager.requireDatabase().appSettingsDao().deleteSetting(key)
             logger.d("AppSettingsRepositoryImpl.deleteSetting", "Setting deleted", mapOf("key" to key))
         }
 
+        /**
+         * Emits every setting as a key → value map, as a [Flow].
+         */
         override fun getAllSettings(): Flow<Map<String, String?>> {
             logger.d("AppSettingsRepositoryImpl.getAllSettings", "Subscribing to all settings")
             return sessionManager.requireDatabase().appSettingsDao().getAllSettings().map { entities ->

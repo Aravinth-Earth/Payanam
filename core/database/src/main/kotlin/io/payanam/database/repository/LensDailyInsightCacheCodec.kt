@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.repository
 
 import io.payanam.common.logging.UnifiedLogger
@@ -59,7 +62,6 @@ internal fun decodeUnifiedLensSnapshot(
                 .map { line -> line.split("=", limit = 2) }
                 .filter { parts -> parts.size == 2 }
                 .associate { parts -> parts[0] to parts[1] }
-
         val planning =
             PlanningLensData(
                 dayKey = values["day"] ?: dayKey,

@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
@@ -56,7 +57,6 @@ class CreateTimeEntryForHabitUseCase @Inject constructor(
                 )
                 return
             }
-
             val resolvedDimensionId = task.dimensionId
                 ?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
             if (resolvedDimensionId.isNullOrBlank()) {
@@ -97,7 +97,6 @@ class CreateTimeEntryForHabitUseCase @Inject constructor(
                 )
                 return
             }
-
             val dimensionEnabled = settings["auto_track_dimension_$resolvedDimensionId"]?.toBoolean() ?: globalEnabled
             if (!dimensionEnabled) {
                 logger.d(

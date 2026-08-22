@@ -211,6 +211,9 @@ fun TimeScreen(
     val selectedScalePreset = remember(timeHourHeightDp) {
         nearestTimeScalePreset(timeHourHeightDp)
     }
+    /**
+     * Scrolls the timeline to the current time (only for today's date).
+     */
     suspend fun autoScrollToCurrentTime(reason: String) {
         if (uiState.selectedDate != LocalDate.now()) {
             return

@@ -45,7 +45,9 @@ import io.payanam.ui.viewmodel.DayViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-
+/**
+ * Day screen modes (currently journal-only).
+ */
 enum class DayScreenMode {
     JOURNAL_ONLY,
 }
@@ -60,7 +62,6 @@ fun DayScreen(
     remember { UnifiedLogger.getInstance() }
     var showDatePicker by remember { mutableStateOf(false) }
     val journalOnly = mode == DayScreenMode.JOURNAL_ONLY
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -94,7 +95,6 @@ fun DayScreen(
                 onNextDay = { viewModel.nextDay() },
                 onDateClick = { showDatePicker = true },
             )
-
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -122,7 +122,6 @@ fun DayScreen(
             }
         }
     }
-
     if (showDatePicker) {
         val selectedDateMillis = uiState.selectedDate
             .atStartOfDay(ZoneId.systemDefault())
@@ -131,6 +130,9 @@ fun DayScreen(
         val today = LocalDate.now()
         val selectableDates = remember(today) {
             object : SelectableDates {
+                /**
+                 * Allows only dates up to today (no future journaling).
+                 */
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val candidate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.systemDefault())
@@ -138,6 +140,9 @@ fun DayScreen(
                     return !candidate.isAfter(today)
                 }
 
+                /**
+                 * Allows only years up to the current year.
+                 */
                 override fun isSelectableYear(year: Int): Boolean = year <= today.year
             }
         }
@@ -194,7 +199,6 @@ private fun DateNavigationBar(
                 contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_previous_day),
             )
         }
-
         Row(
             modifier = Modifier
                 .clickable { onDateClick() }
@@ -222,7 +226,6 @@ private fun DateNavigationBar(
                 }
             }
         }
-
         IconButton(
             onClick = onNextDay,
             enabled = !isToday,

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam.feature.settings
 
 import android.app.DownloadManager
@@ -16,6 +18,9 @@ import java.io.File
 /** States surfaced to the Settings UI for the auto-download flow. */
 sealed class DownloadUiState {
     data object Idle : DownloadUiState()
+    /**
+     * APK download in flight with byte progress and a derived percentage.
+     */
     data class Downloading(
         val fileName: String,
         val bytesDownloaded: Long,
@@ -30,7 +35,13 @@ sealed class DownloadUiState {
     }
     /** Paused by the system (e.g. waiting for Wi-Fi) — not an error. */
     data class Paused(val message: String) : DownloadUiState()
+    /**
+     * Download finished; [fileName] plus its on-disk path when resolvable.
+     */
     data class Downloaded(val fileName: String, val localPath: String? = null) : DownloadUiState()
+    /**
+     * Download failed; [message] is a user-displayable reason key.
+     */
     data class Failed(val message: String) : DownloadUiState()
 }
 
@@ -50,6 +61,7 @@ object AutoDownloadManager {
      * pauses/resumes automatically when network changes).
      * Returns the download ID, or null if enqueue failed.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun enqueue(
         context: Context,
         url: String,
@@ -76,6 +88,7 @@ object AutoDownloadManager {
     }
 
     /** Query progress for a download ID; returns null if the row is gone. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun queryProgress(context: Context, downloadId: Long): DownloadUiState {
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
@@ -123,6 +136,7 @@ object AutoDownloadManager {
     }
 
     /** Cancel a download and remove its partial file. */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cancel(context: Context, downloadId: Long) {
         try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -138,6 +152,7 @@ object AutoDownloadManager {
      * ones. Skips files that don't exist or are not .apk. Best-effort; failures
      * are logged, not thrown.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
         logDownloadsDirState(context, "cleanup_before")
         try {
@@ -164,6 +179,7 @@ object AutoDownloadManager {
      * total bytes, count) under a caller-supplied tag. No behavior change —
      * diagnostics for the re-download/accumulation investigation.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     internal fun logDownloadsDirState(context: Context, tag: String) {
         try {
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
@@ -194,6 +210,9 @@ object AutoDownloadManager {
         onComplete: () -> Unit,
     ): BroadcastReceiver {
         val receiver = object : BroadcastReceiver() {
+            /**
+             * Fires the completion callback when this download's ID matches.
+             */
             override fun onReceive(ctx: Context, intent: Intent) {
                 val id = intent.getLongExtra(DownloadManager.EXTRA_DOWNLOAD_ID, -1L)
                 if (id == downloadId) {
@@ -202,7 +221,13 @@ object AutoDownloadManager {
                 }
             }
         }
-        context.registerReceiver(receiver, IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE))
+        // DOWNLOAD_COMPLETE originates from the system Download Manager (same
+        // app or root only), so the receiver must not be exported.
+        context.registerReceiver(
+            receiver,
+            IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE),
+            Context.RECEIVER_NOT_EXPORTED,
+        )
         return receiver
     }
 }

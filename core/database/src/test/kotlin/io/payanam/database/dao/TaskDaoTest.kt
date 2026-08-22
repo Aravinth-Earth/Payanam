@@ -17,11 +17,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task dao test.
+ */
 class TaskDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var taskDao: TaskDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -34,16 +40,21 @@ class TaskDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert and get task by id.
+     */
     fun insert_and_getTaskById() =
         runBlocking {
             val task = createTestTask("task-1", "Test Task")
             taskDao.insert(task)
-
             val retrieved = taskDao.getTaskById("task-1")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("task-1")
@@ -51,6 +62,9 @@ class TaskDaoTest {
         }
 
     @Test
+    /**
+     * Returns the all tasks returns archived and non archived tasks.
+     */
     fun getAllTasks_returnsArchivedAndNonArchivedTasks() {
         runBlocking {
             val activeTask = createTestTask("task-1", "Active", status = "pending")
@@ -58,7 +72,6 @@ class TaskDaoTest {
 
             taskDao.insert(activeTask)
             taskDao.insert(archivedTask)
-
             val tasks = taskDao.getAllTasks().first()
             assertThat(tasks).hasSize(2)
             assertThat(tasks.map { it.id }).containsExactly("task-1", "task-2")
@@ -66,6 +79,9 @@ class TaskDaoTest {
     }
 
     @Test
+    /**
+     * Returns the tasks by status filters correctly.
+     */
     fun getTasksByStatus_filtersCorrectly() =
         runBlocking {
             val pendingTask = createTestTask("task-1", "Pending", status = "pending")
@@ -73,38 +89,44 @@ class TaskDaoTest {
 
             taskDao.insert(pendingTask)
             taskDao.insert(completedTask)
-
             val pendingTasks = taskDao.getTasksByStatus("pending").first()
             assertThat(pendingTasks).hasSize(1)
             assertThat(pendingTasks[0].status).isEqualTo("pending")
         }
 
     @Test
+    /**
+     * Updates the update status updates correctly.
+     */
     fun updateStatus_updatesCorrectly() =
         runBlocking {
             val task = createTestTask("task-1", "Test")
             taskDao.insert(task)
 
             taskDao.updateStatus("task-1", "completed", "2026-02-02T10:00:00Z", "2026-02-02T10:00:00Z")
-
             val updated = taskDao.getTaskById("task-1")
             assertThat(updated?.status).isEqualTo("completed")
             assertThat(updated?.completedAt).isEqualTo("2026-02-02T10:00:00Z")
         }
 
     @Test
+    /**
+     * Removes the delete removes task.
+     */
     fun delete_removesTask() =
         runBlocking {
             val task = createTestTask("task-1", "Test")
             taskDao.insert(task)
 
             taskDao.delete(task)
-
             val retrieved = taskDao.getTaskById("task-1")
             assertThat(retrieved).isNull()
         }
 
     @Test
+    /**
+     * Returns the todays tasks includes due today and recurring.
+     */
     fun getTodaysTasks_includesDueTodayAndRecurring() =
         runBlocking {
             val dueToday = createTestTask("task-1", "Due Today", dueDate = "2026-02-02T10:00:00Z")
@@ -112,7 +134,6 @@ class TaskDaoTest {
 
             taskDao.insert(dueToday)
             taskDao.insert(recurring)
-
             val todaysTasks = taskDao.getTodaysTasks("2026-02-02").first()
             assertThat(todaysTasks).hasSize(2)
         }

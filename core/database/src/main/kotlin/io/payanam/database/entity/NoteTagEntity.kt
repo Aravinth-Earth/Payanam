@@ -26,6 +26,10 @@ import androidx.room.Index
     ],
     indices = [Index("note_id"), Index("tag_id")],
 )
+/**
+ * Join row linking a [NoteEntity] to a [TagEntity] (many-to-many).
+ * The composite primary key is the pair of foreign ids.
+ */
 data class NoteTagEntity(
     @ColumnInfo(name = "note_id")
     val noteId: String,

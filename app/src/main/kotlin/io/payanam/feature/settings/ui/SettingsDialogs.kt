@@ -203,7 +203,6 @@ internal fun SettingsImportFeedbackEffects(
             }
         }
     }
-
     LaunchedEffect(uiState.importResult) {
         uiState.importResult?.let { result ->
             when (result) {
@@ -244,7 +243,6 @@ internal fun SettingsImportFeedbackEffects(
             }
         }
     }
-
     LaunchedEffect(uiState.uhabitsImportResult) {
         uiState.uhabitsImportResult?.let { result ->
             when (result) {
@@ -271,7 +269,6 @@ internal fun SettingsImportFeedbackEffects(
             }
         }
     }
-
     LaunchedEffect(uiState.bulkHabitMappingResult) {
         uiState.bulkHabitMappingResult?.let { result ->
             when (result) {
@@ -416,7 +413,6 @@ internal fun BulkMapImportedHabitsDialog(
     onDismiss: () -> Unit,
 ) {
     val logger = remember { UnifiedLogger.getInstance() }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_bulk_map_dialog_title)) },

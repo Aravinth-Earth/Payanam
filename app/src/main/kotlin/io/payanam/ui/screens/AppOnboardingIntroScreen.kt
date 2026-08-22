@@ -67,10 +67,8 @@ fun AppOnboardingIntroScreen(
             icon = Icons.Default.Style,
         ),
     )
-
     val pagerState = rememberPagerState(pageCount = { pages.size })
     val scope = rememberCoroutineScope()
-
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -162,7 +160,6 @@ fun AppOnboardingIntroScreen(
                         )
                     }
                 }
-
                 if (isLastPage) {
                     Spacer(modifier = Modifier.height(48.dp)) // Spacer to keep button height consistent
                 }
@@ -194,18 +191,14 @@ private fun OnboardingSlideContent(page: OnboardingPage) {
                 )
             }
         }
-
         Spacer(modifier = Modifier.height(48.dp))
-
         Text(
             text = stringResource(id = page.titleRes),
             style = MaterialTheme.typography.headlineMedium,
             fontWeight = FontWeight.Bold,
             textAlign = TextAlign.Center,
         )
-
         Spacer(modifier = Modifier.height(16.dp))
-
         Text(
             text = stringResource(id = page.descRes),
             style = MaterialTheme.typography.bodyLarge,

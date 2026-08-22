@@ -11,6 +11,11 @@ import androidx.room.PrimaryKey
     tableName = "time_rules",
     indices = [Index("rule_type"), Index("is_active")],
 )
+/**
+ * A configurable rule that auto-classifies or auto-allocates tracked time
+ * (e.g. "any entry tagged X counts toward dimension Y"). [ruleType] selects
+ * the matcher; [isActive] toggles it without deletion.
+ */
 data class TimeRuleEntity(
     @PrimaryKey
     val id: String,

@@ -1,9 +1,15 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.domain.model
 
-import io.payanam.common.logging.UnifiedLogger
 
+import io.payanam.common.logging.UnifiedLogger
+/**
+ * One canonical life-dimension definition: stable [id], [slug], localized
+ * fallback label/description, display order, and default weight/color/icon.
+ */
 data class CanonicalDimensionDefinition(
     val id: String,
     val slug: String,
@@ -14,11 +20,10 @@ data class CanonicalDimensionDefinition(
     val defaultColorHex: String,
     val defaultIconKey: String
 )
-
+@Suppress("MagicNumber")
 object DimensionTaxonomyCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
     private const val CATALOG_CLASS_NAME = "io.payanam.domain.model.DimensionTaxonomyCatalog"
-
     val PHYSICAL_HEALTH = CanonicalDimensionDefinition(
         id = "dim_physical_health",
         slug = "physical_health",
@@ -125,7 +130,6 @@ object DimensionTaxonomyCatalog {
         defaultColorHex = "#9E9E9E",
         defaultIconKey = "help_outline"
     )
-
     val entries: List<CanonicalDimensionDefinition> = listOf(
         PHYSICAL_HEALTH,
         MENTAL_HEALTH,
@@ -154,11 +158,16 @@ object DimensionTaxonomyCatalog {
             "callerLine" to (caller?.lineNumber ?: -1)
         )
     }
-
+    /**
+     * Resolves a dimension by its canonical [id]; null when blank/unknown.
+     */
     fun fromCanonicalId(id: String?): CanonicalDimensionDefinition? {
         return id?.let(entriesByCanonicalId::get)
     }
-
+    /**
+     * Resolves a dimension by canonical or legacy alias id, warning callers that
+     * pass a non-canonical id (migration guard).
+     */
     fun fromAnyId(id: String?): CanonicalDimensionDefinition? {
         if (id.isNullOrBlank()) {
             return null
@@ -189,7 +198,10 @@ object DimensionTaxonomyCatalog {
             null
         }
     }
-
+    /**
+     * Rejects label-based lookup (labels are not stable identifiers) and warns;
+     * always returns null — callers must use the canonical id.
+     */
     fun fromAnyLabel(label: String?): CanonicalDimensionDefinition? {
         if (label.isNullOrBlank()) {
             return null
@@ -206,11 +218,15 @@ object DimensionTaxonomyCatalog {
         )
         return null
     }
-
+    /**
+     * Returns true if [label] matches a known canonical dimension label.
+     */
     fun isCanonicalLabel(label: String?): Boolean {
         return !label.isNullOrBlank() && canonicalLabels.contains(label.trim())
     }
-
+    /**
+     * Returns the default scoring weight for [id], or 0.5 when unknown.
+     */
     fun defaultWeightForDimensionId(id: String?): Double {
         return fromCanonicalId(id)?.defaultWeight ?: 0.5
     }

@@ -6,7 +6,6 @@ import io.payanam.domain.model.Task
 import org.junit.Assert.assertEquals
 import org.junit.Test
 import java.time.LocalDateTime
-
 class TasksViewModelSortingRegressionTest {
     @Test
     fun impact_desc_sorts_major_and_minimal_aliases_consistently() {
@@ -17,7 +16,6 @@ class TasksViewModelSortingRegressionTest {
             task(id = "major", impact = "Major Impact", baseTime = baseTime),
             task(id = "critical", impact = "Critical Impact", baseTime = baseTime),
         )
-
         val sorted = filterAndSortTasks(
             tasks = tasks,
             filter = TaskFilter.ALL,
@@ -34,13 +32,11 @@ class TasksViewModelSortingRegressionTest {
             task(id = "completed", impact = "Moderate Impact", baseTime = baseTime, status = "completed"),
             task(id = "archived", impact = "Moderate Impact", baseTime = baseTime, status = "archived"),
         )
-
         val filtered = filterAndSortTasks(
             tasks = tasks,
             filter = TaskFilter.NOT_ACTIVE,
             sort = TaskSortOption.CREATED_ASC,
         )
-
         assertEquals(listOf("completed", "archived"), filtered.map { it.id })
     }
 
@@ -52,13 +48,11 @@ class TasksViewModelSortingRegressionTest {
             task(id = "completed", impact = "Moderate Impact", baseTime = baseTime, status = "completed"),
             task(id = "archived", impact = "Moderate Impact", baseTime = baseTime, status = "archived"),
         )
-
         val filtered = filterAndSortTasks(
             tasks = tasks,
             filter = TaskFilter.ALL,
             sort = TaskSortOption.CREATED_ASC,
         )
-
         assertEquals(listOf("pending", "completed", "archived"), filtered.map { it.id })
     }
 
@@ -74,6 +68,9 @@ class TasksViewModelSortingRegressionTest {
     // ── Simplified habit sorts (score = runningAvg) ────────────────────────
 
     @Test
+    /**
+     * Score high low sorts by latest l1 running avg.
+     */
     fun score_high_low_sorts_by_latest_l1_running_avg() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
@@ -100,6 +97,9 @@ class TasksViewModelSortingRegressionTest {
     }
 
     @Test
+    /**
+     * Habits without l1 metrics sort last on score high low.
+     */
     fun habits_without_l1_metrics_sort_last_on_score_high_low() {
         val t1 = task("a", "Moderate Impact", LocalDateTime.now())
         val t2 = task("b", "Moderate Impact", LocalDateTime.now())
@@ -186,6 +186,9 @@ class TasksViewModelSortingRegressionTest {
     // ── fromKey migration ──────────────────────────────────────────────────
 
     @Test
+    /**
+     * From key migrates legacy running avg desc to score high low.
+     */
     fun fromKey_migrates_legacy_running_avg_desc_to_score_high_low() {
         assertEquals(HabitSortOption.SCORE_HIGH_LOW, HabitSortOption.fromKey("running_avg_desc"))
     }

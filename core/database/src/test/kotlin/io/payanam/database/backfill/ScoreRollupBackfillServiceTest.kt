@@ -11,7 +11,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-
+/**
+ * Provides the score rollup backfill service test.
+ */
 class ScoreRollupBackfillServiceTest {
 
 
@@ -107,7 +109,6 @@ class ScoreRollupBackfillServiceTest {
         val start = LocalDate.of(2026, 8, 1)
         val occs = (0 until 7).map { occurrence("h1", start.plusDays(it.toLong())) }
         val (rows, firstDue, rule) = ScoreRollupBackfillService.buildHabitMetrics(t, occs)
-
         assertEquals(LocalDate.of(2026, 8, 1), firstDue)
         assertEquals("CONFIG:type=DAILY", rule) // num/den 1/1 → DAILY conversion
         assertTrue(rows.isNotEmpty())

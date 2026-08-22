@@ -1506,13 +1506,17 @@ if ($runCoverage)
 }
 
 # Check 6: Static analysis (lint, detekt)
+# FATAL on normal/full (where $runStaticAnalysis is true) — detekt now enforces
+# a KDoc baseline, so a regression must block the build. quick profile never
+# reaches this block, so its fast-iteration path is unchanged.
 if ($runStaticAnalysis)
 {
     Write-LogWithTime "Running static analysis..." "Cyan"
     $staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck" -StepLabel "Static analysis"
     if ($staticRun.ExitCode -ne 0)
     {
-        Write-LogWithTime "  ⚠️ Static analysis reported issues (non-fatal on first public setup)" "Yellow"
+        Write-LogWithTime "  ❌ Static analysis failed (detekt/lint regression). Fix before building." "Red"
+        Exit-WithCleanup 1
     } else {
         Write-LogWithTime "  ✅ Static analysis passed" "Green"
     }

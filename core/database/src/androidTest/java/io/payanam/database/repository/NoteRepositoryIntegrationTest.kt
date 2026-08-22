@@ -21,12 +21,18 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 @RunWith(AndroidJUnit4::class)
+/**
+ * Provides the note repository integration test.
+ */
 class NoteRepositoryIntegrationTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: NoteRepository
     private lateinit var sessionManager: DatabaseSessionManager
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -41,7 +47,6 @@ class NoteRepositoryIntegrationTest {
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
-
         val encryptionManager = DatabaseEncryptionManager(context)
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
@@ -49,12 +54,18 @@ class NoteRepositoryIntegrationTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         database.close()
     }
 
     @Test
+    /**
+     * Creates the create note creates and returns note with generated id.
+     */
     fun createNote_createsAndReturnsNoteWithGeneratedId() =
         runBlocking {
             // Given
@@ -72,6 +83,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the all notes returns all created notes.
+     */
     fun getAllNotes_returnsAllCreatedNotes() =
         runBlocking {
             // Given
@@ -87,6 +101,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the note by id returns correct note when exists.
+     */
     fun getNoteById_returnsCorrectNoteWhenExists() =
         runBlocking {
             // Given
@@ -103,6 +120,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the note by id returns null when note does not exist.
+     */
     fun getNoteById_returnsNullWhenNoteDoesNotExist() =
         runBlocking {
             // When
@@ -113,6 +133,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Get notes by dimension filters notes by life intention category.
+     */
     fun getNotesByDimension_filtersNotesByLifeIntentionCategory() =
         runBlocking {
             // Given
@@ -137,6 +160,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Updates the update note modifies existing note.
+     */
     fun updateNote_modifiesExistingNote() =
         runBlocking {
             // Given
@@ -154,6 +180,9 @@ class NoteRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Removes the delete note removes note from database.
+     */
     fun deleteNote_removesNoteFromDatabase() =
         runBlocking {
             // Given

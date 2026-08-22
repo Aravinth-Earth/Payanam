@@ -13,11 +13,17 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the db auth flow spec contract test.
+ */
 class DbAuthFlowSpecContractTest {
     private lateinit var logger: UnifiedLogger
     private lateinit var specJson: String
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -33,6 +39,9 @@ class DbAuthFlowSpecContractTest {
     }
 
     @Test
+    /**
+     * Disable biometric flow routes directly to cleanup without passphrase step.
+     */
     fun disableBiometricFlow_routesDirectlyToCleanupWithoutPassphraseStep() {
         assertThat(specJson).contains("\"id\": \"TBIOSEC013\"")
         assertThat(specJson).contains("\"to\": \"BIOSEC_DELETE_KEY\"")
@@ -41,6 +50,9 @@ class DbAuthFlowSpecContractTest {
     }
 
     @Test
+    /**
+     * Biometric enable contract requires strong keystore wrapping and manual unlock guard.
+     */
     fun biometricEnableContract_requiresStrongKeystoreWrappingAndManualUnlockGuard() {
         assertThat(specJson).contains("setUserAuthenticationRequired=true")
         assertThat(specJson).contains("manual passphrase unlock")

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
@@ -73,6 +75,9 @@ fun LensesScreen(
     var habitsExpanded by rememberSaveable { mutableStateOf(false) }
     var journalExpanded by rememberSaveable { mutableStateOf(false) }
     var notesExpanded by rememberSaveable { mutableStateOf(false) }
+    /**
+     * Expands [section] and collapses the others (accordion behavior).
+     */
     fun toggleExclusive(section: String) {
         val shouldExpand = when (section) {
             "time" -> !timeExpanded
@@ -88,7 +93,6 @@ fun LensesScreen(
         journalExpanded = shouldExpand && section == "journal"
         notesExpanded = shouldExpand && section == "notes"
     }
-
     LaunchedEffect(uiState.selectedDate, uiState.selectedMoment) {
         viewModel.loadLensData()
         logger.d(
@@ -100,7 +104,6 @@ fun LensesScreen(
             ),
         )
     }
-
     val appPrefsForTrigger = LocalAppPreferences.current
     LaunchedEffect(
         appPrefsForTrigger.chartTimeModuleEnabled,
@@ -183,7 +186,6 @@ fun LensesScreen(
             )
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -204,7 +206,6 @@ fun LensesScreen(
             }
             return@Scaffold
         }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -334,7 +335,6 @@ private fun ModuleSections(
     val noteModuleEnabled = appPrefs.chartNoteModuleEnabled
     val includeSupplementalActual = true
     val dimensionIds = collectDimensionIds(uiState).filter(appPrefs::isVisibleDimensionId)
-
     if (timeChartsEnabled) {
         if (FeatureFlags.minimalModeEnabled) {
         ModuleCard(

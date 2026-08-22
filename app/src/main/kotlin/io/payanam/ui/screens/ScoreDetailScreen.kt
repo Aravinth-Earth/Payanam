@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Box
@@ -45,8 +47,14 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 
 /** Detail-page source: DAY (day_metrics) or a dimension (dimension_metrics). */
-enum class ScoreDetailType { DAY, DIMENSION }
-
+enum class ScoreDetailType  {
+    DAY,
+    DIMENSION,
+}
+/**
+ * UI state for the score-detail screen: loading/error flags, metric rows for
+ * the selected layer, and the current window (size + end date) plus view mode.
+ */
 data class ScoreDetailUiState(
     val isLoading: Boolean = true,
     val rows: List<MetricWindowRow> = emptyList(),
@@ -56,6 +64,10 @@ data class ScoreDetailUiState(
     val error: String? = null,
 )
 
+/**
+ * Score-detail ViewModel: loads day/dimension metric windows, shifts the
+ * window or changes its size, and toggles the chart/table view.
+ */
 @HiltViewModel
 class ScoreDetailViewModel
     @Inject
@@ -66,7 +78,10 @@ class ScoreDetailViewModel
 
         private val _uiState = MutableStateFlow(ScoreDetailUiState())
         val uiState: StateFlow<ScoreDetailUiState> = _uiState.asStateFlow()
-
+        /**
+         * Loads the metric rows for [type]/[key] over the current window.
+         */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun load(type: ScoreDetailType, key: String) {
             viewModelScope.launch {
                 val state = _uiState.value
@@ -109,7 +124,9 @@ class ScoreDetailViewModel
                 }
             }
         }
-
+        /**
+         * Slides the window by [days] and reloads its rows.
+         */
         fun shiftWindow(days: Int) {
             logger.d(
                 "ScoreDetailViewModel.shiftWindow",
@@ -138,7 +155,9 @@ class ScoreDetailViewModel
                 _uiState.update { it.copy(rows = rows, isLoading = false) }
             }
         }
-
+        /**
+         * Sets the visible range to [days] days (0 = all-time) and reloads.
+         */
         fun setWindowSize(days: Int) {
             logger.d(
                 "ScoreDetailViewModel.setWindowSize",
@@ -166,11 +185,15 @@ class ScoreDetailViewModel
                 _uiState.update { it.copy(rows = rows, isLoading = false) }
             }
         }
-
+        /**
+         * Toggles the activity section between chart and table rendering.
+         */
         fun setChartView(show: Boolean) {
             _uiState.update { it.copy(showChartView = show) }
         }
-
+        /**
+         * Snaps the window back to end at today and reloads.
+         */
         fun goToday() {
             logger.d(
                 "ScoreDetailViewModel.goToday",
@@ -234,20 +257,17 @@ fun ScoreDetailScreen(
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val logger = remember { UnifiedLogger.getInstance() }
-
     LaunchedEffect(type, key) {
         viewModel.currentType = type
         viewModel.currentKey = key
         viewModel.load(type, key)
     }
-
     val title =
         if (type == ScoreDetailType.DAY) {
             stringResource(id = R.string.loc_lens_score_detail_day, key)
         } else {
             stringResource(id = R.string.loc_lens_score_detail_dimension, key)
         }
-
     Scaffold(
         topBar = {
             TopAppBar(

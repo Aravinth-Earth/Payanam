@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.Canvas
@@ -58,7 +60,6 @@ internal fun DimensionHeatmapSection(
             ),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -68,7 +69,6 @@ internal fun DimensionHeatmapSection(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-
         if (state.days.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.loc_lens_heatmap_no_data),
@@ -77,14 +77,12 @@ internal fun DimensionHeatmapSection(
             )
         } else {
             val untrackedBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
             ) {
                 // Y-axis (fixed, not scrolling)
                 HeatmapYAxis()
-
                 Spacer(modifier = Modifier.width(4.dp))
 
                 // Scrollable day columns - most recent leftmost

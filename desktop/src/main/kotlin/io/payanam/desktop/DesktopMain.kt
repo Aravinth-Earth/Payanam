@@ -12,7 +12,10 @@ import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
 import java.awt.GraphicsEnvironment
 import kotlin.math.max
-
+/**
+ * Desktop entry point: enforces single-instance, initializes the session
+ * logger, and launches the Compose window.
+ */
 fun main() {
     val singleInstanceResult = DesktopSingleInstanceGuard.acquire()
     if (singleInstanceResult is DesktopSingleInstanceAcquireResult.AlreadyRunning) {
@@ -61,7 +64,7 @@ fun main() {
                 desktopApp()
             }
         }
-    } catch (error: Throwable) {
+    } catch (@Suppress("TooGenericExceptionCaught") error: Throwable) {
         sessionLogger.e("DesktopMain.main", "Desktop application terminated with error", error)
         throw error
     } finally {

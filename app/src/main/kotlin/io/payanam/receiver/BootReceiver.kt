@@ -33,6 +33,11 @@ class BootReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * On boot completion: restores any active tracking session + widget state
+     * and re-arms task reminders.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val logger = UnifiedLogger.getInstance()
@@ -42,7 +47,6 @@ class BootReceiver : BroadcastReceiver() {
                 try {
                     // Check for active time entries
                     val activeEntries = timeEntryRepository.getActiveTimeEntries().first()
-
                     if (activeEntries.isNotEmpty()) {
                         // Restore the most recent active entry's notification
                         val entry = activeEntries.first()
@@ -70,7 +74,6 @@ class BootReceiver : BroadcastReceiver() {
                         TimeTrackingWidgetProvider.requestUpdate(context)
                         logger.d("BootReceiver.onReceive", "Requested widget refresh with idle state after boot")
                     }
-
                     if (FeatureFlags.remindersEnabled) {
                         notificationScheduler.scheduleAllPendingTasks()
                         logger.i("BootReceiver.onReceive", "Scheduled task reminders after boot")

@@ -53,7 +53,6 @@ internal fun StartTrackingDialog(
     var taskExpanded by remember { mutableStateOf(false) }
     val selectedLabel = selectedDimension.label
     val filteredTasks = tasks.filter { taskMatchesDimension(it, selectedDimension) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_start_tracking)) },
@@ -107,7 +106,6 @@ internal fun StartTrackingDialog(
                         }
                     }
                 }
-
                 if (filteredTasks.isNotEmpty()) {
                     Text(
                         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_task_optional),

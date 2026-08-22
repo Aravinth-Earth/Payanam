@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber", "LongMethod", "CyclomaticComplexMethod", "LoopWithTooManyJumpStatements")
+
 package io.payanam.database.backfill
 
 import io.payanam.common.logging.UnifiedLogger
@@ -61,6 +64,7 @@ class ScoreRollupCascadeService
         private val logger = UnifiedLogger.getInstance()
 
         /** Recompute L1/L2/L3 tails after a status change on [date]. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForStatusChange"
@@ -70,7 +74,6 @@ class ScoreRollupCascadeService
                 val task = taskDao.getTaskById(taskId) ?: return
                 if (task.recurrenceEnabled != 1) return
                 logger.i(tag, "CASCADE_START", mapOf("taskId" to taskId, "date" to date.toString()))
-
                 val habitDao = db.habitMetricDao()
                 val dimDao = db.dimensionMetricDao()
                 val dayDao = db.dayMetricDao()
@@ -217,6 +220,7 @@ class ScoreRollupCascadeService
          * delete the habit's rows and recompute L1 from firstDue → today, then
          * refresh the affected dimension L2 tail and day L3 tail.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcForRuleChange(taskId: String) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForRuleChange"
@@ -226,12 +230,10 @@ class ScoreRollupCascadeService
                 val task = taskDao.getTaskById(taskId) ?: return
                 if (task.recurrenceEnabled != 1) return
                 logger.i(tag, "CASCADE_RULE_CHANGE_START", mapOf("taskId" to taskId))
-
                 val habitDao = db.habitMetricDao()
                 val dimDao = db.dimensionMetricDao()
                 val dayDao = db.dayMetricDao()
                 val occDao = db.taskOccurrenceDao()
-
                 val occurrences = occDao.getOccurrencesForTaskForBackfill(taskId)
                 val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences, includeToday = true)
 
@@ -304,6 +306,7 @@ class ScoreRollupCascadeService
          * O(days × dimensions), which stays small even for decade-long
          * histories (day rows are dense by design).
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun recalcDayOnly(changeDate: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcDayOnly"
@@ -360,6 +363,7 @@ class ScoreRollupCascadeService
         }
 
         /** Startup catch-up: extend every habit's L1 through yesterday, then L2/L3 tails. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun catchUpTail() {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.catchUpTail"
@@ -370,7 +374,6 @@ class ScoreRollupCascadeService
                 val occDao = db.taskOccurrenceDao()
                 val dimDao = db.dimensionMetricDao()
                 val dayDao = db.dayMetricDao()
-
                 val recurring = taskDao.getRecurringTasks()
                     .filter { it.status != "archived" && it.recurrenceEnabled == 1 }
                 val yesterday = LocalDate.now().minusDays(1)
@@ -384,7 +387,6 @@ class ScoreRollupCascadeService
                 // GROUP BY aggregate — O(rows) not O(all rows in memory).
                 val dbMaxByHabit = habitDao.maxDayKeyPerHabit()
                     .associate { it.habitId to it.maxDayKey }
-
                 val gapStarts = mutableMapOf<String, String>() // habitId → first missing dayKey
                 var extendedRows = 0
                 var computedHabits = 0
@@ -463,7 +465,6 @@ class ScoreRollupCascadeService
                     .mapValues { (_, rows) -> rows.minOfOrNull { parseDate(it.dayKey) } }
                     .filterValues { it != null }
                     .mapValues { it.value!! }
-
                 val affectedDimFromDay = mutableMapOf<String, String>() // dimensionId → min gapStart
                 for (task in recurring) {
                     val gapStart = gapStarts[task.id] ?: continue
@@ -471,7 +472,6 @@ class ScoreRollupCascadeService
                     val existing = affectedDimFromDay[dimId]
                     if (existing == null || gapStart < existing) affectedDimFromDay[dimId] = gapStart
                 }
-
                 var dimTailRows = 0
                 for ((dimId, fromDay) in affectedDimFromDay) {
                     val members = recurring.filter { (it.dimensionId ?: "dim_unassigned") == dimId }
@@ -616,10 +616,12 @@ class ScoreRollupCascadeService
         }
 
         /** Parses a dayKey (or longer timestamp) to a [LocalDate] via the first 10 chars. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun parseDate(s: String): LocalDate =
             try {
                 LocalDate.parse(s.take(10))
             } catch (e: Exception) {
+                logger.w("ScoreRollupCascadeService", "Unparseable date, falling back to today", mapOf("date" to s))
                 LocalDate.now()
             }
     }

@@ -8,7 +8,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
-
+/**
+ * Provides the desktop bootstrap store test.
+ */
 class DesktopBootstrapStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

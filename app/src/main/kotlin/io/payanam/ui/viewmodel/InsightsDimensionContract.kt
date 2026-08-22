@@ -10,11 +10,16 @@ import io.payanam.domain.model.TimeEntry
 
 internal object InsightsDimensionContract {
     private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }
-
+    /**
+     * Canonical dimension for a task (defaults to LEARNING_GROWTH when unset
+     * or unrecognized).
+     */
     fun taskDimensionId(task: Task): String = task.dimensionId
         ?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
         ?: DimensionTaxonomyCatalog.LEARNING_GROWTH.id
-
+    /**
+     * Canonical dimension for a note (same defaulting rule as tasks).
+     */
     fun noteDimensionId(note: Note): String = note.dimensionId
         ?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
         ?: DimensionTaxonomyCatalog.LEARNING_GROWTH.id
@@ -57,6 +62,9 @@ internal object InsightsDimensionContract {
         )
         return DimensionTaxonomyCatalog.LEARNING_GROWTH.id
     }
-
+    /**
+     * Display label for a canonical id (catalog fallback label, else the raw
+     * id).
+     */
     fun dimensionLabel(dimensionId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
 }

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -26,7 +28,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.io.File
 import javax.inject.Inject
-
+/**
+ * UI state for the unlock gate: unlock-in-progress flag, the classified error
+ * reason code, live lockout countdown, and a summary of the local database
+ * file (existence, size, last-modified, storage mode label).
+ */
 data class DatabasePassphraseUnlockUiState(
     val isUnlocking: Boolean = false,
     val errorReasonCode: String? = null,
@@ -51,6 +57,11 @@ internal fun classifyDatabaseOpenFailureReason(error: Throwable?): String {
     }
 }
 
+/**
+ * Unlock-gate ViewModel: verifies the passphrase (with lockout enforcement),
+ * opens the encrypted DB session, supports Keystore-backed biometric unlock,
+ * and offers the destructive forgot-passphrase reset.
+ */
 @HiltViewModel
 class DatabasePassphraseUnlockViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -66,7 +77,10 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         refreshLockoutState()
         loadDatabaseSummary()
     }
-
+    /**
+     * Re-reads the lockout countdown from the encryption manager into state
+     * (called on screen focus).
+     */
     fun refreshLockoutState() {
         val remaining = encryptionManager.getUnlockRemainingSeconds()
         logger.d(
@@ -76,7 +90,11 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         )
         _uiState.update { it.copy(lockoutSecondsRemaining = remaining) }
     }
-
+    /**
+     * Verifies [passphrase] and opens the encrypted DB session on success;
+     * wrong attempts feed the lockout policy and failures surface as reason
+     * codes in state.
+     */
     fun unlock(passphrase: String, onSuccess: () -> Unit) {
         logger.i(
             "DatabasePassphraseUnlockViewModel.unlock",
@@ -202,7 +220,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             }
             return
         }
-
         val biometricManager = BiometricManager.from(context)
         val canAuth = biometricManager.canAuthenticate(BIOMETRIC_STRONG)
         logger.i(
@@ -225,7 +242,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             }
             return
         }
-
         val cipher = runCatching { encryptionManager.getCipherForBiometricUnlock() }.getOrElse { error ->
             logger.e(
                 "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -243,9 +259,12 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
         }
 
         _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-
         val executor = ContextCompat.getMainExecutor(context)
         val callback = object : BiometricPrompt.AuthenticationCallback() {
+            /**
+             * Biometric success: unwraps the stored passphrase with the OS-
+             * authenticated cipher and opens the DB session.
+             */
             override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
                 val authenticatedCipher = result.cryptoObject?.cipher
                 if (authenticatedCipher == null) {
@@ -300,6 +319,10 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 }
             }
 
+            /**
+             * Hard prompt error (negative button, timeout, or sensor lockout):
+             * surfaces a biometric-specific reason code.
+             */
             override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -318,6 +341,10 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 }
             }
 
+            /**
+             * A single unrecognized attempt; the prompt stays open (the system
+             * shows its own retry feedback).
+             */
             override fun onAuthenticationFailed() {
                 logger.w(
                     "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
@@ -326,7 +353,6 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
                 // Don't update errorReasonCode here — the system shows its own feedback
             }
         }
-
         val promptInfo = BiometricPrompt.PromptInfo.Builder()
             .setTitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_title))
             .setSubtitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_subtitle))
@@ -343,9 +369,14 @@ class DatabasePassphraseUnlockViewModel @Inject constructor(
             BiometricPrompt.CryptoObject(cipher),
         )
     }
-
+    /**
+     * Whether the user has biometric unlock turned on (drives UI affordances).
+     */
     fun isBiometricUnlockEnabled(): Boolean = encryptionManager.isBiometricUnlockEnabled()
-
+    /**
+     * Destructive recovery path: wipes all database artifacts and resets
+     * encryption state so the user can start over with a fresh setup.
+     */
     fun forgotPassphraseReset(onSuccess: () -> Unit) {
         logger.w("DatabasePassphraseUnlockViewModel.forgotPassphraseReset", "Forgot-passphrase reset requested")
         viewModelScope.launch {

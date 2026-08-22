@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -26,7 +28,10 @@ internal data class DatabaseImportCopyResult(
 
 internal object DatabaseImportSupport {
     private val logger = UnifiedLogger.getInstance()
-
+    /**
+     * Copies the selected database (plus any -wal/-shm companions) from
+     * [sourceUri] over the target files, returning what was copied.
+     */
     fun copyDatabaseArtifacts(
         context: Context,
         sourceUri: Uri,
@@ -79,7 +84,6 @@ internal object DatabaseImportSupport {
                 ),
             )
         }
-
         var bytesCopied = 0L
         var companionFilesCopied = 0
         copyMappings.forEachIndexed { index, mapping ->
@@ -90,7 +94,6 @@ internal object DatabaseImportSupport {
             } ?: throw IllegalStateException(
                 context.getString(R.string.settings_import_error_source_stream_open),
             )
-
             if (index == 0) {
                 bytesCopied = currentBytes
             } else {
@@ -149,6 +152,7 @@ internal object DatabaseImportSupport {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun readPlaintextDatabaseUserVersion(databaseFile: File, logTag: String): Int? = try {
         SQLiteDatabase.openDatabase(
             databaseFile.absolutePath,
@@ -197,6 +201,7 @@ internal object DatabaseImportSupport {
      * Returns true if the header matches the standard SQLite magic ("SQLite format 3\0...").
      * Returns false if the file appears to be SQLCipher-encrypted (random salt header) or corrupt.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
         if (!databaseFile.exists() || databaseFile.length() == 0L) {
             logger.w(
@@ -234,7 +239,11 @@ internal object DatabaseImportSupport {
             false
         }
     }
-
+    /**
+     * Merges an imported WAL into its database via a temp-copy checkpoint and
+     * removes WAL artifacts (false when consolidation was skipped/failed).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
         val walFile = File(dbFile.parent, "${dbFile.name}-wal")
         val shmFile = File(dbFile.parent, "${dbFile.name}-shm")
@@ -251,12 +260,10 @@ internal object DatabaseImportSupport {
                 "shmExists" to shmFile.exists(),
             ),
         )
-
         if (!walFile.exists()) {
             logger.i(logTag, "WAL consolidation: no WAL present, nothing to merge")
             return true
         }
-
         val hasStandardHeader = hasStandardSqliteHeader(dbFile)
         if (!hasStandardHeader) {
             logger.w(
@@ -273,7 +280,6 @@ internal object DatabaseImportSupport {
 
         // SHM is process-local and can be safely rebuilt for standard SQLite imports.
         shmFile.delete()
-
         val tempDb = File(dbFile.parent, "${dbFile.name}.wal_merge_tmp")
         val tempWal = File(dbFile.parent, "${dbFile.name}.wal_merge_tmp-wal")
         val tempShm = File(dbFile.parent, "${dbFile.name}.wal_merge_tmp-shm")
@@ -291,7 +297,6 @@ internal object DatabaseImportSupport {
                     "tempWalSizeKB" to (tempWal.length() / 1024),
                 ),
             )
-
             val checkpointed = try {
                 SQLiteDatabase.openDatabase(
                     tempDb.absolutePath,
@@ -333,7 +338,6 @@ internal object DatabaseImportSupport {
                 )
                 false
             }
-
             if (checkpointed) {
                 val walDeleted = walFile.delete()
                 logger.i(
@@ -361,7 +365,6 @@ internal object DatabaseImportSupport {
                     ),
                 )
             }
-
             checkpointed
         } catch (e: Exception) {
             logger.e(logTag, "WAL consolidation failed unexpectedly; leaving DB/WAL/SHM unchanged", e)
@@ -391,6 +394,7 @@ internal object DatabaseImportSupport {
      * On success, [databaseFile] is replaced with a standard plaintext SQLite database.
      * Throws if the passphrase is incorrect or the file cannot be opened.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun decryptEncryptedImport(
         context: Context,
         databaseFile: File,
@@ -453,7 +457,11 @@ internal object DatabaseImportSupport {
             throw e
         }
     }
-
+    /**
+     * Checks an imported plaintext database's schema version is within the
+     * migratable range, returning the version; throws with a localized
+     * message otherwise.
+     */
     fun validateSupportedPlaintextImportSchema(
         context: Context,
         databaseFile: File,
@@ -465,7 +473,6 @@ internal object DatabaseImportSupport {
         ) ?: throw IllegalStateException(
             context.getString(R.string.settings_import_error_unreadable_db),
         )
-
         if (userVersion < DatabaseHealthChecker.MIN_MIGRATABLE_VERSION) {
             throw IllegalStateException(
                 context.getString(
@@ -475,7 +482,6 @@ internal object DatabaseImportSupport {
                 ),
             )
         }
-
         if (userVersion > DatabaseHealthChecker.CURRENT_VERSION) {
             throw IllegalStateException(
                 context.getString(
@@ -516,7 +522,6 @@ internal object DatabaseImportSupport {
     private fun resolveFromTree(context: Context, sourceTreeUri: Uri): ResolvedSource {
         val childDocuments = listChildDocuments(context, sourceTreeUri)
         val fileDocuments = childDocuments.filterNot { it.isDirectory }
-
         val preferredDb = fileDocuments.firstOrNull {
             it.name.equals(PayanamDatabase.DATABASE_NAME, ignoreCase = true)
         }
@@ -534,14 +539,12 @@ internal object DatabaseImportSupport {
                 )
             }
         }
-
         val walUri = fileDocuments.firstOrNull {
             it.name.equals("${dbDocument.name}-wal", ignoreCase = true)
         }?.uri
         val shmUri = fileDocuments.firstOrNull {
             it.name.equals("${dbDocument.name}-shm", ignoreCase = true)
         }?.uri
-
         val resolved = ResolvedSource(
             sourceKind = "folder",
             primaryFileName = dbDocument.name,
@@ -569,7 +572,6 @@ internal object DatabaseImportSupport {
         val fileName = queryDisplayName(context, sourceUri)
             ?: sourceUri.lastPathSegment?.substringAfterLast('/')
             ?: PayanamDatabase.DATABASE_NAME
-
         if (fileName.endsWith(WAL_SUFFIX, ignoreCase = true) ||
             fileName.endsWith(SHM_SUFFIX, ignoreCase = true) ||
             !fileName.endsWith(DB_EXTENSION, ignoreCase = true)
@@ -578,7 +580,6 @@ internal object DatabaseImportSupport {
                 context.getString(R.string.settings_import_error_select_main_db),
             )
         }
-
         val resolved = ResolvedSource(
             sourceKind = "file",
             primaryFileName = fileName,
@@ -594,6 +595,7 @@ internal object DatabaseImportSupport {
         return resolved
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun queryDisplayName(context: Context, uri: Uri): String? = try {
         context.contentResolver.query(
             uri,
@@ -636,11 +638,9 @@ internal object DatabaseImportSupport {
             val documentIdIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
             val displayNameIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
             val mimeTypeIndex = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
-
             if (documentIdIndex == -1 || displayNameIndex == -1 || mimeTypeIndex == -1) {
                 return emptyList()
             }
-
             while (cursor.moveToNext()) {
                 val documentId = cursor.getString(documentIdIndex) ?: continue
                 val displayName = cursor.getString(displayNameIndex) ?: continue

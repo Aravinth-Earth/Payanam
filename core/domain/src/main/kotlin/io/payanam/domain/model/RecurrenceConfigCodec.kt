@@ -1,6 +1,9 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.domain.model
+
 
 import java.time.DayOfWeek
 import java.time.LocalDate
@@ -8,69 +11,87 @@ import java.time.LocalDate
 /**
  * Parser and factory functions for [RecurrenceConfig].
  */
+@Suppress("MagicNumber")
 internal object RecurrenceConfigCodec {
+    /**
+     * Parses rrule / CONFIG: / "num/den" strings (or blank → daily) into a [RecurrenceConfig].
+     */
     fun parse(rule: String?): RecurrenceConfig {
         if (rule.isNullOrBlank()) return daily(startDate = null)
-
         if (rule.startsWith("CONFIG:")) {
             return parseConfig(rule.removePrefix("CONFIG:"))
         }
-
         if (Frequency.isSerializedRule(rule)) {
             return parseFrequencyRule(rule)
         }
 
         return parseRRule(rule)
     }
-
+    /**
+     * Builds a [RecurrenceType.DAILY] config.
+     */
     fun daily(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.DAILY,
         startDate = startDate
     )
-
+    /**
+     * Builds a Mon-Fri [RecurrenceType.WEEKDAYS_ONLY] config.
+     */
     fun weekdays(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.WEEKDAYS_ONLY,
         startDate = startDate
     )
-
+    /**
+     * Builds a [RecurrenceType.SPECIFIC_WEEKDAYS] config from [DayOfWeek] values.
+     */
     fun specificWeekdays(vararg days: DayOfWeek) = RecurrenceConfig(
         type = RecurrenceType.SPECIFIC_WEEKDAYS,
         weekdays = days.map { it.value }.toSet()
     )
-
+    /**
+     * Builds a [RecurrenceType.SPECIFIC_WEEKDAYS] config from day-of-week ints (1=Mon..7=Sun).
+     */
     fun specificWeekdays(days: Set<Int>) = RecurrenceConfig(
         type = RecurrenceType.SPECIFIC_WEEKDAYS,
         weekdays = days
     )
-
+    /**
+     * Builds a [RecurrenceType.MONTHLY_DATES] config (32 = last day of month).
+     */
     fun monthlyOnDates(vararg dates: Int) = RecurrenceConfig(
         type = RecurrenceType.MONTHLY_DATES,
         monthlyDates = dates.toSet()
     )
-
+    /**
+     * Builds a [RecurrenceType.INTERVAL] config firing every [n] days.
+     */
     fun everyNDays(n: Int, startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.INTERVAL,
         intervalDays = n,
         startDate = startDate
     )
-
+    /**
+     * Builds a [RecurrenceType.FREQUENCY] config of [times] per 7 days.
+     */
     fun timesPerWeek(times: Int) = RecurrenceConfig(
         type = RecurrenceType.FREQUENCY,
         frequencyNumerator = times,
         frequencyDenominator = 7
     )
-
+    /**
+     * Builds a [RecurrenceType.YEARLY] config (same month/day each year).
+     */
     fun yearly(startDate: LocalDate?) = RecurrenceConfig(
         type = RecurrenceType.YEARLY,
         startDate = startDate
     )
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun parseConfig(config: String): RecurrenceConfig {
         val parts = config.split("|").associate { part ->
             val kv = part.split("=", limit = 2)
             if (kv.size == 2) kv[0] to kv[1] else kv[0] to ""
         }
-
         val type = RecurrenceType.valueOf(parts["type"] ?: "DAILY")
         val weekdays = parts["weekdays"]?.split(",")
             ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
@@ -114,7 +135,6 @@ internal object RecurrenceConfigCodec {
             val kv = part.split("=", limit = 2)
             if (kv.size == 2) kv[0] to kv[1] else kv[0] to ""
         }
-
         val freq = parts["FREQ"] ?: "DAILY"
         val interval = parts["INTERVAL"]?.toIntOrNull() ?: 1
         val byDay = parts["BYDAY"]

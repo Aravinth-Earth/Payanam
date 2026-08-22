@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -24,11 +26,17 @@ import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.UUID
 import javax.inject.Inject
-
+/**
+ * Tabs of the Day screen (currently only the combined SUMMARY view).
+ */
 enum class DayTab {
     SUMMARY,
 }
-
+/**
+ * UI state for the Day screen: selected date/tab, the loaded journal entry
+ * with its overall + per-dimension prompt responses, dates with saves still
+ * in flight, and the last successfully saved date.
+ */
 data class DayUiState(
     val isLoading: Boolean = true,
     val selectedDate: LocalDate = LocalDate.now(),
@@ -39,11 +47,14 @@ data class DayUiState(
     val pendingJournalSaveDates: Set<LocalDate> = emptySet(),
     val lastSavedJournalDate: LocalDate? = null,
 )
-
 val OVERALL_JOURNAL_PROMPTS = JournalReflectionContracts.overallPrompts.map { it.key to it.prompt }
-
 val DIMENSION_JOURNAL_PROMPTS = JournalReflectionContracts.dimensionPrompts.map { it.key to it.prompt }
 
+/**
+ * Day-screen ViewModel: date navigation (never into the future) and the
+ * day-journal editor — overall + dimension prompt responses persisted with a
+ * 500 ms debounce, keyed per date/scope/prompt.
+ */
 @HiltViewModel
 class DayViewModel @Inject constructor(
     private val journalRepository: JournalRepository,
@@ -69,14 +80,18 @@ class DayViewModel @Inject constructor(
     init {
         loadDayData()
     }
-
+    /**
+     * Moves the selection back one day and reloads its journal data.
+     */
     fun previousDay() {
         val newDate = _uiState.value.selectedDate.minusDays(1)
         logger.d("DayViewModel.previousDay", "Navigating to previous day", mapOf("date" to newDate.toString()))
         _uiState.update { it.copy(selectedDate = newDate) }
         loadDayData()
     }
-
+    /**
+     * Moves the selection forward one day (never beyond today) and reloads.
+     */
     fun nextDay() {
         val currentDate = _uiState.value.selectedDate
         val today = LocalDate.now()
@@ -88,19 +103,22 @@ class DayViewModel @Inject constructor(
             )
             return
         }
-
         val newDate = currentDate.plusDays(1)
         logger.d("DayViewModel.nextDay", "Navigating to next day", mapOf("date" to newDate.toString()))
         _uiState.update { it.copy(selectedDate = newDate) }
         loadDayData()
     }
-
+    /**
+     * Jumps the selection back to today and reloads its journal data.
+     */
     fun goToToday() {
         logger.d("DayViewModel.goToToday", "Navigating to today")
         _uiState.update { it.copy(selectedDate = LocalDate.now()) }
         loadDayData()
     }
-
+    /**
+     * Selects [date] (clamped to today if in the future) and reloads its data.
+     */
     fun selectDate(date: LocalDate) {
         val today = LocalDate.now()
         val selectedDate = if (date.isAfter(today)) today else date
@@ -116,16 +134,26 @@ class DayViewModel @Inject constructor(
         _uiState.update { it.copy(selectedDate = selectedDate) }
         loadDayData()
     }
-
+    /**
+     * Switches tabs; currently pinned to [DayTab.SUMMARY] (the only tab).
+     */
     fun selectTab(tab: DayTab) {
         logger.d("DayViewModel.selectTab", "Tab selected", mapOf("tab" to tab.name))
         _uiState.update { it.copy(selectedTab = DayTab.SUMMARY) }
     }
-
+    /**
+     * Locale-formatted full date label for the header.
+     */
     fun getFormattedDate(): String = _uiState.value.selectedDate.format(displayDateFormatter)
-
+    /**
+     * True when the selected date is today (controls forward-navigation).
+     */
     fun isToday(): Boolean = _uiState.value.selectedDate == LocalDate.now()
-
+    /**
+     * Records the user's answer [response] to overall prompt [promptKey] for
+     * [sourceDate] (only applied if that date is still selected) and queues a
+     * debounced persistence.
+     */
     fun updateOverallResponse(sourceDate: LocalDate, promptKey: String, response: String) {
         logger.d(
             "DayViewModel.updateOverallResponse",
@@ -145,7 +173,6 @@ class DayViewModel @Inject constructor(
                 state.copy(overallResponses = state.overallResponses + (promptKey to response))
             }
         }
-
         scheduleJournalResponseSave(
             sourceDate = sourceDate,
             scope = "overall",
@@ -154,7 +181,10 @@ class DayViewModel @Inject constructor(
             response = response,
         )
     }
-
+    /**
+     * Records the user's answer to a dimension-scoped prompt (canonicalizing
+     * [dimensionId]; non-canonical ids are ignored) and queues a debounced save.
+     */
     fun updateDimensionResponse(
         sourceDate: LocalDate,
         dimensionId: String,
@@ -191,7 +221,6 @@ class DayViewModel @Inject constructor(
                 state.copy(dimensionResponses = state.dimensionResponses + (resolvedDimensionId to updatedDimensionResponses))
             }
         }
-
         scheduleJournalResponseSave(
             sourceDate = sourceDate,
             scope = "dimension",
@@ -201,6 +230,7 @@ class DayViewModel @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun scheduleJournalResponseSave(
         sourceDate: LocalDate,
         scope: String,
@@ -233,7 +263,6 @@ class DayViewModel @Inject constructor(
                 "responseLength" to response.length,
             ),
         )
-
         val saveJob = viewModelScope.launch {
             try {
                 delay(journalSaveDebounceMillis)
@@ -300,7 +329,6 @@ class DayViewModel @Inject constructor(
                     mapOf("entryId" to entry.id, "date" to dateString),
                 )
             }
-
             val responseEntity = DayJournalResponse(
                 id = UUID.randomUUID().toString(),
                 entryId = entry.id,
@@ -327,12 +355,16 @@ class DayViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Cancels all pending debounced journal saves when the ViewModel dies.
+     */
     override fun onCleared() {
         pendingJournalSaves.values.forEach { it.cancel() }
         pendingJournalSaves.clear()
         super.onCleared()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDayData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -344,7 +376,6 @@ class DayViewModel @Inject constructor(
                 val journalEntry = journalRepository.getEntryByDate(dateString)
                 val overallResponses = mutableMapOf<String, String>()
                 val dimensionResponses = mutableMapOf<String, MutableMap<String, String>>()
-
                 if (journalEntry != null) {
                     val responses = journalRepository.getResponsesByEntryId(journalEntry.id)
                     responses.forEach { resp ->

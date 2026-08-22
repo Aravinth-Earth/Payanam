@@ -54,7 +54,6 @@ fun PayanamTheme(
 
         else -> LightColorScheme
     }
-
     val typography = buildTypography(fontFamily)
     LaunchedEffect(themeMode, fontFamily, darkTheme, dynamicColor) {
         val signature = "${themeMode.key}:${fontFamily.key}:$darkTheme:$dynamicColor"
@@ -72,7 +71,6 @@ fun PayanamTheme(
             lastThemeSignature = signature
         }
     }
-
     MaterialTheme(
         colorScheme = colorScheme,
         typography = typography,

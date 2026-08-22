@@ -83,7 +83,9 @@ import io.payanam.ui.viewmodel.TaskSortOption
 import io.payanam.ui.viewmodel.TasksChromeUiState
 import io.payanam.ui.viewmodel.matchesTaskSearch
 import io.payanam.ui.viewmodel.TasksViewModel
-
+/**
+ * Tasks screen modes: combined tabs, tasks-only, or habits-only.
+ */
 enum class TasksScreenMode {
     COMBINED,
     TASKS_ONLY,
@@ -189,7 +191,6 @@ fun TasksScreen(
     // Menu state for Tasks tab
     var showTaskSortMenu by remember { mutableStateOf(false) }
     var pendingTabTrace by remember { mutableStateOf<TaskTabInteractionTrace?>(null) }
-
     val effectiveTabIndex = when (mode) {
         TasksScreenMode.HABITS_ONLY -> 0
         TasksScreenMode.TASKS_ONLY -> 1
@@ -200,11 +201,9 @@ fun TasksScreen(
     // Hoisted here so tab switches can dismiss the keyboard even after the
     // Habits tab content (which owns the search field) leaves composition.
     val screenKeyboard = LocalSoftwareKeyboardController.current
-
     LaunchedEffect(Unit) {
         PerfBaselineTelemetry.markEvent(screen = "tasks", event = "screen_enter")
     }
-
     LaunchedEffect(chromeState.isLoading) {
         if (!chromeState.isLoading && !firstContentLogged) {
             firstContentLogged = true
@@ -212,7 +211,6 @@ fun TasksScreen(
             PerfBaselineTelemetry.markEvent(screen = "habits", event = "first_content")
         }
     }
-
     LaunchedEffect(effectiveTabIndex) {
         PerfBaselineTelemetry.markEvent(
             screen = "tasks",
@@ -228,7 +226,6 @@ fun TasksScreen(
             screenKeyboard?.hide()
         }
     }
-
     LaunchedEffect(effectiveTabIndex, pendingTabTrace?.interactionId) {
         val trace = pendingTabTrace ?: return@LaunchedEffect
         val expectedTab = if (effectiveTabIndex == 0) "habits" else "tasks"
@@ -246,7 +243,6 @@ fun TasksScreen(
         }
         pendingTabTrace = null
     }
-
     Scaffold(
         topBar = {
             TasksTopBar(
@@ -595,7 +591,6 @@ private fun HabitsTabContent(
                 if (scrolling) keyboard?.hide()
             }
     }
-
     val displayRows = remember(rows, searchQuery) {
         val normalizedQuery = searchQuery.trim().lowercase()
         if (normalizedQuery.isBlank()) {
@@ -604,7 +599,6 @@ private fun HabitsTabContent(
             rows.filter { row -> row.task.matchesTaskSearch(normalizedQuery) }
         }
     }
-
     LaunchedEffect(displayRows.size, searchQuery) {
         onVisibleCountChange(displayRows.size)
         if (searchActive) {
@@ -629,7 +623,6 @@ private fun HabitsTabContent(
             )
         }
     }
-
     if (rows.isEmpty()) {
         Box(
             modifier = Modifier.fillMaxSize(),
@@ -767,13 +760,14 @@ private fun TasksTabContent(
             }
         }
     }
-
     TraceTaskInteractionPhase(
         trace = pendingFilterTrace?.takeIf { currentFilter == it.filter },
         event = "filter_interaction_tasks_tab_content_composed",
         data = mapOf("rowCount" to displayTasks.size),
     )
-
+    /**
+     * Records a filter tap for the perf trace (start event + pending phase).
+     */
     fun traceFilterSelection(filter: TaskFilter) {
         val tapMs = SystemClock.elapsedRealtime()
         val interactionId = "tasks_filter_${filter.key}_$tapMs"
@@ -794,7 +788,6 @@ private fun TasksTabContent(
         )
         onFilterChange(filter, interactionId, tapMs)
     }
-
     LaunchedEffect(currentFilter, displayTasks.size, pendingFilterTrace?.interactionId) {
         val trace = pendingFilterTrace ?: return@LaunchedEffect
         if (currentFilter != trace.filter) return@LaunchedEffect
@@ -847,7 +840,6 @@ private fun TasksTabContent(
         )
         pendingFilterTrace = null
     }
-
     Column(modifier = Modifier.fillMaxSize()) {
         if (FeatureFlags.minimalModeEnabled) {
             TraceTaskInteractionPhase(

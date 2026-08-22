@@ -52,6 +52,10 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Dispatches the tapped action: stop-tracking redirect, complete/skip/miss
+     * (with occurrence + recurrence advancement), or snooze.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         if (!FeatureFlags.remindersEnabled && intent.action != ACTION_STOP_TRACKING) {
@@ -73,6 +77,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleStopTracking(context: Context, pendingResult: BroadcastReceiver.PendingResult) {
         try {
             val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -92,6 +97,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleTaskAction(
         context: Context,
         intent: Intent,
@@ -125,7 +131,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     )
                     return@launch
                 }
-
                 val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
                 if (!isFrequencyHabit) {
                     when (status) {
@@ -147,7 +152,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                         }
                     }
                 }
-
                 if (task.recurrenceEnabled) {
                     val occurrence = TaskOccurrence(
                         id = java.util.UUID.randomUUID().toString(),
@@ -164,7 +168,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                         },
                     )
                     taskOccurrenceRepository.recordOccurrence(occurrence)
-
                     if (FeatureFlags.minimalModeEnabled && task.recurrenceEnabled) {
                         logger.i(
                             "NotificationActionReceiver.handleTaskAction",
@@ -185,7 +188,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                 } else {
                     notificationScheduler.cancelForTask(taskId)
                 }
-
                 cancelDisplayedNotification(context, notificationIdInt)
 
                 logger.i(
@@ -212,6 +214,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleSnooze(context: Context, intent: Intent, pendingResult: BroadcastReceiver.PendingResult) {
         val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
         val dueAtRaw = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT)
@@ -235,7 +238,6 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     )
                     return@launch
                 }
-
                 val dueAt = PersistedDateTime.parseOrNull(dueAtRaw)
                 notificationScheduler.scheduleSnooze(task, dueAt)
                 cancelDisplayedNotification(context, notificationIdInt)

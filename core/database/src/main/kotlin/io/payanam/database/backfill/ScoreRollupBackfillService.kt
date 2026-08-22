@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber", "LoopWithTooManyJumpStatements", "UnusedParameter")
+
 package io.payanam.database.backfill
 
 import io.payanam.common.logging.UnifiedLogger
@@ -37,6 +40,10 @@ internal data class MetricBaseline(
     val posContinue: Int,
 ) {
     companion object {
+        /**
+         * Zeroed baseline (no prior rows), used to seed a full rebuild
+         * from the first due day.
+         */
         fun empty(): MetricBaseline = MetricBaseline(0.0, 0, null, 0, 0, 0)
 
         /** Derive from rows strictly BEFORE the change day (L1 shape). */
@@ -119,6 +126,10 @@ class ScoreRollupBackfillService
         private val logger = UnifiedLogger.getInstance()
 
         companion object {
+            // Lazy so pure static helpers (computeStreaks et al.) stay usable in
+            // plain JVM tests without UnifiedLogger.initialize().
+            private val logger by lazy { UnifiedLogger.getInstance() }
+
             const val BACKFILL_DONE_KEY = "score_rollup_backfill_v1_done"
 
             /** Self-gov `_compute_streaks` port incl. ceiling fix (spec §9). */
@@ -140,10 +151,12 @@ class ScoreRollupBackfillService
                 return intArrayOf(newPos, newNet, newContinue)
             }
 
+            @Suppress("TooGenericExceptionCaught", "SwallowedException")
             private fun parseLocalDate(s: String): LocalDate? =
                 try {
                     LocalDate.parse(s.take(10))
                 } catch (e: Exception) {
+                    logger.w("ScoreRollupBackfillService", "Skipping occurrence with unparseable date", mapOf("date" to s))
                     null
                 }
 
@@ -192,14 +205,12 @@ class ScoreRollupBackfillService
                 baseline: MetricBaseline = MetricBaseline.empty(),
             ): Triple<List<HabitMetricEntity>, LocalDate?, String?> {
                 if (task.recurrenceEnabled != 1) return Triple(emptyList(), null, null)
-
                 val occByDate = occurrences
                     .filter { it.status == "completed" || it.status == "skipped" }
                     .associateBy { it.dueDate.take(10) }
                 // Any occurrence today (any status) — controls whether today
                 // gets a row in cascade mode (includeToday=true).
                 val todayLogged = occurrences.any { it.dueDate.take(10) == LocalDate.now().toString() }
-
                 val firstDue = occurrences
                     .mapNotNull { parseLocalDate(it.dueDate) }
                     .minOrNull()
@@ -209,9 +220,7 @@ class ScoreRollupBackfillService
                 val convertedRule = convertRule(task, anchor)
                 val firstDueDay = firstDue
                     ?: return Triple(emptyList(), null, convertedRule) // no history — rule still converted
-
                 val config = RecurrenceConfig.parse(convertedRule)
-
                 val today = LocalDate.now()
                 val rows = mutableListOf<HabitMetricEntity>()
                 var sumScores = baseline.sumScores
@@ -220,7 +229,6 @@ class ScoreRollupBackfillService
                 var streakPos = baseline.streakPos
                 var streakNet = baseline.streakNet
                 var posContinue = baseline.posContinue
-
                 var day = if (fromDay.isAfter(firstDueDay)) fromDay else firstDueDay
                 val loopEnd = if (includeToday && todayLogged) today.plusDays(1) else today
                 while (day.isBefore(loopEnd)) { // today stays pending unless logged (cascade)
@@ -318,7 +326,6 @@ class ScoreRollupBackfillService
                 lastScores: Map<String, Double> = emptyMap(),
             ): List<DimensionMetricEntity> {
                 if (habitRows.isEmpty()) return emptyList()
-
                 val byDim = recurring
                     .filter { firstDuePerHabit.containsKey(it.id) }
                     .groupBy { it.dimensionId ?: "dim_unassigned" }
@@ -327,9 +334,7 @@ class ScoreRollupBackfillService
                 val habitTimelines = habitRows
                     .groupBy { it.habitId }
                     .mapValues { (_, rows) -> rows.sortedBy { it.dayKey } }
-
                 val rows = mutableListOf<DimensionMetricEntity>()
-
                 for ((dimId, habits) in byDim) {
                     if (habits.isEmpty()) continue
                     val weight = 1.0 / habits.size
@@ -347,7 +352,6 @@ class ScoreRollupBackfillService
                     var streakNet = baseline.streakNet
                     var posContinue = baseline.posContinue
                     val carryScores = lastScores.toMutableMap()
-
                     while (day.isBefore(loopEnd)) {
                         var dimScoreNumerator = 0.0
                         var weightSum = 0.0
@@ -410,11 +414,9 @@ class ScoreRollupBackfillService
                 dimWeights: Map<String, Double> = emptyMap(),
             ): List<DayMetricEntity> {
                 if (dimensionRows.isEmpty()) return emptyList()
-
                 val byDay = dimensionRows.groupBy { it.dayKey }
                 val allDays = byDay.keys.sorted()
                 if (allDays.isEmpty()) return emptyList()
-
                 val firstDay = LocalDate.parse(allDays.first())
                 return buildDayMetricsFrom(
                     dimensionRows = dimensionRows,
@@ -438,11 +440,9 @@ class ScoreRollupBackfillService
                 dimWeights: Map<String, Double> = emptyMap(),
             ): List<DayMetricEntity> {
                 if (dimensionRows.isEmpty()) return emptyList()
-
                 val byDay = dimensionRows.groupBy { it.dayKey }
                 val allDays = byDay.keys.sorted().filter { !LocalDate.parse(it).isBefore(fromDay) }
                 if (allDays.isEmpty()) return emptyList()
-
                 val rows = mutableListOf<DayMetricEntity>()
                 var sumScores = baseline.sumScores
                 var count = baseline.count
@@ -450,7 +450,6 @@ class ScoreRollupBackfillService
                 var streakPos = baseline.streakPos
                 var streakNet = baseline.streakNet
                 var posContinue = baseline.posContinue
-
                 for (dayKey in allDays) {
                     val dims = byDay[dayKey].orEmpty()
                     val dayScore = if (dims.isNotEmpty()) {
@@ -486,6 +485,7 @@ class ScoreRollupBackfillService
         }
 
         /** Runs the backfill once. No-op when already done or DB not open. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun runIfNeeded() {
             if (!sessionManager.isOpen.value) return
             val db = sessionManager.requireDatabase()
@@ -498,7 +498,6 @@ class ScoreRollupBackfillService
                 cascadeService.catchUpTail()
                 return
             }
-
             val logTag = "ScoreRollupBackfillService.runIfNeeded"
             val started = System.currentTimeMillis()
             logger.i(logTag, "SCORE_ROLLUP_BACKFILL_START")

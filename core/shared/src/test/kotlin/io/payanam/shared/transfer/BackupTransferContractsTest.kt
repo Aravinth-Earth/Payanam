@@ -7,7 +7,6 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.junit.Test
-
 class BackupTransferContractsTest {
 
     @Test
@@ -34,11 +33,9 @@ class BackupTransferContractsTest {
         val defaults = DataModuleSelection()
         val copied = defaults.copy(timeEntries = false, notes = false)
         val (tasks, timeEntries, notes) = copied
-
         assertThat(defaults.tasks).isTrue()
         assertThat(defaults.timeEntries).isTrue()
         assertThat(defaults.notes).isTrue()
-
         assertThat(tasks).isTrue()
         assertThat(timeEntries).isFalse()
         assertThat(notes).isFalse()
@@ -58,7 +55,6 @@ class BackupTransferContractsTest {
         assertThat(json).isNotEmpty()
 
         val decoded = Json.decodeFromString<DataModuleSelection>(json)
-
         assertThat(decoded).isEqualTo(
             DataModuleSelection(tasks = true, timeEntries = false, notes = true)
         )
@@ -82,7 +78,6 @@ class BackupTransferContractsTest {
         val encoded = BackupPayloadJson.encode(payload)
         val root = Json.parseToJsonElement(encoded).jsonObject
         val modules = root[BackupJsonContract.MODULES_KEY]!!.jsonObject
-
         assertThat(root[BackupJsonContract.SCHEMA_VERSION_KEY]!!.toString()).isEqualTo("1")
         assertThat(root[BackupJsonContract.EXPORTED_AT_KEY]!!.toString()).isEqualTo("\"2026-03-26T09:00:00\"")
         assertThat(modules[BackupJsonContract.TASKS_KEY]!!.jsonArray).hasSize(1)
@@ -99,7 +94,6 @@ class BackupTransferContractsTest {
         )
         val payload = BackupPayloadEnvelope(modules = modules)
         val defaultPayload = BackupPayloadEnvelope()
-
         assertThat(payload.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
         assertThat(payload.exportedAt).isNull()
         assertThat(payload.modules.taskReschedules).hasSize(1)
@@ -131,7 +125,6 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T09:00:00")
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -157,7 +150,6 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
         assertThat(decoded.exportedAt).isNull()
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -180,7 +172,6 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
         assertThat(decoded.schemaVersion).isEqualTo(3)
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T10:30:00")
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -201,7 +192,6 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
         assertThat(decoded.modules.timeEntries).hasSize(1)
         assertThat(decoded.modules.tasks).isNull()
     }
@@ -225,7 +215,6 @@ class BackupTransferContractsTest {
             }
             """.trimIndent()
         )
-
         assertThat(decoded.modules.tasks).isNull()
         assertThat(decoded.modules.timeEntries).isNull()
         assertThat(decoded.modules.notes).isNull()
@@ -246,7 +235,6 @@ class BackupTransferContractsTest {
                 journalNotes = Json.parseToJsonElement("""[{"id":"journal-note-1"}]""").jsonArray,
             )
         val copied = modules.copy()
-
         assertThat(copied.tasks).hasSize(1)
         assertThat(copied.taskOccurrences).hasSize(1)
         assertThat(copied.taskReschedules).hasSize(1)
@@ -273,7 +261,6 @@ class BackupTransferContractsTest {
             ).jsonObject
 
         val filtered = BackupJsonContract.legacyModulesRoot(legacyRoot)
-
         assertThat(filtered.keys).containsExactly("notes", "timeEntries")
     }
 }

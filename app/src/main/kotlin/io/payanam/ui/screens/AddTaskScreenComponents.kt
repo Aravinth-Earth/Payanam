@@ -59,7 +59,6 @@ internal fun LifeDimensionDropdown(
     onSelect: (DimensionOption) -> Unit,
 ) {
     var expanded by remember { mutableStateOf(false) }
-
     ExposedDropdownMenuBox(
         expanded = expanded,
         onExpandedChange = { expanded = it },
@@ -84,7 +83,6 @@ internal fun LifeDimensionDropdown(
                 .fillMaxWidth()
                 .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
-
         ExposedDropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false },
@@ -178,7 +176,7 @@ internal fun TimePickerDialog(
 }
 
 /**
- * Recurrence options with RRule generation.
+ * Recurrence options with rRule generation.
  */
 enum class RecurrenceOption {
     DAILY,
@@ -188,7 +186,9 @@ enum class RecurrenceOption {
     MONTHLY,
     YEARLY,
     ;
-
+    /**
+     * The preset's RRULE string.
+     */
     fun toRRule(): String = when (this) {
         DAILY -> "FREQ=DAILY;INTERVAL=1"
         WEEKDAYS -> "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
@@ -199,6 +199,9 @@ enum class RecurrenceOption {
     }
 
     companion object {
+        /**
+         * Maps an RRULE string back to its preset (DAILY when unrecognized).
+         */
         fun fromRRule(rule: String?): RecurrenceOption {
             if (rule == null) return DAILY
             return when {
@@ -232,7 +235,6 @@ internal fun EnhancedRecurrencePickerDialog(
     val currentConfig = remember(currentRRule) {
         io.payanam.domain.model.RecurrenceConfig.parse(currentRRule)
     }
-
     val isPresetType = remember(currentConfig) {
         currentConfig.type == io.payanam.domain.model.RecurrenceType.DAILY ||
             currentConfig.type == io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY ||
@@ -256,7 +258,6 @@ internal fun EnhancedRecurrencePickerDialog(
     var intervalDays by remember {
         mutableStateOf(currentConfig.intervalDays.toString())
     }
-
     val weekdayLabels = listOf(
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_weekday_m),
         androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_weekday_tu),
@@ -277,7 +278,6 @@ internal fun EnhancedRecurrencePickerDialog(
     )
     val presetLabel = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_preset)
     val customLabel = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_custom)
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_repeat_schedule)) },
@@ -314,7 +314,6 @@ internal fun EnhancedRecurrencePickerDialog(
                         }
                     }
                 }
-
                 if (selectionMode == RecurrenceSelectionMode.PRESET) {
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_quick_presets),
@@ -344,7 +343,6 @@ internal fun EnhancedRecurrencePickerDialog(
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_daily), style = MaterialTheme.typography.labelSmall)
                             }
                         }
-
                         if (selectedType == io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY) {
                             FilledTonalButton(
                                 onClick = {
@@ -364,7 +362,6 @@ internal fun EnhancedRecurrencePickerDialog(
                                 Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_weekdays), style = MaterialTheme.typography.labelSmall)
                             }
                         }
-
                         if (selectedType == io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS) {
                             FilledTonalButton(
                                 onClick = {
@@ -391,7 +388,6 @@ internal fun EnhancedRecurrencePickerDialog(
                             }
                         }
                     }
-
                     when (selectedType) {
                         io.payanam.domain.model.RecurrenceType.DAILY -> {
                             Text(
@@ -474,7 +470,6 @@ internal fun EnhancedRecurrencePickerDialog(
                         }
                     }
                 }
-
                 if (selectionMode == RecurrenceSelectionMode.CUSTOM &&
                     selectedType == io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS
                 ) {
@@ -506,7 +501,6 @@ internal fun EnhancedRecurrencePickerDialog(
                             )
                         }
                     }
-
                     if (selectedWeekdays.isNotEmpty()) {
                         val selectedNames = selectedWeekdays.sorted().map { weekdayFullNames[it - 1] }
                         Text(
@@ -519,7 +513,6 @@ internal fun EnhancedRecurrencePickerDialog(
                         )
                     }
                 }
-
                 if (selectionMode == RecurrenceSelectionMode.CUSTOM &&
                     selectedType == io.payanam.domain.model.RecurrenceType.MONTHLY_DATES
                 ) {
@@ -583,7 +576,6 @@ internal fun EnhancedRecurrencePickerDialog(
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add))
                         }
                     }
-
                     if (selectedMonthlyDates.isNotEmpty()) {
                         Text(
                             text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_selected_dates_click_remove),
@@ -629,7 +621,6 @@ internal fun EnhancedRecurrencePickerDialog(
                         )
                     }
                 }
-
                 if (selectionMode == RecurrenceSelectionMode.CUSTOM &&
                     selectedType == io.payanam.domain.model.RecurrenceType.INTERVAL
                 ) {

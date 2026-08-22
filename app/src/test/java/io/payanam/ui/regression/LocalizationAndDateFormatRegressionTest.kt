@@ -7,7 +7,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
-
 class LocalizationAndDateFormatRegressionTest {
 
     @Test
@@ -18,6 +17,9 @@ class LocalizationAndDateFormatRegressionTest {
     }
 
     @Test
+    /**
+     * Bulk map dialog uses dimension preferences not raw display name.
+     */
     fun bulk_map_dialog_uses_dimension_preferences_not_raw_display_name() {
         val source = readSource("app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDialogs.kt")
         assertFalse(source.contains("settings_bulk_map_dimension_selected,\n                                    dimension.displayName"))
@@ -26,12 +28,14 @@ class LocalizationAndDateFormatRegressionTest {
     }
 
     @Test
+    /**
+     * Date time formatting avoids hardcoded patterns in primary screens.
+     */
     fun date_time_formatting_avoids_hardcoded_patterns_in_primary_screens() {
         val notes = readSource("app/src/main/kotlin/io/payanam/ui/screens/NotesScreen.kt")
         val lenses = readSource("app/src/main/kotlin/io/payanam/ui/screens/LensesScreen.kt")
         val time = readSource("app/src/main/kotlin/io/payanam/ui/screens/TimeScreen.kt")
         val dayViewModel = readSource("app/src/main/kotlin/io/payanam/ui/viewmodel/DayViewModel.kt")
-
         assertFalse(notes.contains("DateTimeFormatter.ofPattern("))
         assertFalse(lenses.contains("DateTimeFormatter.ofPattern("))
         assertFalse(time.contains("DateTimeFormatter.ofPattern("))

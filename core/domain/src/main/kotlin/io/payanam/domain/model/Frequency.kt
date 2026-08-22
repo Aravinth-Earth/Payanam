@@ -1,6 +1,9 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.domain.model
+
 
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
@@ -20,9 +23,10 @@ data class Frequency(
         require(numerator > 0) { "numerator must be positive" }
         require(denominator > 0) { "denominator must be positive" }
     }
-
     val toDouble: Double get() = numerator.toDouble() / denominator
-
+    /**
+     * Human-readable label (Daily, Weekdays, 3×/week, Monthly...).
+     */
     fun displayName(): String = when {
         numerator == denominator -> "Daily"
         denominator == 7 && numerator == 5 -> "Weekdays"
@@ -36,14 +40,19 @@ data class Frequency(
         denominator == 1 -> "Daily"
         else -> "$numerator×/$denominator days"
     }
-
+    /**
+     * Serializes to `"num/den"` or `"num/den!start=YYYY-MM-DD"`.
+     */
     fun serialize(): String = buildString {
         append("$numerator/$denominator")
         anchorDate?.let { append("!start=$it") }
     }
-
+    /**
+     * Returns a copy with [date] set as the recurrence anchor.
+     */
     fun withAnchor(date: LocalDate): Frequency = copy(anchorDate = date)
 
+    @Suppress("MagicNumber")
     companion object {
         val DAILY    = Frequency(1, 1)
         val WEEKDAYS  = Frequency(5, 7)
@@ -52,9 +61,14 @@ data class Frequency(
         val MONTHLY  = Frequency(1, 30)
         val YEARLY   = Frequency(1, 365)
         private val serializedPattern = Regex("""^\d+/\d+(!start=\d{4}-\d{2}-\d{2})?$""")
-
+        /**
+         * Returns true if [rule] matches the `"num/den(!start=...)"` shape.
+         */
         fun isSerializedRule(rule: String?): Boolean = !rule.isNullOrBlank() && serializedPattern.matches(rule)
-
+        /**
+         * Parses a `"num/den(!start=...)"` string into a [Frequency]; blank
+         * falls back to [DAILY].
+         */
         fun parse(s: String?): Frequency {
             if (s.isNullOrBlank()) return DAILY
             if (s.contains("!")) {

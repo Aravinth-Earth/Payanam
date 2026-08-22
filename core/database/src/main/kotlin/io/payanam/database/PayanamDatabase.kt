@@ -52,7 +52,6 @@ import io.payanam.database.entity.TimeEntryTagEntity
 import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
-
 const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
 
 /**
@@ -149,41 +148,48 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
     version = PAYANAM_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
 )
+/**
+ * Room database holding every Payanam entity (tasks, time entries, notes, occurrences,
+ * journal, day plans, score metrics, lens reflections). Version is pinned to
+ * [PAYANAM_DATABASE_SCHEMA_VERSION]; see the schema-history comment on the class
+ * for what each version added.
+ */
 abstract class PayanamDatabase : RoomDatabase() {
+    /** DAO for task rows + their occurrence/tag mappings. */
     abstract fun taskDao(): TaskDao
-
+    /** DAO for tracked time entries and their focus/tag data. */
     abstract fun timeEntryDao(): TimeEntryDao
-
+    /** DAO for notes and their tag/legacy-journal mappings. */
     abstract fun noteDao(): NoteDao
-
+    /** DAO for per-day task occurrences (completed/skipped/missed). */
     abstract fun taskOccurrenceDao(): TaskOccurrenceDao
-
+    /** DAO for recorded task reschedule events. */
     abstract fun taskRescheduleDao(): TaskRescheduleDao
-
+    /** DAO for day journal entries + prompt responses + freeform journal notes. */
     abstract fun journalDao(): JournalDao
-
+    /** DAO for key/value app settings. */
     abstract fun appSettingsDao(): AppSettingsDao
-
+    /** DAO for scheduled notification rows. */
     abstract fun scheduledNotificationDao(): ScheduledNotificationDao
-
+    /** DAO for the persisted scoring configuration. */
     abstract fun scoringConfigDao(): ScoringConfigDao
-
+    /** DAO for life-dimension catalog (label/color/icon/weight). */
     abstract fun lifeDimensionDao(): LifeDimensionDao
-
+    /** DAO for tags. */
     abstract fun tagDao(): TagDao
-
+    /** DAO for lens reflection gap cards. */
     abstract fun lensReflectionDao(): LensReflectionDao
-
+    /** DAO for the daily-insights cache (metric snapshots + dirty-day markers). */
     abstract fun dailyInsightDao(): DailyInsightDao
-
+    /** DAO for day-plan allocations, templates, policies, type-preferences. */
     abstract fun dayPlanDao(): DayPlanDao
-
+    /** DAO for import-batch metadata rows. */
     abstract fun importBatchDao(): ImportBatchDao
-
+    /** DAO for habit-level (L1) score metrics. */
     abstract fun habitMetricDao(): HabitMetricDao
-
+    /** DAO for dimension-level (L2) score metrics. */
     abstract fun dimensionMetricDao(): DimensionMetricDao
-
+    /** DAO for day-level (L3) score metrics. */
     abstract fun dayMetricDao(): DayMetricDao
 
     companion object {

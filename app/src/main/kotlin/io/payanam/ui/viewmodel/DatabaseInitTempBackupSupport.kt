@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -90,6 +92,7 @@ internal fun dbInitDeleteAllFiles(context: Context) {
  * WAL-checkpoint the current DB into a clean state, then copy all DB dir files
  * into a `payanam_temp_backup/` subfolder. Returns the backup dir on success, null on failure.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun dbInitCreateSidecarSafeTempBackup(context: Context): File? {
     val logger = UnifiedLogger.getInstance()
     CrashSafeBreadcrumbs.record(
@@ -114,16 +117,13 @@ internal fun dbInitCreateSidecarSafeTempBackup(context: Context): File? {
             dbFile = dbFile,
             logTag = "DatabaseInitTempBackupSupport.createSidecarSafeTempBackup",
         )
-
         val tempDir = File(dbDir, "payanam_temp_backup")
         if (tempDir.exists()) tempDir.deleteRecursively()
         tempDir.mkdirs()
-
         val sourceArtifacts = dbInitGetArtifactFiles(context).filter { it.exists() && it.isFile }
         sourceArtifacts.forEach { file ->
             file.copyTo(File(tempDir, file.name), overwrite = true)
         }
-
         val backupDb = File(tempDir, PayanamDatabase.DATABASE_NAME)
         if (!backupDb.exists() || backupDb.length() == 0L) {
             logger.w(
@@ -171,6 +171,7 @@ internal fun dbInitCreateSidecarSafeTempBackup(context: Context): File? {
  * Wipe any partial files from DB dir, then restore from [tempBackupDir].
  * Deletes the temp backup dir after restore regardless of outcome.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun dbInitRestoreFromTempBackup(context: Context, tempBackupDir: File): Boolean {
     val logger = UnifiedLogger.getInstance()
     CrashSafeBreadcrumbs.record(
@@ -256,6 +257,7 @@ internal fun dbInitMarkInitCompletedDirect(context: Context, dbFile: File, passp
     )
 }
 
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun dbInitReadInitCompletedFlag(dbFile: File): Boolean {
     val logger = UnifiedLogger.getInstance()
     return try {
@@ -331,6 +333,7 @@ internal fun dbInitClassifyBootIssue(
 }
 
 /** Delete the temp backup dir (called on successful create/import). */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun dbInitDeleteTempBackup(tempBackupDir: File) {
     val logger = UnifiedLogger.getInstance()
     try {

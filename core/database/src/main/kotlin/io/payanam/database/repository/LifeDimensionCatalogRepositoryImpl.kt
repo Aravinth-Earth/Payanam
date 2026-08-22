@@ -15,6 +15,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [LifeDimensionCatalogRepository]. Wraps
+ * [LifeDimensionDao] for the five fixed life-intention dimensions: their
+ * user-customisable label, colour, icon, active flag, and scoring weight.
+ */
 class LifeDimensionCatalogRepositoryImpl
     @Inject
     constructor(
@@ -23,6 +28,10 @@ class LifeDimensionCatalogRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Emits all dimensions ordered by display position, mapped to domain
+         * [ConfiguredLifeDimension], as a [Flow].
+         */
         override fun observeAllDimensions(): Flow<List<ConfiguredLifeDimension>> {
             logger.d("LifeDimensionCatalogRepositoryImpl.observeAllDimensions", "Subscribing to life dimension catalog")
             return sessionManager
@@ -32,6 +41,9 @@ class LifeDimensionCatalogRepositoryImpl
                 .map { entities -> entities.map { it.toConfiguredLifeDimension() } }
         }
 
+        /**
+         * Updates the user-visible [label] of [dimensionId].
+         */
         override suspend fun updateDimensionLabel(
             dimensionId: String,
             label: String,
@@ -48,6 +60,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the [colorHex] used to render [dimensionId].
+         */
         override suspend fun updateDimensionColor(
             dimensionId: String,
             colorHex: String,
@@ -64,6 +79,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the [iconKey] identifier for [dimensionId].
+         */
         override suspend fun updateDimensionIcon(
             dimensionId: String,
             iconKey: String,
@@ -80,6 +98,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Toggles whether [dimensionId] is [isActive] (counts toward scoring).
+         */
         override suspend fun updateDimensionActiveState(
             dimensionId: String,
             isActive: Boolean,
@@ -96,6 +117,9 @@ class LifeDimensionCatalogRepositoryImpl
             )
         }
 
+        /**
+         * Updates the scoring [weight] of [dimensionId].
+         */
         override suspend fun updateDimensionWeight(
             dimensionId: String,
             weight: Double,

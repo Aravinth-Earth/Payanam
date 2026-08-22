@@ -14,16 +14,25 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the entity defaults test.
+ */
 class EntityDefaultsTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         logger = initLogger()
         logger.d("EntityDefaultsTest.setup", "Logger initialized for tests")
     }
 
     @Test
+    /**
+     * Performs the task occurrence defaults are applied.
+     */
     fun taskOccurrence_defaults_areApplied() {
         val occurrence =
             TaskOccurrenceEntity(
@@ -43,6 +52,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the task reschedule stores values.
+     */
     fun taskReschedule_storesValues() {
         val reschedule =
             TaskRescheduleEntity(
@@ -62,6 +74,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the journal entities hold values.
+     */
     fun journal_entities_holdValues() {
         val entry =
             DayJournalEntryEntity(
@@ -97,6 +112,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the app setting entity stores value.
+     */
     fun appSetting_entity_storesValue() {
         val setting =
             AppSettingEntity(
@@ -110,6 +128,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the scheduled notification defaults are applied.
+     */
     fun scheduledNotification_defaults_areApplied() {
         val notification =
             ScheduledNotificationEntity(
@@ -132,6 +153,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the time entry entity exposes fields.
+     */
     fun timeEntry_entity_exposesFields() {
         val entry =
             TimeEntryEntity(
@@ -171,6 +195,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the time entry entity default optional fields are null.
+     */
     fun timeEntry_entity_default_optional_fields_are_null() {
         val entry =
             TimeEntryEntity(
@@ -194,6 +221,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the note entity exposes fields.
+     */
     fun note_entity_exposesFields() {
         val note =
             NoteEntity(
@@ -217,6 +247,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the note entity default optional fields are null.
+     */
     fun note_entity_default_optional_fields_are_null() {
         val note =
             NoteEntity(
@@ -232,6 +265,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the task entity dimension id defaults and explicit values work.
+     */
     fun taskEntity_dimensionId_defaults_and_explicit_values_work() {
         val taskWithDefaults =
             TaskEntity(
@@ -246,7 +282,6 @@ class EntityDefaultsTest {
         assertThat(taskWithDefaults.importId).isNull()
         assertThat(taskWithDefaults.importedAt).isNull()
         assertThat(taskWithDefaults.importBatchId).isNull()
-
         val taskWithDimension =
             taskWithDefaults.copy(
                 id = "task-dim",
@@ -268,6 +303,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the life dimension and user preference entities store values.
+     */
     fun lifeDimension_and_userPreference_entities_store_values() {
         val dimension =
             LifeDimensionEntity(
@@ -287,7 +325,6 @@ class EntityDefaultsTest {
         assertThat(dimension.label).isEqualTo("Unassigned")
         assertThat(dimension.sortOrder).isEqualTo(9999)
         assertThat(dimension.isActive).isEqualTo(1)
-
         val pref =
             UserPreferenceEntity(
                 key = "time_format",
@@ -305,6 +342,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the life dimension entity default optional fields are applied.
+     */
     fun lifeDimension_entity_default_optional_fields_are_applied() {
         val dimension =
             LifeDimensionEntity(
@@ -322,6 +362,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the user preference entity default optional fields are applied.
+     */
     fun userPreference_entity_default_optional_fields_are_applied() {
         val preference =
             UserPreferenceEntity(
@@ -336,6 +379,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * User preference entity numeric and boolean values are supported.
+     */
     fun userPreference_entity_numeric_and_boolean_values_are_supported() {
         val intPreference =
             UserPreferenceEntity(
@@ -345,7 +391,6 @@ class EntityDefaultsTest {
                 updatedAt = "2026-01-31T10:10:00",
             )
         assertThat(intPreference.intValue).isEqualTo(30)
-
         val doublePreference =
             UserPreferenceEntity(
                 key = "focus_threshold",
@@ -354,7 +399,6 @@ class EntityDefaultsTest {
                 updatedAt = "2026-01-31T10:11:00",
             )
         assertThat(doublePreference.doubleValue).isWithin(0.0001).of(0.65)
-
         val boolPreference =
             UserPreferenceEntity(
                 key = "use_system_language",
@@ -366,6 +410,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Loads the import batch entity stores values.
+     */
     fun importBatch_entity_stores_values() {
         val batch =
             ImportBatchEntity(
@@ -385,6 +432,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Loads the import batch entity defaults and copy work.
+     */
     fun importBatch_entity_defaults_and_copy_work() {
         val minimal =
             ImportBatchEntity(
@@ -392,11 +442,9 @@ class EntityDefaultsTest {
                 source = "uhabits",
                 importedAt = "2026-02-01T00:00:00",
             )
-
         assertThat(minimal.version).isNull()
         assertThat(minimal.fileHash).isNull()
         assertThat(minimal.notes).isNull()
-
         val copied =
             minimal.copy(
                 version = "2.0",
@@ -409,7 +457,6 @@ class EntityDefaultsTest {
         val version = copied.component4()
         val fileHash = copied.component5()
         val notes = copied.component6()
-
         assertThat(id).isEqualTo("batch_min")
         assertThat(source).isEqualTo("uhabits")
         assertThat(importedAt).isEqualTo("2026-02-01T00:00:00")
@@ -420,6 +467,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the daily insight entity stores values.
+     */
     fun dailyInsight_entity_stores_values() {
         val insight =
             DailyInsightEntity(
@@ -435,7 +485,6 @@ class EntityDefaultsTest {
                 summaryJson = "{\"focusPct\":0.8}",
                 generatedAt = "2026-01-31T23:59:00",
             )
-
         assertThat(insight.id).isEqualTo("insight-2026-01-31-time-dim_learning")
         assertThat(insight.dayKey).isEqualTo("2026-01-31")
         assertThat(insight.module).isEqualTo("time")
@@ -450,6 +499,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the daily insight entity defaults and copy work.
+     */
     fun dailyInsight_entity_defaults_and_copy_work() {
         val minimal =
             DailyInsightEntity(
@@ -458,7 +510,6 @@ class EntityDefaultsTest {
                 module = "overall",
                 generatedAt = "2026-02-01T23:59:00",
             )
-
         assertThat(minimal.dimensionId).isNull()
         assertThat(minimal.plannedMinutes).isNull()
         assertThat(minimal.actualMinutes).isNull()
@@ -466,7 +517,6 @@ class EntityDefaultsTest {
         assertThat(minimal.completedCount).isNull()
         assertThat(minimal.totalCount).isNull()
         assertThat(minimal.summaryJson).isNull()
-
         val copied =
             minimal.copy(
                 dimensionId = "dim_learning",
@@ -488,7 +538,6 @@ class EntityDefaultsTest {
         val totalCount = copied.component9()
         val summaryJson = copied.component10()
         val generatedAt = copied.component11()
-
         assertThat(id).isEqualTo("insight-min")
         assertThat(dayKey).isEqualTo("2026-02-01")
         assertThat(module).isEqualTo("overall")
@@ -504,6 +553,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the tag and mapping entities store values.
+     */
     fun tag_and_mapping_entities_store_values() {
         val tag =
             TagEntity(
@@ -520,7 +572,6 @@ class EntityDefaultsTest {
         assertThat(tag.normalizedName).isEqualTo("deep work")
         assertThat(tag.usageCount).isEqualTo(3)
         assertThat(tag.lastUsedAt).isEqualTo("2026-02-08T08:00:00")
-
         val taskTag =
             TaskTagEntity(
                 taskId = "task-1",
@@ -548,6 +599,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the tag and mapping entities copy component and to string work.
+     */
     fun tag_and_mapping_entities_copy_component_and_toString_work() {
         val tag =
             TagEntity(
@@ -570,21 +624,18 @@ class EntityDefaultsTest {
         assertThat(usageCount).isEqualTo(1)
         assertThat(lastUsedAt).isEqualTo("2026-02-08T10:00:00")
         assertThat(copiedTag.toString()).contains("tag-2")
-
         val taskTag = TaskTagEntity("task-2", "tag-2", "2026-02-08T09:05:00")
         val copiedTaskTag = taskTag.copy(createdAt = "2026-02-08T10:05:00")
         assertThat(copiedTaskTag.component1()).isEqualTo("task-2")
         assertThat(copiedTaskTag.component2()).isEqualTo("tag-2")
         assertThat(copiedTaskTag.component3()).isEqualTo("2026-02-08T10:05:00")
         assertThat(copiedTaskTag.toString()).contains("task-2")
-
         val noteTag = NoteTagEntity("note-2", "tag-2", "2026-02-08T09:06:00")
         val copiedNoteTag = noteTag.copy(createdAt = "2026-02-08T10:06:00")
         assertThat(copiedNoteTag.component1()).isEqualTo("note-2")
         assertThat(copiedNoteTag.component2()).isEqualTo("tag-2")
         assertThat(copiedNoteTag.component3()).isEqualTo("2026-02-08T10:06:00")
         assertThat(copiedNoteTag.toString()).contains("note-2")
-
         val timeEntryTag = TimeEntryTagEntity("time-2", "tag-2", "2026-02-08T09:07:00")
         val copiedTimeEntryTag = timeEntryTag.copy(createdAt = "2026-02-08T10:07:00")
         assertThat(copiedTimeEntryTag.component1()).isEqualTo("time-2")
@@ -594,6 +645,9 @@ class EntityDefaultsTest {
     }
 
     @Test
+    /**
+     * Performs the time goal and time rule entities store values and defaults.
+     */
     fun timeGoal_and_timeRule_entities_store_values_and_defaults() {
         val goal =
             TimeGoalEntity(
@@ -613,7 +667,6 @@ class EntityDefaultsTest {
         assertThat(goal.period).isEqualTo("daily")
         assertThat(goal.isActive).isEqualTo(1)
         assertThat(goal.notes).isEqualTo("Primary focus")
-
         val minimalGoal =
             TimeGoalEntity(
                 id = "goal-2",
@@ -626,12 +679,10 @@ class EntityDefaultsTest {
         assertThat(minimalGoal.dimensionId).isNull()
         assertThat(minimalGoal.notes).isNull()
         assertThat(minimalGoal.isActive).isEqualTo(1)
-
         val copiedGoal = goal.copy(targetMinutes = 200)
         assertThat(copiedGoal.component1()).isEqualTo("goal-1")
         assertThat(copiedGoal.component4()).isEqualTo(200)
         assertThat(copiedGoal.toString()).contains("goal-1")
-
         val rule =
             TimeRuleEntity(
                 id = "rule-1",
@@ -646,7 +697,6 @@ class EntityDefaultsTest {
         assertThat(rule.ruleType).isEqualTo("max_continuous_minutes")
         assertThat(rule.configJson).isEqualTo("{\"minutes\":120}")
         assertThat(rule.isActive).isEqualTo(1)
-
         val copiedRule = rule.copy(isActive = 0)
         assertThat(copiedRule.component1()).isEqualTo("rule-1")
         assertThat(copiedRule.component5()).isEqualTo(0)

@@ -10,7 +10,6 @@ import io.payanam.ui.viewmodel.DimensionPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-
 class DayPlanDialogPayloadTest {
 
     private val logger: UnifiedLogger? by lazy {
@@ -37,6 +36,9 @@ class DayPlanDialogPayloadTest {
     )
 
     @Test
+    /**
+     * Build day plan dialog save payload filters invalid minutes and keeps positive values.
+     */
     fun buildDayPlanDialogSavePayload_filters_invalid_minutes_and_keeps_positive_values() {
         val payload = buildDayPlanDialogSavePayload(
             dayMode = DayPlanRepository.MODE_CUSTOM,
@@ -61,6 +63,9 @@ class DayPlanDialogPayloadTest {
     }
 
     @Test
+    /**
+     * Build day plan dialog save payload maps day type template ids and template selection.
+     */
     fun buildDayPlanDialogSavePayload_maps_day_type_template_ids_and_template_selection() {
         val payload = buildDayPlanDialogSavePayload(
             dayMode = DayPlanRepository.MODE_TEMPLATE,

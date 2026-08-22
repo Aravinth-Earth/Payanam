@@ -1,6 +1,9 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.domain.model
+
 
 /**
  * Domain model for Scoring Configuration.
@@ -74,9 +77,11 @@ data class ScoringConfig(
         LifeDimension.CONTRIBUTION to (dimensionWeightsById[DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id] ?: 0.65)
     )
 ) {
+    @Suppress("MagicNumber")
     companion object {
         /**
-         * Returns the default scoring configuration.
+         * The out-of-the-box scoring weights/threshold configuration, used
+         * when the user has not customized [ScoringConfig] yet.
          */
         fun defaults() = ScoringConfig()
         

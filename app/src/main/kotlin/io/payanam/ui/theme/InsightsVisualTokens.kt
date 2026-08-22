@@ -11,6 +11,9 @@ import androidx.compose.ui.graphics.luminance
 import io.payanam.common.logging.UnifiedLogger
 
 @Immutable
+/**
+ * Color tokens for the insights screens, derived from the current scheme.
+ */
 data class InsightsVisualTokens(
     val cardContainer: Color,
     val chartTrack: Color,

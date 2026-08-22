@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:max-line-length")
+@file:Suppress("ktlint:standard:max-line-length", "MagicNumber")
+
 
 package io.payanam.database.repository
 
@@ -43,9 +44,14 @@ import javax.inject.Inject
 private const val MINUTES_PER_DAY = 24 * 60
 
 /**
- * Implementation of LensRepository for calculating Planning and Reality lens data.
+ * Lens data layer: builds the planning-vs-reality snapshot for a day (time
+ * tracked per dimension, task/habit adherence, focus gaps) and the derived
+ * insights (trends, heatmap, reflection cards) the Lenses UI renders.
  */
 @Suppress("TooManyFunctions")
+/**
+ * Concrete [LensRepository] backed by Room + the time-entry/task/habit repos.
+ */
 class LensRepositoryImpl
     @Inject
     constructor(
@@ -57,6 +63,10 @@ class LensRepositoryImpl
     ) : LensRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Earliest day any time entry was logged, used as the lower bound for
+         * lens date-range selectors.
+         */
         override suspend fun getFirstTrackedDate(): LocalDate? {
             logger.d("LensRepository.getFirstTrackedDate", "Fetching first tracked date")
             val result =
@@ -70,24 +80,40 @@ class LensRepositoryImpl
             return result
         }
 
+        /**
+         * Per-day average of *focused* minutes across all logged time entries,
+         * powering the daily-focus trend chart in the Lenses UI.
+         */
         override suspend fun getDailyFocusAverages(): List<DailyFocusStat> {
             logger.d("LensRepository.getDailyFocusAverages", "Fetching daily focus averages")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyFocusAverages(all)
         }
 
+        /**
+         * Per-day total minutes tracked (focused + untracked), the raw
+         * time-spent series behind the Lenses time-trend chart.
+         */
         override suspend fun getDailyTrackedTimeStats(): List<DailyTrackedTimeStat> {
             logger.d("LensRepository.getDailyTrackedTimeStats", "Fetching daily tracked time stats")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyTrackedTimeStats(all)
         }
 
+        /**
+         * Per-day focused-hours total (distinct from the focus *average*),
+         * shown as the daily hours-spent chart in Lenses.
+         */
         override suspend fun getDailyFocusedHoursStats(): List<DailyFocusedHoursStat> {
             logger.d("LensRepository.getDailyFocusedHoursStats", "Fetching daily focused hours stats")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return emptyList()
             return DailyStatsCalculator.calculateDailyFocusedHoursStats(all)
         }
 
+        /**
+         * Averaged time split across dimensions/windows for a "typical day",
+         * backing the Lenses 'average day' table view.
+         */
         override suspend fun getAverageDailyTimeTableData(): AverageDailyTimeTableData? {
             logger.d("LensRepository.getAverageDailyTimeTableData", "Fetching average daily time table")
             val all = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: return null
@@ -96,26 +122,46 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Rolling window of per-dimension time trends over the last
+         * [windowDays] days, for the dimension-trend chart.
+         */
         override suspend fun getDimensionTrendBlocks(windowDays: Int): List<DimensionTrendBlock> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildDimensionTrendBlocks(allEntries, windowDays, logger)
         }
 
+        /**
+         * One row per calendar day carrying its tracked-minute intensity,
+         * fuelling the Lenses activity heatmap.
+         */
         override suspend fun getHeatmapDays(): List<HeatmapDayData> {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildHeatmapDays(allEntries, logger)
         }
 
+        /**
+         * Week-by-week grid of tracked time; when [excludeEmptyDays] is true,
+         * days with zero entries are dropped before grouping.
+         */
         override suspend fun getWeekGridData(excludeEmptyDays: Boolean): WeekGridData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildWeekGridData(allEntries, excludeEmptyDays, logger)
         }
 
+        /**
+         * Time-of-day distribution of tracked minutes (which hours of the day
+         * get used); [excludeEmptyDays] drops empty days first.
+         */
         override suspend fun getMinutePatternData(excludeEmptyDays: Boolean): MinutePatternData {
             val allEntries = timeEntryRepository.getAllTimeEntries().firstOrNull() ?: emptyList()
             return buildMinutePatternData(allEntries, excludeEmptyDays, logger)
         }
 
+        /**
+         * Total tracked minutes grouped by dimension within [start]..[end],
+         * for the range-split chart.
+         */
         override suspend fun getDimensionSplitForRange(
             start: LocalDate,
             end: LocalDate,
@@ -129,6 +175,11 @@ class LensRepositoryImpl
             return DailyStatsCalculator.calculateDimensionSplit(all, start, end)
         }
 
+        /**
+         * Builds (or returns the cached) planning+reality snapshot for
+         * [dayKey]. Recomputes only when the day is flagged dirty, then
+         * persists the result and clears the dirty marker.
+         */
         override suspend fun calculateUnifiedSnapshot(dayKey: String): UnifiedLensSnapshot {
             val isDirty = loadLensDirtyDayMetadata(sessionManager.requireDatabase().dailyInsightDao(), dayKey) != null
             if (!isDirty) {
@@ -149,11 +200,19 @@ class LensRepositoryImpl
             return computed
         }
 
+        /**
+         * The planning half of the unified snapshot for [dayKey] — budgets and
+         * planned tasks/habits — derived from [calculateUnifiedSnapshot].
+         */
         override suspend fun calculatePlanningData(dayKey: String): PlanningLensData {
             logger.d("LensRepository.calculatePlanningData", "Calculating planning data", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).planning
         }
 
+        /**
+         * Reactive planning data for [dayKey]; recomputes whenever the task
+         * list emits a change, so the UI stays in sync without polling.
+         */
         override fun observePlanningData(dayKey: String): Flow<PlanningLensData> {
             logger.d("LensRepository.observePlanningData", "Subscribing to planning data", mapOf("dayKey" to dayKey))
             // Combine multiple flows and recalculate when any changes
@@ -162,11 +221,19 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * The reality half of the unified snapshot for [dayKey] — actual time
+         * tracked and adherence — derived from [calculateUnifiedSnapshot].
+         */
         override suspend fun calculateRealityData(dayKey: String): RealityLensData {
             logger.d("LensRepository.calculateRealityData", "Calculating reality data", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).reality
         }
 
+        /**
+         * Reactive reality data for [dayKey]; recomputes whenever a time entry
+         * changes so the UI reflects live tracking.
+         */
         override fun observeRealityData(dayKey: String): Flow<RealityLensData> {
             logger.d("LensRepository.observeRealityData", "Subscribing to reality data", mapOf("dayKey" to dayKey))
             return timeEntryRepository.getAllTimeEntries().map {
@@ -174,12 +241,16 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Wipes and regenerates [dayKey]'s reflection cards: flags >8h untracked
+         * time, missed tasks, focus gaps >60m, and per-dimension budget/plan
+         * gaps >60m, then persists them for the reflection UI.
+         */
         override suspend fun generateReflectionCards(dayKey: String) {
             logger.d("LensRepository.generateReflectionCards", "Generating reflection cards", mapOf("dayKey" to dayKey))
 
             // Clear existing reflections for this day to avoid duplicates
             sessionManager.requireDatabase().lensReflectionDao().deleteReflectionsForDay(dayKey)
-
             val snapshot = calculateUnifiedSnapshot(dayKey)
             val planning = snapshot.planning
             val reality = snapshot.reality
@@ -243,7 +314,6 @@ class LensRepositoryImpl
                 // Prefer budget comparison if budget exists, otherwise use planned time from tasks/habits
                 val targetMinutes = budgetMinutes ?: plannedMinutes
                 val gap = targetMinutes - actualMinutes
-
                 if (gap > 60 && targetMinutes > 0) { // More than 1 hour gap
                     val dimensionLabel =
                         DimensionTaxonomyCatalog.fromCanonicalId(dimId)?.fallbackLabel
@@ -276,6 +346,10 @@ class LensRepositoryImpl
             )
         }
 
+        /**
+         * Reactive list of reflection records for [dayKey], mapped from the
+         * stored reflection entities for the reflection UI.
+         */
         override fun observeReflections(dayKey: String): Flow<List<LensReflectionRecord>> {
             logger.d("LensRepository.observeReflections", "Subscribing to reflections", mapOf("dayKey" to dayKey))
             return sessionManager.requireDatabase().lensReflectionDao().observeReflectionsForDay(dayKey).map { entities ->
@@ -283,6 +357,10 @@ class LensRepositoryImpl
             }
         }
 
+        /**
+         * Marks a reflection card addressed and stores the user's [note]
+         * (e.g. why they accepted the gap), so it no longer nags.
+         */
         override suspend fun markReflectionAddressed(
             id: String,
             note: String?,
@@ -291,21 +369,37 @@ class LensRepositoryImpl
             sessionManager.requireDatabase().lensReflectionDao().markReflectionAddressed(id, note)
         }
 
+        /**
+         * 0-1 score of how fully [dayKey]'s plan was specified (tasks + habits
+         * + budget allocations) — derived from the snapshot's planning score.
+         */
         override suspend fun calculatePlanCompleteness(dayKey: String): Float {
             logger.d("LensRepository.calculatePlanCompleteness", "Calculating plan completeness", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).planning.planCompletenessScore
         }
 
+        /**
+         * 0-1 score of how closely [dayKey]'s reality matched its plan (actual
+         * time vs planned + task/habit completion) — from the snapshot.
+         */
         override suspend fun calculateAdherence(dayKey: String): Float {
             logger.d("LensRepository.calculateAdherence", "Calculating adherence", mapOf("dayKey" to dayKey))
             return calculateUnifiedSnapshot(dayKey).reality.adherenceScore
         }
 
+        /**
+         * Filters [dayKeys] down to those still flagged dirty and needing
+         * their cached lens snapshot recomputed.
+         */
         override suspend fun getDirtyDayKeys(dayKeys: Set<String>): Set<String> {
             logger.d("LensRepository.getDirtyDayKeys", "Fetching dirty day keys", mapOf("inputCount" to dayKeys.size))
             return getLensDirtyDayKeys(sessionManager.requireDatabase().dailyInsightDao(), dayKeys)
         }
 
+        /**
+         * True when [dayKey] still carries a dirty marker — i.e. a data change
+         * has happened since its lens snapshot was last computed.
+         */
         override suspend fun isDayDirty(dayKey: String): Boolean =
             loadLensDirtyDayMetadata(sessionManager.requireDatabase().dailyInsightDao(), dayKey) != null
 
@@ -331,7 +425,6 @@ class LensRepositoryImpl
             totalActualMinutes: Int,
         ): Float {
             if (planning.totalPlannedMinutes == 0) return 0f
-
             var score = 0f
 
             // Time adherence: 50%
@@ -393,7 +486,6 @@ class LensRepositoryImpl
                 allTasks.filter { task ->
                     task.dueDate?.toLocalDate()?.isEqual(date) == true
                 }
-
             val planning = buildPlanningData(dayKey, date, budgetsByDimension, allTasks)
             val reality =
                 buildRealityData(
@@ -466,7 +558,6 @@ class LensRepositoryImpl
                             recurrenceRule = habit.recurrenceRule ?: "",
                         )
                     }
-
             val taskAndHabitMinutes = taskPlanItems.sumOf { it.estimatedMinutes } + habitPlanItems.sumOf { it.estimatedMinutes }
             val budgetMinutes = budgetsByDimension.values.sum()
             val totalPlannedMinutes =
@@ -579,7 +670,6 @@ class LensRepositoryImpl
                     "totalActualMinutes" to totalActualMinutes,
                 ),
             )
-
             val taskRealityItems =
                 tasksDueForReality
                     .filterNot { it.recurrenceEnabled }
@@ -604,7 +694,6 @@ class LensRepositoryImpl
                             adherenceGap = if (actualMinutes > 0) task.durationMinutes - actualMinutes else null,
                         )
                     }
-
             val habitRealityItems =
                 occurrencesForDay
                     .map { occurrence ->
@@ -621,7 +710,6 @@ class LensRepositoryImpl
                             status = occurrence.status,
                         )
                     }.filterNotNull()
-
             val plannedFocusMinutes =
                 tasksDueForReality
                     .filter { (it.focusRequired ?: 0.0) > 0.7 }
@@ -728,7 +816,6 @@ internal fun computePlanStructureScore(
     hasPlannedHabits: Boolean,
 ): Float {
     var score = 0f
-
     if (hasBudgetAllocations) {
         score += 0.4f
     }

@@ -19,7 +19,6 @@ interface MetricWindowRow {
 
     /** Day this row belongs to, ISO yyyy-MM-dd. */
     val dayKey: String
-
     val score: Double
     val runningAvg: Double
     val progress: Double

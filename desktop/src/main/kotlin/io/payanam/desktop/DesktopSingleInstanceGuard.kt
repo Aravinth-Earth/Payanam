@@ -18,10 +18,18 @@ import java.util.concurrent.ConcurrentHashMap
 import javax.swing.JOptionPane
 
 internal sealed interface DesktopSingleInstanceAcquireResult {
+    /**
+     * Acquired.
+    
+     */
     data class Acquired(
         val lease: DesktopSingleInstanceLease,
     ) : DesktopSingleInstanceAcquireResult
 
+    /**
+     * AlreadyRunning.
+    
+     */
     data class AlreadyRunning(
         val details: DesktopRunningInstanceDetails,
     ) : DesktopSingleInstanceAcquireResult
@@ -47,6 +55,9 @@ internal class DesktopSingleInstanceLease(
     private val channel: FileChannel,
     private val lock: FileLock,
 ) : AutoCloseable {
+    /**
+     * Updates the metadata file's log path once the session logger exists.
+     */
     fun recordSessionLogPath(logFilePath: Path) {
         DesktopSingleInstanceGuard.writeMetadata(
             metadataFilePath = metadataFilePath,
@@ -56,6 +67,9 @@ internal class DesktopSingleInstanceLease(
         )
     }
 
+    /**
+     * Releases the lock and removes lock/metadata files.
+     */
     override fun close() {
         DesktopSingleInstanceGuard.clearTrackedState(lockFilePath = lockFilePath, metadataFilePath = metadataFilePath)
         runCatching { lock.release() }
@@ -77,7 +91,10 @@ internal object DesktopSingleInstanceGuard {
     private val trackedProcesses = ConcurrentHashMap<Path, Long>()
     private val trackedDetails = ConcurrentHashMap<Path, DesktopRunningInstanceDetails>()
     private val timestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
-
+    /**
+     * Tries to take the single-instance file lock: acquired lease, or details
+     * of the running instance when the lock is held elsewhere.
+     */
     fun acquire(
         runtimeDirectory: Path = DesktopAppPaths.resolveRuntimeDirectory(),
         processId: Long = ProcessHandle.current().pid(),
@@ -123,7 +140,10 @@ internal object DesktopSingleInstanceGuard {
                 ),
         )
     }
-
+    /**
+     * Swing dialog telling the user another instance is running (with its
+     * PID, build, start time, executable, and log path).
+     */
     fun showAlreadyRunningDialog(details: DesktopRunningInstanceDetails) {
         val processText = details.processId?.toString() ?: "unknown"
         val startedAtText = details.acquiredAt ?: "unknown"

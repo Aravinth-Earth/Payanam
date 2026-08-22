@@ -7,9 +7,13 @@ import io.payanam.database.entity.TimeEntryEntity
 import io.payanam.domain.model.TimeEntry
 
 /**
- * Mapper functions between TimeEntryEntity (Room) and TimeEntry (Domain).
+ * Mapper functions between timeEntryEntity (Room) and timeEntry (Domain).
  */
 object TimeEntryMapper {
+    /**
+     * Converts a Room [TimeEntryEntity] into the domain [TimeEntry] model,
+     * parsing the persisted ISO date-time strings back into [PersistedDateTime].
+     */
     fun TimeEntryEntity.toDomain(): TimeEntry =
         TimeEntry(
             id = id,
@@ -24,7 +28,10 @@ object TimeEntryMapper {
             createdAt = PersistedDateTime.parse(createdAt),
             updatedAt = PersistedDateTime.parse(updatedAt),
         )
-
+    /**
+     * Converts a domain [TimeEntry] into a Room [TimeEntryEntity], serializing
+     * its date-times to ISO strings for persistence.
+     */
     fun TimeEntry.toEntity(): TimeEntryEntity =
         TimeEntryEntity(
             id = id,

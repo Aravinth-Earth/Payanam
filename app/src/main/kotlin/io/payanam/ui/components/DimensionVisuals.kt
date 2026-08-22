@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:function-naming")
+@file:Suppress("ktlint:standard:function-naming", "MagicNumber")
 
 package io.payanam.ui.components
 
@@ -487,7 +487,6 @@ internal fun DimensionColorPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -577,7 +576,6 @@ internal fun DimensionIconPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },

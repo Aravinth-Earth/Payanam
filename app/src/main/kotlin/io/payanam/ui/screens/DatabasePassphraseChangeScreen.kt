@@ -51,13 +51,11 @@ fun DatabasePassphraseChangeScreen(
     var showCurrentPassphrase by rememberSaveable { mutableStateOf(false) }
     var showNewPassphrase by rememberSaveable { mutableStateOf(false) }
     var showConfirmPassphrase by rememberSaveable { mutableStateOf(false) }
-
     LaunchedEffect(uiState.isSuccess) {
         if (uiState.isSuccess) {
             onPassphraseChanged()
         }
     }
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -73,7 +71,6 @@ fun DatabasePassphraseChangeScreen(
             text = stringResource(id = R.string.db_passphrase_change_desc),
             style = MaterialTheme.typography.bodyMedium,
         )
-
         OutlinedTextField(
             value = currentPassphrase,
             onValueChange = { currentPassphrase = it },
@@ -128,7 +125,6 @@ fun DatabasePassphraseChangeScreen(
                 }
             },
         )
-
         val errorText = when (uiState.errorReasonCode) {
             "current_invalid" -> stringResource(id = R.string.db_passphrase_change_error_current_invalid)
             "min_length" -> stringResource(id = R.string.db_passphrase_error_min_length)
@@ -147,7 +143,6 @@ fun DatabasePassphraseChangeScreen(
                 color = MaterialTheme.colorScheme.error,
             )
         }
-
         if (uiState.isSuccess) {
             Text(
                 text = stringResource(id = R.string.db_passphrase_change_success),
@@ -155,7 +150,6 @@ fun DatabasePassphraseChangeScreen(
                 color = MaterialTheme.colorScheme.primary,
             )
         }
-
         Button(
             onClick = {
                 logger.i("DatabasePassphraseChangeScreen", "Submitting passphrase change")

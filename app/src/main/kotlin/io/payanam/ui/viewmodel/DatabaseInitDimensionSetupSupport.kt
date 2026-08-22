@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -11,7 +12,10 @@ import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.model.DimensionTextCatalog
 import java.time.Instant
 import java.util.Locale
-
+/**
+ * A dimension chosen during first-run setup: id, user label/color, enabled
+ * flag, and icon key.
+ */
 data class NewDatabaseDimensionInput(
     val id: String,
     val label: String,
@@ -19,7 +23,10 @@ data class NewDatabaseDimensionInput(
     val isEnabled: Boolean,
     val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
 )
-
+/**
+ * A life-dimension seed row as written to the database on first-run setup
+ * (defaults merged with user choices, plus the unassigned fallback).
+ */
 data class NewDatabaseDimensionSeedRow(
     val id: String,
     val key: String,
@@ -153,7 +160,6 @@ internal fun buildDimensionSeedRows(
             "maxAllowed" to MAX_USER_DIMENSIONS,
         ),
     )
-
     val rows = normalizedInputs.mapIndexed { index, input ->
         val template = DEFAULT_NEW_DB_DIMENSION_ROWS_BY_ID[input.id]
         NewDatabaseDimensionSeedRow(

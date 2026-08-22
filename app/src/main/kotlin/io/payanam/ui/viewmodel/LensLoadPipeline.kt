@@ -53,7 +53,6 @@ internal suspend fun prepareLensLoadData(
             rangeSnapshotsByDay[dayKey] = it
         }
     }
-
     val selectedRangeSummary = withContext(Dispatchers.Default) {
         buildRangeSummaryForSnapshots(
             resolvedRange = resolvedRange,
@@ -114,7 +113,6 @@ internal fun buildRangeSummaryForSnapshots(
         planning.add(daySnapshot.planning)
         reality.add(daySnapshot.reality)
     }
-
     val plannedByDimension = mutableMapOf<String, Int>()
     val actualByDimension = mutableMapOf<String, Int>()
     val supplementalActualByDimension = mutableMapOf<String, Int>()
@@ -170,7 +168,6 @@ internal fun buildRangeSummaryForSnapshots(
             }
         }
     }
-
     val trendPoints = dates.indices.map { index ->
         val plan = planning[index]
         val real = reality[index]
@@ -180,7 +177,6 @@ internal fun buildRangeSummaryForSnapshots(
             actualMinutes = real.totalActualMinutes,
         )
     }
-
     val summary = LensRangeSummary(
         mode = resolvedRange.mode,
         window = resolvedRange.window,

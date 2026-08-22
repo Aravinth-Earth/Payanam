@@ -72,13 +72,11 @@ fun CheckmarkPanelCanvas(
     val totalCount = checkmarks.size
     val totalWidthPx = totalCount * buttonSizePx + (totalCount - 1) * spacingPx
     val totalHeightPx = buttonSizePx
-
     val totalWidthDp = with(density) { totalWidthPx.toDp() }
     val totalHeightDp = with(density) { totalHeightPx.toDp() }
 
     // Stable checkmarks reference for click calculation
     val reversedCheckmarks = remember(checkmarks) { checkmarks.reversed() }
-
     Canvas(
         modifier = modifier
             .size(width = totalWidthDp, height = totalHeightDp)
@@ -107,7 +105,6 @@ fun CheckmarkPanelCanvas(
             val checkmark = reversedCheckmarks[i]
             val x = i * (buttonSizePx + spacingPx)
             val y = (canvasHeight - buttonSizePx) / 2
-
             drawCheckmark(
                 checkmark = checkmark,
                 x = x,
@@ -131,7 +128,7 @@ fun CheckmarkPanelCanvas(
 }
 
 /**
- * Draw a single checkmark in the Canvas.
+ * Draw a single checkmark in the canvas.
  */
 private fun DrawScope.drawCheckmark(
     checkmark: DayCheckmark,
@@ -162,7 +159,6 @@ private fun DrawScope.drawCheckmark(
         CheckmarkStatus.PENDING -> Color.Transparent
         CheckmarkStatus.UNKNOWN -> unknownBg
     }
-
     if (bgColor != Color.Transparent) {
         drawRoundRect(
             color = bgColor,
@@ -192,7 +188,6 @@ private fun DrawScope.drawCheckmark(
         CheckmarkStatus.PENDING -> pendingIcon
         CheckmarkStatus.UNKNOWN -> unknownIcon
     }
-
     val glyph = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> "✓"
         CheckmarkStatus.SKIPPED -> "−"
@@ -200,22 +195,18 @@ private fun DrawScope.drawCheckmark(
         CheckmarkStatus.PENDING -> "?"
         CheckmarkStatus.UNKNOWN -> "?"
     }
-
     val fontSize = when (checkmark.status) {
         CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> 12.sp
         else -> 14.sp
     }
-
     val textStyle = TextStyle(
         color = iconColor,
         fontSize = fontSize,
         fontWeight = FontWeight.Bold,
     )
-
     val textLayout = textMeasurer.measure(glyph, textStyle)
     val textX = x + (size - textLayout.size.width) / 2
     val textY = y + (size - textLayout.size.height) / 2
-
     drawText(textLayout, topLeft = Offset(textX, textY))
 
     // Notes indicator dot

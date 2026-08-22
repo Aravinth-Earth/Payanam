@@ -17,11 +17,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the note dao test.
+ */
 class NoteDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var noteDao: NoteDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -34,16 +40,21 @@ class NoteDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert and get note by id.
+     */
     fun insert_and_getNoteById() {
         runBlocking {
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
-
             val retrieved = noteDao.getNoteById("note-1")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("note-1")
@@ -52,6 +63,9 @@ class NoteDaoTest {
     }
 
     @Test
+    /**
+     * Returns the all notes returns all notes.
+     */
     fun getAllNotes_returnsAllNotes() {
         runBlocking {
             val note1 = createTestNote("note-1", "Note 1", "health")
@@ -59,7 +73,6 @@ class NoteDaoTest {
 
             noteDao.insert(note1)
             noteDao.insert(note2)
-
             val notes = noteDao.getAllNotes().first()
             assertThat(notes).hasSize(2)
             assertThat(notes.map { it.id }).containsExactly("note-2", "note-1") // Ordered by updatedAt DESC
@@ -67,6 +80,9 @@ class NoteDaoTest {
     }
 
     @Test
+    /**
+     * Returns the notes by dimension filters correctly.
+     */
     fun getNotesByDimension_filtersCorrectly() {
         runBlocking {
             val healthNote = createTestNote("note-1", "Health Note", "health")
@@ -76,7 +92,6 @@ class NoteDaoTest {
             noteDao.insert(healthNote)
             noteDao.insert(careerNote)
             noteDao.insert(anotherHealthNote)
-
             val healthNotes = noteDao.getNotesByDimension("health").first()
             assertThat(healthNotes).hasSize(2)
             assertThat(healthNotes.map { it.id }).containsExactly("note-3", "note-1")
@@ -84,40 +99,45 @@ class NoteDaoTest {
     }
 
     @Test
+    /**
+     * Updates the update modifies note.
+     */
     fun update_modifiesNote() {
         runBlocking {
             val note = createTestNote("note-1", "Original Title", "health")
             noteDao.insert(note)
-
             val updatedNote = note.copy(title = "Updated Title", updatedAt = "2026-02-02T11:00:00Z")
             noteDao.update(updatedNote)
-
             val retrieved = noteDao.getNoteById("note-1")
             assertThat(retrieved?.title).isEqualTo("Updated Title")
         }
     }
 
     @Test
+    /**
+     * Removes the delete removes note.
+     */
     fun delete_removesNote() {
         runBlocking {
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
 
             noteDao.delete(note)
-
             val retrieved = noteDao.getNoteById("note-1")
             assertThat(retrieved).isNull()
         }
     }
 
     @Test
+    /**
+     * Removes the delete by id removes note.
+     */
     fun deleteById_removesNote() {
         runBlocking {
             val note = createTestNote("note-1", "Test Note", "health")
             noteDao.insert(note)
 
             noteDao.deleteById("note-1")
-
             val retrieved = noteDao.getNoteById("note-1")
             assertThat(retrieved).isNull()
         }

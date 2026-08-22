@@ -5,10 +5,12 @@ package io.payanam.ui.screens
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
-
 class TimeScreenTimelineLabelFormattingTest {
 
     @Test
+    /**
+     * Format compact focus value formats numeric value with prefix.
+     */
     fun formatCompactFocusValue_formats_numeric_value_with_prefix() {
         assertEquals("F: 0.7", formatCompactFocusValue(0.7))
         assertEquals("F: 1.0", formatCompactFocusValue(1.2))
@@ -16,6 +18,9 @@ class TimeScreenTimelineLabelFormattingTest {
     }
 
     @Test
+    /**
+     * Format compact focus value returns null for missing or invalid values.
+     */
     fun formatCompactFocusValue_returnsNull_for_missing_or_invalid_values() {
         assertNull(formatCompactFocusValue(null))
         assertNull(formatCompactFocusValue(Double.NaN))
@@ -32,7 +37,6 @@ class TimeScreenTimelineLabelFormattingTest {
             durationLabel = "1h 20m",
             focusValueLabel = "F: 0.7",
         )
-
         assertEquals("Health · Morning Run · 09:00 - 10:20 · 1h 20m · F: 0.7", label)
     }
 }

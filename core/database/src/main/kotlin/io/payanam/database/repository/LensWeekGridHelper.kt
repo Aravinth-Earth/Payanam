@@ -33,7 +33,6 @@ internal fun buildWeekGridData(
         "Building week grid data",
         mapOf("totalEntries" to allEntries.size, "completedEntries" to completedEntries.size, "excludeEmptyDays" to excludeEmptyDays),
     )
-
     if (completedEntries.isEmpty()) {
         logger.d("LensWeekGridHelper.buildWeekGridData", "No completed entries — returning empty grid")
         return WeekGridData(emptyList())
@@ -100,7 +99,6 @@ internal fun buildWeekGridData(
             val dayEndExclusive = dayStart.plusDays(1)
             val segStart = if (entry.startedAt.isBefore(dayStart)) dayStart else entry.startedAt
             val segEnd = if (entryEnd.isAfter(dayEndExclusive)) dayEndExclusive else entryEnd
-
             if (segEnd.isAfter(segStart)) {
                 // Convert to minutes-of-day
                 val entryStartMinute =
@@ -162,7 +160,6 @@ internal fun buildWeekGridData(
                     .map { (k, v) -> k.third to v }
                     .sortedByDescending { (_, minutes) -> minutes }
                     .take(3)
-
             val totalTop3 = candidates.sumOf { (_, m) -> m }
             if (totalTop3 <= 0L) {
                 slots.add(WeekGridSlot.EMPTY)

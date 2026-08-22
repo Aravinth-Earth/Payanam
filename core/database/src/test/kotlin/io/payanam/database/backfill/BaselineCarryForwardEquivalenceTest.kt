@@ -31,11 +31,17 @@ import java.util.UUID
  * lifetime (10-year histories included).
  */
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the baseline carry forward equivalence test.
+ */
 class BaselineCarryForwardEquivalenceTest {
 
     private lateinit var db: PayanamDatabase
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         db = Room.inMemoryDatabaseBuilder(
             ApplicationProvider.getApplicationContext(),
@@ -44,6 +50,9 @@ class BaselineCarryForwardEquivalenceTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         db.close()
     }
@@ -74,7 +83,6 @@ class BaselineCarryForwardEquivalenceTest {
         // Daily habit, 30 days of history, completions at 25, 20, 15, 10, 5 days ago
         val task = habit("h1", "CONFIG:type=DAILY|start=2026-07-01", 40)
         val occurrences = listOf(25L, 20L, 15L, 10L, 5L).map { occ("h1", it) }
-
         val (fullRows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences)
 
         // Simulate: change happened 12 days ago → baseline = rows before day-12
@@ -84,7 +92,6 @@ class BaselineCarryForwardEquivalenceTest {
         val (tailRows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
             task, occurrences, fromDay = changeDay, includeToday = false, baseline = baseline,
         )
-
         val expectedTail = fullRows.filter { !LocalDate.parse(it.dayKey).isBefore(changeDay) }
         assertEquals("tail row count", expectedTail.size, tailRows.size)
         assertEquals("tail == full tail", expectedTail, tailRows)
@@ -94,12 +101,10 @@ class BaselineCarryForwardEquivalenceTest {
     fun `L1 tail without baseline equals full build`() = runTest {
         val task = habit("h1", "CONFIG:type=DAILY|start=2026-07-01", 40)
         val occurrences = listOf(25L, 20L, 15L).map { occ("h1", it) }
-
         val (fullRows, firstDue, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences)
         val (tailRows, tailDue, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
             task, occurrences, fromDay = firstDue!!, includeToday = false, baseline = MetricBaseline.empty(),
         )
-
         assertEquals(fullRows, tailRows)
         assertEquals(firstDue, tailDue)
     }
@@ -108,13 +113,11 @@ class BaselineCarryForwardEquivalenceTest {
     fun `L1 tail from day before firstDue equals full build`() = runTest {
         val task = habit("h1", "CONFIG:type=DAILY|start=2026-07-01", 40)
         val occurrences = listOf(25L, 20L).map { occ("h1", it) }
-
         val (fullRows, firstDue, _) = ScoreRollupBackfillService.buildHabitMetrics(task, occurrences)
         // fromDay BEFORE firstDue — build must clamp to firstDue
         val (tailRows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
             task, occurrences, fromDay = firstDue!!.minusDays(3), includeToday = false, baseline = MetricBaseline.empty(),
         )
-
         assertEquals(fullRows, tailRows)
     }
 
@@ -134,7 +137,6 @@ class BaselineCarryForwardEquivalenceTest {
         val allRows = r1 + r2
         val firstDue = mapOf("h2" to due1!!, "h3" to due2!!)
         val members = listOf(t1, t2)
-
         val fullDim = ScoreRollupBackfillService.buildDimensionMetrics(members, firstDue, allRows)
 
         // Change day = 12 days ago
@@ -146,7 +148,6 @@ class BaselineCarryForwardEquivalenceTest {
             .mapValues { (_, rs) -> rs.filter { LocalDate.parse(it.dayKey).isBefore(changeDay) }.maxByOrNull { it.dayKey } }
             .filterValues { it != null }
             .mapValues { it.value!!.score }
-
         val tailDim = ScoreRollupBackfillService.buildDimensionMetricsFrom(
             recurring = members,
             firstDuePerHabit = firstDue,
@@ -156,7 +157,6 @@ class BaselineCarryForwardEquivalenceTest {
             baseline = baseline,
             lastScores = lastScores,
         )
-
         val expectedTail = fullDim.filter { !LocalDate.parse(it.dayKey).isBefore(changeDay) }
         assertEquals("L2 tail row count", expectedTail.size, tailDim.size)
         assertEquals("L2 tail == full tail", expectedTail, tailDim)
@@ -183,12 +183,10 @@ class BaselineCarryForwardEquivalenceTest {
             day = day.plusDays(1)
         }
         val fullDay = ScoreRollupBackfillService.buildDayMetrics(dimRows)
-
         val changeDay = LocalDate.now().minusDays(10)
         val baselineRows = fullDay.filter { LocalDate.parse(it.dayKey).isBefore(changeDay) }
         val baseline = MetricBaseline.fromDayRows(baselineRows)
         val tailDay = ScoreRollupBackfillService.buildDayMetricsFrom(dimRows, changeDay, baseline)
-
         val expectedTail = fullDay.filter { !LocalDate.parse(it.dayKey).isBefore(changeDay) }
         assertEquals("L3 tail row count", expectedTail.size, tailDay.size)
         assertEquals("L3 tail == full tail", expectedTail, tailDay)

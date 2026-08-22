@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty", "TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -72,7 +74,10 @@ class LensViewModel @Inject constructor(
         logger.i("LensViewModel.init", "Initializing LensViewModel")
         loadLensData()
     }
-
+    /**
+     * Focuses the lens on [date], recomputes the resolved range and reloads all
+     * planning/reality/reflection data for that day.
+     */
     fun selectDate(date: LocalDate) {
         logger.d("LensViewModel.selectDate", "Selecting date", mapOf("date" to date.toString()))
         _uiState.update { state ->
@@ -91,18 +96,27 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
+    /**
+     * Sets the active [LensMoment] (start / live / close day) that scopes which
+     * phase of the day the lens renders.
+     */
     fun selectMoment(moment: LensMoment) {
         logger.d("LensViewModel.selectMoment", "Selecting moment", mapOf("moment" to moment.name))
         _uiState.update { it.copy(selectedMoment = moment) }
     }
-
+    /**
+     * Switches how lens content is grouped (overall / by module / by dimension)
+     * without triggering a data reload.
+     */
     fun selectGrouping(grouping: LensGrouping) {
         if (_uiState.value.selectedGrouping == grouping) return
         logger.d("LensViewModel.selectGrouping", "Selecting grouping", mapOf("grouping" to grouping.name))
         _uiState.update { it.copy(selectedGrouping = grouping) }
     }
-
+    /**
+     * Enters the given browsing [mode] (today / past / future), applying its
+     * default window and reloading the lens data.
+     */
     fun selectTimeMode(mode: LensTimeMode) {
         val defaultWindow = defaultWindowForMode(mode)
         val currentState = _uiState.value
@@ -127,7 +141,10 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
+    /**
+     * Selects a concrete [window] for the current mode (ignored if the mode
+     * does not support it) and reloads the lens data.
+     */
     fun selectTimeWindow(window: LensTimeWindow) {
         val mode = _uiState.value.selectedTimeMode
         if (!isWindowAllowedForMode(window, mode)) {
@@ -155,11 +172,13 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
+    /**
+     * Pages the windowed range backward (older days in PAST, newer in FUTURE),
+     * clamped to the available pages, then reloads.
+     */
     fun goToPreviousWindowPage() {
         val state = _uiState.value
         if (!state.canGoToPreviousWindowPage) return
-
         val newPageIndex = when (state.selectedTimeMode) {
             LensTimeMode.TODAY -> 0
 
@@ -184,11 +203,13 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
+    /**
+     * Pages the windowed range forward (newer days in PAST, older in FUTURE),
+     * clamped to the available pages, then reloads.
+     */
     fun goToNextWindowPage() {
         val state = _uiState.value
         if (!state.canGoToNextWindowPage) return
-
         val newPageIndex = when (state.selectedTimeMode) {
             LensTimeMode.TODAY -> 0
             LensTimeMode.PAST -> (state.windowPageIndex - 1).coerceAtLeast(0)
@@ -209,7 +230,11 @@ class LensViewModel @Inject constructor(
         }
         loadLensData()
     }
-
+    /**
+     * Marks the reflection card [reflectionId] as addressed (persisting
+     * [note]) and reloads the lens data.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun markReflectionAddressed(reflectionId: String, note: String?) {
         logger.d("LensViewModel.markReflectionAddressed", "Marking reflection addressed", mapOf("id" to reflectionId))
         viewModelScope.launch {
@@ -227,7 +252,11 @@ class LensViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Regenerates the reflection cards for the selected day from current data
+     * and refreshes the UI.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun regenerateReflections() {
         logger.d("LensViewModel.regenerateReflections", "Regenerating reflections")
         viewModelScope.launch {
@@ -246,7 +275,10 @@ class LensViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Asks the history backfill coordinator for the next incremental stage of
+     * time-history charts, honouring the prefetch cooldown and minimal mode.
+     */
     fun requestNextTimeHistoryStage() {
         if (!timeHistoryChartsEnabled) return
         if (FeatureFlags.minimalModeEnabled) return
@@ -265,7 +297,11 @@ class LensViewModel @Inject constructor(
         pendingHistoryLimit = nextLimit
         scheduleHistoryBackfill(context = context, maxHistoryLimit = nextLimit)
     }
-
+    /**
+     * Applies the user's chart-enablement toggles: decides whether the
+     * time-history module is active and triggers the relevant chart loads
+     * (dimension split, average daily time, trends, heatmap, weekly, rhythm).
+     */
     fun loadEnabledChartsSequentially(
         chartTimeModuleEnabled: Boolean,
         chartTimeScoreCardsEnabled: Boolean,
@@ -352,7 +388,11 @@ class LensViewModel @Inject constructor(
             if (chartTimeModuleEnabled && chartDailyRhythmEnabled) loadMinutePatternInternal(chartDailyRhythmExclEmpty)
         }
     }
-
+    /**
+     * Cancels any in-flight load and reloads planning/reality/reflection data
+     * for the current selection into [_uiState].
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun loadLensData() {
         lensLoadJob?.cancel()
         reflectionRefreshJob?.cancel()
@@ -397,7 +437,6 @@ class LensViewModel @Inject constructor(
                         "endDate" to resolvedRange.endDate.toString(),
                     ),
                 )
-
                 val preparedLoadData = prepareLensLoadData(
                     lensRepository = lensRepository,
                     snapshotCache = snapshotCache,
@@ -467,6 +506,7 @@ class LensViewModel @Inject constructor(
                 }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadMinimalFocusAverages() {
         viewModelScope.launch {
             try {
@@ -480,6 +520,7 @@ class LensViewModel @Inject constructor(
         loadDailyTrackedTimeStats()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDailyTrackedTimeStats() {
         viewModelScope.launch {
             try {
@@ -493,6 +534,7 @@ class LensViewModel @Inject constructor(
         loadDailyFocusedHoursStats()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDailyFocusedHoursStats() {
         viewModelScope.launch {
             try {
@@ -525,13 +567,18 @@ class LensViewModel @Inject constructor(
             ),
         )
     }
-
+    /**
+     * Selects the [window] for the dimension-split chart and reloads it.
+     */
     fun selectDimensionSplitWindow(window: DimensionSplitWindow) {
         logger.d("LensViewModel.selectDimensionSplitWindow", "Selecting dimension split window", mapOf("window" to window.name))
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(window = window, windowOffset = 0, isLoading = true)) }
         loadDimensionSplit()
     }
-
+    /**
+     * Shifts the dimension-split window earlier (older) when not already at the
+     * oldest window, then reloads.
+     */
     fun shiftDimensionSplitLeft() {
         val state = _uiState.value.dimensionSplit
         if (state.window == DimensionSplitWindow.ALL) return
@@ -540,7 +587,10 @@ class LensViewModel @Inject constructor(
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(windowOffset = newOffset, isLoading = true)) }
         loadDimensionSplit()
     }
-
+    /**
+     * Shifts the dimension-split window later (newer) when the offset is above
+     * zero, then reloads.
+     */
     fun shiftDimensionSplitRight() {
         val state = _uiState.value.dimensionSplit
         if (state.window == DimensionSplitWindow.ALL || state.windowOffset == 0) return
@@ -550,6 +600,7 @@ class LensViewModel @Inject constructor(
         loadDimensionSplit()
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadDimensionSplit() {
         viewModelScope.launch {
             loadDimensionSplitInternal()
@@ -563,7 +614,6 @@ class LensViewModel @Inject constructor(
             val split = _uiState.value.dimensionSplit
             val window = split.window
             val offset = split.windowOffset
-
             val (requestedStart, requestedEnd) = if (window == DimensionSplitWindow.ALL) {
                 (firstEntry ?: today) to today
             } else {
@@ -573,13 +623,11 @@ class LensViewModel @Inject constructor(
                 val start = end.minusDays(spanDays - 1)
                 start to end
             }
-
             val effectiveStart = if (firstEntry != null && requestedStart.isBefore(firstEntry)) firstEntry else requestedStart
             val effectiveEnd = if (requestedEnd.isAfter(today)) today else requestedEnd
             val isClamped = effectiveStart.isAfter(requestedStart)
             val clampedDays = (effectiveEnd.toEpochDay() - effectiveStart.toEpochDay() + 1).toInt().coerceAtLeast(0)
             val requestedDays = window.spanDays ?: (today.toEpochDay() - (firstEntry ?: today).toEpochDay() + 1).toInt()
-
             val rawByDimension = if (effectiveStart.isAfter(effectiveEnd)) {
                 emptyMap()
             } else {
@@ -595,7 +643,6 @@ class LensViewModel @Inject constructor(
             val totalMinutes = byDimension.values.sum()
             val namedKeys = byDimension.keys.filterNotNull().sorted()
             val hasUnassigned = byDimension.containsKey(null)
-
             val canShiftLeft = window != DimensionSplitWindow.ALL && effectiveStart.isAfter(firstEntry ?: effectiveStart)
             val canShiftRight = window != DimensionSplitWindow.ALL && offset > 0
 
@@ -639,7 +686,9 @@ class LensViewModel @Inject constructor(
             _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(isLoading = false)) }
         }
     }
-
+    /**
+     * Selects the [window] for the dimension-trend chart and reloads it.
+     */
     fun selectDimensionTrendWindow(window: DimensionTrendWindow) {
         logger.d("LensViewModel.selectDimensionTrendWindow", "Selecting dimension trend window", mapOf("window" to window.name, "spanDays" to window.spanDays))
         _uiState.update { it.copy(dimensionTrend = it.dimensionTrend.copy(window = window, isLoading = true)) }
@@ -647,18 +696,33 @@ class LensViewModel @Inject constructor(
     }
 
     // Public trigger methods — called from LensesScreen when opt-in pref is enabled
+    /**
+     * Public entry point (invoked by the screen when the opt-in pref is on)
+     * that kicks off the dimension-trend chart load.
+     */
     fun triggerDimTrendLoad() {
         logger.d("LensViewModel.triggerDimTrendLoad", "Dimension trend chart load triggered")
         loadDimensionTrend()
     }
+    /**
+     * Public entry point that triggers the daily-timeline (heatmap) chart load.
+     */
     fun triggerDailyTimelineLoad() {
         logger.d("LensViewModel.triggerDailyTimelineLoad", "Daily timeline chart load triggered")
         loadHeatmap()
     }
+    /**
+     * Public entry point that triggers the weekly-pattern (week-grid) chart
+     * load, forwarding the [excludeEmptyDays] toggle.
+     */
     fun triggerWeeklyPatternLoad(excludeEmptyDays: Boolean) {
         logger.d("LensViewModel.triggerWeeklyPatternLoad", "Weekly pattern chart load triggered", mapOf("excludeEmptyDays" to excludeEmptyDays))
         loadWeekGrid(excludeEmptyDays)
     }
+    /**
+     * Public entry point that triggers the daily-rhythm (minute-pattern) chart
+     * load, forwarding the [excludeEmptyDays] toggle.
+     */
     fun triggerDailyRhythmLoad(excludeEmptyDays: Boolean) {
         logger.d("LensViewModel.triggerDailyRhythmLoad", "Daily rhythm chart load triggered", mapOf("excludeEmptyDays" to excludeEmptyDays))
         loadMinutePattern(excludeEmptyDays)
@@ -682,6 +746,7 @@ class LensViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadMinutePattern(excludeEmptyDays: Boolean = false) {
         viewModelScope.launch {
             loadMinutePatternInternal(excludeEmptyDays)
@@ -805,6 +870,7 @@ class LensViewModel @Inject constructor(
         )
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun refreshReflections(dayKey: String) {
         reflectionRefreshJob?.cancel()
         reflectionRefreshJob = viewModelScope.launch {
@@ -960,6 +1026,10 @@ class LensViewModel @Inject constructor(
         LensTimeWindow.NEXT_365_DAYS -> 365
     }
 }
+/**
+ * Full UI state for the Lens workspace: selection, loaded planning/reality
+ * data, reflections, range summaries, and every chart's state object.
+ */
 data class LensUiState(
     val isLoading: Boolean = true,
     val hasError: Boolean = false,
@@ -990,9 +1060,37 @@ data class LensUiState(
     val weekGrid: WeekGridState = WeekGridState(),
     val minutePattern: MinutePatternState = MinutePatternState(),
 )
-enum class LensMoment { START_DAY, LIVE_DAY, CLOSE_DAY }
-enum class LensGrouping { OVERALL, BY_MODULE, BY_DIMENSION }
-enum class LensTimeMode { TODAY, PAST, FUTURE }
+/**
+ * Which phase of the day the lens is viewing: the planned start, the live
+ * in-progress day, or the closed-day review.
+ */
+enum class LensMoment  {
+    START_DAY,
+    LIVE_DAY,
+    CLOSE_DAY,
+}
+/**
+ * How lens content is aggregated for display: the overall day, by feature
+ * module, or by life dimension.
+ */
+enum class LensGrouping  {
+    OVERALL,
+    BY_MODULE,
+    BY_DIMENSION,
+}
+/**
+ * The browsing direction the lens is showing: the current day, a past window,
+ * or a future window.
+ */
+enum class LensTimeMode  {
+    TODAY,
+    PAST,
+    FUTURE,
+}
+/**
+ * The concrete time window offered for a given [LensTimeMode] — from a single
+ * day up to a year, plus the unbounded all-past range.
+ */
 enum class LensTimeWindow {
     TODAY,
     LAST_DAY,
@@ -1009,7 +1107,16 @@ enum class LensTimeWindow {
     NEXT_180_DAYS,
     NEXT_365_DAYS,
 }
+/**
+ * A single point in a planning-vs-reality trend series: the [dayKey] with its
+ * planned and actual tracked minutes.
+ */
 data class LensTrendPoint(val dayKey: String, val plannedMinutes: Int, val actualMinutes: Int)
+/**
+ * Aggregate planning-vs-reality summary for a resolved range: totals, gaps,
+ * task/habit completion counts, and per-dimension planned/actual splits with
+ * their trend points.
+ */
 data class LensRangeSummary(
     val mode: LensTimeMode,
     val window: LensTimeWindow,
@@ -1047,6 +1154,10 @@ data class LensRangeSummary(
     val missedHabitsByDimension: Map<String, Int>,
     val trendPoints: List<LensTrendPoint>,
 )
+/**
+ * A mode+window+page combination already resolved into concrete start/end
+ * dates, the canonical key the lens uses to load and cache a day's data.
+ */
 data class ResolvedLensWindowRange(
     val mode: LensTimeMode,
     val window: LensTimeWindow,
@@ -1054,7 +1165,15 @@ data class ResolvedLensWindowRange(
     val startDate: LocalDate,
     val endDate: LocalDate,
 )
+/**
+ * Whether the current window range can be paged backward/forward (derived from
+ * the mode and page index).
+ */
 data class LensWindowNavigationState(val canGoPrevious: Boolean, val canGoNext: Boolean)
+/**
+ * The set of time windows legal for a given [mode] (today only today; past and
+ * future expose their respective day/week/month/year ranges).
+ */
 fun windowsForMode(mode: LensTimeMode): List<LensTimeWindow> = when (mode) {
     LensTimeMode.TODAY -> listOf(LensTimeWindow.TODAY)
 
@@ -1077,7 +1196,10 @@ fun windowsForMode(mode: LensTimeMode): List<LensTimeWindow> = when (mode) {
         LensTimeWindow.NEXT_365_DAYS,
     )
 }
-
+/**
+ * The dimension-split windows the chart can page through, each with its
+ * [spanDays] (null for the unbounded ALL range).
+ */
 enum class DimensionSplitWindow(val spanDays: Int?) {
     W1(1),
     W7(7),
@@ -1087,7 +1209,10 @@ enum class DimensionSplitWindow(val spanDays: Int?) {
     W365(365),
     ALL(null),
 }
-
+/**
+ * State for the dimension-split chart: the selected window/offset, the loaded
+ * per-dimension minute totals, clamping flags, and paging availability.
+ */
 data class DimensionSplitState(
     val window: DimensionSplitWindow = DimensionSplitWindow.W1,
     val windowOffset: Int = 0,
@@ -1105,7 +1230,9 @@ data class DimensionSplitState(
     val canShiftRight: Boolean = false,
     val isLoading: Boolean = false,
 )
-
+/**
+ * The dimension-trend windows the chart can show, each a fixed [spanDays].
+ */
 enum class DimensionTrendWindow(val spanDays: Int) {
     W1(1),
     W7(7),
@@ -1114,23 +1241,35 @@ enum class DimensionTrendWindow(val spanDays: Int) {
     W180(180),
     W365(365),
 }
-
+/**
+ * State for the dimension-trend chart: the selected window and the loaded
+ * trend [blocks].
+ */
 data class DimensionTrendState(
     val window: DimensionTrendWindow = DimensionTrendWindow.W1,
     val blocks: List<DimensionTrendBlock> = emptyList(),
     val isLoading: Boolean = false,
 )
-
+/**
+ * State for the activity heatmap chart: the loaded per-day [days] and a loading
+ * flag.
+ */
 data class HeatmapState(
     val days: List<HeatmapDayData> = emptyList(),
     val isLoading: Boolean = false,
 )
-
+/**
+ * State for the weekly-pattern chart: the loaded [WeekGridData] and a loading
+ * flag.
+ */
 data class WeekGridState(
     val data: WeekGridData = WeekGridData(emptyList()),
     val isLoading: Boolean = false,
 )
-
+/**
+ * State for the daily-rhythm chart: the loaded [MinutePatternData] and a loading
+ * flag.
+ */
 data class MinutePatternState(
     val data: MinutePatternData = MinutePatternData(emptyList()),
     val isLoading: Boolean = false,

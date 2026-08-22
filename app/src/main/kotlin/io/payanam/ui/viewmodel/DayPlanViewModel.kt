@@ -18,7 +18,12 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.LocalDateTime
 import javax.inject.Inject
-
+/**
+ * UI state for the Day Plan screen: available templates, the selected/edited
+ * template draft, the selected day's allocations and policy (auto/template/
+ * custom mode, starred flag, weekday/weekend/starred template preferences),
+ * the resolved effective template, and loading/error flags.
+ */
 data class DayPlanUiState(
     val templates: List<DayPlanTemplateRecord> = emptyList(),
     val selectedTemplate: DayPlanTemplateRecord? = null,
@@ -44,6 +49,11 @@ data class DayPlanUiState(
     val isLoading: Boolean = false,
 )
 
+/**
+ * ViewModel for the Day Plan screen: observes available templates, loads and
+ * saves a day's plan (auto/template/custom mode with weekday/weekend/starred
+ * preferences), and manages the template CRUD editor.
+ */
 @HiltViewModel
 class DayPlanViewModel @Inject constructor(
     private val dayPlanRepository: DayPlanRepository,
@@ -82,7 +92,11 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Loads the full day-plan context for [dayKey] (allocations, mode policy, and
+     * the three day-type template preferences in parallel) and resolves which
+     * template is effective for that day.
+     */
     fun loadDayPlan(dayKey: String) {
         viewModelScope.launch {
             if (inFlightDayKey == dayKey) {
@@ -155,7 +169,12 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Persists a full day-plan edit for [dayKey]: starred flag, per-day-type
+     * template preferences, and then the mode-specific payload (custom
+     * allocations, applied template, or cleared back to auto).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun saveDayPlan(
         dayKey: String,
         mode: String,
@@ -208,7 +227,9 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Removes all planned allocations for [dayKey] and reloads its context.
+     */
     fun clearDayPlan(dayKey: String) {
         logger.i("DayPlanViewModel.clearDayPlan", "Clearing day plan", mapOf("dayKey" to dayKey))
         viewModelScope.launch {
@@ -216,7 +237,10 @@ class DayPlanViewModel @Inject constructor(
             loadDayPlan(dayKey)
         }
     }
-
+    /**
+     * Selects [id] into the viewer (name/description/allocation draft fields),
+     * without entering edit mode.
+     */
     fun selectTemplate(id: String) {
         logger.d("DayPlanViewModel.selectTemplate", "Selecting template", mapOf("id" to id))
         viewModelScope.launch {
@@ -235,7 +259,9 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Opens an empty template editor for creating a brand-new template.
+     */
     fun startNewTemplate() {
         _uiState.update {
             it.copy(
@@ -249,7 +275,9 @@ class DayPlanViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Opens the editor pre-filled with template [id]'s current values for editing.
+     */
     fun startEditTemplate(id: String) {
         logger.d("DayPlanViewModel.startEditTemplate", "Starting template edit", mapOf("id" to id))
         viewModelScope.launch {
@@ -270,15 +298,21 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Updates the in-progress template's name (clearing any prior error).
+     */
     fun setTemplateName(name: String) {
         _uiState.update { it.copy(templateName = name, errorMessage = null) }
     }
-
+    /**
+     * Updates the in-progress template's description.
+     */
     fun setTemplateDescription(description: String) {
         _uiState.update { it.copy(templateDescription = description) }
     }
-
+    /**
+     * Updates one dimension's planned minutes in the draft (null/zero removes it).
+     */
     fun setTemplateAllocation(dimensionId: String, minutes: Int?) {
         _uiState.update { state ->
             val allocs = state.templateAllocations.toMutableMap()
@@ -290,7 +324,11 @@ class DayPlanViewModel @Inject constructor(
             state.copy(templateAllocations = allocs)
         }
     }
-
+    /**
+     * Validates (non-blank name, total ≤ 24h) and persists the draft — creating
+     * a new template or updating the selected one — then closes the editor.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun saveTemplate() {
         val state = _uiState.value
         val name = state.templateName.trim()
@@ -365,7 +403,9 @@ class DayPlanViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Deletes template [id] and clears any open selection/editor state.
+     */
     fun deleteTemplate(id: String) {
         viewModelScope.launch {
             dayPlanRepository.deleteTemplate(id)
@@ -379,7 +419,9 @@ class DayPlanViewModel @Inject constructor(
             logger.i("DayPlanViewModel.deleteTemplate", "Deleted template", mapOf("id" to id))
         }
     }
-
+    /**
+     * Closes the template editor/viewer discarding unsaved draft changes.
+     */
     fun cancelEditing() {
         _uiState.update {
             it.copy(
@@ -389,7 +431,9 @@ class DayPlanViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Clears the current error message shown on the screen.
+     */
     fun clearError() {
         _uiState.update { it.copy(errorMessage = null) }
     }

@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.feature.settings
 
 import io.payanam.R
@@ -16,7 +18,10 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-
+/**
+ * Outcome of an update check: availability verdict, latest build/release
+ * info, per-channel statuses, and the error reason when it failed.
+ */
 data class UpdateCheckResult(
     val isUpdateAvailable: Boolean,
     val latestBuildNumber: Int?,
@@ -67,15 +72,22 @@ internal fun channelFromTag(tagName: String): UpdateChannel? =
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
+/** File-level logger for top-level helpers that live outside [UpdateChecker].
+ *  Lazy so pure helpers (parseReleases et al.) stay usable in plain JVM tests
+ *  without UnifiedLogger.initialize(). */
+private val logger: UnifiedLogger by lazy { UnifiedLogger.getInstance() }
+
 /**
  * Parse the GitHub releases list JSON body into per-channel statuses.
  * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
  * malformed entries are skipped. Returns an empty list for garbage bodies.
  */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 internal fun parseReleases(body: String): List<ChannelStatus> {
     val releases = try {
         JSONArray(body)
     } catch (e: Exception) {
+        logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
         return emptyList()
     }
     val statuses = mutableListOf<ChannelStatus>()
@@ -105,6 +117,10 @@ internal fun parseReleases(body: String): List<ChannelStatus> {
     return statuses
 }
 
+/**
+ * UpdateCheckError.
+ * @property channel Channel.
+ */
 enum class UpdateCheckError {
     NO_INTERNET,
     TIMEOUT,
@@ -113,7 +129,6 @@ enum class UpdateCheckError {
     PARSE_ERROR,
     UNKNOWN,
 }
-
 object UpdateChecker {
 
     private const val RELEASES_LIST_URL =
@@ -127,6 +142,7 @@ object UpdateChecker {
      * Fetch release info for ALL channels in one call (list endpoint),
      * then derive the result for the [channel] the user has selected.
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     suspend fun check(currentBuildNumber: Int, channel: UpdateChannel = UpdateChannel.DEV): UpdateCheckResult =
         withContext(Dispatchers.IO) {
             logger.d("UpdateChecker.check", "Starting update check", mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name))
@@ -139,10 +155,8 @@ object UpdateChecker {
                     connectTimeout = CONNECT_TIMEOUT_MS
                     readTimeout = READ_TIMEOUT_MS
                 }
-
                 val responseCode = connection.responseCode
                 logger.d("UpdateChecker.check", "Response received", mapOf("code" to responseCode))
-
                 if (responseCode == 403) {
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
@@ -151,7 +165,6 @@ object UpdateChecker {
                         error = UpdateCheckError.RATE_LIMITED,
                     )
                 }
-
                 if (responseCode == 404) {
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
@@ -160,7 +173,6 @@ object UpdateChecker {
                         error = UpdateCheckError.GITHUB_UNAVAILABLE,
                     )
                 }
-
                 if (responseCode !in 200..299) {
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
@@ -169,7 +181,6 @@ object UpdateChecker {
                         error = UpdateCheckError.GITHUB_UNAVAILABLE,
                     )
                 }
-
                 val body = readResponseWithLimit(connection.inputStream)
                     ?: return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
@@ -181,7 +192,6 @@ object UpdateChecker {
                 // List endpoint → JSON array of release objects. Pick out the
                 // rolling channel tags (latest-*) we own; ignore everything else.
                 val statuses = parseReleases(body)
-
                 val selected = statuses.firstOrNull { it.channel == channel }
                 val latestBuild = selected?.buildNumber
 

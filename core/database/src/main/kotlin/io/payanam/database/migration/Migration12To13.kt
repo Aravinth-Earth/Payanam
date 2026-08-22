@@ -1,5 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
 import androidx.room.migration.Migration
@@ -14,6 +17,7 @@ val MIGRATION_12_13 =
     object : Migration(12, 13) {
         private val logger = UnifiedLogger.getInstance()
 
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.12_13", "Starting migration from version 12 to 13")
             try {

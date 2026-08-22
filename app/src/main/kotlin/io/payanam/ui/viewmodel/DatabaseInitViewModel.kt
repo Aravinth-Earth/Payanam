@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -27,12 +29,20 @@ import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.Date
 import javax.inject.Inject
-
+/**
+ * Outcome of resuming/completing a database import: [RestoredOk] if the
+ * pre-import backup was successfully restored after a failure, else
+ * [RestoreFailed].
+ */
 sealed class RestoreResult {
     object RestoredOk : RestoreResult()
     object RestoreFailed : RestoreResult()
 }
-
+/**
+ * Full UI state for the database-initialization screen: health/status of any
+ * existing DB, counts, import/create progress and confirmation prompts, restore
+ * outcome, and the awaiting-passphrase/awaiting-dimension-setup gates.
+ */
 data class DatabaseInitUiState(
     val isChecking: Boolean = true,
     val databaseExists: Boolean = false,
@@ -57,7 +67,11 @@ data class DatabaseInitUiState(
     val importPassphraseError: String? = null,
     val awaitingDimensionSetup: Boolean = false,
 )
-
+/**
+ * The category of problem detected when the existing database cannot be
+ * opened at boot (missing sidecar, version too old/new, invalid schema, open
+ * failure, or repairable/non-repairable generic).
+ */
 enum class DatabaseBootIssueType {
     SIDECAR_PRIMARY_MISSING,
     DB_TOO_OLD,
@@ -67,13 +81,22 @@ enum class DatabaseBootIssueType {
     REPAIRABLE_GENERIC,
     NON_REPAIRABLE_GENERIC,
 }
-
+/**
+ * A specific boot problem: its [type], an optional human-readable [detailMessage],
+ * and the [detectedVersion] of the offending database.
+ */
 data class DatabaseBootIssue(
     val type: DatabaseBootIssueType,
     val detailMessage: String? = null,
     val detectedVersion: Int = 0,
 )
 
+/**
+ * ViewModel for the first-run database-initialization screen: checks the
+ * health of any existing DB, and drives the create-new / import / encrypted-
+ * import-resume flows (each with wipe confirmation, safety backup, and
+ * restore-on-failure). Also owns the mandatory life-dimension setup gate.
+ */
 @HiltViewModel
 class DatabaseInitViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -156,6 +179,7 @@ class DatabaseInitViewModel @Inject constructor(
         return !databaseInitCompleted && !hasUserData
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -172,7 +196,6 @@ class DatabaseInitViewModel @Inject constructor(
                         "errorMessage" to (healthResult.errorMessage ?: "N/A"),
                     ),
                 )
-
                 if (!healthResult.isHealthy) {
                     val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
                     val exists = DatabaseHealthChecker.hasDatabaseArtifacts(context)
@@ -190,10 +213,8 @@ class DatabaseInitViewModel @Inject constructor(
                     }
                     return@launch
                 }
-
                 val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
                 val exists = DatabaseHealthChecker.hasDatabaseArtifacts(context)
-
                 if (exists) {
                     val sizeKB = dbFile.length() / 1024
                     val lastModified = dbFile.lastModified()
@@ -203,7 +224,6 @@ class DatabaseInitViewModel @Inject constructor(
                         "Database file info",
                         mapOf("sizeKB" to sizeKB, "lastModified" to lastModified, "lastModifiedDate" to Date(lastModified).toString()),
                     )
-
                     val isBootstrapPlaceholder = detectBootstrapPlaceholder(dbFile)
                     if (isBootstrapPlaceholder) {
                         logger.w(
@@ -258,12 +278,19 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Re-runs the database health/status check (used by the retry button after
+     * a failure or corruption report).
+     */
     fun retryDatabaseStatusCheck() {
         logger.i("DatabaseInitViewModel.retryDatabaseStatusCheck", "Retrying database status check")
         checkDatabaseStatus()
     }
-
+    /**
+     * Starts the "create new database" flow with [passphrase]: if existing DB
+     * artifacts are present, asks for wipe confirmation first, otherwise goes
+     * straight to mandatory dimension setup.
+     */
     fun createNewDatabase(passphrase: String) {
         logger.i("DatabaseInitViewModel.createNewDatabase", "Create new database requested")
         val existingFiles = getDatabaseArtifactFiles().filter { it.exists() }
@@ -278,18 +305,25 @@ class DatabaseInitViewModel @Inject constructor(
         }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = false)
     }
-
+    /**
+     * User confirmed the wipe-then-create: proceeds to mandatory dimension
+     * setup with [passphrase] and [needsWipe] = true.
+     */
     fun confirmCreateNew(passphrase: String) {
         logger.i("DatabaseInitViewModel.confirmCreateNew", "User confirmed create new with wipe")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = true)
     }
-
+    /**
+     * Dismisses the create-new wipe confirmation prompt without wiping.
+     */
     fun cancelCreateNewWipe() {
         logger.i("DatabaseInitViewModel.cancelCreateNewWipe", "User cancelled create new wipe confirm")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
     }
-
+    /**
+     * Clears the shown restore outcome and re-checks DB status.
+     */
     fun dismissRestoreResult() {
         _uiState.update { it.copy(restoreResult = null) }
         checkDatabaseStatus()
@@ -312,7 +346,12 @@ class DatabaseInitViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Finalizes a new database: configures the passphrase, optionally wipes the
+     * old artifacts (with a safety backup), opens the session, and persists the
+     * mandatory life-dimension setup; on failure restores from the backup.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun completeNewDatabaseDimensionSetup(
         dimensionInputs: List<NewDatabaseDimensionInput>,
         onSuccess: () -> Unit,
@@ -400,7 +439,11 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Begins importing a database from [sourceUri]: if existing DB artifacts are
+     * present, asks for wipe confirmation first, otherwise imports immediately;
+     * [onSuccess] runs after a successful import.
+     */
     fun importDatabase(sourceUri: Uri, onSuccess: () -> Unit) {
         logger.i(
             "DatabaseInitViewModel.importDatabase",
@@ -423,7 +466,10 @@ class DatabaseInitViewModel @Inject constructor(
         }
         executeImportDatabase(sourceUri, onSuccess)
     }
-
+    /**
+     * User confirmed the wipe-then-import: runs the actual import of the
+     * previously-staged [Uri] into the app's database.
+     */
     fun confirmImportAfterWipe(onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.confirmImportAfterWipe", "User confirmed import with wipe")
         _uiState.update { it.copy(showImportWipeConfirm = false) }
@@ -433,7 +479,10 @@ class DatabaseInitViewModel @Inject constructor(
         pendingImportOnSuccess = null
         executeImportDatabase(uri, cb)
     }
-
+    /**
+     * Dismisses the import wipe confirmation prompt without importing.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun cancelImportWipe() {
         logger.i("DatabaseInitViewModel.cancelImportWipe", "User cancelled import wipe confirm")
         pendingImportUri = null
@@ -442,8 +491,20 @@ class DatabaseInitViewModel @Inject constructor(
     }
 
     private sealed class ImportIOResult {
+        /**
+         * The imported file is encrypted: import is paused so the UI can prompt
+         * for the passphrase; [dbFile] and [tempBackupDir] are retained for resume.
+         */
         data class NeedsPassphrase(val dbFile: File, val tempBackupDir: File?) : ImportIOResult()
+        /**
+         * The import finished successfully; [dbFile] is the finalized database and
+         * [passphrase] is the session key (null in plaintext mode).
+         */
         data class Completed(val dbFile: File, val passphrase: String?) : ImportIOResult()
+        /**
+         * The import failed: [cause] is the error, [restoreAttempted]/
+         * [restoreSucceeded] describe whether the pre-import backup was recovered.
+         */
         data class Failed(
             val cause: Throwable,
             val restoreAttempted: Boolean,
@@ -485,7 +546,6 @@ class DatabaseInitViewModel @Inject constructor(
             breadcrumb(stage = "encryption_prefs_backed_up")
             deleteAllDatabaseFiles()
             breadcrumb(stage = "runtime_artifacts_deleted")
-
             val copyResult = DatabaseImportSupport.copyDatabaseArtifacts(
                 context = context,
                 sourceUri = sourceUri,
@@ -510,7 +570,6 @@ class DatabaseInitViewModel @Inject constructor(
                     "companionFilesCopied" to copyResult.companionFilesCopied,
                 ),
             )
-
             if (!dbFile.exists() || dbFile.length() == 0L) {
                 throw Exception(context.getString(io.payanam.R.string.settings_import_error_empty_db))
             }
@@ -523,7 +582,6 @@ class DatabaseInitViewModel @Inject constructor(
                 stage = "wal_consolidation_done",
                 data = mapOf("dbSizeKB" to (dbFile.length() / 1024)),
             )
-
             val importedDbIsStandardSqlite = DatabaseImportSupport.isStandardSqliteFile(
                 databaseFile = dbFile,
                 logTag = "DatabaseInitViewModel.executeImportIO",
@@ -548,7 +606,6 @@ class DatabaseInitViewModel @Inject constructor(
                     )
                 }
             }
-
             val importedSchemaVersion = DatabaseImportSupport.validateSupportedPlaintextImportSchema(
                 context = context,
                 databaseFile = dbFile,
@@ -558,7 +615,6 @@ class DatabaseInitViewModel @Inject constructor(
                 stage = "plaintext_schema_gate_done",
                 data = mapOf("dbVersion" to importedSchemaVersion),
             )
-
             val encryptionPassphraseForImport = if (databaseEncryptionManager.isEncryptionEnabled()) {
                 runCatching { databaseSessionManager.requireOpenPassphrase() }.getOrElse {
                     throw IllegalStateException("Encrypted mode active but no open passphrase session is available.")
@@ -575,7 +631,6 @@ class DatabaseInitViewModel @Inject constructor(
                 )
                 breadcrumb(stage = "re_encrypted_with_session_passphrase")
             }
-
             val postImportHealth = DatabaseHealthChecker.checkDatabaseHealth(
                 context = context,
                 sqlCipherPassphrase = encryptionPassphraseForImport,
@@ -586,10 +641,8 @@ class DatabaseInitViewModel @Inject constructor(
                         ?: context.getString(io.payanam.R.string.loc_database_needs_repair),
                 )
             }
-
             markDatabaseInitCompletedDirect(dbFile, encryptionPassphraseForImport)
             breadcrumb(stage = "database_init_completed_marked")
-
             val openPassphrase = encryptionPassphraseForImport ?: ""
             val openResult = databaseSessionManager.openDatabase(openPassphrase)
             openResult.getOrElse { openError ->
@@ -654,12 +707,9 @@ class DatabaseInitViewModel @Inject constructor(
         )
         viewModelScope.launch {
             _uiState.update { it.copy(isImporting = true, errorMessage = null, restoreResult = null) }
-
             val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
             val existingDatabaseFiles = getDatabaseArtifactFiles().filter { it.exists() }
-
             val result = executeImportIO(sourceUri, dbFile, existingDatabaseFiles)
-
             when (result) {
                 is ImportIOResult.NeedsPassphrase -> {
                     pendingImportDbFile = result.dbFile
@@ -713,7 +763,12 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Resumes an encrypted import using the user-supplied [passphrase]: verifies
+     * it unlocks the staged DB, configures it, health-checks, opens the session,
+     * and on wrong passphrase keeps the prompt open (other failures restore backup).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
         breadcrumb(
@@ -730,7 +785,6 @@ class DatabaseInitViewModel @Inject constructor(
                         stage = "resume_import_pending_db_loaded",
                         data = mapOf("dbPath" to dbFile.absolutePath),
                     )
-
                     val canUnlock = DatabaseEncryptionMigrationSupport.canOpenWithSqlCipher(
                         context = context,
                         databaseFile = dbFile,
@@ -743,13 +797,11 @@ class DatabaseInitViewModel @Inject constructor(
                         )
                     }
                     breadcrumb(stage = "resume_import_passphrase_verified")
-
                     val configured = databaseEncryptionManager.configurePassphrase(passphrase)
                     if (!configured) {
                         throw IllegalStateException(context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed))
                     }
                     breadcrumb(stage = "resume_import_configure_passphrase_ok")
-
                     val postImportHealth = DatabaseHealthChecker.checkDatabaseHealth(
                         context = context,
                         sqlCipherPassphrase = passphrase,
@@ -760,10 +812,8 @@ class DatabaseInitViewModel @Inject constructor(
                                 ?: context.getString(io.payanam.R.string.loc_database_needs_repair),
                         )
                     }
-
                     markDatabaseInitCompletedDirect(dbFile, passphrase)
                     breadcrumb(stage = "resume_import_database_init_completed_marked")
-
                     val openResult = databaseSessionManager.openDatabase(passphrase)
                     openResult.getOrElse { openError ->
                         throw IllegalStateException(
@@ -780,7 +830,6 @@ class DatabaseInitViewModel @Inject constructor(
                     dir?.let { deleteTempBackup(it) }
                     breadcrumb(stage = "resume_import_pending_state_cleared")
                 }
-
                 delay(500)
                 _uiState.update { it.copy(isImporting = false, awaitingImportPassphrase = false) }
                 breadcrumb(stage = "resume_import_success_callback")
@@ -825,7 +874,10 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Cancels the encrypted-import passphrase prompt: restores pre-import backup,
+     * deletes the staged file, and returns to the status screen.
+     */
     fun cancelImportPassphrase() {
         logger.i("DatabaseInitViewModel.cancelImportPassphrase", "User cancelled imported DB passphrase prompt")
         breadcrumb(stage = "resume_import_cancelled_by_user")
@@ -861,7 +913,11 @@ class DatabaseInitViewModel @Inject constructor(
     }
 
     private fun readDatabaseInitCompletedFlag(dbFile: File): Boolean = dbInitReadInitCompletedFlag(dbFile)
-
+    /**
+     * Marks DB-init as completed for an already-healthy existing database and
+     * proceeds (best-effort; still calls [onSuccess] if the flag write fails).
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {

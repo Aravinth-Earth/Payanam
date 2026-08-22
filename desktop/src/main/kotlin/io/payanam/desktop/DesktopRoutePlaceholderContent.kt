@@ -4,13 +4,20 @@ package io.payanam.desktop
 
 import io.payanam.shared.settings.DesktopTopLevelRoute
 
+/**
+ * DesktopRoutePlaceholderContent.
+
+ */
 data class DesktopRoutePlaceholderContent(
     val title: String,
     val summary: String,
     val readiness: String,
     val details: List<String>,
 )
-
+/**
+ * Placeholder copy for a not-yet-implemented route (null when the route has
+ * real content).
+ */
 fun desktopRoutePlaceholderContent(route: DesktopTopLevelRoute): DesktopRoutePlaceholderContent? =
     when (route) {
         DesktopTopLevelRoute.SETTINGS -> {

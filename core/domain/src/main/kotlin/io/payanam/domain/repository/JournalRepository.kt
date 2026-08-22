@@ -12,7 +12,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
- * Repository interface for Day Journal operations.
+ * Repository interface for day journal operations.
  */
 interface JournalRepository {
     
@@ -32,7 +32,7 @@ interface JournalRepository {
     fun getResponses(entryId: String): Flow<List<DayJournalResponse>>
     
     /**
-     * Save a journal response. Creates or updates as needed.
+     * Save a journal response. creates or updates as needed.
      */
     suspend fun saveResponse(entryId: String, input: DayJournalResponseInput): DayJournalResponse
     
@@ -62,9 +62,8 @@ interface JournalRepository {
      * Get all responses for an entry by entry ID.
      */
     suspend fun getResponsesByEntryId(entryId: String): List<DayJournalResponse>
-    
     /**
-     * Get all journal entries.
+     * Emits every journal entry as a [Flow], for reactive list/grid updates.
      */
     fun getAllJournalEntries(): Flow<List<DayJournalEntry>>
     
@@ -80,7 +79,7 @@ interface JournalRepository {
 }
 
 /**
- * Repository interface for App Settings.
+ * Repository interface for app settings.
  */
 interface AppSettingsRepository {
     
@@ -111,7 +110,7 @@ interface AppSettingsRepository {
 }
 
 /**
- * Repository interface for Task Occurrence operations.
+ * Repository interface for task occurrence operations.
  */
 interface TaskOccurrenceRepository {
     
@@ -121,7 +120,7 @@ interface TaskOccurrenceRepository {
     suspend fun getOccurrencesByTaskId(taskId: String): List<io.payanam.domain.model.TaskOccurrence>
     
     /**
-     * Get all occurrences for a task as Flow.
+     * Get all occurrences for a task as flow.
      */
     fun getOccurrencesForTask(taskId: String): Flow<List<io.payanam.domain.model.TaskOccurrence>>
     
@@ -207,7 +206,7 @@ interface TaskOccurrenceRepository {
 }
 
 /**
- * Repository interface for Notification scheduling.
+ * Repository interface for notification scheduling.
  */
 interface NotificationRepository {
     

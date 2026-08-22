@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:function-naming")
+@file:Suppress("ktlint:standard:function-naming", "MagicNumber")
 
 package io.payanam.ui.perf
 
@@ -12,20 +12,23 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val PERF_SOURCE = "PerfBaseline"
 private const val RECOMPOSITION_LOG_INTERVAL = 25
-
 object PerfBaselineTelemetry {
     private val logger = UnifiedLogger.getInstance()
     private val onceEvents = ConcurrentHashMap.newKeySet<String>()
     private val queryCounters = ConcurrentHashMap<String, AtomicInteger>()
     private val recompositionCounters = ConcurrentHashMap<String, AtomicInteger>()
-
+    /**
+     * Clears all once-keys and counters (used between measurement runs).
+     */
     fun reset() {
         onceEvents.clear()
         queryCounters.clear()
         recompositionCounters.clear()
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT screen=perf event=telemetry_reset tMs=${android.os.SystemClock.elapsedRealtime()}")
     }
-
+    /**
+     * Logs a structured PERF_BASELINE_EVENT line with screen/event/timing data.
+     */
     fun markEvent(
         screen: String,
         event: String,
@@ -38,7 +41,9 @@ object PerfBaselineTelemetry {
         val messageData = payload.entries.joinToString(" ") { (key, value) -> "$key=$value" }
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT $messageData", payload)
     }
-
+    /**
+     * Like [markEvent] but fires only the first time [key] is seen per run.
+     */
     fun markEventOnce(
         key: String,
         screen: String,
@@ -48,7 +53,9 @@ object PerfBaselineTelemetry {
         if (!onceEvents.add(key)) return
         markEvent(screen = screen, event = event, data = data)
     }
-
+    /**
+     * Adds [amount] to a per-screen query counter and logs the running total.
+     */
     fun incrementQuery(
         screen: String,
         source: String,
@@ -68,7 +75,10 @@ object PerfBaselineTelemetry {
         )
         return total
     }
-
+    /**
+     * Counts a recomposition per screen section; logs the first few and then
+     * every 25th to keep log volume bounded.
+     */
     fun incrementRecomposition(
         screen: String,
         section: String,

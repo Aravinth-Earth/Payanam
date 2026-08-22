@@ -57,7 +57,6 @@ fun FocusModeSelectionScreen(
 ) {
     val logger = UnifiedLogger.getInstance()
     var selectedPreset by remember { mutableStateOf(FocusModePreset.FULL_SUITE) }
-
     Surface(
         modifier = Modifier.fillMaxSize(),
         color = MaterialTheme.colorScheme.background,
@@ -78,7 +77,6 @@ fun FocusModeSelectionScreen(
                 modifier = Modifier.size(72.dp),
                 tint = MaterialTheme.colorScheme.primary,
             )
-
             Spacer(modifier = Modifier.height(24.dp))
 
             // Title
@@ -88,7 +86,6 @@ fun FocusModeSelectionScreen(
                 fontWeight = FontWeight.Bold,
                 textAlign = TextAlign.Center,
             )
-
             Spacer(modifier = Modifier.height(12.dp))
 
             // Explanation
@@ -98,7 +95,6 @@ fun FocusModeSelectionScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
             )
-
             Spacer(modifier = Modifier.height(32.dp))
 
             // Preset Cards
@@ -110,7 +106,6 @@ fun FocusModeSelectionScreen(
                 )
                 Spacer(modifier = Modifier.height(12.dp))
             }
-
             Spacer(modifier = Modifier.height(24.dp))
 
             // Continue Button
@@ -132,7 +127,6 @@ fun FocusModeSelectionScreen(
                     style = MaterialTheme.typography.titleMedium,
                 )
             }
-
             Spacer(modifier = Modifier.height(12.dp))
 
             // Skip link
@@ -151,7 +145,6 @@ fun FocusModeSelectionScreen(
                     style = MaterialTheme.typography.bodyMedium,
                 )
             }
-
             Spacer(modifier = Modifier.height(32.dp))
         }
     }
@@ -198,7 +191,6 @@ private fun PresetCard(
                 selected = isSelected,
                 onClick = { onSelected() },
             )
-
             Spacer(modifier = Modifier.width(12.dp))
 
             // Text content
@@ -220,9 +212,7 @@ private fun PresetCard(
                         MaterialTheme.colorScheme.onSurface
                     },
                 )
-
                 Spacer(modifier = Modifier.height(4.dp))
-
                 Text(
                     text = stringResource(
                         id = when (preset) {

@@ -6,10 +6,12 @@ import io.payanam.database.entity.TagEntity
 import io.payanam.domain.model.Tag
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-
 object TagMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-
+    /**
+     * Converts a Room [TagEntity] into the domain [Tag] model, parsing the
+     * persisted ISO date-time strings back into [PersistedDateTime].
+     */
     fun TagEntity.toDomain(): Tag =
         Tag(
             id = id,

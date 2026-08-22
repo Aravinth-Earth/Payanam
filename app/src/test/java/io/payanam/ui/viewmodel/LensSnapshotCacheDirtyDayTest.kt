@@ -49,7 +49,6 @@ class LensSnapshotCacheDirtyDayTest {
 
         repository.dirtyDays = setOf(dayKey)
         cache.getOrLoad(dayKey)
-
         assertEquals(2, repository.calculateCalls)
     }
 
@@ -59,7 +58,6 @@ class LensSnapshotCacheDirtyDayTest {
         val dayB = "2026-02-21"
 
         cache.loadForDays(listOf(dayA, dayA, dayB))
-
         assertEquals(2, repository.calculateCalls)
     }
 

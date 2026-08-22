@@ -9,7 +9,6 @@ import io.payanam.ui.theme.LifeDimensionColors
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
-
 class AppPreferencesStateTest {
 
     @Test
@@ -33,7 +32,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.HEALTH_WELLNESS.id, "Fitness", Color.Blue, true),
             ),
         )
-
         assertEquals("Custom Work", state.labelFor(LifeDimension.CAREER_WORK.id))
         assertEquals("Fitness", state.labelFor(LifeDimension.HEALTH_WELLNESS.id))
     }
@@ -41,7 +39,6 @@ class AppPreferencesStateTest {
     @Test
     fun `labelFor returns input label when no preferences loaded`() {
         val state = AppPreferencesState()
-
         assertEquals("Career & Work", state.labelFor("Career & Work"))
     }
 
@@ -53,14 +50,12 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.CAREER_WORK.id, "Work", customColor, true),
             ),
         )
-
         assertEquals(customColor, state.colorFor(LifeDimension.CAREER_WORK.id))
     }
 
     @Test
     fun `colorFor returns default color when no custom color`() {
         val state = AppPreferencesState()
-
         val defaultColor = state.colorFor(LifeDimension.CAREER_WORK.id)
         assertEquals(LifeDimensionColors.forDimension(LifeDimension.CAREER_WORK.id), defaultColor)
     }
@@ -73,7 +68,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.HEALTH_WELLNESS.id, "Fitness", Color.Blue, true),
             ),
         )
-
         assertEquals(false, state.isVisible(LifeDimension.CAREER_WORK.id))
         assertEquals(true, state.isVisible(LifeDimension.HEALTH_WELLNESS.id))
     }
@@ -81,7 +75,6 @@ class AppPreferencesStateTest {
     @Test
     fun `isVisible returns true by default when no custom setting`() {
         val state = AppPreferencesState()
-
         assertEquals(true, state.isVisible(LifeDimension.CAREER_WORK.id))
     }
 
@@ -93,7 +86,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.HEALTH_WELLNESS.id, "Fitness", Color.Blue, false),
             ),
         )
-
         val visible = state.visibleDimensions()
         assertEquals(1, visible.size)
         assertEquals(LifeDimension.CAREER_WORK.id, visible[0].key)
@@ -107,7 +99,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.HEALTH_WELLNESS.id, "Fitness", Color.Blue, false),
             ),
         )
-
         val options = state.optionsForSelection(LifeDimension.HEALTH_WELLNESS.id)
         assertEquals(2, options.size) // Both visible and selected hidden
     }
@@ -120,7 +111,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.HEALTH_WELLNESS.id, "Fitness", Color.Blue, false),
             ),
         )
-
         val options = state.optionsForSelection(selectedDimensionId = null)
         assertEquals(1, options.size) // Only visible
     }
@@ -132,7 +122,6 @@ class AppPreferencesStateTest {
                 DimensionPreference(LifeDimension.CAREER_WORK.id, "தொழில் & வேலை", Color.Red, true),
             ),
         )
-
         assertEquals("தொழில் & வேலை", state.labelForDimension(dimensionId = LifeDimension.CAREER_WORK.id, dimensionName = null))
     }
 
@@ -149,7 +138,6 @@ class AppPreferencesStateTest {
             color = Color.Red,
             isVisible = true,
         )
-
         assertTrue(state.matchesDimensionOption(option = option, dimensionId = LifeDimension.CAREER_WORK.id, dimensionName = null))
     }
 
@@ -166,7 +154,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals(true, state.visibleDimensionOptions().single().hasCustomLabelOverride)
     }
 
@@ -184,7 +171,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals("dim_work_livelihood", state.visibleDimensionOptions().single().id)
     }
 
@@ -201,7 +187,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals("Work & Livelihood", state.labelForDimensionId("dim_work_livelihood"))
     }
 
@@ -219,7 +204,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals("Unassigned", state.labelForDimensionId("dim_unassigned"))
     }
 
@@ -238,7 +222,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals(expectedColor, state.colorForDimensionId("dim_unassigned"))
     }
 
@@ -257,7 +240,6 @@ class AppPreferencesStateTest {
                 ),
             ),
         )
-
         assertEquals("help_outline", state.iconOptionForDimensionId("dim_unassigned")?.key)
         assertEquals("help_outline", DimensionIconCatalog.defaultIconKeyForDimensionId("dim_unassigned"))
     }
@@ -268,7 +250,6 @@ class AppPreferencesStateTest {
             currentTaskFilter = TaskFilter.TODAY,
             launchDestination = LaunchDestination(route = "tasks", taskFilter = TaskFilter.FUTURE),
         )
-
         assertEquals(TaskFilter.FUTURE, state.effectiveLaunchTaskFilter())
     }
 
@@ -278,14 +259,12 @@ class AppPreferencesStateTest {
             currentTaskFilter = TaskFilter.OVERDUE,
             launchDestination = LaunchDestination(route = "tasks", taskFilter = null),
         )
-
         assertEquals(TaskFilter.OVERDUE, state.effectiveLaunchTaskFilter())
     }
 
     @Test
     fun `insights chart defaults keep time module and average daily time enabled only`() {
         val state = AppPreferencesState()
-
         assertEquals(true, state.chartTimeModuleEnabled)
         assertEquals(false, state.chartTimeOverallSnapshotEnabled)
         assertEquals(false, state.chartTimeExecutionDetailsEnabled)

@@ -27,6 +27,9 @@ class TimeViewModelLoadStateTest {
     }
 
     @Test
+    /**
+     * Is time screen date content ready false until all required sections are loaded.
+     */
     fun isTimeScreenDateContentReady_false_until_all_required_sections_are_loaded() {
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
@@ -34,11 +37,13 @@ class TimeViewModelLoadStateTest {
             occurrencesLoaded = true,
             needsOccurrences = true,
         )
-
         assertFalse(isReady)
     }
 
     @Test
+    /**
+     * Is time screen date content ready true when entries planned tasks and occurrences are loaded.
+     */
     fun isTimeScreenDateContentReady_true_when_entries_planned_tasks_and_occurrences_are_loaded() {
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
@@ -46,11 +51,13 @@ class TimeViewModelLoadStateTest {
             occurrencesLoaded = true,
             needsOccurrences = true,
         )
-
         assertTrue(isReady)
     }
 
     @Test
+    /**
+     * Is time screen date content ready true without occurrences when minimal mode contract applies.
+     */
     fun isTimeScreenDateContentReady_true_without_occurrences_when_minimal_mode_contract_applies() {
         val isReady = isTimeScreenDateContentReady(
             entriesLoaded = true,
@@ -58,14 +65,12 @@ class TimeViewModelLoadStateTest {
             occurrencesLoaded = false,
             needsOccurrences = false,
         )
-
         assertTrue(isReady)
     }
 
     @Test
     fun shouldUseTodaysPlannedTasks_true_only_for_today() {
         val today = LocalDate.of(2026, 4, 9)
-
         assertTrue(shouldUseTodaysPlannedTasks(today, today))
         assertEquals(false, shouldUseTodaysPlannedTasks(today.minusDays(1), today))
         assertEquals(false, shouldUseTodaysPlannedTasks(today.plusDays(1), today))

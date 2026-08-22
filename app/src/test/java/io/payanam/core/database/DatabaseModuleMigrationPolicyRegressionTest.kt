@@ -20,13 +20,15 @@ class DatabaseModuleMigrationPolicyRegressionTest {
     }
 
     @Test
+    /**
+     * Production database module does not use destructive migration fallback.
+     */
     fun production_database_module_does_not_use_destructive_migration_fallback() {
         val modulePath = resolveDatabaseModuleSourcePath()
         val sessionManagerPath = resolveDatabaseSessionManagerSourcePath()
         val moduleSource = File(modulePath).readText()
         val sessionManagerSource = File(sessionManagerPath).readText()
         val combinedSource = moduleSource + sessionManagerSource
-
         val hasDestructiveFallback = combinedSource.contains(".fallbackToDestructiveMigration(")
         val hasExplicitWalMode = combinedSource.contains(
             ".setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)",
@@ -47,7 +49,6 @@ class DatabaseModuleMigrationPolicyRegressionTest {
                 "hasPeriodicWalCheckpoint" to hasPeriodicWalCheckpoint.toString(),
             ),
         )
-
         assertFalse(
             "Production database module must not use fallbackToDestructiveMigration()",
             hasDestructiveFallback,

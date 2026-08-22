@@ -11,9 +11,14 @@ import io.payanam.domain.repository.TaskPlanItem
 import io.payanam.domain.repository.TaskRealityItem
 import io.payanam.domain.repository.UnifiedLensSnapshot
 import org.junit.Test
-
+/**
+ * Provides the lens daily insight cache codec test.
+ */
 class LensDailyInsightCacheCodecTest {
     @Test
+    /**
+     * Performs the encode decode round trips unified snapshot.
+     */
     fun encodeDecode_roundTripsUnifiedSnapshot() {
         val snapshot =
             UnifiedLensSnapshot(
@@ -81,10 +86,8 @@ class LensDailyInsightCacheCodecTest {
                         adherenceScore = 0.77f,
                     ),
             )
-
         val encoded = encodeUnifiedLensSnapshot(snapshot)
         val decoded = decodeUnifiedLensSnapshot(snapshot.planning.dayKey, encoded)
-
         assertThat(decoded).isEqualTo(snapshot)
     }
 }

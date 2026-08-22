@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:max-line-length", "LongMethod")
+@file:Suppress("ktlint:standard:max-line-length", "LongMethod", "MagicNumber")
+
 
 package io.payanam.database.repository
 
@@ -20,6 +21,13 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [TaskOccurrenceRepository]. Manages per-day
+ * occurrence rows for recurring tasks: one [TaskOccurrenceEntity] per (task,
+ * day) tracking whether that day's occurrence was completed/skipped/missed.
+ * `toggleOccurrence` and the field-less `recordOccurrence` are both UPSERT:
+ * they update an existing row if present, never duplicate.
+ */
 class TaskOccurrenceRepositoryImpl
     @Inject
     constructor(
@@ -29,6 +37,9 @@ class TaskOccurrenceRepositoryImpl
         private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
         private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
 
+        /**
+         * Returns every occurrence for [taskId], newest first, as a one-shot list.
+         */
         override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> =
             sessionManager
                 .requireDatabase()
@@ -38,18 +49,24 @@ class TaskOccurrenceRepositoryImpl
                 ?.map { it.toDomain() }
                 ?: emptyList()
 
+        /**
+         * Emits every occurrence for [taskId], newest first, as a [Flow].
+         */
         override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> =
             sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTask(taskId).map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Returns occurrences for [taskId] within the last [days] days (inclusive),
+         * newest first.
+         */
         override suspend fun getOccurrencesForLastNDays(
             taskId: String,
             days: Int,
         ): List<TaskOccurrence> {
             val today = LocalDate.now()
             val startDate = today.minusDays((days - 1).toLong())
-
             val entities =
                 sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTaskInRange(
                     taskId = taskId,
@@ -72,15 +89,17 @@ class TaskOccurrenceRepositoryImpl
             return entities.map { it.toDomain() }
         }
 
+        /**
+         * Returns a map of task id → its occurrences within the last [days] days
+         * (inclusive) for every [taskIds]. Empty input returns an empty map.
+         */
         override suspend fun getOccurrencesForTasksInLastNDays(
             taskIds: List<String>,
             days: Int,
         ): Map<String, List<TaskOccurrence>> {
             if (taskIds.isEmpty()) return emptyMap()
-
             val today = LocalDate.now()
             val startDate = today.minusDays((days - 1).toLong())
-
             val entities =
                 sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForTasksInRange(
                     taskIds = taskIds,
@@ -105,6 +124,9 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Returns the single occurrence for [taskId] on [date], or null.
+         */
         override suspend fun getOccurrenceForDate(
             taskId: String,
             date: LocalDate,
@@ -117,6 +139,9 @@ class TaskOccurrenceRepositoryImpl
             return entity?.toDomain()
         }
 
+        /**
+         * Emits every occurrence on [date] across all tasks, as a [Flow].
+         */
         override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> {
             val dateStr = date.format(dateFormatter)
             return sessionManager.requireDatabase().taskOccurrenceDao().getOccurrencesForDate(dateStr).map { entities ->
@@ -124,6 +149,13 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Upserts the occurrence for [taskId] on [date] to [newStatus]: updates the
+         * existing row when present (preserving `actualCompletedAt` / `completionRate`
+         * unless overridden), or inserts a new row. Sets `completedAt` when
+         * `newStatus == "completed"`. Marks the day insight-dirty. Returns the
+         * resulting domain [TaskOccurrence].
+         */
         override suspend fun toggleOccurrence(
             taskId: String,
             date: LocalDate,
@@ -146,10 +178,8 @@ class TaskOccurrenceRepositoryImpl
                     "actualDurationMinutes" to (actualDurationMinutes?.toString() ?: "null"),
                 ),
             )
-
             val now = LocalDateTime.now()
             val dateStr = date.format(dateFormatter)
-
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
             logger.d(
                 "TaskOccurrenceRepositoryImpl.toggleOccurrence",
@@ -202,7 +232,6 @@ class TaskOccurrenceRepositoryImpl
                         "hasNote" to (note != null),
                     ),
                 )
-
                 TaskOccurrence(
                     id = existing.id,
                     taskId = taskId,
@@ -264,10 +293,13 @@ class TaskOccurrenceRepositoryImpl
             }.also { markDirtyForDay(date, "habit_occurrence_toggled") }
         }
 
+        /**
+         * Deletes the occurrence for [taskId] on [date] and marks the day
+         * insight-dirty. No-ops when no row exists for that (task, date).
+         */
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate) {
             val dateStr = date.format(dateFormatter)
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
-
             if (existing != null) {
                 sessionManager.requireDatabase().taskOccurrenceDao().deleteById(existing.id)
                 markDirtyForDay(date, "habit_occurrence_deleted")
@@ -294,6 +326,10 @@ class TaskOccurrenceRepositoryImpl
             }
         }
 
+        /**
+         * Persists a domain [TaskOccurrence] directly (insert-only, caller owns id).
+         * Marks the day insight-dirty.
+         */
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             val entity =
                 TaskOccurrenceEntity(
@@ -327,6 +363,12 @@ class TaskOccurrenceRepositoryImpl
             )
         }
 
+        /**
+         * Upserts an occurrence for [taskId] on [dueDate] with the given [status] /
+         * [note] / [completionRate]. Updates the existing row when present (preserving
+         * `actualCompletedAt`), inserts otherwise. Marks the day insight-dirty.
+         * Returns the resulting domain [TaskOccurrence].
+         */
         override suspend fun recordOccurrence(
             taskId: String,
             dueDate: LocalDateTime,
@@ -394,9 +436,7 @@ class TaskOccurrenceRepositoryImpl
                     note = note,
                 )
             }
-
             val id = UUID.randomUUID().toString()
-
             val entity =
                 TaskOccurrenceEntity(
                     id = id,
@@ -427,6 +467,9 @@ class TaskOccurrenceRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Hard-deletes the occurrence with the given [id].
+         */
         override suspend fun deleteOccurrence(id: String) {
             sessionManager.requireDatabase().taskOccurrenceDao().deleteById(id)
             logger.d("TaskOccurrenceRepositoryImpl.deleteOccurrence", "Deleted occurrence", mapOf("id" to id))

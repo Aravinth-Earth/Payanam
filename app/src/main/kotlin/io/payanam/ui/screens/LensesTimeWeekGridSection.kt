@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.Canvas
@@ -54,7 +56,6 @@ internal fun WeekGridSection(
             mapOf("days" to state.data.days.size),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -64,7 +65,6 @@ internal fun WeekGridSection(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-
         if (state.data.days.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.loc_lens_week_grid_no_data),
@@ -77,7 +77,6 @@ internal fun WeekGridSection(
             val slotLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.10f)
             val hourLineColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.25f)
             val colBoundaryColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -170,7 +169,6 @@ private fun WeekGridYAxis(totalChartHeightDp: Int) {
     val dayLabelHeightDp = 16
     val axisHeightDp = totalChartHeightDp + dayLabelHeightDp
     val gridHeightDp = totalChartHeightDp
-
     Box(
         modifier = Modifier
             .width(32.dp)

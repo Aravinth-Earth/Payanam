@@ -294,9 +294,9 @@ internal fun DesktopHabitSortOption.nextDesktopOption(): DesktopHabitSortOption 
 
 internal fun FoundationReadiness.swatch(): Color =
     when (this) {
-        FoundationReadiness.SharedReady -> Color(0xFF3E7B5A)
-        FoundationReadiness.ExtractionNext -> Color(0xFFB47B2A)
-        FoundationReadiness.AndroidOnly -> Color(0xFF9C4F4F)
+        FoundationReadiness.SharedReady -> @Suppress("MagicNumber") Color(0xFF3E7B5A)
+        FoundationReadiness.ExtractionNext -> @Suppress("MagicNumber") Color(0xFFB47B2A)
+        FoundationReadiness.AndroidOnly -> @Suppress("MagicNumber") Color(0xFF9C4F4F)
     }
 
 @Composable

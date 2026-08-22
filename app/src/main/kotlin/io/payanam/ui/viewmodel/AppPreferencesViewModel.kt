@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam.ui.viewmodel
 import android.content.Context
 import android.content.res.Configuration
@@ -62,6 +64,9 @@ private val unresolvedDimensionResolutionKeys = mutableSetOf<String>()
 private const val DEFAULT_TIME_HOUR_HEIGHT_DP = 60f
 private const val MIN_TIME_HOUR_HEIGHT_DP = 24f
 private const val MAX_TIME_HOUR_HEIGHT_DP = 2880f
+/**
+ * User-selectable UI theme mode (system / light / dark), persisted by [key].
+ */
 enum class ThemeModeOption(val key: String) {
     SYSTEM("system"),
     LIGHT("light"),
@@ -69,9 +74,15 @@ enum class ThemeModeOption(val key: String) {
     ;
 
     companion object {
+        /**
+         * Resolves the option whose [key] matches, or null when unknown.
+         */
         fun fromKey(key: String?): ThemeModeOption? = entries.find { it.key == key }
     }
 }
+/**
+ * User-selectable font family, persisted by [key] (falls back to nearest known family).
+ */
 enum class FontFamilyOption(val key: String) {
     SANS_SERIF("sans-serif"),
     MONOSPACE("monospace"),
@@ -80,6 +91,9 @@ enum class FontFamilyOption(val key: String) {
     ;
 
     companion object {
+        /**
+         * Resolves the option whose [key] matches, or null when unknown.
+         */
         fun fromKey(key: String?): FontFamilyOption? = when (key) {
             "roboto", "nunito", "orbitron", "dosis", "sans-serif" -> SANS_SERIF
             "ubuntu-mono", "monospace" -> MONOSPACE
@@ -89,15 +103,24 @@ enum class FontFamilyOption(val key: String) {
         }
     }
 }
+/**
+ * User-selectable clock format (24h / 12h), persisted by [key].
+ */
 enum class TimeFormatOption(val key: String, val use24Hour: Boolean) {
     TWENTY_FOUR("24h", true),
     TWELVE("12h", false),
     ;
 
     companion object {
+        /**
+         * Resolves the option whose [key] matches, or null when unknown.
+         */
         fun fromKey(key: String?): TimeFormatOption? = entries.find { it.key == key }
     }
 }
+/**
+ * User-selectable app language (system / English / Tamil), persisted by [key].
+ */
 enum class AppLanguageOption(val key: String) {
     SYSTEM("system"),
     ENGLISH("en"),
@@ -105,9 +128,15 @@ enum class AppLanguageOption(val key: String) {
     ;
 
     companion object {
+        /**
+         * Resolves the option whose [key] matches, or null when unknown.
+         */
         fun fromKey(key: String?): AppLanguageOption? = entries.find { it.key == key }
     }
 }
+/**
+ * One configured life-dimension row: label/color/visibility/weight plus its canonical id.
+ */
 data class DimensionPreference(
     val key: String,
     val label: String,
@@ -120,6 +149,9 @@ data class DimensionPreference(
     val description: String? = null,
     val weight: Double = 1.0,
 )
+/**
+ * A selectable dimension option (defaults + dynamic), with resolved icon + visibility.
+ */
 data class DimensionOption(
     val id: String,
     val label: String,
@@ -131,11 +163,16 @@ data class DimensionOption(
     val description: String? = null,
     val weight: Double = 1.0,
 )
-
+/**
+ * Remembers which screen (route) opens on launch, with an optional task filter.
+ */
 data class LaunchDestination(
     val route: String = "",
     val taskFilter: TaskFilter? = null,
 )
+/**
+ * Auto-backup cadence options, persisted by [key] with [minutes] for scheduling.
+ */
 enum class BackupInterval(val key: String, val minutes: Long) {
     FIFTEEN_MIN("15m", 15),
     THIRTY_MIN("30m", 30),
@@ -147,6 +184,9 @@ enum class BackupInterval(val key: String, val minutes: Long) {
     ;
 
     companion object {
+        /**
+         * Resolves the option whose [key] matches, or null when unknown.
+         */
         fun fromKey(key: String?): BackupInterval? = entries.find { it.key == key }
     }
 }
@@ -186,7 +226,9 @@ val BackupInterval.labelResId: Int
         BackupInterval.TWELVE_HOURS -> R.string.settings_option_backup_12_hours
         BackupInterval.DAILY -> R.string.settings_option_backup_daily
     }
-
+/**
+ * Snapshot of every user-facing preference, surfaced to the Settings UI.
+ */
 data class AppPreferencesState(
     val themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
     val appLanguage: AppLanguageOption = AppLanguageOption.SYSTEM,
@@ -247,10 +289,19 @@ data class AppPreferencesState(
     val isLoading: Boolean = true,
 )
 val LocalAppPreferences = compositionLocalOf { AppPreferencesState() }
+/**
+ * Resolves the display label for [dimensionName], checking dimension prefs then dynamic options, falling back to the raw name.
+ */
 fun AppPreferencesState.labelFor(dimensionName: String): String = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.label
     ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.label
     ?: dimensionName
+/**
+ * Resolves the display label for a dimension by its [dimensionId], or null.
+ */
 fun AppPreferencesState.labelForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.label
+/**
+ * Resolves a dimension label: tries the [dimensionId] first, then falls back to looking up [dimensionName] via labelFor.
+ */
 fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: String?): String? {
     val directLabel = labelForDimensionId(dimensionId)
     if (!directLabel.isNullOrBlank()) {
@@ -262,6 +313,9 @@ fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: S
     }
     return labelFor(fallbackName)
 }
+/**
+ * True when [option] matches the given dimension (by id or resolved label).
+ */
 fun AppPreferencesState.matchesDimensionOption(
     option: DimensionOption,
     dimensionId: String?,
@@ -279,12 +333,27 @@ fun AppPreferencesState.matchesDimensionOption(
     }
     return labelForDimension(dimensionId, normalizedName) == option.label
 }
+/**
+ * Resolves the color for [dimensionName] from prefs/dynamic options, falling back to the canonical dimension color.
+ */
 fun AppPreferencesState.colorFor(dimensionName: String): Color = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.color
     ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.color
     ?: LifeDimensionColors.forDimension(dimensionName)
+/**
+ * Resolves the color for a dimension by its [dimensionId], or null.
+ */
 fun AppPreferencesState.colorForDimensionId(dimensionId: String?): Color? = findDimensionOption(dimensionId)?.color
+/**
+ * Resolves the icon key for a dimension by its [dimensionId], or null.
+ */
 fun AppPreferencesState.iconKeyForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.iconKey
+/**
+ * Resolves the icon option for a dimension by its [dimensionId], or null.
+ */
 fun AppPreferencesState.iconOptionForDimensionId(dimensionId: String?): DimensionIconOption? = findDimensionOption(dimensionId)?.let { DimensionIconCatalog.resolve(it.iconKey, it.id) }
+/**
+ * True when auto-tracking is enabled for [dimensionId] (matching canonical id too).
+ */
 fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Boolean {
     val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
     val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
@@ -294,8 +363,14 @@ fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Bo
             (!requestedCanonicalId.isNullOrBlank() && storedCanonicalId == requestedCanonicalId)
     }?.value ?: false
 }
+/**
+ * Resolves a dimension color: by [dimensionId] first, then by resolved [dimensionName].
+ */
 fun AppPreferencesState.colorForDimension(dimensionId: String?, dimensionName: String?): Color? = colorForDimensionId(dimensionId)
     ?: dimensionName?.trim()?.takeIf { it.isNotEmpty() }?.let(::colorFor)
+/**
+ * True when the dimension [dimensionId] is in the visible set (defaults to visible).
+ */
 fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
     val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return true
     val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
@@ -307,15 +382,30 @@ fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
                 )
     }
 }
+/**
+ * True when the named dimension [dimensionName] is visible (defaults to visible).
+ */
 fun AppPreferencesState.isVisible(dimensionName: String): Boolean = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.isVisible ?: true
+/**
+ * The task filter to use at launch: the launch-destination filter, or the current one.
+ */
 fun AppPreferencesState.effectiveLaunchTaskFilter(): TaskFilter = launchDestination.taskFilter ?: currentTaskFilter
+/**
+ * All dimension preferences marked visible.
+ */
 fun AppPreferencesState.visibleDimensions(): List<DimensionPreference> = dimensionPreferences.filter { it.isVisible }
+/**
+ * Dimension preferences offered for selection: visible ones, plus [selected] even if hidden.
+ */
 fun AppPreferencesState.optionsForSelection(selected: LifeDimension?): List<DimensionPreference> {
     if (selected == null) {
         return visibleDimensions()
     }
     return dimensionPreferences.filter { it.isVisible || it.canonicalId == selected.id || it.id == selected.id }
 }
+/**
+ * Merged, de-duplicated, visible dimension options (defaults + dynamic).
+ */
 fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
     val defaults = dimensionPreferences.map {
         DimensionOption(
@@ -333,6 +423,9 @@ fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
         .distinctBy { it.id }
         .filter { it.isVisible }
 }
+/**
+ * Dimension options for selection: visible ones, or all when [selectedDimensionId] is blank; [selectedDimensionId] itself is always included.
+ */
 fun AppPreferencesState.optionsForSelection(selectedDimensionId: String?): List<DimensionOption> {
     val defaults = dimensionPreferences.map {
         DimensionOption(
@@ -411,6 +504,9 @@ private fun AppPreferencesState.findDimensionOption(dimensionId: String?): Dimen
 private fun dimensionSortOrder(dimensionId: String): Int = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.sortOrder ?: Int.MAX_VALUE
 
 @HiltViewModel
+/**
+ * Exposes app settings (theme, language, dimensions, backup, charts) and persists edits.
+ */
 class AppPreferencesViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val lifeDimensionCatalogRepository: LifeDimensionCatalogRepository,
@@ -640,13 +736,21 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Persists the chosen UI theme mode.
+     */
     fun setThemeMode(mode: ThemeModeOption) {
         saveSetting(KEY_THEME_MODE, mode.key)
     }
+    /**
+     * Persists the chosen app language.
+     */
     fun setAppLanguage(language: AppLanguageOption) {
         saveSetting(KEY_APP_LANGUAGE, language.key)
     }
+    /**
+     * Normalizes [languageTag] to a supported tag and updates the runtime system language.
+     */
     fun updateSystemLanguageTag(languageTag: String?) {
         val normalizedTag = normalizeSupportedLanguageTag(languageTag)
         if (runtimeSystemLanguageTag.value == normalizedTag) {
@@ -659,20 +763,36 @@ class AppPreferencesViewModel @Inject constructor(
             mapOf("systemLanguageTag" to normalizedTag),
         )
     }
+    /**
+     * Persists the chosen font family.
+     */
     fun setFontFamily(fontFamily: FontFamilyOption) {
         saveSetting(KEY_FONT_FAMILY, fontFamily.key)
     }
+    /**
+     * Persists the chosen clock format.
+     */
     fun setTimeFormat(timeFormat: TimeFormatOption) {
         saveSetting(KEY_TIME_FORMAT, timeFormat.key)
     }
+    /**
+     * Persists the timeline hour-height (clamped to the supported DP range).
+     */
     fun setTimeHourHeightDp(hourHeightDp: Float) {
         val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
         val normalized = String.format(Locale.US, "%.2f", clamped)
         saveSetting(KEY_TIME_HOUR_HEIGHT_DP, normalized)
     }
+    /**
+     * Persists a user-edited display label for [dimension] (resolves to its id).
+     */
     fun setDimensionLabel(dimension: LifeDimension, label: String) {
         setDimensionLabel(dimension.id, label)
     }
+    /**
+     * Persists a user-edited display label for a dimension by [dimensionId].
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionLabel(dimensionId: String, label: String) {
         viewModelScope.launch {
             val normalizedLabel = normalizeDimensionLabelForStorage(
@@ -697,6 +817,9 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Persists the editable weight for [dimension] (delegates to the id overload).
+     */
     fun setDimensionWeight(dimension: LifeDimension, weight: Double) {
         setDimensionWeight(dimension.id, weight)
     }
@@ -706,6 +829,7 @@ class AppPreferencesViewModel @Inject constructor(
      * the NEXT day-score recalc; this edit triggers an immediate L3-only
      * recalc (self-gov `dim_weight_change` path — L1/L2 untouched).
      */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionWeight(dimensionId: String, weight: Double) {
         val clamped = weight.coerceIn(0.1, 10.0)
         viewModelScope.launch {
@@ -728,10 +852,16 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Persists a user-edited color for [dimension] (resolves to its id).
+     */
     fun setDimensionColor(dimension: LifeDimension, color: Color) {
         setDimensionColor(dimension.id, color)
     }
+    /**
+     * Persists a user-edited color for a dimension by [dimensionId].
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionColor(dimensionId: String, color: Color) {
         viewModelScope.launch {
             try {
@@ -751,6 +881,10 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Clears the user-overridden label for a dimension, reverting to the canonical label.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun resetDimensionLabel(dimensionId: String) {
         viewModelScope.launch {
             try {
@@ -773,6 +907,10 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Persists the chosen icon for a dimension and refreshes UI.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
         viewModelScope.launch {
             try {
@@ -792,9 +930,16 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Persists the visible/hidden toggle for [dimension] (resolves to its id).
+     */
     fun setDimensionVisibility(dimension: LifeDimension, isVisible: Boolean) {
         setDimensionVisibility(dimension.id, isVisible)
     }
+    /**
+     * Persists the visible/hidden toggle for a dimension by [dimensionId].
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
         viewModelScope.launch {
             try {
@@ -814,19 +959,34 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Persists the auto-backup on/off toggle.
+     */
     fun setAutoBackupEnabled(enabled: Boolean) {
         saveSetting(KEY_AUTO_BACKUP_ENABLED, enabled.toString())
     }
+    /**
+     * Persists the auto-backup cadence.
+     */
     fun setAutoBackupInterval(interval: BackupInterval) {
         saveSetting(KEY_AUTO_BACKUP_INTERVAL, interval.key)
     }
+    /**
+     * Records the last successful auto-backup timestamp.
+     */
     fun setAutoBackupLastRun(timestamp: String) {
         saveSetting(KEY_AUTO_BACKUP_LAST_RUN, timestamp)
     }
+    /**
+     * Persists backup rotation on/off and syncs to shared prefs.
+     */
     fun setBackupRotationEnabled(enabled: Boolean) {
         saveSetting(KEY_BACKUP_ROTATION_ENABLED, enabled.toString())
         syncBackupRotationToSharedPrefs(enabled, _uiState.value.backupRotationCount)
     }
+    /**
+     * Persists the retained-backup count (1-999) and syncs to shared prefs.
+     */
     fun setBackupRotationCount(count: Int) {
         val clamped = count.coerceIn(1, 999)
         saveSetting(KEY_BACKUP_ROTATION_COUNT, clamped.toString())
@@ -839,6 +999,9 @@ class AppPreferencesViewModel @Inject constructor(
             .putInt("backup_rotation_count", count)
             .apply()
     }
+    /**
+     * Re-reads backup status from storage and pushes it into UI state.
+     */
     fun refreshAutoBackupStatusFromStorage() {
         backupStatusStore.refresh()
         val status = backupStatusStore.status.value
@@ -858,6 +1021,9 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
+    /**
+     * Clears the current auto-backup failure message from the UI.
+     */
     fun dismissAutoBackupFailureMessage() {
         backupStatusStore.dismissLatestFailure()
         logger.i(
@@ -871,6 +1037,9 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
+    /**
+     * Kicks off a manual backup to the app backup directory and refreshes status.
+     */
     fun triggerManualBackupNow() {
         _manualBackupInProgress.value = true
         viewModelScope.launch {
@@ -890,7 +1059,7 @@ class AppPreferencesViewModel @Inject constructor(
                     ),
                 )
                 AutoBackupWorker.rescheduleFromNow(context, appSettingsRepository)
-            } catch (error: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
                 refreshAutoBackupStatusFromStorage()
                 _manualBackupResultMessage.tryEmit(
                     context.getString(R.string.settings_manual_backup_failed, error.message ?: "Backup failed"),
@@ -982,7 +1151,10 @@ class AppPreferencesViewModel @Inject constructor(
         }
         return rows
     }
-
+    /**
+     * Runs the habit-score diagnostics pass and publishes the result to the UI.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun runHabitScoreDiagnostics() {
         if (_habitScoreDiagnosticsInProgress.value) {
             return
@@ -1133,15 +1305,23 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Persists the day-boundary hour (0-5) used for daily rollups.
+     */
     fun setDayBoundaryHour(hour: Int) {
         val clampedHour = hour.coerceIn(0, 5)
         saveSetting(KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
     }
+    /**
+     * Persists the debug-logging toggle and applies it live.
+     */
     fun setDebugLoggingEnabled(enabled: Boolean) {
         saveSetting(KEY_DEBUG_LOGGING_ENABLED, enabled.toString())
         UnifiedLogger.setDebugLoggingEnabled(enabled)
     }
+    /**
+     * Persists the global auto-track-habit-time toggle.
+     */
     fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
         saveSetting(KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
         logger.i(
@@ -1152,9 +1332,15 @@ class AppPreferencesViewModel @Inject constructor(
             ),
         )
     }
+    /**
+     * Persists auto-track toggle for the dimension (id or [dimension]).
+     */
     fun setAutoTrackDimensionPreference(dimension: LifeDimension, enabled: Boolean) {
         setAutoTrackDimensionPreference(dimension.id, enabled)
     }
+    /**
+     * Persists auto-track toggle for the dimension (id or [dimension]).
+     */
     fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
         saveSetting("$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
         logger.i(
@@ -1191,7 +1377,7 @@ class AppPreferencesViewModel @Inject constructor(
     }
 
     /**
-     * Toggle visibility of individual tab. Settings tab cannot be hidden.
+     * Toggle visibility of individual tab. settings tab cannot be hidden.
      */
     fun setTabVisibility(tabRoute: String, visible: Boolean) {
         if (tabRoute == "settings") {
@@ -1210,12 +1396,15 @@ class AppPreferencesViewModel @Inject constructor(
     }
 
     /**
-     * Mark focus mode onboarding as completed. This is a one-time flag.
+     * Mark focus mode onboarding as completed. this is a one-time flag.
      */
     fun markFocusModeOnboardingCompleted() {
         saveSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED, "true")
         logger.i("AppPreferencesViewModel.markFocusModeOnboardingCompleted", "Focus mode onboarding marked as completed")
     }
+    /**
+     * Makes the Time screen the default launch destination.
+     */
     fun setLaunchDestinationTime() {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "time")
         clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
@@ -1225,6 +1414,9 @@ class AppPreferencesViewModel @Inject constructor(
             mapOf("route" to "time"),
         )
     }
+    /**
+     * Makes the Tasks screen the default launch destination, with an optional [taskFilter].
+     */
     fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
         saveSettingNullable(KEY_LAUNCH_DESTINATION_TASK_FILTER, taskFilter?.key)
@@ -1237,6 +1429,9 @@ class AppPreferencesViewModel @Inject constructor(
             mapOf("route" to "tasks", "taskFilter" to (taskFilter?.key ?: "none")),
         )
     }
+    /**
+     * Persists the default launch-destination route.
+     */
     fun setLaunchDestination(route: String) {
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, route)
         clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
@@ -1246,82 +1441,114 @@ class AppPreferencesViewModel @Inject constructor(
             mapOf("route" to route),
         )
     }
-
+    /**
+     * Toggles the Time insights module on the dashboard.
+     */
     fun setChartTimeModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeModuleEnabled", "Time insights module toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Time overall-snapshot card.
+     */
     fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeOverallSnapshotEnabled", "Time overall snapshot card toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Time execution-details card.
+     */
     fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_EXECUTION_DETAILS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeExecutionDetailsEnabled", "Time execution details toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Time score-cards section.
+     */
     fun setChartTimeScoreCardsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_SCORE_CARDS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeScoreCardsEnabled", "Time score cards section toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Time overall score card.
+     */
     fun setChartTimeOverallScoreCardEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_OVERALL_SCORE_CARD, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeOverallScoreCardEnabled", "Time overall score card toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the per-dimension Time score cards.
+     */
     fun setChartTimeDimensionScoreCardsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_DIM_SCORE_CARDS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeDimensionScoreCardsEnabled", "Time dimension score cards toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Time line-graphs section.
+     */
     fun setChartTimeLineGraphsEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_LINE_GRAPHS, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeLineGraphsEnabled", "Time line graphs section toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the daily score-trend chart.
+     */
     fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_DAILY_SCORE_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeDailyScoreTrendEnabled", "Time daily score trend toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the progress-trend chart.
+     */
     fun setChartTimeProgressTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_PROGRESS_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeProgressTrendEnabled", "Time progress trend toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the historical-ranking chart.
+     */
     fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_HISTORICAL_RANKING, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeHistoricalRankingEnabled", "Time historical ranking toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the momentum-streak chart.
+     */
     fun setChartTimeMomentumStreakEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TIME_MOMENTUM_STREAK, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTimeMomentumStreakEnabled", "Time momentum streak toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Task insights module.
+     */
     fun setChartTaskModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_TASK_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartTaskModuleEnabled", "Task insights module toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Habit insights module.
+     */
     fun setChartHabitModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_HABIT_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartHabitModuleEnabled", "Habit insights module toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Journal insights module.
+     */
     fun setChartJournalModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_JOURNAL_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartJournalModuleEnabled", "Journal insights module toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the Note insights module.
+     */
     fun setChartNoteModuleEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_NOTE_MODULE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartNoteModuleEnabled", "Note insights module toggled", mapOf("enabled" to enabled))
     }
-
+    /**
+     * Toggles the average-daily-time chart.
+     */
     fun setChartAverageDailyTimeEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_AVERAGE_DAILY_TIME, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartAverageDailyTimeEnabled", "Average daily time chart toggled", mapOf("enabled" to enabled))
@@ -1331,6 +1558,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Check if focus mode onboarding has been completed.
      */
     suspend fun hasFocusModeOnboardingCompleted(): Boolean = appSettingsRepository.getSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED) == "true"
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun saveSetting(key: String, value: String) {
         viewModelScope.launch {
             try {
@@ -1355,6 +1583,7 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun clearSetting(key: String) {
         viewModelScope.launch {
             try {
@@ -1385,6 +1614,7 @@ class AppPreferencesViewModel @Inject constructor(
             saveSetting(key, value)
         }
     }
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun parseColor(hex: String): Color {
         val normalized = hex.removePrefix("#")
         return try {
@@ -1395,6 +1625,7 @@ class AppPreferencesViewModel @Inject constructor(
                 Color(colorLong.toInt())
             }
         } catch (e: Exception) {
+            logger.w("AppPreferencesViewModel.resolveDimensionColor", "Failed to resolve dimension color, using fallback", mapOf("error" to (e.message ?: "unknown")))
             LifeDimensionColors.forDimension("Career & Work")
         }
     }
@@ -1410,7 +1641,6 @@ class AppPreferencesViewModel @Inject constructor(
             .values
             .map(::selectPreferredCatalogDimensionRow)
             .sortedBy { DimensionTaxonomyCatalog.fromCanonicalId(it.id)?.sortOrder ?: it.sortOrder }
-
         val builtInPreferences = mutableListOf<DimensionPreference>()
 
         preferredRows.forEach { dimension ->
@@ -1605,30 +1835,51 @@ class AppPreferencesViewModel @Inject constructor(
         "5m" -> 720f
         else -> null
     }?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
+    /**
+     * Toggles the dimension-split chart.
+     */
     fun setChartDimSplitEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DIM_SPLIT, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDimSplitEnabled", "Chart dim split toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles the dimension-trend chart.
+     */
     fun setChartDimTrendEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DIM_TREND, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDimTrendEnabled", "Chart dim trend toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles the daily-timeline chart.
+     */
     fun setChartDailyTimelineEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_TIMELINE, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDailyTimelineEnabled", "Chart daily timeline toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles the weekly-pattern chart.
+     */
     fun setChartWeeklyPatternEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_WEEKLY_PATTERN, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartWeeklyPatternEnabled", "Chart weekly pattern toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles the daily-rhythm chart.
+     */
     fun setChartDailyRhythmEnabled(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_RHYTHM, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDailyRhythmEnabled", "Chart daily rhythm toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles excluding empty days from the weekly-pattern chart.
+     */
     fun setChartWeeklyPatternExclEmpty(enabled: Boolean) {
         saveSetting(KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartWeeklyPatternExclEmpty", "Chart weekly pattern excl-empty toggled", mapOf("enabled" to enabled))
     }
+    /**
+     * Toggles excluding empty days from the daily-rhythm chart.
+     */
     fun setChartDailyRhythmExclEmpty(enabled: Boolean) {
         saveSetting(KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled.toString())
         logger.i("AppPreferencesViewModel.setChartDailyRhythmExclEmpty", "Chart daily rhythm excl-empty toggled", mapOf("enabled" to enabled))

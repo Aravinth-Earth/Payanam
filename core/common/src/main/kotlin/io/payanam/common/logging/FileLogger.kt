@@ -249,7 +249,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     fun getCurrentLogFile(): File = logFile
 
     /**
-     * Read last N lines from current log
+     * Read last n lines from current log
      */
     fun getRecentLogs(lines: Int = 100): String =
         try {
@@ -259,7 +259,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
         }
 
     /**
-     * Clear old log files (keep last N)
+     * Clear old log files (keep last n)
      */
     fun clearOldLogs(keepLast: Int = 10) {
         val files = getLogFiles()
@@ -269,6 +269,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     }
 
     companion object {
+        /** Format constants for the legacy FileLogger session header/files. */
         private const val HEADER_LINE_LENGTH = 80
         private const val AUTO_FLUSH_INTERVAL_MS = 5000L
         private const val BUFFER_FLUSH_THRESHOLD = 50
@@ -277,7 +278,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
         private var instance: FileLogger? = null
 
         /**
-         * Initialize the logger (call from Application.onCreate)
+         * Initialize the logger (call from application.onCreate)
          */
         fun initialize(
             context: Context,

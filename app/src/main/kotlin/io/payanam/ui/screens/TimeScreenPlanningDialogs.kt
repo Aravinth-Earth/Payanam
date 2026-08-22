@@ -47,7 +47,6 @@ internal fun TimeScreenPlanningDialogs(
             onDismiss = onDismissDatePicker,
         )
     }
-
     if (showStartTrackingDialog) {
         StartTrackingDialog(
             tasks = taskPickerTasks,
@@ -59,7 +58,6 @@ internal fun TimeScreenPlanningDialogs(
             onDismiss = onDismissStartTracking,
         )
     }
-
     if (showDayPlanDialog) {
         DayPlanDialog(
             dayKey = selectedDate.toString(),

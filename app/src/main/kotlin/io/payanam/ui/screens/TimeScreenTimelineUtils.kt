@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.ui.graphics.Color
@@ -49,19 +51,16 @@ internal fun computeTimeGaps(
                 LocalTime.of(23, 59, 59),
             )
         }
-
     val allEntries = entries.toMutableList()
     if (activeEntry != null && allEntries.none { it.id == activeEntry.id }) {
         allEntries.add(activeEntry)
     }
-
     val intervals = allEntries.mapNotNull { entry ->
         val start = if (entry.startedAt.isAfter(dayStart)) entry.startedAt else dayStart
         val rawEnd = entry.endedAt ?: if (selectedDate == now.toLocalDate()) now else dayEnd
         val end = if (rawEnd.isBefore(dayEnd)) rawEnd else dayEnd
         if (end.isAfter(start)) start to end else null
     }.sortedBy { it.first }
-
     val omittedIntervals = allEntries.size - intervals.size
     if (omittedIntervals > 0) {
         logger.w(
@@ -70,7 +69,6 @@ internal fun computeTimeGaps(
             mapOf("omittedIntervals" to omittedIntervals, "selectedDate" to selectedDate.toString()),
         )
     }
-
     val gaps = mutableListOf<TimeGap>()
     var cursor = dayStart
 
@@ -86,7 +84,6 @@ internal fun computeTimeGaps(
             cursor = end
         }
     }
-
     if (dayEnd.isAfter(cursor)) {
         val minutes = Duration.between(cursor, dayEnd).toMinutes().toInt()
         if (minutes >= GAP_MINUTES_THRESHOLD) {
@@ -119,7 +116,6 @@ internal fun computeTimeOverlaps(
     if (sortedEvents.isEmpty()) {
         return emptyList()
     }
-
     val overlaps = mutableListOf<TimeOverlap>()
     var active = 0
     var previousMinute = sortedEvents.first().first
@@ -162,7 +158,6 @@ internal fun resolveOccurrenceWindowMinutes(
         ?.takeIf { it.toLocalDate() == selectedDate }
         ?.let { it.hour * 60 + it.minute }
     val taskDueMinutes = task?.dueDate?.let { it.hour * 60 + it.minute }
-
     val dueMinutes = taskDueMinutes
         ?: explicitOccurrenceMinutes
         ?: completedAtMinutes
@@ -193,7 +188,6 @@ private fun buildDayBoundIntervals(
                 LocalTime.of(23, 59, 59),
             )
         }
-
     val allEntries = entries.toMutableList()
     if (activeEntry != null && allEntries.none { it.id == activeEntry.id }) {
         allEntries.add(activeEntry)

@@ -9,7 +9,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for Note table.
+ * Room entity for note table.
  */
 @Entity(
     tableName = "notes",

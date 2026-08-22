@@ -8,7 +8,6 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import java.util.Locale
-
 object DefaultDimensionLabels {
     private val logger = UnifiedLogger.getInstance()
 
@@ -24,7 +23,9 @@ object DefaultDimensionLabels {
         DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id to R.string.loc_dimension_name_community_service,
         UNASSIGNED_DIMENSION_ID to R.string.loc_dimension_fallback_unassigned,
     )
-
+    /**
+     * Locale-aware localized name for a canonical dimension (null if unknown).
+     */
     fun localizedLabel(context: Context, dimensionId: String, languageTag: String? = null): String? {
         val resId = canonicalLabelResIds[dimensionId]
             ?: DimensionTextCatalog.labelResIdForCanonicalId(DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id)
@@ -35,13 +36,18 @@ object DefaultDimensionLabels {
             localizedStringForLocale(context, resId, languageTag)
         }
     }
-
+    /**
+     * Language-neutral canonical name used for storage comparisons.
+     */
     fun canonicalLabel(dimensionId: String): String? = if (dimensionId == UNASSIGNED_DIMENSION_ID) {
         CANONICAL_UNASSIGNED_LABEL
     } else {
         DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
     }
-
+    /**
+     * Best display name for a dimension: the localized default unless the user
+     * stored a custom (non-app-owned) label.
+     */
     fun resolveDisplayLabel(
         context: Context,
         dimensionId: String,
@@ -55,7 +61,10 @@ object DefaultDimensionLabels {
         }
         return trimmed.ifBlank { localizedDefault ?: dimensionId }
     }
-
+    /**
+     * Normalizes a stored label to canonical form when it matches an
+     * app-owned default translation; custom labels pass through untouched.
+     */
     fun canonicalizeStoredLabel(
         context: Context,
         dimensionId: String,
@@ -79,7 +88,10 @@ object DefaultDimensionLabels {
         }
         return trimmed
     }
-
+    /**
+     * True when [label] equals any built-in default name (any supported
+     * locale) for this dimension — i.e. not user-customized.
+     */
     fun isAppOwnedDefaultLabel(context: Context, dimensionId: String, label: String?): Boolean {
         val trimmed = label?.trim().orEmpty()
         if (trimmed.isBlank()) {

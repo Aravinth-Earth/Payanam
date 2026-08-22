@@ -18,12 +18,18 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the time entry dao test.
+ */
 class TimeEntryDaoTest {
     private lateinit var database: PayanamDatabase
     private lateinit var timeEntryDao: TimeEntryDao
     private lateinit var taskDao: TaskDao
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         database =
@@ -37,16 +43,21 @@ class TimeEntryDaoTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the insert and get by id.
+     */
     fun insert_and_getById() =
         runBlocking {
             val entry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
             timeEntryDao.insert(entry)
-
             val retrieved = timeEntryDao.getById("entry-1")
             assertThat(retrieved).isNotNull()
             assertThat(retrieved?.id).isEqualTo("entry-1")
@@ -54,16 +65,21 @@ class TimeEntryDaoTest {
         }
 
     @Test
+    /**
+     * Returns the active time entry returns null when no active.
+     */
     fun getActiveTimeEntry_returnsNullWhenNoActive() =
         runBlocking {
             val completedEntry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z", "2026-02-02T11:00:00Z")
             timeEntryDao.insert(completedEntry)
-
             val active = timeEntryDao.getActiveTimeEntry()
             assertThat(active).isNull()
         }
 
     @Test
+    /**
+     * Returns the active time entry returns active entry.
+     */
     fun getActiveTimeEntry_returnsActiveEntry() =
         runBlocking {
             val activeEntry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
@@ -71,7 +87,6 @@ class TimeEntryDaoTest {
 
             timeEntryDao.insert(activeEntry)
             timeEntryDao.insert(completedEntry)
-
             val active = timeEntryDao.getActiveTimeEntry()
             assertThat(active).isNotNull()
             assertThat(active?.id).isEqualTo("entry-1")
@@ -79,17 +94,22 @@ class TimeEntryDaoTest {
         }
 
     @Test
+    /**
+     * Registers the observe active time entry emits active entry.
+     */
     fun observeActiveTimeEntry_emitsActiveEntry() =
         runBlocking {
             val activeEntry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
             timeEntryDao.insert(activeEntry)
-
             val observed = timeEntryDao.observeActiveTimeEntry().first()
             assertThat(observed).isNotNull()
             assertThat(observed?.id).isEqualTo("entry-1")
         }
 
     @Test
+    /**
+     * Returns the time entries for date filters by date.
+     */
     fun getTimeEntriesForDate_filtersByDate() =
         runBlocking {
             val todayEntry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z", "2026-02-02T11:00:00Z")
@@ -97,7 +117,6 @@ class TimeEntryDaoTest {
 
             timeEntryDao.insert(todayEntry)
             timeEntryDao.insert(yesterdayEntry)
-
             val todaysEntries =
                 timeEntryDao
                     .getTimeEntriesForDate(
@@ -110,6 +129,9 @@ class TimeEntryDaoTest {
         }
 
     @Test
+    /**
+     * Get time entries for date includes entry that spans midnight.
+     */
     fun getTimeEntriesForDate_includesEntryThatSpansMidnight() =
         runBlocking {
             val spanningEntry =
@@ -119,7 +141,6 @@ class TimeEntryDaoTest {
                     endedAt = "2026-02-02T00:20:00",
                 )
             timeEntryDao.insert(spanningEntry)
-
             val nextDayEntries =
                 timeEntryDao
                     .getTimeEntriesForDate(
@@ -127,12 +148,14 @@ class TimeEntryDaoTest {
                         dayEnd = "2026-02-03T00:00:00",
                         currentTime = "2026-02-02T12:00:00",
                     ).first()
-
             assertThat(nextDayEntries).hasSize(1)
             assertThat(nextDayEntries[0].id).isEqualTo("entry-overnight")
         }
 
     @Test
+    /**
+     * Get time entries for date includes legacy zulu entry for matching local day.
+     */
     fun getTimeEntriesForDate_includesLegacyZuluEntryForMatchingLocalDay() =
         runBlocking {
             val zuluEntry =
@@ -142,7 +165,6 @@ class TimeEntryDaoTest {
                     endedAt = "2026-02-02T11:00:00Z",
                 )
             timeEntryDao.insert(zuluEntry)
-
             val todaysEntries =
                 timeEntryDao
                     .getTimeEntriesForDate(
@@ -150,12 +172,14 @@ class TimeEntryDaoTest {
                         dayEnd = "2026-02-03T00:00:00",
                         currentTime = "2026-02-02T23:59:59",
                     ).first()
-
             assertThat(todaysEntries).hasSize(1)
             assertThat(todaysEntries[0].id).isEqualTo("entry-zulu-local-day")
         }
 
     @Test
+    /**
+     * Performs the stop entry updates ended at.
+     */
     fun stopEntry_updatesEndedAt() =
         runBlocking {
             val entry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
@@ -169,7 +193,6 @@ class TimeEntryDaoTest {
                 focusRatedAt = "2026-02-02T11:00:00Z",
                 updatedAt = "2026-02-02T11:00:00Z",
             )
-
             val updated = timeEntryDao.getById("entry-1")
             assertThat(updated?.endedAt).isEqualTo("2026-02-02T11:00:00Z")
             assertThat(updated?.focusRating).isEqualTo(0.25)
@@ -178,18 +201,23 @@ class TimeEntryDaoTest {
         }
 
     @Test
+    /**
+     * Removes the delete removes entry.
+     */
     fun delete_removesEntry() =
         runBlocking {
             val entry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
             timeEntryDao.insert(entry)
 
             timeEntryDao.delete(entry)
-
             val retrieved = timeEntryDao.getById("entry-1")
             assertThat(retrieved).isNull()
         }
 
     @Test
+    /**
+     * Returns the all active time entries returns only active.
+     */
     fun getAllActiveTimeEntries_returnsOnlyActive() =
         runBlocking {
             val activeEntry = createTestTimeEntry("entry-1", "2026-02-02T10:00:00Z")
@@ -197,13 +225,15 @@ class TimeEntryDaoTest {
 
             timeEntryDao.insert(activeEntry)
             timeEntryDao.insert(completedEntry)
-
             val activeEntries = timeEntryDao.getAllActiveTimeEntries().first()
             assertThat(activeEntries).hasSize(1)
             assertThat(activeEntries[0].id).isEqualTo("entry-1")
         }
 
     @Test
+    /**
+     * Performs the deleting task nulls linked time entry task id.
+     */
     fun deletingTask_nullsLinkedTimeEntryTaskId() =
         runBlocking {
             taskDao.insert(
@@ -235,12 +265,10 @@ class TimeEntryDaoTest {
                 ),
             )
             timeEntryDao.insert(createTestTimeEntry("entry-linked", "2026-02-02T10:00:00Z", taskId = "task-1"))
-
             val beforeDelete = timeEntryDao.getById("entry-linked")
             assertThat(beforeDelete?.taskId).isEqualTo("task-1")
 
             taskDao.deleteById("task-1")
-
             val afterDelete = timeEntryDao.getById("entry-linked")
             assertThat(afterDelete?.taskId).isNull()
         }

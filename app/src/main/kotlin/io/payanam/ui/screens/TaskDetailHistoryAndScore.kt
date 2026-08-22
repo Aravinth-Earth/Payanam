@@ -53,7 +53,6 @@ internal fun RescheduleHistorySection(
                     fontWeight = FontWeight.SemiBold,
                 )
             }
-
             if (isLoading) {
                 Box(
                     modifier = Modifier
@@ -80,7 +79,6 @@ internal fun RescheduleHistorySection(
                         HorizontalDivider()
                     }
                 }
-
                 if (reschedules.size > 10) {
                     Text(
                         text = androidx.compose.ui.res.stringResource(
@@ -105,7 +103,6 @@ private fun RescheduleRow(reschedule: TaskReschedule) {
     val fromText = reschedule.previousDueDate.format(dateTimeFormatter)
     val toText = reschedule.newDueDate.format(dateTimeFormatter)
     val rescheduledAt = reschedule.rescheduledAt.format(dateTimeFormatter)
-
     Column(
         modifier = Modifier
             .fillMaxWidth()

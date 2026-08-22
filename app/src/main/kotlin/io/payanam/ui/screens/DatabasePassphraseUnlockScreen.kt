@@ -330,7 +330,6 @@ fun DatabasePassphraseUnlockScreen(
                 enabled = !uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
             )
-
             if (canUseBiometric && biometricEnabled) {
                 TextButton(
                     onClick = {
@@ -431,7 +430,6 @@ fun DatabasePassphraseUnlockScreen(
                         .height(1.dp)
                         .background(Color.White.copy(alpha = 0.1f)),
                 )
-
                 Text(
                     text = stringResource(id = R.string.db_passphrase_diagnostics_title).uppercase(java.util.Locale.ROOT),
                     style = MaterialTheme.typography.labelSmall.copy(
@@ -440,7 +438,6 @@ fun DatabasePassphraseUnlockScreen(
                     ),
                     color = Color.White.copy(alpha = 0.4f),
                 )
-
                 Row(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
@@ -476,7 +473,6 @@ fun DatabasePassphraseUnlockScreen(
                         modifier = Modifier.weight(1f),
                     )
                 }
-
                 if (debugExportMessage != null) {
                     Text(
                         text = debugExportMessage!!,
@@ -524,7 +520,6 @@ fun DatabasePassphraseUnlockScreen(
             }
         }
     }
-
     if (showResetConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },

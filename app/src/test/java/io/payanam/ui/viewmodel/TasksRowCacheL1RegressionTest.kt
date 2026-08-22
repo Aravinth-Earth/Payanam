@@ -19,6 +19,9 @@ import org.robolectric.RobolectricTestRunner
 
 /** Regression: rebuilt habit rows must carry the L1 map (zero-ring bug). */
 @RunWith(RobolectricTestRunner::class)
+/**
+ * TasksRowCacheL1RegressionTest.
+ */
 class TasksRowCacheL1RegressionTest {
 
     @Before
@@ -45,6 +48,9 @@ class TasksRowCacheL1RegressionTest {
         )
 
     @Test
+    /**
+     * Build habit rows preserves latest l1when passed.
+     */
     fun buildHabitRows_preservesLatestL1WhenPassed() {
         val l1 =
             mapOf(
@@ -64,7 +70,6 @@ class TasksRowCacheL1RegressionTest {
         val checkmarks =
             mapOf("h1" to listOf(DayCheckmark(date = LocalDate.of(2026, 8, 14), status = CheckmarkStatus.COMPLETED)))
         val statuses = mapOf("h1" to CheckmarkStatus.COMPLETED)
-
         val rows =
             TasksRowCacheManager.buildHabitRows(
                 tasks = tasks,
@@ -74,7 +79,6 @@ class TasksRowCacheL1RegressionTest {
                 hideAllMarkedToday = false,
                 latestL1ByHabit = l1,
             )
-
         assertEquals(1, rows.size)
         val row = rows.first { it.id == "h1" }
         assertNotNull("L1 must be preserved on rebuilt rows", row.latestL1)
@@ -83,9 +87,11 @@ class TasksRowCacheL1RegressionTest {
     }
 
     @Test
+    /**
+     * Build habit rows null l1stays null without map.
+     */
     fun buildHabitRows_nullL1StaysNullWithoutMap() {
         val tasks = listOf(habit("h2"))
-
         val rows =
             TasksRowCacheManager.buildHabitRows(
                 tasks = tasks,
@@ -94,7 +100,6 @@ class TasksRowCacheL1RegressionTest {
                 showCompletedHabits = true,
                 hideAllMarkedToday = false,
             )
-
         assertEquals(1, rows.size)
         assertNull(rows.first { it.id == "h2" }.latestL1)
     }

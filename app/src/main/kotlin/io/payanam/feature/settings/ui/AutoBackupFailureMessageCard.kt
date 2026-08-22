@@ -28,9 +28,7 @@ internal fun autoBackupFailureMessageCard(
     onDismiss: () -> Unit,
 ) {
     if (errorMessage.isNullOrBlank()) return
-
     val logger = remember { UnifiedLogger.getInstance() }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(

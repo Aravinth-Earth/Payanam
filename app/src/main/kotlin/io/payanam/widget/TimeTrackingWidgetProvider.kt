@@ -97,6 +97,10 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * Redraws each widget: active state (task title, dimension chip, running
+     * chronometer, stop action) or idle prompt with quick-start action.
+     */
     override fun onUpdate(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -109,15 +113,16 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
                 "count" to appWidgetIds.size,
             ),
         )
-
         for (appWidgetId in appWidgetIds) {
             updateWidget(context, appWidgetManager, appWidgetId)
         }
     }
 
+    /**
+     * Dispatches widget button actions: toggle tracking and manual refresh.
+     */
     override fun onReceive(context: Context, intent: Intent) {
         super.onReceive(context, intent)
-
         when (intent.action) {
             ACTION_TOGGLE_TRACKING -> {
                 logger.i("TimeTrackingWidget.onReceive", "Toggle tracking requested")
@@ -131,6 +136,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -144,7 +150,6 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
                 val themePalette = resolveThemePalette(context)
                 applyThemePalette(views, themePalette)
                 val configuredDimensions = lifeDimensionCatalogRepository.observeAllDimensions().first()
-
                 if (activeEntry != null) {
                     // Tracking is active
                     val trackedTask = activeEntry.taskId?.let { taskId ->
@@ -237,7 +242,6 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
                     requestCode = appWidgetId * 10 + 1,
                 )
                 views.setOnClickPendingIntent(R.id.widget_container, openQuickPickPendingIntent)
-
                 if (activeEntry != null) {
                     // Active state: icon stops tracking
                     val stopPendingIntent = createOpenTimeStopTrackingPendingIntent(
@@ -374,11 +378,11 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         return uiMode == Configuration.UI_MODE_NIGHT_YES
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun handleToggleTracking(context: Context) {
         scope.launch {
             try {
                 val activeEntry = timeEntryRepository.observeActiveTimeEntry().first()
-
                 if (activeEntry != null) {
                     context.startActivity(createOpenTimeStopTrackingIntent(context))
                     logger.i("TimeTrackingWidget.handleToggleTracking", "Redirected active stop to in-app focus dialog")
@@ -395,6 +399,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
+    /**
+     * First widget placed: refreshes immediately so it never shows stale data.
+     */
     override fun onEnabled(context: Context) {
         super.onEnabled(context)
         logger.i("TimeTrackingWidget.onEnabled", "First widget added")
@@ -402,6 +409,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         logger.d("TimeTrackingWidget.onEnabled", "Requested widget refresh after enable")
     }
 
+    /**
+     * Last widget removed; no widget-scoped resources to release.
+     */
     override fun onDisabled(context: Context) {
         super.onDisabled(context)
         logger.i("TimeTrackingWidget.onDisabled", "Last widget removed")

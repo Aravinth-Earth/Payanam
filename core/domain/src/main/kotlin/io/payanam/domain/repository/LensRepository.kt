@@ -11,9 +11,13 @@ import java.time.LocalDate
  * Provides data aggregation and gap detection for lens views.
  */
 @Suppress("TooManyFunctions")
+/**
+ * Aggregates per-day planning + reality data for the lens views (time
+ * tracking, adherence, focus gaps, behavioral patterns).
+ */
 interface LensRepository {
     /**
-     * First day with any tracked time entry.
+     * First calendar day that has any tracked time entry, or null.
      */
     suspend fun getFirstTrackedDate(): LocalDate?
 
@@ -87,12 +91,14 @@ interface LensRepository {
     suspend fun calculateAdherence(dayKey: String): Float
 
     /**
-     * Returns the subset of day keys that are marked dirty for lens snapshot recomputation.
+     * Filters [dayKeys] down to those still flagged dirty, i.e. needing their
+     * cached lens snapshot recomputed.
      */
     suspend fun getDirtyDayKeys(dayKeys: Set<String>): Set<String> = emptySet()
 
     /**
-     * Returns true when the day has a dirty marker and should be recomputed.
+     * True when [dayKey] still carries a dirty marker (a data change has
+     * happened since its lens snapshot was last computed).
      */
     suspend fun isDayDirty(dayKey: String): Boolean = false
 
@@ -235,7 +241,7 @@ data class RealityLensData(
 )
 
 /**
- * Planned task item for Planning Lens.
+ * Planned task item for planning lens.
  */
 data class TaskPlanItem(
     val taskId: String,
@@ -247,7 +253,7 @@ data class TaskPlanItem(
 )
 
 /**
- * Completed/missed task item for Reality Lens.
+ * Completed/missed task item for reality lens.
  */
 data class TaskRealityItem(
     val taskId: String,
@@ -260,7 +266,7 @@ data class TaskRealityItem(
 )
 
 /**
- * Planned habit item for Planning Lens.
+ * Planned habit item for planning lens.
  */
 data class HabitPlanItem(
     val habitId: String,
@@ -271,7 +277,7 @@ data class HabitPlanItem(
 )
 
 /**
- * Completed habit item for Reality Lens.
+ * Completed habit item for reality lens.
  */
 data class HabitRealityItem(
     val habitId: String,
@@ -283,7 +289,7 @@ data class HabitRealityItem(
 )
 
 /**
- * Time goal item for Planning Lens.
+ * Time goal item for planning lens.
  */
 data class TimeGoalItem(
     val goalId: String,
@@ -295,12 +301,18 @@ data class TimeGoalItem(
 
 /**
  * Per-day average focus rating across all tracked time entries.
+ *
+ * @property dayKey ISO date key for the day.
+ * @property avgFocus Average focus rating for the day, or null if unavailable.
  */
 data class DailyFocusStat(val dayKey: String, val avgFocus: Double?)
 
 /**
  * Per-day tracked time percentage (0.0 to 100.0).
  * Calculated as: (tracked minutes in day) / 1440 * 100.
+ *
+ * @property dayKey ISO date key for the day.
+ * @property trackedPercent Percentage of the day spent in tracked activities.
  */
 data class DailyTrackedTimeStat(val dayKey: String, val trackedPercent: Double)
 
@@ -308,6 +320,9 @@ data class DailyTrackedTimeStat(val dayKey: String, val trackedPercent: Double)
  * Per-day focused hours (0.0 to 24.0).
  * Calculated as: sum(clampedMinutes * focusRating) / 60 per day.
  * Entries without a focusRating contribute 0 focused hours (not a fallback value).
+ *
+ * @property dayKey ISO date key for the day.
+ * @property focusedHours Total focused hours logged for the day.
  */
 data class DailyFocusedHoursStat(val dayKey: String, val focusedHours: Double)
 

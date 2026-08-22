@@ -147,9 +147,7 @@ class DbLayerLifecycleRegressionTest {
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         tempBackupDir.mkdirs()
         File(tempBackupDir, PayanamDatabase.DATABASE_NAME).writeText("backup-db")
-
         val deletedCount = deleteAllDatabaseArtifactFiles(context)
-
         assertTrue("Should have deleted multiple items", deletedCount > 0)
         assertFalse("Temp backup dir must be gone", tempBackupDir.exists())
         assertFalse(".db must be gone", File(dbDir, PayanamDatabase.DATABASE_NAME).exists())
@@ -162,16 +160,12 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitDeleteAllFiles wipes active db artifacts but preserves payanam_temp_backup subdir`() {
         val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-
         File(dbDir, PayanamDatabase.DATABASE_NAME).writeText("db")
         File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").writeText("wal")
-
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         tempBackupDir.mkdirs()
         File(tempBackupDir, PayanamDatabase.DATABASE_NAME).writeText("backup-db")
-
         dbInitDeleteAllFiles(context)
-
         assertTrue("Temp backup dir must be preserved", tempBackupDir.exists())
         assertFalse(".db must be gone", File(dbDir, PayanamDatabase.DATABASE_NAME).exists())
         assertFalse("-wal must be gone", File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").exists())
@@ -181,11 +175,9 @@ class DbLayerLifecycleRegressionTest {
     fun `consolidateWalAfterImport preserves sidecars for non-standard database header`() {
         val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-
         val dbFile = File(dbDir, PayanamDatabase.DATABASE_NAME)
         val walFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal")
         val shmFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm")
-
         val nonSqliteHeader = byteArrayOf(
             0x90.toByte(), 0x4D, 0x00, 0x7D, 0x5E, 0xBC.toByte(), 0x0F, 0xED.toByte(),
             0x0F, 0x5F, 0xD7.toByte(), 0xD0.toByte(), 0x2B, 0x90.toByte(), 0x86.toByte(), 0x7C,
@@ -193,15 +185,12 @@ class DbLayerLifecycleRegressionTest {
         dbFile.writeBytes(nonSqliteHeader + ByteArray(1024))
         walFile.writeBytes(ByteArray(4096) { 0x2A.toByte() })
         shmFile.writeBytes(ByteArray(1024) { 0x1F.toByte() })
-
         val walSizeBefore = walFile.length()
         val shmSizeBefore = shmFile.length()
-
         val consolidated = DatabaseImportSupport.consolidateWalAfterImport(
             dbFile = dbFile,
             logTag = "DbLayerLifecycleRegressionTest.nonStandardHeader",
         )
-
         assertFalse("Non-standard header should skip framework WAL checkpoint", consolidated)
         assertTrue("WAL must be preserved", walFile.exists())
         assertEquals("WAL size must remain unchanged", walSizeBefore, walFile.length())
@@ -213,23 +202,18 @@ class DbLayerLifecycleRegressionTest {
     fun `consolidateWalAfterImport keeps wal when temp checkpoint fails`() {
         val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-
         val dbFile = File(dbDir, PayanamDatabase.DATABASE_NAME)
         val walFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal")
         val shmFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm")
-
         val sqliteMagic = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1)
         dbFile.writeBytes(sqliteMagic + ByteArray(1024))
         walFile.writeBytes(ByteArray(2048) { 0x5A.toByte() })
         shmFile.writeBytes(ByteArray(512) { 0x3C.toByte() })
-
         val walSizeBefore = walFile.length()
-
         val consolidated = DatabaseImportSupport.consolidateWalAfterImport(
             dbFile = dbFile,
             logTag = "DbLayerLifecycleRegressionTest.tempCheckpointFailure",
         )
-
         assertFalse("Invalid SQLite payload should fail checkpoint path", consolidated)
         assertTrue("WAL must be retained to avoid silent data loss", walFile.exists())
         assertEquals("WAL size must remain unchanged", walSizeBefore, walFile.length())
@@ -238,7 +222,6 @@ class DbLayerLifecycleRegressionTest {
     @Test
     fun `validateSupportedPlaintextImportSchema rejects schema below support floor`() {
         val dbFile = createPlaintextImportDatabase(version = 15, fileName = "legacy-import.db")
-
         val error = runCatching {
             DatabaseImportSupport.validateSupportedPlaintextImportSchema(
                 context = context,
@@ -246,7 +229,6 @@ class DbLayerLifecycleRegressionTest {
                 logTag = "DbLayerLifecycleRegressionTest.validateSupportedPlaintextImportSchema",
             )
         }.exceptionOrNull()
-
         assertNotNull("Schema below support floor must fail", error)
         assertTrue("Schema below support floor must surface a non-blank error", !error!!.message.isNullOrBlank())
     }
@@ -257,13 +239,11 @@ class DbLayerLifecycleRegressionTest {
             version = DatabaseHealthChecker.CURRENT_VERSION,
             fileName = "supported-import.db",
         )
-
         val version = DatabaseImportSupport.validateSupportedPlaintextImportSchema(
             context = context,
             databaseFile = dbFile,
             logTag = "DbLayerLifecycleRegressionTest.validateSupportedPlaintextImportSchema",
         )
-
         assertEquals(DatabaseHealthChecker.CURRENT_VERSION, version)
     }
 
@@ -465,7 +445,6 @@ class DbLayerLifecycleRegressionTest {
             shouldShowPassphraseUnlock = true,
             healthResult = null,
         )
-
         assertEquals("deferred_until_unlock", result.status)
         assertNull(result.isHealthy)
         assertNull(result.needsRepair)
@@ -483,7 +462,6 @@ class DbLayerLifecycleRegressionTest {
                 errorMessage = "Cipher mismatch",
             ),
         )
-
         assertEquals("checked_unhealthy", result.status)
         assertEquals(false, result.isHealthy)
         assertEquals(true, result.needsRepair)

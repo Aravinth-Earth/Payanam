@@ -88,7 +88,6 @@ internal fun TaskDetailContent(
     val dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimePattern)
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     val dimensionLabel = prefs.labelForDimensionId(task.dimensionId) ?: prefs.labelFor(task.lifeIntentionCategory)
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -202,7 +201,6 @@ internal fun TaskDetailContent(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-
         Card(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -236,7 +234,6 @@ internal fun TaskDetailContent(
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
 
         // Action Buttons
@@ -278,7 +275,6 @@ internal fun TaskDetailContent(
                     }
                 }
             }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -322,7 +318,6 @@ internal fun TaskDetailContent(
         // the old score card + calendar + occurrence history for recurring tasks.
         if (task.recurrenceEnabled) {
             Spacer(modifier = Modifier.height(16.dp))
-
             if (FeatureFlags.scoringEnabled) {
                 HabitActivityDetailSection(
                     windowSizeDays = windowSizeDays,
@@ -338,10 +333,8 @@ internal fun TaskDetailContent(
                     onChartViewChange = onChartViewChange,
                 )
             }
-
             Spacer(modifier = Modifier.height(16.dp))
         }
-
         if (rescheduleHistory.isNotEmpty() || isLoadingReschedules) {
             Spacer(modifier = Modifier.height(16.dp))
             RescheduleHistorySection(
@@ -349,7 +342,6 @@ internal fun TaskDetailContent(
                 isLoading = isLoadingReschedules,
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }

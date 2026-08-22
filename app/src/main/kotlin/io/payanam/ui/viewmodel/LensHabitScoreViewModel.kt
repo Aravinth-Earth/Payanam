@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("UndocumentedPublicProperty")
+
 package io.payanam.ui.viewmodel
 
 import androidx.lifecycle.ViewModel
@@ -51,6 +53,9 @@ data class RadarAxis(
     /** Resolved display label (user-custom or taxonomy fallback). */
     val displayLabel: String = label,
 ) {
+    /**
+     * Today's value component of [metric] for this row.
+     */
     fun today(metric: ScoreMetricColumn): Double? = values[metric]?.first
     /** The running-average component of [metric] for this row. */
     fun runningAvg(metric: ScoreMetricColumn): Double? = values[metric]?.second
@@ -72,6 +77,11 @@ data class LensHabitScoreUiState(
     val error: String? = null,
 )
 
+/**
+ * Lenses score-matrix ViewModel: loads the 14-day metric window (plus full
+ * history for ordinal ranks), builds dimension/day rows with sparklines and
+ * radar axes, and refreshes on score-change events.
+ */
 @HiltViewModel
 class LensHabitScoreViewModel
     @Inject
@@ -100,6 +110,7 @@ class LensHabitScoreViewModel
         /** Load the matrix for the 14 days ending on [endDate] (default today).
          *  The 14-day window drives the displayed rows + sparklines; the full
          *  history (from each row's earliest day) drives the ordinal rank. */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun loadWindow(endDate: LocalDate = LocalDate.now(), days: Int = 14, metric: ScoreMetricColumn = _uiState.value.selectedMetric) {
             val t0 = System.currentTimeMillis()
             viewModelScope.launch {

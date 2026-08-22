@@ -25,13 +25,21 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-
+/**
+ * UI state for the passphrase-change screen: saving flag, error reason code,
+ * and success flag (triggers the process restart).
+ */
 data class DatabasePassphraseChangeUiState(
     val isSaving: Boolean = false,
     val errorReasonCode: String? = null,
     val isSuccess: Boolean = false,
 )
 
+/**
+ * Passphrase-change ViewModel: validates the new passphrase, rekeys the
+ * encrypted database with backup/rollback safety, then restarts the process
+ * for a clean re-auth.
+ */
 @HiltViewModel
 class DatabasePassphraseChangeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -41,7 +49,11 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(DatabasePassphraseChangeUiState())
     val uiState: StateFlow<DatabasePassphraseChangeUiState> = _uiState.asStateFlow()
-
+    /**
+     * Validates and applies a passphrase change: policy + confirm checks,
+     * verified current passphrase, artifact backup, rekey, rollback on any
+     * failure, then process restart on success.
+     */
     fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
         val validation = PassphrasePolicy.validate(newPassphrase)
         if (!validation.isValid) {
@@ -78,12 +90,10 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
             logger.w("DatabasePassphraseChangeViewModel.submit", "Passphrase update skipped because encryption is disabled")
             return "generic"
         }
-
         if (!withContext(Dispatchers.IO) { encryptionManager.verifyPassphrase(currentPassphrase) }) {
             logger.w("DatabasePassphraseChangeViewModel.submit", "Current passphrase verification failed")
             return "current_invalid"
         }
-
         val backups = withContext(Dispatchers.IO) { backupDatabaseArtifacts() }
         // Close Room before rekeying the file on disk
         sessionManager.closeDatabase()
@@ -107,7 +117,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
             }
             logger.i("DatabasePassphraseChangeViewModel.submit", "Passphrase changed successfully")
             null
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
             logger.e("DatabasePassphraseChangeViewModel.submit", "Passphrase change failed, restoring backup", error)
             withContext(Dispatchers.IO) {
                 restoreDatabaseArtifacts(backups)

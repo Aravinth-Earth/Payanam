@@ -10,15 +10,15 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.LifeDimension
-
+/**
+ * One selectable dimension icon: stable key plus its outlined vector.
+ */
 data class DimensionIconOption(
     val key: String,
     val imageVector: ImageVector,
 )
-
 object DimensionIconCatalog {
     private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
-
     val options: List<DimensionIconOption> = listOf(
         DimensionIconOption("work", Icons.Outlined.WorkOutline),
         DimensionIconOption("favorite", Icons.Outlined.FavoriteBorder),
@@ -376,7 +376,10 @@ object DimensionIconCatalog {
 
     private val optionsByKey: Map<String, DimensionIconOption> = options.associateBy { it.key }
     private val keyAliases: Map<String, String> = mapOf("people" to "groups")
-
+    /**
+     * Default icon key for a dimension: taxonomy default, legacy id mapping,
+     * then the generic category icon.
+     */
     fun defaultIconKeyForDimensionId(dimensionId: String?): String {
         val normalizedId = dimensionId?.trim().orEmpty()
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(normalizedId)?.id
@@ -394,7 +397,10 @@ object DimensionIconCatalog {
             else -> "category"
         }
     }
-
+    /**
+     * Icon option for a stored key, falling back to the dimension's default
+     * (with a warning log) when unknown.
+     */
     fun resolve(key: String?, dimensionId: String? = null): DimensionIconOption {
         val normalized = key?.trim()?.takeIf { it.isNotEmpty() } ?: defaultIconKeyForDimensionId(dimensionId)
         val canonicalKey = keyAliases[normalized] ?: normalized

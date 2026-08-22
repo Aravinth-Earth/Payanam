@@ -77,7 +77,6 @@ class LensViewModelCollectorRegressionTest {
     fun default_day_load_keeps_range_as_primary_filter() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
-
         val state = viewModel.uiState.value
         val todayKey = LocalDate.now().toString()
         assertEquals(LensTimeMode.TODAY, state.selectedTimeMode)
@@ -95,7 +94,6 @@ class LensViewModelCollectorRegressionTest {
         viewModel.selectTimeMode(LensTimeMode.TODAY)
         viewModel.selectTimeWindow(LensTimeWindow.TODAY)
         advanceUntilIdle()
-
         assertEquals(initialSnapshotCalls, lensRepository.snapshotCallCount.get())
     }
 
@@ -106,7 +104,6 @@ class LensViewModelCollectorRegressionTest {
 
         viewModel.selectTimeMode(LensTimeMode.PAST)
         awaitLensDataLoaded(viewModel)
-
         val state = viewModel.uiState.value
         val summary = state.selectedRangeSummary
         assertNotNull(summary)
@@ -117,6 +114,9 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
+    /**
+     * Past last7 paginates inside past only.
+     */
     fun past_last7_paginates_inside_past_only() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
@@ -125,7 +125,6 @@ class LensViewModelCollectorRegressionTest {
         awaitLensDataLoaded(viewModel)
         viewModel.selectTimeWindow(LensTimeWindow.LAST_7_DAYS)
         awaitLensDataLoaded(viewModel)
-
         var state = viewModel.uiState.value
         var summary = state.selectedRangeSummary
         assertEquals(LocalDate.now().minusDays(7), summary?.startDate)
@@ -145,6 +144,9 @@ class LensViewModelCollectorRegressionTest {
     }
 
     @Test
+    /**
+     * Future next7 paginates inside future only.
+     */
     fun future_next7_paginates_inside_future_only() = runTest {
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
@@ -153,7 +155,6 @@ class LensViewModelCollectorRegressionTest {
         awaitLensDataLoaded(viewModel)
         viewModel.selectTimeWindow(LensTimeWindow.NEXT_7_DAYS)
         awaitLensDataLoaded(viewModel)
-
         var state = viewModel.uiState.value
         var summary = state.selectedRangeSummary
         assertEquals(LocalDate.now().plusDays(1), summary?.startDate)
@@ -208,10 +209,8 @@ class LensViewModelCollectorRegressionTest {
             focusGapMinutes = 0,
             adherenceScore = 0.5f,
         )
-
         val viewModel = LensViewModel(lensRepository)
         awaitLensDataLoaded(viewModel)
-
         val summary = viewModel.uiState.value.selectedRangeSummary
         assertNotNull(summary)
         assertEquals(1, summary?.plannedTasksByDimension?.get(LifeDimension.HEALTH_WELLNESS.id))

@@ -48,7 +48,6 @@ internal fun OverallDimensionSnapshotCard(uiState: LensUiState) {
     val plannedMap = uiState.selectedRangeSummary?.plannedByDimension ?: emptyMap()
     val actualMap = uiState.selectedRangeSummary?.actualByDimension ?: emptyMap()
     val ids = collectDimensionIds(uiState).filter(appPrefs::isVisibleDimensionId)
-
     Card(modifier = Modifier.fillMaxWidth()) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(stringResource(id = R.string.loc_lens_group_by_dimension), fontWeight = FontWeight.SemiBold)
@@ -129,7 +128,6 @@ internal fun DimensionModuleDrilldownCard(uiState: LensUiState) {
         val reflectionsByDimension = uiState.reflections.filter { (it.dimensionId ?: LENS_UNASSIGNED_DIMENSION_KEY) == id }
         val addressedReflections = reflectionsByDimension.count { it.isAddressed }
         val taggedReflections = uiState.reflections.count { (it.dimensionId ?: LENS_UNASSIGNED_DIMENSION_KEY) == id }
-
         Card(modifier = Modifier.fillMaxWidth()) {
             Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
                 DimensionBadgeLabelRow(

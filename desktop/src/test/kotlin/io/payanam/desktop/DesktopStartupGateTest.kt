@@ -7,7 +7,9 @@ import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import io.payanam.shared.settings.FocusModePreset
 import org.junit.Test
-
+/**
+ * Provides the desktop startup gate test.
+ */
 class DesktopStartupGateTest {
     @Test
     fun `startup snapshot carries launch route and attention state for desktop shell`() {

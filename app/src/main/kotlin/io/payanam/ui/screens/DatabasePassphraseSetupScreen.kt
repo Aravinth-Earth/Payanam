@@ -74,7 +74,6 @@ fun DatabasePassphraseSetupScreen(
         allLogsPathPlaceholder,
     )
     val allLogsExportFailedMessage = stringResource(id = R.string.settings_snackbar_all_logs_export_failed)
-
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -146,7 +145,6 @@ fun DatabasePassphraseSetupScreen(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.error,
         )
-
         OutlinedTextField(
             value = passphrase,
             onValueChange = {
@@ -280,7 +278,6 @@ fun DatabasePassphraseSetupScreen(
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
         }
-
         Button(
             onClick = {
                 logger.i("DatabasePassphraseSetupScreen", "Submitting passphrase setup")
@@ -304,7 +301,6 @@ fun DatabasePassphraseSetupScreen(
             )
         }
     }
-
     if (showResetConfirmDialog) {
         AlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },

@@ -37,12 +37,10 @@ internal fun SettingsDefaultLandingSection(
         )
         return
     }
-
     val logger = UnifiedLogger.getInstance()
     val launchDestination = prefsState.launchDestination
     val effectiveTaskFilter = launchDestination.taskFilter ?: prefsState.currentTaskFilter
     val isTasksDestination = launchDestination.route == "tasks"
-
     val allRoutes = listOf(
         "tasks" to R.string.settings_database_tasks,
         "habits" to R.string.loc_habits,
@@ -51,11 +49,9 @@ internal fun SettingsDefaultLandingSection(
         "notes" to R.string.settings_database_notes,
         "lenses" to R.string.loc_lenses,
     )
-
     val visibleRoutes = allRoutes.filter { (route, _) ->
         prefsState.tabVisibility[route] != false
     }
-
     LaunchedEffect(visibleRoutes) {
         if (visibleRoutes.none { it.first == launchDestination.route }) {
             visibleRoutes.firstOrNull()?.let { (route, _) ->
@@ -67,7 +63,6 @@ internal fun SettingsDefaultLandingSection(
             }
         }
     }
-
     Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
         Text(
             text = stringResource(id = R.string.settings_default_landing_description),

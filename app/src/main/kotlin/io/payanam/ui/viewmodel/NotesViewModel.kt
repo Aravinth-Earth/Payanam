@@ -18,7 +18,11 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
+/**
+ * UI state for the Notes screen: all notes + the search/dimension-filtered
+ * subset, per-note tag names, tag suggestions for the editor, and
+ * loading/error flags.
+ */
 data class NotesScreenUiState(
     val notes: List<Note> = emptyList(),
     val filteredNotes: List<Note> = emptyList(),
@@ -30,6 +34,11 @@ data class NotesScreenUiState(
     val error: String? = null,
 )
 
+/**
+ * Notes-screen ViewModel: observes notes + tags from the repositories,
+ * applies search/dimension filtering, and drives note CRUD with tag
+ * replacement.
+ */
 @HiltViewModel
 class NotesViewModel @Inject constructor(
     private val noteRepository: NoteRepository,
@@ -56,6 +65,7 @@ class NotesViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun loadNotes() {
         logger.d("NotesViewModel.loadNotes", "Loading notes")
         viewModelScope.launch {
@@ -78,7 +88,9 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Filters the visible notes by [query] (title/details substring).
+     */
     fun updateSearchQuery(query: String) {
         _uiState.update { state ->
             state.copy(
@@ -87,7 +99,9 @@ class NotesViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Restricts the visible notes to one life dimension (null = all).
+     */
     fun setDimensionFilter(dimensionId: String?) {
         _uiState.update { state ->
             state.copy(
@@ -105,7 +119,6 @@ class NotesViewModel @Inject constructor(
         val matchesQuery = query.isBlank() ||
             note.title.contains(query, ignoreCase = true) ||
             note.details?.contains(query, ignoreCase = true) == true
-
         val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id
         val noteCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(note.dimensionId)?.id
         val matchesDimension = dimensionId == null ||
@@ -114,7 +127,10 @@ class NotesViewModel @Inject constructor(
 
         matchesQuery && matchesDimension
     }
-
+    /**
+     * Creates a note in [dimensionId] and attaches its initial [tags].
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -135,7 +151,10 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Saves edits to an existing note and replaces its tag set.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -161,7 +180,10 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Permanently deletes a note.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
             try {
@@ -173,7 +195,9 @@ class NotesViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Clears the current error message shown on the screen.
+     */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }

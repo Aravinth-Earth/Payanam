@@ -7,9 +7,14 @@ import io.payanam.database.entity.TaskEntity
 import io.payanam.domain.model.Task
 
 /**
- * Mapper functions between TaskEntity (Room) and Task (Domain).
+ * Mapper functions between taskEntity (Room) and task (Domain).
  */
 object TaskMapper {
+    /**
+     * Converts a Room [TaskEntity] into the domain [Task] model, parsing the
+     * persisted ISO date-time strings (including the decay-score legacy field)
+     * back into [PersistedDateTime] values.
+     */
     fun TaskEntity.toDomain(): Task =
         Task(
             id = id,
@@ -41,7 +46,10 @@ object TaskMapper {
             taskScore = taskScore,
             lastOccurrenceDate = PersistedDateTime.parseOrDateStart(lastOccurrenceDate),
         )
-
+    /**
+     * Converts a domain [Task] into a Room [TaskEntity], serializing its
+     * date-times to ISO strings and preserving the decay-score legacy column.
+     */
     fun Task.toEntity(): TaskEntity =
         TaskEntity(
             id = id,

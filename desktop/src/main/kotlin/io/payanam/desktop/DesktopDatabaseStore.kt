@@ -5,6 +5,10 @@ package io.payanam.desktop
 import java.nio.file.Files
 import java.nio.file.Path
 
+/**
+ * DesktopDatabaseSnapshot.
+
+ */
 data class DesktopDatabaseSnapshot(
     val databaseFilePath: String,
     val hasArtifacts: Boolean,
@@ -20,7 +24,10 @@ internal class DesktopDatabaseStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     private val databaseFilePath: Path = persistenceDatabase.getDatabaseFilePath()
-
+    /**
+     * Current database facts: path, artifact presence, init state, size, and
+     * last-modified time.
+     */
     fun loadSnapshot(): DesktopDatabaseSnapshot =
         DesktopDatabaseSnapshot(
             databaseFilePath = databaseFilePath.toString(),
@@ -29,7 +36,9 @@ internal class DesktopDatabaseStore(
             databaseSizeKb = databaseFileSizeKb(),
             databaseLastModifiedMs = databaseLastModifiedEpochMillis(),
         )
-
+    /**
+     * Marks the database initialized (idempotent) and returns fresh state.
+     */
     fun ensureInitialized(): DesktopDatabaseSnapshot {
         persistenceDatabase.markInitialized()
         logEvent(
@@ -39,7 +48,9 @@ internal class DesktopDatabaseStore(
         )
         return loadSnapshot()
     }
-
+    /**
+     * Wipes all state entries and the init marker (destructive reset).
+     */
     fun resetDatabaseArtifact(): DesktopDatabaseSnapshot {
         persistenceDatabase.clearStateEntries()
         persistenceDatabase.clearInitializedMarker()
@@ -50,9 +61,12 @@ internal class DesktopDatabaseStore(
         )
         return loadSnapshot()
     }
-
+    /**
+     * Path of the SQLite database file.
+     */
     fun getDatabaseFilePath(): Path = databaseFilePath
 
+    @Suppress("MagicNumber")
     private fun databaseFileSizeKb(): Long =
         if (Files.exists(databaseFilePath)) {
             Files.size(databaseFilePath) / 1024L

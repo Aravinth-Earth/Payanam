@@ -13,7 +13,6 @@ import io.payanam.common.logging.UnifiedLogger
  */
 object FeatureFlags {
     private val logger = UnifiedLogger.getInstance()
-
     val minimalModeEnabled: Boolean = BuildConfig.MINIMAL_MODE
     val scoringEnabled: Boolean = BuildConfig.SCORING_ENABLED
     val recurringTasksEnabled: Boolean = BuildConfig.RECURRING_TASKS_ENABLED

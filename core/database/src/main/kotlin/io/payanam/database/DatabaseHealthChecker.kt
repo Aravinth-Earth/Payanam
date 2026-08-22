@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:max-line-length")
+@file:Suppress("ktlint:standard:max-line-length", "MagicNumber")
+
 
 package io.payanam.database
 
@@ -9,7 +10,6 @@ import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
 import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
-
 object DatabaseHealthChecker {
     private val logger = UnifiedLogger.getInstance()
 
@@ -19,7 +19,10 @@ object DatabaseHealthChecker {
     // Build #1081 was the first beta build shipped to users, and it used schema 16.
     // Anything older is outside the supported in-place Room migration contract.
     const val MIN_MIGRATABLE_VERSION = 16
-
+    /**
+     * Outcome of [checkDatabaseHealth]: whether the database is safe to open,
+     * whether it needs a Room migration or a repair, plus the detected version.
+     */
     data class HealthCheckResult(
         val isHealthy: Boolean,
         val errorMessage: String? = null,
@@ -40,18 +43,22 @@ object DatabaseHealthChecker {
         val journalFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-journal")
         return dbFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
     }
-
+    /**
+     * Opens the database read-only (plain SQLite or SQLCipher when
+     * [sqlCipherPassphrase] is given) and validates version, presence of
+     * critical tables, and schema integrity. Returns a [HealthCheckResult]
+     * telling the caller whether to open, migrate, or repair.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     fun checkDatabaseHealth(
         context: Context,
         sqlCipherPassphrase: String? = null,
     ): HealthCheckResult {
         val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-
         if (!hasDatabaseArtifacts(context)) {
             logger.i("DatabaseHealthChecker.checkDatabaseHealth", "No database file found")
             return HealthCheckResult(isHealthy = false, needsRepair = false)
         }
-
         if (!dbFile.exists()) {
             logger.w("DatabaseHealthChecker.checkDatabaseHealth", "Database sidecar files found but primary DB file missing")
             return HealthCheckResult(
@@ -170,7 +177,6 @@ object DatabaseHealthChecker {
                 needsRepair = true,
             )
         }
-
         if (version < CURRENT_VERSION && version >= MIN_MIGRATABLE_VERSION) {
             logger.i(
                 "DatabaseHealthChecker.checkDatabaseHealth",
@@ -219,7 +225,6 @@ object DatabaseHealthChecker {
                 currentVersion = version,
             )
         }
-
         if (schemaIssues.isNotEmpty()) {
             logger.w(
                 "DatabaseHealthChecker.checkDatabaseHealth",
@@ -256,6 +261,7 @@ object DatabaseHealthChecker {
         return tables
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun checkSchemaIntegrity(
         infoQuery: (String) -> android.database.Cursor,
         indexQuery: (String) -> android.database.Cursor,
@@ -268,7 +274,6 @@ object DatabaseHealthChecker {
                 while (cursor.moveToNext()) {
                     val columnName = cursor.getString(cursor.getColumnIndexOrThrow("name"))
                     val notNull = cursor.getInt(cursor.getColumnIndexOrThrow("notnull"))
-
                     if (columnName == "id" && notNull == 0) {
                         issues.add("day_journal_entries.id is nullable (should be NOT NULL)")
                     }
@@ -300,7 +305,6 @@ object DatabaseHealthChecker {
                     generateSequence {
                         if (cursor.moveToNext()) cursor.getString(cursor.getColumnIndexOrThrow("name")) else null
                     }.any { it.contains("entryId_scope_dimensionKey_promptKey") }
-
                 if (!hasCompositeIndex) {
                     issues.add("day_journal_responses missing unique composite index")
                 }
@@ -316,7 +320,6 @@ object DatabaseHealthChecker {
                     generateSequence {
                         if (cursor.moveToNext()) cursor.getString(cursor.getColumnIndexOrThrow("name")) else null
                     }.any { it.contains("key") }
-
                 if (!hasKeyIndex) {
                     issues.add("app_settings missing unique index on key column")
                 }
@@ -338,7 +341,6 @@ object DatabaseHealthChecker {
                 if (columns.contains("deliveredAt") || columns.contains("updatedAt")) {
                     issues.add("scheduled_notifications has extra columns (deliveredAt/updatedAt) from old build")
                 }
-
                 val expectedColumns = setOf("id", "taskId", "scheduledAt", "notificationType", "title", "body", "isDelivered", "createdAt")
                 val missingColumns = expectedColumns - columns.toSet()
                 if (missingColumns.isNotEmpty()) {

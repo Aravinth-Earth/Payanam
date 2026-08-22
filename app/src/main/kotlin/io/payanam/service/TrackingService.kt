@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.service
 
 import android.app.Notification
@@ -45,11 +47,9 @@ class TrackingService : Service() {
     companion object {
         const val CHANNEL_ID = "tracking_channel"
         const val NOTIFICATION_ID = 1001
-
         const val ACTION_START = "io.payanam.action.START_TRACKING"
         const val ACTION_STOP = "io.payanam.action.STOP_TRACKING"
         const val ACTION_UPDATE = "io.payanam.action.UPDATE_TRACKING"
-
         const val EXTRA_TASK_ID = "task_id"
         const val EXTRA_TASK_TITLE = "task_title"
         const val EXTRA_DIMENSION = "dimension"
@@ -61,7 +61,10 @@ class TrackingService : Service() {
 
         private val _currentSession = MutableStateFlow<TrackingSession?>(null)
         val currentSession: StateFlow<TrackingSession?> = _currentSession.asStateFlow()
-
+        /**
+         * Launches the service in the foreground with a new tracking session
+         * (task, dimension, start time passed as intent extras).
+         */
         fun startTracking(
             context: Context,
             taskId: String?,
@@ -78,7 +81,10 @@ class TrackingService : Service() {
             }
             context.startForegroundService(intent)
         }
-
+        /**
+         * Sends the stop action to the running tracking service, ending the
+         * active session and removing its notification.
+         */
         fun stopTracking(context: Context) {
             val intent = Intent(context, TrackingService::class.java).apply {
                 action = ACTION_STOP
@@ -92,10 +98,19 @@ class TrackingService : Service() {
     private var updateJob: Job? = null
     private lateinit var notificationManager: NotificationManager
 
+    /**
+     * Local binder exposing this service to bound clients.
+     */
     inner class TrackingBinder : Binder() {
+        /**
+         * The bound [TrackingService] instance.
+         */
         fun getService(): TrackingService = this@TrackingService
     }
 
+    /**
+     * Creates the low-importance tracking notification channel.
+     */
     override fun onCreate() {
         super.onCreate()
         logger.i("TrackingService.onCreate", "Service created")
@@ -103,8 +118,15 @@ class TrackingService : Service() {
         createNotificationChannel()
     }
 
+    /**
+     * Clients bind directly; commands arrive via [onStartCommand].
+     */
     override fun onBind(intent: Intent?): IBinder = binder
 
+    /**
+     * Dispatches the incoming command: start (with extras), stop, or a
+     * notification refresh. Sticky so the OS restarts it after reclaim.
+     */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         logger.i("TrackingService.onStartCommand", "Command received", mapOf("action" to (action ?: "null")))
@@ -116,7 +138,6 @@ class TrackingService : Service() {
                     ?: getString(R.string.tracking_default_dimension)
                 val startTime = intent.getStringExtra(EXTRA_START_TIME)
                     ?: LocalDateTime.now().toString()
-
                 startTrackingSession(taskId, taskTitle, dimension, startTime)
             }
 
@@ -136,6 +157,7 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun startTrackingSession(
         taskId: String?,
         taskTitle: String?,
@@ -208,7 +230,6 @@ class TrackingService : Service() {
         updateJob?.cancel()
         _currentSession.value = null
         _isTracking.value = false
-
         stopForeground(STOP_FOREGROUND_REMOVE)
         stopSelf()
         logger.i("TrackingService.stopTrackingSession", "Tracking session stopped; service stopping")
@@ -238,7 +259,6 @@ class TrackingService : Service() {
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
         val openTimeActionPendingIntent = PendingIntent.getActivity(
             this,
             2,
@@ -317,6 +337,10 @@ class TrackingService : Service() {
         }
     }
 
+    /**
+     * Cancels the per-second notification ticker and flushes the encrypted
+     * database's WAL checkpoint before the service dies.
+     */
     override fun onDestroy() {
         logger.i(
             "TrackingService.onDestroy",
@@ -331,7 +355,10 @@ class TrackingService : Service() {
         super.onDestroy()
     }
 }
-
+/**
+ * One active tracking session: the optional linked task, display title, life
+ * dimension being tracked, and when the session started.
+ */
 data class TrackingSession(
     val taskId: String?,
     val taskTitle: String,

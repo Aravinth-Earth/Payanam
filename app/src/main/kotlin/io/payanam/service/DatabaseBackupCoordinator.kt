@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam.service
 
 import android.content.Context
@@ -22,13 +24,19 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
 import kotlinx.coroutines.Dispatchers
-
+/**
+ * What started a backup: scheduled auto, user-initiated manual, or a
+ * settings-screen export. Drives the retry policy.
+ */
 enum class BackupTrigger(val key: String) {
     AUTO("auto"),
     MANUAL("manual"),
     EXPORT("export"),
 }
-
+/**
+ * Outcome of a completed backup: when it was recorded, where it landed, and
+ * how many snapshot attempts it took.
+ */
 data class BackupExecutionResult(
     val recordedAtMillis: Long,
     val recordedAtDisplay: String,
@@ -41,6 +49,12 @@ private data class SnapshotAttemptResult(
     val attemptsUsed: Int,
 )
 
+/**
+ * Owns database backup execution: creates WAL-checkpointed, integrity-verified
+ * snapshots with trigger-specific retry policies, writes them to the Documents
+ * backup folder or a SAF destination, applies retention rotation, and records
+ * every outcome in [BackupStatusStore].
+ */
 @Singleton
 class DatabaseBackupCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -48,7 +62,11 @@ class DatabaseBackupCoordinator @Inject constructor(
     private val backupStatusStore: BackupStatusStore,
 ) {
     private val logger = UnifiedLogger.getInstance()
-
+    /**
+     * Runs a full backup into the app's Documents backup folder: WAL
+     * checkpoint + verified snapshot with retries, then rotation cleanup.
+     * Records success/failure in [BackupStatusStore].
+     */
     suspend fun backupToAppBackupDirectory(trigger: BackupTrigger): BackupExecutionResult = withContext(Dispatchers.IO) {
         val policy = retryPolicyFor(trigger)
         runCatching {
@@ -84,7 +102,10 @@ class DatabaseBackupCoordinator @Inject constructor(
             throw IllegalStateException(finalMessage, error)
         }
     }
-
+    /**
+     * Streams a verified snapshot to a user-chosen [destinationUri] via SAF,
+     * returning the bytes written.
+     */
     suspend fun exportSnapshotToUri(destinationUri: Uri): Long = withContext(Dispatchers.IO) {
         val trigger = BackupTrigger.EXPORT
         val policy = retryPolicyFor(trigger)
@@ -125,7 +146,6 @@ class DatabaseBackupCoordinator @Inject constructor(
         if (!dbFile.exists()) {
             throw IllegalStateException("Database file not found at ${dbFile.absolutePath}")
         }
-
         var lastError: Exception? = null
         repeat(maxAttempts) { index ->
             val attemptNumber = index + 1
@@ -166,7 +186,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     snapshotFile = tempSnapshot,
                     attemptsUsed = attemptNumber,
                 )
-            } catch (error: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
                 if (error is CancellationException) throw error
                 tempSnapshot.delete()
                 lastError = error
@@ -205,7 +225,6 @@ class DatabaseBackupCoordinator @Inject constructor(
             )
             return
         }
-
         val cursor = sessionManager.requireDatabase().openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)")
         var busy = -1
         var logPages = -1
@@ -304,7 +323,6 @@ class DatabaseBackupCoordinator @Inject constructor(
                     "backupDir" to backupDir.absolutePath,
                 ),
             )
-
             if (!rotationEnabled) {
                 logger.i(
                     "DatabaseBackupCoordinator.cleanupOldBackups",
@@ -312,7 +330,6 @@ class DatabaseBackupCoordinator @Inject constructor(
                 )
                 return
             }
-
             val allDirs =
                 backupDir
                     .listFiles { file -> file.isDirectory && file.name.startsWith("auto_bk_") }
@@ -323,10 +340,8 @@ class DatabaseBackupCoordinator @Inject constructor(
                 "Backup dirs scanned",
                 mapOf("totalDirs" to allDirs.size),
             )
-
             val sorted = allDirs.sortedByDescending { it.lastModified() }
             val toDelete = sorted.drop(maxBackups)
-
             if (toDelete.isEmpty()) {
                 logger.i(
                     "DatabaseBackupCoordinator.cleanupOldBackups",
@@ -348,7 +363,6 @@ class DatabaseBackupCoordinator @Inject constructor(
                     "oldestDeleted" to (toDelete.lastOrNull()?.name ?: ""),
                 ),
             )
-
             var deleted = 0
             var failed = 0
             val failedNames = mutableListOf<String>()
@@ -385,7 +399,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     },
                 ),
             )
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
             logger.e("DatabaseBackupCoordinator.cleanupOldBackups", "Backup cleanup failed", error)
         }
     }

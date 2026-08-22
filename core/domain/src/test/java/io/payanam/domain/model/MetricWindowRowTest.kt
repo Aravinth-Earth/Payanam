@@ -4,7 +4,6 @@ package io.payanam.domain.model
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
 class MetricWindowRowTest {
 
     @Test
@@ -19,7 +18,6 @@ class MetricWindowRowTest {
             streakNet = 6,
             posContinue = 31,
         )
-
         val row: MetricWindowRow = habit
         assertEquals("habit-1", row.key)
         assertEquals("habit-1", row.label)

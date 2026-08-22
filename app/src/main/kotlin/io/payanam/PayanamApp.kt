@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam
 
 import android.app.ActivityManager
@@ -21,9 +23,19 @@ import io.payanam.feature.settings.AppStartUpdateChecker
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
+/**
+ * Application entry point: initializes logging before anything else, installs
+ * a crash handler that sync-logs and auto-exports the log ZIP, records the
+ * previous process exit reason, and creates notification channels.
+ */
 @HiltAndroidApp
 class PayanamApp : Application() {
 
+    /**
+     * Boot sequence: logger first, crash handler + breadcrumbs, notification
+     * channels, then the lazy app-start update check.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onCreate() {
         super.onCreate()
 
@@ -43,7 +55,6 @@ class PayanamApp : Application() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-
         logPreviousProcessExitReason(logger)
         CrashSafeBreadcrumbs.dumpToLoggerAndClear(this, "PayanamApp.onCreate")
         installGlobalCrashLogging(logger)
@@ -67,9 +78,16 @@ class PayanamApp : Application() {
         }
     }
 
+    /**
+     * Hilt entry point for the app-start update check, resolved lazily so
+     * nothing extra is built during super.onCreate().
+     */
     @EntryPoint
     @InstallIn(SingletonComponent::class)
     interface AppStartUpdateCheckerEntryPoint {
+        /**
+         * Resolves the update checker lazily (kept out of super.onCreate()).
+         */
         fun appStartUpdateChecker(): AppStartUpdateChecker
     }
 
@@ -188,7 +206,6 @@ class PayanamApp : Application() {
     private fun createNotificationChannels() {
         val logger = UnifiedLogger.getInstance()
         logger.d("PayanamApp.createNotificationChannels", "Creating notification channels")
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(NotificationManager::class.java)
 

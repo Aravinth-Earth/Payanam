@@ -224,7 +224,6 @@ internal fun TasksTopBar(
                     }
                 }
             }
-
             if (effectiveTabIndex == 1) {
                 Box {
                     androidx.compose.material3.IconButton(onClick = {

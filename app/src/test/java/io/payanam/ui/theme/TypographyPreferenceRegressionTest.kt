@@ -9,7 +9,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.viewmodel.FontFamilyOption
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
 class TypographyPreferenceRegressionTest {
 
     private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }
@@ -19,7 +18,6 @@ class TypographyPreferenceRegressionTest {
         val base = Typography()
         val typography = buildTypography(FontFamilyOption.MONOSPACE)
         logger?.d("TypographyPreferenceRegressionTest", "Validated typography font family for monospace profile")
-
         assertFontFamily(base.displayLarge, typography.displayLarge, FontFamily.Monospace)
         assertFontFamily(base.displayMedium, typography.displayMedium, FontFamily.Monospace)
         assertFontFamily(base.displaySmall, typography.displaySmall, FontFamily.Monospace)

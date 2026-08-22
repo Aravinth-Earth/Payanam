@@ -47,14 +47,12 @@ class DimensionTaxonomyCatalogTest {
     @Test
     fun fromAnyId_rejects_legacy_id() {
         val result = DimensionTaxonomyCatalog.fromAnyId("dim_health_wellness")
-
         assertThat(result).isNull()
     }
 
     @Test
     fun fromAnyLabel_rejects_legacy_label() {
         val result = DimensionTaxonomyCatalog.fromAnyLabel("Community & Service")
-
         assertThat(result).isNull()
     }
 

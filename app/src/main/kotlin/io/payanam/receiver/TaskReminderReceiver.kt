@@ -25,6 +25,11 @@ import java.time.LocalDateTime
 import javax.inject.Inject
 import kotlin.math.abs
 
+/**
+ * Alarm-fired task reminder: validates extras, posts the notification on the
+ * right channel (with complete/skip/snooze/miss actions), and marks it
+ * delivered.
+ */
 @AndroidEntryPoint
 class TaskReminderReceiver : BroadcastReceiver() {
 
@@ -34,6 +39,10 @@ class TaskReminderReceiver : BroadcastReceiver() {
     private val logger = UnifiedLogger.getInstance()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
+    /**
+     * Delivers the reminder asynchronously (goAsync) when reminders are on.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         scope.launch {
@@ -48,7 +57,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 val dueAtRaw = intent.getStringExtra(EXTRA_DUE_AT)
                 val notificationType = intent.getStringExtra(EXTRA_NOTIFICATION_TYPE) ?: TYPE_TASK_REMINDER
                 val isSnoozed = intent.getBooleanExtra(EXTRA_IS_SNOOZED, false)
-
                 if (notificationId.isNullOrBlank() || taskId.isNullOrBlank() || taskTitle.isNullOrBlank()) {
                     logger.w(
                         "TaskReminderReceiver.onReceive",
@@ -61,10 +69,8 @@ class TaskReminderReceiver : BroadcastReceiver() {
                     )
                     return@launch
                 }
-
                 val dueAt = PersistedDateTime.parseOrNull(dueAtRaw)
                 val notificationIdInt = notificationIdToInt(notificationId)
-
                 showNotification(
                     context = context,
                     notificationIdInt = notificationIdInt,
@@ -110,7 +116,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             TYPE_MISSED_TASK -> PayanamApp.CHANNEL_MISSED_TASKS
             else -> PayanamApp.CHANNEL_TASK_REMINDERS
         }
-
         val openAppIntent = Intent(context, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         }
@@ -120,7 +125,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
         val actionExtras = Intent().apply {
             putExtra(EXTRA_NOTIFICATION_ID, notificationId)
             putExtra(EXTRA_NOTIFICATION_ID_INT, notificationIdInt)
@@ -130,7 +134,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             putExtra(EXTRA_NOTIFICATION_TYPE, notificationType)
             putExtra(EXTRA_IS_SNOOZED, isSnoozed)
         }
-
         val completeIntent = Intent(context, NotificationActionReceiver::class.java).apply {
             action = NotificationActionReceiver.ACTION_COMPLETE_TASK
             putExtras(actionExtras)
@@ -147,7 +150,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             action = NotificationActionReceiver.ACTION_MISS_TASK
             putExtras(actionExtras)
         }
-
         val completePendingIntent = PendingIntent.getBroadcast(
             context,
             notificationIdInt + 1,
@@ -172,7 +174,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             missIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-
         val timeText = dueAt?.let { DateTimeUtil.formatTime(it.toLocalTime(), use24Hour = false) }
         val body = when {
             isSnoozed && timeText != null -> context.getString(
@@ -187,7 +188,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
 
             else -> context.getString(R.string.task_notification_reminder)
         }
-
         val builder = NotificationCompat.Builder(context, channelId)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(taskTitle)
@@ -207,7 +207,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 context.getString(R.string.task_notification_action_skip),
                 skipPendingIntent,
             )
-
         if (!isSnoozed) {
             builder.addAction(
                 android.R.drawable.ic_lock_idle_alarm,
@@ -215,7 +214,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 snoozePendingIntent,
             )
         }
-
         if (notificationType == TYPE_HABIT_TRACKING) {
             builder.addAction(
                 android.R.drawable.ic_menu_close_clear_cancel,
@@ -243,7 +241,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
         const val EXTRA_DUE_AT = "extra_due_at"
         const val EXTRA_NOTIFICATION_TYPE = "extra_notification_type"
         const val EXTRA_IS_SNOOZED = "extra_is_snoozed"
-
         const val TYPE_TASK_REMINDER = "task_reminder"
         const val TYPE_HABIT_TRACKING = "habit_tracking"
         const val TYPE_MISSED_TASK = "missed_task"

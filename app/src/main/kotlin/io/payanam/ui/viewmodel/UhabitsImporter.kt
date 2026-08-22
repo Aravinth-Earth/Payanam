@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -34,7 +36,11 @@ internal class UhabitsImporter(
     private val logger = UnifiedLogger.getInstance()
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-
+    /**
+     * Imports habits + repetitions from a uHabits (Loop) SQLite backup at
+     * [sourceUri]: upserts tasks/occurrences by import-ref, marks affected
+     * lens days dirty, and returns the upsert counts.
+     */
     suspend fun import(sourceUri: Uri): UhabitsImportSummary {
         val tempDb = File.createTempFile("uhabits_import_", ".db", context.cacheDir)
         val importedAt = LocalDateTime.now().format(dateTimeFormatter)
@@ -53,12 +59,10 @@ internal class UhabitsImporter(
                     input.copyTo(output)
                 }
             } ?: throw IllegalStateException("Could not open uHabits file")
-
             val habits = readUhabitsHabits(tempDb)
             if (habits.isEmpty()) {
                 throw IllegalStateException("No habits found in selected uHabits database")
             }
-
             var habitsUpserted = 0
             var repetitionsUpserted = 0
             val dirtyDayKeys = mutableSetOf<String>()
@@ -174,7 +178,6 @@ internal class UhabitsImporter(
             if (!hasTable(db, "Habits") || !hasTable(db, "Repetitions")) {
                 throw IllegalStateException("Selected file is not a valid uHabits (Loop) database")
             }
-
             val hasRepetitionValueColumn = hasColumn(db, "Repetitions", "value")
             val hasRepetitionNotesColumn = hasColumn(db, "Repetitions", "notes")
             val repetitionsQuery = buildRepetitionsQuery(hasRepetitionValueColumn, hasRepetitionNotesColumn)
@@ -259,7 +262,9 @@ internal class UhabitsImporter(
         }
         return false
     }
-
+    /**
+     * Upsert counts reported to the caller after a completed import.
+     */
     data class UhabitsImportSummary(
         val habitsUpserted: Int,
         val repetitionsUpserted: Int,

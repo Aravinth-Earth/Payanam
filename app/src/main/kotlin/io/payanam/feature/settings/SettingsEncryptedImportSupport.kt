@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.feature.settings
 
 import android.net.Uri
@@ -26,7 +28,15 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
         data = data,
     )
 }
-
+/**
+ * Starts an encrypted/plaintext database import from [sourceUri]: backs up the
+ * current DB + encryption prefs, swaps in the imported file, and either
+ * re-encrypts it (when local encryption is on) or validates the schema. If the
+ * imported file is encrypted it pauses and surfaces [awaitingImportPassphrase];
+ * the coroutine then resumes via [resumeImportWithPassphrase]. On failure the
+ * pre-import backup is restored.
+ */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
     breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
@@ -240,7 +250,6 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     }
                 }
             }
-
             if (pausedForPassphrase) {
                 logger.i("SettingsViewModel.importDatabase", "Import coroutine paused awaiting passphrase")
                 return@launch
@@ -313,7 +322,13 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
         }
     }
 }
-
+/**
+ * Resumes a paused encrypted import: verifies [passphrase] can unlock the
+ * imported DB, adopts it as the new local passphrase, then discards the prefs
+ * + artifact backups and reports the imported counts. On a wrong passphrase it
+ * stays on the gate; on any other failure it restores the backups.
+ */
+@Suppress("TooGenericExceptionCaught", "SwallowedException")
 fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
     logger.i("SettingsViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
     breadcrumb(
@@ -326,7 +341,6 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
             withContext(Dispatchers.IO) {
                 val dbFile = pendingEncryptedImportDbFile
                     ?: throw IllegalStateException("No pending encrypted import DB to resume")
-
                 val canUnlock = DatabaseEncryptionMigrationSupport.canOpenWithSqlCipher(
                     context = context,
                     databaseFile = dbFile,
@@ -366,7 +380,6 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                 )
                 breadcrumb(stage = "settings_resume_import_cleanup_done", data = mapOf("backupFiles" to backupMappings.size))
             }
-
             val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
             val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
                 val counts = DatabaseImportIntegritySupport.readCoreCounts(context, dbFile, passphrase)
@@ -444,7 +457,11 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
         }
     }
 }
-
+/**
+ * Aborts a paused encrypted-import passphrase gate: restores the original
+ * encryption prefs, deletes the staged imported DB, restores any pre-import
+ * artifact backup, and clears the passphrase UI state.
+ */
 fun SettingsViewModel.cancelImportPassphrase() {
     logger.i("SettingsViewModel.cancelImportPassphrase", "User cancelled encrypted import passphrase prompt")
     breadcrumb(stage = "settings_resume_import_cancelled")

@@ -55,6 +55,9 @@ class DayPlanViewModelModeTransitionTest {
     }
 
     @Test
+    /**
+     * Save day plan custom mode persists allocations starred and day type preferences.
+     */
     fun saveDayPlan_customMode_persists_allocations_starred_and_day_type_preferences() = runTest {
         val dayKey = "2026-02-21"
         val allocations = mapOf("career_work" to 120)
@@ -89,6 +92,9 @@ class DayPlanViewModelModeTransitionTest {
     }
 
     @Test
+    /**
+     * Save day plan template mode without template id resets to auto and clears plan.
+     */
     fun saveDayPlan_templateMode_withoutTemplateId_resets_to_auto_and_clears_plan() = runTest {
         val dayKey = "2026-02-22"
 
@@ -108,6 +114,9 @@ class DayPlanViewModelModeTransitionTest {
     }
 
     @Test
+    /**
+     * Load day plan hydrates ui state from policy allocations and resolved template.
+     */
     fun loadDayPlan_hydrates_ui_state_from_policy_allocations_and_resolved_template() = runTest {
         val dayKey = "2026-02-23"
         val resolvedTemplate = DayPlanTemplateRecord(
@@ -148,7 +157,6 @@ class DayPlanViewModelModeTransitionTest {
 
         viewModel.loadDayPlan(dayKey)
         advanceUntilIdle()
-
         val state = viewModel.uiState.value
         assertEquals(dayKey, state.selectedDayKey)
         assertEquals(DayPlanRepository.MODE_TEMPLATE, state.dayMode)
@@ -160,6 +168,9 @@ class DayPlanViewModelModeTransitionTest {
     }
 
     @Test
+    /**
+     * Load day plan duplicate request while in flight only loads once.
+     */
     fun loadDayPlan_duplicateRequestWhileInFlight_onlyLoadsOnce() = runTest {
         val dayKey = "2026-02-24"
         advanceUntilIdle()
@@ -168,7 +179,6 @@ class DayPlanViewModelModeTransitionTest {
         viewModel.loadDayPlan(dayKey)
         viewModel.loadDayPlan(dayKey)
         advanceUntilIdle()
-
         assertEquals(1, repository.getAllocationsForDayCount)
         assertEquals(1, repository.getDayPolicyCount)
         assertEquals(3, repository.getDayTypeTemplatePreferenceCount)
@@ -284,7 +294,6 @@ private class FakeDayPlanRepository : DayPlanRepository {
     ) = Unit
 
     override suspend fun deleteTemplate(id: String) = Unit
-
     fun resetCounters() {
         getAllocationsForDayCount = 0
         getDayPolicyCount = 0

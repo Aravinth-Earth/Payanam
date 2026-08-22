@@ -13,7 +13,7 @@ import kotlinx.coroutines.flow.Flow
 interface TaskRepository {
     
     /**
-     * Get all tasks as a Flow for reactive updates.
+     * Get all tasks as a flow for reactive updates.
      */
     fun getAllTasks(): Flow<List<Task>>
     
@@ -33,7 +33,7 @@ interface TaskRepository {
     suspend fun getTaskById(id: String): Task?
     
     /**
-     * Create a new task. Returns the created task with generated ID.
+     * Create a new task. returns the created task with generated ID.
      */
     suspend fun createTask(input: TaskInput): Task
     
@@ -41,9 +41,10 @@ interface TaskRepository {
      * Update an existing task.
      */
     suspend fun updateTask(id: String, input: TaskInput): Task
-    
     /**
-     * Update task score.
+     * Writes the recomputed score (0-100) for a task after a
+     * completion/skip/miss or manual change; feeds the life-dimension radar
+     * and Trends.
      */
     suspend fun updateTaskScore(id: String, score: Double)
     

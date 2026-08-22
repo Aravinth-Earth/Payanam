@@ -11,7 +11,9 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
-
+/**
+ * Provides the desktop task board store test.
+ */
 class DesktopTaskBoardStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

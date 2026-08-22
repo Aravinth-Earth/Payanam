@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.Canvas
@@ -160,11 +162,16 @@ private fun RadarCanvas(
         val signedMetric =
             radarMetric == ScoreMetricColumn.PROGRESS ||
                 radarMetric == ScoreMetricColumn.STREAK_NET
+        /**
+         * Normalized radius for a metric value (signed metrics center at 0).
+         */
         fun scale(v: Double?): Float {
             val n = ((v ?: 0.0) / scaleMax).coerceIn(-1.0, 1.0)
             return (if (signedMetric) n else n * 2.0 - 1.0).toFloat()
         }
-
+        /**
+         * Canvas point for an axis index at a normalized value.
+         */
         fun point(index: Int, value: Float): Offset {
             val angle = -Math.PI / 2 + angleStep * index
             val r = radius * (0.5f + value * 0.5f).coerceIn(0.05f, 1.0f)

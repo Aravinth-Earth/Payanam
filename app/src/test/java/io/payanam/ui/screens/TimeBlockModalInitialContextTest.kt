@@ -70,7 +70,6 @@ class TimeBlockModalInitialContextTest {
             updatedAt = startedAt,
             dimensionId = LifeDimension.HEALTH_WELLNESS.id,
         )
-
         val context = buildTimeBlockModalInitialContext(
             target = TimeBlockModalTarget.ExistingEntry(entry),
             selectedDate = LocalDate.of(2026, 2, 15),
@@ -87,7 +86,6 @@ class TimeBlockModalInitialContextTest {
             fallbackDimensionId = LifeDimension.CAREER_WORK.id,
             fallbackDimensionLabel = LifeDimension.CAREER_WORK.displayName,
         )
-
         assertEquals(R.string.loc_edit_time_entry, context.titleResId)
         assertEquals(LifeDimension.HEALTH_WELLNESS.id, context.initialDimensionId)
         assertEquals("ஆரோக்கியம் & நலன்", context.initialDimensionLabel)
@@ -125,7 +123,6 @@ class TimeBlockModalInitialContextTest {
             actualCompletedAt = actualCompletedAt,
             actualDurationMinutes = 35,
         )
-
         val context = buildTimeBlockModalInitialContext(
             target = TimeBlockModalTarget.TaskBlock(task, occurrence),
             selectedDate = LocalDate.of(2026, 2, 15),
@@ -142,7 +139,6 @@ class TimeBlockModalInitialContextTest {
             fallbackDimensionId = LifeDimension.CAREER_WORK.id,
             fallbackDimensionLabel = LifeDimension.CAREER_WORK.displayName,
         )
-
         assertEquals(LocalDateTime.of(2026, 2, 15, 18, 40), context.initialStart)
         assertEquals(actualCompletedAt, context.initialEnd)
         assertEquals(task.id, context.initialTaskId)

@@ -35,6 +35,9 @@ import java.time.LocalDateTime
 
 @ExperimentalCoroutinesApi
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the tasks view model integration test.
+ */
 class TasksViewModelIntegrationTest {
 
     @get:Rule
@@ -57,6 +60,9 @@ class TasksViewModelIntegrationTest {
     private lateinit var viewModel: TasksViewModel
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         MockitoAnnotations.openMocks(this)
         Dispatchers.setMain(testDispatcher)
@@ -77,11 +83,17 @@ class TasksViewModelIntegrationTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         Dispatchers.resetMain()
     }
 
     @Test
+    /**
+     * Performs the initial state loads correctly.
+     */
     fun initialState_loadsCorrectly() = runTest {
         // Given - default mocks return empty lists
 
@@ -97,6 +109,9 @@ class TasksViewModelIntegrationTest {
     }
 
     @Test
+    /**
+     * Loads the load tasks updates state with repository data.
+     */
     fun loadTasks_updatesStateWithRepositoryData() = runTest {
         // Given
         val testTasks = listOf(
@@ -122,6 +137,9 @@ class TasksViewModelIntegrationTest {
     }
 
     @Test
+    /**
+     * Updates the set filter updates current filter and reloads tasks.
+     */
     fun setFilter_updatesCurrentFilterAndReloadsTasks() = runTest {
         // Given
         val completedTasks = listOf(createTestTask("completed", "Completed Task").copy(status = "completed"))
@@ -140,6 +158,9 @@ class TasksViewModelIntegrationTest {
     }
 
     @Test
+    /**
+     * Updates the set sort option updates current sort and reloads tasks.
+     */
     fun setSortOption_updatesCurrentSortAndReloadsTasks() = runTest {
         // Given
         val tasks = listOf(createTestTask("task-1", "Task 1"))
@@ -172,6 +193,9 @@ class TasksViewModelIntegrationTest {
     // }
 
     @Test
+    /**
+     * Removes the delete task removes task and refreshes list.
+     */
     fun deleteTask_removesTaskAndRefreshesList() = runTest {
         // Given
         val task = createTestTask("task-1", "Test Task")
@@ -189,6 +213,9 @@ class TasksViewModelIntegrationTest {
     }
 
     @Test
+    /**
+     * Loads the load todays tasks loads tasks for today filter.
+     */
     fun loadTodaysTasks_loadsTasksForTodayFilter() = runTest {
         // Given
         val todaysTasks = listOf(createTestTask("today", "Today's Task"))

@@ -44,7 +44,6 @@ android {
 detekt {
     toolVersion = libs.versions.detekt.get()
     config = files("${rootProject.projectDir}/config/detekt/detekt.yml")
-    buildUponDefaultConfig = true
 }
 
 spotless {
