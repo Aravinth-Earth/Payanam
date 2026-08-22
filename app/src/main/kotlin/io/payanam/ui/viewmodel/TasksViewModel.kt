@@ -217,9 +217,9 @@ class TasksViewModel @Inject constructor(
         if (v == null) return "—"
         return when (metric) {
             ScoreMetricColumn.SCORE, ScoreMetricColumn.RUNNING_AVG ->
-                String.format(Locale.US, "%.2f", v.coerceIn(0.0, 1.0))
+                String.format(Locale.US, "%.5f", v.coerceIn(0.0, 1.0))
             ScoreMetricColumn.PROGRESS ->
-                if (v > 0.0) "+${String.format(Locale.US, "%.2f", v)}" else String.format(Locale.US, "%.2f", v)
+                if (v > 0.0) "+${String.format(Locale.US, "%.5f", v)}" else String.format(Locale.US, "%.5f", v)
             else -> v.toLong().toString()
         }
     }
