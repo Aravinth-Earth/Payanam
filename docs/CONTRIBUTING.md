@@ -42,12 +42,24 @@ and isn't, and which contributions align with our direction.
 
 ## Before opening a PR
 
-Run the pre-commit gate locally. It runs Spotless (formatting) + detekt
-(static analysis) across all modules:
+1. Run the quick gate locally — Spotless (formatting) + detekt (static
+   analysis) across all modules:
 
-```bash
-./gradlew preCommitCheck
-```
+   ```bash
+   ./gradlew preCommitCheck
+   ```
+
+2. Run the full build script (unit tests, regression locks, coverage,
+   detekt, guardrails, APK assembly):
+
+   ```powershell
+   .\build-tools\scripts\build-android.ps1 -Profile full
+   ```
+
+   This must pass before submitting a PR.
+
+3. Test manually on a real device — install the built APK, exercise the
+   changed flows, and verify app data survives (database migrations).
 
 Fix what it reports. The CI pipeline runs the same checks on every PR, so a
 green local run is the fastest path to merge.
