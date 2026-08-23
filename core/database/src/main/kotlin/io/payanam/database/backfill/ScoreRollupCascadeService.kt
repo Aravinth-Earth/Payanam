@@ -375,6 +375,136 @@ class ScoreRollupCascadeService
             }
         }
 
+        /**
+         * Day-start pre-fill (earn-style): for every due habit that has no L1 row
+         * for [today], seed a not-done row (score 0.0) so L2/L3 always consume a
+         * real today value instead of carry-forwarding yesterday's score.
+         *
+         * The not-done row is computed via [ScoreRollupBackfillService.buildHabitMetricsFrom]
+         * with includeToday=true and no occurrence for today → it produces the
+         * correct 0.0 row with runningAvg pulled DOWN (cumulative avg drops) and
+         * streaks decremented, exactly like a missed day. After seeding, L2/L3
+         * tails are rebuilt for today so the day score reflects "nothing done yet".
+         *
+         * Runs at app launch (post-backfill) and on day rollover. Idempotent:
+         * habits that already have a today row are skipped.
+         */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        suspend fun prefillToday() {
+            if (!sessionManager.isOpen.value) return
+            val db = sessionManager.requireDatabase()
+            val tag = "ScoreRollupCascadeService.prefillToday"
+            val started = System.currentTimeMillis()
+            try {
+                val taskDao = db.taskDao()
+                val habitDao = db.habitMetricDao()
+                val dimDao = db.dimensionMetricDao()
+                val dayDao = db.dayMetricDao()
+                val occDao = db.taskOccurrenceDao()
+                val today = LocalDate.now()
+                val todayStr = today.toString()
+                val recurring = taskDao.getRecurringTasks()
+                    .filter { it.status != "archived" && it.recurrenceEnabled == 1 }
+                var seeded = 0
+                val affectedDims = mutableSetOf<String>()
+                for (task in recurring) {
+                    if (!RecurrenceConfig.parse(task.recurrenceRule ?: "").isScheduledDay(today)) continue
+                    val existing = habitDao.getForHabit(task.id)
+                    if (existing.any { it.dayKey == todayStr }) continue // already has a today row
+                    val baselineRows = existing.filter { it.dayKey < todayStr }
+                    val baseline = MetricBaseline.fromHabitRows(baselineRows)
+                    // Synthetic missed occurrence for today so buildHabitMetricsFrom
+                    // emits the not-done (0.0) row with correct runningAvg pull-down
+                    // and streak decrements — same as a real missed due day.
+                    val missedToday = TaskOccurrenceEntity(
+                        id = "prefill-${task.id}-$todayStr",
+                        taskId = task.id,
+                        dueDate = todayStr,
+                        status = "missed",
+                        createdAt = LocalDateTime.now().toString(),
+                    )
+                    val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
+                        task = task,
+                        occurrences = listOf(missedToday),
+                        fromDay = today,
+                        includeToday = true,
+                        baseline = baseline,
+                    )
+                    if (rows.isNotEmpty()) {
+                        habitDao.upsertAll(rows)
+                        seeded++
+                        affectedDims.add(task.dimensionId ?: "dim_unassigned")
+                    }
+                }
+                if (seeded == 0) {
+                    logger.d(tag, "PREFILL_TODAY_NOOP", mapOf("today" to todayStr))
+                    return
+                }
+                // ── Rebuild L2/L3 tails for today so the day score reflects the seed ──
+                val allHabitRows = habitDao.getAll()
+                val firstDuePerHabit = allHabitRows.groupBy { it.habitId }
+                    .mapValues { (_, rows) -> rows.minOfOrNull { parseDate(it.dayKey) } }
+                    .filterValues { it != null }
+                    .mapValues { it.value!! }
+                var dimRows = 0
+                for (dimId in affectedDims) {
+                    val members = recurring.filter { (it.dimensionId ?: "dim_unassigned") == dimId }
+                    if (members.isEmpty()) continue
+                    val memberRows = allHabitRows.filter { row -> members.any { it.id == row.habitId } }
+                    val dimBaseline = MetricBaseline.fromDimensionRows(
+                        dimDao.getAll().filter { it.dimensionId == dimId && it.dayKey < todayStr }.sortedBy { it.dayKey },
+                    )
+                    val lastScores = memberRows
+                        .groupBy { it.habitId }
+                        .mapValues { (_, rs) -> rs.filter { it.dayKey < todayStr }.maxByOrNull { it.dayKey } }
+                        .filterValues { it != null }
+                        .mapValues { it.value!!.score }
+                    val built = ScoreRollupBackfillService.buildDimensionMetricsFrom(
+                        recurring = members,
+                        firstDuePerHabit = firstDuePerHabit,
+                        habitRows = memberRows,
+                        fromDay = today,
+                        includeToday = true,
+                        baseline = dimBaseline,
+                        lastScores = lastScores,
+                    )
+                    dimDao.deleteFrom(dimId, todayStr)
+                    if (built.isNotEmpty()) {
+                        dimDao.upsertAll(built)
+                        dimRows += built.size
+                    }
+                }
+                val allDimRows = dimDao.getAll()
+                val dayBaseline = MetricBaseline.fromDayRows(dayDao.getAll().filter { it.dayKey < todayStr }.sortedBy { it.dayKey })
+                val dimWeights = db.lifeDimensionDao().allWeights().associate { it.id to it.weight }
+                val dayRows = ScoreRollupBackfillService.buildDayMetricsFrom(
+                    dimensionRows = allDimRows,
+                    fromDay = today,
+                    baseline = dayBaseline,
+                    dimWeights = dimWeights,
+                )
+                dayDao.deleteFrom(todayStr)
+                if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
+                scoreChangeEventBus.emit(today)
+                if (UnifiedLogger.isInitialized()) {
+                    logger.i(
+                        tag,
+                        "PREFILL_TODAY_DONE",
+                        mapOf(
+                            "today" to todayStr,
+                            "seededHabits" to seeded,
+                            "dimensions" to affectedDims.size,
+                            "dimRows" to dimRows,
+                            "dayRows" to dayRows.size,
+                            "ms" to (System.currentTimeMillis() - started),
+                        ),
+                    )
+                }
+            } catch (e: Exception) {
+                logger.e(tag, "PREFILL_TODAY_FAILED", e, mapOf("today" to LocalDate.now().toString()))
+            }
+        }
+
         /** Startup catch-up: extend every habit's L1 through yesterday, then L2/L3 tails. */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun catchUpTail() {

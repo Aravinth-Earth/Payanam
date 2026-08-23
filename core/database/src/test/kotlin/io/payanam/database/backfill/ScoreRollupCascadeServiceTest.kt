@@ -357,4 +357,39 @@ class ScoreRollupCascadeServiceTest {
             ),
         )
     }
+
+    @Test
+    fun `prefillToday seeds not-done rows for due habits missing a today row`() = runTest {
+        insertTask("h1")
+        insertTask("h2")
+        val today = LocalDate.now()
+        // h1 already has a 1.0 today row (done); h2 has nothing for today.
+        insertOccurrence("h1", today)
+        service.recalcForStatusChange("h1", today)
+
+        val (_, events) = captureEvents { service.prefillToday() }
+
+        // h1 keeps its done row; h2 gets a seeded not-done (0.0) row.
+        val h1Rows = db.habitMetricDao().observeForHabit("h1").first()
+        val h2Rows = db.habitMetricDao().observeForHabit("h2").first()
+        assertEquals(1.0, h1Rows.first { it.dayKey == today.toString() }.score, 1e-9)
+        val h2Today = h2Rows.firstOrNull { it.dayKey == today.toString() }
+        assertTrue("h2 should be pre-filled with a not-done row", h2Today != null)
+        assertEquals(0.0, h2Today!!.score, 1e-9)
+        // not-done seeds a real today row so L2/L3 consume 0.0, not a carried score
+        assertTrue("prefill emits a score-change event", events.isNotEmpty())
+    }
+
+    @Test
+    fun `prefillToday is idempotent on repeated launch`() = runTest {
+        insertTask("h1")
+        val today = LocalDate.now()
+        service.prefillToday()
+        val afterFirst = db.habitMetricDao().observeForHabit("h1").first()
+            .count { it.dayKey == today.toString() }
+        service.prefillToday()
+        val afterSecond = db.habitMetricDao().observeForHabit("h1").first()
+            .count { it.dayKey == today.toString() }
+        assertEquals("repeated prefill must not duplicate today rows", afterFirst, afterSecond)
+    }
 }

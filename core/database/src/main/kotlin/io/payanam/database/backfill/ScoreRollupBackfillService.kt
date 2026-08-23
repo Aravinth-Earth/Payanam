@@ -534,6 +534,7 @@ class ScoreRollupBackfillService
                 // logged → 1.0), then refresh L2/L3 tails.
                 logger.d("ScoreRollupBackfillService.runIfNeeded", "Backfill already done; running catch-up")
                 cascadeService.catchUpTail()
+                cascadeService.prefillToday()
                 return
             }
             val logTag = "ScoreRollupBackfillService.runIfNeeded"
