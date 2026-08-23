@@ -100,6 +100,7 @@ class ScoreRollupCascadeService
                     ),
                 )
                 val occurrences = occDao.getOccurrencesForTaskForBackfill(taskId)
+                val occForChangeDay = occurrences.filter { it.dueDate.startsWith(dateStr) }
                 val hadRowBefore = allHabitRows.any { it.dayKey == dateStr }
                 val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetricsFrom(
                     task = task,
@@ -118,7 +119,11 @@ class ScoreRollupCascadeService
                         "dimensionId" to (task.dimensionId ?: "dim_unassigned"),
                         "changeDate" to dateStr,
                         "hadRowBefore" to hadRowBefore,
+                        "occTotal" to occurrences.size,
+                        "occForChangeDay" to occForChangeDay.size,
+                        "occStatuses" to occForChangeDay.map { it.status },
                         "rowsAfter" to rows.size,
+                        "rowDays" to rows.map { it.dayKey },
                         "scoreNow" to (rows.find { it.dayKey == dateStr }?.score ?: "null"),
                     ),
                 )

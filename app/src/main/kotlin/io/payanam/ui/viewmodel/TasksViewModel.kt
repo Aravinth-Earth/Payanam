@@ -185,9 +185,9 @@ class TasksViewModel @Inject constructor(
             ScoreMetricColumn.SCORE to "Day Score",
             ScoreMetricColumn.RUNNING_AVG to "Run Avg",
             ScoreMetricColumn.PROGRESS to "Avg Prog",
-            ScoreMetricColumn.STREAK_POS to "Streak A",
-            ScoreMetricColumn.STREAK_NET to "Streak B",
-            ScoreMetricColumn.POS_CONTINUE to "Streak C",
+            ScoreMetricColumn.STREAK_POS to "Pos Streak",
+            ScoreMetricColumn.STREAK_NET to "Net Streak",
+            ScoreMetricColumn.POS_CONTINUE to "Cont Streak",
         )
         val cascadeChips = metrics.map { (metric, label) ->
             val value = dayToday?.let { metricValueForChip(it, metric) } ?: "—"
