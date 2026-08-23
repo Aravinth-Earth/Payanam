@@ -111,6 +111,8 @@ class ScoreRollupCascadeService
                 )
                 habitDao.deleteFrom(taskId, dateStr)
                 if (rows.isNotEmpty()) habitDao.upsertAll(rows)
+                val todayLogged = occurrences.any { it.dueDate.take(10) == dateStr }
+                val firstDue = occurrences.mapNotNull { runCatching { LocalDate.parse(it.dueDate.take(10)) }.getOrNull() }.minOrNull()
                 logger.i(
                     tag,
                     "CASCADE_L1_BEFORE",
@@ -119,6 +121,8 @@ class ScoreRollupCascadeService
                         "dimensionId" to (task.dimensionId ?: "dim_unassigned"),
                         "changeDate" to dateStr,
                         "hadRowBefore" to hadRowBefore,
+                        "todayLogged" to todayLogged,
+                        "firstDue" to (firstDue?.toString() ?: "null"),
                         "occTotal" to occurrences.size,
                         "occForChangeDay" to occForChangeDay.size,
                         "occStatuses" to occForChangeDay.map { it.status },
