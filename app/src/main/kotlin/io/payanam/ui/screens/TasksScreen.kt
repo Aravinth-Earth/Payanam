@@ -160,6 +160,7 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel(),
     onNavigateToAddTask: () -> Unit = {},
     onNavigateToTaskDetail: (String) -> Unit = {},
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val logger = UnifiedLogger.getInstance()
     val chromeState by viewModel.chromeUiState.collectAsState()
@@ -430,6 +431,7 @@ fun TasksScreen(
                             dialogCheckmark = checkmark
                             showCheckmarkDialog = true
                         },
+                        onOpenDayDetail = onOpenDayDetail,
                     )
                 }
 
@@ -501,6 +503,7 @@ private fun HabitsTabRoute(
     onCardClick: (Task) -> Unit,
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val habitsTabState by viewModel.habitsTabUiState.collectAsState()
     val chromeState by viewModel.chromeUiState.collectAsState()
@@ -518,6 +521,7 @@ private fun HabitsTabRoute(
         onCheckmarkClick = onCheckmarkClick,
         onCheckmarkLongClick = onCheckmarkLongClick,
         dayMetricsState = dayMetricsState,
+        onOpenDayDetail = onOpenDayDetail,
     )
 }
 
@@ -570,6 +574,7 @@ private fun HabitsTabContent(
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
     dayMetricsState: io.payanam.ui.viewmodel.HabitDayMetricsState = io.payanam.ui.viewmodel.HabitDayMetricsState(),
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val buttonCount = calculateButtonCount()
     val listState = rememberLazyListState()
@@ -701,7 +706,10 @@ private fun HabitsTabContent(
                 }
             } else {
                 // Habits day-metrics strip: 7 cascade chips atop the listing.
-                DayMetricsStrip(chips = dayMetricsState.chips)
+                DayMetricsStrip(
+                    chips = dayMetricsState.chips,
+                    onChipClick = onOpenDayDetail,
+                )
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),

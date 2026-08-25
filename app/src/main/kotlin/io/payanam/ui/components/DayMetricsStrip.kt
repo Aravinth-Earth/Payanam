@@ -4,6 +4,7 @@
 package io.payanam.ui.components
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +36,7 @@ import io.payanam.ui.viewmodel.DayMetricChipData
 fun DayMetricsStrip(
     chips: List<DayMetricChipData>,
     modifier: Modifier = Modifier,
+    onChipClick: (() -> Unit)? = null,
 ) {
     if (chips.isEmpty()) return
     Row(
@@ -44,13 +46,13 @@ fun DayMetricsStrip(
         horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
         chips.forEach { chip ->
-            DayMetricChip(chip = chip, modifier = Modifier.weight(1f))
+            DayMetricChip(chip = chip, modifier = Modifier.weight(1f), onClick = onChipClick)
         }
     }
 }
 
 @Composable
-private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier) {
+private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
     val rankColor = if (chip.isPlaceholderRank) {
         MaterialTheme.colorScheme.onSurfaceVariant
     } else {
@@ -58,6 +60,9 @@ private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier
     }
     Column(
         modifier = modifier
+            .let { base ->
+                if (onClick != null) base.clickable(onClick = onClick) else base
+            }
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(10.dp),
