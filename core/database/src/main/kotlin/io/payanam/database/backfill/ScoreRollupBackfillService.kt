@@ -399,7 +399,7 @@ class ScoreRollupBackfillService
                                 }
                                 logger.d(
                                     "ScoreRollupBackfillService.buildDimensionMetricsFrom",
-                                    "L2_SOURCE | dim=$dimId d=$day | numerator=%.5f weightSum=%.5f dimScore=%.5f | members=${memberScores.size} | scores=$memberScores"
+                                    "L2_SOURCE | dim=${dimId.hashCode().and(0xFFFF).toString(16)} d=$day | numerator=%.5f weightSum=%.5f dimScore=%.5f | members=${memberScores.size} | scores=$memberScores"
                                         .format(Locale.US, dimScoreNumerator, weightSum, dimScore),
                                 )
                             }
@@ -486,8 +486,8 @@ class ScoreRollupBackfillService
                         // Exposes the weighted numerator/sum + each dimension's
                         // contributing score so a missing/swallowed dim row is visible.
                         if (UnifiedLogger.isInitialized()) {
-                            val dimContrib = dims.map { d ->
-                                "${d.dimensionId}=%.5f".format(Locale.US, d.score)
+                            val dimContrib = dims.mapIndexed { idx, d ->
+                                "dim${idx}=%.5f".format(Locale.US, d.score)
                             }
                             logger.d(
                                 "ScoreRollupBackfillService.buildDayMetricsFrom",

@@ -118,7 +118,7 @@ class ScoreRollupCascadeService
                     "CASCADE_L1_BEFORE",
                     mapOf(
                         "taskId" to taskId,
-                        "dimensionId" to (task.dimensionId ?: "dim_unassigned"),
+                        "dimensionId" to (task.dimensionId?.hashCode()?.and(0xFFFF)?.toString(16) ?: "0"),
                         "changeDate" to dateStr,
                         "hadRowBefore" to hadRowBefore,
                         "todayLogged" to todayLogged,
@@ -156,7 +156,7 @@ class ScoreRollupCascadeService
                     tag,
                     "CASCADE_BASELINE_L2",
                     mapOf(
-                        "dimensionId" to dimensionId,
+                        "dimensionId" to dimensionId.hashCode().and(0xFFFF).toString(16),
                         "rowsBefore" to existingDimRows.size,
                         "carryForwardHabits" to lastScores.size,
                         "count" to dimBaseline.count,
