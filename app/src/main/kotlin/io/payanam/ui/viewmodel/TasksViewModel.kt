@@ -28,6 +28,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
@@ -111,6 +112,8 @@ class TasksViewModel @Inject constructor(
             initialValue = TasksTabUiState(),
         )
     private var tasksLoadJob: Job? = null
+    /** Due count as of the last published strip; guards redundant refreshes on unrelated uiState emissions. */
+    private var lastPublishedDueChipCount: Int = -1
     init {
         // Sequenced: persisted preferences must be in state BEFORE the first
         // list shaping. Parallel launches raced loadTasks' shaping snapshot
@@ -125,12 +128,33 @@ class TasksViewModel @Inject constructor(
             loadTasks()
         }
         // Day-metrics strip: load once, then refresh whenever the cascade
-        // recomputes (same bus LensHabitScoreViewModel listens to).
+        // recomputes (same bus LensHabitScoreViewModel listens to) or when the
+        // due-today map is published/changed by loadTasks. collectLatest cancels
+        // an in-flight refresh when a newer trigger arrives, so an older read can
+        // never overwrite a newer strip result.
         viewModelScope.launch {
             loadHabitDayMetrics()
-            scoreChangeEventBus.events.collect {
-                logger.d("TasksViewModel", "Score change event; refreshing day metrics strip")
+            scoreChangeEventBus.events.collectLatest { changeDate ->
+                val isBackfill = changeDate != LocalDate.now()
+                logger.d(
+                    "TasksViewModel",
+                    "Score change event; refreshing day metrics strip",
+                    mapOf(
+                        "changeDate" to changeDate.toString(),
+                        "isBackfill" to isBackfill,
+                        "triggersListReload" to false,
+                    ),
+                )
                 loadHabitDayMetrics()
+            }
+        }
+        viewModelScope.launch {
+            uiState.collectLatest { state ->
+                val dueCount = state.dueTodayByTaskId.count { it.value }
+                if (dueCount != lastPublishedDueChipCount) {
+                    logger.d("TasksViewModel", "Due map changed; refreshing day metrics strip", mapOf("dueCount" to dueCount))
+                    loadHabitDayMetrics()
+                }
             }
         }
     }
@@ -160,6 +184,7 @@ class TasksViewModel @Inject constructor(
                 val dayHist = scoreWindowRepository.getDayWindow(earliest, todayStr)
                 val chips = buildDayMetricChips(dayToday, dayHist)
                 _dayMetricsState.value = HabitDayMetricsState(isLoading = false, chips = chips)
+                lastPublishedDueChipCount = chips.lastOrNull()?.label?.equals("Due", ignoreCase = true)?.let { chips.last().value.toIntOrNull() } ?: lastPublishedDueChipCount
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadHabitDayMetrics", "Failed to load day metrics strip", e)
                 _dayMetricsState.value = HabitDayMetricsState(isLoading = false, chips = emptyList())

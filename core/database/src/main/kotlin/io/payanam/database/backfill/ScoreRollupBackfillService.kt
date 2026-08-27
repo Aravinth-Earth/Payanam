@@ -570,6 +570,10 @@ class ScoreRollupBackfillService
                         "reason" to "no legacy num/den rules and no occurrences; fresh install has nothing to backfill",
                     ),
                 )
+                // Fresh install still needs today's not-done seeds so L2/L3 have
+                // full source rows from the very first launch (full backfill and
+                // the live cascade exclude today by default).
+                cascadeService.prefillToday()
                 return
             }
 
@@ -597,6 +601,10 @@ class ScoreRollupBackfillService
                         "done" to true,
                     ),
                 )
+                // The initial legacy backfill excludes today by default — seed
+                // today's not-done rows so the first launch has full L2/L3
+                // source rows too.
+                cascadeService.prefillToday()
             } catch (e: Exception) {
                 logger.e(logTag, "SCORE_ROLLUP_BACKFILL_FAILED", e, mapOf("error" to (e.message ?: "unknown")))
                 // Do NOT set the guard — next launch retries.

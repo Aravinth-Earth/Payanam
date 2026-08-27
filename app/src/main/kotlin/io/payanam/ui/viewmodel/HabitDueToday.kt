@@ -81,11 +81,19 @@ internal suspend fun computeDueTodayForTask(
     today: LocalDate,
     fetchFullHistory: suspend (Task) -> List<TaskOccurrence> = { emptyList() },
 ): Boolean {
-    if (!task.recurrenceEnabled) return true
+    if (!task.recurrenceEnabled) {
+        habitDueTodayLogger?.d(
+            "HabitDueToday.computeDueTodayForTask",
+            "Not recurring -> due",
+            mapOf("taskId" to task.id, "result" to true, "reason" to "recurrenceDisabled"),
+        )
+        return true
+    }
     val rule = task.recurrenceRule
+    val recType = runCatching { RecurrenceConfig.parse(rule ?: "").type.name }.getOrDefault("NONE")
     if (Frequency.isSerializedRule(rule)) {
         val frequency = Frequency.parse(rule)
-        return frequencyWindowDue(
+        val result = frequencyWindowDue(
             numerator = frequency.numerator,
             denominator = frequency.denominator,
             anchorDate = frequency.anchorDate
@@ -94,9 +102,21 @@ internal suspend fun computeDueTodayForTask(
             occurrences = if (frequency.denominator > HABIT_OCCURRENCE_LOOKBACK_DAYS) fetchFullHistory(task) else occurrences,
             today = today,
         )
+        habitDueTodayLogger?.d(
+            "HabitDueToday.computeDueTodayForTask",
+            "FREQUENCY rule evaluated",
+            mapOf(
+                "taskId" to task.id,
+                "ruleType" to "FREQUENCY",
+                "numerator" to frequency.numerator,
+                "denominator" to frequency.denominator,
+                "result" to result,
+            ),
+        )
+        return result
     }
     val config = RecurrenceConfig.parse(rule)
-    return when (config.type) {
+    val result = when (config.type) {
         RecurrenceType.FREQUENCY -> frequencyWindowDue(
             numerator = config.frequencyNumerator,
             denominator = config.frequencyDenominator,
@@ -134,6 +154,16 @@ internal suspend fun computeDueTodayForTask(
         // WEEKDAYS_ONLY / SPECIFIC_WEEKDAYS / MONTHLY_DATES / YEARLY
         else -> config.isScheduledDay(today)
     }
+    habitDueTodayLogger?.d(
+        "HabitDueToday.computeDueTodayForTask",
+        "Rule evaluated",
+        mapOf(
+            "taskId" to task.id,
+            "ruleType" to recType,
+            "result" to result,
+        ),
+    )
+    return result
 }
 
 /**
@@ -173,5 +203,21 @@ private fun frequencyWindowDue(
     ).firstOrNull()
     // summary == null is unreachable here (daysSinceAnchor >= 0 guarantees the
     // window intersects the anchor range); keep the habit visible if it happens.
-    return summary == null || !summary.isSatisfied
+    val result = summary == null || !summary.isSatisfied
+    habitDueTodayLogger?.d(
+        "HabitDueToday.frequencyWindowDue",
+        "Window quota evaluated",
+        mapOf(
+            "taskId" to "n/a",
+            "windowStart" to windowStart.toString(),
+            "windowEnd" to windowEnd.toString(),
+            "numerator" to numerator,
+            "denominator" to denom,
+            "doneInWindow" to (summary?.completedCount ?: "null"),
+            "skipInWindow" to (summary?.skippedCount ?: "null"),
+            "isSatisfied" to (summary?.isSatisfied ?: "null"),
+            "result" to result,
+        ),
+    )
+    return result
 }
