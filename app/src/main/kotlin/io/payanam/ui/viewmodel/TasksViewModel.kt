@@ -142,10 +142,17 @@ class TasksViewModel @Inject constructor(
                     mapOf(
                         "changeDate" to changeDate.toString(),
                         "isBackfill" to isBackfill,
-                        "triggersListReload" to false,
+                        "triggersListReload" to isBackfill,
                     ),
                 )
                 loadHabitDayMetrics()
+                // Back-fill (non-today change) alters due-today state + visibility
+                // for the edited habit's recurrence window; the listing reads
+                // dueTodayByTaskId built by loadTasks, so re-run it to re-render
+                // show/hide correctly. Today-changes already flow through loadTasks
+                // via the normal toggle path, so only back-fill needs the explicit
+                // reload here.
+                if (isBackfill) loadTasks()
             }
         }
         viewModelScope.launch {
