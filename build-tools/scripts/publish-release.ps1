@@ -91,9 +91,14 @@ $latestCommitTime = git log -1 --format=%cI 2>$null
 if (-not [string]::IsNullOrWhiteSpace($latestCommitTime)) {
     $commitTime = [DateTimeOffset]::Parse($latestCommitTime, [System.Globalization.CultureInfo]::InvariantCulture).LocalDateTime
     if ($apkBuildTime -lt $commitTime) {
-        Write-LogWithTime "⚠️  WARNING: APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is OLDER than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss')))." "Yellow"
-        Write-LogWithTime "   The APK may NOT contain the latest committed changes." "Yellow"
-        Write-LogWithTime "   Publish anyway? (This is a warning only — proceeding.)" "Yellow"
+        $gap = $commitTime - $apkBuildTime
+        if ($gap.TotalHours -ge 1) {
+            Write-LogWithTime "⚠️  WARNING: APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is OLDER than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss')))." "Yellow"
+            Write-LogWithTime "   The APK may NOT contain the latest committed changes." "Yellow"
+            Write-LogWithTime "   Publish anyway? (This is a warning only — proceeding.)" "Yellow"
+        } else {
+            Write-LogWithTime "ℹ️  APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is $($gap.ToString('hh\:mm\:ss')) older than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss'))). Within 1h window — expected (build starts before commit)." "Cyan"
+        }
     }
 }
 
