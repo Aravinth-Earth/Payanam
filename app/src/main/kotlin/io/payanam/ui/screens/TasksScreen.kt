@@ -70,6 +70,7 @@ import io.payanam.domain.model.Task
 import io.payanam.ui.components.CheckmarkDialog
 import io.payanam.ui.components.CompletionDialog
 import io.payanam.ui.components.DayCheckmark
+import io.payanam.ui.components.DayMetricsStrip
 import io.payanam.ui.components.DayHeaderRow
 import io.payanam.ui.components.HabitCard
 import io.payanam.ui.components.calculateButtonCount
@@ -159,6 +160,7 @@ fun TasksScreen(
     viewModel: TasksViewModel = hiltViewModel(),
     onNavigateToAddTask: () -> Unit = {},
     onNavigateToTaskDetail: (String) -> Unit = {},
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val logger = UnifiedLogger.getInstance()
     val chromeState by viewModel.chromeUiState.collectAsState()
@@ -429,6 +431,7 @@ fun TasksScreen(
                             dialogCheckmark = checkmark
                             showCheckmarkDialog = true
                         },
+                        onOpenDayDetail = onOpenDayDetail,
                     )
                 }
 
@@ -500,9 +503,11 @@ private fun HabitsTabRoute(
     onCardClick: (Task) -> Unit,
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val habitsTabState by viewModel.habitsTabUiState.collectAsState()
     val chromeState by viewModel.chromeUiState.collectAsState()
+    val dayMetricsState by viewModel.dayMetricsState.collectAsState()
     HabitsTabContent(
         rows = habitsTabState.rows,
         totalHabitCount = habitsTabState.totalHabitCount,
@@ -515,6 +520,8 @@ private fun HabitsTabRoute(
         onCardClick = onCardClick,
         onCheckmarkClick = onCheckmarkClick,
         onCheckmarkLongClick = onCheckmarkLongClick,
+        dayMetricsState = dayMetricsState,
+        onOpenDayDetail = onOpenDayDetail,
     )
 }
 
@@ -566,6 +573,8 @@ private fun HabitsTabContent(
     onCardClick: (Task) -> Unit,
     onCheckmarkClick: (String, DayCheckmark) -> Unit,
     onCheckmarkLongClick: (String, DayCheckmark) -> Unit,
+    dayMetricsState: io.payanam.ui.viewmodel.HabitDayMetricsState = io.payanam.ui.viewmodel.HabitDayMetricsState(),
+    onOpenDayDetail: () -> Unit = {},
 ) {
     val buttonCount = calculateButtonCount()
     val listState = rememberLazyListState()
@@ -696,6 +705,11 @@ private fun HabitsTabContent(
                     )
                 }
             } else {
+                // Habits day-metrics strip: 7 cascade chips atop the listing.
+                DayMetricsStrip(
+                    chips = dayMetricsState.chips,
+                    onChipClick = onOpenDayDetail,
+                )
                 LazyColumn(
                     state = listState,
                     modifier = Modifier.fillMaxSize(),

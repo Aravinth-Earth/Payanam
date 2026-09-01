@@ -253,12 +253,12 @@ class LensHabitScoreViewModel
             val result = mutableMapOf<String, String>()
             history.forEach { (key, byMetric) ->
                 val series = byMetric[metric] ?: return@forEach
-                // Today = latest value in the chronological history list.
+                // Delegate the ordinal-rank math to the shared helper so the
+                // Lenses matrix and the Habits day-metrics strip never diverge.
+                val rankStr = io.payanam.scoring.ordinalRankToday(series)
+                result[key] = rankStr
                 val today = series.lastOrNull() ?: return@forEach
-                val unique = series.distinct().sortedDescending()
-                val y = unique.size
-                val rank = unique.indexOfFirst { it == today }.let { if (it < 0) y else it + 1 }
-                result[key] = "$rank/$y"
+                val y = series.distinct().size
                 logger.d(
                     "LensHabitScoreViewModel.computeRankMap",
                     "Ordinal rank derived",
@@ -268,7 +268,7 @@ class LensHabitScoreViewModel
                         "today" to String.format(Locale.US, "%.5f", today),
                         "historySize" to series.size,
                         "uniqueValues" to y,
-                        "rank" to "$rank/$y",
+                        "rank" to rankStr,
                     ),
                 )
             }

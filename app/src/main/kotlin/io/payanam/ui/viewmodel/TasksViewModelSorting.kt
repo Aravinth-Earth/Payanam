@@ -63,19 +63,44 @@ internal fun visibleHabitsForDisplay(
     dueTodayOnly: Boolean = false,
     dueTodayByTaskId: Map<String, Boolean> = emptyMap(),
 ): List<Task> {
-    if (showCompletedHabits && !hideAllMarkedToday && !dueTodayOnly) return habits
-    return habits.filter { task ->
+    if (showCompletedHabits && !hideAllMarkedToday && !dueTodayOnly) {
+        if (UnifiedLogger.isInitialized()) {
+            UnifiedLogger.getInstance().d(
+                "TasksViewModelSorting.visibleHabitsForDisplay",
+                "No filtering applied (all visible)",
+                mapOf("habitCount" to habits.size, "showCompletedHabits" to showCompletedHabits, "dueTodayOnly" to dueTodayOnly),
+            )
+        }
+        return habits
+    }
+    val result = habits.filter { task ->
         // Due-today narrows first (actionable queue), then status hides.
         if (dueTodayOnly && dueTodayByTaskId[task.id] == false) {
+            if (UnifiedLogger.isInitialized()) {
+                UnifiedLogger.getInstance().d(
+                    "TasksViewModelSorting.visibleHabitsForDisplay",
+                    "Habit hidden",
+                    mapOf("taskId" to task.id, "reason" to "notDueToday", "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent")),
+                )
+            }
             return@filter false
         }
         val status = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
-        when {
+        val shown = when {
             hideAllMarkedToday -> status != CheckmarkStatus.COMPLETED && status != CheckmarkStatus.SKIPPED && status != CheckmarkStatus.MISSED
             !showCompletedHabits -> status != CheckmarkStatus.COMPLETED
             else -> true
         }
+        if (UnifiedLogger.isInitialized()) {
+            UnifiedLogger.getInstance().d(
+                "TasksViewModelSorting.visibleHabitsForDisplay",
+                "Habit shown",
+                mapOf("taskId" to task.id, "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent"), "status" to status.name, "shown" to shown),
+            )
+        }
+        shown
     }
+    return result
 }
 
 internal fun buildTaskFilterCounts(

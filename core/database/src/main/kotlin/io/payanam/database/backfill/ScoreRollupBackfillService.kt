@@ -23,6 +23,7 @@ import io.payanam.domain.model.NumDenToConfigConverter
 import io.payanam.domain.model.RecurrenceConfig
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -378,6 +379,30 @@ class ScoreRollupBackfillService
                         }
                         if (weightSum > 0.0) {
                             val dimScore = dimScoreNumerator / weightSum
+                            // ── SOURCE TRACE: how this dimension score was reached ──
+                            // Exposes numerator/weightSum + each member's contributed
+                            // score so a missing/swallowed L1 row is visible in logs.
+                            if (UnifiedLogger.isInitialized()) {
+                                val memberScores = habits.mapNotNull { habit ->
+                                    val timeline = habitTimelines[habit.id] ?: return@mapNotNull null
+                                    val idx = timeline.binarySearchBy(day.toString()) { it.dayKey }
+                                    val last = if (idx >= 0) timeline[idx] else timeline.getOrNull(-idx - 2)
+                                    val score = when {
+                                        idx >= 0 -> {
+                                            last!!.score
+                                        }
+                                        carryScores.containsKey(habit.id) -> carryScores.getValue(habit.id)
+                                        last != null -> last.score
+                                        else -> return@mapNotNull null
+                                    }
+                                    habit.id to "%.5f".format(Locale.US, score)
+                                }
+                                logger.d(
+                                    "ScoreRollupBackfillService.buildDimensionMetricsFrom",
+                                    "L2_SOURCE | dim=${dimId.hashCode().and(0xFFFF).toString(16)} d=$day | numerator=%.5f weightSum=%.5f dimScore=%.5f | members=${memberScores.size} | scores=$memberScores"
+                                        .format(Locale.US, dimScoreNumerator, weightSum, dimScore),
+                                )
+                            }
                             sumScores += dimScore
                             count++
                             val runningAvg = sumScores / count
@@ -457,6 +482,19 @@ class ScoreRollupBackfillService
                         // (no weight row) fall back to 1.0 — equal-weights legacy.
                         val weightedSum = dims.sumOf { it.score * (dimWeights[it.dimensionId] ?: 1.0) }
                         val weightSum = dims.sumOf { dimWeights[it.dimensionId] ?: 1.0 }
+                        // ── SOURCE TRACE: how the day score was reached ──
+                        // Exposes the weighted numerator/sum + each dimension's
+                        // contributing score so a missing/swallowed dim row is visible.
+                        if (UnifiedLogger.isInitialized()) {
+                            val dimContrib = dims.mapIndexed { idx, d ->
+                                "dim${idx}=%.5f".format(Locale.US, d.score)
+                            }
+                            logger.d(
+                                "ScoreRollupBackfillService.buildDayMetricsFrom",
+                                "L3_SOURCE | d=$dayKey | dayScore=%.5f | weightedSum=%.5f weightSum=%.5f | dims=${dimContrib.size} | $dimContrib"
+                                    .format(Locale.US, if (weightSum <= 0.0) 0.0 else weightedSum / weightSum, weightedSum, weightSum),
+                            )
+                        }
                         if (weightSum <= 0.0) 0.0 else weightedSum / weightSum
                     } else {
                         continue // skip days with no dimension rows at all
@@ -496,6 +534,7 @@ class ScoreRollupBackfillService
                 // logged → 1.0), then refresh L2/L3 tails.
                 logger.d("ScoreRollupBackfillService.runIfNeeded", "Backfill already done; running catch-up")
                 cascadeService.catchUpTail()
+                cascadeService.prefillToday()
                 return
             }
             val logTag = "ScoreRollupBackfillService.runIfNeeded"
@@ -531,6 +570,10 @@ class ScoreRollupBackfillService
                         "reason" to "no legacy num/den rules and no occurrences; fresh install has nothing to backfill",
                     ),
                 )
+                // Fresh install still needs today's not-done seeds so L2/L3 have
+                // full source rows from the very first launch (full backfill and
+                // the live cascade exclude today by default).
+                cascadeService.prefillToday()
                 return
             }
 
@@ -558,6 +601,10 @@ class ScoreRollupBackfillService
                         "done" to true,
                     ),
                 )
+                // The initial legacy backfill excludes today by default — seed
+                // today's not-done rows so the first launch has full L2/L3
+                // source rows too.
+                cascadeService.prefillToday()
             } catch (e: Exception) {
                 logger.e(logTag, "SCORE_ROLLUP_BACKFILL_FAILED", e, mapOf("error" to (e.message ?: "unknown")))
                 // Do NOT set the guard — next launch retries.

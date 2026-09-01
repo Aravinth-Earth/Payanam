@@ -535,6 +535,11 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to task detail from Tasks", mapOf("taskId" to taskId))
                         navController.navigate(Routes.taskDetail(taskId))
                     },
+                    onOpenDayDetail = {
+                        val todayKey = java.time.LocalDate.now().toString()
+                        logger.i("PayanamNavHost", "Opening day detail from habits strip", mapOf("day" to todayKey))
+                        navController.navigate(Routes.scoreDetail("DAY", todayKey))
+                    },
                 )
             }
             composable(Screen.Time.route) {
@@ -570,6 +575,11 @@ fun PayanamNavHost(
                     onNavigateToTaskDetail = { taskId ->
                         logger.i("PayanamNavHost", "Navigating to task detail from Habits", mapOf("taskId" to taskId))
                         navController.navigate(Routes.taskDetail(taskId))
+                    },
+                    onOpenDayDetail = {
+                        val todayKey = java.time.LocalDate.now().toString()
+                        logger.i("PayanamNavHost", "Opening day detail from habits strip", mapOf("day" to todayKey))
+                        navController.navigate(Routes.scoreDetail("DAY", todayKey))
                     },
                 )
             }
