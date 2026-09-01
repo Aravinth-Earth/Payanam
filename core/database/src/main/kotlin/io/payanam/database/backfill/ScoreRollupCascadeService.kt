@@ -24,6 +24,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.temporal.ChronoUnit
 import java.util.Locale
+import androidx.room.withTransaction
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -430,6 +431,10 @@ class ScoreRollupCascadeService
          *
          * Runs at app launch (post-backfill) and on day rollover. Idempotent:
          * habits that already have a today row are skipped.
+         *
+         * L1 seeding, L2 dimension rebuild, and L3 day rebuild are wrapped in a
+         * single [db.withTransaction] for atomicity — if any layer fails, all
+         * writes roll back and the next launch retries from scratch.
          */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         suspend fun prefillToday() {
@@ -449,6 +454,9 @@ class ScoreRollupCascadeService
                     .filter { it.status != "archived" && it.recurrenceEnabled == 1 }
                 var seeded = 0
                 val affectedDims = mutableSetOf<String>()
+                var dimRows = 0
+                var dayRowCount = 0
+                db.withTransaction {
                 for (task in recurring) {
                     if (!RecurrenceConfig.parse(task.recurrenceRule ?: "").isScheduledDay(today)) continue
                     val recType = runCatching { RecurrenceConfig.parse(task.recurrenceRule ?: "").type.name }.getOrDefault("NONE")
@@ -491,7 +499,7 @@ class ScoreRollupCascadeService
                 }
                 if (seeded == 0) {
                     logger.d(tag, "PREFILL_TODAY_NOOP", mapOf("today" to todayStr))
-                    return
+                    return@withTransaction
                 }
                 // ── Rebuild L2/L3 tails for today so the day score reflects the seed ──
                 val allHabitRows = habitDao.getAll()
@@ -499,7 +507,6 @@ class ScoreRollupCascadeService
                     .mapValues { (_, rows) -> rows.minOfOrNull { parseDate(it.dayKey) } }
                     .filterValues { it != null }
                     .mapValues { it.value!! }
-                var dimRows = 0
                 for (dimId in affectedDims) {
                     val members = recurring.filter { (it.dimensionId ?: "dim_unassigned") == dimId }
                     if (members.isEmpty()) continue
@@ -538,20 +545,24 @@ class ScoreRollupCascadeService
                 )
                 dayDao.deleteFrom(todayStr)
                 if (dayRows.isNotEmpty()) dayDao.upsertAll(dayRows)
-                scoreChangeEventBus.emit(today)
-                if (UnifiedLogger.isInitialized()) {
-                    logger.i(
-                        tag,
-                        "PREFILL_TODAY_DONE",
-                        mapOf(
-                            "today" to todayStr,
-                            "seededHabits" to seeded,
-                            "dimensions" to affectedDims.size,
-                            "dimRows" to dimRows,
-                            "dayRows" to dayRows.size,
-                            "ms" to (System.currentTimeMillis() - started),
-                        ),
-                    )
+                dayRowCount = dayRows.size
+                } // end withTransaction
+                if (seeded > 0) {
+                    scoreChangeEventBus.emit(today)
+                    if (UnifiedLogger.isInitialized()) {
+                        logger.i(
+                            tag,
+                            "PREFILL_TODAY_DONE",
+                            mapOf(
+                                "today" to todayStr,
+                                "seededHabits" to seeded,
+                                "dimensions" to affectedDims.size,
+                                "dimRows" to dimRows,
+                                "dayRows" to dayRowCount,
+                                "ms" to (System.currentTimeMillis() - started),
+                            ),
+                        )
+                    }
                 }
             } catch (e: Exception) {
                 logger.e(tag, "PREFILL_TODAY_FAILED", e, mapOf("today" to LocalDate.now().toString()))

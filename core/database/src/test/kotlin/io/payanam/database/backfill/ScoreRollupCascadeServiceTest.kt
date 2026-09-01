@@ -392,4 +392,43 @@ class ScoreRollupCascadeServiceTest {
             .count { it.dayKey == today.toString() }
         assertEquals("repeated prefill must not duplicate today rows", afterFirst, afterSecond)
     }
+
+    @Test
+    fun `prefillToday does not emit event when nothing to seed`() = runTest {
+        // Insert a task with an existing today row so prefill skips it.
+        insertTask("h1")
+        val today = LocalDate.now()
+        insertOccurrence("h1", today)
+        service.recalcForStatusChange("h1", today)
+
+        val (_, events) = captureEvents { service.prefillToday() }
+
+        assertTrue("seeded==0 must not emit a score-change event", events.isEmpty())
+    }
+
+    @Test
+    fun `prefillToday rebuilds L2 dimension rows after seeding`() = runTest {
+        insertTask("h1", dimensionId = "dim_health")
+        val today = LocalDate.now()
+        // h1 has no today row → prefill should seed L1 + rebuild L2.
+        val (_, events) = captureEvents { service.prefillToday() }
+
+        // Verify L1 row exists.
+        val h1Rows = db.habitMetricDao().observeForHabit("h1").first()
+        val h1Today = h1Rows.firstOrNull { it.dayKey == today.toString() }
+        assertTrue("h1 L1 row seeded", h1Today != null)
+        assertEquals(0.0, h1Today!!.score, 1e-9)
+
+        // Verify L2 dimension row exists for today.
+        val dimRows = db.dimensionMetricDao().getAll()
+            .filter { it.dimensionId == "dim_health" && it.dayKey == today.toString() }
+        assertTrue("L2 dimension row should be rebuilt after prefill", dimRows.isNotEmpty())
+
+        // Verify L3 day row exists for today.
+        val dayRows = db.dayMetricDao().getAll()
+            .filter { it.dayKey == today.toString() }
+        assertTrue("L3 day row should be rebuilt after prefill", dayRows.isNotEmpty())
+
+        assertTrue("prefill emits a score-change event", events.isNotEmpty())
+    }
 }
