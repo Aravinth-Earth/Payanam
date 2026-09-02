@@ -5,6 +5,7 @@
 
 package io.payanam.database.migration
 
+import android.database.SQLException
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
@@ -17,7 +18,6 @@ val MIGRATION_10_11 =
     object : Migration(10, 11) {
         private val logger = UnifiedLogger.getInstance()
 
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         override fun migrate(database: SupportSQLiteDatabase) {
             logger.i("Migration.10_11", "Starting migration from version 10 to 11")
 
@@ -25,7 +25,7 @@ val MIGRATION_10_11 =
                 database.execSQL("ALTER TABLE task_occurrences ADD COLUMN statusReason TEXT")
                 logger.d("Migration.10_11", "Added task_occurrences.statusReason column")
                 logger.i("Migration.10_11", "Migration from 10 to 11 completed successfully")
-            } catch (e: Exception) {
+            } catch (e: SQLException) {
                 logger.e("Migration.10_11", "Migration from 10 to 11 failed", e)
                 throw e
             }

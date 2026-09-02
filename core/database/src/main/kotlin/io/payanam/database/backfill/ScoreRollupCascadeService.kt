@@ -22,6 +22,7 @@ import io.payanam.domain.model.RecurrenceConfig
 import io.payanam.domain.model.RecurrenceType
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeParseException
 import java.time.temporal.ChronoUnit
 import java.util.Locale
 import androidx.room.withTransaction
@@ -67,7 +68,7 @@ class ScoreRollupCascadeService
         private val logger = UnifiedLogger.getInstance()
 
         /** Recompute L1/L2/L3 tails after a status change on [date]. */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForStatusChange"
@@ -271,7 +272,7 @@ class ScoreRollupCascadeService
          * delete the habit's rows and recompute L1 from firstDue → today, then
          * refresh the affected dimension L2 tail and day L3 tail.
          */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun recalcForRuleChange(taskId: String) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForRuleChange"
@@ -362,7 +363,7 @@ class ScoreRollupCascadeService
          * O(days × dimensions), which stays small even for decade-long
          * histories (day rows are dense by design).
          */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun recalcDayOnly(changeDate: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcDayOnly"
@@ -436,7 +437,7 @@ class ScoreRollupCascadeService
          * single [db.withTransaction] for atomicity — if any layer fails, all
          * writes roll back and the next launch retries from scratch.
          */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun prefillToday() {
             if (!sessionManager.isOpen.value) return
             val db = sessionManager.requireDatabase()
@@ -570,7 +571,7 @@ class ScoreRollupCascadeService
         }
 
         /** Startup catch-up: extend every habit's L1 through yesterday, then L2/L3 tails. */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun catchUpTail() {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.catchUpTail"
@@ -825,11 +826,10 @@ class ScoreRollupCascadeService
         }
 
         /** Parses a dayKey (or longer timestamp) to a [LocalDate] via the first 10 chars. */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun parseDate(s: String): LocalDate =
             try {
                 LocalDate.parse(s.take(10))
-            } catch (e: Exception) {
+            } catch (e: DateTimeParseException) {
                 logger.w("ScoreRollupCascadeService", "Unparseable date, falling back to today", mapOf("date" to s))
                 LocalDate.now()
             }
