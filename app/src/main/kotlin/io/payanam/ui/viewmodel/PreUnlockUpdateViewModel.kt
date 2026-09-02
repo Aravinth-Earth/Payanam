@@ -71,7 +71,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught")  // Intentional: UpdateChecker.check network + JSON parsing
     fun checkForUpdate() {
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
@@ -176,7 +176,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /** User tapped "Install now" — launch the system installer (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught")  // Intentional: FileProvider + startActivity system installer handoff
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
