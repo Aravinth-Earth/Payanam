@@ -6,6 +6,7 @@ import io.payanam.database.entity.TagEntity
 import io.payanam.domain.model.Tag
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.time.format.DateTimeParseException
 object TagMapper {
     private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
     /**
@@ -32,7 +33,7 @@ object TagMapper {
             }
         return try {
             LocalDateTime.parse(normalizedString, formatter)
-        } catch (_: Exception) {
+        } catch (_: DateTimeParseException) {
             LocalDateTime.parse(normalizedString)
         }
     }

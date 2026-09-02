@@ -6,6 +6,7 @@
 package io.payanam.database
 
 import android.content.Context
+import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
@@ -49,7 +50,7 @@ object DatabaseHealthChecker {
      * critical tables, and schema integrity. Returns a [HealthCheckResult]
      * telling the caller whether to open, migrate, or repair.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: loadLibs() can throw IOException; UnsatisfiedLinkError (Error, not Exception) propagates to caller
     fun checkDatabaseHealth(
         context: Context,
         sqlCipherPassphrase: String? = null,
@@ -261,7 +262,6 @@ object DatabaseHealthChecker {
         return tables
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
     private fun checkSchemaIntegrity(
         infoQuery: (String) -> android.database.Cursor,
         indexQuery: (String) -> android.database.Cursor,
@@ -279,7 +279,7 @@ object DatabaseHealthChecker {
                     }
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: SQLException) {
             issues.add("Cannot check day_journal_entries schema: ${e.message}")
         }
 
@@ -309,7 +309,7 @@ object DatabaseHealthChecker {
                     issues.add("day_journal_responses missing unique composite index")
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: SQLException) {
             issues.add("Cannot check day_journal_responses schema: ${e.message}")
         }
 
@@ -324,7 +324,7 @@ object DatabaseHealthChecker {
                     issues.add("app_settings missing unique index on key column")
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: SQLException) {
             issues.add("Cannot check app_settings schema: ${e.message}")
         }
 
@@ -347,7 +347,7 @@ object DatabaseHealthChecker {
                     issues.add("scheduled_notifications missing columns: ${missingColumns.joinToString(", ")}")
                 }
             }
-        } catch (e: Exception) {
+        } catch (e: SQLException) {
             issues.add("Cannot check scheduled_notifications schema: ${e.message}")
         }
 

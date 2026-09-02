@@ -23,6 +23,7 @@ import io.payanam.domain.model.NumDenToConfigConverter
 import io.payanam.domain.model.RecurrenceConfig
 import java.time.LocalDate
 import java.time.LocalDateTime
+import java.time.format.DateTimeParseException
 import java.util.Locale
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -152,11 +153,10 @@ class ScoreRollupBackfillService
                 return intArrayOf(newPos, newNet, newContinue)
             }
 
-            @Suppress("TooGenericExceptionCaught", "SwallowedException")
             private fun parseLocalDate(s: String): LocalDate? =
                 try {
                     LocalDate.parse(s.take(10))
-                } catch (e: Exception) {
+                } catch (e: DateTimeParseException) {
                     logger.w("ScoreRollupBackfillService", "Skipping occurrence with unparseable date", mapOf("date" to s))
                     null
                 }
@@ -523,7 +523,7 @@ class ScoreRollupBackfillService
         }
 
         /** Runs the backfill once. No-op when already done or DB not open. */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
         suspend fun runIfNeeded() {
             if (!sessionManager.isOpen.value) return
             val db = sessionManager.requireDatabase()
