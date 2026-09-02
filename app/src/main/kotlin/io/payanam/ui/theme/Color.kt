@@ -46,7 +46,7 @@ object LifeDimensionColors {
      * All UI should use LocalAppPreferences.current.colorFor() instead.
      * @deprecated Phase 4: Use user-defined colors from AppPreferencesState
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: logger errors in test context; swallow is correct
     fun forDimension(dimension: String): Color {
         // Log warning if called (Phase 4: moving to user preferences)
         // Safe for tests - catch any exceptions from logger

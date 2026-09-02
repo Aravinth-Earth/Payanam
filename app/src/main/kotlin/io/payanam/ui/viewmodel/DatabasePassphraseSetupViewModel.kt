@@ -177,6 +177,7 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")  // Intentional: DB migration + backup restore pipeline
     private fun migrateExistingDatabaseIfNeeded(passphrase: String) {
         val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
         if (!dbFile.exists()) {

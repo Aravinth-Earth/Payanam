@@ -1040,6 +1040,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Kicks off a manual backup to the app backup directory and refreshes status.
      */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: backup + restore pipeline; multiple failure modes
     fun triggerManualBackupNow() {
         _manualBackupInProgress.value = true
         viewModelScope.launch {

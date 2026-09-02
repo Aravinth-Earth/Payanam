@@ -54,6 +54,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
      * verified current passphrase, artifact backup, rekey, rollback on any
      * failure, then process restart on success.
      */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: passphrase change + backup restore pipeline
     fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
         val validation = PassphrasePolicy.validate(newPassphrase)
         if (!validation.isValid) {
