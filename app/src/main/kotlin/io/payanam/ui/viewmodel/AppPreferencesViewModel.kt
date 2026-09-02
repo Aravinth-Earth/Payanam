@@ -792,7 +792,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists a user-edited display label for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionLabel(dimensionId: String, label: String) {
         viewModelScope.launch {
             val normalizedLabel = normalizeDimensionLabelForStorage(
@@ -829,7 +829,7 @@ class AppPreferencesViewModel @Inject constructor(
      * the NEXT day-score recalc; this edit triggers an immediate L3-only
      * recalc (self-gov `dim_weight_change` path — L1/L2 untouched).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionWeight(dimensionId: String, weight: Double) {
         val clamped = weight.coerceIn(0.1, 10.0)
         viewModelScope.launch {
@@ -861,7 +861,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists a user-edited color for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionColor(dimensionId: String, color: Color) {
         viewModelScope.launch {
             try {
@@ -884,7 +884,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Clears the user-overridden label for a dimension, reverting to the canonical label.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun resetDimensionLabel(dimensionId: String) {
         viewModelScope.launch {
             try {
@@ -910,7 +910,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists the chosen icon for a dimension and refreshes UI.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
         viewModelScope.launch {
             try {
@@ -939,7 +939,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists the visible/hidden toggle for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
         viewModelScope.launch {
             try {
@@ -1059,7 +1059,7 @@ class AppPreferencesViewModel @Inject constructor(
                     ),
                 )
                 AutoBackupWorker.rescheduleFromNow(context, appSettingsRepository)
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+            } catch (error: Exception) {
                 refreshAutoBackupStatusFromStorage()
                 _manualBackupResultMessage.tryEmit(
                     context.getString(R.string.settings_manual_backup_failed, error.message ?: "Backup failed"),
@@ -1154,7 +1154,7 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Runs the habit-score diagnostics pass and publishes the result to the UI.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun runHabitScoreDiagnostics() {
         if (_habitScoreDiagnosticsInProgress.value) {
             return
@@ -1558,7 +1558,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Check if focus mode onboarding has been completed.
      */
     suspend fun hasFocusModeOnboardingCompleted(): Boolean = appSettingsRepository.getSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED) == "true"
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun saveSetting(key: String, value: String) {
         viewModelScope.launch {
             try {
@@ -1583,7 +1583,7 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun clearSetting(key: String) {
         viewModelScope.launch {
             try {
@@ -1614,7 +1614,7 @@ class AppPreferencesViewModel @Inject constructor(
             saveSetting(key, value)
         }
     }
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun parseColor(hex: String): Color {
         val normalized = hex.removePrefix("#")
         return try {

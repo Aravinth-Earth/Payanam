@@ -152,7 +152,7 @@ internal object DatabaseImportSupport {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun readPlaintextDatabaseUserVersion(databaseFile: File, logTag: String): Int? = try {
         SQLiteDatabase.openDatabase(
             databaseFile.absolutePath,
@@ -201,7 +201,7 @@ internal object DatabaseImportSupport {
      * Returns true if the header matches the standard SQLite magic ("SQLite format 3\0...").
      * Returns false if the file appears to be SQLCipher-encrypted (random salt header) or corrupt.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
         if (!databaseFile.exists() || databaseFile.length() == 0L) {
             logger.w(
@@ -243,7 +243,7 @@ internal object DatabaseImportSupport {
      * Merges an imported WAL into its database via a temp-copy checkpoint and
      * removes WAL artifacts (false when consolidation was skipped/failed).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
         val walFile = File(dbFile.parent, "${dbFile.name}-wal")
         val shmFile = File(dbFile.parent, "${dbFile.name}-shm")
@@ -394,7 +394,7 @@ internal object DatabaseImportSupport {
      * On success, [databaseFile] is replaced with a standard plaintext SQLite database.
      * Throws if the passphrase is incorrect or the file cannot be opened.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun decryptEncryptedImport(
         context: Context,
         databaseFile: File,
@@ -595,7 +595,7 @@ internal object DatabaseImportSupport {
         return resolved
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun queryDisplayName(context: Context, uri: Uri): String? = try {
         context.contentResolver.query(
             uri,

@@ -76,7 +76,7 @@ class EditTaskViewModel @Inject constructor(
     /**
      * Fetches [taskId]'s task + tags into state for editing.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -115,7 +115,7 @@ class EditTaskViewModel @Inject constructor(
      * Persists the edited fields, replaces tags, recomputes scores (roll-up
      * cascade for habits), and re-arms the reminder.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateTask(input: EditTaskInput) {
         val taskId = currentTaskId ?: return
         logger.i(

@@ -40,7 +40,7 @@ internal class LensHistoryBackfillCoordinator(
      * widening day limits (14→365→all), applying each larger result via
      * [onBackfillReady] while the lens selection is still current.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun schedule(
         scope: CoroutineScope,
         lensRepository: LensRepository,

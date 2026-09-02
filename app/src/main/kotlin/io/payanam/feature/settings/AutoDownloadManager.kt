@@ -61,7 +61,7 @@ object AutoDownloadManager {
      * pauses/resumes automatically when network changes).
      * Returns the download ID, or null if enqueue failed.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun enqueue(
         context: Context,
         url: String,
@@ -88,7 +88,7 @@ object AutoDownloadManager {
     }
 
     /** Query progress for a download ID; returns null if the row is gone. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun queryProgress(context: Context, downloadId: Long): DownloadUiState {
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
@@ -136,7 +136,7 @@ object AutoDownloadManager {
     }
 
     /** Cancel a download and remove its partial file. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun cancel(context: Context, downloadId: Long) {
         try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -152,7 +152,7 @@ object AutoDownloadManager {
      * ones. Skips files that don't exist or are not .apk. Best-effort; failures
      * are logged, not thrown.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
         logDownloadsDirState(context, "cleanup_before")
         try {
@@ -179,7 +179,7 @@ object AutoDownloadManager {
      * total bytes, count) under a caller-supplied tag. No behavior change —
      * diagnostics for the re-download/accumulation investigation.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     internal fun logDownloadsDirState(context: Context, tag: String) {
         try {
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return

@@ -36,7 +36,7 @@ class AutoBackupWorker(
      * Runs the backup via [DatabaseBackupCoordinator] (manual or auto trigger
      * from input data), logging duration and outcome; never retries.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     override suspend fun doWork(): Result {
         val trigger = backupTrigger()
         val workId = id.toString()

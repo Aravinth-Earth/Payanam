@@ -81,7 +81,7 @@ class ScoreDetailViewModel
         /**
          * Loads the metric rows for [type]/[key] over the current window.
          */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
         fun load(type: ScoreDetailType, key: String) {
             viewModelScope.launch {
                 val state = _uiState.value

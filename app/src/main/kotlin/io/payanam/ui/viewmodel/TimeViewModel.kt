@@ -127,7 +127,7 @@ class TimeViewModel @Inject constructor(
         observeActiveEntry()
         observeLastEntry()
     }
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -287,7 +287,7 @@ class TimeViewModel @Inject constructor(
      * [taskId]) from [startedAt], stops any active entry first, and hands off to
      * the foreground tracking service + widget.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun startTracking(
         dimensionId: String,
         dimensionLabel: String,
@@ -364,7 +364,7 @@ class TimeViewModel @Inject constructor(
      * Stops the running time entry and records the supplied [focusRating] (0..1)
      * plus optional [focusNote].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun stopTracking(focusRating: Double, focusNote: String?) {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
@@ -403,7 +403,7 @@ class TimeViewModel @Inject constructor(
      * Edits an existing time entry ([entryId]) with new dimension/task/time window
      * and focus rating/note, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateTimeEntry(
         entryId: String,
         dimensionId: String,
@@ -460,7 +460,7 @@ class TimeViewModel @Inject constructor(
      * Deletes [entryId] and, if it was linked to a task, reverts that task's
      * completion status, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTimeEntry(entryId: String) {
         logger.w("TimeViewModel.deleteTimeEntry", "Deleting time entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -572,7 +572,7 @@ class TimeViewModel @Inject constructor(
      * Creates a finished (already-stopped) time entry spanning the given start/end
      * window and dimension/task/focus, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun createManualEntry(
         dimensionId: String,
         dimensionLabel: String,
@@ -662,7 +662,7 @@ class TimeViewModel @Inject constructor(
      * Re-opens a specific finished [entryId] as the active tracking entry and
      * hands off to the foreground tracking service.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun continueEntry(entryId: String) {
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -731,7 +731,7 @@ class TimeViewModel @Inject constructor(
      * Completes [taskId] with explicit [actualCompletedAt]/[actualDurationMinutes],
      * records the occurrence (and next reminder for recurring tasks), then reloads.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun completeTaskWithDetails(
         taskId: String,
         note: String?,
@@ -793,7 +793,7 @@ class TimeViewModel @Inject constructor(
      * Marks [taskId] skipped: records the occurrence and applies decay for
      * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun skipTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.skipTask",
@@ -854,7 +854,7 @@ class TimeViewModel @Inject constructor(
      * Marks [taskId] missed: records the occurrence and applies decay for
      * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun missTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.missTask",
@@ -914,7 +914,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Archives [taskId] (removes it from active lists) and reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun archiveTask(taskId: String) {
         logger.i("TimeViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -944,7 +944,7 @@ class TimeViewModel @Inject constructor(
     /**
      * Permanently deletes [taskId] (canceling its reminder) and reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTask(taskId: String) {
         logger.w("TimeViewModel.deleteTask", "Deleting task from time screen", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -1036,7 +1036,7 @@ class TimeViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun launchTimeEntriesCollection(requestId: Long, date: LocalDate): Job =
         viewModelScope.launch {
             var receivedInitialEntries = false
@@ -1069,7 +1069,7 @@ class TimeViewModel @Inject constructor(
             }
         }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun launchPlannedTasksCollection(requestId: Long, date: LocalDate): Job =
         viewModelScope.launch {
             var receivedInitialPlannedTasks = false
@@ -1115,7 +1115,7 @@ class TimeViewModel @Inject constructor(
             }
         }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun launchOccurrencesCollection(requestId: Long, date: LocalDate): Job? {
         if (FeatureFlags.minimalModeEnabled) {
             _uiState.update { it.copy(pastOccurrences = emptyList()) }

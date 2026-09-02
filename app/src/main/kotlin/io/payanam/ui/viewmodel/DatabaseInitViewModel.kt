@@ -179,7 +179,7 @@ class DatabaseInitViewModel @Inject constructor(
         return !databaseInitCompleted && !hasUserData
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -351,7 +351,7 @@ class DatabaseInitViewModel @Inject constructor(
      * old artifacts (with a safety backup), opens the session, and persists the
      * mandatory life-dimension setup; on failure restores from the backup.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun completeNewDatabaseDimensionSetup(
         dimensionInputs: List<NewDatabaseDimensionInput>,
         onSuccess: () -> Unit,
@@ -482,7 +482,7 @@ class DatabaseInitViewModel @Inject constructor(
     /**
      * Dismisses the import wipe confirmation prompt without importing.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun cancelImportWipe() {
         logger.i("DatabaseInitViewModel.cancelImportWipe", "User cancelled import wipe confirm")
         pendingImportUri = null
@@ -768,7 +768,7 @@ class DatabaseInitViewModel @Inject constructor(
      * it unlocks the staged DB, configures it, health-checks, opens the session,
      * and on wrong passphrase keeps the prompt open (other failures restore backup).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
         breadcrumb(
@@ -917,7 +917,7 @@ class DatabaseInitViewModel @Inject constructor(
      * Marks DB-init as completed for an already-healthy existing database and
      * proceeds (best-effort; still calls [onSuccess] if the flag write fails).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {

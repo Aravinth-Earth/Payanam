@@ -177,7 +177,7 @@ class TasksViewModel @Inject constructor(
      * already-computed due-today map from [loadHabits]. Ranks use the shared
      * [io.payanam.scoring.ordinalRankToday] helper so both surfaces stay identical.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun loadHabitDayMetrics() {
         viewModelScope.launch {
             try {
@@ -553,7 +553,7 @@ class TasksViewModel @Inject constructor(
      * missed, recording the occurrence and recomputing L1/L2/L3 metrics; for a
      * recurring task the first completed toggle opens the completion dialog.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun toggleCheckmark(taskId: String, date: LocalDate) {
         logger.i(
             "TasksViewModel.toggleCheckmark",
@@ -671,7 +671,7 @@ class TasksViewModel @Inject constructor(
      * supplied timing, recomputes metrics, creates the linked time entry, and
      * closes the dialog.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun confirmCompletion(actualCompletedAt: LocalDateTime?, actualDurationMinutes: Int?) {
         val task = _uiState.value.completionDialogTask ?: return
         val date = _uiState.value.completionDialogDate ?: return
@@ -716,7 +716,7 @@ class TasksViewModel @Inject constructor(
      * Sets [taskId]'s checkmark on [date] to [status] (pending clears it); records
      * the occurrence and recomputes L1/L2/L3 metrics.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateCheckmark(
         taskId: String,
         date: LocalDate,
@@ -881,7 +881,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Changes the one-time task sort order, persists it, and re-shapes the list.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setSortOption(sortOption: TaskSortOption) {
         viewModelScope.launch {
             try {
@@ -906,7 +906,7 @@ class TasksViewModel @Inject constructor(
      * Changes the task filter (today/overdue/all/...), persists it, re-shapes the
      * list, and emits perf telemetry for the interaction.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setFilter(
         filter: TaskFilter,
         interactionId: String? = null,
@@ -990,7 +990,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Changes the habit sort order, persists it, and re-sorts/reshapes habits.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setHabitSortOption(option: HabitSortOption) {
         logger.i(
             "TasksViewModel.setHabitSortOption",
@@ -1081,7 +1081,7 @@ class TasksViewModel @Inject constructor(
     }
 
     /** Persist one visibility toggle value as "true"/"false". */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun persistVisibilityToggle(key: String, valueOf: (TasksUiState) -> Boolean) {
         viewModelScope.launch {
             try {
@@ -1149,7 +1149,7 @@ class TasksViewModel @Inject constructor(
      * Completes [taskId] (records the occurrence for recurring tasks, reschedules
      * the next reminder, and recomputes metrics), then reloads.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun completeTask(taskId: String, note: String? = null) {
         logger.i("TasksViewModel.completeTask", "Completing task", mapOf("taskId" to taskId, "hasNote" to (note != null)))
         viewModelScope.launch {
@@ -1212,7 +1212,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Archives [taskId] (and cancels its reminders), removing it from active lists.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun archiveTask(taskId: String) {
         logger.i("TasksViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -1241,7 +1241,7 @@ class TasksViewModel @Inject constructor(
     /**
      * Permanently deletes [taskId] (canceling its reminders).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTask(taskId: String) {
         logger.w("TasksViewModel.deleteTask", "Deleting task", mapOf("taskId" to taskId))
         viewModelScope.launch {

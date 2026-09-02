@@ -32,7 +32,7 @@ class TimeTrackingUseCase @Inject constructor(
      * Stop the active time entry and complete the associated task if any.
      * Returns the stopped time entry.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun stopTrackingAndCompleteTask(
         focusRating: Double = 0.0,
         focusNote: String? = null,

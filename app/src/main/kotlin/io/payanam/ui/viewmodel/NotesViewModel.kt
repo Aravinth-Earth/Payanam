@@ -65,7 +65,7 @@ class NotesViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadNotes() {
         logger.d("NotesViewModel.loadNotes", "Loading notes")
         viewModelScope.launch {
@@ -130,7 +130,7 @@ class NotesViewModel @Inject constructor(
     /**
      * Creates a note in [dimensionId] and attaches its initial [tags].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun createNote(title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -154,7 +154,7 @@ class NotesViewModel @Inject constructor(
     /**
      * Saves edits to an existing note and replaces its tag set.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateNote(noteId: String, title: String, details: String?, dimensionId: String, dimensionLabel: String, tags: List<String>) {
         viewModelScope.launch {
             try {
@@ -183,7 +183,7 @@ class NotesViewModel @Inject constructor(
     /**
      * Permanently deletes a note.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteNote(noteId: String) {
         viewModelScope.launch {
             try {

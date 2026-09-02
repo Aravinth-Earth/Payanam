@@ -110,7 +110,7 @@ class LensHabitScoreViewModel
         /** Load the matrix for the 14 days ending on [endDate] (default today).
          *  The 14-day window drives the displayed rows + sparklines; the full
          *  history (from each row's earliest day) drives the ordinal rank. */
-        @Suppress("TooGenericExceptionCaught", "SwallowedException")
+        @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
         fun loadWindow(endDate: LocalDate = LocalDate.now(), days: Int = 14, metric: ScoreMetricColumn = _uiState.value.selectedMetric) {
             val t0 = System.currentTimeMillis()
             viewModelScope.launch {

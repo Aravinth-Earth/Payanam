@@ -62,7 +62,7 @@ class AddTaskViewModel @Inject constructor(
      * Creates a task from the form fields (defaulting a recurring task's due
      * date), attaches tags, scores it, and schedules its reminder.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun createTask(
         title: String,
         description: String? = null,

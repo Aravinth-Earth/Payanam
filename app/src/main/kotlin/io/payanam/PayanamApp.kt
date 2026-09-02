@@ -35,7 +35,7 @@ class PayanamApp : Application() {
      * Boot sequence: logger first, crash handler + breadcrumbs, notification
      * channels, then the lazy app-start update check.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: app-level defensive catch
     override fun onCreate() {
         super.onCreate()
 

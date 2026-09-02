@@ -8,6 +8,7 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Frequency
 import io.payanam.domain.model.RecurrenceConfig
 import io.payanam.domain.model.RecurrenceType
+import java.time.format.DateTimeParseException
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskOccurrenceRepository
@@ -495,7 +496,7 @@ class RecurrenceManager @Inject constructor(
      * Get completion statistics for a task.
      * Uses frequency-aware calculation that respects the recurrence schedule.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun getCompletionStats(task: Task): CompletionStats {
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
         val today = LocalDate.now()
@@ -530,7 +531,7 @@ class RecurrenceManager @Inject constructor(
                         firstOccurrenceDate = occDate
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: DateTimeParseException) {
                 logger.w(
                     "RecurrenceManager.getCompletionStats",
                     "Failed to parse occurrence date",
@@ -556,7 +557,7 @@ class RecurrenceManager @Inject constructor(
                     val occDate = LocalDate.parse(occ.occurrenceDate.take(10))
                     val dayIndex = ChronoUnit.DAYS.between(occDate, today).toInt()
                     dayIndex to occ.status
-                } catch (e: Exception) {
+                } catch (e: DateTimeParseException) {
                     logger.w("RecurrenceManager.buildIndexedOccurrences", "Skipping occurrence with invalid date", mapOf("date" to occ.occurrenceDate))
                     null
                 }

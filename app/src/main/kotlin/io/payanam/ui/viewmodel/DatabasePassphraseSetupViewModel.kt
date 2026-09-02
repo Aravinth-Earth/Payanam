@@ -215,7 +215,7 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
                 )
                 throw IllegalStateException("Migration count validation failed.")
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+        } catch (error: Exception) {
             restoreDatabaseArtifacts(backupMappings)
             throw error
         } finally {

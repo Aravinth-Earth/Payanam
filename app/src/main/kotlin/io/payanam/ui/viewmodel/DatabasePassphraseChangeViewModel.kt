@@ -117,7 +117,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
             }
             logger.i("DatabasePassphraseChangeViewModel.submit", "Passphrase changed successfully")
             null
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+        } catch (error: Exception) {
             logger.e("DatabasePassphraseChangeViewModel.submit", "Passphrase change failed, restoring backup", error)
             withContext(Dispatchers.IO) {
                 restoreDatabaseArtifacts(backups)

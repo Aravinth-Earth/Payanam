@@ -230,7 +230,7 @@ class DayViewModel @Inject constructor(
         )
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun scheduleJournalResponseSave(
         sourceDate: LocalDate,
         scope: String,
@@ -364,7 +364,7 @@ class DayViewModel @Inject constructor(
         super.onCleared()
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadDayData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
