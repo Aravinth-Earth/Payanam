@@ -1121,6 +1121,10 @@
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_signal">zatu.69</string>
 
+    <string name="settings_update_open_fdroid">Open F-Droid</string>
+    <string name="settings_update_fdroid_managed">Updates managed by F-Droid</string>
+    <string name="settings_update_fdroid_info">This app was installed from F-Droid. Updates are handled by the F-Droid client.</string>
+
     <!-- Update checker -->
     <string name="settings_update_check_button">Check for update</string>
     <string name="settings_update_checking">Checking…</string>

@@ -68,6 +68,9 @@ class SettingsViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(SettingsUiState())
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
+    /** Whether the app was installed from F-Droid (disables in-app update UI). */
+    val isF-DroidBuild: Boolean = InstallerChecker.isF-DroidBuild(context)
+
     private val _navigateToDatabaseInit = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateToDatabaseInit: SharedFlow<Unit> = _navigateToDatabaseInit.asSharedFlow()
 

@@ -385,6 +385,7 @@ internal fun AboutSettingsSection(
     onCancelDownload: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
+    isF-DroidBuild: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
@@ -440,6 +441,26 @@ internal fun AboutSettingsSection(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(8.dp))
 
+        if (isF-DroidBuild) {
+            Text(
+                text = stringResource(id = R.string.settings_update_fdroid_managed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_fdroid_info),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/io.payanam/"))
+                context.startActivity(intent)
+            }) {
+                Text(stringResource(id = R.string.settings_update_open_fdroid))
+            }
+        } else {
         // Update channel selector
         Text(
             text = stringResource(id = R.string.settings_update_channel_label),
@@ -828,6 +849,7 @@ internal fun AboutSettingsSection(
                 },
             )
         }
+        } // End if (!isF-DroidBuild)
     }
 }
 
