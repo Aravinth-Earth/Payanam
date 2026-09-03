@@ -241,6 +241,16 @@ if ($DryRun) {
         Write-LogWithTime "Release creation failed." "Red"
         exit 1
     }
+
+    # Create persistent lightweight tag for F-Droid version detection
+    $persistentTag = "v$buildNumber"
+    if ($DryRun) {
+        Write-LogWithTime "[DRY RUN] Would create persistent tag: $persistentTag" "Yellow"
+    } else {
+        git tag $persistentTag
+        git push origin $persistentTag
+        Write-LogWithTime "Persistent tag created: $persistentTag" "Green"
+    }
 }
 
 # ── 9. Print release URL ──────────────────────────────────────────────────────
