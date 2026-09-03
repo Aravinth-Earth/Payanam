@@ -33,13 +33,14 @@ val hasReleaseSigning = releaseSigningPropsFile.exists()
 android {
     namespace = "io.payanam"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1694
-          versionName = "#1694 (20260902_204023)"
+          versionCode = 1695
+          versionName = "#1695 (20260903_205156)"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
