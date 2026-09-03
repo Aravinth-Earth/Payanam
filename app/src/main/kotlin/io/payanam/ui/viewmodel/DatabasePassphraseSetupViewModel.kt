@@ -177,6 +177,7 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
         }
     }
 
+    @Suppress("TooGenericExceptionCaught")  // Intentional: DB migration + backup restore pipeline
     private fun migrateExistingDatabaseIfNeeded(passphrase: String) {
         val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
         if (!dbFile.exists()) {
@@ -215,7 +216,7 @@ class DatabasePassphraseSetupViewModel @Inject constructor(
                 )
                 throw IllegalStateException("Migration count validation failed.")
             }
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+        } catch (error: Exception) {
             restoreDatabaseArtifacts(backupMappings)
             throw error
         } finally {

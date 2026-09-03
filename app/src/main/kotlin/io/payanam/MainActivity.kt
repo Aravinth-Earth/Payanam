@@ -437,7 +437,7 @@ class MainActivity : FragmentActivity() {
      * screen widget, and kicks off startup maintenance unless a startup gate
      * is still pending.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -472,7 +472,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")

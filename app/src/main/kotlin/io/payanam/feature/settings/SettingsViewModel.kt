@@ -279,7 +279,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** User tapped "Update now" in the popup → launch the system installer. */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     internal fun onInstallNow() {
         // Button path (Downloaded state) may not have a pending popup — derive
         // the file from the download state when that's the case.
@@ -315,7 +315,7 @@ class SettingsViewModel @Inject constructor(
     internal fun onInstallLater() {
         _uiState.update { it.copy(pendingInstallPath = null) }
     }
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
         viewModelScope.launch {
@@ -400,7 +400,7 @@ class SettingsViewModel @Inject constructor(
      * coordinator, reporting success/failure into [_uiState], then refreshes
      * stats.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun exportDatabase(
         destinationUri: Uri,
     ) {
@@ -441,7 +441,7 @@ class SettingsViewModel @Inject constructor(
      * their repetitions, then refreshes stats. Reports progress/errors into
      * [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun importUhabitsData(sourceUri: Uri) {
         logger.i("SettingsViewModel.importUhabitsData", "uHabits import started", mapOf("sourceUri" to sourceUri.toString()))
         viewModelScope.launch {
@@ -483,7 +483,7 @@ class SettingsViewModel @Inject constructor(
      * [targetDimensionLabel], so imported habits appear under the chosen life
      * dimension. Reports the mapped count into [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
         viewModelScope.launch {
             _uiState.update {
@@ -557,7 +557,7 @@ class SettingsViewModel @Inject constructor(
      * Confirms deletion: wipes every database artifact file, then signals the app
      * to restart into the DB-init flow.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteDatabase() {
         logger.i("SettingsViewModel.deleteDatabase", "Delete database confirmed — wiping all artifacts")
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
@@ -593,7 +593,7 @@ class SettingsViewModel @Inject constructor(
      * Deletes a single database artifact by [fileName] (e.g. a stray WAL/SHM
      * file) and refreshes stats.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteDatabaseArtifact(fileName: String) {
         logger.i(
             "SettingsViewModel.deleteDatabaseArtifact",
@@ -620,7 +620,7 @@ class SettingsViewModel @Inject constructor(
      * Deletes stale/crashed database artifacts left by interrupted import or
      * encrypt flows, then refreshes stats.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun cleanStaleArtifacts() {
         logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale artifact cleanup requested")
         viewModelScope.launch {
@@ -659,7 +659,7 @@ class SettingsViewModel @Inject constructor(
     fun clearBulkHabitMappingResult() {
         _uiState.update { it.copy(bulkHabitMappingResult = null) }
     }
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun syncTimeoutFromDb() {
         viewModelScope.launch {
             try {
@@ -694,7 +694,7 @@ class SettingsViewModel @Inject constructor(
      * Persists the auto-lock timeout as [minutes] (clamping via the manager) and
      * mirrors it into settings storage and [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateUnlockSessionTimeoutMinutes(minutes: Int) {
         databaseEncryptionManager.setSessionTimeoutMinutes(minutes)
         val effectiveMinutes = databaseEncryptionManager.getSessionTimeoutMinutes()

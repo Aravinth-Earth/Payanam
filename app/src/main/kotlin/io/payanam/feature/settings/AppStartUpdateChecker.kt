@@ -38,7 +38,7 @@ class AppStartUpdateChecker @Inject constructor(
      * Checks for app updates after the DB session unlocks. Safety net: catches
      * all exceptions so a failed check never crashes the app.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: app-level defensive catch
     fun onAppStart() {
         scope.launch {
             try {

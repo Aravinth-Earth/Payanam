@@ -14,6 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
 import java.io.File
+import android.database.sqlite.SQLiteException
 
 internal data class DatabaseTableCounts(
     val taskCount: Int,
@@ -22,7 +23,7 @@ internal data class DatabaseTableCounts(
     val noteCount: Int,
 )
 
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
 internal fun readDatabaseTableCounts(dbFile: File, logger: UnifiedLogger): DatabaseTableCounts {
     if (!dbFile.exists()) {
         logger.w("readDatabaseTableCounts", "DB file missing while reading table counts", mapOf("path" to dbFile.absolutePath))
@@ -49,7 +50,7 @@ internal fun readDatabaseTableCounts(dbFile: File, logger: UnifiedLogger): Datab
                 )
             }
         }
-    } catch (e: Exception) {
+    } catch (e: SQLiteException) {
         logger.w("readDatabaseTableCounts", "Failed to read table counts", mapOf("error" to (e.message ?: "unknown")))
         DatabaseTableCounts(0, 0, 0, 0)
     }
@@ -70,7 +71,7 @@ internal object DatabaseImportHelper {
      * open the file, adopts it as the local key, health-checks, and completes
      * setup.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun resumeImportWithPassphrase(
         viewModel: DatabaseInitViewModel,
         context: Context,
@@ -154,7 +155,7 @@ internal object DatabaseImportHelper {
      * Finishes an encrypted-DB import after the unlock gate: marks setup
      * complete, clears the pending import, then invokes the success callback.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun resumeEncryptedImportAfterUnlock(
         viewModel: DatabaseInitViewModel,
         context: Context,

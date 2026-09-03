@@ -136,7 +136,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -378,7 +378,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         return uiMode == Configuration.UI_MODE_NIGHT_YES
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun handleToggleTracking(context: Context) {
         scope.launch {
             try {

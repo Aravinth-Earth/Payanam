@@ -68,7 +68,7 @@ class NotificationScheduler @Inject constructor(
      * Arms (or cancels) the reminder for one task: eligibility checks, advance
      * timing from notification mode, persistence, then the alarm itself.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun scheduleForTask(
         task: Task,
         overrideScheduledAt: LocalDateTime? = null,

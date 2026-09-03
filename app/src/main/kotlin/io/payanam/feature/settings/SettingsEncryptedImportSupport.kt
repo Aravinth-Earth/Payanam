@@ -36,7 +36,7 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
  * the coroutine then resumes via [resumeImportWithPassphrase]. On failure the
  * pre-import backup is restored.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught")  // Intentional: settings pipeline; multiple failure modes
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
     breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
@@ -328,7 +328,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
  * + artifact backups and reports the imported counts. On a wrong passphrase it
  * stays on the gate; on any other failure it restores the backups.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught")  // Intentional: settings pipeline; multiple failure modes
 fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
     logger.i("SettingsViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
     breadcrumb(

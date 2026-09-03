@@ -174,7 +174,7 @@ class DayPlanViewModel @Inject constructor(
      * template preferences, and then the mode-specific payload (custom
      * allocations, applied template, or cleared back to auto).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun saveDayPlan(
         dayKey: String,
         mode: String,
@@ -328,7 +328,7 @@ class DayPlanViewModel @Inject constructor(
      * Validates (non-blank name, total ≤ 24h) and persists the draft — creating
      * a new template or updating the selected one — then closes the editor.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun saveTemplate() {
         val state = _uiState.value
         val name = state.templateName.trim()

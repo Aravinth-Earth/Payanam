@@ -82,7 +82,7 @@ class TaskDetailViewModel @Inject constructor(
      * occurrence history, completion stats, and activity window; also loads
      * reschedule history for every task.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -130,7 +130,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadCompletionStats(task: Task) {
         viewModelScope.launch {
             try {
@@ -152,7 +152,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadOccurrenceHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingOccurrences = true) }
@@ -224,7 +224,7 @@ class TaskDetailViewModel @Inject constructor(
         _uiState.update { it.copy(showChartView = chart) }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadActivityWindow(taskId: String) {
         viewModelScope.launch {
             val s = _uiState.value
@@ -276,7 +276,7 @@ class TaskDetailViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadRescheduleHistory(taskId: String) {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoadingReschedules = true) }
@@ -331,7 +331,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Complete task with optional note and record occurrence
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun completeTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -418,7 +418,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Skip task with optional note and record occurrence
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun skipTask(note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -505,7 +505,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Mark task as missed with optional note and record occurrence
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun missTask(note: String? = null, reason: String? = null) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -621,7 +621,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Archives the loaded task and cancels its reminders.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun archiveTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {
@@ -651,7 +651,7 @@ class TaskDetailViewModel @Inject constructor(
      * reschedule entry (flagging whether the old date was overdue), reloads
      * history, and reschedules the reminder.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun rescheduleTask(newDueDate: LocalDateTime) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -726,7 +726,7 @@ class TaskDetailViewModel @Inject constructor(
     /**
      * Permanently deletes the loaded task (canceling its reminders).
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTask() {
         val taskId = currentTaskId ?: return
         viewModelScope.launch {

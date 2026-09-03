@@ -37,7 +37,7 @@ class BootReceiver : BroadcastReceiver() {
      * On boot completion: restores any active tracking session + widget state
      * and re-arms task reminders.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
             val logger = UnifiedLogger.getInstance()

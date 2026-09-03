@@ -77,7 +77,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     private fun handleStopTracking(context: Context, pendingResult: BroadcastReceiver.PendingResult) {
         try {
             val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -97,7 +97,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     private fun handleTaskAction(
         context: Context,
         intent: Intent,
@@ -214,7 +214,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     private fun handleSnooze(context: Context, intent: Intent, pendingResult: BroadcastReceiver.PendingResult) {
         val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
         val dueAtRaw = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT)

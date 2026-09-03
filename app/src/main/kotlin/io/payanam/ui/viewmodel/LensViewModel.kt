@@ -234,7 +234,7 @@ class LensViewModel @Inject constructor(
      * Marks the reflection card [reflectionId] as addressed (persisting
      * [note]) and reloads the lens data.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun markReflectionAddressed(reflectionId: String, note: String?) {
         logger.d("LensViewModel.markReflectionAddressed", "Marking reflection addressed", mapOf("id" to reflectionId))
         viewModelScope.launch {
@@ -256,7 +256,7 @@ class LensViewModel @Inject constructor(
      * Regenerates the reflection cards for the selected day from current data
      * and refreshes the UI.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun regenerateReflections() {
         logger.d("LensViewModel.regenerateReflections", "Regenerating reflections")
         viewModelScope.launch {
@@ -392,7 +392,7 @@ class LensViewModel @Inject constructor(
      * Cancels any in-flight load and reloads planning/reality/reflection data
      * for the current selection into [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun loadLensData() {
         lensLoadJob?.cancel()
         reflectionRefreshJob?.cancel()
@@ -506,7 +506,7 @@ class LensViewModel @Inject constructor(
                 }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadMinimalFocusAverages() {
         viewModelScope.launch {
             try {
@@ -520,7 +520,7 @@ class LensViewModel @Inject constructor(
         loadDailyTrackedTimeStats()
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadDailyTrackedTimeStats() {
         viewModelScope.launch {
             try {
@@ -534,7 +534,7 @@ class LensViewModel @Inject constructor(
         loadDailyFocusedHoursStats()
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadDailyFocusedHoursStats() {
         viewModelScope.launch {
             try {
@@ -600,7 +600,7 @@ class LensViewModel @Inject constructor(
         loadDimensionSplit()
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadDimensionSplit() {
         viewModelScope.launch {
             loadDimensionSplitInternal()
@@ -746,7 +746,7 @@ class LensViewModel @Inject constructor(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadMinutePattern(excludeEmptyDays: Boolean = false) {
         viewModelScope.launch {
             loadMinutePatternInternal(excludeEmptyDays)
@@ -870,7 +870,7 @@ class LensViewModel @Inject constructor(
         )
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun refreshReflections(dayKey: String) {
         reflectionRefreshJob?.cancel()
         reflectionRefreshJob = viewModelScope.launch {

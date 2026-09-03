@@ -186,7 +186,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     snapshotFile = tempSnapshot,
                     attemptsUsed = attemptNumber,
                 )
-            } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+            } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
                 if (error is CancellationException) throw error
                 tempSnapshot.delete()
                 lastError = error
@@ -399,7 +399,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     },
                 ),
             )
-        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             logger.e("DatabaseBackupCoordinator.cleanupOldBackups", "Backup cleanup failed", error)
         }
     }

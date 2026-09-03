@@ -18,6 +18,7 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
+import org.json.JSONException
 /**
  * Outcome of an update check: availability verdict, latest build/release
  * info, per-channel statuses, and the error reason when it failed.
@@ -82,11 +83,11 @@ private val logger: UnifiedLogger by lazy { UnifiedLogger.getInstance() }
  * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
  * malformed entries are skipped. Returns an empty list for garbage bodies.
  */
-@Suppress("TooGenericExceptionCaught", "SwallowedException")
+@Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
 internal fun parseReleases(body: String): List<ChannelStatus> {
     val releases = try {
         JSONArray(body)
-    } catch (e: Exception) {
+    } catch (e: JSONException) {
         logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
         return emptyList()
     }
@@ -142,7 +143,7 @@ object UpdateChecker {
      * Fetch release info for ALL channels in one call (list endpoint),
      * then derive the result for the [channel] the user has selected.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun check(currentBuildNumber: Int, channel: UpdateChannel = UpdateChannel.DEV): UpdateCheckResult =
         withContext(Dispatchers.IO) {
             logger.d("UpdateChecker.check", "Starting update check", mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name))

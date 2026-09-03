@@ -31,6 +31,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.format.DateTimeParseException
 
 /**
  * Foreground service for active time tracking.
@@ -157,7 +158,7 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
     private fun startTrackingSession(
         taskId: String?,
         taskTitle: String?,
@@ -175,7 +176,7 @@ class TrackingService : Service() {
         )
         val parsedStartTime = try {
             LocalDateTime.parse(startTime)
-        } catch (e: Exception) {
+        } catch (e: DateTimeParseException) {
             logger.e(
                 "TrackingService.startTrackingSession",
                 "Failed to parse startTime; using now",
