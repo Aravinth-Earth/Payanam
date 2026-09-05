@@ -17,7 +17,7 @@ object InstallerChecker {
         try {
             context.packageManager.getInstallerPackageName(context.packageName) == F_DROID_INSTALLER
         } catch (e: PackageManager.NameNotFoundException) {
-            UnifiedLogger.error(TAG, "Failed to determine installer package", e)
+            UnifiedLogger.getInstance().e(TAG, "Failed to determine installer package", e)
             false
         }
 }
