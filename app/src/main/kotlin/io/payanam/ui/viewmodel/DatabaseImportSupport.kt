@@ -203,6 +203,15 @@ internal object DatabaseImportSupport {
      */
     @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
+        logger.i(
+            logTag,
+            "IMPORT_PROBE_FORMAT_ENTER",
+            mapOf(
+                "file" to databaseFile.name,
+                "exists" to databaseFile.exists(),
+                "sizeBytes" to databaseFile.length(),
+            ),
+        )
         if (!databaseFile.exists() || databaseFile.length() == 0L) {
             logger.w(
                 logTag,

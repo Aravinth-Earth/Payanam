@@ -148,6 +148,15 @@ object DatabaseEncryptionMigrationSupport {
         databaseFile: File,
         logTag: String,
     ): Boolean {
+        logger.i(
+            logTag,
+            "IMPORT_PROBE_ZONE_ENTER",
+            mapOf(
+                "file" to databaseFile.name,
+                "exists" to databaseFile.exists(),
+                "sizeBytes" to databaseFile.length(),
+            ),
+        )
         if (!databaseFile.exists()) {
             return false
         }
@@ -556,8 +565,19 @@ object DatabaseEncryptionMigrationSupport {
         }
     }
 
-    private fun canOpenWithFramework(databaseFile: File): Boolean =
-        runCatching {
+    private fun canOpenWithFramework(databaseFile: File): Boolean {
+        val existsBefore = databaseFile.exists()
+        val sizeBefore = databaseFile.length()
+        logger.i(
+            "DatabaseEncryptionMigrationSupport",
+            "IMPORT_PROBE_OPEN_BEFORE",
+            mapOf(
+                "file" to databaseFile.name,
+                "exists" to existsBefore,
+                "sizeBytes" to sizeBefore,
+            ),
+        )
+        val result = runCatching {
             SQLiteDatabase
                 .openDatabase(
                     databaseFile.absolutePath,
@@ -567,6 +587,19 @@ object DatabaseEncryptionMigrationSupport {
                     db.version >= 0
                 }
         }.getOrDefault(false)
+        logger.i(
+            "DatabaseEncryptionMigrationSupport",
+            "IMPORT_PROBE_OPEN_AFTER",
+            mapOf(
+                "file" to databaseFile.name,
+                "openResult" to result,
+                "exists" to databaseFile.exists(),
+                "sizeBytes" to databaseFile.length(),
+                "deletedDuringProbe" to (existsBefore && !databaseFile.exists()),
+            ),
+        )
+        return result
+    }
 
     private fun readCountsWithFramework(
         databaseFile: File,
