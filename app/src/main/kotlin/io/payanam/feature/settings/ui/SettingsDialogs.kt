@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -233,10 +234,12 @@ internal fun SettingsImportFeedbackEffects(
 
                 is ImportResult.Error -> {
                     snackbarHostState.showSnackbar(
-                        context.getString(
+                        message = context.getString(
                             R.string.settings_snackbar_import_failed,
                             result.message,
                         ),
+                        withDismissAction = true,
+                        duration = SnackbarDuration.Indefinite,
                     )
                     viewModel.clearImportResult()
                 }
