@@ -6,7 +6,13 @@ package io.payanam.ui.components
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -23,6 +29,9 @@ import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.TextMeasurer
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.drawText
@@ -46,6 +55,7 @@ fun CheckmarkPanelCanvas(
     onCheckmarkLongClick: (DayCheckmark) -> Unit,
     modifier: Modifier = Modifier,
     shortToggleEnabled: Boolean = true,
+    habitName: String = "",
 ) {
     val haptic = LocalHapticFeedback.current
     val density = LocalDensity.current
@@ -74,55 +84,95 @@ fun CheckmarkPanelCanvas(
     val totalHeightPx = buttonSizePx
     val totalWidthDp = with(density) { totalWidthPx.toDp() }
     val totalHeightDp = with(density) { totalHeightPx.toDp() }
+    val buttonSizeDp = with(density) { buttonSizePx.toDp() }
+
+    val statusCompletedText = stringResource(io.payanam.R.string.loc_completed)
+    val statusSkippedText = stringResource(io.payanam.R.string.loc_skipped)
+    val statusMissedText = stringResource(io.payanam.R.string.loc_missed)
+    val statusNotFilledText = stringResource(io.payanam.R.string.loc_not_filled)
 
     // Stable checkmarks reference for click calculation
     val reversedCheckmarks = remember(checkmarks) { checkmarks.reversed() }
-    Canvas(
-        modifier = modifier
-            .size(width = totalWidthDp, height = totalHeightDp)
-            .pointerInput(reversedCheckmarks) {
-                detectTapGestures(
-                    onTap = { offset ->
-                        val index = (offset.x / (buttonSizePx + spacingPx)).toInt()
-                            .coerceIn(0, reversedCheckmarks.lastIndex)
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onCheckmarkClick(reversedCheckmarks[index])
-                    },
-                    onLongPress = { offset ->
-                        val index = (offset.x / (buttonSizePx + spacingPx)).toInt()
-                            .coerceIn(0, reversedCheckmarks.lastIndex)
-                        haptic.performHapticFeedback(HapticFeedbackType.LongPress)
-                        onCheckmarkLongClick(reversedCheckmarks[index])
-                    },
-                )
-            },
-    ) {
-        val canvasWidth = size.width
-        val canvasHeight = size.height
 
-        // Draw each checkmark in a single pass
-        for (i in reversedCheckmarks.indices) {
-            val checkmark = reversedCheckmarks[i]
-            val x = i * (buttonSizePx + spacingPx)
-            val y = (canvasHeight - buttonSizePx) / 2
-            drawCheckmark(
-                checkmark = checkmark,
-                x = x,
-                y = y,
-                size = buttonSizePx,
-                cornerRadius = cornerRadiusPx,
-                borderWidth = borderWidthPx,
-                completedColor = completedColor,
-                skippedColor = skippedColor,
-                missedColor = missedColor,
-                pendingBorder = pendingBorder,
-                unknownBg = unknownBg,
-                pendingIcon = pendingIcon,
-                unknownIcon = unknownIcon,
-                notesColor = notesColor,
-                notesDotRadius = notesDotRadius,
-                textMeasurer = textMeasurer,
-            )
+    // Accessibility overlay: one semantics node per day cell so screen readers
+    // (and DOM-based UI automation) can address each visible day individually.
+    // The overlay and the Canvas are stacked in a single Box occupying exactly
+    // the panel footprint, so the drawing position is unchanged; the overlay
+    // renders nothing and forwards taps to the Canvas pointerInput below.
+    Box(
+        modifier = modifier.size(width = totalWidthDp, height = totalHeightDp),
+    ) {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.size(width = totalWidthDp, height = totalHeightDp),
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            for (i in reversedCheckmarks.indices) {
+                val checkmark = reversedCheckmarks[i]
+                val statusText = when (checkmark.status) {
+                    CheckmarkStatus.COMPLETED -> statusCompletedText
+                    CheckmarkStatus.SKIPPED -> statusSkippedText
+                    CheckmarkStatus.MISSED -> statusMissedText
+                    CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> statusNotFilledText
+                }
+                androidx.compose.foundation.layout.Box(
+                    modifier = Modifier
+                        .width(buttonSizeDp)
+                        .fillMaxHeight()
+                        .semantics {
+                            contentDescription =
+                                "$habitName, ${checkmark.date}, $statusText"
+                        },
+                )
+            }
+        }
+
+        Canvas(
+            modifier = Modifier
+                .size(width = totalWidthDp, height = totalHeightDp)
+                .pointerInput(reversedCheckmarks) {
+                    detectTapGestures(
+                        onTap = { offset ->
+                            val index = (offset.x / (buttonSizePx + spacingPx)).toInt()
+                                .coerceIn(0, reversedCheckmarks.lastIndex)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCheckmarkClick(reversedCheckmarks[index])
+                        },
+                        onLongPress = { offset ->
+                            val index = (offset.x / (buttonSizePx + spacingPx)).toInt()
+                                .coerceIn(0, reversedCheckmarks.lastIndex)
+                            haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                            onCheckmarkLongClick(reversedCheckmarks[index])
+                        },
+                    )
+                },
+        ) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+
+            // Draw each checkmark in a single pass
+            for (i in reversedCheckmarks.indices) {
+                val checkmark = reversedCheckmarks[i]
+                val x = i * (buttonSizePx + spacingPx)
+                val y = (canvasHeight - buttonSizePx) / 2
+                drawCheckmark(
+                    checkmark = checkmark,
+                    x = x,
+                    y = y,
+                    size = buttonSizePx,
+                    cornerRadius = cornerRadiusPx,
+                    borderWidth = borderWidthPx,
+                    completedColor = completedColor,
+                    skippedColor = skippedColor,
+                    missedColor = missedColor,
+                    pendingBorder = pendingBorder,
+                    unknownBg = unknownBg,
+                    pendingIcon = pendingIcon,
+                    unknownIcon = unknownIcon,
+                    notesColor = notesColor,
+                    notesDotRadius = notesDotRadius,
+                    textMeasurer = textMeasurer,
+                )
+            }
         }
     }
 }

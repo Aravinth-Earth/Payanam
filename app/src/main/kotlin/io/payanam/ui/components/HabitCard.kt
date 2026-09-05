@@ -389,6 +389,7 @@ fun HabitCard(
                 onCheckmarkClick = onCheckmarkClick,
                 onCheckmarkLongClick = onCheckmarkLongClick,
                 shortToggleEnabled = shortToggleEnabled,
+                habitName = task.title,
             )
         }
     }
