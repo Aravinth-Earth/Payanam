@@ -5,6 +5,8 @@
 package io.payanam.feature.settings.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -385,7 +387,7 @@ internal fun AboutSettingsSection(
     onCancelDownload: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
-    isF-DroidBuild: Boolean = false,
+    isFDroidBuild: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
@@ -441,7 +443,7 @@ internal fun AboutSettingsSection(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(8.dp))
 
-        if (isF-DroidBuild) {
+        if (isFDroidBuild) {
             Text(
                 text = stringResource(id = R.string.settings_update_fdroid_managed),
                 style = MaterialTheme.typography.bodyMedium,
@@ -849,7 +851,7 @@ internal fun AboutSettingsSection(
                 },
             )
         }
-        } // End if (!isF-DroidBuild)
+        } // End if (!isFDroidBuild)
     }
 }
 

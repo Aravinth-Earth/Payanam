@@ -558,7 +558,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 onCancelDownload = viewModel::onCancelDownload,
                 onInstallNow = viewModel::onInstallNow,
                 onInstallLater = viewModel::onInstallLater,
-                isF-DroidBuild = viewModel.isF-DroidBuild,
+                isFDroidBuild = viewModel.isFDroidBuild,
             )
         }
     }

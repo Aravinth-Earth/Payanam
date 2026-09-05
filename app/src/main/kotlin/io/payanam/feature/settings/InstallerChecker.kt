@@ -9,7 +9,7 @@ import android.content.Context
 object InstallerChecker {
     private const val F_DROID_INSTALLER = "org.fdroid.fdroid"
 
-    fun isF-DroidBuild(context: Context): Boolean =
+    fun isFDroidBuild(context: Context): Boolean =
         try {
             context.packageManager.getInstallerPackageName(context.packageName) == F_DROID_INSTALLER
         } catch (e: Exception) {
