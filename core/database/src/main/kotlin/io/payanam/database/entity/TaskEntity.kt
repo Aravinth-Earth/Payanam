@@ -73,8 +73,7 @@ data class TaskEntity(
     val customNotificationMinutes: Int? = null,
     // Calculated
     val taskScore: Double? = null,
-    // Recurrence redesign - decay scoring
-    val currentScore: Double = 1.0,
+    // Recurrence redesign - score roll-up (Inc 4b: decay currentScore removed)
     val lastOccurrenceDate: String? = null,
     val dayBoundaryHour: Int = 0, // DEPRECATED in v17; kept for compat
     // External-import metadata (nullable for locally created rows)

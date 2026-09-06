@@ -17,7 +17,6 @@ kotlin {
 detekt {
     toolVersion = libs.versions.detekt.get()
     config = files("${rootProject.projectDir}/config/detekt/detekt.yml")
-    buildUponDefaultConfig = true
 }
 
 spotless {
@@ -137,7 +136,7 @@ compose.desktop {
                 org.jetbrains.compose.desktop.application.dsl.TargetFormat.Msi
             )
             packageName = "PayanamDesktop"
-            packageVersion = "0.1.615"
+            packageVersion = "0.1.616"
             vendor = "Aravinth-Earth"
             description = "Payanam Desktop"
             windows {

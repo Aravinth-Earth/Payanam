@@ -71,7 +71,6 @@ class ModelDefaultsTest {
             customNotificationMinutes = 10,
             taskScore = 0.95
         )
-
         assertThat(task.id).isEqualTo("task-full")
         assertThat(task.title).isEqualTo("Full Task")
         assertThat(task.description).isEqualTo("Details")
@@ -124,7 +123,6 @@ class ModelDefaultsTest {
             createdAt = now,
             updatedAt = now.plusMinutes(5)
         )
-
         assertThat(note.id).isEqualTo("note-2")
         assertThat(note.title).isEqualTo("Idea")
         assertThat(note.details).isEqualTo("Details")
@@ -176,7 +174,6 @@ class ModelDefaultsTest {
             completionRate = 0.6,
             note = "Short note"
         )
-
         assertThat(occurrence.id).isEqualTo("occ-2")
         assertThat(occurrence.taskId).isEqualTo("task-2")
         assertThat(occurrence.occurrenceDate).isEqualTo("2026-02-01")
@@ -250,7 +247,6 @@ class ModelDefaultsTest {
         )
         assertThat(tag.id).isEqualTo("tag-1")
         assertThat(tag.lastUsedAt).isNull()
-
         val updated = tag.copy(
             usageCount = 4,
             lastUsedAt = createdAt.plusHours(1),

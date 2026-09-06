@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:function-naming")
+@file:Suppress("ktlint:standard:function-naming", "UndocumentedPublicProperty")
 
 package io.payanam.ui.components
 
@@ -61,9 +61,7 @@ fun CheckmarkDialog(
     val logger = UnifiedLogger.getInstance()
     var selectedStatus by remember { mutableStateOf(currentStatus) }
     var note by remember { mutableStateOf(currentNote) }
-
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -81,7 +79,6 @@ fun CheckmarkDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Status selection row
@@ -97,7 +94,6 @@ fun CheckmarkDialog(
                         isSelected = selectedStatus == CheckmarkStatus.COMPLETED,
                         onClick = { selectedStatus = CheckmarkStatus.COMPLETED },
                     )
-
                     StatusOption(
                         status = CheckmarkStatus.SKIPPED,
                         labelRes = io.payanam.R.string.task_notification_action_skip,
@@ -106,7 +102,6 @@ fun CheckmarkDialog(
                         isSelected = selectedStatus == CheckmarkStatus.SKIPPED,
                         onClick = { selectedStatus = CheckmarkStatus.SKIPPED },
                     )
-
                     StatusOption(
                         status = CheckmarkStatus.MISSED,
                         labelRes = io.payanam.R.string.loc_missed,
@@ -116,7 +111,6 @@ fun CheckmarkDialog(
                         onClick = { selectedStatus = CheckmarkStatus.MISSED },
                     )
                 }
-
                 Spacer(modifier = Modifier.height(12.dp))
 
                 // Clear button (like uHabits) - resets to PENDING
@@ -133,7 +127,6 @@ fun CheckmarkDialog(
                         )
                     }
                 }
-
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Notes field
@@ -202,9 +195,7 @@ private fun StatusOption(
                 modifier = Modifier.size(28.dp),
             )
         }
-
         Spacer(modifier = Modifier.height(8.dp))
-
         Text(
             text = androidx.compose.ui.res.stringResource(id = labelRes),
             style = MaterialTheme.typography.labelMedium,
@@ -242,9 +233,7 @@ fun CheckmarkDialogWithReason(
     var selectedStatus by remember { mutableStateOf(currentStatus) }
     var note by remember { mutableStateOf(currentNote) }
     var selectedReason by remember { mutableStateOf(currentReason) }
-
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -262,7 +251,6 @@ fun CheckmarkDialogWithReason(
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Status selection row
@@ -281,7 +269,6 @@ fun CheckmarkDialogWithReason(
                             selectedReason = null
                         },
                     )
-
                     StatusOption(
                         status = CheckmarkStatus.SKIPPED,
                         labelRes = io.payanam.R.string.task_notification_action_skip,
@@ -290,7 +277,6 @@ fun CheckmarkDialogWithReason(
                         isSelected = selectedStatus == CheckmarkStatus.SKIPPED,
                         onClick = { selectedStatus = CheckmarkStatus.SKIPPED },
                     )
-
                     StatusOption(
                         status = CheckmarkStatus.MISSED,
                         labelRes = io.payanam.R.string.loc_missed,
@@ -304,13 +290,11 @@ fun CheckmarkDialogWithReason(
                 // Skip reason chips (only show when skipped/missed)
                 if (selectedStatus == CheckmarkStatus.SKIPPED || selectedStatus == CheckmarkStatus.MISSED) {
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_reason_optional),
                         style = MaterialTheme.typography.labelMedium,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-
                     Spacer(modifier = Modifier.height(8.dp))
 
                     // Reason chips in a flow layout
@@ -345,7 +329,6 @@ fun CheckmarkDialogWithReason(
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(20.dp))
 
                 // Notes field

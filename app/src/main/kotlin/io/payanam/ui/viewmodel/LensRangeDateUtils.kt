@@ -16,7 +16,6 @@ internal fun buildLensDatesForRange(
     val startDate = minOf(rangeStartDate, rangeEndDate)
     val endDate = maxOf(rangeStartDate, rangeEndDate)
     val totalDays = ChronoUnit.DAYS.between(startDate, endDate).toLong() + 1
-
     val normalizedStart = if (totalDays > maxRangeDays.toLong()) {
         lensRangeLogger.w(
             "LensRangeDateUtils.buildLensDatesForRange",
@@ -27,7 +26,6 @@ internal fun buildLensDatesForRange(
     } else {
         startDate
     }
-
     val dates = mutableListOf<LocalDate>()
     var cursor = normalizedStart
     while (!cursor.isAfter(endDate)) {

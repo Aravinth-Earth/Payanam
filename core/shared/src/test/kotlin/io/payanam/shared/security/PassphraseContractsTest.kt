@@ -4,12 +4,10 @@ package io.payanam.shared.security
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
 class PassphraseContractsTest {
     @Test
     fun `validate rejects passphrase shorter than minimum`() {
         val result = SharedPassphrasePolicy.validate("Ab1!")
-
         assertThat(result.isValid).isFalse()
         assertThat(result.reasonCode).isEqualTo("min_length")
     }
@@ -17,7 +15,6 @@ class PassphraseContractsTest {
     @Test
     fun `validate rejects passphrase missing uppercase`() {
         val result = SharedPassphrasePolicy.validate("lowercase12!")
-
         assertThat(result.isValid).isFalse()
         assertThat(result.reasonCode).isEqualTo("missing_uppercase")
     }
@@ -25,7 +22,6 @@ class PassphraseContractsTest {
     @Test
     fun `validate accepts strong passphrase`() {
         val result = SharedPassphrasePolicy.validate("S3cure!Passphrase")
-
         assertThat(result.isValid).isTrue()
         assertThat(result.reasonCode).isNull()
     }

@@ -7,6 +7,9 @@ import androidx.room.RoomDatabase
 import io.payanam.database.dao.AppSettingsDao
 import io.payanam.database.dao.DailyInsightDao
 import io.payanam.database.dao.DayPlanDao
+import io.payanam.database.dao.DayMetricDao
+import io.payanam.database.dao.HabitMetricDao
+import io.payanam.database.dao.DimensionMetricDao
 import io.payanam.database.dao.ImportBatchDao
 import io.payanam.database.dao.JournalDao
 import io.payanam.database.dao.LensReflectionDao
@@ -27,7 +30,10 @@ import io.payanam.database.entity.DayPlanAllocationEntity
 import io.payanam.database.entity.DayPlanPolicyEntity
 import io.payanam.database.entity.DayPlanTemplateAllocationEntity
 import io.payanam.database.entity.DayPlanTemplateEntity
+import io.payanam.database.entity.DayMetricEntity
 import io.payanam.database.entity.DayTypeTemplatePreferenceEntity
+import io.payanam.database.entity.HabitMetricEntity
+import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.ImportBatchEntity
 import io.payanam.database.entity.JournalNoteEntity
 import io.payanam.database.entity.LensReflectionEntity
@@ -46,8 +52,7 @@ import io.payanam.database.entity.TimeEntryTagEntity
 import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
-
-const val PAYANAM_DATABASE_SCHEMA_VERSION = 17
+const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
 
 /**
  * Room Database for Payanam.
@@ -128,6 +133,9 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 17
         TaskTagEntity::class,
         NoteTagEntity::class,
         TimeEntryTagEntity::class,
+        HabitMetricEntity::class,
+        DimensionMetricEntity::class,
+        DayMetricEntity::class,
         TimeGoalEntity::class,
         TimeRuleEntity::class,
         LensReflectionEntity::class,
@@ -140,36 +148,49 @@ const val PAYANAM_DATABASE_SCHEMA_VERSION = 17
     version = PAYANAM_DATABASE_SCHEMA_VERSION,
     exportSchema = true,
 )
+/**
+ * Room database holding every Payanam entity (tasks, time entries, notes, occurrences,
+ * journal, day plans, score metrics, lens reflections). Version is pinned to
+ * [PAYANAM_DATABASE_SCHEMA_VERSION]; see the schema-history comment on the class
+ * for what each version added.
+ */
 abstract class PayanamDatabase : RoomDatabase() {
+    /** DAO for task rows + their occurrence/tag mappings. */
     abstract fun taskDao(): TaskDao
-
+    /** DAO for tracked time entries and their focus/tag data. */
     abstract fun timeEntryDao(): TimeEntryDao
-
+    /** DAO for notes and their tag/legacy-journal mappings. */
     abstract fun noteDao(): NoteDao
-
+    /** DAO for per-day task occurrences (completed/skipped/missed). */
     abstract fun taskOccurrenceDao(): TaskOccurrenceDao
-
+    /** DAO for recorded task reschedule events. */
     abstract fun taskRescheduleDao(): TaskRescheduleDao
-
+    /** DAO for day journal entries + prompt responses + freeform journal notes. */
     abstract fun journalDao(): JournalDao
-
+    /** DAO for key/value app settings. */
     abstract fun appSettingsDao(): AppSettingsDao
-
+    /** DAO for scheduled notification rows. */
     abstract fun scheduledNotificationDao(): ScheduledNotificationDao
-
+    /** DAO for the persisted scoring configuration. */
     abstract fun scoringConfigDao(): ScoringConfigDao
-
+    /** DAO for life-dimension catalog (label/color/icon/weight). */
     abstract fun lifeDimensionDao(): LifeDimensionDao
-
+    /** DAO for tags. */
     abstract fun tagDao(): TagDao
-
+    /** DAO for lens reflection gap cards. */
     abstract fun lensReflectionDao(): LensReflectionDao
-
+    /** DAO for the daily-insights cache (metric snapshots + dirty-day markers). */
     abstract fun dailyInsightDao(): DailyInsightDao
-
+    /** DAO for day-plan allocations, templates, policies, type-preferences. */
     abstract fun dayPlanDao(): DayPlanDao
-
+    /** DAO for import-batch metadata rows. */
     abstract fun importBatchDao(): ImportBatchDao
+    /** DAO for habit-level (L1) score metrics. */
+    abstract fun habitMetricDao(): HabitMetricDao
+    /** DAO for dimension-level (L2) score metrics. */
+    abstract fun dimensionMetricDao(): DimensionMetricDao
+    /** DAO for day-level (L3) score metrics. */
+    abstract fun dayMetricDao(): DayMetricDao
 
     companion object {
         const val DATABASE_NAME = "payanam.db"

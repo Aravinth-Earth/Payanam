@@ -4,9 +4,14 @@ package io.payanam.database.entity
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
-
+/**
+ * Provides the day plan policy entity test.
+ */
 class DayPlanPolicyEntityTest {
     @Test
+    /**
+     * Day plan policy entity store copy and component contracts work.
+     */
     fun dayPlanPolicyEntity_store_copy_and_component_contracts_work() {
         val entity =
             DayPlanPolicyEntity(
@@ -16,13 +21,11 @@ class DayPlanPolicyEntityTest {
                 isStarred = 1,
                 updatedAt = "2026-02-19T09:30:00",
             )
-
         assertThat(entity.dayKey).isEqualTo("2026-02-22")
         assertThat(entity.mode).isEqualTo("template")
         assertThat(entity.templateId).isEqualTo("tpl-weekend")
         assertThat(entity.isStarred).isEqualTo(1)
         assertThat(entity.updatedAt).isEqualTo("2026-02-19T09:30:00")
-
         val copied = entity.copy(mode = "custom", templateId = null, isStarred = 0)
         assertThat(copied.component1()).isEqualTo("2026-02-22")
         assertThat(copied.component2()).isEqualTo("custom")
@@ -32,6 +35,9 @@ class DayPlanPolicyEntityTest {
     }
 
     @Test
+    /**
+     * Day type template preference entity store copy and component contracts work.
+     */
     fun dayTypeTemplatePreferenceEntity_store_copy_and_component_contracts_work() {
         val entity =
             DayTypeTemplatePreferenceEntity(
@@ -39,11 +45,9 @@ class DayPlanPolicyEntityTest {
                 templateId = "tpl-weekday",
                 updatedAt = "2026-02-19T09:45:00",
             )
-
         assertThat(entity.dayType).isEqualTo("weekday")
         assertThat(entity.templateId).isEqualTo("tpl-weekday")
         assertThat(entity.updatedAt).isEqualTo("2026-02-19T09:45:00")
-
         val copied = entity.copy(templateId = null)
         assertThat(copied.component1()).isEqualTo("weekday")
         assertThat(copied.component2()).isNull()

@@ -1,7 +1,11 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
+import android.database.SQLException
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
@@ -26,7 +30,7 @@ val MIGRATION_8_9 =
                 createImportMetadataIndexes(database)
 
                 logger.i("Migration.8_9", "Migration from 8 to 9 completed successfully")
-            } catch (e: Exception) {
+            } catch (e: SQLException) {
                 logger.e(
                     "Migration.8_9",
                     "Migration failed",

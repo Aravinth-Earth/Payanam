@@ -17,6 +17,10 @@ private const val DESKTOP_SECURITY_SCHEMA_VERSION = 1
 private const val PBKDF2_ITERATIONS = 10_000
 private const val PBKDF2_KEY_LENGTH = 256
 
+/**
+ * DesktopSecuritySnapshot.
+
+ */
 data class DesktopSecuritySnapshot(
     val schemaVersion: Int = DESKTOP_SECURITY_SCHEMA_VERSION,
     val hasPassphraseConfigured: Boolean = false,
@@ -24,18 +28,33 @@ data class DesktopSecuritySnapshot(
     val lockedUntilEpochMillis: Long? = null,
 )
 
+/**
+ * Result of a desktop passphrase action (setup, change, or unlock attempt).
+ */
 sealed interface DesktopPassphraseActionResult {
     data object Success : DesktopPassphraseActionResult
 
+    /**
+     * ValidationFailed.
+    
+     */
     data class ValidationFailed(
         val reasonCode: String,
     ) : DesktopPassphraseActionResult
 
+    /**
+     * UnlockFailed.
+    
+     */
     data class UnlockFailed(
         val failedAttempts: Int,
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
 
+    /**
+     * Locked.
+    
+     */
     data class Locked(
         val lockoutSecondsRemaining: Long,
     ) : DesktopPassphraseActionResult
@@ -52,7 +71,10 @@ internal class DesktopSecurityStore(
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
     private val secureRandom = SecureRandom()
-
+    /**
+     * Current security state, creating a fresh default snapshot when none
+     * exists yet.
+     */
     fun ensureSnapshot(): DesktopSecuritySnapshot {
         if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
             return loadSnapshot()
@@ -61,7 +83,9 @@ internal class DesktopSecurityStore(
         saveSnapshot(snapshot, saltBase64 = null, hashBase64 = null)
         return snapshot
     }
-
+    /**
+     * Security state parsed from persisted properties (defaults when absent).
+     */
     fun loadSnapshot(): DesktopSecuritySnapshot {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (payload.isNullOrBlank()) {
@@ -77,7 +101,9 @@ internal class DesktopSecurityStore(
             lockedUntilEpochMillis = properties.getProperty(KEY_LOCKED_UNTIL)?.toLongOrNull(),
         )
     }
-
+    /**
+     * Validates and stores a new PBKDF2 salt/hash verifier for [passphrase].
+     */
     fun configurePassphrase(passphrase: String): DesktopPassphraseActionResult {
         val validation = SharedPassphrasePolicy.validate(passphrase)
         if (!validation.isValid) {
@@ -103,7 +129,10 @@ internal class DesktopSecurityStore(
         )
         return DesktopPassphraseActionResult.Success
     }
-
+    /**
+     * Checks [passphrase] against the stored verifier, enforcing the lockout
+     * policy on failed attempts.
+     */
     fun verifyPassphrase(passphrase: String): DesktopPassphraseActionResult {
         val payload = persistenceDatabase.readEntry(STATE_ENTRY_KEY).orEmpty()
         val properties = loadProperties(payload)
@@ -158,7 +187,9 @@ internal class DesktopSecurityStore(
             lockoutSecondsRemaining = delaySeconds,
         )
     }
-
+    /**
+     * Clears the passphrase verifier and failure/lockout counters.
+     */
     fun resetSecurityState() {
         saveSnapshot(DesktopSecuritySnapshot(), saltBase64 = null, hashBase64 = null)
         logEvent(
@@ -167,7 +198,9 @@ internal class DesktopSecurityStore(
             emptyMap(),
         )
     }
-
+    /**
+     * Path of the database file holding the security state.
+     */
     fun getSecurityFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun loadProperties(payload: String): Properties =

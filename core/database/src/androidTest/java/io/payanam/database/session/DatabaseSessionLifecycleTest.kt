@@ -25,6 +25,9 @@ class DatabaseSessionLifecycleTest {
     private val testPassphrase = "SecureTest123!"
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -44,12 +47,18 @@ class DatabaseSessionLifecycleTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         logger.d("DatabaseSessionLifecycleTest.tearDown", "Database closed and session cleared")
     }
 
     @Test
+    /**
+     * Shows the open database creates new database session.
+     */
     fun openDatabase_createsNewDatabaseSession() =
         runTest {
             // Arrange: Configure passphrase first
@@ -70,6 +79,9 @@ class DatabaseSessionLifecycleTest {
         }
 
     @Test
+    /**
+     * Shows the open database idempotent with same passphrase.
+     */
     fun openDatabase_idempotentWithSamePassphrase() =
         runTest {
             // Arrange: Configure passphrase
@@ -92,6 +104,9 @@ class DatabaseSessionLifecycleTest {
         }
 
     @Test
+    /**
+     * Shows the open database with different passphrase rejects wrong key.
+     */
     fun openDatabase_withDifferentPassphraseRejectsWrongKey() =
         runTest {
             // Arrange: Configure encryption with passphrase
@@ -119,12 +134,14 @@ class DatabaseSessionLifecycleTest {
         }
 
     @Test
+    /**
+     * Performs the close database nullifies database reference.
+     */
     fun closeDatabase_nullifiesDatabaseReference() =
         runTest {
             // Arrange: Configure passphrase and open database
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
             assertThat(configResult).isTrue()
-
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
             assertThat(sessionManager.isOpen.value).isTrue()
@@ -142,6 +159,9 @@ class DatabaseSessionLifecycleTest {
         }
 
     @Test
+    /**
+     * Performs the require open passphrase throws when database not open.
+     */
     fun requireOpenPassphrase_throwsWhenDatabaseNotOpen() {
         // Arrange: Ensure database is not open
         sessionManager.closeDatabase()
@@ -161,6 +181,9 @@ class DatabaseSessionLifecycleTest {
     }
 
     @Test
+    /**
+     * Performs the require database throws when database not open.
+     */
     fun requireDatabase_throwsWhenDatabaseNotOpen() {
         // Arrange: Ensure database is not open
         sessionManager.closeDatabase()
@@ -180,6 +203,9 @@ class DatabaseSessionLifecycleTest {
     }
 
     @Test
+    /**
+     * Shows the open database multiple sequential operations.
+     */
     fun openDatabase_multipleSequentialOperations() =
         runTest {
             // Arrange: Configure passphrase

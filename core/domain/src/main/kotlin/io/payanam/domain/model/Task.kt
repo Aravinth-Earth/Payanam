@@ -48,8 +48,7 @@ data class Task(
     // Calculated score
     val taskScore: Double? = null,
 
-    // Recurrence redesign - decay scoring
-    val currentScore: Double = 1.0,           // Decaying score (0.0-1.0) for recurring habits
+    // Recurrence redesign - score roll-up (Inc 4b: decay currentScore removed)
     val lastOccurrenceDate: LocalDateTime? = null,  // Date of last completion/skip
     val dayBoundaryHour: Int = 0,             // DEPRECATED in v17; kept for RecurrenceManager compat
     val dimensionId: String? = null

@@ -1,11 +1,14 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Frequency
 import io.payanam.domain.model.RecurrenceConfig
 import io.payanam.domain.model.RecurrenceType
+import java.time.format.DateTimeParseException
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskOccurrenceRepository
@@ -61,14 +64,12 @@ class RecurrenceManager @Inject constructor(
                 "globalDayBoundaryHour" to globalDayBoundaryHour,
             ),
         )
-
         val effectiveToday = getEffectiveToday(globalDayBoundaryHour)
         val tasks = taskRepository.getRecurringTasks()
         var processedCount = 0
         var skippedNoDate = 0
         var skippedNotPending = 0
         var skippedNotOverdue = 0
-
         for (task in tasks) {
             if (isFrequencyHabit(task)) {
                 syncFrequencyHabitState(task)
@@ -86,7 +87,6 @@ class RecurrenceManager @Inject constructor(
                     "recurrenceEnabled" to task.recurrenceEnabled,
                 ),
             )
-
             val taskDueDate = task.dueDate
             if (taskDueDate == null) {
                 skippedNoDate++
@@ -121,7 +121,6 @@ class RecurrenceManager @Inject constructor(
                 }
                 val taskEffectiveToday = getEffectiveToday(effectiveDayBoundary)
                 val dueDate = taskDueDate.toLocalDate()
-
                 if (dueDate < taskEffectiveToday) {
                     processOverdueTask(task, dueDate, taskEffectiveToday)
                     processedCount++
@@ -164,11 +163,9 @@ class RecurrenceManager @Inject constructor(
      */
     suspend fun repairStuckRecurringTasks(): Int {
         logger.i("RecurrenceManager.repairStuckRecurringTasks", "Starting repair")
-
         val tasks = taskRepository.getRecurringTasks()
         var repairedCount = 0
         val today = LocalDate.now()
-
         for (task in tasks) {
             if (isFrequencyHabit(task)) {
                 syncFrequencyHabitState(task)
@@ -203,7 +200,6 @@ class RecurrenceManager @Inject constructor(
                 taskRepository.updateRecurrenceState(
                     taskId = task.id,
                     newDueDate = newDueDate,
-                    newScore = task.currentScore,
                     lastOccurrenceDate = LocalDateTime.now(),
                 )
                 repairedCount++
@@ -245,7 +241,6 @@ class RecurrenceManager @Inject constructor(
                 "overdueDate" to overdueDate.toString(),
                 "effectiveToday" to effectiveToday.toString(),
                 "daysMissed" to daysMissed,
-                "currentScore" to task.currentScore,
             ),
         )
 
@@ -256,12 +251,8 @@ class RecurrenceManager @Inject constructor(
             createMissedOccurrence(task.id, missedDate)
         }
 
-        // Calculate new decayed score
-        val newScore = RecurrenceScoreCalculator.calculateScoreAfterGap(
-            previousScore = task.currentScore,
-            daysMissed = daysMissed,
-            frequency = frequency,
-        )
+        // Decay scoring removed (Inc 3) — missed rows are scored 0.0 by the
+        // score roll-up catch-up; currentScore bridged by ScoreRollupCascadeService.
 
         // Calculate next due date (today at original time, or tomorrow for frequency-based)
         val originalTime = task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0)
@@ -271,7 +262,6 @@ class RecurrenceManager @Inject constructor(
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
         )
 
@@ -281,8 +271,6 @@ class RecurrenceManager @Inject constructor(
             mapOf(
                 "taskId" to task.id,
                 "newDueDate" to newDueDate.toString(),
-                "oldScore" to String.format("%.3f", task.currentScore),
-                "newScore" to String.format("%.3f", newScore),
                 "missedOccurrencesCreated" to maxMissedToCreate,
             ),
         )
@@ -290,8 +278,34 @@ class RecurrenceManager @Inject constructor(
 
     /**
      * Create a missed occurrence entry for a specific date.
+     *
+     * Skips when a user row already exists for (task, day) — auto-writes never
+     * touch rows that exist (user data wins). Mirrors the self-governance
+     * gap-fill rule; without this, the unconditional insert could duplicate a
+     * user's row (see OCC_CHECK_EXISTING / OCC_SKIP_AUTO in the DB flow spec).
      */
     private suspend fun createMissedOccurrence(taskId: String, date: LocalDate) {
+        val existing = taskOccurrenceRepository.getOccurrenceForDate(taskId, date)
+        if (existing != null) {
+            logger.d(
+                "RecurrenceManager.createMissedOccurrence",
+                "SKIP auto-miss — user row exists",
+                mapOf(
+                    "taskId" to taskId,
+                    "date" to date.toString(),
+                    "existingStatus" to existing.status,
+                ),
+            )
+            return
+        }
+        logger.d(
+            "RecurrenceManager.createMissedOccurrence",
+            "CREATE auto-miss — gap fill",
+            mapOf(
+                "taskId" to taskId,
+                "date" to date.toString(),
+            ),
+        )
         taskOccurrenceRepository.recordOccurrence(
             taskId = taskId,
             dueDate = date.atStartOfDay(),
@@ -305,35 +319,26 @@ class RecurrenceManager @Inject constructor(
      */
     suspend fun onTaskCompleted(task: Task, note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         if (!task.recurrenceEnabled) return
-
         if (isFrequencyHabit(task)) {
             syncFrequencyHabitState(task)
             return
         }
 
-        val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(
-            previousScore = task.currentScore,
-            completed = true,
-            frequency = frequency,
-        )
-
+        // Decay scoring removed (Inc 3) — currentScore is now bridged from the
+        // score roll-up L1 by ScoreRollupCascadeService; due-date advancement kept.
         val newDueDate = calculateNextDueDate(task, nextDueStrategy)
 
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
         logger.i(
             "RecurrenceManager.onTaskCompleted",
-            "Task completed, score updated",
+            "Task completed, due date advanced",
             mapOf(
                 "taskId" to task.id,
-                "oldScore" to String.format("%.3f", task.currentScore),
-                "newScore" to String.format("%.3f", newScore),
                 "nextDueDate" to newDueDate.toString(),
             ),
         )
@@ -344,74 +349,52 @@ class RecurrenceManager @Inject constructor(
      */
     suspend fun onTaskSkipped(task: Task, note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         if (!task.recurrenceEnabled) return
-
         if (isFrequencyHabit(task)) {
             syncFrequencyHabitState(task)
             return
         }
 
-        // In uHabits style, skipping applies decay
-        val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(
-            previousScore = task.currentScore,
-            completed = false, // Not completed = decay applies
-            frequency = frequency,
-        )
+        // Decay scoring removed (Inc 3) — currentScore is bridged from the
+        // score roll-up L1 by ScoreRollupCascadeService; due-date advancement kept.
         val newDueDate = calculateNextDueDate(task, nextDueStrategy)
-
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
         logger.i(
             "RecurrenceManager.onTaskSkipped",
-            "Task skipped, decay applied",
+            "Task skipped, due date advanced",
             mapOf(
                 "taskId" to task.id,
-                "oldScore" to String.format("%.3f", task.currentScore),
-                "newScore" to String.format("%.3f", newScore),
                 "nextDueDate" to newDueDate.toString(),
             ),
         )
     }
 
     /**
-     * Handle task miss with decay applied (same as skip for scoring purposes).
+     * Handle task miss with due-date advancement (decay scoring removed in inc 3).
      */
     suspend fun onTaskMissed(task: Task, note: String? = null, reason: String? = null, nextDueStrategy: String? = null) {
         if (!task.recurrenceEnabled) return
-
         if (isFrequencyHabit(task)) {
             syncFrequencyHabitState(task)
             return
         }
-
-        // Missing applies same decay as skipping
-        val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(
-            previousScore = task.currentScore,
-            completed = false, // Not completed = decay applies
-            frequency = frequency,
-        )
         val newDueDate = calculateNextDueDate(task, nextDueStrategy)
 
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = LocalDateTime.now(),
         )
 
         logger.i(
             "RecurrenceManager.onTaskMissed",
-            "Task missed, decay applied",
+            "Task missed, due date advanced",
             mapOf(
                 "taskId" to task.id,
-                "oldScore" to String.format("%.3f", task.currentScore),
-                "newScore" to String.format("%.3f", newScore),
                 "nextDueDate" to newDueDate.toString(),
             ),
         )
@@ -461,7 +444,6 @@ class RecurrenceManager @Inject constructor(
         // Find the next scheduled occurrence starting from the day after the base date
         val searchStart = baseDate.plusDays(1)
         val searchEnd = baseDate.plusYears(1) // Look ahead up to 1 year for next occurrence
-
         val nextScheduledDate = recurrenceConfig
             .getScheduledDatesInRange(searchStart, searchEnd)
             .firstOrNull()
@@ -514,10 +496,10 @@ class RecurrenceManager @Inject constructor(
      * Get completion statistics for a task.
      * Uses frequency-aware calculation that respects the recurrence schedule.
      */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     suspend fun getCompletionStats(task: Task): CompletionStats {
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
         val today = LocalDate.now()
-
         if (isFrequencyHabit(task)) {
             val frequency = Frequency.legacyParse(task.recurrenceRule)
             val anchorDate = frequency.anchorDate ?: task.dueDate?.toLocalDate() ?: task.createdAt.toLocalDate()
@@ -538,7 +520,6 @@ class RecurrenceManager @Inject constructor(
         // Build map of date -> status
         val occurrenceMap = mutableMapOf<LocalDate, String>()
         var firstOccurrenceDate: LocalDate? = null
-
         for (occ in occurrences) {
             try {
                 val occDate = LocalDate.parse(occ.occurrenceDate.take(10))
@@ -550,7 +531,7 @@ class RecurrenceManager @Inject constructor(
                         firstOccurrenceDate = occDate
                     }
                 }
-            } catch (e: Exception) {
+            } catch (e: DateTimeParseException) {
                 logger.w(
                     "RecurrenceManager.getCompletionStats",
                     "Failed to parse occurrence date",
@@ -576,20 +557,27 @@ class RecurrenceManager @Inject constructor(
                     val occDate = LocalDate.parse(occ.occurrenceDate.take(10))
                     val dayIndex = ChronoUnit.DAYS.between(occDate, today).toInt()
                     dayIndex to occ.status
-                } catch (e: Exception) {
+                } catch (e: DateTimeParseException) {
+                    logger.w("RecurrenceManager.buildIndexedOccurrences", "Skipping occurrence with invalid date", mapOf("date" to occ.occurrenceDate))
                     null
                 }
             }
             RecurrenceScoreCalculator.calculateCompletionStats(indexedOccurrences)
         }
     }
-
+    /**
+     * True when the task's recurrence rule is a frequency habit (N times per
+     * M days) rather than a fixed-schedule rule.
+     */
     fun isFrequencyHabit(task: Task): Boolean {
         if (!task.recurrenceEnabled) return false
         if (Frequency.isSerializedRule(task.recurrenceRule)) return true
         return RecurrenceConfig.parse(task.recurrenceRule).type == RecurrenceType.FREQUENCY
     }
-
+    /**
+     * Re-syncs one frequency habit's window state by [taskId] (no-op for
+     * non-frequency tasks).
+     */
     suspend fun refreshFrequencyHabitState(taskId: String) {
         val task = taskRepository.getTaskById(taskId) ?: return
         if (isFrequencyHabit(task)) {
@@ -628,18 +616,11 @@ class RecurrenceManager @Inject constructor(
             ?.atTime(reminderTime)
             ?: task.lastOccurrenceDate
             ?: LocalDateTime.now()
-        val newScore = RecurrenceScoreCalculator.calculateDerivedFrequencyScore(
-            occurrences = occurrenceMap,
-            frequency = frequencyRule,
-            anchorDate = anchorDate,
-            today = today,
-            seedScore = 1.0,
-        )
+        // Inc 4b: decay derived score removed — score roll-up (L1) owns scoring now.
 
         taskRepository.updateRecurrenceState(
             taskId = task.id,
             newDueDate = newDueDate,
-            newScore = newScore,
             lastOccurrenceDate = latestOccurrenceDate,
         )
 
@@ -656,7 +637,6 @@ class RecurrenceManager @Inject constructor(
                 "effectiveTargetCount" to windowState.effectiveTargetCount,
                 "windowSatisfied" to windowState.isSatisfied,
                 "nextReminderDate" to newDueDate.toString(),
-                "derivedScore" to String.format("%.3f", newScore),
                 "currentStreak" to stats.currentStreak,
             ),
         )

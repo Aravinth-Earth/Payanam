@@ -23,21 +23,33 @@ class LensesTimeModuleScoreTest {
     }
 
     @Test
+    /**
+     * Calculate bounded time module score returns one at planned target.
+     */
     fun calculateBoundedTimeModuleScore_returnsOneAtPlannedTarget() {
         assertEquals(1.0, calculateBoundedTimeModuleScore(plannedMinutes = 360, actualMinutes = 360), 0.000001)
     }
 
     @Test
+    /**
+     * Calculate bounded time module score reaches zero at lower bound.
+     */
     fun calculateBoundedTimeModuleScore_reachesZeroAtLowerBound() {
         assertEquals(0.0, calculateBoundedTimeModuleScore(plannedMinutes = 360, actualMinutes = 0), 0.000001)
     }
 
     @Test
+    /**
+     * Calculate bounded time module score reaches zero at upper bound.
+     */
     fun calculateBoundedTimeModuleScore_reachesZeroAtUpperBound() {
         assertEquals(0.0, calculateBoundedTimeModuleScore(plannedMinutes = 360, actualMinutes = 1440), 0.000001)
     }
 
     @Test
+    /**
+     * Calculate bounded time module score planned zero falls linearly to day upper bound.
+     */
     fun calculateBoundedTimeModuleScore_plannedZeroFallsLinearlyToDayUpperBound() {
         assertEquals(1.0, calculateBoundedTimeModuleScore(plannedMinutes = 0, actualMinutes = 0), 0.000001)
         assertEquals(0.5, calculateBoundedTimeModuleScore(plannedMinutes = 0, actualMinutes = 720), 0.000001)

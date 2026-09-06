@@ -9,7 +9,6 @@ import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
-
 class RecurrenceConfigTest {
     
     // ==================== Factory Method Tests ====================
@@ -122,7 +121,6 @@ class RecurrenceConfigTest {
         val config = RecurrenceConfig.daily()
         val monday = LocalDate.of(2024, 1, 8) // Monday
         val saturday = LocalDate.of(2024, 1, 13)
-        
         assertTrue(config.isScheduledDay(monday))
         assertTrue(config.isScheduledDay(saturday))
     }
@@ -133,7 +131,6 @@ class RecurrenceConfigTest {
         val monday = LocalDate.of(2024, 1, 8)
         val saturday = LocalDate.of(2024, 1, 13)
         val sunday = LocalDate.of(2024, 1, 14)
-        
         assertTrue(config.isScheduledDay(monday))
         assertFalse(config.isScheduledDay(saturday))
         assertFalse(config.isScheduledDay(sunday))
@@ -146,7 +143,6 @@ class RecurrenceConfigTest {
         val tuesday = LocalDate.of(2024, 1, 9)
         val wednesday = LocalDate.of(2024, 1, 10)
         val friday = LocalDate.of(2024, 1, 12)
-        
         assertTrue(config.isScheduledDay(monday))
         assertFalse(config.isScheduledDay(tuesday))
         assertTrue(config.isScheduledDay(wednesday))
@@ -159,7 +155,6 @@ class RecurrenceConfigTest {
         val first = LocalDate.of(2024, 1, 1)
         val fifteenth = LocalDate.of(2024, 1, 15)
         val tenth = LocalDate.of(2024, 1, 10)
-        
         assertTrue(config.isScheduledDay(first))
         assertTrue(config.isScheduledDay(fifteenth))
         assertFalse(config.isScheduledDay(tenth))
@@ -171,7 +166,6 @@ class RecurrenceConfigTest {
         val jan31 = LocalDate.of(2024, 1, 31) // Last day of Jan
         val feb29 = LocalDate.of(2024, 2, 29) // Last day of Feb (leap year)
         val jan30 = LocalDate.of(2024, 1, 30) // Not last day
-        
         assertTrue(config.isScheduledDay(jan31))
         assertTrue(config.isScheduledDay(feb29))
         assertFalse(config.isScheduledDay(jan30))
@@ -181,7 +175,6 @@ class RecurrenceConfigTest {
     fun `interval isScheduledDay respects start date`() {
         val startDate = LocalDate.of(2024, 1, 1)
         val config = RecurrenceConfig.everyNDays(3, startDate)
-        
         assertTrue(config.isScheduledDay(LocalDate.of(2024, 1, 1)))  // Day 0
         assertFalse(config.isScheduledDay(LocalDate.of(2024, 1, 2))) // Day 1
         assertFalse(config.isScheduledDay(LocalDate.of(2024, 1, 3))) // Day 2
@@ -193,7 +186,6 @@ class RecurrenceConfigTest {
     fun `yearly isScheduledDay matches same day and month`() {
         val startDate = LocalDate.of(2024, 3, 15)
         val config = RecurrenceConfig.yearly(startDate)
-        
         assertTrue(config.isScheduledDay(LocalDate.of(2024, 3, 15)))
         assertTrue(config.isScheduledDay(LocalDate.of(2025, 3, 15)))
         assertFalse(config.isScheduledDay(LocalDate.of(2024, 3, 16)))
@@ -203,7 +195,6 @@ class RecurrenceConfigTest {
     @Test
     fun `isScheduledDay respects start date boundary`() {
         val config = RecurrenceConfig.daily(startDate = LocalDate.of(2024, 1, 10))
-        
         assertFalse(config.isScheduledDay(LocalDate.of(2024, 1, 5)))
         assertFalse(config.isScheduledDay(LocalDate.of(2024, 1, 9)))
         assertTrue(config.isScheduledDay(LocalDate.of(2024, 1, 10)))
@@ -217,7 +208,6 @@ class RecurrenceConfigTest {
         val config = RecurrenceConfig.daily()
         val start = LocalDate.of(2024, 1, 1)
         val end = LocalDate.of(2024, 1, 5)
-        
         val dates = config.getScheduledDatesInRange(start, end)
         assertEquals(5, dates.size)
     }
@@ -227,7 +217,6 @@ class RecurrenceConfigTest {
         val config = RecurrenceConfig.weekdays()
         val start = LocalDate.of(2024, 1, 8) // Monday
         val end = LocalDate.of(2024, 1, 14)   // Sunday
-        
         val dates = config.getScheduledDatesInRange(start, end)
         assertEquals(5, dates.size) // Mon-Fri only
     }
@@ -237,7 +226,6 @@ class RecurrenceConfigTest {
         val config = RecurrenceConfig.specificWeekdays(setOf(1)) // Weekly on Monday
         val start = LocalDate.of(2024, 1, 1)
         val end = LocalDate.of(2024, 1, 31)
-        
         val count = config.countScheduledOccurrences(start, end)
         assertEquals(5, count) // 5 Mondays in January 2024
     }
@@ -387,7 +375,6 @@ class RecurrenceConfigTest {
         val original = RecurrenceConfig.specificWeekdays(setOf(1, 3, 5))
         val serialized = original.serialize()
         val parsed = RecurrenceConfig.parse(serialized)
-        
         assertEquals(original.type, parsed.type)
         assertEquals(original.weekdays, parsed.weekdays)
     }
@@ -471,7 +458,6 @@ class RecurrenceConfigTest {
         val original = RecurrenceConfig.everyNDays(5)
         val serialized = original.serialize()
         val parsed = RecurrenceConfig.parse(serialized)
-        
         assertEquals(RecurrenceType.INTERVAL, parsed.type)
         assertEquals(5, parsed.intervalDays)
     }
@@ -481,7 +467,6 @@ class RecurrenceConfigTest {
         val original = RecurrenceConfig.monthlyOnDates(1, 15, 32)
         val serialized = original.serialize()
         val parsed = RecurrenceConfig.parse(serialized)
-        
         assertEquals(RecurrenceType.MONTHLY_DATES, parsed.type)
         assertEquals(setOf(1, 15, 32), parsed.monthlyDates)
     }
@@ -491,7 +476,6 @@ class RecurrenceConfigTest {
         val original = RecurrenceConfig.timesPerWeek(3)
         val serialized = original.serialize()
         val parsed = RecurrenceConfig.parse(serialized)
-        
         assertEquals(RecurrenceType.FREQUENCY, parsed.type)
         assertEquals(3, parsed.frequencyNumerator)
         assertEquals(7, parsed.frequencyDenominator)
@@ -503,7 +487,6 @@ class RecurrenceConfigTest {
         val original = RecurrenceConfig.daily(startDate)
         val serialized = original.serialize()
         val parsed = RecurrenceConfig.parse(serialized)
-        
         assertEquals(startDate, parsed.startDate)
     }
     
@@ -617,7 +600,6 @@ class RecurrenceConfigTest {
     fun `data class copy works correctly`() {
         val original = RecurrenceConfig.daily()
         val modified = original.copy(type = RecurrenceType.YEARLY)
-        
         assertEquals(RecurrenceType.DAILY, original.type)
         assertEquals(RecurrenceType.YEARLY, modified.type)
     }
@@ -627,7 +609,6 @@ class RecurrenceConfigTest {
         val config1 = RecurrenceConfig.specificWeekdays(setOf(1, 3))
         val config2 = RecurrenceConfig.specificWeekdays(setOf(1, 3))
         val config3 = RecurrenceConfig.specificWeekdays(setOf(1, 5))
-        
         assertEquals(config1, config2)
         assertFalse(config1 == config3)
     }
@@ -636,7 +617,6 @@ class RecurrenceConfigTest {
     fun `data class hashCode is consistent`() {
         val config1 = RecurrenceConfig.daily()
         val config2 = RecurrenceConfig.daily()
-        
         assertEquals(config1.hashCode(), config2.hashCode())
     }
     

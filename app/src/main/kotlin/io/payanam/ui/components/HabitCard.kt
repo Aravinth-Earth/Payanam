@@ -20,8 +20,6 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -33,7 +31,6 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.Immutable
@@ -46,17 +43,14 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalHapticFeedback
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.Task
 import io.payanam.ui.theme.scoreColor
-import io.payanam.ui.viewmodel.colorFor
 import io.payanam.ui.viewmodel.colorForDimensionId
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -112,7 +106,6 @@ fun calculateButtonCount(
 ): Int {
     val configuration = LocalConfiguration.current
     val screenWidthDp = configuration.screenWidthDp.dp
-
     val availableWidth = screenWidthDp - scoreRingWidth - labelWidth - horizontalPadding - 16.dp
     val count = (availableWidth / buttonWidth).toInt()
 
@@ -132,7 +125,6 @@ fun ScoreRing(
     backgroundColor: Color = MaterialTheme.colorScheme.surfaceVariant,
 ) {
     val scoreColorValue = scoreColor(score.toFloat())
-
     Box(
         modifier = modifier.size(size),
         contentAlignment = Alignment.Center,
@@ -186,7 +178,6 @@ fun CheckmarkButton(
 ) {
     val logger = UnifiedLogger.getInstance()
     val haptic = LocalHapticFeedback.current
-
     val backgroundColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color(0xFF4CAF50).copy(alpha = 0.9f)
         CheckmarkStatus.SKIPPED -> Color(0xFF9E9E9E).copy(alpha = 0.6f)
@@ -194,12 +185,10 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> Color.Transparent
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
     }
-
     val borderColor = when (checkmark.status) {
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
         else -> Color.Transparent
     }
-
     val iconColor = when (checkmark.status) {
         CheckmarkStatus.COMPLETED -> Color.White
         CheckmarkStatus.SKIPPED -> Color.White
@@ -207,7 +196,6 @@ fun CheckmarkButton(
         CheckmarkStatus.PENDING -> MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
         CheckmarkStatus.UNKNOWN -> MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
     }
-
     Box(
         modifier = modifier
             .size(size)
@@ -340,12 +328,12 @@ fun HabitCard(
     modifier: Modifier = Modifier,
     buttonCount: Int = calculateButtonCount(),
     shortToggleEnabled: Boolean = true,
+    latestL1RunningAvg: Double? = null,
 ) {
     val logger = UnifiedLogger.getInstance()
     val displayCheckmarks = remember(checkmarks, buttonCount) {
         checkmarks.take(buttonCount)
     }
-
     Card(
         modifier = modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(
@@ -378,9 +366,10 @@ fun HabitCard(
                 Spacer(modifier = Modifier.width(4.dp)) // Reduced from 8dp
             }
 
-            // Score Ring
+            // Score Ring — Inc 4: shows the habit's latest L1 runningAvg as a
+            // percentage (ScoreRing renders 0..1; text shows score*100).
             ScoreRing(
-                score = task.currentScore,
+                score = latestL1RunningAvg ?: 0.0,
                 modifier = Modifier.padding(end = 4.dp),
             )
 
@@ -389,7 +378,7 @@ fun HabitCard(
                 text = task.title,
                 style = MaterialTheme.typography.labelMedium,
                 fontWeight = FontWeight.Normal,
-                maxLines = 1,
+                maxLines = 2,
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f),
             )
@@ -400,6 +389,7 @@ fun HabitCard(
                 onCheckmarkClick = onCheckmarkClick,
                 onCheckmarkLongClick = onCheckmarkLongClick,
                 shortToggleEnabled = shortToggleEnabled,
+                habitName = task.title,
             )
         }
     }
@@ -420,7 +410,6 @@ fun DayHeaderRow(
     val weekdayFormatter = remember(Locale.getDefault()) {
         DateTimeFormatter.ofPattern("EEE").withLocale(Locale.getDefault())
     }
-
     Row(
         modifier = modifier
             .fillMaxWidth()
@@ -445,7 +434,6 @@ fun DayHeaderRow(
                 val weekday = date.format(weekdayFormatter).uppercase().take(3)
                 val dayNum = date.format(dayNumberFormatter)
                 val isToday = daysAgo == 0
-
                 Column(
                     modifier = Modifier.size(28.dp),
                     horizontalAlignment = Alignment.CenterHorizontally,

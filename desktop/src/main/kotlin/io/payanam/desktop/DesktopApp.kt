@@ -638,5 +638,7 @@ internal fun desktopChoiceRow(
         }
     }
 }
-
+/**
+ * Foundation facts for a data module selection (used by the settings screen).
+ */
 fun desktopFoundationSnapshot(selection: DataModuleSelection): SettingsFoundationSnapshot = SettingsFoundationContracts.snapshot(selection)

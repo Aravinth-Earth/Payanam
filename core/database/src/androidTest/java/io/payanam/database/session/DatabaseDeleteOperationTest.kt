@@ -28,6 +28,9 @@ class DatabaseDeleteOperationTest {
     private val testPassphrase = "DeleteTest123!"
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -46,6 +49,9 @@ class DatabaseDeleteOperationTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         encryptionManager.resetEncryptionState()
@@ -55,13 +61,15 @@ class DatabaseDeleteOperationTest {
     }
 
     @Test
+    /**
+     * Removes the delete database removes physical database file.
+     */
     fun deleteDatabase_removesPhysicalDatabaseFile() =
         runTest {
             // Arrange: Create and open database
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-
             val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isTrue()
             logger.d(
@@ -85,13 +93,15 @@ class DatabaseDeleteOperationTest {
         }
 
     @Test
+    /**
+     * Removes the delete database clears encryption state.
+     */
     fun deleteDatabase_clearsEncryptionState() =
         runTest {
             // Arrange: Configure passphrase and create database
             val configResult = encryptionManager.configurePassphrase(testPassphrase)
             assertThat(configResult).isTrue()
             assertThat(encryptionManager.hasPassphraseConfigured()).isTrue()
-
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
 
@@ -114,6 +124,9 @@ class DatabaseDeleteOperationTest {
         }
 
     @Test
+    /**
+     * Delete database allows recreation with different passphrase.
+     */
     fun deleteDatabase_allowsRecreationWithDifferentPassphrase() =
         runTest {
             // Arrange: Create database with first passphrase
@@ -150,6 +163,9 @@ class DatabaseDeleteOperationTest {
         }
 
     @Test
+    /**
+     * Removes the delete database handles multiple consecutive deletions.
+     */
     fun deleteDatabase_handlesMultipleConsecutiveDeletions() =
         runTest {
             // Arrange: Create database
@@ -184,6 +200,9 @@ class DatabaseDeleteOperationTest {
         }
 
     @Test
+    /**
+     * Performs the session manager clears state on database close.
+     */
     fun sessionManager_clearsStateOnDatabaseClose() =
         runTest {
             // Arrange: Open database
@@ -212,6 +231,9 @@ class DatabaseDeleteOperationTest {
         }
 
     @Test
+    /**
+     * Removes the delete database complete import scenario.
+     */
     fun deleteDatabase_completeImportScenario() =
         runTest {
             // Simulates: user imports new DB file, clearing old one

@@ -43,7 +43,6 @@ internal fun RescheduleDialog(
     var selectedTime by remember { mutableStateOf(currentDueDate.toLocalTime().withSecond(0).withNano(0)) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_reschedule_task)) },
@@ -73,13 +72,11 @@ internal fun RescheduleDialog(
             }
         },
     )
-
     if (showDatePicker) {
         val datePickerState = rememberDatePickerState(
             initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault())
                 .toInstant().toEpochMilli(),
         )
-
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
@@ -105,7 +102,6 @@ internal fun RescheduleDialog(
             DatePicker(state = datePickerState)
         }
     }
-
     if (showTimePicker) {
         TimePickerDialog(
             initialTime = selectedTime,

@@ -2,7 +2,6 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.ui.screens
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -14,7 +13,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
@@ -39,7 +37,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -48,7 +45,9 @@ import io.payanam.ui.viewmodel.DayViewModel
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
-
+/**
+ * Day screen modes (currently journal-only).
+ */
 enum class DayScreenMode {
     JOURNAL_ONLY,
 }
@@ -63,7 +62,6 @@ fun DayScreen(
     remember { UnifiedLogger.getInstance() }
     var showDatePicker by remember { mutableStateOf(false) }
     val journalOnly = mode == DayScreenMode.JOURNAL_ONLY
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -97,7 +95,6 @@ fun DayScreen(
                 onNextDay = { viewModel.nextDay() },
                 onDateClick = { showDatePicker = true },
             )
-
             if (uiState.isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -125,7 +122,6 @@ fun DayScreen(
             }
         }
     }
-
     if (showDatePicker) {
         val selectedDateMillis = uiState.selectedDate
             .atStartOfDay(ZoneId.systemDefault())
@@ -134,6 +130,9 @@ fun DayScreen(
         val today = LocalDate.now()
         val selectableDates = remember(today) {
             object : SelectableDates {
+                /**
+                 * Allows only dates up to today (no future journaling).
+                 */
                 override fun isSelectableDate(utcTimeMillis: Long): Boolean {
                     val candidate = Instant.ofEpochMilli(utcTimeMillis)
                         .atZone(ZoneId.systemDefault())
@@ -141,6 +140,9 @@ fun DayScreen(
                     return !candidate.isAfter(today)
                 }
 
+                /**
+                 * Allows only years up to the current year.
+                 */
                 override fun isSelectableYear(year: Int): Boolean = year <= today.year
             }
         }
@@ -197,7 +199,6 @@ private fun DateNavigationBar(
                 contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_previous_day),
             )
         }
-
         Row(
             modifier = Modifier
                 .clickable { onDateClick() }
@@ -225,7 +226,6 @@ private fun DateNavigationBar(
                 }
             }
         }
-
         IconButton(
             onClick = onNextDay,
             enabled = !isToday,

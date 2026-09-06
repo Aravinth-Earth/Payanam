@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 import android.content.Context
 import androidx.lifecycle.ViewModel
@@ -33,6 +34,11 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
 import javax.inject.Inject
+/**
+ * UI state for the Time-tracking screen: the selected date, the day's time
+ * entries, the active entry, the task list/picker/planned tasks, past
+ * occurrences, load/readiness flags, and any error.
+ */
 data class TimeScreenUiState(
     val selectedDate: LocalDate = LocalDate.now(),
     val timeEntries: List<TimeEntry> = emptyList(),
@@ -64,10 +70,22 @@ private data class SelectedDateLoadState(
     val plannedTasksLoaded: Boolean = false,
     val occurrencesLoaded: Boolean = false,
 ) {
+    /**
+     * Marks the entries section of this selected-date load as finished.
+     */
     fun markEntriesLoaded(): SelectedDateLoadState = copy(entriesLoaded = true)
+    /**
+     * Marks the planned-tasks section of this selected-date load as finished.
+     */
     fun markPlannedTasksLoaded(): SelectedDateLoadState = copy(plannedTasksLoaded = true)
+    /**
+     * Marks the occurrences section of this selected-date load as finished.
+     */
     fun markOccurrencesLoaded(): SelectedDateLoadState = copy(occurrencesLoaded = true)
-
+    /**
+     * True once all required sections of this selected-date load have arrived
+     * (entries + planned tasks, plus occurrences unless minimal mode skips them).
+     */
     fun isReady(): Boolean = isTimeScreenDateContentReady(
         entriesLoaded = entriesLoaded,
         plannedTasksLoaded = plannedTasksLoaded,
@@ -76,6 +94,12 @@ private data class SelectedDateLoadState(
     )
 }
 
+/**
+ * ViewModel for the Time-tracking screen: loads the selected day's entries,
+ * planned tasks, and past occurrences, and drives start/stop/edit/continue
+ * tracking plus task complete/skip/miss/archive/delete (recurring tasks also
+ * record occurrences and reschedule reminders).
+ */
 @HiltViewModel
 class TimeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -103,6 +127,7 @@ class TimeViewModel @Inject constructor(
         observeActiveEntry()
         observeLastEntry()
     }
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     private fun loadData() {
         viewModelScope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -138,6 +163,10 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Loads all data for [date]: cancels any in-flight loads and (re)starts the
+     * entries, planned-tasks, and occurrences collections for that day.
+     */
     fun loadEntriesForDate(date: LocalDate) {
         val requestId = ++selectedDateLoadRequestId
         val needsOccurrences = !FeatureFlags.minimalModeEnabled
@@ -164,120 +193,11 @@ class TimeViewModel @Inject constructor(
             )
         }
         entriesJob?.cancel()
-        entriesJob = viewModelScope.launch {
-            var receivedInitialEntries = false
-            try {
-                timeEntryRepository.getTimeEntriesForDate(date).collect { entries ->
-                    _uiState.update {
-                        it.copy(
-                            timeEntries = entries.sortedBy { e -> e.startedAt },
-                        )
-                    }
-                    if (!receivedInitialEntries) {
-                        receivedInitialEntries = true
-                        logger.d(
-                            "TimeViewModel.loadEntriesForDate",
-                            "Initial time entries received",
-                            mapOf(
-                                "requestId" to requestId.toString(),
-                                "selectedDate" to date.toString(),
-                                "entryCount" to entries.size,
-                            ),
-                        )
-                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
-                _uiState.update { it.copy(error = e.message) }
-                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
-            }
-        }
+        entriesJob = launchTimeEntriesCollection(requestId, date)
         plannedTasksJob?.cancel()
-        plannedTasksJob = viewModelScope.launch {
-            var receivedInitialPlannedTasks = false
-            try {
-                val useTodaysTasks = shouldUseTodaysPlannedTasks(date)
-                val plannedTasksFlow = if (useTodaysTasks) {
-                    taskRepository.getTodaysTasks()
-                } else {
-                    taskRepository.getTasksDueOn(date)
-                }
-                plannedTasksFlow.collect { tasks ->
-                    val filtered = if (FeatureFlags.minimalModeEnabled) {
-                        tasks.filter { !it.recurrenceEnabled }
-                    } else {
-                        tasks
-                    }
-                    _uiState.update { state ->
-                        state.copy(
-                            plannedTasks = filtered,
-                            taskPickerTasks = buildTaskPickerTasks(filtered, state.tasks),
-                        )
-                    }
-                    if (!receivedInitialPlannedTasks) {
-                        receivedInitialPlannedTasks = true
-                        logger.d(
-                            "TimeViewModel.loadEntriesForDate",
-                            "Initial planned tasks received",
-                            mapOf(
-                                "requestId" to requestId.toString(),
-                                "selectedDate" to date.toString(),
-                                "plannedTasksSource" to if (useTodaysTasks) "today" else "due_on_date",
-                                "plannedTaskCount" to filtered.size,
-                            ),
-                        )
-                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
-                    }
-                }
-            } catch (e: Exception) {
-                if (e is CancellationException) throw e
-                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
-                _uiState.update { it.copy(error = e.message) }
-                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
-            }
-        }
+        plannedTasksJob = launchPlannedTasksCollection(requestId, date)
         occurrencesJob?.cancel()
-        if (FeatureFlags.minimalModeEnabled) {
-            _uiState.update { it.copy(pastOccurrences = emptyList()) }
-            logger.d(
-                "TimeViewModel.loadEntriesForDate",
-                "Skipped occurrences load in minimal mode",
-                mapOf(
-                    "requestId" to requestId.toString(),
-                    "selectedDate" to date.toString(),
-                ),
-            )
-            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-        } else {
-            occurrencesJob = viewModelScope.launch {
-                var receivedInitialOccurrences = false
-                try {
-                    taskOccurrenceRepository.getOccurrencesForDate(date).collect { occurrences ->
-                        _uiState.update { it.copy(pastOccurrences = occurrences) }
-                        if (!receivedInitialOccurrences) {
-                            receivedInitialOccurrences = true
-                            logger.d(
-                                "TimeViewModel.loadEntriesForDate",
-                                "Initial occurrences received",
-                                mapOf(
-                                    "requestId" to requestId.toString(),
-                                    "selectedDate" to date.toString(),
-                                    "occurrenceCount" to occurrences.size,
-                                ),
-                            )
-                            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-                        }
-                    }
-                } catch (e: Exception) {
-                    if (e is CancellationException) throw e
-                    logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)
-                    _uiState.update { it.copy(error = e.message) }
-                    markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
-                }
-            }
-        }
+        occurrencesJob = launchOccurrencesCollection(requestId, date)
     }
 
     private fun markSelectedDateSectionLoaded(requestId: Long, section: TimeScreenDateSection) {
@@ -339,12 +259,21 @@ class TimeViewModel @Inject constructor(
         PLANNED_TASKS,
         OCCURRENCES,
     }
+    /**
+     * Switches the screen to the previous day and reloads its data.
+     */
     fun navigateToPreviousDay() {
         loadEntriesForDate(_uiState.value.selectedDate.minusDays(1))
     }
+    /**
+     * Switches the screen to the next day and reloads its data.
+     */
     fun navigateToNextDay() {
         loadEntriesForDate(_uiState.value.selectedDate.plusDays(1))
     }
+    /**
+     * Switches the screen back to today and reloads its data.
+     */
     fun navigateToToday() {
         loadEntriesForDate(LocalDate.now())
     }
@@ -353,6 +282,12 @@ class TimeViewModel @Inject constructor(
         val allPending = allTasks.filter { it.status == "pending" }.distinctBy { it.id }
         return (duePending + allPending).distinctBy { it.id }
     }
+    /**
+     * Starts a time entry for [dimensionId]/[dimensionLabel] (optionally tied to
+     * [taskId]) from [startedAt], stops any active entry first, and hands off to
+     * the foreground tracking service + widget.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun startTracking(
         dimensionId: String,
         dimensionLabel: String,
@@ -418,9 +353,18 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Stops the running time entry without recording focus (delegates with
+     * zero rating).
+     */
     fun stopTracking() {
         stopTracking(focusRating = 0.0, focusNote = null)
     }
+    /**
+     * Stops the running time entry and records the supplied [focusRating] (0..1)
+     * plus optional [focusNote].
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun stopTracking(focusRating: Double, focusNote: String?) {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
@@ -455,6 +399,11 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Edits an existing time entry ([entryId]) with new dimension/task/time window
+     * and focus rating/note, then reloads the day.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateTimeEntry(
         entryId: String,
         dimensionId: String,
@@ -507,6 +456,11 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Deletes [entryId] and, if it was linked to a task, reverts that task's
+     * completion status, then reloads the day.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTimeEntry(entryId: String) {
         logger.w("TimeViewModel.deleteTimeEntry", "Deleting time entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -614,6 +568,11 @@ class TimeViewModel @Inject constructor(
             )
         }
     }
+    /**
+     * Creates a finished (already-stopped) time entry spanning the given start/end
+     * window and dimension/task/focus, then reloads the day.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun createManualEntry(
         dimensionId: String,
         dimensionLabel: String,
@@ -676,9 +635,16 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Clears the current error message shown on the screen.
+     */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+    /**
+     * Resumes tracking from the most recent completed entry (re-opening it as the
+     * active entry).
+     */
     fun continueLastSession() {
         val lastEntry = _uiState.value.lastEntry ?: return
         logger.i(
@@ -692,6 +658,11 @@ class TimeViewModel @Inject constructor(
         )
         continueEntry(lastEntry.id)
     }
+    /**
+     * Re-opens a specific finished [entryId] as the active tracking entry and
+     * hands off to the foreground tracking service.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun continueEntry(entryId: String) {
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         viewModelScope.launch {
@@ -744,6 +715,10 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Marks [taskId] complete (no explicit timing details) and, for recurring
+     * tasks, records the occurrence and schedules the next reminder.
+     */
     fun completeTask(taskId: String, note: String?) {
         completeTaskWithDetails(
             taskId = taskId,
@@ -752,6 +727,11 @@ class TimeViewModel @Inject constructor(
             actualDurationMinutes = null,
         )
     }
+    /**
+     * Completes [taskId] with explicit [actualCompletedAt]/[actualDurationMinutes],
+     * records the occurrence (and next reminder for recurring tasks), then reloads.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun completeTaskWithDetails(
         taskId: String,
         note: String?,
@@ -809,6 +789,11 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Marks [taskId] skipped: records the occurrence and applies decay for
+     * recurring tasks, otherwise just cancels its reminder, then reloads.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun skipTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.skipTask",
@@ -865,6 +850,11 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Marks [taskId] missed: records the occurrence and applies decay for
+     * recurring tasks, otherwise just cancels its reminder, then reloads.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun missTask(taskId: String, note: String?) {
         logger.i(
             "TimeViewModel.missTask",
@@ -921,6 +911,10 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Archives [taskId] (removes it from active lists) and reloads the day.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun archiveTask(taskId: String) {
         logger.i("TimeViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -947,6 +941,10 @@ class TimeViewModel @Inject constructor(
             }
         }
     }
+    /**
+     * Permanently deletes [taskId] (canceling its reminder) and reloads the day.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun deleteTask(taskId: String) {
         logger.w("TimeViewModel.deleteTask", "Deleting task from time screen", mapOf("taskId" to taskId))
         viewModelScope.launch {
@@ -1035,6 +1033,128 @@ class TimeViewModel @Inject constructor(
             notificationScheduler.cancelForTask(taskId)
         } catch (e: Exception) {
             logger.e(source, "Failed to cancel one-time reminder", e, mapOf("taskId" to taskId))
+        }
+    }
+
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    private fun launchTimeEntriesCollection(requestId: Long, date: LocalDate): Job =
+        viewModelScope.launch {
+            var receivedInitialEntries = false
+            try {
+                timeEntryRepository.getTimeEntriesForDate(date).collect { entries ->
+                    _uiState.update {
+                        it.copy(
+                            timeEntries = entries.sortedBy { e -> e.startedAt },
+                        )
+                    }
+                    if (!receivedInitialEntries) {
+                        receivedInitialEntries = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial time entries received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "entryCount" to entries.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
+            }
+        }
+
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    private fun launchPlannedTasksCollection(requestId: Long, date: LocalDate): Job =
+        viewModelScope.launch {
+            var receivedInitialPlannedTasks = false
+            try {
+                val useTodaysTasks = shouldUseTodaysPlannedTasks(date)
+                val plannedTasksFlow = if (useTodaysTasks) {
+                    taskRepository.getTodaysTasks()
+                } else {
+                    taskRepository.getTasksDueOn(date)
+                }
+                plannedTasksFlow.collect { tasks ->
+                    val filtered = if (FeatureFlags.minimalModeEnabled) {
+                        tasks.filter { !it.recurrenceEnabled }
+                    } else {
+                        tasks
+                    }
+                    _uiState.update { state ->
+                        state.copy(
+                            plannedTasks = filtered,
+                            taskPickerTasks = buildTaskPickerTasks(filtered, state.tasks),
+                        )
+                    }
+                    if (!receivedInitialPlannedTasks) {
+                        receivedInitialPlannedTasks = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial planned tasks received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "plannedTasksSource" to if (useTodaysTasks) "today" else "due_on_date",
+                                "plannedTaskCount" to filtered.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
+            }
+        }
+
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    private fun launchOccurrencesCollection(requestId: Long, date: LocalDate): Job? {
+        if (FeatureFlags.minimalModeEnabled) {
+            _uiState.update { it.copy(pastOccurrences = emptyList()) }
+            logger.d(
+                "TimeViewModel.loadEntriesForDate",
+                "Skipped occurrences load in minimal mode",
+                mapOf(
+                    "requestId" to requestId.toString(),
+                    "selectedDate" to date.toString(),
+                ),
+            )
+            markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+            return null
+        }
+        return viewModelScope.launch {
+            var receivedInitialOccurrences = false
+            try {
+                taskOccurrenceRepository.getOccurrencesForDate(date).collect { occurrences ->
+                    _uiState.update { it.copy(pastOccurrences = occurrences) }
+                    if (!receivedInitialOccurrences) {
+                        receivedInitialOccurrences = true
+                        logger.d(
+                            "TimeViewModel.loadEntriesForDate",
+                            "Initial occurrences received",
+                            mapOf(
+                                "requestId" to requestId.toString(),
+                                "selectedDate" to date.toString(),
+                                "occurrenceCount" to occurrences.size,
+                            ),
+                        )
+                        markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+                    }
+                }
+            } catch (e: Exception) {
+                if (e is CancellationException) throw e
+                logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)
+                _uiState.update { it.copy(error = e.message) }
+                markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
+            }
         }
     }
 }

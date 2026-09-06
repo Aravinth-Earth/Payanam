@@ -24,6 +24,12 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [TagRepository]. Wraps [TagDao]; tag names are
+ * normalized (trim + lowercase) so matching is case-insensitive and reused
+ * rather than duplicated. The three `replace*` methods share one transactional
+ * clear-and-reinsert path that also bumps each tag's usage count.
+ */
 class TagRepositoryImpl
     @Inject
     constructor(
@@ -32,6 +38,9 @@ class TagRepositoryImpl
         private val logger = UnifiedLogger.getInstance()
         private val formatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
+        /**
+         * Emits every tag, popularity-ordered, as a [Flow].
+         */
         override fun observeAllTags(): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeAllTags", "Subscribing to all tags")
             return sessionManager.requireDatabase().tagDao().observeAllTags().map { entities ->
@@ -39,6 +48,10 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Emits tags whose normalized name starts with the normalized [query],
+         * capped at [limit] — backs type-ahead tag entry.
+         */
         override fun searchTagsByPrefix(
             query: String,
             limit: Int,
@@ -57,6 +70,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Emits the tags linked to [taskId], as a [Flow].
+         */
         override fun observeTagsForTask(taskId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTask", "Subscribing to tags for task", mapOf("taskId" to taskId))
             return sessionManager.requireDatabase().tagDao().observeTagsForTask(taskId).map { entities ->
@@ -64,6 +80,9 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Emits the tags linked to [noteId], as a [Flow].
+         */
         override fun observeTagsForNote(noteId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForNote", "Subscribing to tags for note", mapOf("noteId" to noteId))
             return sessionManager.requireDatabase().tagDao().observeTagsForNote(noteId).map { entities ->
@@ -71,6 +90,11 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Returns a map of note id → its tag names for every [noteIds] (batched
+         * query; empty input returns an empty map). Used to render tag chips in
+         * lists without per-note round-trips.
+         */
         override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> {
             if (noteIds.isEmpty()) {
                 return emptyMap()
@@ -86,6 +110,9 @@ class TagRepositoryImpl
                 .groupBy(keySelector = { it.noteId }, valueTransform = { it.tagName })
         }
 
+        /**
+         * Emits the tags linked to [timeEntryId], as a [Flow].
+         */
         override fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<Tag>> {
             logger.d("TagRepositoryImpl.observeTagsForTimeEntry", "Subscribing to tags for time entry", mapOf("timeEntryId" to timeEntryId))
             return sessionManager.requireDatabase().tagDao().observeTagsForTimeEntry(timeEntryId).map { entities ->
@@ -93,6 +120,11 @@ class TagRepositoryImpl
             }
         }
 
+        /**
+         * Replaces [taskId]'s entire tag set with [tagNames] in one transaction:
+         * clears existing links, ensures each normalized tag exists, re-links, and
+         * bumps usage counts.
+         */
         override suspend fun replaceTaskTags(
             taskId: String,
             tagNames: List<String>,
@@ -111,6 +143,10 @@ class TagRepositoryImpl
             )
         }
 
+        /**
+         * Replaces [noteId]'s entire tag set with [tagNames] in one transaction
+         * (clear → ensure → re-link → bump usage).
+         */
         override suspend fun replaceNoteTags(
             noteId: String,
             tagNames: List<String>,
@@ -129,6 +165,10 @@ class TagRepositoryImpl
             )
         }
 
+        /**
+         * Replaces [timeEntryId]'s entire tag set with [tagNames] in one transaction
+         * (clear → ensure → re-link → bump usage).
+         */
         override suspend fun replaceTimeEntryTags(
             timeEntryId: String,
             tagNames: List<String>,
@@ -171,7 +211,6 @@ class TagRepositoryImpl
                     )
                     return@withTransaction
                 }
-
                 val now = LocalDateTime.now().format(formatter)
                 val tagIds =
                     cleanNames.map { tagName ->
@@ -202,7 +241,6 @@ class TagRepositoryImpl
             if (existing != null) {
                 return existing.id
             }
-
             val entity =
                 TagEntity(
                     id = UUID.randomUUID().toString(),

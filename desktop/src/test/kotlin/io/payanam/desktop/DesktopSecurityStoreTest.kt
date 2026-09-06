@@ -6,7 +6,9 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
-
+/**
+ * Provides the desktop security store test.
+ */
 class DesktopSecurityStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

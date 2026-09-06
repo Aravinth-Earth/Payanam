@@ -12,7 +12,6 @@ import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
 import kotlinx.serialization.json.jsonObject
 import kotlinx.serialization.json.jsonPrimitive
-
 object BackupJsonContract {
     const val SCHEMA_VERSION = 1
     const val SCHEMA_VERSION_KEY = "schemaVersion"
@@ -36,19 +35,33 @@ object BackupJsonContract {
     internal fun legacyModulesRoot(root: JsonObject): JsonObject =
         JsonObject(root.filterKeys { it !in reservedRootKeys })
 }
-
-enum class ImportMode { REPLACE, MERGE }
+/**
+ * Whether an import replaces the existing data or merges into it.
+ */
+enum class ImportMode  {
+    REPLACE,
+    MERGE,
+}
 
 @Serializable
+/**
+ * Which data modules (tasks / time entries / notes) to include in a backup or import.
+ */
 data class DataModuleSelection(
     val tasks: Boolean = true,
     val timeEntries: Boolean = true,
     val notes: Boolean = true
 ) {
+    /**
+     * True when at least one module is selected for export/import.
+     */
     fun hasSelection(): Boolean = tasks || timeEntries || notes
 }
 
 @Serializable
+/**
+ * Per-module JSON arrays carried inside a backup envelope (each nullable).
+ */
 data class BackupModulePayloads(
     @SerialName(BackupJsonContract.TASKS_KEY)
     val tasks: JsonArray? = null,
@@ -69,6 +82,9 @@ data class BackupModulePayloads(
 )
 
 @Serializable
+/**
+ * Top-level backup payload: schema version, export timestamp, and module payloads.
+ */
 data class BackupPayloadEnvelope(
     @SerialName(BackupJsonContract.SCHEMA_VERSION_KEY)
     val schemaVersion: Int = BackupJsonContract.SCHEMA_VERSION,
@@ -77,7 +93,6 @@ data class BackupPayloadEnvelope(
     @SerialName(BackupJsonContract.MODULES_KEY)
     val modules: BackupModulePayloads = BackupModulePayloads()
 )
-
 object BackupPayloadJson {
     private val json = Json {
         encodeDefaults = true
@@ -85,9 +100,14 @@ object BackupPayloadJson {
         ignoreUnknownKeys = true
         prettyPrint = true
     }
-
+    /**
+     * Serializes a [BackupPayloadEnvelope] to pretty JSON.
+     */
     fun encode(envelope: BackupPayloadEnvelope): String = json.encodeToString(envelope)
-
+    /**
+     * Parses backup JSON into an envelope, tolerating legacy (flat) layouts; missing
+     * modules fall back to empty.
+     */
     fun decode(jsonText: String): BackupPayloadEnvelope {
         val root = json.parseToJsonElement(jsonText).jsonObject
         val modulesRoot = (root[BackupJsonContract.MODULES_KEY] as? JsonObject)

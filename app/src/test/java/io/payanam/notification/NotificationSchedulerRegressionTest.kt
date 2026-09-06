@@ -56,11 +56,9 @@ class NotificationSchedulerRegressionTest {
                 ),
             ),
         )
-
         val visibleId = requestCodeFor(notificationId)
         notificationManager.notify(visibleId, Notification())
         assertTrue(shadowOf(notificationManager).allNotifications.isNotEmpty())
-
         val scheduler = NotificationScheduler(
             context = ApplicationProvider.getApplicationContext(),
             taskRepository = taskRepository,
@@ -68,7 +66,6 @@ class NotificationSchedulerRegressionTest {
         )
 
         scheduler.cancelForTask(taskId)
-
         verify(notificationRepository).cancelNotificationsForTask(taskId)
         assertFalse(shadowOf(notificationManager).allNotifications.isNotEmpty())
     }

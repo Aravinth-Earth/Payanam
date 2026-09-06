@@ -22,10 +22,11 @@ private fun resolveFontFamily(option: FontFamilyOption): FontFamily = when (opti
     FontFamilyOption.SERIF -> FontFamily.Serif
     FontFamilyOption.CURSIVE -> FontFamily.Cursive
 }
-
+/**
+ * Material typography with the user's font-family preference applied.
+ */
 fun buildTypography(fontFamilyOption: FontFamilyOption): Typography {
     val fontFamily = resolveFontFamily(fontFamilyOption)
-
     val signature = fontFamilyOption.key
     if (lastTypographySignature != signature) {
         logger?.i(
@@ -35,7 +36,6 @@ fun buildTypography(fontFamilyOption: FontFamilyOption): Typography {
         )
         lastTypographySignature = signature
     }
-
     val base = Typography()
     return base.copy(
         displayLarge = base.displayLarge.withAppTypography(fontFamily),

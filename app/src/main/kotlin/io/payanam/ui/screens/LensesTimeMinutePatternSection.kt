@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.Canvas
@@ -52,7 +54,6 @@ internal fun MinutePatternSection(
             mapOf("days" to state.data.days.size),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -62,7 +63,6 @@ internal fun MinutePatternSection(
             style = MaterialTheme.typography.titleSmall,
             fontWeight = FontWeight.SemiBold,
         )
-
         if (state.data.days.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.loc_lens_minute_pattern_no_data),
@@ -72,7 +72,6 @@ internal fun MinutePatternSection(
         } else {
             val gridLineColor = MaterialTheme.colorScheme.onSurface
             val colBoundaryColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.Top,
@@ -158,7 +157,6 @@ internal fun MinutePatternSection(
 private fun MinutePatternYAxis() {
     val dayLabelHeightDp = 16
     val axisHeightDp = (MINUTE_HEIGHT_DP * 1440) + dayLabelHeightDp
-
     Box(
         modifier = Modifier
             .width(32.dp)

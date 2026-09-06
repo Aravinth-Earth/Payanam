@@ -1,16 +1,23 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.security
 
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
 import java.io.File
-
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
     private val countTables = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes")
-
+    /**
+     * Cleans up leftover database artifacts from failed import/encrypt flows:
+     * restores the primary DB from a temp backup if the primary is missing,
+     * deletes orphaned `.enc.tmp`/`.lck`/`.bak`/`.before_*` files, and prunes
+     * old `.corrupt` snapshots beyond the 3 most recent.
+     */
     fun cleanupStaleArtifacts(
         context: Context,
         logTag: String = "DatabaseArtifactJanitor.cleanupStaleArtifacts",
@@ -25,10 +32,8 @@ object DatabaseArtifactJanitor {
                 "cacheDir" to cacheDir.absolutePath,
             ),
         )
-
         val recovered = recoverFromRicherCorruptSnapshot(context, "$logTag.recover")
         var deleted = 0
-
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         // Recover from temp backup if the primary DB is missing, then clean only truly orphaned temp backups.
         val restoredFromTempBackup = recoverFromTempBackupIfPrimaryMissing(context, tempBackupDir, logTag)
@@ -65,7 +70,6 @@ object DatabaseArtifactJanitor {
                     (file.name.contains(".enc.tmp") || file.name.endsWith(".lck") || file.name.endsWith(".bak"))
             }
         deleted += pruneCorruptSnapshots(dbDir)
-
         if (deleted > 0 || recovered || restoredFromTempBackup) {
             logger.i(
                 logTag,
@@ -100,7 +104,6 @@ object DatabaseArtifactJanitor {
             return false
         }
         val passphrase: String? = null
-
         val primaryTotal = readTotalCount(context, dbFile, passphrase)
         if (primaryTotal > 0) {
             logger.d(
@@ -110,7 +113,6 @@ object DatabaseArtifactJanitor {
             )
             return false
         }
-
         val candidateBases =
             dbDir.listFiles().orEmpty().filter {
                 it.isFile &&
@@ -123,14 +125,12 @@ object DatabaseArtifactJanitor {
             logger.d(logTag, "Skipping richer-corrupt recovery: no corrupt snapshot candidates found")
             return false
         }
-
         val bestCandidate =
             candidateBases
                 .map { candidate -> candidate to readTotalCount(context, candidate, passphrase) }
                 .maxByOrNull { it.second }
                 ?.takeIf { (_, total) -> total > primaryTotal }
                 ?: return false
-
         val candidateBase = bestCandidate.first
         val candidateTotal = bestCandidate.second
         logger.i(
@@ -157,7 +157,6 @@ object DatabaseArtifactJanitor {
             replaceFromCandidateSidecar(candidateBase, dbFile, "wal")
             replaceFromCandidateSidecar(candidateBase, dbFile, "shm")
             replaceFromCandidateSidecar(candidateBase, dbFile, "journal")
-
             val restoredTotal = readTotalCount(context, dbFile, passphrase)
             check(restoredTotal > primaryTotal) {
                 "Recovered database did not improve table counts."
@@ -176,7 +175,7 @@ object DatabaseArtifactJanitor {
             deleteCorruptFamily(candidateBase)
             backups.forEach { (_, backup) -> if (backup.exists()) backup.delete() }
             return true
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught", "SwallowedException") error: Exception) {
             backups.forEach { (original, backup) ->
                 if (backup.exists()) {
                     backup.copyTo(original, overwrite = true)

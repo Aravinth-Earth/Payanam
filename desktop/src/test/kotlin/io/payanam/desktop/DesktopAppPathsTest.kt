@@ -7,6 +7,9 @@ import org.junit.Ignore
 import org.junit.Test
 
 @Ignore("Windows-only — runs in Desktop CI")
+/**
+ * Provides the desktop app paths test.
+ */
 class DesktopAppPathsTest {
     @Test
     fun `resolve root directory prefers LOCALAPPDATA`() {

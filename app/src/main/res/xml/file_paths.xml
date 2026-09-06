@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- FileProvider paths: expose the app-private downloads dir for APK install. -->
+<paths>
+    <external-files-path name="downloads" path="downloads/" />
+</paths>

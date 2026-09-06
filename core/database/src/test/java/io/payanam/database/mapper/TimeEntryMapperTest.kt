@@ -17,16 +17,25 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the time entry mapper test.
+ */
 class TimeEntryMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         logger = initLogger()
         logger.d("TimeEntryMapperTest.setup", "Logger initialized for tests")
     }
 
     @Test
+    /**
+     * Performs the to domain parses zulu dates.
+     */
     fun toDomain_parsesZuluDates() {
         val entity =
             TimeEntryEntity(
@@ -38,13 +47,15 @@ class TimeEntryMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
         val domain = entity.toDomain()
         assertThat(domain.startedAt.hour).isEqualTo(8)
         assertThat(domain.endedAt?.hour).isEqualTo(9)
     }
 
     @Test
+    /**
+     * Performs the to domain handles blank end time.
+     */
     fun toDomain_handlesBlankEndTime() {
         val entity =
             TimeEntryEntity(
@@ -56,12 +67,14 @@ class TimeEntryMapperTest {
                 createdAt = "2026-01-31T08:00:00Z",
                 updatedAt = "2026-01-31T09:00:00Z",
             )
-
         val domain = entity.toDomain()
         assertThat(domain.endedAt).isNull()
     }
 
     @Test
+    /**
+     * Performs the round trip preserves fields.
+     */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
         val entry =
@@ -75,10 +88,8 @@ class TimeEntryMapperTest {
                 updatedAt = now,
                 dimensionId = "dim_learning",
             )
-
         val entity = entry.toEntity()
         val roundTrip = entity.toDomain()
-
         assertThat(roundTrip.lifeIntentionCategory).isEqualTo(entry.lifeIntentionCategory)
         assertThat(roundTrip.dimensionId).isEqualTo("dim_learning")
         assertThat(roundTrip.taskId).isEqualTo(entry.taskId)
@@ -88,6 +99,9 @@ class TimeEntryMapperTest {
     }
 
     @Test
+    /**
+     * Performs the to entity handles null end time.
+     */
     fun toEntity_handlesNullEndTime() {
         val now = LocalDateTime.of(2026, 1, 31, 8, 0)
         val entry =
@@ -98,7 +112,6 @@ class TimeEntryMapperTest {
                 createdAt = now,
                 updatedAt = now,
             )
-
         val entity = entry.toEntity()
         assertThat(entity.endedAt).isNull()
     }

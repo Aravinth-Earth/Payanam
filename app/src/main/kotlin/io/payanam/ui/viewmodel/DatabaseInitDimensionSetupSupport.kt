@@ -1,5 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -11,7 +12,10 @@ import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.model.DimensionTextCatalog
 import java.time.Instant
 import java.util.Locale
-
+/**
+ * A dimension chosen during first-run setup: id, user label/color, enabled
+ * flag, and icon key.
+ */
 data class NewDatabaseDimensionInput(
     val id: String,
     val label: String,
@@ -19,7 +23,10 @@ data class NewDatabaseDimensionInput(
     val isEnabled: Boolean,
     val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
 )
-
+/**
+ * A life-dimension seed row as written to the database on first-run setup
+ * (defaults merged with user choices, plus the unassigned fallback).
+ */
 data class NewDatabaseDimensionSeedRow(
     val id: String,
     val key: String,
@@ -52,6 +59,7 @@ internal suspend fun persistNewDatabaseDimensionSetup(
         "Clearing existing life_dimensions rows before seed write",
     )
     writableDb.execSQL("DELETE FROM life_dimensions")
+    var insertedRows = 0
     rows.forEach { row ->
         val storedLabel = canonicalizeDefaultSeedLabel(
             context = context,
@@ -63,32 +71,57 @@ internal suspend fun persistNewDatabaseDimensionSetup(
             "Inserting life dimension row",
             mapOf(
                 "id" to row.id,
+                "key" to row.key,
                 "label" to storedLabel,
                 "color" to row.color,
+                "icon" to row.icon,
                 "isActive" to row.isActive,
                 "sortOrder" to row.sortOrder,
+                "weight" to 1.0,
             ),
         )
-        writableDb.execSQL(
-            """
-                INSERT INTO life_dimensions
-                (id, key, label, description, color, icon, sortOrder, isActive, createdAt, updatedAt)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-            """.trimIndent(),
-            arrayOf<Any>(
-                row.id,
-                row.key,
-                storedLabel,
-                row.description,
-                row.color,
-                row.icon,
-                row.sortOrder,
-                if (row.isActive) 1 else 0,
-                nowIso,
-                nowIso,
-            ),
-        )
+        try {
+            writableDb.execSQL(
+                """
+                    INSERT INTO life_dimensions
+                    (id, key, label, description, color, icon, sortOrder, isActive, weight, createdAt, updatedAt)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                """.trimIndent(),
+                arrayOf<Any>(
+                    row.id,
+                    row.key,
+                    storedLabel,
+                    row.description,
+                    row.color,
+                    row.icon,
+                    row.sortOrder,
+                    if (row.isActive) 1 else 0,
+                    1.0,
+                    nowIso,
+                    nowIso,
+                ),
+            )
+            insertedRows++
+        } catch (e: Exception) {
+            logger.e(
+                "DatabaseInitDimensionSetupSupport.persistNewDatabaseDimensionSetup",
+                "Seed row insert failed",
+                e,
+                mapOf(
+                    "id" to row.id,
+                    "key" to row.key,
+                    "insertedBeforeFailure" to insertedRows,
+                    "totalRows" to rows.size,
+                ),
+            )
+            throw e
+        }
     }
+    logger.i(
+        "DatabaseInitDimensionSetupSupport.persistNewDatabaseDimensionSetup",
+        "Seed rows inserted",
+        mapOf("insertedRows" to insertedRows, "totalRows" to rows.size),
+    )
     appSettingsRepository.setSetting("database_init_completed", "true")
     logger.i(
         "DatabaseInitDimensionSetupSupport.persistNewDatabaseDimensionSetup",
@@ -127,7 +160,6 @@ internal fun buildDimensionSeedRows(
             "maxAllowed" to MAX_USER_DIMENSIONS,
         ),
     )
-
     val rows = normalizedInputs.mapIndexed { index, input ->
         val template = DEFAULT_NEW_DB_DIMENSION_ROWS_BY_ID[input.id]
         NewDatabaseDimensionSeedRow(

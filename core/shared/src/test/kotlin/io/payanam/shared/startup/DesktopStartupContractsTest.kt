@@ -5,7 +5,6 @@ package io.payanam.shared.startup
 import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
-
 class DesktopStartupContractsTest {
     @Test
     fun `startup snapshot flags missing desktop database lifecycle attention`() {
@@ -26,7 +25,6 @@ class DesktopStartupContractsTest {
                         sessionOpen = false,
                     ),
             )
-
         assertThat(snapshot.schemaVersion).isEqualTo(DesktopStartupContracts.SCHEMA_VERSION)
         assertThat(snapshot.requiresAttention()).isTrue()
         assertThat(snapshot.readyChecks()).isEqualTo(3)
@@ -53,7 +51,6 @@ class DesktopStartupContractsTest {
                         desktopDatabaseReady = true,
                     ),
             )
-
         assertThat(snapshot.launchRoute).isEqualTo(DesktopTopLevelRoute.TIME)
         assertThat(snapshot.requiresAttention()).isFalse()
         assertThat(snapshot.readyChecks()).isEqualTo(6)

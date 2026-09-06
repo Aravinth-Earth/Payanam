@@ -21,7 +21,9 @@ import io.payanam.shared.settings.SettingsFoundationSnapshot
 import io.payanam.shared.transfer.DataModuleSelection
 import org.junit.Rule
 import org.junit.Test
-
+/**
+ * Provides the desktop settings route ui test.
+ */
 class DesktopSettingsRouteUiTest {
     @get:Rule
     val composeRule = createComposeRule()

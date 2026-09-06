@@ -25,6 +25,9 @@ class TimeScreenScalePresetsTest {
     }
 
     @Test
+    /**
+     * Hour height dp for slot minutes supports sub five minute presets.
+     */
     fun hourHeightDpForSlotMinutes_supports_sub_five_minute_presets() {
         val oneMinute = hourHeightDpForSlotMinutes(1)
         val twoMinutes = hourHeightDpForSlotMinutes(2)
@@ -41,13 +44,15 @@ class TimeScreenScalePresetsTest {
                 "fiveMinutes" to fiveMinutes,
             ),
         )
-
         assertTrue(oneMinute > twoMinutes)
         assertTrue(twoMinutes > threeMinutes)
         assertTrue(threeMinutes > fiveMinutes)
     }
 
     @Test
+    /**
+     * Nearest time scale preset round trips for one two three minute presets.
+     */
     fun nearestTimeScalePreset_roundTrips_for_one_two_three_minute_presets() {
         val oneMinutePreset = nearestTimeScalePreset(hourHeightDpForSlotMinutes(1))
         val twoMinutePreset = nearestTimeScalePreset(hourHeightDpForSlotMinutes(2))
@@ -62,7 +67,6 @@ class TimeScreenScalePresetsTest {
                 "threeMinuteSlot" to threeMinutePreset.slotMinutes,
             ),
         )
-
         assertEquals(1, oneMinutePreset.slotMinutes)
         assertEquals(2, twoMinutePreset.slotMinutes)
         assertEquals(3, threeMinutePreset.slotMinutes)

@@ -29,7 +29,6 @@ internal fun buildMinutePatternData(
         "Building minute pattern data",
         mapOf("totalEntries" to allEntries.size, "completedEntries" to completedEntries.size, "excludeEmptyDays" to excludeEmptyDays),
     )
-
     if (completedEntries.isEmpty()) {
         logger.d("LensMinutePatternHelper.buildMinutePatternData", "No completed entries — returning empty minute pattern")
         return MinutePatternData(emptyList())
@@ -84,7 +83,6 @@ internal fun buildMinutePatternData(
             val dayEndExclusive = dayStart.plusDays(1)
             val segStart = if (entry.startedAt.isBefore(dayStart)) dayStart else entry.startedAt
             val segEnd = if (entryEnd.isAfter(dayEndExclusive)) dayEndExclusive else entryEnd
-
             if (segEnd.isAfter(segStart)) {
                 val startMin =
                     Duration
@@ -157,7 +155,6 @@ internal fun buildMinutePatternData(
                 }
             MinutePatternDay(dayOfWeek = dow, minuteWinners = winners)
         }
-
     val distinctWinners = days.flatMap { it.minuteWinners }.toSet().size
     logger.d(
         "LensMinutePatternHelper.buildMinutePatternData",

@@ -15,24 +15,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material.icons.filled.SkipNext
-import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -43,7 +38,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.FeatureFlags
@@ -51,7 +45,6 @@ import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TaskReschedule
 import io.payanam.scoring.CompletionStats
-import io.payanam.scoring.RecurrenceScoreCalculator
 import io.payanam.ui.components.DimensionIdentityRow
 import io.payanam.ui.theme.scoreColor
 import io.payanam.ui.viewmodel.LocalAppPreferences
@@ -71,6 +64,18 @@ internal fun TaskDetailContent(
     rescheduleHistory: List<TaskReschedule>,
     isLoadingReschedules: Boolean,
     completionStats: CompletionStats?,
+    latestL1: io.payanam.domain.model.HabitL1Summary? = null,
+    windowSizeDays: Int = 7,
+    windowEnd: java.time.LocalDate = java.time.LocalDate.now(),
+    windowRows: List<io.payanam.domain.model.HabitL1Summary> = emptyList(),
+    windowOccurrences: Map<String, io.payanam.domain.model.TaskOccurrence> = emptyMap(),
+    isLoadingWindow: Boolean = false,
+    showChartView: Boolean = true,
+    onWindowSizeChange: (Int) -> Unit = {},
+    onWindowBack: () -> Unit = {},
+    onWindowForward: () -> Unit = {},
+    onWindowToday: () -> Unit = {},
+    onChartViewChange: (Boolean) -> Unit = {},
     onComplete: () -> Unit,
     onSkip: () -> Unit,
     onMiss: () -> Unit,
@@ -83,7 +88,6 @@ internal fun TaskDetailContent(
     val dateTimeFormatter = DateTimeFormatter.ofPattern(dateTimePattern)
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
     val dimensionLabel = prefs.labelForDimensionId(task.dimensionId) ?: prefs.labelFor(task.lifeIntentionCategory)
-
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -197,7 +201,6 @@ internal fun TaskDetailContent(
             style = MaterialTheme.typography.titleMedium,
             fontWeight = FontWeight.SemiBold,
         )
-
         Card(
             modifier = Modifier.fillMaxWidth(),
         ) {
@@ -231,7 +234,6 @@ internal fun TaskDetailContent(
                 }
             }
         }
-
         Spacer(modifier = Modifier.height(16.dp))
 
         // Action Buttons
@@ -273,7 +275,6 @@ internal fun TaskDetailContent(
                     }
                 }
             }
-
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -313,27 +314,27 @@ internal fun TaskDetailContent(
             }
         }
 
-        // Occurrence History (for recurring tasks)
+        // Activity detail (Part C): window nav + range + charts/table — replaces
+        // the old score card + calendar + occurrence history for recurring tasks.
         if (task.recurrenceEnabled) {
             Spacer(modifier = Modifier.height(16.dp))
-
-            // Score and Completion Stats Card
             if (FeatureFlags.scoringEnabled) {
-                RecurrenceScoreCard(
-                    currentScore = task.currentScore,
-                    completionStats = completionStats,
-                    occurrenceHistory = occurrenceHistory,
-                    recurrenceRule = recurrenceRule,
+                HabitActivityDetailSection(
+                    windowSizeDays = windowSizeDays,
+                    windowEnd = windowEnd,
+                    rows = windowRows,
+                    occurrences = windowOccurrences,
+                    isLoading = isLoadingWindow,
+                    showChartView = showChartView,
+                    onWindowSizeChange = onWindowSizeChange,
+                    onWindowBack = onWindowBack,
+                    onWindowForward = onWindowForward,
+                    onWindowToday = onWindowToday,
+                    onChartViewChange = onChartViewChange,
                 )
             }
-
             Spacer(modifier = Modifier.height(16.dp))
-            OccurrenceHistorySection(
-                occurrences = occurrenceHistory,
-                isLoading = isLoadingOccurrences,
-            )
         }
-
         if (rescheduleHistory.isNotEmpty() || isLoadingReschedules) {
             Spacer(modifier = Modifier.height(16.dp))
             RescheduleHistorySection(
@@ -341,7 +342,6 @@ internal fun TaskDetailContent(
                 isLoading = isLoadingReschedules,
             )
         }
-
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -365,157 +365,3 @@ private fun PropertyRow(label: String, value: String) {
     }
 }
 
-@Composable
-private fun OccurrenceHistorySection(
-    occurrences: List<TaskOccurrence>,
-    isLoading: Boolean,
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-    ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                Icon(
-                    imageVector = Icons.Default.History,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                )
-                Text(
-                    text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_occurrence_history),
-                    style = MaterialTheme.typography.titleMedium,
-                    fontWeight = FontWeight.SemiBold,
-                )
-            }
-
-            if (isLoading) {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 16.dp),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    CircularProgressIndicator(modifier = Modifier.size(24.dp))
-                }
-            } else if (occurrences.isEmpty()) {
-                Text(
-                    text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_no_occurrences_recorded),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            } else {
-                // Show last 10 occurrences
-                val recentOccurrences = occurrences
-                    .sortedByDescending { it.occurrenceDate }
-                    .take(10)
-
-                recentOccurrences.forEachIndexed { index, occurrence ->
-                    OccurrenceRow(occurrence)
-                    if (index < recentOccurrences.lastIndex) {
-                        HorizontalDivider()
-                    }
-                }
-
-                if (occurrences.size > 10) {
-                    Text(
-                        text = androidx.compose.ui.res.stringResource(
-                            id = io.payanam.R.string.loc_showing_last_10_of_occurrences,
-                            occurrences.size,
-                        ),
-                        style = MaterialTheme.typography.labelSmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.padding(top = 8.dp),
-                    )
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun OccurrenceRow(occurrence: TaskOccurrence) {
-    val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    val date = try {
-        LocalDate.parse(occurrence.occurrenceDate.take(10)).format(dateFormatter)
-    } catch (e: Exception) {
-        occurrence.occurrenceDate
-    }
-
-    val statusColor = when (occurrence.status) {
-        "completed" -> MaterialTheme.colorScheme.primary
-        "skipped" -> MaterialTheme.colorScheme.secondary
-        "missed" -> MaterialTheme.colorScheme.error
-        else -> MaterialTheme.colorScheme.onSurfaceVariant
-    }
-
-    val statusIcon = when (occurrence.status) {
-        "completed" -> Icons.Default.Check
-        "skipped" -> Icons.Default.SkipNext
-        "missed" -> Icons.Default.Close
-        else -> Icons.Default.History
-    }
-
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .padding(vertical = 8.dp),
-        horizontalArrangement = Arrangement.SpaceBetween,
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Box(
-                modifier = Modifier
-                    .size(24.dp)
-                    .clip(CircleShape)
-                    .background(statusColor.copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center,
-            ) {
-                Icon(
-                    imageVector = statusIcon,
-                    contentDescription = null,
-                    tint = statusColor,
-                    modifier = Modifier.size(14.dp),
-                )
-            }
-            Column {
-                Text(
-                    text = date,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                occurrence.statusNote?.let { note ->
-                    if (note.isNotBlank()) {
-                        Text(
-                            text = note,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            maxLines = 1,
-                        )
-                    }
-                }
-                occurrence.statusReason?.let { reason ->
-                    Text(
-                        text = reason.replace("_", " ").lowercase()
-                            .replaceFirstChar { it.uppercase() },
-                        style = MaterialTheme.typography.labelSmall,
-                        color = statusColor,
-                    )
-                }
-            }
-        }
-
-        Text(
-            text = occurrence.status.replaceFirstChar { it.uppercase() },
-            style = MaterialTheme.typography.labelMedium,
-            color = statusColor,
-            fontWeight = FontWeight.Medium,
-        )
-    }
-}

@@ -5,17 +5,26 @@ package io.payanam.desktop
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 
+/**
+ * The route the app opens into, plus the visible top-level routes for the
+ * navigation rail.
+ */
 data class DesktopNavigationModel(
     val launchRoute: DesktopTopLevelRoute,
     val primaryRoutes: List<DesktopTopLevelRoute>,
 )
-
+/**
+ * Builds the navigation model from the settings snapshot (visibility-aware).
+ */
 fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigationModel =
     DesktopNavigationModel(
         launchRoute = desktopLaunchRoute(settings),
         primaryRoutes = settings.visibleRoutes(),
     )
-
+/**
+ * Preferred launch route, falling back to the first visible (or SETTINGS)
+ * when it is hidden.
+ */
 fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute {
     val preferredRoute = settings.launchRoute
     return if (settings.isRouteVisible(preferredRoute)) {
@@ -24,7 +33,9 @@ fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute 
         settings.visibleRoutes().firstOrNull() ?: DesktopTopLevelRoute.SETTINGS
     }
 }
-
+/**
+ * One-line description of what this route contains (for tooltips/help).
+ */
 fun DesktopTopLevelRoute.summary(): String =
     when (this) {
         DesktopTopLevelRoute.TASKS -> "Task and habit lists, filters, and edit flows."

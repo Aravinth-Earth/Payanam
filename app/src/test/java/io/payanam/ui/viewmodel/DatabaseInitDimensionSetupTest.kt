@@ -5,10 +5,15 @@ package io.payanam.ui.viewmodel
 import android.content.Context
 import android.content.res.Configuration
 import android.content.res.Resources
+import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.PayanamDatabase
+import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.repository.AppSettingsRepository
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -58,7 +63,6 @@ class DatabaseInitDimensionSetupTest {
             R.string.loc_dimension_name_community_service to "சமூகம் & சேவை",
             R.string.loc_dimension_fallback_unassigned to "ஒதுக்கப்படாதது",
         )
-
         fun contextFor(strings: Map<Int, String>, localeTag: String): Context {
             val localeConfiguration = Configuration().apply { setLocale(Locale.forLanguageTag(localeTag)) }
             val resources = mock<Resources>()
@@ -70,7 +74,6 @@ class DatabaseInitDimensionSetupTest {
             }
             return localizedContext
         }
-
         val currentStrings = if (currentLocaleTag == "ta") tamilStrings else englishStrings
         val baseResources = mock<Resources>()
         val baseConfiguration = Configuration().apply { setLocale(Locale.forLanguageTag(currentLocaleTag)) }
@@ -80,7 +83,6 @@ class DatabaseInitDimensionSetupTest {
         currentStrings.forEach { (resId, value) ->
             whenever(baseContext.getString(resId)).thenReturn(value)
         }
-
         val englishContext = contextFor(englishStrings, "en")
         val tamilContext = contextFor(tamilStrings, "ta")
         whenever(baseContext.createConfigurationContext(any())).thenAnswer { invocation ->
@@ -95,7 +97,6 @@ class DatabaseInitDimensionSetupTest {
     fun `buildDimensionSeedRows keeps defaults when no custom input is provided`() {
         testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying default rows")
         val rows = buildDimensionSeedRows(emptyList())
-
         assertEquals(1, rows.size)
         assertTrue(rows.first { it.id == "dim_unassigned" }.isActive)
     }
@@ -119,7 +120,6 @@ class DatabaseInitDimensionSetupTest {
                 ),
             ),
         )
-
         assertEquals("Deep Work", rows.first { it.id == DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id }.label)
         assertEquals("#123456", rows.first { it.id == DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id }.color)
         assertTrue(rows.first { it.id == DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id }.isActive)
@@ -132,9 +132,7 @@ class DatabaseInitDimensionSetupTest {
     @Test
     fun `defaultNewDatabaseDimensionInputs uses localized app-owned labels`() {
         testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying localized default dimension labels")
-
         val tamilDefaults = defaultNewDatabaseDimensionInputs(mockDimensionLabelContext())
-
         assertEquals(
             "வேலை & வாழ்வாதாரம்",
             tamilDefaults.first { it.id == DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id }.label,
@@ -143,5 +141,47 @@ class DatabaseInitDimensionSetupTest {
             "வீடு & சூழல்",
             tamilDefaults.first { it.id == DimensionTaxonomyCatalog.HOME_ENVIRONMENT.id }.label,
         )
+    }
+
+    @Test
+    fun `persistNewDatabaseDimensionSetup writes all NOT NULL columns including weight`() {
+        testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying seed insert against real Room schema")
+        val db =
+            Room
+                .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
+                .fallbackToDestructiveMigration()
+                .allowMainThreadQueries()
+                .build()
+        try {
+            val sessionManager = mock<DatabaseSessionManager>()
+            whenever(sessionManager.requireDatabase()).thenReturn(db)
+            val settingsRepository = mock<AppSettingsRepository>()
+            runBlocking {
+                whenever(settingsRepository.setSetting(any(), any())).thenReturn(Unit)
+                persistNewDatabaseDimensionSetup(
+                    context = mockDimensionLabelContext(),
+                    databaseSessionManager = sessionManager,
+                    appSettingsRepository = settingsRepository,
+                    dimensionInputs = defaultNewDatabaseDimensionInputs(mockDimensionLabelContext()),
+                )
+            }
+            val rows =
+                db.query(
+                    "SELECT id, key, label, color, icon, sortOrder, isActive, weight FROM life_dimensions",
+                    null,
+                )
+            try {
+                assertTrue(rows.moveToFirst())
+                assertTrue(rows.count > 0)
+                val weightColumn = rows.getColumnIndexOrThrow("weight")
+                do {
+                    assertEquals(1.0, rows.getDouble(weightColumn), 0.0)
+                } while (rows.moveToNext())
+            } finally {
+                rows.close()
+            }
+        } finally {
+            db.close()
+        }
     }
 }

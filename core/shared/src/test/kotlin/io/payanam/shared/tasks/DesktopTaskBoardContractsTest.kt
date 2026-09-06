@@ -6,14 +6,12 @@ import com.google.common.truth.Truth.assertThat
 import java.time.LocalDateTime
 import org.junit.Ignore
 import org.junit.Test
-
 class DesktopTaskBoardContractsTest {
     private val fixedNow: LocalDateTime = LocalDateTime.parse("2026-03-26T09:30:00")
 
     @Test
     fun `default snapshot starts in loading state with today filter`() {
         val snapshot = DesktopTaskBoardContracts.snapshot()
-
         assertThat(snapshot.preferences.selectedTaskFilter).isEqualTo(DesktopTaskFilter.TODAY)
         assertThat(snapshot.preferences.selectedTaskSort).isEqualTo(DesktopTaskSortOption.DUE_DATE_ASC)
         assertThat(snapshot.preferences.selectedHabitSort).isEqualTo(DesktopHabitSortOption.BY_STATUS)
@@ -33,7 +31,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.READY)
         assertThat(snapshot.counts.totalTaskCount).isEqualTo(4)
         assertThat(snapshot.counts.totalHabitCount).isEqualTo(3)
@@ -56,7 +53,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleHabits.map { it.title }).containsExactly("Evening walk").inOrder()
         assertThat(snapshot.counts.completedHabitCountToday).isEqualTo(1)
     }
@@ -69,7 +65,6 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.EMPTY)
         assertThat(snapshot.counts.totalTaskCount).isEqualTo(0)
         assertThat(snapshot.counts.totalHabitCount).isEqualTo(0)
@@ -84,7 +79,6 @@ class DesktopTaskBoardContractsTest {
                 errorMessage = "bad json",
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.loadState).isEqualTo(DesktopTaskBoardLoadState.ERROR)
         assertThat(snapshot.content.errorMessage).isEqualTo("bad json")
         assertThat(snapshot.content.visibleTasks).isEmpty()
@@ -107,7 +101,6 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.ARCHIVED),
                 now = fixedNow,
             )
-
         assertThat(completedSnapshot.content.visibleTasks.map { it.title }).containsExactly("Read planning notes")
         assertThat(archivedSnapshot.content.visibleTasks.map { it.title }).containsExactly("Archive old receipts")
     }
@@ -158,7 +151,6 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.NOT_ACTIVE),
                 now = fixedNow,
             )
-
         assertThat(activeSnapshot.content.visibleTasks.map { it.title }).containsExactly("Future task", "Pending task")
         assertThat(futureSnapshot.content.visibleTasks.map { it.title }).containsExactly("Pending task", "Future task").inOrder()
         assertThat(inactiveSnapshot.content.visibleTasks.map { it.title }).containsExactly("Done task")
@@ -176,7 +168,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleTasks.first().dimensionLabel).isEqualTo("Career & Work")
     }
 
@@ -211,7 +202,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleTasks.first().title).isEqualTo("Newer row")
         assertThat(snapshot.content.visibleTasks.first().dimensionLabel).isEqualTo("General")
         assertThat(snapshot.content.visibleTasks.first().dueLabel).isEqualTo("No due date")
@@ -247,7 +237,6 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleTasks.map { it.title }).containsExactly("Today task")
         assertThat(snapshot.content.visibleTasks.first().status).isEqualTo("Active")
         assertThat(snapshot.content.visibleTasks.first().scoreLabel).isEqualTo("73%")
@@ -266,7 +255,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleHabits.first().title).isEqualTo("Review daily priorities")
         assertThat(snapshot.content.visibleHabits.first().todayStatusLabel).isEqualTo("Completed today")
         assertThat(snapshot.content.visibleHabits.first().dueLabel).contains("26 Mar")
@@ -284,7 +272,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleHabits.map { it.todayStatusLabel }).contains("Archived")
     }
 
@@ -355,7 +342,6 @@ class DesktopTaskBoardContractsTest {
                     ),
                 now = fixedNow,
             )
-
         assertThat(byName.content.visibleHabits.map { it.title }).containsExactly("Admin reset", "Book review", "Zen breathing").inOrder()
         assertThat(byStatus.content.visibleHabits.first().todayStatusLabel).isEqualTo("Due today")
         assertThat(byDimension.content.visibleHabits.first().dimensionLabel).isEqualTo("Career & Work")
@@ -390,7 +376,6 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences().copy(selectedTaskFilter = DesktopTaskFilter.FUTURE),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleTasks.map { it.title }).containsExactly("Inbox cleanup")
     }
 
@@ -418,14 +403,12 @@ class DesktopTaskBoardContractsTest {
                 preferences = DesktopTaskBoardContracts.defaultPreferences(),
                 now = fixedNow,
             )
-
         assertThat(snapshot.content.visibleHabits.single().todayStatusLabel).isEqualTo("Open")
     }
 
     @Test
     fun `seeded catalog includes both task and habit entries`() {
         val catalog = DesktopTaskBoardContracts.seededCatalog(now = fixedNow)
-
         assertThat(catalog.schemaVersion).isEqualTo(DesktopTaskBoardContracts.CATALOG_SCHEMA_VERSION)
         assertThat(catalog.tasks.count { it.recurrenceEnabled }).isEqualTo(3)
         assertThat(catalog.tasks.count { !it.recurrenceEnabled }).isEqualTo(4)

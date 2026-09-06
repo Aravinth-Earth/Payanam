@@ -17,11 +17,17 @@ object CrashSafeBreadcrumbs {
     private const val PREFS_NAME = "payanam_crash_breadcrumbs"
     private const val KEY_TRAIL = "trail"
     private const val MAX_BREADCRUMB_LINES = 80
+    private const val MAX_BREADCRUMB_VALUE_LENGTH = 180
     private const val LINE_SEPARATOR = "\n"
 
     private val logger = UnifiedLogger.getInstance()
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
 
+    /**
+     * Appends a breadcrumb [stage] entry (with optional [data]) for [source] to
+     * the crash-safe SharedPreferences trail, committing synchronously so it
+     * survives abrupt process death.
+     */
     fun record(
         context: Context,
         source: String,
@@ -52,6 +58,11 @@ object CrashSafeBreadcrumbs {
         }
     }
 
+    /**
+     * Replays the stored breadcrumb trail into the main logger (as INFO
+     * entries) and then clears the trail. Call early in startup recovery
+     * so pre-crash steps are visible in the session log.
+     */
     fun dumpToLoggerAndClear(
         context: Context,
         source: String = "CrashSafeBreadcrumbs.dumpToLoggerAndClear",
@@ -100,6 +111,6 @@ object CrashSafeBreadcrumbs {
             ?.toString()
             ?.replace("\n", " ")
             ?.replace("\r", " ")
-            ?.take(180)
+            ?.take(MAX_BREADCRUMB_VALUE_LENGTH)
             ?: "null"
 }

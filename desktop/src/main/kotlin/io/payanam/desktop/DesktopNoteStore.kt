@@ -12,6 +12,10 @@ import java.nio.file.Path
 import java.time.LocalDateTime
 import java.util.UUID
 
+/**
+ * DesktopNotesState.
+
+ */
 data class DesktopNotesState(
     val snapshot: DesktopNotesSnapshot,
     val errorMessage: String? = null,
@@ -30,6 +34,10 @@ internal class DesktopNoteStore(
     private val nextId: () -> String = { UUID.randomUUID().toString() },
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Notes snapshot decoded from storage (seeding an empty one on first
+     * run); carries a decode error message when the payload is unreadable.
+     */
     fun loadState(): DesktopNotesState {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -50,7 +58,7 @@ internal class DesktopNoteStore(
                 mapOf("noteCount" to snapshot.notes.size),
             )
             DesktopNotesState(snapshot = snapshot)
-        } catch (error: Exception) {
+        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
             logEvent(
                 "DesktopNoteStore.loadState",
                 "Failed to decode desktop notes snapshot",
@@ -62,7 +70,9 @@ internal class DesktopNoteStore(
             )
         }
     }
-
+    /**
+     * Appends a new note and persists the re-sorted snapshot.
+     */
     fun createNote(
         title: String,
         details: String?,
@@ -93,7 +103,9 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
+    /**
+     * Replaces a note's fields (error state when the id is unknown).
+     */
     fun updateNote(
         noteId: String,
         title: String,
@@ -131,7 +143,9 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
+    /**
+     * Drops [noteId] from the snapshot and persists it.
+     */
     fun deleteNote(noteId: String): DesktopNotesState {
         val currentState = loadState()
         val nextSnapshot =
@@ -146,11 +160,15 @@ internal class DesktopNoteStore(
         )
         return DesktopNotesState(snapshot = nextSnapshot)
     }
-
+    /**
+     * Serializes and stores the notes snapshot.
+     */
     fun saveSnapshot(snapshot: DesktopNotesSnapshot) {
         persistenceDatabase.writeEntry(STATE_ENTRY_KEY, json.encodeToString(snapshot))
     }
-
+    /**
+     * Path of the database file holding the notes payload.
+     */
     fun getNotesFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     internal companion object {

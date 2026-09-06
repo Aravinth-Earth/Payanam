@@ -64,6 +64,9 @@ class DayViewModelJournalDebounceTest {
     }
 
     @Test
+    /**
+     * Update overall response debounces writes and persists latest value.
+     */
     fun updateOverallResponse_debounces_writes_and_persists_latest_value() = runTest {
         val viewModel = DayViewModel(
             journalRepository = journalRepository,
@@ -73,17 +76,13 @@ class DayViewModelJournalDebounceTest {
 
         viewModel.updateOverallResponse(sourceDate = sourceDate, promptKey = "gratitude", response = "first")
         viewModel.updateOverallResponse(sourceDate = sourceDate, promptKey = "gratitude", response = "second")
-
         advanceTimeBy(499)
         runCurrent()
         verify(journalRepository, times(0)).upsertResponse(any())
-
         advanceTimeBy(1)
         advanceUntilIdle()
-
         val responseCaptor = argumentCaptor<DayJournalResponse>()
         verify(journalRepository, times(1)).upsertResponse(responseCaptor.capture())
-
         val savedResponse = responseCaptor.firstValue
         assertEquals("gratitude", savedResponse.promptKey)
         assertEquals("second", savedResponse.responseText)
@@ -92,6 +91,9 @@ class DayViewModelJournalDebounceTest {
     }
 
     @Test
+    /**
+     * Update overall response independent prompts keep separate saves.
+     */
     fun updateOverallResponse_independent_prompts_keep_separate_saves() = runTest {
         val viewModel = DayViewModel(
             journalRepository = journalRepository,
@@ -101,10 +103,8 @@ class DayViewModelJournalDebounceTest {
 
         viewModel.updateOverallResponse(sourceDate = sourceDate, promptKey = "gratitude", response = "a")
         viewModel.updateOverallResponse(sourceDate = sourceDate, promptKey = "accomplishment", response = "b")
-
         advanceTimeBy(500)
         advanceUntilIdle()
-
         val responseCaptor = argumentCaptor<DayJournalResponse>()
         verify(journalRepository, times(2)).upsertResponse(responseCaptor.capture())
         assertEquals(
@@ -127,10 +127,8 @@ class DayViewModelJournalDebounceTest {
             promptKey = "feeling",
             response = "steady",
         )
-
         advanceTimeBy(500)
         advanceUntilIdle()
-
         val responseCaptor = argumentCaptor<DayJournalResponse>()
         verify(journalRepository).upsertResponse(responseCaptor.capture())
         assertEquals("dimension", responseCaptor.firstValue.scope)
@@ -139,6 +137,9 @@ class DayViewModelJournalDebounceTest {
     }
 
     @Test
+    /**
+     * Update overall response keeps original source date after navigation.
+     */
     fun updateOverallResponse_keeps_original_source_date_after_navigation() = runTest {
         val sourceDate = LocalDate.now().minusDays(1)
         val futureSelectedDate = LocalDate.now()
@@ -150,7 +151,6 @@ class DayViewModelJournalDebounceTest {
                 updatedAt = "2026-03-10T00:00:00",
             ),
         )
-
         val viewModel = DayViewModel(
             journalRepository = journalRepository,
         )
@@ -161,13 +161,10 @@ class DayViewModelJournalDebounceTest {
         viewModel.updateOverallResponse(sourceDate = sourceDate, promptKey = "gratitude", response = "kept-on-10th")
         viewModel.selectDate(futureSelectedDate)
         advanceUntilIdle()
-
         advanceTimeBy(500)
         advanceUntilIdle()
-
         verify(journalRepository, atLeastOnce()).getEntryByDate(sourceDate.toString())
         verify(journalRepository, never()).getEntryByDate(LocalDate.now().plusDays(1).toString())
-
         val responseCaptor = argumentCaptor<DayJournalResponse>()
         verify(journalRepository).upsertResponse(responseCaptor.capture())
         assertEquals("kept-on-10th", responseCaptor.firstValue.responseText)
@@ -180,14 +177,12 @@ class DayViewModelJournalDebounceTest {
             journalRepository = journalRepository,
         )
         advanceUntilIdle()
-
         val startingDate = viewModel.uiState.value.selectedDate
         assertEquals(LocalDate.now(), startingDate)
         assertFalse(startingDate.isBefore(LocalDate.now()))
 
         viewModel.nextDay()
         advanceUntilIdle()
-
         assertEquals(startingDate, viewModel.uiState.value.selectedDate)
     }
 }

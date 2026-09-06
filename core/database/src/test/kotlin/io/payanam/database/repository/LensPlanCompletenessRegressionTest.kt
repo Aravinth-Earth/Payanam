@@ -11,8 +11,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the lens plan completeness regression test.
+ */
 class LensPlanCompletenessRegressionTest {
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(
@@ -28,6 +34,9 @@ class LensPlanCompletenessRegressionTest {
     }
 
     @Test
+    /**
+     * Full structure with25hours planned is not perfect.
+     */
     fun fullStructure_with25HoursPlanned_isNotPerfect() {
         val score =
             computePlanCompletenessScore(
@@ -36,12 +45,14 @@ class LensPlanCompletenessRegressionTest {
                 plannedTaskCount = 5,
                 hasPlannedHabits = true,
             )
-
         assertThat(score).isLessThan(1f)
         assertThat(score).isGreaterThan(0.95f)
     }
 
     @Test
+    /**
+     * Full structure with exact24hours planned is perfect.
+     */
     fun fullStructure_withExact24HoursPlanned_isPerfect() {
         val score =
             computePlanCompletenessScore(
@@ -50,11 +61,13 @@ class LensPlanCompletenessRegressionTest {
                 plannedTaskCount = 5,
                 hasPlannedHabits = true,
             )
-
         assertThat(score).isEqualTo(1f)
     }
 
     @Test
+    /**
+     * Full structure with23hours planned is not perfect.
+     */
     fun fullStructure_with23HoursPlanned_isNotPerfect() {
         val score =
             computePlanCompletenessScore(
@@ -63,7 +76,6 @@ class LensPlanCompletenessRegressionTest {
                 plannedTaskCount = 5,
                 hasPlannedHabits = true,
             )
-
         assertThat(score).isLessThan(1f)
         assertThat(score).isGreaterThan(0.95f)
     }

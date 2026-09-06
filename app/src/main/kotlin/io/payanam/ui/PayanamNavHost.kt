@@ -70,13 +70,18 @@ import io.payanam.ui.screens.FocusModeSelectionScreen
 import io.payanam.ui.screens.LensesScreen
 import io.payanam.ui.screens.NotesScreen
 import io.payanam.ui.screens.ScoringConfigScreen
+import io.payanam.ui.screens.ScoreDetailScreen
+import io.payanam.ui.screens.ScoreDetailType
 import io.payanam.ui.screens.TaskDetailScreen
 import io.payanam.ui.screens.TasksScreen
 import io.payanam.ui.screens.TasksScreenMode
 import io.payanam.ui.screens.TimeScreen
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-
+/**
+ * Bottom-navigation destinations: route, localized title resource, and
+ * selected/unselected icons.
+ */
 sealed class Screen(
     val route: String,
     val titleRes: Int,
@@ -143,12 +148,21 @@ object Routes {
     const val ADD_TASK = "add_task"
     const val TASK_DETAIL = "task_detail/{taskId}"
     const val EDIT_TASK = "edit_task/{taskId}"
+    const val SCORE_DETAIL = "score_detail/{type}/{key}"
     const val SCORING_CONFIG = "scoring_config"
-
+    /**
+     * Builds the concrete task-detail route for [taskId].
+     */
     fun taskDetail(taskId: String) = "task_detail/$taskId"
+    /**
+     * Builds the concrete edit-task route for [taskId].
+     */
     fun editTask(taskId: String) = "edit_task/$taskId"
+    /**
+     * Builds the concrete score-detail route for [type] and [key].
+     */
+    fun scoreDetail(type: String, key: String) = "score_detail/$type/$key"
 }
-
 val bottomNavItems = listOf(
     Screen.Tasks,
     Screen.Habits,
@@ -236,7 +250,6 @@ fun PayanamNavHost(
             }
         }
     }
-
     LaunchedEffect(
         externalCommand,
         currentRoute,
@@ -253,7 +266,6 @@ fun PayanamNavHost(
         ) {
             return@LaunchedEffect
         }
-
         when (val command = externalCommand) {
             is ExternalNavigationCommand.OpenTimeScreen -> {
                 if (command.openQuickStart) {
@@ -279,7 +291,6 @@ fun PayanamNavHost(
             null -> Unit
         }
     }
-
     LaunchedEffect(shouldShowPassphraseUnlock, currentRoute, resumeToRouteAfterUnlock) {
         if (!shouldShowPassphraseUnlock || currentResolvedRoute == null) {
             return@LaunchedEffect
@@ -306,7 +317,6 @@ fun PayanamNavHost(
             launchSingleTop = true
         }
     }
-
     DisposableEffect(navController) {
         val listener = NavController.OnDestinationChangedListener { controller, destination, _ ->
             val route = destination.route ?: return@OnDestinationChangedListener
@@ -327,7 +337,6 @@ fun PayanamNavHost(
         navController.addOnDestinationChangedListener(listener)
         onDispose { navController.removeOnDestinationChangedListener(listener) }
     }
-
     Scaffold(
         bottomBar = {
             if (showBottomBar) {
@@ -339,7 +348,6 @@ fun PayanamNavHost(
                             it.route == screen.route
                         } == true
                         val tabLabel = androidx.compose.ui.res.stringResource(id = screen.titleRes)
-
                         NavigationBarItem(
                             modifier = Modifier.semantics {
                                 contentDescription = tabLabel
@@ -405,12 +413,10 @@ fun PayanamNavHost(
                 },
             )
         }
-
         val landingRoute = preferencesState.launchDestination.route
         val landingReady = !preferencesState.isLoading && landingRoute.isNotEmpty()
             && !shouldShowPassphraseSetup && !shouldShowPassphraseUnlock
             && !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding
-
         val startDestination = remember(landingReady) {
             if (landingReady) {
                 landingRoute
@@ -424,7 +430,6 @@ fun PayanamNavHost(
                 }
             }
         }
-
         if (startDestination == null) {
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -434,7 +439,6 @@ fun PayanamNavHost(
             }
             return@Scaffold
         }
-
         NavHost(
             navController = navController,
             startDestination = startDestination,
@@ -531,6 +535,11 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to task detail from Tasks", mapOf("taskId" to taskId))
                         navController.navigate(Routes.taskDetail(taskId))
                     },
+                    onOpenDayDetail = {
+                        val todayKey = java.time.LocalDate.now().toString()
+                        logger.i("PayanamNavHost", "Opening day detail from habits strip", mapOf("day" to todayKey))
+                        navController.navigate(Routes.scoreDetail("DAY", todayKey))
+                    },
                 )
             }
             composable(Screen.Time.route) {
@@ -567,6 +576,11 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to task detail from Habits", mapOf("taskId" to taskId))
                         navController.navigate(Routes.taskDetail(taskId))
                     },
+                    onOpenDayDetail = {
+                        val todayKey = java.time.LocalDate.now().toString()
+                        logger.i("PayanamNavHost", "Opening day detail from habits strip", mapOf("day" to todayKey))
+                        navController.navigate(Routes.scoreDetail("DAY", todayKey))
+                    },
                 )
             }
             composable(Screen.Journal.route) {
@@ -596,6 +610,10 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Navigating to notes from unified lenses", mapOf())
                         navigateToTopLevel(Screen.Notes.route)
                     },
+                    onOpenScoreDetail = { type, key ->
+                        logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
+                        navController.navigate(Routes.scoreDetail(type, key))
+                    },
                 )
             }
             composable(Screen.Settings.route) {
@@ -622,7 +640,6 @@ fun PayanamNavHost(
                     onTaskSaved = { navController.popBackStack() },
                 )
             }
-
             composable(
                 route = Routes.TASK_DETAIL,
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
@@ -637,7 +654,26 @@ fun PayanamNavHost(
                     },
                 )
             }
-
+            composable(
+                route = Routes.SCORE_DETAIL,
+                arguments =
+                    listOf(
+                        navArgument("type") { type = NavType.StringType },
+                        navArgument("key") { type = NavType.StringType },
+                    ),
+            ) { backStackEntry ->
+                val typeName = backStackEntry.arguments?.getString("type") ?: return@composable
+                val key = backStackEntry.arguments?.getString("key") ?: return@composable
+                val type =
+                    if (typeName == "DAY") ScoreDetailType.DAY
+                    else ScoreDetailType.DIMENSION
+                logger.i("PayanamNavHost", "Opening score detail", mapOf("type" to typeName, "key" to key))
+                ScoreDetailScreen(
+                    type = type,
+                    key = key,
+                    onNavigateBack = { navController.popBackStack() },
+                )
+            }
             composable(
                 route = Routes.EDIT_TASK,
                 arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
@@ -649,7 +685,6 @@ fun PayanamNavHost(
                     onTaskSaved = { navController.popBackStack() },
                 )
             }
-
             composable(Routes.SCORING_CONFIG) {
                 ScoringConfigScreen(
                     onNavigateBack = { navController.popBackStack() },

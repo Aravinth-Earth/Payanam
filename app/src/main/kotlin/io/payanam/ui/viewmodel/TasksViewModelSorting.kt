@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
@@ -9,43 +11,39 @@ import io.payanam.ui.components.DayCheckmark
 import java.time.LocalDate
 import java.time.LocalDateTime
 
+/**
+ * Sorts habits for the listing according to [option].
+ *
+ * The scoring metric ([HabitL1Summary.runningAvg]) uses high-precision values, so
+ * genuine ties are rare — they occur only when two habits share the same frequency,
+ * creation day, and completion pattern. To keep ordering deterministic in that edge
+ * case, every branch applies a stable [Task.id] tiebreaker (creation order), so the
+ * list never appears to reorder randomly between renders.
+ */
 internal fun sortHabits(
     habits: List<Task>,
     option: HabitSortOption,
     taskCheckmarks: Map<String, List<DayCheckmark>>,
     todayStatusByTaskId: Map<String, CheckmarkStatus> = emptyMap(),
-): List<Task> = when (option) {
-    HabitSortOption.BY_SCORE -> habits.sortedByDescending { it.currentScore }
-
-    HabitSortOption.BY_NAME -> habits.sortedBy { it.title.lowercase() }
-
-    HabitSortOption.BY_STATUS -> {
-        habits.sortedWith(
-            compareBy<Task> { task ->
-                val status = todayStatusByTaskId[task.id] ?: run {
-                    val today = LocalDate.now()
-                    val checkmarks = taskCheckmarks[task.id] ?: emptyList()
-                    checkmarks.find { it.date == today }?.status
-                }
-                when (status) {
-                    CheckmarkStatus.COMPLETED -> 1
-                    CheckmarkStatus.SKIPPED -> 2
-                    else -> 0
-                }
-            }.thenByDescending { it.currentScore },
-        )
-    }
-
-    HabitSortOption.BY_DUE_TIME -> {
-        habits.sortedWith(
+    latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
+): List<Task> {
+    val scoreOf: (Task) -> Double = { latestL1ByHabit[it.id]?.runningAvg ?: 0.0 }
+    return when (option) {
+        HabitSortOption.SCORE_HIGH_LOW -> habits.sortedWith(compareByDescending(scoreOf).thenBy { it.id })
+        HabitSortOption.SCORE_LOW_HIGH -> habits.sortedWith(compareBy(scoreOf).thenBy { it.id })
+        HabitSortOption.BY_NAME -> habits.sortedWith(compareBy<Task> { it.title.lowercase() }.thenBy { it.id })
+        HabitSortOption.BY_NAME_REVERSE -> habits.sortedWith(compareByDescending<Task> { it.title.lowercase() }.thenBy { it.id })
+        HabitSortOption.BY_DUE_TIME -> habits.sortedWith(
             compareBy<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MAX }
-                .thenByDescending { it.currentScore },
+                .thenByDescending(scoreOf)
+                .thenBy { it.id },
+        )
+        HabitSortOption.BY_DUE_TIME_REVERSE -> habits.sortedWith(
+            compareByDescending<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MIN }
+                .thenByDescending(scoreOf)
+                .thenBy { it.id },
         )
     }
-
-    HabitSortOption.BY_LIFE_DIMENSION -> habits.sortedBy { it.lifeIntentionCategory ?: "zzz" }
-
-    HabitSortOption.BY_POSITION -> habits
 }
 
 internal fun filterAndSortTasks(
@@ -62,16 +60,47 @@ internal fun visibleHabitsForDisplay(
     todayStatusByTaskId: Map<String, CheckmarkStatus>,
     showCompletedHabits: Boolean,
     hideAllMarkedToday: Boolean = false,
+    dueTodayOnly: Boolean = false,
+    dueTodayByTaskId: Map<String, Boolean> = emptyMap(),
 ): List<Task> {
-    if (showCompletedHabits && !hideAllMarkedToday) return habits
-    return habits.filter { task ->
+    if (showCompletedHabits && !hideAllMarkedToday && !dueTodayOnly) {
+        if (UnifiedLogger.isInitialized()) {
+            UnifiedLogger.getInstance().d(
+                "TasksViewModelSorting.visibleHabitsForDisplay",
+                "No filtering applied (all visible)",
+                mapOf("habitCount" to habits.size, "showCompletedHabits" to showCompletedHabits, "dueTodayOnly" to dueTodayOnly),
+            )
+        }
+        return habits
+    }
+    val result = habits.filter { task ->
+        // Due-today narrows first (actionable queue), then status hides.
+        if (dueTodayOnly && dueTodayByTaskId[task.id] == false) {
+            if (UnifiedLogger.isInitialized()) {
+                UnifiedLogger.getInstance().d(
+                    "TasksViewModelSorting.visibleHabitsForDisplay",
+                    "Habit hidden",
+                    mapOf("taskId" to task.id, "reason" to "notDueToday", "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent")),
+                )
+            }
+            return@filter false
+        }
         val status = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
-        when {
+        val shown = when {
             hideAllMarkedToday -> status != CheckmarkStatus.COMPLETED && status != CheckmarkStatus.SKIPPED && status != CheckmarkStatus.MISSED
             !showCompletedHabits -> status != CheckmarkStatus.COMPLETED
             else -> true
         }
+        if (UnifiedLogger.isInitialized()) {
+            UnifiedLogger.getInstance().d(
+                "TasksViewModelSorting.visibleHabitsForDisplay",
+                "Habit shown",
+                mapOf("taskId" to task.id, "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent"), "status" to status.name, "shown" to shown),
+            )
+        }
+        shown
     }
+    return result
 }
 
 internal fun buildTaskFilterCounts(

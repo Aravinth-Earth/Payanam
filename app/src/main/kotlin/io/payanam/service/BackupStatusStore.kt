@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.service
 
 import android.content.Context
@@ -13,18 +15,30 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
-
-data class BackupFailureStatus(
-    val message: String,
-    val recordedAtDisplay: String?,
-)
-
+/**
+ * Last-known backup state shown on the settings screen: most recent success
+ * timestamp and the latest (dismissible) failure, if any.
+ */
 data class BackupStatusSnapshot(
     val lastSuccessAtMillis: Long = 0L,
     val lastSuccessDisplay: String? = null,
     val latestFailure: BackupFailureStatus? = null,
 )
 
+/**
+ * A single backup failure shown to the user: message plus a pre-formatted
+ * display timestamp.
+ */
+data class BackupFailureStatus(
+    val message: String,
+    val recordedAtDisplay: String?,
+)
+
+/**
+ * Persisted store of the last auto-backup outcome (success timestamp and
+ * latest failure), backed by SharedPreferences and exposed as state for the
+ * settings screen.
+ */
 @Singleton
 class BackupStatusStore @Inject constructor(
     @ApplicationContext private val context: Context,
@@ -33,7 +47,9 @@ class BackupStatusStore @Inject constructor(
     private val prefs = context.getSharedPreferences(BACKUP_META_PREFS, Context.MODE_PRIVATE)
     private val _status = MutableStateFlow(loadSnapshot())
     val status: StateFlow<BackupStatusSnapshot> = _status.asStateFlow()
-
+    /**
+     * Persists a successful backup (clearing any recorded failure).
+     */
     fun recordSuccess(recordedAtMillis: Long) {
         val effectiveMillis = recordedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
         val displayTimestamp = formatBackupTimestamp(effectiveMillis)
@@ -51,7 +67,9 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp),
         )
     }
-
+    /**
+     * Records a failed backup attempt with its (truncated) error message.
+     */
     fun recordFailure(message: String) {
         val recordedAtMillis = System.currentTimeMillis()
         val displayTimestamp = formatBackupTimestamp(recordedAtMillis)
@@ -67,7 +85,9 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp, "message" to message.take(200)),
         )
     }
-
+    /**
+     * Clears the persisted failure so it stops showing on the settings screen.
+     */
     fun dismissLatestFailure() {
         prefs.edit()
             .remove(KEY_LAST_BACKUP_FAILURE_AT_MILLIS)
@@ -77,7 +97,9 @@ class BackupStatusStore @Inject constructor(
         _status.value = loadSnapshot()
         logger.i("BackupStatusStore.dismissLatestFailure", "Dismissed persisted backup failure message")
     }
-
+    /**
+     * Re-reads the snapshot from preferences into state (after external changes).
+     */
     fun refresh() {
         _status.value = loadSnapshot()
     }
@@ -108,7 +130,9 @@ class BackupStatusStore @Inject constructor(
         const val KEY_LAST_BACKUP_FAILURE_AT_MILLIS = "last_backup_failure_at_millis"
         const val KEY_LAST_BACKUP_FAILURE_DISPLAY = "last_backup_failure_display"
         const val KEY_LAST_BACKUP_FAILURE_MESSAGE = "last_backup_failure_message"
-
+        /**
+         * Formats an epoch-millis timestamp for display ("yyyy-MM-dd HH:mm").
+         */
         fun formatBackupTimestamp(millis: Long): String = Instant.ofEpochMilli(millis)
             .atZone(ZoneId.systemDefault())
             .toLocalDateTime()

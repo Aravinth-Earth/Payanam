@@ -1,7 +1,11 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+
+@file:Suppress("MagicNumber")
+
 package io.payanam.database.migration
 
+import android.database.SQLException
 import androidx.room.migration.Migration
 import androidx.sqlite.db.SupportSQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
@@ -23,7 +27,7 @@ val MIGRATION_13_14 =
                 createDayPlanTemplateAllocationsTable(database)
                 createDayPlanAllocationsTable(database)
                 logger.i("Migration.13_14", "Migration from 13 to 14 completed successfully")
-            } catch (e: Exception) {
+            } catch (e: SQLException) {
                 logger.e("Migration.13_14", "Migration from 13 to 14 failed", e)
                 throw e
             }

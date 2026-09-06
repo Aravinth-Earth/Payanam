@@ -23,11 +23,17 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task occurrence repository data integrity test.
+ */
 class TaskOccurrenceRepositoryDataIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: TaskOccurrenceRepositoryImpl
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -46,11 +52,17 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Performs the record occurrence persists actual completion fields.
+     */
     fun recordOccurrence_persistsActualCompletionFields() =
         runBlocking {
             val day = LocalDate.of(2026, 2, 21)
@@ -71,7 +83,6 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                     dayKey = day.toString(),
                 ),
             )
-
             val actualCompletedAt = LocalDateTime.of(2026, 2, 21, 9, 12)
             repository.recordOccurrence(
                 TaskOccurrence(
@@ -84,7 +95,6 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                     actualDurationMinutes = 7,
                 ),
             )
-
             val stored = database.taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, day.toString())
             assertThat(stored).isNotNull()
             val storedCompletedAt = stored?.actualCompletedAt?.let(LocalDateTime::parse)
@@ -93,6 +103,9 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
         }
 
     @Test
+    /**
+     * Toggle occurrence completed clears stale status reason when not provided.
+     */
     fun toggleOccurrence_completed_clearsStaleStatusReasonWhenNotProvided() =
         runBlocking {
             val day = LocalDate.of(2026, 2, 22)
@@ -138,7 +151,6 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
                 actualCompletedAt = null,
                 actualDurationMinutes = null,
             )
-
             val stored = database.taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, day.toString())
             assertThat(stored).isNotNull()
             assertThat(stored?.status).isEqualTo("completed")

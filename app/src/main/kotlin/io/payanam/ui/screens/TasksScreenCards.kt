@@ -62,7 +62,6 @@ internal fun TaskListRow(
     }
     var rowTraceSent by remember(traceInteractionId, task.id) { mutableStateOf(false) }
     var badgeTraceSent by remember(traceInteractionId, task.id) { mutableStateOf(false) }
-
     Card(
         onClick = onClick,
         modifier = modifier.fillMaxWidth(),
@@ -87,7 +86,6 @@ internal fun TaskListRow(
                     )
                 }
             }
-
             Column(
                 modifier = Modifier.weight(1f),
                 verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -99,7 +97,6 @@ internal fun TaskListRow(
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
                 )
-
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -134,7 +131,6 @@ internal fun TaskListRow(
                     }
                 }
             }
-
             if (task.status == "completed") {
                 Icon(
                     imageVector = Icons.Default.Check,

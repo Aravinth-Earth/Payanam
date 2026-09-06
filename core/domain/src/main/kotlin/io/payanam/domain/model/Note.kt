@@ -16,7 +16,9 @@ data class Note(
     val updatedAt: LocalDateTime,
     val dimensionId: String? = null
 )
-
+/**
+ * Editable payload for creating/updating a [Note] (excludes id + timestamps).
+ */
 data class NoteInput(
     val title: String,
     val details: String? = null,

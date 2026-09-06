@@ -1,13 +1,16 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.security
-
 object PassphrasePolicy {
     private const val MIN_LENGTH = 12
     private val logger =
         io.payanam.common.logging.UnifiedLogger
             .getInstance()
-
+    /**
+     * Validates a candidate database passphrase: requires at least 12
+     * characters and at least one uppercase, lowercase, digit, and symbol,
+     * returning the first failing rule as [PassphraseValidation.reasonCode].
+     */
     fun validate(passphrase: String): PassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {
             logger.d("PassphrasePolicy.validate", "Rejected passphrase", mapOf("reason" to "min_length"))
@@ -48,7 +51,11 @@ object PassphrasePolicy {
         return PassphraseValidation(isValid = true, reasonCode = null)
     }
 }
-
+/**
+ * Result of [PassphrasePolicy.validate]: whether the candidate passphrase is
+ * acceptable, and when rejected the [reasonCode] naming the first failed rule
+ * (e.g. `min_length`, `missing_symbol`).
+ */
 data class PassphraseValidation(
     val isValid: Boolean,
     val reasonCode: String?,

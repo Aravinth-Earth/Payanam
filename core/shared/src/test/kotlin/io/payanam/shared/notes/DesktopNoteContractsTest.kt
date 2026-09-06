@@ -5,7 +5,6 @@ package io.payanam.shared.notes
 import com.google.common.truth.Truth.assertThat
 import java.time.LocalDateTime
 import org.junit.Test
-
 class DesktopNoteContractsTest {
     @Test
     fun `create record normalizes title details tags and dimension fallback`() {
@@ -21,7 +20,6 @@ class DesktopNoteContractsTest {
                 tags = listOf("alpha", " alpha ", "", "beta"),
                 now = now,
             )
-
         assertThat(record.title).isEqualTo("First note")
         assertThat(record.details).isEqualTo("Something detailed")
         assertThat(record.dimensionId).isEqualTo(DesktopNoteContracts.DEFAULT_DIMENSION_ID)
@@ -56,7 +54,6 @@ class DesktopNoteContractsTest {
                 tags = listOf("new", "new", "focus"),
                 now = now,
             )
-
         assertThat(updated.title).isEqualTo("Updated")
         assertThat(updated.details).isNull()
         assertThat(updated.dimensionId).isEqualTo(existing.dimensionId)

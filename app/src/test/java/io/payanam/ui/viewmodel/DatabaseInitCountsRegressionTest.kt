@@ -37,9 +37,7 @@ class DatabaseInitCountsRegressionTest {
         database.execSQL("INSERT INTO journal_notes(id) VALUES ('jn1'), ('jn2')")
         database.execSQL("INSERT INTO notes(id) VALUES ('n1')")
         database.close()
-
         val counts = readDatabaseTableCounts(dbFile, logger)
-
         assertEquals(3, counts.taskCount)
         assertEquals(2, counts.timeEntryCount)
         assertEquals(3, counts.journalEntryCount)

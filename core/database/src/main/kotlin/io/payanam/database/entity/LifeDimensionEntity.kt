@@ -26,6 +26,8 @@ data class LifeDimensionEntity(
     val icon: String? = null,
     val sortOrder: Int,
     val isActive: Int = 1,
+    /** User-editable relative weight for L3 day-score aggregation (C2, v20). */
+    val weight: Double = 1.0,
     val createdAt: String,
     val updatedAt: String,
 )

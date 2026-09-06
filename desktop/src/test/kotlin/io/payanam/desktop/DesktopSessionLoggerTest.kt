@@ -8,7 +8,9 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
 import java.time.Instant
-
+/**
+ * Provides the desktop session logger test.
+ */
 class DesktopSessionLoggerTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

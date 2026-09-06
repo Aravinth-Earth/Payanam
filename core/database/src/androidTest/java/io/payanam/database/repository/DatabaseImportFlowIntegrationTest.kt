@@ -34,6 +34,9 @@ class DatabaseImportFlowIntegrationTest {
     private val importPassphrase = "ImportedDB456!"
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         if (!UnifiedLogger.isInitialized()) {
@@ -57,6 +60,9 @@ class DatabaseImportFlowIntegrationTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         encryptionManager.resetEncryptionState()
@@ -65,6 +71,9 @@ class DatabaseImportFlowIntegrationTest {
     }
 
     @Test
+    /**
+     * Import flow creates source database and imports with new passphrase.
+     */
     fun importFlow_createsSourceDatabaseAndImportsWithNewPassphrase() =
         runTest {
             // Step 1: Create source database with initial data and passphrase
@@ -104,7 +113,6 @@ class DatabaseImportFlowIntegrationTest {
             // Step 6: Configure new passphrase and reopen (simulating import with new password)
             val importConfigResult = encryptionManager.configurePassphrase(importPassphrase)
             assertThat(importConfigResult).isTrue()
-
             val importOpenResult = sessionManager.openDatabase(importPassphrase)
             assertThat(importOpenResult.isSuccess).isTrue()
 
@@ -125,6 +133,9 @@ class DatabaseImportFlowIntegrationTest {
         }
 
     @Test
+    /**
+     * Loads the import flow encryption state is clean between imports.
+     */
     fun importFlow_encryptionStateIsCleanBetweenImports() =
         runTest {
             // First import cycle
@@ -139,7 +150,6 @@ class DatabaseImportFlowIntegrationTest {
             val secondPassphrase = "Completely_Different_Pass_789!"
             val secondConfigResult = encryptionManager.configurePassphrase(secondPassphrase)
             assertThat(secondConfigResult).isTrue()
-
             val secondOpen = sessionManager.openDatabase(secondPassphrase)
             assertThat(secondOpen.isSuccess).isTrue()
 
@@ -158,13 +168,15 @@ class DatabaseImportFlowIntegrationTest {
         }
 
     @Test
+    /**
+     * Loads the import flow passphrase change does not corrupt database.
+     */
     fun importFlow_passphraseChangeDoesNotCorruptDatabase() =
         runTest {
             // Step 1: Create initial database with passphrase
             encryptionManager.configurePassphrase(sourcePassphrase)
             val openResult = sessionManager.openDatabase(sourcePassphrase)
             assertThat(openResult.isSuccess).isTrue()
-
             val db = sessionManager.requireDatabase()
             assertThat(db).isNotNull()
 
@@ -193,6 +205,9 @@ class DatabaseImportFlowIntegrationTest {
         }
 
     @Test
+    /**
+     * Loads the import flow wrong passphrase rejects import.
+     */
     fun importFlow_wrongPassphraseRejectsImport() =
         runTest {
             // Step 1: Create database with passphrase
@@ -225,6 +240,9 @@ class DatabaseImportFlowIntegrationTest {
         }
 
     @Test
+    /**
+     * Loads the import flow multiple sequential imports.
+     */
     fun importFlow_multipleSequentialImports() =
         runTest {
             // Simulate multiple import/reset cycles
@@ -235,7 +253,6 @@ class DatabaseImportFlowIntegrationTest {
                 encryptionManager.configurePassphrase(cyclePassphrase)
                 val openResult = sessionManager.openDatabase(cyclePassphrase)
                 assertThat(openResult.isSuccess).isTrue()
-
                 val db = sessionManager.requireDatabase()
                 assertThat(db).isNotNull()
 

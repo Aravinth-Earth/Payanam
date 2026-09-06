@@ -32,6 +32,9 @@ class CreateTimeEntryForHabitUseCaseTest {
     }
 
     @Test
+    /**
+     * Invoke uses canonical dimension id before creating time entry.
+     */
     fun invoke_uses_canonical_dimension_id_before_creating_time_entry() = runTest {
         val timeEntryRepository = FakeTimeEntryRepository()
         val appSettingsRepository = FakeAppSettingsRepository(
@@ -51,9 +54,7 @@ class CreateTimeEntryForHabitUseCaseTest {
             createdAt = completedAt.minusDays(1),
             updatedAt = completedAt.minusDays(1),
         )
-
         useCase(task, completedAt, 20)
-
         val created = timeEntryRepository.createdInput
         assertNotNull(created)
         assertEquals("dim_mental_health", created?.dimensionId)

@@ -21,6 +21,10 @@ internal class DesktopTaskBoardStore(
         ),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Task-board preferences parsed from persisted properties (defaults when
+     * absent).
+     */
     fun loadSnapshot(): DesktopTaskBoardSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -62,7 +66,9 @@ internal class DesktopTaskBoardStore(
         )
         return snapshot
     }
-
+    /**
+     * Serializes the board preferences to properties and persists them.
+     */
     fun saveSnapshot(snapshot: DesktopTaskBoardSnapshot) {
         val properties =
             Properties().apply {
@@ -89,7 +95,9 @@ internal class DesktopTaskBoardStore(
             ),
         )
     }
-
+    /**
+     * Path of the database file holding the board preferences.
+     */
     fun getBoardFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     internal companion object {

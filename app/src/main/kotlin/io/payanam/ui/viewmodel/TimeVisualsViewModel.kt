@@ -26,6 +26,11 @@ import kotlinx.coroutines.launch
 import java.time.LocalDate
 import javax.inject.Inject
 
+/**
+ * Time-screen visuals ViewModel: computes overall/per-dimension day summaries
+ * and the 7-day trend strip, with a fast pre-lookup render, day cache, and a
+ * toggleable dimension filter.
+ */
 @HiltViewModel
 class TimeVisualsViewModel @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
@@ -40,7 +45,10 @@ class TimeVisualsViewModel @Inject constructor(
     private var taskLookup: Map<String, Task> = emptyMap()
     private var inFlightDate: LocalDate? = null
     private var loadJob: Job? = null
-
+    /**
+     * Loads visuals for [date]: fast render before task lookup, then the full
+     * pass with per-dimension rollups and trend figures.
+     */
     fun loadForDate(date: LocalDate) {
         if (inFlightDate == date && loadJob?.isActive == true) {
             logger.d(
@@ -87,7 +95,6 @@ class TimeVisualsViewModel @Inject constructor(
                         ),
                     )
                 }
-
                 val taskLookupDeferred = async {
                     if (taskLookup.isEmpty()) {
                         taskRepository.getAllTasks().first().associateBy { it.id }
@@ -100,7 +107,6 @@ class TimeVisualsViewModel @Inject constructor(
                     taskLookup = resolvedTaskLookup
                     dayCache.clear()
                 }
-
                 val todaySummary = getDayVisual(date)
                 val yesterdaySummary = getDayVisual(date.minusDays(1))
                 val rolling = (0..6).map { offset -> getDayVisual(date.minusDays(offset.toLong())).overall.trackedMinutes }
@@ -132,7 +138,9 @@ class TimeVisualsViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Toggles the per-dimension filter (re-tap clears it).
+     */
     fun toggleDimensionFilter(dimensionId: String) {
         _uiState.update { state ->
             state.copy(

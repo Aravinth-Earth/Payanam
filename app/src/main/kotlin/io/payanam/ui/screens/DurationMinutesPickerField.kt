@@ -33,7 +33,6 @@ internal fun DurationMinutesPickerField(
     val focusManager = LocalFocusManager.current
     var showPicker by remember { mutableStateOf(false) }
     val safeMinutes = (minutes ?: 0).coerceIn(0, 23 * 60 + 59)
-
     Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
             value = formatDurationForPickerValue(safeMinutes),
@@ -79,7 +78,6 @@ internal fun DurationMinutesPickerField(
             singleLine = true,
         )
     }
-
     LaunchedEffect(showPicker) {
         logger.d(
             "DurationMinutesPickerField",
@@ -87,7 +85,6 @@ internal fun DurationMinutesPickerField(
             mapOf("label" to label, "showPicker" to showPicker.toString()),
         )
     }
-
     if (showPicker) {
         TimePickerAlertDialog(
             initialTime = LocalTime.of(safeMinutes / 60, safeMinutes % 60),

@@ -12,8 +12,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the journal note entity test.
+ */
 class JournalNoteEntityTest {
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -22,6 +28,9 @@ class JournalNoteEntityTest {
     }
 
     @Test
+    /**
+     * Performs the journal note entity exposes fields.
+     */
     fun journalNote_entity_exposes_fields() {
         val journalNote =
             JournalNoteEntity(
@@ -34,7 +43,6 @@ class JournalNoteEntityTest {
                 createdAt = "2026-01-31T10:00:00",
                 updatedAt = "2026-01-31T10:05:00",
             )
-
         assertThat(journalNote.id).isEqualTo("jn-1")
         assertThat(journalNote.title).isEqualTo("Morning reflection")
         assertThat(journalNote.details).isEqualTo("Focused work before lunch")
@@ -46,6 +54,9 @@ class JournalNoteEntityTest {
     }
 
     @Test
+    /**
+     * Performs the journal note entity defaults copy and components work.
+     */
     fun journalNote_entity_defaults_copy_and_components_work() {
         val note =
             JournalNoteEntity(
@@ -56,10 +67,8 @@ class JournalNoteEntityTest {
                 createdAt = "2026-02-01T20:00:00",
                 updatedAt = "2026-02-01T20:10:00",
             )
-
         assertThat(note.details).isNull()
         assertThat(note.dimensionId).isNull()
-
         val copied = note.copy(details = "Walked 45 minutes", dimensionId = "dim_health_wellness")
         assertThat(copied.component1()).isEqualTo("jn-2")
         assertThat(copied.component2()).isEqualTo("Evening recap")

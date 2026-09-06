@@ -50,7 +50,6 @@ internal fun settingsAppearanceSection(
         )
         return
     }
-
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = stringResource(id = R.string.settings_app_language),

@@ -52,7 +52,6 @@ fun ScoringConfigScreen(
     val prefs = LocalAppPreferences.current
 
     logger.d("ScoringConfigScreen", "Rendering", mapOf("hasChanges" to uiState.hasChanges))
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -205,7 +204,6 @@ fun ScoringConfigScreen(
                         )
                     }
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Action Buttons
@@ -223,7 +221,6 @@ fun ScoringConfigScreen(
                     ) {
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.settings_action_cancel))
                     }
-
                     Button(
                         onClick = {
                             viewModel.saveConfig()
@@ -247,7 +244,6 @@ fun ScoringConfigScreen(
                         }
                     }
                 }
-
                 Spacer(modifier = Modifier.height(32.dp))
             }
         }

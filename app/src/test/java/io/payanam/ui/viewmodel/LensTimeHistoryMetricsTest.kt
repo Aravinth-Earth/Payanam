@@ -39,6 +39,9 @@ class LensTimeHistoryMetricsTest {
     }
 
     @Test
+    /**
+     * Build time module day metrics negative but improved delta increments streak.
+     */
     fun buildTimeModuleDayMetrics_negativeButImprovedDelta_incrementsStreak() {
         val start = LocalDate.of(2026, 2, 15)
         val days = listOf(
@@ -46,9 +49,7 @@ class LensTimeHistoryMetricsTest {
             start.plusDays(1) to snapshotWithSingleDimension(planned = 100, actual = 50),
             start.plusDays(2) to snapshotWithSingleDimension(planned = 100, actual = 40),
         )
-
         val metrics = buildTimeModuleDayMetrics(days)
-
         assertEquals(3, metrics.size)
         assertEquals(-0.5, metrics[1].progressDelta, 0.000001)
         assertEquals(-0.1, metrics[2].progressDelta, 0.000001)
@@ -58,6 +59,9 @@ class LensTimeHistoryMetricsTest {
     }
 
     @Test
+    /**
+     * Build time module history summary returns ranks against all history.
+     */
     fun buildTimeModuleHistorySummary_returnsRanksAgainstAllHistory() {
         val firstDay = LocalDate.of(2026, 2, 10)
         val snapshots: Map<String, UnifiedLensSnapshot> = linkedMapOf(
@@ -66,14 +70,12 @@ class LensTimeHistoryMetricsTest {
             firstDay.plusDays(2).toString() to snapshotWithSingleDimension(planned = 100, actual = 80),
         )
         val repo = FakeHistoryLensRepository(firstTrackedDate = firstDay, snapshots = snapshots)
-
         val summary = runBlocking {
             buildTimeModuleHistorySummary(
                 lensRepository = repo,
                 focusDate = firstDay.plusDays(2),
             )
         }
-
         assertNotNull(summary)
         assertEquals(3, summary?.totalDays)
         assertTrue((summary?.dayScoreRank ?: 0) >= 1)
@@ -82,6 +84,9 @@ class LensTimeHistoryMetricsTest {
     }
 
     @Test
+    /**
+     * Calculate per dimension time scores returns scores for all available dimensions.
+     */
     fun calculatePerDimensionTimeScores_returnsScoresForAllAvailableDimensions() {
         val result = calculatePerDimensionTimeScores(
             plannedByDimension = mapOf(
@@ -93,7 +98,6 @@ class LensTimeHistoryMetricsTest {
                 "dim_learning_growth" to 30,
             ),
         )
-
         assertEquals(3, result.size)
         assertEquals(1.0, result["dim_physical_health"] ?: 0.0, 0.000001)
         assertNotNull(result["dim_work_livelihood"])
@@ -101,6 +105,9 @@ class LensTimeHistoryMetricsTest {
     }
 
     @Test
+    /**
+     * Calculate weighted time module score uses canonical dimension weights for legacy ids.
+     */
     fun calculateWeightedTimeModuleScore_usesCanonicalDimensionWeightsForLegacyIds() {
         val weighted = calculateWeightedTimeModuleScore(
             plannedByDimension = mapOf(
@@ -112,7 +119,6 @@ class LensTimeHistoryMetricsTest {
                 "dim_community_service" to 0,
             ),
         )
-
         assertEquals(1.0 / 1.7, weighted, 0.000001)
     }
 

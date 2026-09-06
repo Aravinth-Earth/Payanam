@@ -93,7 +93,6 @@ class TimeEntryTest {
             createdAt = start,
             updatedAt = end
         )
-
         assertThat(entry.id).isEqualTo("entry-4")
         assertThat(entry.lifeIntentionCategory).isEqualTo("Focus")
         assertThat(entry.taskId).isEqualTo("task-9")

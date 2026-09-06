@@ -8,6 +8,7 @@ import io.payanam.domain.model.TaskOccurrence
 import io.payanam.ui.components.CheckmarkStatus
 import io.payanam.ui.components.DayCheckmark
 import java.time.LocalDate
+import java.time.format.DateTimeParseException
 
 private val tasksHabitCacheLogger = UnifiedLogger.getInstance()
 
@@ -49,6 +50,7 @@ internal fun buildHabitCheckmarkPayload(
     )
 }
 
+@Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
 internal fun buildCheckmarksForTask(
     occurrences: List<TaskOccurrence>,
     today: LocalDate,
@@ -57,7 +59,7 @@ internal fun buildCheckmarksForTask(
     val occurrenceMap = occurrences.associateBy { occurrence ->
         try {
             LocalDate.parse(occurrence.occurrenceDate.take(10))
-        } catch (e: Exception) {
+        } catch (e: DateTimeParseException) {
             tasksHabitCacheLogger.w(
                 "TasksHabitCache.buildCheckmarksForTask",
                 "Skipping occurrence with invalid date",
@@ -66,7 +68,6 @@ internal fun buildCheckmarksForTask(
             null
         }
     }.filterKeys { it != null }.mapKeys { it.key!! }
-
     return (0 until days).map { daysAgo ->
         val date = today.minusDays(daysAgo.toLong())
         val occurrence = occurrenceMap[date]

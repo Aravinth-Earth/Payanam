@@ -14,7 +14,10 @@ import java.time.LocalTime
 
 internal object TimeVisualsCalculator {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
-
+    /**
+     * Whole-day summary from clipped entry intervals: tracked minutes, focus
+     * share, active blocks, and overlap/gap counts.
+     */
     fun computeDayOverall(
         selectedDate: LocalDate,
         entries: List<TimeEntry>,
@@ -53,7 +56,10 @@ internal object TimeVisualsCalculator {
         )
         return result
     }
-
+    /**
+     * Per-dimension rollup for the day: entry-based tracking plus
+     * occurrence-derived supplemental minutes, with planned-vs-actual deltas.
+     */
     fun computePerDimension(
         selectedDate: LocalDate,
         entries: List<TimeEntry>,
@@ -71,7 +77,6 @@ internal object TimeVisualsCalculator {
                 .sumOf { Duration.between(it.first, it.second).toMinutes().coerceAtLeast(0) }
                 .toLong()
         }
-
         val tasksWithTrackedEntries = entries.mapNotNull { it.taskId }.toSet()
         val supplementalByDimension = mutableMapOf<String, Long>()
         occurrences.forEach { occurrence ->
@@ -86,7 +91,6 @@ internal object TimeVisualsCalculator {
             val dimensionId = task.dimensionId ?: return@forEach
             supplementalByDimension[dimensionId] = (supplementalByDimension[dimensionId] ?: 0L) + minutes
         }
-
         val totalMinutes = trackedByDimensionFromEntries.values.sum() + supplementalByDimension.values.sum()
         val plannedByDimension = allocations.associate { it.dimensionId to it.plannedMinutes }
         val dimensionIds = (trackedByDimensionFromEntries.keys + supplementalByDimension.keys + plannedByDimension.keys).toSet()

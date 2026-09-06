@@ -19,7 +19,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
-import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Clear
@@ -53,7 +52,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -87,14 +85,12 @@ fun NotesScreen(
     val dimensionOptions = prefs.visibleDimensionOptions()
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
-
     LaunchedEffect(dimensionOptions, uiState.selectedDimensionId) {
         val visibleIds = dimensionOptions.map { it.id }.toSet()
         if (uiState.selectedDimensionId != null && uiState.selectedDimensionId !in visibleIds) {
             viewModel.setDimensionFilter(null)
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -176,7 +172,6 @@ fun NotesScreen(
                     )
                 }
             }
-
             Spacer(modifier = Modifier.height(8.dp))
 
             // Notes list
@@ -294,7 +289,6 @@ private fun NoteCard(
     val prefs = LocalAppPreferences.current
     val dimensionColor = prefs.colorForDimensionId(note.dimensionId) ?: prefs.colorFor(note.lifeIntentionCategory)
     val dimensionLabel = prefs.labelForDimensionId(note.dimensionId) ?: prefs.labelFor(note.lifeIntentionCategory)
-
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -335,7 +329,6 @@ private fun NoteCard(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
-
             Spacer(modifier = Modifier.height(8.dp))
 
             // Title
@@ -358,7 +351,6 @@ private fun NoteCard(
                     overflow = TextOverflow.Ellipsis,
                 )
             }
-
             if (tags.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(8.dp))
                 LazyRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
@@ -406,7 +398,6 @@ private fun NoteDialog(
     }
     val dimensionOptions = prefs.optionsForSelection(selectedDimensionId)
     var dimensionExpanded by remember { mutableStateOf(false) }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -439,7 +430,6 @@ private fun NoteDialog(
                         .height(120.dp),
                     maxLines = 5,
                 )
-
                 val selectedTags = parseTagsInput(tagsInput)
                 val matchingTagSuggestions = tagSuggestions
                     .filter { suggestion ->

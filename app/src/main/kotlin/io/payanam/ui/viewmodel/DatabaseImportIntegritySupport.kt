@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.viewmodel
 
 import android.content.Context
@@ -10,7 +12,10 @@ import java.io.File
 internal object DatabaseImportIntegritySupport {
     private val logger = UnifiedLogger.getInstance()
     private val trackedTables = listOf("tasks", "time_entries", "notes")
-
+    /**
+     * Row counts of the tracked core tables (tasks, time_entries, notes) read
+     * from a database file, plaintext or encrypted.
+     */
     fun readCoreCounts(
         context: Context,
         databaseFile: File,
@@ -43,7 +48,10 @@ internal object DatabaseImportIntegritySupport {
         )
         return counts
     }
-
+    /**
+     * Asserts the import preserved every tracked table's row count; throws on
+     * the first mismatch.
+     */
     fun validateCountsPreserved(
         beforeCounts: Map<String, Int>,
         afterCounts: Map<String, Int>,

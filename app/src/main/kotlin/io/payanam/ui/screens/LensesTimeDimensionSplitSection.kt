@@ -1,9 +1,10 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
@@ -17,7 +18,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.KeyboardArrowLeft
@@ -67,7 +67,6 @@ internal fun DimensionSplitSection(
     onShiftRight: () -> Unit,
 ) {
     val appPrefs = LocalAppPreferences.current
-
     LaunchedEffect(state.window, state.windowOffset, state.totalMinutes) {
         logger.d(
             "DimensionSplitSection",
@@ -80,7 +79,6 @@ internal fun DimensionSplitSection(
             ),
         )
     }
-
     Column(modifier = Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = stringResource(id = R.string.loc_lens_dim_split_title),
@@ -146,7 +144,6 @@ internal fun DimensionSplitSection(
                     },
                 )
             }
-
             Column(horizontalAlignment = Alignment.CenterHorizontally) {
                 Text(
                     text = rangeLabelFor(state),
@@ -168,7 +165,6 @@ internal fun DimensionSplitSection(
                     )
                 }
             }
-
             IconButton(
                 onClick = onShiftRight,
                 enabled = state.canShiftRight,
@@ -185,7 +181,6 @@ internal fun DimensionSplitSection(
                 )
             }
         }
-
         if (state.totalMinutes == 0 && !state.isLoading) {
             Text(
                 text = stringResource(id = R.string.loc_lens_dim_split_no_data),
@@ -200,7 +195,6 @@ internal fun DimensionSplitSection(
 
         // Donut chart
         DimensionDonutChart(slices = slices, totalMinutes = state.totalMinutes)
-
         Spacer(modifier = Modifier.height(4.dp))
 
         // Legend
@@ -264,7 +258,6 @@ private fun DimensionDonutChart(slices: List<DimensionSlice>, totalMinutes: Int)
             .maxByOrNull { it.minutes }
             ?: resolvedSlices.firstOrNull()
     }
-
     Box(
         modifier = Modifier
             .fillMaxWidth()

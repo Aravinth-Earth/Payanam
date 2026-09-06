@@ -28,6 +28,9 @@ class DatabaseStateRecoveryTest {
     private val testPassphrase = "RecoveryTest123!"
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -46,6 +49,9 @@ class DatabaseStateRecoveryTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         encryptionManager.resetEncryptionState()
@@ -54,11 +60,13 @@ class DatabaseStateRecoveryTest {
     }
 
     @Test
+    /**
+     * Performs the cleanup stale artifacts removes temporary encryption files.
+     */
     fun cleanupStaleArtifacts_removesTemporaryEncryptionFiles() {
         // Arrange: Create some stale encryption temporary files
         val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
         assertThat(dbDir).isNotNull()
-
         val staleTempFile = File(dbDir!!, "${PayanamDatabase.DATABASE_NAME}.enc.tmp")
         staleTempFile.createNewFile()
         assertThat(staleTempFile.exists()).isTrue()
@@ -76,13 +84,15 @@ class DatabaseStateRecoveryTest {
     }
 
     @Test
+    /**
+     * Performs the cleanup stale artifacts preserves primary database.
+     */
     fun cleanupStaleArtifacts_preservesPrimaryDatabase() =
         runTest {
             // Arrange: Create and open a valid database
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-
             val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isTrue()
 
@@ -101,6 +111,9 @@ class DatabaseStateRecoveryTest {
         }
 
     @Test
+    /**
+     * Performs the encryption prefs backup and restore.
+     */
     fun encryptionPrefs_backupAndRestore() {
         // Arrange: Configure encryption with some state
         val configResult = encryptionManager.configurePassphrase(testPassphrase)
@@ -134,6 +147,9 @@ class DatabaseStateRecoveryTest {
     }
 
     @Test
+    /**
+     * Performs the recovery from partial import resets state cleanly.
+     */
     fun recoveryFromPartialImport_resetsStateCleanly() =
         runTest {
             // Simulates: user starts import, process crashes, then recovery
@@ -175,13 +191,15 @@ class DatabaseStateRecoveryTest {
         }
 
     @Test
+    /**
+     * Performs the database walfiles cleaned on deletion.
+     */
     fun databaseWALFiles_cleanedOnDeletion() =
         runTest {
             // Arrange: Create database with WAL files
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-
             val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
             val dbName = PayanamDatabase.DATABASE_NAME
             val walFile = File(dbDir!!, "$dbName-wal")
@@ -210,6 +228,9 @@ class DatabaseStateRecoveryTest {
         }
 
     @Test
+    /**
+     * Performs the encryption state reset is idempotent.
+     */
     fun encryptionStateReset_isIdempotent() {
         // Arrange: Configure encryption
         encryptionManager.configurePassphrase(testPassphrase)
@@ -237,6 +258,9 @@ class DatabaseStateRecoveryTest {
     }
 
     @Test
+    /**
+     * Performs the failure recovery database reopening after cleanup.
+     */
     fun failureRecovery_databaseReopeningAfterCleanup() =
         runTest {
             // Step 1: Create database with passphrase

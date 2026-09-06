@@ -9,7 +9,10 @@ import io.payanam.domain.repository.UnifiedLensSnapshot
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import kotlin.math.round
-
+/**
+ * One day's time-module result: day score, day-over-day progress delta,
+ * improving streak length, and per-dimension scores.
+ */
 data class TimeModuleDayMetric(
     val dayKey: String,
     val dayScore: Double,
@@ -17,7 +20,10 @@ data class TimeModuleDayMetric(
     val progressStreak: Int,
     val perDimensionScores: Map<String, Double>,
 )
-
+/**
+ * Time-module history for a lens window: the focus day's metric plus its
+ * rank against all loaded days.
+ */
 data class TimeModuleHistorySummary(
     val currentDayKey: String,
     val currentDayScore: Double,
@@ -45,14 +51,12 @@ internal suspend fun buildTimeModuleHistorySummary(
     if (effectiveFocusDate.isBefore(firstTrackedDate)) {
         return null
     }
-
     val boundedHistoryLimit = historyDayLimit.coerceAtLeast(1)
     val startDate = if (historyDayLimit == Int.MAX_VALUE) {
         firstTrackedDate
     } else {
         maxOf(firstTrackedDate, effectiveFocusDate.minusDays((boundedHistoryLimit - 1).toLong()))
     }
-
     val days = mutableListOf<Pair<LocalDate, UnifiedLensSnapshot>>()
     var cursor = startDate
     while (!cursor.isAfter(effectiveFocusDate)) {
@@ -61,7 +65,6 @@ internal suspend fun buildTimeModuleHistorySummary(
         days.add(cursor to snapshot)
         cursor = cursor.plusDays(1)
     }
-
     val metrics = buildTimeModuleDayMetrics(days)
     if (metrics.isEmpty()) {
         return null

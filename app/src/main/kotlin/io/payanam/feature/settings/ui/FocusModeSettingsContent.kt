@@ -36,7 +36,6 @@ fun focusModeSettingsContent(
     onSetTabVisibility: (String, Boolean) -> Unit,
 ) {
     val logger = UnifiedLogger.getInstance()
-
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         // Active Preset Selector
         Text(
@@ -44,7 +43,6 @@ fun focusModeSettingsContent(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             FocusModePreset.entries.forEachIndexed { index, preset ->
                 SegmentedButton(
@@ -76,7 +74,6 @@ fun focusModeSettingsContent(
                 }
             }
         }
-
         HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
 
         // Individual Tab Visibility Toggles
@@ -85,7 +82,6 @@ fun focusModeSettingsContent(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-
         Text(
             text = stringResource(id = R.string.tab_visibility_warning),
             style = MaterialTheme.typography.bodySmall,
@@ -113,7 +109,6 @@ fun focusModeSettingsContent(
                     text = stringResource(id = labelRes),
                     style = MaterialTheme.typography.bodyMedium,
                 )
-
                 if (tabRoute == "settings") {
                     // Settings tab is always visible (disabled switch)
                     Switch(

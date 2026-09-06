@@ -5,7 +5,9 @@ package io.payanam.desktop
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 import java.nio.file.Files
-
+/**
+ * Provides the desktop single instance guard test.
+ */
 class DesktopSingleInstanceGuardTest {
     @Test
     fun `acquire returns running process when lock already held`() {

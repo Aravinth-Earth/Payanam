@@ -5,7 +5,6 @@ package io.payanam.shared.journal
 import com.google.common.truth.Truth.assertThat
 import java.time.LocalDateTime
 import org.junit.Test
-
 class JournalReflectionContractsTest {
     @Test
     fun `upsert overall response creates day and trims value`() {
@@ -19,7 +18,6 @@ class JournalReflectionContractsTest {
                 response = "  Family time  ",
                 now = now,
             )
-
         assertThat(snapshot.days).hasSize(1)
         assertThat(snapshot.days.single().overallResponses["gratitude"]).isEqualTo("Family time")
     }
@@ -46,7 +44,6 @@ class JournalReflectionContractsTest {
                 response = "   ",
                 now = now.plusMinutes(15),
             )
-
         assertThat(cleared.days.single().dimensionResponses).doesNotContainKey("dim_learning_growth")
     }
 }

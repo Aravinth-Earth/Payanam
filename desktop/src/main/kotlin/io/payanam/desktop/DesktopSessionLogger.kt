@@ -11,6 +11,10 @@ import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Append-only desktop session logger that writes structured entries to a file
+ * and implements [AutoCloseable] so the underlying writer can be released.
+ */
 class DesktopSessionLogger private constructor(
     private val logFilePath: Path,
     private val openedAt: Instant,
@@ -21,7 +25,9 @@ class DesktopSessionLogger private constructor(
     init {
         writeHeader()
     }
-
+    /**
+     * INFO-level structured entry.
+     */
     fun i(
         source: String,
         message: String,
@@ -29,7 +35,9 @@ class DesktopSessionLogger private constructor(
     ) {
         appendEntry(level = "INFO", source = source, message = message, data = data)
     }
-
+    /**
+     * WARN-level structured entry.
+     */
     fun w(
         source: String,
         message: String,
@@ -37,7 +45,10 @@ class DesktopSessionLogger private constructor(
     ) {
         appendEntry(level = "WARN", source = source, message = message, data = data)
     }
-
+    /**
+     * ERROR-level structured entry; [error]'s class, message, and a capped
+     * stack trace are folded into the data payload.
+     */
     fun e(
         source: String,
         message: String,
@@ -60,9 +71,14 @@ class DesktopSessionLogger private constructor(
             }
         appendEntry(level = "ERROR", source = source, message = message, data = errorData)
     }
-
+    /**
+     * Path of this session's log file.
+     */
     fun getLogPath(): Path = logFilePath
 
+    /**
+     * Writes the session-end marker and releases the singleton.
+     */
     override fun close() {
         appendEntry(
             level = "INFO",
@@ -158,7 +174,10 @@ class DesktopSessionLogger private constructor(
         @Volatile
         private var instance: DesktopSessionLogger? = null
         private val companionLock = Any()
-
+        /**
+         * Creates the singleton session logger (pruning stale logs first);
+         * safe to call repeatedly.
+         */
         fun initialize(
             logsDirectory: Path = DesktopAppPaths.resolveLogsDirectory(),
             clock: () -> Instant = { Instant.now() },
@@ -168,7 +187,9 @@ class DesktopSessionLogger private constructor(
                     instance = it
                 }
             }
-
+        /**
+         * The active session logger; errors if [initialize] was not called.
+         */
         fun getInstance(): DesktopSessionLogger =
             instance ?: error("DesktopSessionLogger not initialized. Call initialize() from desktop main().")
 

@@ -2,11 +2,34 @@
 
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
-**Current Build:** #1478 (Android) / #615 (Desktop)
+**Latest Builds:**
+- 🔧 **Dev** (rolling): [latest-dev](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev) — pre-release, multiple builds/day
+- 🧪 **Beta** (rolling): [latest-beta](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta) — pre-release, ~2 builds/week
+- 🚀 **Stable** (rolling): [latest-stable](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable) — stable, ~2 builds/month
 
 Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking.
 
 See [VISION.md](docs/VISION.md) for philosophy and roadmap.
+
+---
+
+## Screenshots
+
+**English (EN)**
+
+| | |
+|---|---|
+| ![Habits list](docs/images/screenshots/en/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/en/2_tasks_list.jpg) |
+| ![Time timeline](docs/images/screenshots/en/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/en/4_dimension_insights.jpg) |
+| ![Lenses radar](docs/images/screenshots/en/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/en/6_settings.jpg) |
+
+**Tamil (தமிழ்)**
+
+| | |
+|---|---|
+| ![Habits list](docs/images/screenshots/ta/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/ta/2_tasks_list.jpg) |
+| ![Time timeline](docs/images/screenshots/ta/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/ta/4_dimension_insights.jpg) |
+| ![Lenses radar](docs/images/screenshots/ta/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/ta/6_settings.jpg) |
 
 ---
 

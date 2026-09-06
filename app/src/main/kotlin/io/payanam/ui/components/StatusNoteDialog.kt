@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:function-naming")
+@file:Suppress("ktlint:standard:function-naming", "UndocumentedPublicProperty")
 
 package io.payanam.ui.components
 
@@ -53,7 +53,7 @@ enum class SkipReason(@androidx.annotation.StringRes val labelRes: Int) {
 }
 
 /**
- * Result returned from the StatusNoteDialog
+ * Result returned from the statusNoteDialog
  */
 data class StatusNoteResult(
     val action: StatusAction,
@@ -89,7 +89,6 @@ fun StatusNoteDialog(
     var selectedReason by remember { mutableStateOf<SkipReason?>(null) }
     var noteText by remember { mutableStateOf("") }
     var nextDueStrategy by remember { mutableStateOf("planned") } // Default to planned
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -111,10 +110,8 @@ fun StatusNoteDialog(
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 if (action != StatusAction.COMPLETE) {
                     Spacer(modifier = Modifier.height(8.dp))
-
                     Text(
                         text = androidx.compose.ui.res.stringResource(
                             id = if (action == StatusAction.SKIP) {
@@ -156,7 +153,6 @@ fun StatusNoteDialog(
 
                 // Note input (always shown, but label changes based on context)
                 Spacer(modifier = Modifier.height(8.dp))
-
                 OutlinedTextField(
                     value = noteText,
                     onValueChange = { noteText = it },
@@ -178,12 +174,10 @@ fun StatusNoteDialog(
                 // Next due date strategy for recurring tasks
                 if (isRecurring && (action == StatusAction.COMPLETE || action == StatusAction.SKIP)) {
                     Spacer(modifier = Modifier.height(16.dp))
-
                     Text(
                         text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_next_occurrence_timing),
                         style = MaterialTheme.typography.labelLarge,
                     )
-
                     Column(modifier = Modifier.selectableGroup()) {
                         Row(
                             modifier = Modifier
@@ -206,7 +200,6 @@ fun StatusNoteDialog(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                         }
-
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -276,7 +269,6 @@ fun QuickCompleteDialog(
     onDismiss: () -> Unit,
 ) {
     if (!isVisible) return
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_complete_task)) },

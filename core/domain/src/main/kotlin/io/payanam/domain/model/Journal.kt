@@ -6,7 +6,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
- * Day Journal Entry - one per day for journaling.
+ * Day journal entry - one per day for journaling.
  */
 data class DayJournalEntry(
     val id: String,
@@ -26,12 +26,17 @@ data class DayJournalResponse(
     val promptKey: String,
     val responseText: String
 )
-
+/**
+ * The two prompt scopes a journal question can target: the [OVERALL] day
+ * summary or a specific [DIMENSION] of life.
+ */
 enum class JournalPromptScope {
     OVERALL,
     DIMENSION
 }
-
+/**
+ * Editable payload for a journal prompt response (excludes id + entry link).
+ */
 data class DayJournalResponseInput(
     val scope: JournalPromptScope,
     val dimensionKey: String? = null,

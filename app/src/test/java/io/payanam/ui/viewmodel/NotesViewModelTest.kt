@@ -71,13 +71,11 @@ class NotesViewModelTest {
                 updatedAt = now,
             ),
         )
-
         val viewModel = NotesViewModel(noteRepository, tagRepository)
         advanceUntilIdle()
 
         viewModel.setDimensionFilter("dim_learning_growth")
         advanceUntilIdle()
-
         val state = viewModel.uiState.value
         assertEquals("dim_learning_growth", state.selectedDimensionId)
         assertEquals(listOf("n1"), state.filteredNotes.map { it.id })
@@ -96,7 +94,6 @@ class NotesViewModelTest {
             tags = listOf("tag1"),
         )
         advanceUntilIdle()
-
         assertEquals(
             NoteInput(
                 title = "Journal idea",

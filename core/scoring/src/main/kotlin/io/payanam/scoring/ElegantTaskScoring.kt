@@ -24,19 +24,33 @@ import kotlin.math.pow
  * Supports configurable weights via ScoringConfig.
  */
 object ElegantTaskScoring {
-    
+
     // Default weights (used if no config provided)
     private val DEFAULT_CONFIG = ScoringConfig.defaults()
-    
-    // Duration normalization (shorter tasks get slight boost for quick wins)
+
+    // Duration normalization tiers (minutes): shorter tasks get a slight boost.
+    private const val DURATION_QUICK_WIN_MINUTES = 15
+    private const val DURATION_TIER_30_MINUTES = 30
+    private const val DURATION_TIER_60_MINUTES = 60
+    private const val DURATION_TIER_120_MINUTES = 120
+    private const val DURATION_TIER_240_MINUTES = 240
+    private const val DURATION_QUICK_WIN_SCORE = 1.0
+    private const val DURATION_TIER_30_SCORE = 0.9
+    private const val DURATION_TIER_60_SCORE = 0.8
+    private const val DURATION_TIER_120_SCORE = 0.65
+    private const val DURATION_TIER_240_SCORE = 0.5
+    private const val DURATION_LONG_SCORE = 0.35
+    // Small floor added to each factor to avoid zeroing the product out.
+    private const val SCORE_FLOOR = 0.05
+
     private fun normalizeDuration(minutes: Int): Double {
         return when {
-            minutes <= 15 -> 1.0    // Quick win
-            minutes <= 30 -> 0.9
-            minutes <= 60 -> 0.8
-            minutes <= 120 -> 0.65
-            minutes <= 240 -> 0.5
-            else -> 0.35            // Long tasks
+            minutes <= DURATION_QUICK_WIN_MINUTES -> DURATION_QUICK_WIN_SCORE
+            minutes <= DURATION_TIER_30_MINUTES -> DURATION_TIER_30_SCORE
+            minutes <= DURATION_TIER_60_MINUTES -> DURATION_TIER_60_SCORE
+            minutes <= DURATION_TIER_120_MINUTES -> DURATION_TIER_120_SCORE
+            minutes <= DURATION_TIER_240_MINUTES -> DURATION_TIER_240_SCORE
+            else -> DURATION_LONG_SCORE
         }
     }
     
@@ -79,7 +93,7 @@ object ElegantTaskScoring {
         val durationValue = normalizeDuration(task.durationMinutes)
         
         // Add small floor to avoid zeroing out
-        val floor = 0.05
+        val floor = SCORE_FLOOR
         val factors = listOf(
             (dimensionValue + floor).coerceIn(floor, 1.0),
             (impactValue + floor).coerceIn(floor, 1.0),
@@ -143,6 +157,7 @@ object ElegantTaskScoring {
         lifeDimensions = LifeDimension.allDisplayNames()
     )
 
+    /** Normalizes a legacy impact level label to the canonical form. */
     internal fun normalizeImpactLevel(level: String): String {
         return when (level) {
             "Major Impact" -> "High Impact"
@@ -150,6 +165,7 @@ object ElegantTaskScoring {
         }
     }
 
+    /** Normalizes a legacy alignment level label to the canonical form. */
     internal fun normalizeAlignmentLevel(level: String): String {
         return when (level) {
             "High Alignment" -> "Strong Alignment"
@@ -159,6 +175,16 @@ object ElegantTaskScoring {
     }
 }
 
+/**
+ * Default values for a task's scoring parameters.
+ *
+ * @property durationMinutes Default planned duration in minutes.
+ * @property impactLevel Default impact-level label.
+ * @property goalAlignment Default goal-alignment label.
+ * @property energyLevel Default energy-level label.
+ * @property controlLevel Default control-level label.
+ * @property lifeIntentionCategory Default life-intention category.
+ */
 data class TaskScoringDefaults(
     val durationMinutes: Int,
     val impactLevel: String,
@@ -168,6 +194,15 @@ data class TaskScoringDefaults(
     val lifeIntentionCategory: String
 )
 
+/**
+ * Available option sets for each scoring parameter.
+ *
+ * @property impactLevels Selectable impact levels.
+ * @property goalAlignments Selectable goal-alignment levels.
+ * @property energyLevels Selectable energy levels.
+ * @property controlLevels Selectable control levels.
+ * @property lifeDimensions Selectable life-dimension display names.
+ */
 data class TaskScoringOptions(
     val impactLevels: List<String>,
     val goalAlignments: List<String>,

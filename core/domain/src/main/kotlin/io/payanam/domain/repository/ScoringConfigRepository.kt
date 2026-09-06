@@ -6,7 +6,7 @@ import io.payanam.domain.model.ScoringConfig
 import kotlinx.coroutines.flow.Flow
 
 /**
- * Repository interface for Scoring Configuration.
+ * Repository interface for scoring configuration.
  */
 interface ScoringConfigRepository {
     

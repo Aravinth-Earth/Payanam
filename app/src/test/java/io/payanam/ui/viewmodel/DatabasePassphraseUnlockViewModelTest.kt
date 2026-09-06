@@ -4,7 +4,6 @@ package io.payanam.ui.viewmodel
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
 class DatabasePassphraseUnlockViewModelTest {
 
     @Test

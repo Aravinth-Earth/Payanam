@@ -17,7 +17,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * UI state for Scoring Configuration screen.
+ * UI state for scoring configuration screen.
  */
 data class ScoringConfigUiState(
     val config: ScoringConfig = ScoringConfig.defaults(),
@@ -27,7 +27,7 @@ data class ScoringConfigUiState(
 )
 
 /**
- * ViewModel for the Scoring Configuration screen.
+ * ViewModel for the scoring configuration screen.
  */
 @HiltViewModel
 class ScoringConfigViewModel @Inject constructor(
@@ -60,33 +60,47 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Factor Weight Updates =====
-
+    /**
+     * Sets the overall weight of the dimension-allocation scoring factor.
+     */
     fun setDimensionWeight(value: Double) {
         updateConfig { it.copy(dimensionWeight = value) }
     }
-
+    /**
+     * Configures the weight of the impact level in the overall score.
+     */
     fun setImpactWeight(value: Double) {
         updateConfig { it.copy(impactWeight = value) }
     }
-
+    /**
+     * Configures the weight of the alignment level in the overall score.
+     */
     fun setAlignmentWeight(value: Double) {
         updateConfig { it.copy(alignmentWeight = value) }
     }
-
+    /**
+     * Configures the weight of the energy level in the overall score.
+     */
     fun setEnergyWeight(value: Double) {
         updateConfig { it.copy(energyWeight = value) }
     }
-
+    /**
+     * Configures the weight of the control level in the overall score.
+     */
     fun setControlWeight(value: Double) {
         updateConfig { it.copy(controlWeight = value) }
     }
-
+    /**
+     * Sets the weight of the time-duration factor in the overall score.
+     */
     fun setDurationWeight(value: Double) {
         updateConfig { it.copy(durationWeight = value) }
     }
 
     // ===== Impact Level Updates =====
-
+    /**
+     * Sets the numeric weight mapped to impact [level] (e.g. "high"/"medium"/"low").
+     */
     fun setImpactLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(impactLevelWeights = it.impactLevelWeights + (level to value))
@@ -94,7 +108,9 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Alignment Level Updates =====
-
+    /**
+     * Sets the numeric weight mapped to alignment [level].
+     */
     fun setAlignmentValue(level: String, value: Double) {
         updateConfig {
             it.copy(alignmentWeights = it.alignmentWeights + (level to value))
@@ -102,7 +118,9 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Energy Level Updates =====
-
+    /**
+     * Sets the numeric weight mapped to energy [level].
+     */
     fun setEnergyLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(energyLevelWeights = it.energyLevelWeights + (level to value))
@@ -110,7 +128,9 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Control Level Updates =====
-
+    /**
+     * Sets the numeric weight mapped to control [level].
+     */
     fun setControlLevelValue(level: String, value: Double) {
         updateConfig {
             it.copy(controlLevelWeights = it.controlLevelWeights + (level to value))
@@ -118,7 +138,10 @@ class ScoringConfigViewModel @Inject constructor(
     }
 
     // ===== Dimension Weight Updates =====
-
+    /**
+     * Sets the weight for a life dimension identified by [dimensionId] (canonicalized
+     * via the taxonomy before storing).
+     */
     fun setDimensionValue(dimensionId: String, value: Double) {
         val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: dimensionId
         updateConfig {
@@ -127,13 +150,18 @@ class ScoringConfigViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Sets the weight for a life [dimension] (delegates to the id-based overload
+     * after canonicalizing its id).
+     */
     fun setDimensionValue(dimension: LifeDimension, value: Double) {
         setDimensionValue(dimension.id, value)
     }
 
     // ===== Actions =====
-
+    /**
+     * Persists the current in-progress config and clears the "has changes" flag.
+     */
     fun saveConfig() {
         viewModelScope.launch {
             logger.i("ScoringConfigViewModel.saveConfig", "Saving scoring config")
@@ -149,12 +177,13 @@ class ScoringConfigViewModel @Inject constructor(
             logger.i("ScoringConfigViewModel.saveConfig", "Config saved successfully")
         }
     }
-
+    /**
+     * Reverts the config to the app defaults (persisting them) and clears changes.
+     */
     fun resetToDefaults() {
         viewModelScope.launch {
             logger.i("ScoringConfigViewModel.resetToDefaults", "Resetting to defaults")
             scoringConfigRepository.resetToDefaults()
-
             val defaults = ScoringConfig.defaults()
             originalConfig = defaults
             _uiState.value = _uiState.value.copy(
@@ -163,7 +192,9 @@ class ScoringConfigViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Discards unsaved edits, restoring the last-loaded config.
+     */
     fun discardChanges() {
         logger.i("ScoringConfigViewModel.discardChanges", "Discarding config changes")
         _uiState.value = _uiState.value.copy(

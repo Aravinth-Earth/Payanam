@@ -20,6 +20,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
+/**
+ * Room-backed implementation of [TimeEntryRepository]. Wraps [TimeEntryDao],
+ * resolves the life-dimension, and (on every mutation) marks the affected day's
+ * insight dirty. `startTimeEntry` always stops any already-running entry first.
+ */
 class TimeEntryRepositoryImpl
     @Inject
     constructor(
@@ -27,6 +32,10 @@ class TimeEntryRepositoryImpl
     ) : TimeEntryRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the single running entry (null `endedAt`), mapped to the domain
+         * model, or null when nothing is being tracked.
+         */
         override suspend fun getActiveTimeEntry(): TimeEntry? {
             val entry =
                 sessionManager
@@ -42,11 +51,19 @@ class TimeEntryRepositoryImpl
             return entry
         }
 
+        /**
+         * Emits the running entry (null `endedAt`), mapped to the domain model, as
+         * a [Flow].
+         */
         override fun observeActiveTimeEntry(): Flow<TimeEntry?> =
             sessionManager.requireDatabase().timeEntryDao().observeActiveTimeEntry().map {
                 it?.toDomain()
             }
 
+        /**
+         * Emits entries whose `startedAt` falls within [start]..[end], mapped to the
+         * domain model, as a [Flow].
+         */
         override fun getTimeEntriesForRange(
             start: LocalDateTime,
             end: LocalDateTime,
@@ -72,6 +89,10 @@ class TimeEntryRepositoryImpl
                 }
         }
 
+        /**
+         * Emits entries overlapping [date] (ongoing ones counted via `currentTime`),
+         * mapped to the domain model, as a [Flow].
+         */
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> {
             val dayStart = date.atStartOfDay()
             val dayEnd = dayStart.plusDays(1)
@@ -93,6 +114,11 @@ class TimeEntryRepositoryImpl
                 }
         }
 
+        /**
+         * Starts a running time entry from [input]. Stops any already-active entry
+         * first, resolves the dimension, and marks the start day insight-dirty.
+         * `endedAt` is left null (still running). Returns the domain [TimeEntry].
+         */
         override suspend fun startTimeEntry(input: TimeEntryInput): TimeEntry {
             logger.i(
                 "TimeEntryRepositoryImpl.startTimeEntry",
@@ -111,10 +137,8 @@ class TimeEntryRepositoryImpl
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
-
             val now = LocalDateTime.now()
             val id = UUID.randomUUID().toString()
-
             val entity =
                 TimeEntryEntity(
                     id = id,
@@ -144,12 +168,21 @@ class TimeEntryRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Stops the running entry (if any) without recording focus. Returns the
+         * stopped domain [TimeEntry], or null when nothing was running.
+         */
         override suspend fun stopActiveTimeEntry(): TimeEntry? =
             stopActiveTimeEntryInternal(
                 focusRating = 0.0,
                 focusNote = null,
             )
 
+        /**
+         * Stops the running entry (if any) and records post-session [focusRating]
+         * (clamped to 0..1) plus optional [focusNote]. Returns the stopped domain
+         * [TimeEntry], or null when nothing was running.
+         */
         override suspend fun stopActiveTimeEntryWithFocus(
             focusRating: Double,
             focusNote: String?,
@@ -177,7 +210,6 @@ class TimeEntryRepositoryImpl
                     "dimensionId" to (active.dimensionId ?: "unknown"),
                 ),
             )
-
             val now = LocalDateTime.now()
             sessionManager.requireDatabase().timeEntryDao().stopEntry(
                 id = active.id,
@@ -197,6 +229,13 @@ class TimeEntryRepositoryImpl
                 ?.toDomain()
         }
 
+        /**
+         * Applies a partial update from [input] to the time-entry [id]: re-resolves
+         * the dimension, recomputes `dayKey` from `startedAt`, rewrites `endedAt`/
+         * focus, and marks the old + new days insight-dirty. Throws
+         * [IllegalArgumentException] when [id] is missing. Returns the domain
+         * [TimeEntry].
+         */
         override suspend fun updateTimeEntry(
             id: String,
             input: TimeEntryInput,
@@ -213,9 +252,7 @@ class TimeEntryRepositoryImpl
             val existing =
                 sessionManager.requireDatabase().timeEntryDao().getById(id)
                     ?: throw IllegalArgumentException("TimeEntry not found: $id")
-
             val now = LocalDateTime.now()
-
             val updated =
                 existing.copy(
                     lifeIntentionCategory = input.lifeIntentionCategory,
@@ -246,6 +283,9 @@ class TimeEntryRepositoryImpl
             return updated.toDomain()
         }
 
+        /**
+         * Hard-deletes the time entry [id] and marks its day insight-dirty.
+         */
         override suspend fun deleteTimeEntry(id: String) {
             logger.w("TimeEntryRepositoryImpl.deleteTimeEntry", "Deleting time entry", mapOf("id" to id))
             val existing = sessionManager.requireDatabase().timeEntryDao().getById(id)
@@ -254,6 +294,12 @@ class TimeEntryRepositoryImpl
             logger.i("TimeEntryRepositoryImpl.deleteTimeEntry", "Time entry deleted", mapOf("id" to id))
         }
 
+        /**
+         * Persists a completed (or explicit) time entry from [input] with an
+         * `endedAt` already supplied. Distinct from [startTimeEntry], which begins a
+         * running entry. Marks the start day insight-dirty. Returns the domain
+         * [TimeEntry].
+         */
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry {
             logger.i(
                 "TimeEntryRepositoryImpl.createTimeEntry",
@@ -272,7 +318,6 @@ class TimeEntryRepositoryImpl
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
-
             val entity =
                 TimeEntryEntity(
                     id = id,
@@ -299,16 +344,29 @@ class TimeEntryRepositoryImpl
             return entity.toDomain()
         }
 
+        /**
+         * Emits every time entry, newest first, mapped to the domain model, as a
+         * [Flow].
+         */
         override fun getAllTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAll().map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Emits all currently-running (null `endedAt`) entries, newest first, as a
+         * [Flow].
+         */
         override fun getActiveTimeEntries(): Flow<List<TimeEntry>> =
             sessionManager.requireDatabase().timeEntryDao().getAllActiveTimeEntries().map { entities ->
                 entities.map { it.toDomain() }
             }
 
+        /**
+         * Replaces the whole time entry [entry] from its domain model: re-resolves
+         * the dimension, recomputes `dayKey`, marks old + new days insight-dirty.
+         * Throws [IllegalArgumentException] when [entry.id] is missing.
+         */
         override suspend fun updateTimeEntry(entry: TimeEntry) {
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntryDirect",
@@ -318,9 +376,7 @@ class TimeEntryRepositoryImpl
             val existing =
                 sessionManager.requireDatabase().timeEntryDao().getById(entry.id)
                     ?: throw IllegalArgumentException("TimeEntry not found: ${entry.id}")
-
             val now = LocalDateTime.now()
-
             val updated =
                 existing.copy(
                     lifeIntentionCategory = entry.lifeIntentionCategory,

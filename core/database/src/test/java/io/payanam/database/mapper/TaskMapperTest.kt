@@ -17,16 +17,25 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the task mapper test.
+ */
 class TaskMapperTest {
     private lateinit var logger: UnifiedLogger
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         logger = initLogger()
         logger.d("TaskMapperTest.setup", "Logger initialized for tests")
     }
 
     @Test
+    /**
+     * Performs the to domain parses zulu date.
+     */
     fun toDomain_parsesZuluDate() {
         val entity =
             TaskEntity(
@@ -36,13 +45,15 @@ class TaskMapperTest {
                 updatedAt = "2026-01-31T09:15:00Z",
                 dueDate = "2026-01-31T10:00:00Z",
             )
-
         val domain = entity.toDomain()
         assertThat(domain.dueDate?.hour).isEqualTo(10)
         assertThat(domain.createdAt.year).isEqualTo(2026)
     }
 
     @Test
+    /**
+     * To domain parses date only last occurrence date at start of day.
+     */
     fun toDomain_parsesDateOnlyLastOccurrenceDateAtStartOfDay() {
         val entity =
             TaskEntity(
@@ -52,13 +63,14 @@ class TaskMapperTest {
                 updatedAt = "2026-01-31T09:15:00",
                 lastOccurrenceDate = "2026-01-30",
             )
-
         val domain = entity.toDomain()
-
         assertThat(domain.lastOccurrenceDate).isEqualTo(LocalDateTime.of(2026, 1, 30, 0, 0))
     }
 
     @Test
+    /**
+     * Performs the round trip preserves fields.
+     */
     fun roundTrip_preservesFields() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val task =
@@ -78,10 +90,8 @@ class TaskMapperTest {
                 notificationMode = "custom",
                 customNotificationMinutes = 20,
             )
-
         val entity = task.toEntity()
         val roundTrip = entity.toDomain()
-
         assertThat(roundTrip.title).isEqualTo(task.title)
         assertThat(roundTrip.lifeIntentionCategory).isEqualTo(task.lifeIntentionCategory)
         assertThat(roundTrip.dimensionId).isEqualTo("dim_health_wellness")
@@ -92,6 +102,9 @@ class TaskMapperTest {
     }
 
     @Test
+    /**
+     * Performs the to entity handles null due date.
+     */
     fun toEntity_handlesNullDueDate() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val task =
@@ -102,13 +115,15 @@ class TaskMapperTest {
                 updatedAt = now,
                 dueDate = null,
             )
-
         val entity = task.toEntity()
         assertThat(entity.dueDate).isNull()
         assertThat(entity.dayKey).isNull()
     }
 
     @Test
+    /**
+     * Performs the to entity sets recurrence enabled flag.
+     */
     fun toEntity_setsRecurrenceEnabledFlag() {
         val now = LocalDateTime.of(2026, 1, 31, 9, 0)
         val task =
@@ -120,7 +135,6 @@ class TaskMapperTest {
                 recurrenceEnabled = true,
                 recurrenceRule = "FREQ=DAILY",
             )
-
         val entity = task.toEntity()
         assertThat(entity.recurrenceEnabled).isEqualTo(1)
         assertThat(entity.recurrenceRule).isEqualTo("FREQ=DAILY")

@@ -4,13 +4,11 @@
 
 package io.payanam.ui.components
 
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -69,7 +67,6 @@ fun CompletionDialog(
     var showTimePicker by remember { mutableStateOf(false) }
     var overrideDuration by remember { mutableStateOf(false) }
     var durationMinutes by remember { mutableStateOf(plannedDurationMinutes.toString()) }
-
     val timeFormatter = DateTimeFormatter.ofPattern("HH:mm")
     val timePickerState = rememberTimePickerState(
         initialHour = selectedTime?.hour ?: defaultTime.hour,
@@ -98,7 +95,6 @@ fun CompletionDialog(
             },
         )
     }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -116,15 +112,12 @@ fun CompletionDialog(
                     style = MaterialTheme.typography.bodyLarge,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
-
                 Text(
                     text = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_specify_actual_completion_details),
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Completion Time Section
@@ -133,7 +126,6 @@ fun CompletionDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Default time display
@@ -146,7 +138,6 @@ fun CompletionDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Override time checkbox
@@ -164,9 +155,7 @@ fun CompletionDialog(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-
                 if (overrideTime) {
                     // Show default time as striked out
                     Text(
@@ -176,7 +165,6 @@ fun CompletionDialog(
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Time picker button
@@ -191,7 +179,6 @@ fun CompletionDialog(
                         )
                     }
                 }
-
                 Spacer(modifier = Modifier.height(16.dp))
 
                 // Duration Section
@@ -200,7 +187,6 @@ fun CompletionDialog(
                     style = MaterialTheme.typography.bodyMedium,
                     fontWeight = androidx.compose.ui.text.font.FontWeight.Medium,
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Default duration display
@@ -212,7 +198,6 @@ fun CompletionDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-
                 Spacer(modifier = Modifier.height(8.dp))
 
                 // Override duration checkbox
@@ -230,9 +215,7 @@ fun CompletionDialog(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-
                 Spacer(modifier = Modifier.height(8.dp))
-
                 if (overrideDuration) {
                     // Show default duration as striked out
                     Text(
@@ -245,7 +228,6 @@ fun CompletionDialog(
                         ),
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
-
                     Spacer(modifier = Modifier.height(4.dp))
 
                     // Custom duration input

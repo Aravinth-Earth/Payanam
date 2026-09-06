@@ -8,12 +8,11 @@ import kotlinx.coroutines.flow.Flow
 import java.time.LocalDate
 
 /**
- * Repository interface for Note operations.
+ * Repository interface for note operations.
  */
 interface NoteRepository {
-    
     /**
-     * Get all notes.
+     * Emits every note as a [Flow], for reactive list updates.
      */
     fun getAllNotes(): Flow<List<Note>>
     

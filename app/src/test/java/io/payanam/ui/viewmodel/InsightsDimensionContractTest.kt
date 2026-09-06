@@ -27,28 +27,25 @@ class InsightsDimensionContractTest {
     fun timeEntryDimensionId_prefers_explicit_entry_dimension() {
         val task = task("t1", "dim_financial")
         val entry = entry("e1", taskId = "t1", dimensionId = "dim_learning_growth", category = "Relationships")
-
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, mapOf(task.id to task))
-
         assertEquals("dim_learning_growth", resolved)
     }
 
     @Test
+    /**
+     * Time entry dimension id uses task dimension when entry dimension missing.
+     */
     fun timeEntryDimensionId_uses_task_dimension_when_entry_dimension_missing() {
         val task = task("t1", "dim_mental_health")
         val entry = entry("e2", taskId = "t1", dimensionId = null, category = "Health & Wellness")
-
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, mapOf(task.id to task))
-
         assertEquals("dim_mental_health", resolved)
     }
 
     @Test
     fun timeEntryDimensionId_falls_back_to_category_mapping() {
         val entry = entry("e3", taskId = null, dimensionId = null, category = "Learning")
-
         val resolved = InsightsDimensionContract.timeEntryDimensionId(entry, emptyMap())
-
         assertEquals("dim_learning_growth", resolved)
     }
 
@@ -62,9 +59,7 @@ class InsightsDimensionContractTest {
             updatedAt = LocalDateTime.of(2026, 2, 15, 10, 0),
             dimensionId = "dim_mental_health",
         )
-
         val resolved = InsightsDimensionContract.noteDimensionId(note)
-
         assertEquals("dim_mental_health", resolved)
     }
 

@@ -6,6 +6,9 @@ import java.time.LocalDateTime
 import kotlinx.serialization.Serializable
 
 @Serializable
+/**
+ * One desktop note record (title, details, dimension, tags) for sync.
+ */
 data class DesktopNoteRecord(
     val id: String,
     val title: String,
@@ -18,18 +21,25 @@ data class DesktopNoteRecord(
 )
 
 @Serializable
+/**
+ * Serializable notes state holding every note for the desktop<->mobile sync.
+ */
 data class DesktopNotesSnapshot(
     val schemaVersion: Int = DesktopNoteContracts.SCHEMA_VERSION,
     val notes: List<DesktopNoteRecord> = emptyList(),
 )
-
 object DesktopNoteContracts {
     const val SCHEMA_VERSION = 1
     const val DEFAULT_DIMENSION_ID = "dim_work_livelihood"
     const val DEFAULT_DIMENSION_LABEL = "Work & Livelihood"
-
+    /**
+     * Returns an empty [DesktopNotesSnapshot] (no notes).
+     */
     fun emptySnapshot(): DesktopNotesSnapshot = DesktopNotesSnapshot()
-
+    /**
+     * Builds a [DesktopNoteRecord], trimming fields and falling back to defaults for
+     * blank dimension/tags.
+     */
     fun createRecord(
         id: String,
         title: String,
@@ -50,7 +60,10 @@ object DesktopNoteContracts {
             updatedAtIso = now.toString(),
         )
     }
-
+    /**
+     * Returns a copy of [existing] with the editable fields replaced (keeping its id
+     * + createdAt); trims and normalizes inputs.
+     */
     fun updateRecord(
         existing: DesktopNoteRecord,
         title: String,

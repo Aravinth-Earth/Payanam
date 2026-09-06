@@ -3,11 +3,7 @@
 package io.payanam.ui.viewmodel
 
 import androidx.compose.runtime.Immutable
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Task
-
-@Suppress("unused")
-private val tasksPreparedStateLogger = UnifiedLogger.getInstance()
 
 @Immutable
 internal data class PreparedTaskState(

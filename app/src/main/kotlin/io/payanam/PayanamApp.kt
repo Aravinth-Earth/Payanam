@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam
 
 import android.app.ActivityManager
@@ -10,14 +12,30 @@ import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Looper
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
+import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.AppStartUpdateChecker
+import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
+/**
+ * Application entry point: initializes logging before anything else, installs
+ * a crash handler that sync-logs and auto-exports the log ZIP, records the
+ * previous process exit reason, and creates notification channels.
+ */
 @HiltAndroidApp
 class PayanamApp : Application() {
 
+    /**
+     * Boot sequence: logger first, crash handler + breadcrumbs, notification
+     * channels, then the lazy app-start update check.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: app-level defensive catch
     override fun onCreate() {
         super.onCreate()
 
@@ -37,7 +55,6 @@ class PayanamApp : Application() {
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
         }
-
         logPreviousProcessExitReason(logger)
         CrashSafeBreadcrumbs.dumpToLoggerAndClear(this, "PayanamApp.onCreate")
         installGlobalCrashLogging(logger)
@@ -45,6 +62,33 @@ class PayanamApp : Application() {
         // Create notification channels
         createNotificationChannels()
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
+
+        // App-start update check — resolved LAZILY via EntryPoint so nothing
+        // extra is constructed during super.onCreate() (Hilt field injection
+        // there would eagerly build the DB-session chain before the crash
+        // handler is installed; a failure would crash with no log export).
+        try {
+            val checker = EntryPointAccessors.fromApplication(
+                this,
+                AppStartUpdateCheckerEntryPoint::class.java,
+            ).appStartUpdateChecker()
+            checker.onAppStart()
+        } catch (e: Exception) {
+            logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
+        }
+    }
+
+    /**
+     * Hilt entry point for the app-start update check, resolved lazily so
+     * nothing extra is built during super.onCreate().
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface AppStartUpdateCheckerEntryPoint {
+        /**
+         * Resolves the update checker lazily (kept out of super.onCreate()).
+         */
+        fun appStartUpdateChecker(): AppStartUpdateChecker
     }
 
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {
@@ -62,6 +106,28 @@ class PayanamApp : Application() {
                     "versionCode" to BuildConfig.VERSION_CODE,
                 ),
             )
+            // Auto-export the full log ZIP on crash — lands in
+            // Documents/payanam[-debug]/exported-logs/ so it is reachable via the
+            // Files app even when the app itself cannot start (crash loop).
+            // Best-effort on a separate thread with a hard cap; never blocks.
+            val exportThread = Thread {
+                try {
+                    // Explicit final flush so the crash line (eSync above) and
+                    // any sibling lines reach the file before the zip runs.
+                    runBlocking { logger.flush() }
+                    runBlocking { logger.exportAllLogs() }
+                } catch (_: Exception) {
+                    // export must never mask the original crash
+                }
+            }
+            exportThread.start()
+            try {
+                // 15s budget: flush + zip of the full history must fit before
+                // Android kills the process after the handler returns.
+                exportThread.join(15_000)
+            } catch (_: InterruptedException) {
+                // give up waiting; original handler still runs below
+            }
             previousHandler?.uncaughtException(thread, throwable)
         }
         logger.i(
@@ -140,7 +206,6 @@ class PayanamApp : Application() {
     private fun createNotificationChannels() {
         val logger = UnifiedLogger.getInstance()
         logger.d("PayanamApp.createNotificationChannels", "Creating notification channels")
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
             val notificationManager = getSystemService(NotificationManager::class.java)
 

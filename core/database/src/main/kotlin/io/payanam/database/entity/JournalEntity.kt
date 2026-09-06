@@ -9,7 +9,7 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 /**
- * Room entity for Day Journal Entry - one per day.
+ * Room entity for day journal entry - one per day.
  */
 @Entity(
     tableName = "day_journal_entries",
@@ -24,7 +24,7 @@ data class DayJournalEntryEntity(
 )
 
 /**
- * Room entity for Journal Response to a prompt.
+ * Room entity for journal response to a prompt.
  */
 @Entity(
     tableName = "day_journal_responses",
@@ -94,7 +94,7 @@ data class JournalNoteEntity(
 )
 
 /**
- * Room entity for App Settings (key-value store).
+ * Room entity for app settings (key-value store).
  */
 @Entity(
     tableName = "app_settings",

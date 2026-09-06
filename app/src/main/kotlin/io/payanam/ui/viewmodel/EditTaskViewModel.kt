@@ -7,6 +7,7 @@ import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskInput
 import io.payanam.domain.repository.TagRepository
@@ -23,7 +24,10 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
-
+/**
+ * UI state for the edit-task screen: the loaded task, its tags + suggestions,
+ * loading/saving flags, and the last error.
+ */
 data class EditTaskUiState(
     val task: Task? = null,
     val taskTags: List<String> = emptyList(),
@@ -33,11 +37,16 @@ data class EditTaskUiState(
     val error: String? = null,
 )
 
+/**
+ * Edit-task ViewModel: loads a task with its tags, then persists edits —
+ * replacing tags, rebuilding score roll-ups, and rescheduling reminders.
+ */
 @HiltViewModel
 class EditTaskViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val tagRepository: TagRepository,
     private val notificationScheduler: NotificationScheduler,
+    private val scoreRollupCascadeService: ScoreRollupCascadeService,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
@@ -64,7 +73,10 @@ class EditTaskViewModel @Inject constructor(
                 }
         }
     }
-
+    /**
+     * Fetches [taskId]'s task + tags into state for editing.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun loadTask(taskId: String) {
         currentTaskId = taskId
         viewModelScope.launch {
@@ -99,7 +111,11 @@ class EditTaskViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Persists the edited fields, replaces tags, recomputes scores (roll-up
+     * cascade for habits), and re-arms the reminder.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun updateTask(input: EditTaskInput) {
         val taskId = currentTaskId ?: return
         logger.i(
@@ -115,27 +131,7 @@ class EditTaskViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true) }
             try {
-                val taskInput = TaskInput(
-                    title = input.title,
-                    description = input.description,
-                    dueDate = input.dueDate,
-                    dimensionId = input.dimensionId,
-                    lifeIntentionCategory = input.dimensionLabel,
-                    impactLevel = input.impactLevel,
-                    goalAlignment = input.goalAlignment,
-                    energyLevel = input.energyLevel,
-                    controlLevel = input.controlLevel,
-                    durationMinutes = input.durationMinutes,
-                    recurrenceEnabled = input.recurrenceEnabled,
-                    recurrenceRule = input.recurrenceRule,
-                    notificationMode = input.notificationMode,
-                    customNotificationMinutes = input.customNotificationMinutes,
-                    explicitUrgency = input.explicitUrgency,
-                    focusRequired = input.focusRequired,
-                    blockedReason = input.blockedReason,
-                    externalDependency = input.externalDependency,
-                )
-
+                val taskInput = buildTaskInput(input)
                 val updatedTask = taskRepository.updateTask(taskId, taskInput)
                 tagRepository.replaceTaskTags(taskId, input.tags)
                 logger.i(
@@ -144,8 +140,16 @@ class EditTaskViewModel @Inject constructor(
                     mapOf("taskId" to taskId, "tagCount" to input.tags.size),
                 )
 
-                // Recalculate and update score
-                if (FeatureFlags.scoringEnabled) {
+                // Rebuild score roll-up for rule/dimension changes (Inc 3):
+                // stale grid rows are removed and L1/L2/L3 recomputed.
+                if (updatedTask.recurrenceEnabled) {
+                    scoreRollupCascadeService.recalcForRuleChange(taskId)
+                    logger.d(
+                        "EditTaskViewModel.updateTask",
+                        "Score roll-up rebuilt after task update",
+                        mapOf("taskId" to taskId),
+                    )
+                } else if (FeatureFlags.scoringEnabled) {
                     val score = ElegantTaskScoring.calculateScore(updatedTask)
                     taskRepository.updateTaskScore(taskId, score)
                     logger.d(
@@ -198,4 +202,25 @@ class EditTaskViewModel @Inject constructor(
             }
         }
     }
+
+    private fun buildTaskInput(input: EditTaskInput): TaskInput = TaskInput(
+        title = input.title,
+        description = input.description,
+        dueDate = input.dueDate,
+        dimensionId = input.dimensionId,
+        lifeIntentionCategory = input.dimensionLabel,
+        impactLevel = input.impactLevel,
+        goalAlignment = input.goalAlignment,
+        energyLevel = input.energyLevel,
+        controlLevel = input.controlLevel,
+        durationMinutes = input.durationMinutes,
+        recurrenceEnabled = input.recurrenceEnabled,
+        recurrenceRule = input.recurrenceRule,
+        notificationMode = input.notificationMode,
+        customNotificationMinutes = input.customNotificationMinutes,
+        explicitUrgency = input.explicitUrgency,
+        focusRequired = input.focusRequired,
+        blockedReason = input.blockedReason,
+        externalDependency = input.externalDependency,
+    )
 }

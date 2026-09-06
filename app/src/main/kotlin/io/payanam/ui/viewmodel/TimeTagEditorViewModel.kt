@@ -15,13 +15,21 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import javax.inject.Inject
-
+/**
+ * UI state for the time-entry tag editor: global tag suggestions plus the tag
+ * sets of the entry/task currently being edited.
+ */
 data class TimeTagEditorUiState(
     val tagSuggestions: List<String> = emptyList(),
     val editingEntryTags: List<String> = emptyList(),
     val editingTaskTags: List<String> = emptyList(),
 )
 
+/**
+ * Tag-editor ViewModel shared by the Time screen: streams global tag
+ * suggestions and the live tag sets of the entry/task under edit, and
+ * persists tag replacements.
+ */
 @HiltViewModel
 class TimeTagEditorViewModel @Inject constructor(
     private val tagRepository: TagRepository,
@@ -47,7 +55,9 @@ class TimeTagEditorViewModel @Inject constructor(
                 }
         }
     }
-
+    /**
+     * Streams the tags of [entryId] into state (cancels any previous stream).
+     */
     fun loadEntryTags(entryId: String?) {
         entryTagsJob?.cancel()
         if (entryId.isNullOrBlank()) {
@@ -60,7 +70,9 @@ class TimeTagEditorViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Replaces the time entry's full tag set.
+     */
     fun saveEntryTags(entryId: String, tags: List<String>) {
         viewModelScope.launch {
             tagRepository.replaceTimeEntryTags(entryId, tags)
@@ -74,7 +86,9 @@ class TimeTagEditorViewModel @Inject constructor(
             )
         }
     }
-
+    /**
+     * Streams the tags of [taskId] into state (cancels any previous stream).
+     */
     fun loadTaskTags(taskId: String?) {
         taskTagsJob?.cancel()
         if (taskId.isNullOrBlank()) {
@@ -87,7 +101,9 @@ class TimeTagEditorViewModel @Inject constructor(
             }
         }
     }
-
+    /**
+     * Replaces the task's full tag set.
+     */
     fun saveTaskTags(taskId: String, tags: List<String>) {
         viewModelScope.launch {
             tagRepository.replaceTaskTags(taskId, tags)

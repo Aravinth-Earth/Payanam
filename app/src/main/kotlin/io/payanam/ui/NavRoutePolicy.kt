@@ -14,7 +14,6 @@ package io.payanam.ui
  * - [minimalModeAllowedTabs]: bottom-nav tabs visible in minimal mode.
  */
 internal object NavRoutePolicy {
-
     val startupGateRoutes: Set<String> = setOf(
         "database_init",
         "passphrase_setup",
@@ -30,7 +29,6 @@ internal object NavRoutePolicy {
         "edit_task",
         "scoring_config",
     )
-
     val minimalModeAllowedTabs: Set<String> = setOf(
         "time",
         "tasks",

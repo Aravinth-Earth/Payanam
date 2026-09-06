@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.background
@@ -74,7 +76,6 @@ internal fun AverageDailyTimeTableSection(summary: AverageDailyTimeTableData?) {
             ),
         )
     }
-
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.26f)),
@@ -93,7 +94,6 @@ internal fun AverageDailyTimeTableSection(summary: AverageDailyTimeTableData?) {
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-
             if (summary == null || summary.rows.isEmpty() || summary.visibleWindows.isEmpty()) {
                 Text(
                     text = stringResource(id = R.string.loc_lens_time_no_history),
@@ -102,12 +102,10 @@ internal fun AverageDailyTimeTableSection(summary: AverageDailyTimeTableData?) {
                 )
                 return@Column
             }
-
             AverageDailyTimeValueModeToggle(
                 valueMode = valueMode,
                 onValueModeChange = { valueMode = it },
             )
-
             val columnTotals = remember(summary) { averageDailyTimeColumnTotals(summary) }
             val scrollState = rememberScrollState()
             Row(

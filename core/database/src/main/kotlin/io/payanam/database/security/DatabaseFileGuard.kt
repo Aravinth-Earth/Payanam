@@ -77,7 +77,7 @@ object DatabaseFileGuard {
     }
 
     /**
-     * Recursively deletes [dir]. Logs intent for traceability.
+     * Recursively deletes [dir]. logs intent for traceability.
      */
     fun safeDeleteDir(
         dir: File,

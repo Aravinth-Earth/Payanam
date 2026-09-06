@@ -20,11 +20,17 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the note repository integrity test.
+ */
 class NoteRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: NoteRepositoryImpl
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
@@ -41,11 +47,17 @@ class NoteRepositoryIntegrityTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         database.close()
     }
 
     @Test
+    /**
+     * Create and update note syncs journal and legacy shadow tables.
+     */
     fun createAndUpdateNote_syncsJournalAndLegacyShadowTables() =
         runBlocking {
             val created =
@@ -56,7 +68,6 @@ class NoteRepositoryIntegrityTest {
                         lifeIntentionCategory = "Unmapped Category",
                     ),
                 )
-
             val legacyAfterCreate = database.noteDao().getNoteById(created.id)
             val journalAfterCreate = database.journalDao().getNoteById(created.id)
             assertThat(legacyAfterCreate).isNotNull()
@@ -73,7 +84,6 @@ class NoteRepositoryIntegrityTest {
                         lifeIntentionCategory = "Unmapped Category",
                     ),
             )
-
             val legacyAfterUpdate = database.noteDao().getNoteById(created.id)
             val journalAfterUpdate = database.journalDao().getNoteById(created.id)
             assertThat(legacyAfterUpdate?.title).isEqualTo("Updated title")
@@ -83,6 +93,9 @@ class NoteRepositoryIntegrityTest {
         }
 
     @Test
+    /**
+     * Removes the delete note removes from journal and legacy shadow tables.
+     */
     fun deleteNote_removesFromJournalAndLegacyShadowTables() =
         runBlocking {
             val created =
@@ -95,7 +108,6 @@ class NoteRepositoryIntegrityTest {
                 )
 
             repository.deleteNote(created.id)
-
             val legacy = database.noteDao().getNoteById(created.id)
             val journal = database.journalDao().getNoteById(created.id)
             assertThat(legacy).isNull()

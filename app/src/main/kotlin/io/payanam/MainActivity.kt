@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber", "UndocumentedPublicProperty")
+
 package io.payanam
 
 import android.app.LocaleManager
@@ -40,6 +42,7 @@ import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.PayanamDatabase
+import io.payanam.database.backfill.ScoreRollupBackfillService
 import io.payanam.database.security.DatabaseArtifactJanitor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
@@ -66,7 +69,14 @@ import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 
+/**
+ * Sealed set of navigation commands the activity must handle from view models.
+ */
 sealed interface ExternalNavigationCommand {
+    /**
+     * A command from outside the nav graph (widget/notification) asking to open
+     * the Time screen, optionally into quick-start or stop-tracking mode.
+     */
     data class OpenTimeScreen(
         val openQuickStart: Boolean,
         val openStopTracking: Boolean,
@@ -75,6 +85,12 @@ sealed interface ExternalNavigationCommand {
     ) : ExternalNavigationCommand
 }
 
+/**
+ * Single-activity entry point: owns the startup gate sequence (database init,
+ * passphrase setup/unlock, focus-mode onboarding), language/theme application,
+ * external navigation intents, DB-session lifecycle (auto-lock touch, WAL
+ * checkpointing), and process-restart handling after DB-replacing operations.
+ */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
@@ -89,6 +105,9 @@ class MainActivity : FragmentActivity() {
     lateinit var recurrenceManager: Lazy<RecurrenceManager>
 
     @Inject
+    lateinit var scoreRollupBackfillService: Lazy<ScoreRollupBackfillService>
+
+    @Inject
     lateinit var appSettingsRepository: Lazy<AppSettingsRepository>
 
     @Inject
@@ -101,11 +120,21 @@ class MainActivity : FragmentActivity() {
     private var showExternalDeletionWarning = mutableStateOf(false)
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
+    /**
+     * Keeps the DB session alive: every user interaction resets the auto-lock
+     * idle timer.
+     */
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
     }
 
+    /**
+     * Startup orchestrator: resolves DB artifact/encryption/health state,
+     * self-heals an invalid boot state, decides which gate to show (database
+     * init / passphrase setup / unlock / focus-mode onboarding), then composes
+     * the app UI with language + theme preferences applied.
+     */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         logger.i("MainActivity.onCreate", "Activity creating")
@@ -124,7 +153,6 @@ class MainActivity : FragmentActivity() {
             postJanitorSnapshot.toLogMap(),
         )
         logPendingRestartMarker(preJanitorSnapshot, postJanitorSnapshot)
-
         val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
         val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
         logger.i(
@@ -139,6 +167,7 @@ class MainActivity : FragmentActivity() {
         )
         val encryptionManager = DatabaseEncryptionManager(this)
         var hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
+        logger.i("MainActivity.onCreate", "Encryption state resolved", mapOf("hasPassphraseConfigured" to hasPassphraseConfigured))
 
         // Detect and self-heal an invalid boot state: passphrase/Keystore state exists but no DB
         // file is present. This can happen if a previous session's backup worker corruption
@@ -158,6 +187,7 @@ class MainActivity : FragmentActivity() {
         // (Old design used a SharedPrefs timestamp; new design checks the live Room session state.)
         val shouldShowPassphraseUnlock =
             hasPassphraseConfigured && encryptionManager.isEncryptionEnabled() && !sessionManager.isOpen.value
+        logger.i("MainActivity.onCreate", "Startup gate resolved", mapOf("showPassphraseUnlock" to shouldShowPassphraseUnlock, "sessionOpen" to sessionManager.isOpen.value))
 
         // Health check is only meaningful when the DB is open (session already active).
         // For encrypted DBs at cold boot, shouldShowPassphraseUnlock=true so this block is skipped.
@@ -187,7 +217,6 @@ class MainActivity : FragmentActivity() {
         } else {
             false
         }
-
         val shouldShowDatabaseInit = resolveShouldShowDatabaseInit(
             hasDatabaseArtifacts = hasDatabaseArtifacts,
             shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
@@ -215,7 +244,6 @@ class MainActivity : FragmentActivity() {
             false
         }
         showFocusModeOnboarding = shouldShowFocusModeOnboarding
-
         val startupHealthLogSummary = resolveStartupHealthLogSummary(
             hasDatabaseArtifacts = hasDatabaseArtifacts,
             shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
@@ -249,6 +277,7 @@ class MainActivity : FragmentActivity() {
             )
         }
         enableEdgeToEdge()
+        logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
             val startupGateScreenActive = showDatabaseInit || showPassphraseSetup || showPassphraseUnlock
 
@@ -269,7 +298,6 @@ class MainActivity : FragmentActivity() {
                     },
                 )
             }
-
             if (startupGateScreenActive) {
                 val defaultPrefsState = AppPreferencesState()
                 PayanamTheme(
@@ -318,22 +346,18 @@ class MainActivity : FragmentActivity() {
                 logger.i("MainActivity.onCreate", "UI composition complete")
                 return@setContent
             }
-
             val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
             val prefsState by prefsViewModel.uiState.collectAsState()
             var localeGeneration by remember { mutableIntStateOf(0) }
             val currentConfiguration = LocalConfiguration.current
-
             LaunchedEffect(currentConfiguration) {
                 prefsViewModel.updateSystemLanguageTag(resolveSystemLanguageTag())
             }
-
             LaunchedEffect(prefsState.isLoading, prefsState.appLanguage, prefsState.effectiveLanguageTag) {
                 if (prefsState.isLoading) return@LaunchedEffect
                 if (showPassphraseSetup || showPassphraseUnlock) {
                     return@LaunchedEffect
                 }
-
                 val localeChanged = applyLanguagePreference(
                     appLanguage = prefsState.appLanguage,
                     effectiveLanguageTag = prefsState.effectiveLanguageTag,
@@ -408,6 +432,12 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Foreground entry: rotates the log session if needed, refreshes the home-
+     * screen widget, and kicks off startup maintenance unless a startup gate
+     * is still pending.
+     */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -425,6 +455,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Rotates the log session if the app was stopped long enough to warrant a fresh file. */
     private fun maybeStartNewLogSession() {
         val stoppedAtElapsedMs = lastStoppedAtElapsedMs
         lastStoppedAtElapsedMs = null
@@ -432,7 +463,6 @@ class MainActivity : FragmentActivity() {
             hasEnteredForegroundOnce = true
             return
         }
-
         val backgroundDurationMs = stoppedAtElapsedMs?.let { SystemClock.elapsedRealtime() - it } ?: 0L
         if (backgroundDurationMs < LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS) {
             return
@@ -441,12 +471,13 @@ class MainActivity : FragmentActivity() {
         logger.startNewSession("main_activity_foreground")
     }
 
+    /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
+    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")
             return
         }
-
         val appContext = applicationContext
         startupMaintenanceJob = startupMaintenanceScope.launch {
             if (FeatureFlags.minimalModeEnabled) {
@@ -465,6 +496,8 @@ class MainActivity : FragmentActivity() {
                     }
                     recurrenceManager.get().autoAdvanceRecurringTasks()
                     logger.i("MainActivity.onStart", "Auto-advanced recurring tasks")
+                    // One-time score roll-up backfill (rule conversion + L1/L2/L3)
+                    scoreRollupBackfillService.get().runIfNeeded()
                 } catch (e: CancellationException) {
                     logger.d("MainActivity.onStart", "Startup recurrence maintenance cancelled")
                     throw e
@@ -496,6 +529,8 @@ class MainActivity : FragmentActivity() {
             }
         }
     }
+
+    /** Resolves and applies the post-unlock init/DB state once the database is open. */
     private fun handlePostUnlockInitState() {
         showPassphraseUnlock = false
         val initCompleted = runBlocking {
@@ -509,14 +544,29 @@ class MainActivity : FragmentActivity() {
                 "Passphrase unlocked with incomplete DB-init state; routing to mandatory DatabaseInit",
             )
             showDatabaseInit = true
+        } else {
+            // Cold boot with passphrase skips startup maintenance while the
+            // unlock gate is visible (onStart guard). Run it now that the DB
+            // session is open: recurrence auto-advance + one-time score
+            // roll-up backfill both depend on it.
+            logger.i("MainActivity.handlePostUnlockInitState", "DB unlocked; running startup maintenance")
+            runStartupMaintenance()
         }
     }
 
+    /**
+     * Re-handled while the activity is alive (singleTop): captures external
+     * navigation commands from notifications/widgets/deep links.
+     */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleExternalNavigationIntent(intent)
     }
+    /**
+     * Safety-net relock: if encryption is on but the DB session died while
+     * backgrounded, presents the in-place unlock gate again.
+     */
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
@@ -541,11 +591,18 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /**
+     * Marks the background timestamp used by log-session rotation.
+     */
     override fun onPause() {
         super.onPause()
         logger.d("MainActivity.onPause", "Activity paused")
     }
 
+    /**
+     * Durability flush before backgrounding: WAL-checkpoints the encrypted DB
+     * and flushes the log buffer so a process kill loses nothing.
+     */
     override fun onStop() {
         super.onStop()
         logger.d("MainActivity.onStop", "Activity stopped")
@@ -554,8 +611,14 @@ class MainActivity : FragmentActivity() {
         }
         // Flush WAL journal so data is durable if process dies while backgrounded
         sessionManager.checkpoint()
+        // Flush the log buffer so a background kill loses at most the lines
+        // written between here and process death (async; buffer is small).
+        logger.flush()
     }
 
+    /**
+     * Final teardown logging for the activity.
+     */
     override fun onDestroy() {
         super.onDestroy()
         logger.i("MainActivity.onDestroy", "Activity destroyed")
@@ -565,6 +628,7 @@ class MainActivity : FragmentActivity() {
     // scratch with the correct encryption state. Use after operations that replace the DB file on
     // disk (e.g. import), where activity.recreate() leaves a stale Room singleton pointing at the
     // old bootstrap file descriptor.
+    /** Forces a process restart (used after unrecoverable DB/init state). */
     private fun restartProcess() {
         logger.i("MainActivity.restartProcess", "Restarting process for clean Room/Hilt re-initialization")
         val snapshot = captureDbArtifactSnapshot()
@@ -582,6 +646,7 @@ class MainActivity : FragmentActivity() {
         Process.killProcess(Process.myPid())
     }
 
+    /** Attempts a silent (no-UI) unlock and navigates to [returnRoute] on success. */
     fun requestSilentUnlock(returnRoute: String?) {
         if (returnRoute.isNullOrBlank()) {
             return
@@ -598,6 +663,7 @@ class MainActivity : FragmentActivity() {
         intent?.putExtra(EXTRA_RETURN_ROUTE_AFTER_UNLOCK, returnRoute)
     }
 
+    /** Captures a snapshot of DB artifact state (db/wal/shm size + existence) for diagnostics. */
     private fun captureDbArtifactSnapshot(): DbArtifactSnapshot {
         val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
         val dbDir = dbFile.parentFile
@@ -620,6 +686,7 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /** Persists a restart marker so the next launch can log the pre-restart DB state. */
     private fun persistRestartMarker(snapshot: DbArtifactSnapshot) {
         runCatching {
             getSharedPreferences(PREFS_RESTART_MARKER, MODE_PRIVATE).edit()
@@ -641,6 +708,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Logs the pending restart marker (pre/post janitor DB snapshots) for startup diagnostics. */
     private fun logPendingRestartMarker(preJanitor: DbArtifactSnapshot, postJanitor: DbArtifactSnapshot) {
         val prefs = getSharedPreferences(PREFS_RESTART_MARKER, MODE_PRIVATE)
         val ts = prefs.getLong(KEY_RESTART_MARKER_TS, 0L)
@@ -674,6 +742,7 @@ class MainActivity : FragmentActivity() {
         val shmSize: Long,
         val dirListing: String,
     ) {
+        /** Serializes the snapshot to a logging map. */
         fun toLogMap(): Map<String, Any> = mapOf(
             "dbExists" to dbExists,
             "dbSize" to dbSize,
@@ -684,17 +753,17 @@ class MainActivity : FragmentActivity() {
             "dirListing" to dirListing,
         )
 
+        /** Compact single-line representation for quick log lines. */
         fun toCompactString(): String = "db=$dbExists:$dbSize,wal=$walExists:$walSize,shm=$shmExists:$shmSize"
     }
 
+    /** Handles an external navigation intent (deep link / route after unlock). */
     private fun handleExternalNavigationIntent(intent: Intent?) {
         if (intent == null) return
-
         val navigateTo = intent.getStringExtra(EXTRA_NAVIGATE_TO)
         if (navigateTo != NAV_TARGET_TIME) {
             return
         }
-
         val source = intent.getStringExtra(EXTRA_NAV_SOURCE) ?: "unknown"
         val openQuickStart = intent.getBooleanExtra(EXTRA_OPEN_TIME_QUICK_START, false)
         val openStopTracking = intent.getBooleanExtra(EXTRA_OPEN_TIME_STOP_TRACKING, false)
@@ -716,6 +785,8 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /** Applies the chosen [appLanguage] / [effectiveLanguageTag] to the base context.
+     *  @return true if the locale was actually changed. */
     private fun applyLanguagePreference(
         appLanguage: AppLanguageOption,
         effectiveLanguageTag: String,
@@ -738,12 +809,12 @@ class MainActivity : FragmentActivity() {
         return applyLanguageTag(effectiveLanguageTag)
     }
 
+    /** Sets the app locale to [targetLanguage] via AppCompat context wrapper. @return true if changed. */
     private fun applyLanguageTag(targetLanguage: String): Boolean {
         val currentLanguage = resolveCurrentAppLanguage()
         if (currentLanguage == targetLanguage) {
             return false
         }
-
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             // Android 13+: use per-app locale API (works with android:localeConfig in manifest)
             val localeManager = getSystemService(LocaleManager::class.java)
@@ -784,6 +855,7 @@ class MainActivity : FragmentActivity() {
         return true
     }
 
+    /** Returns the app's currently effective language tag. */
     private fun resolveCurrentAppLanguage(): String {
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val localeManager = getSystemService(LocaleManager::class.java)
@@ -798,16 +870,7 @@ class MainActivity : FragmentActivity() {
             ?: Locale.getDefault().language.lowercase(Locale.ROOT)
     }
 
-    private fun resolveTargetLanguage(option: AppLanguageOption): String = when (option) {
-        AppLanguageOption.TAMIL -> "ta"
-
-        AppLanguageOption.ENGLISH -> "en"
-
-        AppLanguageOption.SYSTEM -> {
-            resolveSystemLanguageTag()
-        }
-    }
-
+    /** Returns the system (device) language tag. */
     private fun resolveSystemLanguageTag(): String {
         val systemLanguage = Resources.getSystem()
             .configuration
@@ -826,7 +889,6 @@ class MainActivity : FragmentActivity() {
         private var startupMaintenanceJob: Job? = null
         private val startupMaintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS = 5_000L
-
         const val EXTRA_NAVIGATE_TO = "navigate_to"
         const val EXTRA_OPEN_TIME_QUICK_START = "open_time_quick_start"
         const val EXTRA_OPEN_TIME_STOP_TRACKING = "open_time_stop_tracking"
@@ -872,6 +934,7 @@ internal data class StartupHealthLogSummary(
     val errorMessage: String?,
 )
 
+/** Pure resolver: builds a startup health log summary from DB artifacts + passphrase + health check. */
 internal fun resolveStartupHealthLogSummary(
     hasDatabaseArtifacts: Boolean,
     shouldShowPassphraseUnlock: Boolean,

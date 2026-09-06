@@ -56,10 +56,13 @@ object DateTimeUtil { // detekt:ignore:TooManyFunctions
     }
 
     /**
-     * Format date/time to ISO string.
+     * Format date/time to iSO string.
      */
     fun toIsoString(dateTime: LocalDateTime): String = dateTime.format(isoFormatter)
 
+    /**
+     * Parses an iSO local date-time [isoString]. logs and rethrows on failure.
+     */
     fun parseIso(isoString: String): LocalDateTime =
         try {
             LocalDateTime.parse(isoString, isoFormatter)

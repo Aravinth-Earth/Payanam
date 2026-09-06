@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
@@ -35,7 +34,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.repository.DimensionTrendBlock
 import io.payanam.ui.components.DimensionCompactBadge
 import io.payanam.ui.components.DimensionIdentityRow
@@ -43,11 +41,7 @@ import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.DimensionTrendState
 import io.payanam.ui.viewmodel.DimensionTrendWindow
-import io.payanam.ui.viewmodel.colorFor
-import io.payanam.ui.viewmodel.iconKeyForDimensionId
-import io.payanam.ui.viewmodel.labelFor
 import io.payanam.ui.viewmodel.visibleDimensions
-import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
 private val logger = UnifiedLogger.getInstance()
@@ -70,7 +64,6 @@ internal fun DimensionTrendSection(
             ),
         )
     }
-
     Column(
         modifier = Modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -96,7 +89,6 @@ internal fun DimensionTrendSection(
                 )
             }
         }
-
         if (state.blocks.isEmpty()) {
             Text(
                 text = stringResource(id = R.string.loc_lens_dim_split_no_data),
@@ -153,7 +145,6 @@ private fun DimensionTrendBadge(
     val badgeLabel = dominantDimension?.label ?: stringResource(id = R.string.loc_dimension_fallback_unassigned)
     val badgeColor = dominantDimension?.color ?: Color(0xFF9E9E9E)
     val badgeIcon = DimensionIconCatalog.resolve(dominantDimension?.iconKey, dominantDimensionId)
-
     DimensionCompactBadge(
         label = badgeLabel,
         color = badgeColor,
@@ -173,7 +164,6 @@ private fun DimensionTrendBar(
     val totalPossible = block.totalPossibleMinutes.toFloat().coerceAtLeast(1f)
     val trackedTotal = block.byDimension.values.sum().toFloat().coerceAtLeast(0f)
     val untrackedMinutes = (block.totalPossibleMinutes - trackedTotal).coerceAtLeast(0f)
-
     Canvas(
         modifier = Modifier
             .width(28.dp)
@@ -224,7 +214,6 @@ private fun DimensionTrendBar(
 private fun DimensionTrendLegend(appPrefs: AppPreferencesState) {
     val visibleDimensions = appPrefs.visibleDimensions()
     val untrackedColor = Color(0xFF9E9E9E)
-
     Row(
         modifier = Modifier
             .fillMaxWidth()

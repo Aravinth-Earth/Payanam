@@ -22,12 +22,18 @@ import org.junit.runner.RunWith
 import java.time.LocalDateTime
 
 @RunWith(AndroidJUnit4::class)
+/**
+ * Provides the task repository integration test.
+ */
 class TaskRepositoryIntegrationTest {
     private lateinit var database: PayanamDatabase
     private lateinit var repository: TaskRepository
     private lateinit var sessionManager: DatabaseSessionManager
 
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
 
@@ -42,7 +48,6 @@ class TaskRepositoryIntegrationTest {
                 .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
                 .allowMainThreadQueries()
                 .build()
-
         val encryptionManager = DatabaseEncryptionManager(context)
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
@@ -50,12 +55,18 @@ class TaskRepositoryIntegrationTest {
     }
 
     @After
+    /**
+     * Performs the tear down.
+     */
     fun tearDown() {
         sessionManager.closeDatabase()
         database.close()
     }
 
     @Test
+    /**
+     * Creates the create task creates and returns task with generated id.
+     */
     fun createTask_createsAndReturnsTaskWithGeneratedId() =
         runBlocking {
             // Given
@@ -72,6 +83,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the all tasks returns all created tasks.
+     */
     fun getAllTasks_returnsAllCreatedTasks() =
         runBlocking {
             // Given
@@ -87,6 +101,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the task by id returns correct task when exists.
+     */
     fun getTaskById_returnsCorrectTaskWhenExists() =
         runBlocking {
             // Given
@@ -102,6 +119,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the task by id returns null when task does not exist.
+     */
     fun getTaskById_returnsNullWhenTaskDoesNotExist() =
         runBlocking {
             // When
@@ -112,6 +132,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Updates the update task modifies existing task.
+     */
     fun updateTask_modifiesExistingTask() =
         runBlocking {
             // Given
@@ -128,6 +151,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Performs the complete task marks task as completed with note.
+     */
     fun completeTask_marksTaskAsCompletedWithNote() =
         runBlocking {
             // Given
@@ -142,6 +168,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Removes the delete task removes task from database.
+     */
     fun deleteTask_removesTaskFromDatabase() =
         runBlocking {
             // Given
@@ -159,6 +188,9 @@ class TaskRepositoryIntegrationTest {
         }
 
     @Test
+    /**
+     * Returns the todays tasks returns tasks for today.
+     */
     fun getTodaysTasks_returnsTasksForToday() =
         runBlocking {
             // Given

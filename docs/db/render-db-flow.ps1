@@ -303,7 +303,8 @@ foreach ($s in $spec.states) {
 $mmdPath = Join-Path $OutDir "$outputBaseName.mmd"
 $mmdLines -join [Environment]::NewLine | Set-Content -Path $mmdPath -Encoding UTF8
 
-$mmdcPath = Join-Path $PSScriptRoot "node_modules\.bin\mmdc.cmd"
+$mmdcExe = if ($IsWindows) { "mmdc.cmd" } else { "mmdc" }
+$mmdcPath = Join-Path $PSScriptRoot "node_modules\.bin\$mmdcExe"
 if (-not (Test-Path $mmdcPath)) {
     throw "Mermaid CLI not found at '$mmdcPath'. Install it first: npm --prefix docs/db install --save-dev @mermaid-js/mermaid-cli"
 }
@@ -480,6 +481,7 @@ window.addEventListener('load',function(){
   homeSc=fitSc*9;
   goHome();
 });
+})();
 </script>
 </body></html>
 "@

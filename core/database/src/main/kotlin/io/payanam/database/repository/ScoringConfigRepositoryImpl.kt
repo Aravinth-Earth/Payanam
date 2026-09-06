@@ -13,7 +13,9 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Room implementation of ScoringConfigRepository.
+ * Room implementation of [ScoringConfigRepository]. The scoring config is a
+ * singleton row (id = 1) holding tunable weights/thresholds for the scoring
+ * engine.
  */
 @Singleton
 class ScoringConfigRepositoryImpl
@@ -23,6 +25,10 @@ class ScoringConfigRepositoryImpl
     ) : ScoringConfigRepository {
         private val logger = UnifiedLogger.getInstance()
 
+        /**
+         * Returns the scoring config, or `ScoringConfig.defaults()` when none has
+         * been saved yet.
+         */
         override suspend fun getConfig(): ScoringConfig {
             logger.d("ScoringConfigRepository.getConfig", "Fetching scoring config")
             val entity = sessionManager.requireDatabase().scoringConfigDao().getConfig()
@@ -35,6 +41,10 @@ class ScoringConfigRepositoryImpl
             }
         }
 
+        /**
+         * Emits the scoring config, or `ScoringConfig.defaults()` when unsaved, as a
+         * [Flow].
+         */
         override fun observeConfig(): Flow<ScoringConfig> {
             logger.d("ScoringConfigRepository.observeConfig", "Subscribing to scoring config")
             return sessionManager.requireDatabase().scoringConfigDao().observeConfig().map { entity ->
@@ -46,6 +56,9 @@ class ScoringConfigRepositoryImpl
             }
         }
 
+        /**
+         * Persists the scoring [config] (upserts the singleton row).
+         */
         override suspend fun saveConfig(config: ScoringConfig) {
             logger.i(
                 "ScoringConfigRepository.saveConfig",
@@ -59,6 +72,10 @@ class ScoringConfigRepositoryImpl
             sessionManager.requireDatabase().scoringConfigDao().upsertConfig(entity)
         }
 
+        /**
+         * Deletes the scoring config row, so the next read returns
+         * `ScoringConfig.defaults()`.
+         */
         override suspend fun resetToDefaults() {
             logger.i("ScoringConfigRepository.resetToDefaults", "Resetting to default config")
             sessionManager.requireDatabase().scoringConfigDao().deleteConfig()

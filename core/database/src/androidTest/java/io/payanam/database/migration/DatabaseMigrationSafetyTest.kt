@@ -14,14 +14,20 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * Verifies the contracted Room schema support floor for shipped beta users.
+ * Verifies the contracted room schema support floor for shipped beta users.
  */
 @RunWith(AndroidJUnit4::class)
+/**
+ * Provides the database migration safety test.
+ */
 class DatabaseMigrationSafetyTest {
     private val logger = UnifiedLogger.getInstance()
     private lateinit var context: Context
 
     @Before
+    /**
+     * Updates the set up.
+     */
     fun setUp() {
         context = ApplicationProvider.getApplicationContext()
         if (!UnifiedLogger.isInitialized()) {
@@ -30,6 +36,9 @@ class DatabaseMigrationSafetyTest {
     }
 
     @Test
+    /**
+     * Performs the supported schema floor is locked to closed beta baseline.
+     */
     fun supported_schema_floor_is_locked_to_closed_beta_baseline() {
         logger.i(
             "DatabaseMigrationSafetyTest.supported_schema_floor_is_locked_to_closed_beta_baseline",
@@ -39,23 +48,23 @@ class DatabaseMigrationSafetyTest {
                 "currentSchema" to PAYANAM_DATABASE_SCHEMA_VERSION,
             ),
         )
-
         assertThat(DatabaseHealthChecker.MIN_MIGRATABLE_VERSION).isEqualTo(16)
         assertThat(PAYANAM_DATABASE_SCHEMA_VERSION).isAtLeast(DatabaseHealthChecker.MIN_MIGRATABLE_VERSION)
     }
 
     @Test
+    /**
+     * Only supported schema snapshot is retained for current release.
+     */
     fun only_supported_schema_snapshot_is_retained_for_current_release() {
         val schemaAssetPath = "$SCHEMA_ASSET_DIR/${PAYANAM_DATABASE_SCHEMA_VERSION}.json"
         context.assets.open(schemaAssetPath).use { stream ->
             assertThat(stream.available()).isGreaterThan(0)
         }
-
         val unsupportedSnapshot =
             runCatching {
                 context.assets.open("$SCHEMA_ASSET_DIR/15.json").close()
             }
-
         assertThat(unsupportedSnapshot.isFailure).isTrue()
     }
 

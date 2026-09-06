@@ -31,12 +31,14 @@ class LensesTimeColorScaleTest {
         val atZero = lensesTimeGradientColor(0f)
         val aboveOne = lensesTimeGradientColor(1.7f)
         val atOne = lensesTimeGradientColor(1f)
-
         assertEquals(atZero.toArgb(), belowZero.toArgb())
         assertEquals(atOne.toArgb(), aboveOne.toArgb())
     }
 
     @Test
+    /**
+     * Lenses time gradient color returns distinct low mid high colors.
+     */
     fun lensesTimeGradientColor_returns_distinct_low_mid_high_colors() {
         val low = lensesTimeGradientColor(0f)
         val mid = lensesTimeGradientColor(0.5f)
@@ -51,20 +53,20 @@ class LensesTimeColorScaleTest {
                 "highArgb" to high.toArgb(),
             ),
         )
-
         assertNotEquals(low.toArgb(), mid.toArgb())
         assertNotEquals(mid.toArgb(), high.toArgb())
         assertNotEquals(low.toArgb(), high.toArgb())
     }
 
     @Test
+    /**
+     * Lenses time gradient color uses safe fallback for non finite inputs.
+     */
     fun lensesTimeGradientColor_uses_safe_fallback_for_non_finite_inputs() {
         val nanColor = lensesTimeGradientColor(Float.NaN)
         val positiveInfColor = lensesTimeGradientColor(Float.POSITIVE_INFINITY)
         val negativeInfColor = lensesTimeGradientColor(Float.NEGATIVE_INFINITY)
-
         val low = lensesTimeGradientColor(0f)
-
         assertEquals(low.toArgb(), nanColor.toArgb())
         assertEquals(low.toArgb(), positiveInfColor.toArgb())
         assertEquals(low.toArgb(), negativeInfColor.toArgb())
@@ -80,6 +82,9 @@ class LensesTimeColorScaleTest {
     }
 
     @Test
+    /**
+     * Focused hours to percent handles non finite and invalid max hours.
+     */
     fun focusedHoursToPercent_handles_non_finite_and_invalid_max_hours() {
         assertEquals(0, focusedHoursToPercent(Double.NaN))
         assertEquals(0, focusedHoursToPercent(Double.POSITIVE_INFINITY))

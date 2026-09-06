@@ -43,7 +43,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
@@ -135,7 +134,6 @@ internal fun TimeBlockModalDialog(
         }
     }
     var expandedSection by remember(defaultSection) { mutableStateOf(defaultSection) }
-
     val selectedLabel = selectedDimension.label
     val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title
     val timeFormatter = DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a")
@@ -168,7 +166,10 @@ internal fun TimeBlockModalDialog(
         isExistingEntry -> io.payanam.R.string.loc_save
         else -> io.payanam.R.string.loc_add
     }
-
+    /**
+     * Validates and saves the entry form, defaulting an active block's end to
+     * now before invoking the submit callback.
+     */
     fun submitTimeEntry() {
         val normalizedFocusNote = focusNote.takeIf { it.isNotBlank() }
         val resolvedEndDate = if (isActiveEntry && endDate == null && endTime == null) {
@@ -193,7 +194,6 @@ internal fun TimeBlockModalDialog(
             taskTags,
         )
     }
-
     val continueAction = resolveContinueAction(
         isGapCreate = isGapCreate,
         isActiveEntry = isActiveEntry,
@@ -218,11 +218,9 @@ internal fun TimeBlockModalDialog(
             ),
         )
     }
-
     val contextSummary = selectedTaskTitle?.let { "$selectedLabel - $it" } ?: selectedLabel
     val timeSummary = "${startTime.format(timeFormatter)} - ${liveEndTime.format(timeFormatter)}"
     val focusSummary = String.format(Locale.US, "%.2f", focusRating.toDouble())
-
     Dialog(
         onDismissRequest = onDismiss,
         properties = DialogProperties(usePlatformDefaultWidth = false),
@@ -248,7 +246,6 @@ internal fun TimeBlockModalDialog(
                     )
                 }
                 HorizontalDivider()
-
                 Column(
                     modifier = Modifier
                         .weight(1f)
@@ -328,7 +325,6 @@ internal fun TimeBlockModalDialog(
                                 }
                             }
                         }
-
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_task_optional),
                             style = MaterialTheme.typography.labelMedium,
@@ -370,7 +366,6 @@ internal fun TimeBlockModalDialog(
                             }
                         }
                     }
-
                     TimeBlockModalSectionCard(
                         titleRes = io.payanam.R.string.loc_time,
                         summary = timeSummary,
@@ -404,7 +399,6 @@ internal fun TimeBlockModalDialog(
                                 }
                             }
                         }
-
                         Text(
                             text = stringResource(id = io.payanam.R.string.loc_end),
                             style = MaterialTheme.typography.labelMedium,
@@ -433,7 +427,6 @@ internal fun TimeBlockModalDialog(
                             }
                         }
                     }
-
                     TimeBlockModalSectionCard(
                         titleRes = io.payanam.R.string.loc_focus,
                         summary = focusSummary,
@@ -556,10 +549,8 @@ internal fun TimeBlockModalDialog(
                             }
                         }
                     }
-
                     Spacer(modifier = Modifier.height(120.dp))
                 }
-
                 HorizontalDivider()
                 Column(
                     modifier = Modifier
@@ -613,7 +604,6 @@ internal fun TimeBlockModalDialog(
             }
         }
     }
-
     if (showStartDatePicker) {
         DatePickerAlertDialog(
             initialDate = startDate,

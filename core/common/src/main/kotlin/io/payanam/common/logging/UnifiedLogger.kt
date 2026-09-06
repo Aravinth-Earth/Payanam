@@ -11,14 +11,26 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
+import android.os.SystemClock
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CancellationException
 import java.util.concurrent.atomic.AtomicLong
 
+/**
+ * Append-only, async-buffered logger for the Android app.
+ *
+ * Writes structured entries (level, source, message, sanitized data) to a
+ * per-session file under [Context.getFilesDir]/logs and mirrors them to logcat.
+ * A background scope flushes the in-memory buffer on a fixed interval; callers
+ * may also force a flush. Use the [getInstance] companion accessor after
+ * [initialize].
+ */
 @Suppress("TooManyFunctions")
 class UnifiedLogger private constructor(
     private val context: Context,
@@ -54,6 +66,7 @@ class UnifiedLogger private constructor(
         )
     }
 
+    /** Logs a DEBUG-level entry. No-op unless debug logging is enabled. */
     fun d(
         source: String,
         message: String,
@@ -64,6 +77,7 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /** Logs an INFO-level entry. */
     fun i(
         source: String,
         message: String,
@@ -72,6 +86,7 @@ class UnifiedLogger private constructor(
         log("INFO", source, message, data)
     }
 
+    /** Logs a WARN-level entry. */
     fun w(
         source: String,
         message: String,
@@ -80,6 +95,7 @@ class UnifiedLogger private constructor(
         log("WARN", source, message, data)
     }
 
+    /** Logs an ERROR-level entry, attaching [error] stack/metadata when present. */
     fun e(
         source: String,
         message: String,
@@ -89,6 +105,10 @@ class UnifiedLogger private constructor(
         log("ERROR", source, message, buildErrorData(error, data, MAX_STACK_FRAMES))
     }
 
+    /**
+     * Synchronously logs an ERROR entry and writes it to logcat immediately,
+     * bypassing the async buffer (used where a crash is imminent).
+     */
     fun eSync(
         source: String,
         message: String,
@@ -212,6 +232,7 @@ class UnifiedLogger private constructor(
             else -> value.toString()
         }
 
+    /** Requests an async flush of the buffered entries to disk. */
     fun flush() {
         scope.launch {
             mutex.withLock {
@@ -236,6 +257,7 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /** Returns the session log files on disk, newest first. */
     fun getLogFiles(): List<File> =
         logDir
             .listFiles()
@@ -243,8 +265,13 @@ class UnifiedLogger private constructor(
                 it.extension == "log" && it.name.startsWith("payanam")
             }?.sortedByDescending { it.lastModified() } ?: emptyList()
 
+    /** Returns the absolute path of the active session log file. */
     fun getCurrentLogPath(): String = logFile.absolutePath
 
+    /**
+     * Closes the current session file and opens a new one, returning the new
+     * session's absolute path. Logs a breadcrumb recording [reason].
+     */
     fun startNewSession(reason: String): String {
         val previousLogPath = logFile.absolutePath
         val newLogPath =
@@ -270,6 +297,7 @@ class UnifiedLogger private constructor(
         return newLogPath
     }
 
+    /** Returns the last [lines] of the current session file as a single string. */
     fun getRecentLogs(lines: Int = 100): String =
         try {
             logFile.readLines().takeLast(lines).joinToString("\n")
@@ -277,72 +305,180 @@ class UnifiedLogger private constructor(
             "Error reading logs: ${e.message}"
         }
 
-    fun exportLatestLog(): File? =
-        try {
-            runBlocking {
-                mutex.withLock { flushInternal() }
-            }
-            val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-            val exportDir = File(externalDir, "payanam/exported-logs")
-            if (!exportDir.exists()) {
-                exportDir.mkdirs()
-            }
+    /**
+     * Export the current session log file. Runs on the IO dispatcher; atomic
+     * publish via .tmp + rename so the final name never holds a partial copy.
+     */
+    suspend fun exportLatestLog(): File? =
+        withContext(Dispatchers.IO) {
+            val startedAtMs = SystemClock.elapsedRealtime()
+            try {
+                val snapshot = snapshotLogState()
+                val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
+                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
 
-            val exportFile = File(exportDir, logFile.name)
-            logFile.copyTo(exportFile, overwrite = true)
+                val exportFile = File(exportDir, logFile.name)
+                val tmpFile = File(exportDir, "${logFile.name}.tmp")
+                try {
+                    snapshot.file.copyTo(tmpFile, overwrite = true)
+                    if (tmpFile.length() != snapshot.file.length()) {
+                        throw IOException("Copy verification failed: ${snapshot.file.length()} != ${tmpFile.length()}")
+                    }
+                    if (!tmpFile.renameTo(exportFile)) {
+                        throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
+                    }
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    tmpFile.delete()
+                    throw e
+                }
 
-            i(
-                "UnifiedLogger.exportLatestLog",
-                "Latest log exported",
-                mapOf(
-                    "fileName" to exportFile.name,
-                ),
+                val durationMs = SystemClock.elapsedRealtime() - startedAtMs
+                i(
+                    "UnifiedLogger.exportLatestLog",
+                    "Current session log exported",
+                    mapOf(
+                        "fileName" to exportFile.name,
+                        "sizeBytes" to exportFile.length(),
+                        "durationMs" to durationMs,
+                    ),
+                )
+                exportFile
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                e("UnifiedLogger.exportLatestLog", "Failed to export current session log", e)
+                null
+            }
+        }
+
+    /**
+     * Export ALL log files as one zip. Runs on the IO dispatcher; atomic
+     * publish via .tmp + rename; the in-memory buffer snapshot is included as
+     * a session-live.log entry so the zip always carries the newest lines;
+     * old exports are pruned to [EXPORT_RETENTION_KEEP].
+     */
+    suspend fun exportAllLogs(): File? =
+        withContext(Dispatchers.IO) {
+            val startedAtMs = SystemClock.elapsedRealtime()
+            try {
+                val snapshot = snapshotLogState()
+                val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
+                val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
+                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                if (!exportDir.exists()) {
+                    exportDir.mkdirs()
+                }
+
+                val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
+                val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+                val tmpZip = File(exportDir, "${zipFile.name}.tmp")
+
+                try {
+                    createZipFileAtomic(tmpZip, snapshot)
+                    if (!tmpZip.renameTo(zipFile)) {
+                        throw IOException("Atomic rename failed: ${tmpZip.name} → ${zipFile.name}")
+                    }
+                    cleanupOldExports(exportDir, keepLast = EXPORT_RETENTION_KEEP)
+                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                    tmpZip.delete()
+                    throw e
+                }
+
+                val durationMs = SystemClock.elapsedRealtime() - startedAtMs
+                i(
+                    "UnifiedLogger.exportAllLogs",
+                    "All logs exported",
+                    mapOf(
+                        "fileName" to zipFile.name,
+                        "fileCount" to snapshot.files.size,
+                        "bufferedDuringExport" to snapshot.bufferSnapshot.size,
+                        "sizeBytes" to zipFile.length(),
+                        "durationMs" to durationMs,
+                    ),
+                )
+                zipFile
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: IOException) {
+                e("UnifiedLogger.exportAllLogs", "Failed to export all logs", e)
+                null
+            }
+        }
+
+    /** Capture the buffer snapshot FIRST, then flush — so session-live.log
+     *  carries the not-yet-flushed lines (flush would empty the buffer). */
+    private suspend fun snapshotLogState(): LogSnapshot =
+        mutex.withLock {
+            val bufferSnapshot = logBuffer.toList()
+            flushInternal()
+            LogSnapshot(
+                file = logFile,
+                files = getLogFiles(),
+                bufferSnapshot = bufferSnapshot,
             )
-
-            exportFile
-        } catch (e: IOException) {
-            e("UnifiedLogger.exportLatestLog", "Failed to export latest log", e)
-            null
         }
 
-    fun exportAllLogs(): File? {
-        runBlocking {
-            mutex.withLock { flushInternal() }
-        }
-        val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
-        val exportDir = File(externalDir, "payanam/exported-logs")
-        if (!exportDir.exists()) {
-            exportDir.mkdirs()
-        }
+    private data class LogSnapshot(
+        val file: File,
+        val files: List<File>,
+        val bufferSnapshot: List<String>,
+    )
 
-        val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-        val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+    /**
+     * Zip [snapshot.files] + a session-live.log entry with the buffered lines.
+     * Writes to [tmpZip] so the caller can rename atomically afterwards.
+     */
+    private fun createZipFileAtomic(tmpZip: File, snapshot: LogSnapshot) {
+        java.util.zip.ZipOutputStream(java.io.FileOutputStream(tmpZip)).use { zos ->
+            snapshot.files.forEach { file ->
+                addFileToZip(zos, file)
+            }
+            if (snapshot.bufferSnapshot.isNotEmpty()) {
+                zos.putNextEntry(java.util.zip.ZipEntry("session-live.log"))
+                zos.write(snapshot.bufferSnapshot.joinToString(separator = "").toByteArray(Charsets.UTF_8))
+                zos.closeEntry()
+            }
+        }
+        verifyZipIntegrity(tmpZip, expectedEntries = snapshot.files.size + if (snapshot.bufferSnapshot.isNotEmpty()) 1 else 0)
+    }
 
-        return try {
-            createZipFile(zipFile)
-        } catch (e: IOException) {
-            e("UnifiedLogger.exportAllLogs", "Failed to export all logs", e)
-            null
+    /** Re-open the zip and confirm entry count + EOCD magic before it is renamed into place. */
+    private fun verifyZipIntegrity(zipFile: File, expectedEntries: Int) {
+        java.util.zip.ZipFile(zipFile).use { zip ->
+            val actual = zip.size()
+            if (actual != expectedEntries) {
+                throw IOException("Zip verification failed: expected $expectedEntries entries, found $actual")
+            }
+        }
+        // EOCD magic (PK\x05\x06) must be the last bytes of a complete zip.
+        val tail = zipFile.readBytes().takeLast(EOCD_RECORD_SIZE).toByteArray()
+        val eocdMagic = byteArrayOf(0x50, 0x4B, 0x05, 0x06)
+        if (tail.size < EOCD_RECORD_SIZE || !tail.copyOfRange(0, EOCD_MAGIC_SIZE).contentEquals(eocdMagic)) {
+            throw IOException("Zip verification failed: EOCD record missing")
         }
     }
 
-    private fun createZipFile(zipFile: File): File {
-        java.util.zip.ZipOutputStream(java.io.FileOutputStream(zipFile)).use { zos ->
-            getLogFiles().forEach { file ->
-                addFileToZip(zos, file)
+    /** Prune the exported-logs dir to the newest [keepLast] payanam artifacts. */
+    private fun cleanupOldExports(exportDir: File, keepLast: Int) {
+        val artifacts =
+            exportDir
+                .listFiles()
+                ?.filter { it.name.startsWith("payanam_") }
+                ?.sortedByDescending { it.lastModified() }
+                ?: return
+        artifacts.drop(keepLast).forEach { file ->
+            if (file.delete()) {
+                i(
+                    "UnifiedLogger.cleanupOldExports",
+                    "Deleted old export artifact",
+                    mapOf("fileName" to file.name),
+                )
             }
         }
-
-        i(
-            "UnifiedLogger.exportAllLogs",
-            "All logs exported",
-            mapOf(
-                "fileName" to zipFile.name,
-                "fileCount" to getLogFiles().size,
-            ),
-        )
-
-        return zipFile
     }
 
     private fun addFileToZip(
@@ -354,6 +490,7 @@ class UnifiedLogger private constructor(
         zos.closeEntry()
     }
 
+    /** Asynchronously prunes old session files, keeping the newest [keepLast]. */
     fun clearOldLogs(keepLast: Int = 10) {
         scope.launch {
             try {
@@ -410,7 +547,12 @@ class UnifiedLogger private constructor(
         private const val MAX_CAUSE_DEPTH = 8
         private const val LOG_LEVEL_WIDTH = 5
         private const val MAX_BUFFER_SIZE = 100
+        private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
+        // ZIP End-Of-Central-Directory record: fixed 22-byte trailer whose first
+        // 4 bytes are the PK\x05\x06 magic. Used to confirm a written zip is complete.
+        private const val EOCD_RECORD_SIZE = 22
+        private const val EOCD_MAGIC_SIZE = 4
         private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
 
         @Volatile
@@ -419,6 +561,10 @@ class UnifiedLogger private constructor(
         @Volatile
         private var debugLoggingEnabled: Boolean = false
 
+        /**
+         * Creates and memoizes the singleton logger. Safe to call repeatedly;
+         * only the first call constructs an instance. Call from Application.onCreate().
+         */
         fun initialize(
             context: Context,
             @Suppress("UNUSED_PARAMETER") versionName: String,
@@ -430,17 +576,21 @@ class UnifiedLogger private constructor(
                 }
             }
 
+        /** Returns the initialized singleton, throwing if [initialize] was not called. */
         fun getInstance(): UnifiedLogger =
             instance ?: error(
                 "UnifiedLogger not initialized. Call initialize() from Application.onCreate()",
             )
 
+        /** True once [initialize] has constructed the singleton. */
         fun isInitialized(): Boolean = instance != null
 
+        /** Enables/disables DEBUG-level logging at runtime. */
         fun setDebugLoggingEnabled(enabled: Boolean) {
             debugLoggingEnabled = enabled
         }
 
+        /** Returns the current DEBUG-logging toggle state. */
         fun isDebugLoggingEnabled(): Boolean = debugLoggingEnabled
     }
 }

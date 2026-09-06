@@ -86,7 +86,6 @@ fun AutoTrackingSection(
                 thickness = 1.dp,
                 color = MaterialTheme.colorScheme.outlineVariant,
             )
-
             Text(
                 text = stringResource(id = R.string.settings_auto_track_per_dimension),
                 style = MaterialTheme.typography.titleSmall,

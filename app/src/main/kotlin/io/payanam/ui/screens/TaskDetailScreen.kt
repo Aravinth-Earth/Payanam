@@ -49,12 +49,10 @@ fun TaskDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var currentStatusAction by remember { mutableStateOf<StatusAction?>(null) }
     var showRescheduleDialog by remember { mutableStateOf(false) }
-
     LaunchedEffect(taskId) {
         logger.d("TaskDetailScreen.LaunchedEffect", "Loading task", mapOf("taskId" to taskId))
         viewModel.loadTask(taskId)
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -117,6 +115,18 @@ fun TaskDetailScreen(
                     rescheduleHistory = uiState.rescheduleHistory,
                     isLoadingReschedules = uiState.isLoadingReschedules,
                     completionStats = uiState.completionStats,
+                    latestL1 = uiState.latestL1,
+                    windowSizeDays = uiState.windowSizeDays,
+                    windowEnd = uiState.windowEnd,
+                    windowRows = uiState.windowRows,
+                    windowOccurrences = uiState.windowOccurrences,
+                    isLoadingWindow = uiState.isLoadingWindow,
+                    showChartView = uiState.showChartView,
+                    onWindowSizeChange = viewModel::setWindowSizeDays,
+                    onWindowBack = viewModel::shiftWindowBack,
+                    onWindowForward = viewModel::shiftWindowForward,
+                    onWindowToday = viewModel::jumpWindowToToday,
+                    onChartViewChange = viewModel::setChartView,
                     onComplete = { currentStatusAction = StatusAction.COMPLETE },
                     onSkip = { currentStatusAction = StatusAction.SKIP },
                     onMiss = { currentStatusAction = StatusAction.MISS },
@@ -192,7 +202,6 @@ fun TaskDetailScreen(
                 },
             )
         }
-
         if (showRescheduleDialog) {
             val task = uiState.task
             val dueDate = task?.dueDate

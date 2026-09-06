@@ -33,13 +33,14 @@ val hasReleaseSigning = releaseSigningPropsFile.exists()
 android {
     namespace = "io.payanam"
     compileSdk = 36
+    buildToolsVersion = "36.0.0"
 
     defaultConfig {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1528
-          versionName = "#1528 (20260808_105442)"
+          versionCode = 1704
+          versionName = "1704"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -58,6 +59,15 @@ android {
         // Room schema export for migrations
         ksp {
             arg("room.schemaLocation", "$projectDir/schemas")
+        }
+
+        // ARM64-only default for all builds (debug + release).
+        // Pass -PuniversalBuild=true to include all ABIs (emulator, CI, Chromebook).
+        val universalBuild = (project.findProperty("universalBuild") as String?)?.toBoolean() ?: false
+        if (!universalBuild) {
+            ndk {
+                abiFilters += listOf("arm64-v8a")
+            }
         }
     }
 
@@ -100,12 +110,17 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = false
+            isMinifyEnabled = true
+            isShrinkResources = true
             applicationIdSuffix = ".debug"
             resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
             }
+            proguardFiles(
+                getDefaultProguardFile("proguard-android-optimize.txt"),
+                "proguard-rules.pro"
+            )
         }
         release {
             resValue("string", "launcher_app_name", "@string/app_name")
@@ -150,7 +165,6 @@ android {
 detekt {
     toolVersion = libs.versions.detekt.get()
     config.setFrom(files("${rootProject.projectDir}/config/detekt/detekt.yml"))
-    buildUponDefaultConfig = true
 }
 
 spotless {

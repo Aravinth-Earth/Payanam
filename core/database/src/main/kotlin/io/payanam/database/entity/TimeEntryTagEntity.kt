@@ -26,6 +26,10 @@ import androidx.room.Index
     ],
     indices = [Index("time_entry_id"), Index("tag_id")],
 )
+/**
+ * Join row linking a [TimeEntryEntity] to a [TagEntity] (many-to-many).
+ * The composite primary key is the pair of foreign ids.
+ */
 data class TimeEntryTagEntity(
     @ColumnInfo(name = "time_entry_id")
     val timeEntryId: String,

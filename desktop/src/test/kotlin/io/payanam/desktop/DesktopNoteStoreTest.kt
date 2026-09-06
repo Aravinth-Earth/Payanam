@@ -9,7 +9,9 @@ import org.junit.rules.TemporaryFolder
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.time.LocalDateTime
-
+/**
+ * Provides the desktop note store test.
+ */
 class DesktopNoteStoreTest {
     @get:Rule
     val temporaryFolder = TemporaryFolder()

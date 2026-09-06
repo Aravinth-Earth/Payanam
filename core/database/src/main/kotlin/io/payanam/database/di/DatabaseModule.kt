@@ -20,15 +20,28 @@ import javax.inject.Singleton
 
 @Module
 @InstallIn(SingletonComponent::class)
+/**
+ * Hilt provider module that constructs the database infrastructure singletons
+ * (encryption manager, session manager, and the LensRepository facade) from
+ * their concrete classes.
+ */
 object DatabaseModule {
     @Provides
     @Singleton
+    /**
+     * Builds the [DatabaseEncryptionManager] singleton bound to the app
+     * context, owning all at-rest encryption metadata.
+     */
     fun provideDatabaseEncryptionManager(
         @ApplicationContext context: Context,
     ): DatabaseEncryptionManager = DatabaseEncryptionManager(context)
 
     @Provides
     @Singleton
+    /**
+     * Builds the [DatabaseSessionManager] singleton, which opens/closes the
+     * encrypted Room database using the supplied encryption manager.
+     */
     fun provideDatabaseSessionManager(
         @ApplicationContext context: Context,
         encryptionManager: DatabaseEncryptionManager,
@@ -36,6 +49,10 @@ object DatabaseModule {
 
     @Provides
     @Singleton
+    /**
+     * Assembles the [LensRepositoryImpl] facade, injecting the session manager
+     * and the planning/reality data sources it reads from.
+     */
     fun provideLensRepository(
         sessionManager: DatabaseSessionManager,
         taskRepository: TaskRepository,

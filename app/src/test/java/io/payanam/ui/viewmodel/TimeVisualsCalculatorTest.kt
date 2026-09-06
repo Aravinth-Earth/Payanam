@@ -13,11 +13,13 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 import java.time.LocalDate
 import java.time.LocalDateTime
-
 class TimeVisualsCalculatorTest {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
     @Test
+    /**
+     * Compute day overall unrated entry contributes zero focused minutes.
+     */
     fun computeDayOverall_unrated_entry_contributes_zero_focused_minutes() {
         logger?.d("TimeVisualsCalculatorTest.computeDayOverall", "Verifying unrated entry contributes 0 focus (no 0.5 fallback)")
         val day = LocalDate.of(2026, 2, 15)
@@ -49,9 +51,7 @@ class TimeVisualsCalculatorTest {
             entry("e2", day.atTime(9, 30), day.atTime(11, 0), focus = 0.6),
             entry("e3", day.atTime(13, 0), day.atTime(14, 0), focus = 0.9),
         )
-
         val summary = TimeVisualsCalculator.computeDayOverall(day, entries, now = day.atTime(23, 0))
-
         assertEquals(1, summary.overlapCount)
         assertTrue(summary.gapCount >= 1)
         assertTrue(summary.trackedMinutes > 0)
@@ -91,7 +91,6 @@ class TimeVisualsCalculatorTest {
                 templateId = null,
             ),
         )
-
         val result = TimeVisualsCalculator.computePerDimension(
             selectedDate = day,
             entries = entries,
@@ -99,7 +98,6 @@ class TimeVisualsCalculatorTest {
             allocations = allocations,
             now = day.atTime(23, 0),
         )
-
         assertEquals(1, result.size)
         assertEquals(DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id, result.first().dimensionId)
         assertEquals(60, result.first().plannedMinutes)
@@ -107,6 +105,9 @@ class TimeVisualsCalculatorTest {
     }
 
     @Test
+    /**
+     * Compute per dimension adds supplemental habit minutes without double count.
+     */
     fun computePerDimension_adds_supplemental_habit_minutes_without_double_count() {
         logger?.d("TimeVisualsCalculatorTest.computePerDimension", "Running supplemental occurrence anti-double-count case")
         val day = LocalDate.of(2026, 2, 15)
@@ -125,7 +126,6 @@ class TimeVisualsCalculatorTest {
             status = "completed",
             actualDurationMinutes = 30,
         )
-
         val withoutEntry = TimeVisualsCalculator.computePerDimension(
             selectedDate = day,
             entries = emptyList(),
@@ -135,7 +135,6 @@ class TimeVisualsCalculatorTest {
             now = day.atTime(23, 0),
         )
         assertEquals(30L, withoutEntry.first().trackedMinutes)
-
         val linkedEntry = TimeEntry(
             id = "e_h1",
             lifeIntentionCategory = "Physical Health",

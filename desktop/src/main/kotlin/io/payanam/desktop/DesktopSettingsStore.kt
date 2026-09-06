@@ -22,6 +22,10 @@ internal class DesktopSettingsStore(
         ),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    /**
+     * Settings parsed from persisted properties with schema migrations
+     * (legacy home-surface/theme fallbacks); defaults when absent.
+     */
     fun loadSnapshot(): DesktopSettingsSnapshot {
         val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
         if (storedPayload.isNullOrBlank()) {
@@ -87,7 +91,10 @@ internal class DesktopSettingsStore(
         )
         return snapshot
     }
-
+    /**
+     * Serializes the settings snapshot (including per-route visibility) to
+     * properties and persists them.
+     */
     fun saveSnapshot(snapshot: DesktopSettingsSnapshot) {
         val properties =
             Properties().apply {
@@ -119,7 +126,9 @@ internal class DesktopSettingsStore(
             ),
         )
     }
-
+    /**
+     * Path of the database file holding the settings payload.
+     */
     fun getSettingsFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
 
     private fun loadRouteVisibility(properties: Properties): Map<DesktopTopLevelRoute, Boolean> =

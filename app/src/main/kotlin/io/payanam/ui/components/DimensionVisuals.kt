@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-@file:Suppress("ktlint:standard:function-naming")
+@file:Suppress("ktlint:standard:function-naming", "MagicNumber")
 
 package io.payanam.ui.components
 
@@ -20,12 +20,10 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.defaultMinSize
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.offset
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.grid.GridCells
@@ -489,7 +487,6 @@ internal fun DimensionColorPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },
@@ -579,7 +576,6 @@ internal fun DimensionIconPicker(
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
     }
-
     if (showDialog) {
         AlertDialog(
             onDismissRequest = { showDialog = false },

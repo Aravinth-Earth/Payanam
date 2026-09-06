@@ -14,6 +14,10 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.migration.MIGRATION_16_17
+import io.payanam.database.migration.MIGRATION_17_18
+import io.payanam.database.migration.MIGRATION_18_19
+import io.payanam.database.migration.MIGRATION_19_20
+import io.payanam.database.migration.MIGRATION_20_21
 import io.payanam.database.security.DatabaseEncryptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -114,7 +118,7 @@ class DatabaseSessionManager
                                 PayanamDatabase::class.java,
                                 PayanamDatabase.DATABASE_NAME,
                             ).setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-                            .addMigrations(MIGRATION_16_17)
+                            .addMigrations(MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
                             .openHelperFactory(SupportFactory(bytes))
                             .build()
                     // Force open so SQLCipher validation happens now (throws on wrong passphrase)
@@ -186,7 +190,7 @@ class DatabaseSessionManager
         }
 
         /**
-         * Returns the open [PayanamDatabase] instance.
+         * Returns the [PayanamDatabase] instance.
          *
          * @throws IllegalStateException if the session has not been opened via [openDatabase].
          */
@@ -225,6 +229,7 @@ class DatabaseSessionManager
          * (Activity.onStop, Service.onDestroy, pre-kill) to reduce data-loss window.
          * No-op if the DB session is not open.
          */
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun checkpoint() {
             val db = _db ?: return
             try {
@@ -300,6 +305,7 @@ class DatabaseSessionManager
                 }
         }
 
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun configureWalAutoCheckpoint(db: PayanamDatabase) {
             try {
                 val cursor =
@@ -327,6 +333,7 @@ class DatabaseSessionManager
             }
         }
 
+        @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun closeDatabaseForTimeout() {
             logger.i("DatabaseSessionManager.closeDatabaseForTimeout", "Closing DB session after inactivity timeout")
             CrashSafeBreadcrumbs.record(
@@ -346,7 +353,6 @@ class DatabaseSessionManager
             } catch (e: Exception) {
                 logger.e("DatabaseSessionManager.closeDatabaseForTimeout", "Failed to write timeout sentinel", e)
             }
-
             val db = _db
             inactivityJob = null
             periodicCheckpointJob?.cancel()

@@ -16,8 +16,14 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
 @RunWith(RobolectricTestRunner::class)
+/**
+ * Provides the average daily time calculator test.
+ */
 class AverageDailyTimeCalculatorTest {
     @Before
+    /**
+     * Updates the setup.
+     */
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         if (!UnifiedLogger.isInitialized()) {
@@ -26,13 +32,18 @@ class AverageDailyTimeCalculatorTest {
     }
 
     @Test
+    /**
+     * Calculate average daily time table returns null when no entries.
+     */
     fun calculateAverageDailyTimeTable_returnsNull_whenNoEntries() {
         val result = DailyStatsCalculator.calculateAverageDailyTimeTable(emptyList())
-
         assertThat(result).isNull()
     }
 
     @Test
+    /**
+     * Calculate average daily time table shows today yesterday and all and includes unassigned and untracked.
+     */
     fun calculateAverageDailyTimeTable_shows_today_yesterday_and_all_and_includes_unassigned_and_untracked() {
         val now = LocalDateTime.of(2026, 2, 8, 1, 0)
         val entries =
@@ -62,9 +73,7 @@ class AverageDailyTimeCalculatorTest {
                     dimensionId = "career_work",
                 ),
             )
-
         val result = DailyStatsCalculator.calculateAverageDailyTimeTable(entries, now)
-
         assertThat(result).isNotNull()
         result!!
         assertThat(result.totalCalendarDays).isEqualTo(2)
@@ -74,18 +83,15 @@ class AverageDailyTimeCalculatorTest {
             AverageDailyTimeWindow.ALL_DAYS,
         ).inOrder()
         assertThat(result.visibleWindows).doesNotContain(AverageDailyTimeWindow.LAST_7_DAYS)
-
         val careerRow = result.rows.single {
             it.rowType == AverageDailyTimeRowType.DIMENSION && it.dimensionId == "career_work"
         }
         assertThat(careerRow.averageMinutesByWindow[AverageDailyTimeWindow.TODAY_SO_FAR]).isEqualTo(30.0)
         assertThat(careerRow.averageMinutesByWindow[AverageDailyTimeWindow.YESTERDAY]).isEqualTo(60.0)
         assertThat(careerRow.averageMinutesByWindow[AverageDailyTimeWindow.ALL_DAYS]).isEqualTo(45.0)
-
         val unassignedRow = result.rows.single { it.rowType == AverageDailyTimeRowType.UNASSIGNED }
         assertThat(unassignedRow.averageMinutesByWindow[AverageDailyTimeWindow.TODAY_SO_FAR]).isEqualTo(10.0)
         assertThat(unassignedRow.averageMinutesByWindow[AverageDailyTimeWindow.ALL_DAYS]).isEqualTo(5.0)
-
         val untrackedRow = result.rows.single { it.rowType == AverageDailyTimeRowType.UNTRACKED }
         assertThat(untrackedRow.averageMinutesByWindow[AverageDailyTimeWindow.TODAY_SO_FAR]).isEqualTo(20.0)
         assertThat(untrackedRow.averageMinutesByWindow[AverageDailyTimeWindow.ALL_DAYS]).isEqualTo(700.0)

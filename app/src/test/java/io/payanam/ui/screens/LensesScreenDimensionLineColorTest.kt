@@ -27,13 +27,11 @@ class LensesScreenDimensionLineColorTest {
         val label = "Health & Wellness"
         val line = "$label: 1h 0m (planned) vs 45m (actual)"
         val color = Color(0xFF3A7BD5)
-
         val result = taggedDimensionLine(
             line = line,
             dimensionLabel = label,
             dimensionColor = color,
         )
-
         assertEquals(line, result.text)
         assertTrue(
             result.spanStyles.any { span ->
@@ -45,15 +43,16 @@ class LensesScreenDimensionLineColorTest {
     }
 
     @Test
+    /**
+     * Tagged dimension line returns unstyled text when label missing.
+     */
     fun taggedDimensionLine_returnsUnstyledTextWhenLabelMissing() {
         val line = "Unassigned: 30m"
-
         val result = taggedDimensionLine(
             line = line,
             dimensionLabel = "Career & Work",
             dimensionColor = Color.Red,
         )
-
         assertEquals(line, result.text)
         assertTrue(result.spanStyles.isEmpty())
     }

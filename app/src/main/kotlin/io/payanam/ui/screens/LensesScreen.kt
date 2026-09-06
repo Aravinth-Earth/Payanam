@@ -1,11 +1,13 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -32,7 +34,6 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -64,6 +65,7 @@ fun LensesScreen(
     onOpenHabits: () -> Unit = {},
     onOpenJournal: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
+    onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val logger = remember { UnifiedLogger.getInstance() }
@@ -73,6 +75,9 @@ fun LensesScreen(
     var habitsExpanded by rememberSaveable { mutableStateOf(false) }
     var journalExpanded by rememberSaveable { mutableStateOf(false) }
     var notesExpanded by rememberSaveable { mutableStateOf(false) }
+    /**
+     * Expands [section] and collapses the others (accordion behavior).
+     */
     fun toggleExclusive(section: String) {
         val shouldExpand = when (section) {
             "time" -> !timeExpanded
@@ -88,7 +93,6 @@ fun LensesScreen(
         journalExpanded = shouldExpand && section == "journal"
         notesExpanded = shouldExpand && section == "notes"
     }
-
     LaunchedEffect(uiState.selectedDate, uiState.selectedMoment) {
         viewModel.loadLensData()
         logger.d(
@@ -100,7 +104,6 @@ fun LensesScreen(
             ),
         )
     }
-
     val appPrefsForTrigger = LocalAppPreferences.current
     LaunchedEffect(
         appPrefsForTrigger.chartTimeModuleEnabled,
@@ -183,7 +186,6 @@ fun LensesScreen(
             )
         }
     }
-
     Scaffold(
         topBar = {
             TopAppBar(
@@ -204,7 +206,6 @@ fun LensesScreen(
             }
             return@Scaffold
         }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -264,6 +265,10 @@ fun LensesScreen(
                     logger.d("LensesScreen.ctaTapped", "CTA button tapped", mapOf("section" to "notes"))
                     onOpenNotes()
                 },
+                onOpenScoreDetail = { type, key ->
+                    logger.d("LensesScreen.scoreDetailOpened", "Score detail opened", mapOf("type" to type, "key" to key))
+                    onOpenScoreDetail(type, key)
+                },
                 onDimensionSplitWindowSelect = { viewModel.selectDimensionSplitWindow(it) },
                 onDimensionSplitShiftLeft = { viewModel.shiftDimensionSplitLeft() },
                 onDimensionSplitShiftRight = { viewModel.shiftDimensionSplitRight() },
@@ -296,39 +301,6 @@ private fun OverallCard(uiState: LensUiState) {
 }
 
 @Composable
-private fun OverallModuleSnapshotCard(uiState: LensUiState) {
-    val summary = uiState.selectedRangeSummary
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Text(stringResource(id = R.string.loc_lens_group_by_module), fontWeight = FontWeight.SemiBold)
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_time),
-                    stringResource(id = R.string.loc_plan_reality_totals_line, formatMinutes(summary?.totalPlannedMinutes ?: 0), formatMinutes(summary?.totalActualMinutes ?: 0)),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.settings_database_tasks),
-                    stringResource(id = R.string.loc_completed_tasks_ratio, summary?.completedTaskCount ?: 0, summary?.plannedTaskCount ?: 0),
-                ),
-            )
-            Text(
-                stringResource(
-                    id = R.string.loc_tagged_title,
-                    stringResource(id = R.string.loc_habits),
-                    stringResource(id = R.string.loc_completed_habits_ratio, summary?.completedHabitCount ?: 0, summary?.plannedHabitCount ?: 0),
-                ),
-            )
-            Text(stringResource(id = R.string.loc_journal_notes))
-            Text(stringResource(id = R.string.settings_database_notes))
-        }
-    }
-}
-
-@Composable
 private fun ModuleSections(
     uiState: LensUiState,
     onRequestMoreHistory: () -> Unit,
@@ -347,6 +319,7 @@ private fun ModuleSections(
     onOpenHabits: () -> Unit,
     onOpenJournal: () -> Unit,
     onOpenNotes: () -> Unit,
+    onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
     onDimensionSplitWindowSelect: (DimensionSplitWindow) -> Unit = {},
     onDimensionSplitShiftLeft: () -> Unit = {},
     onDimensionSplitShiftRight: () -> Unit = {},
@@ -362,7 +335,6 @@ private fun ModuleSections(
     val noteModuleEnabled = appPrefs.chartNoteModuleEnabled
     val includeSupplementalActual = true
     val dimensionIds = collectDimensionIds(uiState).filter(appPrefs::isVisibleDimensionId)
-
     if (timeChartsEnabled) {
         if (FeatureFlags.minimalModeEnabled) {
         ModuleCard(
@@ -636,32 +608,15 @@ private fun ModuleSections(
             Text(stringResource(id = R.string.loc_planned_habits_count, planned))
             Text(stringResource(id = R.string.loc_completed_habits_ratio, completed, total))
             Text(stringResource(id = R.string.loc_lens_missed_habits_line, missed))
-            Text(stringResource(id = R.string.loc_lens_group_by_dimension), fontWeight = FontWeight.Medium)
-            if (dimensionIds.isEmpty()) {
-                Text(stringResource(id = R.string.loc_lens_no_dimension_distribution))
-            } else {
-                val plannedMap = summary?.plannedHabitsByDimension ?: emptyMap()
-                val completedMap = summary?.completedHabitsByDimension ?: emptyMap()
-                val missedMap = summary?.missedHabitsByDimension ?: emptyMap()
-                dimensionIds.forEach { id ->
-                    val label = appPrefs.labelForDimensionId(id)
-                        ?: appPrefs.labelForDimension(id, null)
-                        ?: stringResource(id = R.string.loc_dimension_fallback_unassigned)
-                    val color = appPrefs.colorForDimensionId(id)
-                        ?: appPrefs.colorForDimension(id, null)
-                        ?: MaterialTheme.colorScheme.primary
-                    val plannedByDimension = plannedMap[id] ?: 0
-                    val completedByDimension = completedMap[id] ?: 0
-                    val missedByDimension = missedMap[id] ?: 0
-                    val line = stringResource(
-                        id = R.string.loc_tagged_title,
-                        label,
-                        stringResource(id = R.string.loc_completed_habits_ratio, completedByDimension, plannedByDimension),
-                    )
-                    Text(text = taggedDimensionLine(line = line, dimensionLabel = label, dimensionColor = color))
-                    Text(stringResource(id = R.string.loc_lens_missed_habits_line, missedByDimension))
-                }
-            }
+            // Per-dimension text lines removed — the score matrix below now
+            // renders per-dimension rows with colors/sparklines, making the
+            // duplicate text block redundant.
+            Spacer(modifier = Modifier.height(8.dp))
+            LensHabitScoreMatrixSection(
+                onRowSelected = { isDay, key ->
+                    onOpenScoreDetail(if (isDay) "DAY" else "DIMENSION", key)
+                },
+            )
         }
     }
     if (journalModuleEnabled) {

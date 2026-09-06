@@ -85,81 +85,6 @@ class RecurrenceScoreCalculatorTest {
     }
 
     @Test
-    fun `calculateDecayMultiplier returns value between 0 and 1 for daily`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val multiplier = RecurrenceScoreCalculator.calculateDecayMultiplier(frequency)
-        assertTrue(multiplier > 0.0)
-        assertTrue(multiplier < 1.0)
-    }
-
-    @Test
-    fun `calculateDecayMultiplier returns higher value for weekly than daily`() {
-        val daily = RecurrenceScoreCalculator.Frequency(1, 1)
-        val weekly = RecurrenceScoreCalculator.Frequency(1, 7)
-        val dailyMultiplier = RecurrenceScoreCalculator.calculateDecayMultiplier(daily)
-        val weeklyMultiplier = RecurrenceScoreCalculator.calculateDecayMultiplier(weekly)
-        assertTrue("Weekly decay should be higher (slower decay) than daily", weeklyMultiplier > dailyMultiplier)
-    }
-
-    @Test
-    fun `calculateDecayedScore reduces score when days missed`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.8
-        val decayedScore = RecurrenceScoreCalculator.calculateDecayedScore(originalScore, 1, frequency)
-        assertTrue(decayedScore < originalScore)
-    }
-
-    @Test
-    fun `calculateNewScore increases score when completed`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.5
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(originalScore, completed = true, frequency)
-        assertTrue(newScore > originalScore)
-    }
-
-    @Test
-    fun `calculateNewScore decreases score when not completed`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.5
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(originalScore, completed = false, frequency)
-        assertTrue(newScore < originalScore)
-    }
-
-    @Test
-    fun `calculateNewScore respects maximum score of 1`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.99
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(originalScore, completed = true, frequency)
-        assertTrue(newScore <= 1.0)
-    }
-
-    @Test
-    fun `calculateNewScore respects minimum score of 0`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.01
-        val newScore = RecurrenceScoreCalculator.calculateNewScore(originalScore, completed = false, frequency)
-        assertTrue(newScore >= 0.0)
-    }
-
-    @Test
-    fun `calculateScoreAfterGap applies compound decay`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 1.0
-        val afterOneDay = RecurrenceScoreCalculator.calculateScoreAfterGap(originalScore, 1, frequency)
-        val afterTwoDays = RecurrenceScoreCalculator.calculateScoreAfterGap(originalScore, 2, frequency)
-        assertTrue(afterOneDay < originalScore)
-        assertTrue(afterTwoDays < afterOneDay)
-    }
-
-    @Test
-    fun `calculateScoreAfterGap with zero days returns original score`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.8
-        val newScore = RecurrenceScoreCalculator.calculateScoreAfterGap(originalScore, 0, frequency)
-        assertEquals(originalScore, newScore, 0.001)
-    }
-
-    @Test
     fun `calculateCompletionStats returns default for empty list`() {
         val stats = RecurrenceScoreCalculator.calculateCompletionStats(emptyList())
         assertEquals(0.0, stats.completionRate7Days, 0.001)
@@ -376,26 +301,6 @@ class RecurrenceScoreCalculatorTest {
     }
 
     @Test
-    fun `calculateSkippedScore reduces score appropriately`() {
-        val originalScore = 0.8
-        val skippedScore = RecurrenceScoreCalculator.calculateSkippedScore(originalScore)
-        assertEquals("Skipped score should be unchanged", originalScore, skippedScore, 0.001)
-    }
-
-    @Test
-    fun `calculateSkippedScore with zero score returns zero`() {
-        val skippedScore = RecurrenceScoreCalculator.calculateSkippedScore(0.0)
-        assertEquals(0.0, skippedScore, 0.001)
-    }
-
-    @Test
-    fun `calculateSkippedScore with high score still reduces appropriately`() {
-        val originalScore = 0.99
-        val skippedScore = RecurrenceScoreCalculator.calculateSkippedScore(originalScore)
-        assertEquals("Skipped score should be unchanged", originalScore, skippedScore, 0.001)
-    }
-
-    @Test
     fun `parseRRuleToFrequency handles complex RRULE strings`() {
         val rule = "FREQ=WEEKLY;INTERVAL=2;BYDAY=MO,WE,FR"
         val frequency = RecurrenceScoreCalculator.parseRRuleToFrequency(rule)
@@ -409,31 +314,6 @@ class RecurrenceScoreCalculatorTest {
         val frequency = RecurrenceScoreCalculator.parseRRuleToFrequency(rule)
         assertEquals(1, frequency.numerator)
         assertEquals(365, frequency.denominator)
-    }
-
-    @Test
-    fun `calculateDecayedScore with zero days returns original score`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.7
-        val decayedScore = RecurrenceScoreCalculator.calculateDecayedScore(originalScore, 0, frequency)
-        assertEquals(originalScore, decayedScore, 0.001)
-    }
-
-    @Test
-    fun `calculateDecayedScore with large gap approaches zero`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 1.0
-        val decayedScore = RecurrenceScoreCalculator.calculateDecayedScore(originalScore, 100, frequency)
-        assertTrue("Score should decay significantly", decayedScore < 0.1)
-        assertTrue("Score should not be negative", decayedScore >= 0.0)
-    }
-
-    @Test
-    fun `calculateScoreAfterGap with very large gap approaches zero`() {
-        val frequency = RecurrenceScoreCalculator.Frequency(1, 1)
-        val originalScore = 0.8
-        val finalScore = RecurrenceScoreCalculator.calculateScoreAfterGap(originalScore, 365, frequency)
-        assertTrue("Score should decay to near zero", finalScore < 0.01)
     }
 
     @Test
@@ -505,32 +385,5 @@ class RecurrenceScoreCalculatorTest {
         )
 
         assertEquals(1.0, stats.completionRate7Days, 0.001)
-    }
-
-    @Test
-    fun `calculateDerivedFrequencyScore rewards completed history over empty history`() {
-        val frequency = DomainFrequency(2, 7, java.time.LocalDate.of(2026, 4, 1))
-        val today = java.time.LocalDate.of(2026, 4, 7)
-        val completedOccurrences = mapOf(
-            java.time.LocalDate.of(2026, 4, 2) to "completed",
-            java.time.LocalDate.of(2026, 4, 5) to "completed",
-        )
-
-        val completedScore = RecurrenceScoreCalculator.calculateDerivedFrequencyScore(
-            occurrences = completedOccurrences,
-            frequency = frequency,
-            anchorDate = frequency.anchorDate!!,
-            today = today,
-            seedScore = 1.0,
-        )
-        val emptyScore = RecurrenceScoreCalculator.calculateDerivedFrequencyScore(
-            occurrences = emptyMap(),
-            frequency = frequency,
-            anchorDate = frequency.anchorDate!!,
-            today = today,
-            seedScore = 1.0,
-        )
-
-        assertTrue(completedScore > emptyScore)
     }
 }

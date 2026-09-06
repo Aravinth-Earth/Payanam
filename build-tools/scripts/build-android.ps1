@@ -11,6 +11,8 @@ param(
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
+    [switch]$Publish,
+    [switch]$Universal,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1504,13 +1506,17 @@ if ($runCoverage)
 }
 
 # Check 6: Static analysis (lint, detekt)
+# FATAL on normal/full (where $runStaticAnalysis is true) — detekt now enforces
+# a KDoc baseline, so a regression must block the build. quick profile never
+# reaches this block, so its fast-iteration path is unchanged.
 if ($runStaticAnalysis)
 {
     Write-LogWithTime "Running static analysis..." "Cyan"
     $staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck" -StepLabel "Static analysis"
     if ($staticRun.ExitCode -ne 0)
     {
-        Write-LogWithTime "  ⚠️ Static analysis reported issues (non-fatal on first public setup)" "Yellow"
+        Write-LogWithTime "  ❌ Static analysis failed (detekt/lint regression). Fix before building." "Red"
+        Exit-WithCleanup 1
     } else {
         Write-LogWithTime "  ✅ Static analysis passed" "Green"
     }
@@ -1548,6 +1554,25 @@ switch ($effectiveProfile)
 $buildNumber = $counter.androidBuilds
 Write-LogWithTime "Build #$buildNumber (Total: $($counter.totalBuilds))" "Cyan"
 
+# ── Build counter integrity guard ───────────────────────────────────────
+# Invariant: totalBuilds must equal androidBuilds + windowsBuilds. The counter
+# file is the only manual-edit-prone artifact in incremental builds, so a drift
+# here means a previous run left it inconsistent. We do NOT auto-fix — a human
+# must correct build-counter.json by hand (set totalBuilds = androidBuilds +
+# windowsBuilds) before the build can proceed. Blocking here prevents shipping a
+# release whose build metadata is internally inconsistent.
+$expectedTotal = [int]$counter.androidBuilds + [int]$counter.windowsBuilds
+if ([int]$counter.totalBuilds -ne $expectedTotal) {
+    Write-LogWithTime "" "White"
+    Write-LogWithTime "  ❌ BUILD COUNTER INTEGRITY CHECK FAILED" "Red"
+    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != androidBuilds ($($counter.androidBuilds)) + windowsBuilds ($($counter.windowsBuilds)) = $expectedTotal" "Red"
+    Write-LogWithTime "  Fix build-counter.json manually: set totalBuilds = $expectedTotal, then re-run the build." "Yellow"
+    Write-LogWithTime "  Build aborted — no counter file written, no APK produced." "Red"
+    exit 1
+} else {
+    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows = $expectedTotal)" "Green"
+}
+
 # Save counter
 Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
 Write-LogWithTime "Build counter saved" "Green"
@@ -1560,7 +1585,7 @@ Write-LogWithTime "Build Name: $buildName" "Cyan"
 # Update version code in build.gradle.kts
 $appBuildGradle = Get-Content "app/build.gradle.kts" -Raw
 $appBuildGradle = $appBuildGradle -replace 'versionCode = \d+', "versionCode = $buildNumber"
-$versionDisplayName = "#$buildNumber ($dateTimeStamp)"
+$versionDisplayName = "$buildNumber"
 $appBuildGradle = $appBuildGradle -replace 'versionName = \"[^\"]+\"', "versionName = `"$versionDisplayName`""
 Set-Content "app/build.gradle.kts" $appBuildGradle -Encoding UTF8 -NoNewline
 Write-LogWithTime "Updated versionCode to $buildNumber" "Green"
@@ -1608,6 +1633,12 @@ $gradleTask = if ($Release)
 } else
 { "assembleDebug"
 }
+
+if ($Universal)
+{
+    $gradleTask += " -PuniversalBuild=true"
+    Write-LogWithTime "Universal: all ABIs included (arm64, arm32, x86, x86_64)" "Yellow"
+}
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
@@ -1618,6 +1649,11 @@ if ($buildRun.ExitCode -ne 0)
     Exit-WithCleanup 1
 }
 Write-LogWithTime "✅ APK build successful!" "Green"
+if ($Universal) {
+    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
+} else {
+    Write-LogWithTime "ABI filter: arm64-v8a only (~11 MB saved vs universal)" "Yellow"
+}
 
 # Find APK
 $apkDir = if ($Release)
@@ -1652,6 +1688,49 @@ Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 if ($Release)
 {
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
+}
+
+# ── Publish to channel (default OFF; -Publish opts in) ────────────────────────
+# Local iteration builds never publish: the home loop is edit → build → USB
+# install → test → logs → repeat, and publish happens only AFTER the tested
+# code is committed (publish-release.ps1 -ApkPath <tested.apk>, no rebuild).
+# -Publish makes THIS build go to the channel too; branch guards inside
+# publish-release.ps1 (feature/* → dev, dev → beta, main → stable) still apply.
+if ($Publish)
+{
+    Write-LogWithTime "Publishing APK to channel (auto-detect from branch)..." "Magenta"
+    & "$PSScriptRoot/publish-release.ps1" -ApkPath $apkFinalPath
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-LogWithTime "❌ Publish failed!" "Red"
+        Exit-WithCleanup 1
+    }
+    Write-LogWithTime "✅ Published to channel." "Green"
+} else
+{
+    Write-LogWithTime "Skipping channel publish (local-only build; use -Publish to ship)." "Yellow"
+}
+
+# Preserve R8 mapping file for stack-trace retrace:
+# java -jar retrace.jar mapping.txt stacktrace.txt
+{
+    # AGP 9.x writes mapping to build/intermediates; fall back to outputs for older AGP.
+    $mappingCandidates = if ($Release)
+    { @("app/build/intermediates/mapping/release/minifyReleaseWithR8/mapping.txt", "app/build/outputs/mapping/release/mapping.txt") }
+    else
+    { @("app/build/intermediates/mapping/debug/minifyDebugWithR8/mapping.txt", "app/build/outputs/mapping/debug/mapping.txt") }
+    $mappingSourcePath = $mappingCandidates | Where-Object { Test-Path $_ } | Select-Object -First 1
+    if ($mappingSourcePath)
+    {
+        $mappingFinalName = "$buildName.mapping.txt"
+        $mappingFinalPath = Join-Path $OutputDir $mappingFinalName
+        Copy-Item $mappingSourcePath $mappingFinalPath -Force
+        Write-LogWithTime "Mapping: $mappingFinalPath (for stack-trace retrace)" "Cyan"
+    }
+    else
+    {
+        Write-LogWithTime "⚠️ Mapping file not found (searched: $($mappingCandidates -join ', '))" "Yellow"
+    }
 }
 
 # ============================================
@@ -1818,6 +1897,7 @@ Write-LogWithTime "=== ARTIFACT RETENTION ===" "Magenta"
 try
 {
     Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.apk" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
+    Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.mapping.txt" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/smoke" -ItemType Directory -KeepCount $MaxSmokeArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/androidtest-failures" -ItemType Directory -KeepCount $MaxAndroidTestFailureArtifacts -CurrentBuildName $buildName
 } catch

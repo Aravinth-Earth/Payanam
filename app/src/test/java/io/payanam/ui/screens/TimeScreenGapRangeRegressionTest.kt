@@ -30,7 +30,6 @@ class TimeScreenGapRangeRegressionTest {
     fun `midnight gap bridges to previous day end when available`() {
         val selectedDate = LocalDate.of(2026, 2, 11)
         val lastEntryEnd = LocalDateTime.of(2026, 2, 10, 23, 30)
-
         val (start, end) = resolveGapConvertDateTimeRange(
             selectedDate = selectedDate,
             gapStartTime = LocalTime.MIDNIGHT,
@@ -53,14 +52,12 @@ class TimeScreenGapRangeRegressionTest {
     @Test
     fun `non midnight gap stays within selected date`() {
         val selectedDate = LocalDate.of(2026, 2, 11)
-
         val (start, end) = resolveGapConvertDateTimeRange(
             selectedDate = selectedDate,
             gapStartTime = LocalTime.of(14, 10),
             gapEndTime = LocalTime.of(15, 0),
             lastEntryEndDateTime = LocalDateTime.of(2026, 2, 10, 23, 30),
         )
-
         assertEquals(LocalDateTime.of(2026, 2, 11, 14, 10), start)
         assertEquals(LocalDateTime.of(2026, 2, 11, 15, 0), end)
     }
@@ -68,14 +65,12 @@ class TimeScreenGapRangeRegressionTest {
     @Test
     fun `end before start rolls to next day`() {
         val selectedDate = LocalDate.of(2026, 2, 11)
-
         val (start, end) = resolveGapConvertDateTimeRange(
             selectedDate = selectedDate,
             gapStartTime = LocalTime.of(23, 30),
             gapEndTime = LocalTime.of(1, 10),
             lastEntryEndDateTime = null,
         )
-
         assertEquals(LocalDateTime.of(2026, 2, 11, 23, 30), start)
         assertEquals(LocalDateTime.of(2026, 2, 12, 1, 10), end)
         assertTrue(end.isAfter(start))
@@ -89,7 +84,6 @@ class TimeScreenGapRangeRegressionTest {
         var capturedTaskId: String? = null
         var capturedStartDate: LocalDate? = null
         var capturedStartTime: LocalTime? = null
-
         val continueAction = resolveContinueAction(
             isGapCreate = true,
             isActiveEntry = false,
@@ -110,7 +104,6 @@ class TimeScreenGapRangeRegressionTest {
             startDate = startDate,
             startTime = startTime,
         )
-
         assertNotNull(continueAction)
         continueAction?.invoke()
         assertEquals(LifeDimension.HEALTH_WELLNESS.id, capturedDimension?.id)
@@ -136,7 +129,6 @@ class TimeScreenGapRangeRegressionTest {
             startDate = LocalDate.of(2026, 2, 11),
             startTime = LocalTime.NOON,
         )
-
         assertNull(continueAction)
     }
 }

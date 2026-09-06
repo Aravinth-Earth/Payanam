@@ -6,7 +6,6 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.repository.DayPlanRepository
 import org.junit.Assert.assertEquals
 import org.junit.Test
-
 class TimeScreenDayPlanLabelTest {
 
     private val logger: UnifiedLogger? by lazy {
@@ -14,6 +13,9 @@ class TimeScreenDayPlanLabelTest {
     }
 
     @Test
+    /**
+     * Resolve day plan action label custom mode returns custom hint label.
+     */
     fun resolveDayPlanActionLabel_customMode_returnsCustomHintLabel() {
         val result = resolveDayPlanActionLabel(
             dayMode = DayPlanRepository.MODE_CUSTOM,
@@ -28,6 +30,9 @@ class TimeScreenDayPlanLabelTest {
     }
 
     @Test
+    /**
+     * Resolve day plan action label with resolved template returns template hint label.
+     */
     fun resolveDayPlanActionLabel_withResolvedTemplate_returnsTemplateHintLabel() {
         val result = resolveDayPlanActionLabel(
             dayMode = DayPlanRepository.MODE_AUTO,
@@ -42,6 +47,9 @@ class TimeScreenDayPlanLabelTest {
     }
 
     @Test
+    /**
+     * Resolve day plan action label without resolved template returns base label.
+     */
     fun resolveDayPlanActionLabel_withoutResolvedTemplate_returnsBaseLabel() {
         val result = resolveDayPlanActionLabel(
             dayMode = DayPlanRepository.MODE_TEMPLATE,

@@ -31,9 +31,7 @@ class TimeVisualsAggregationRegressionTest {
             entry("e1", day.atTime(9, 0), day.atTime(10, 0), focus = 1.0),
             entry("e2", day.atTime(10, 0), day.atTime(12, 0), focus = 0.5),
         )
-
         val result = TimeVisualsCalculator.computeDayOverall(day, entries, now = day.atTime(23, 0))
-
         assertEquals(180L, result.trackedMinutes)
         assertEquals(0.66f, result.focusedMinutesPercent, 0.02f)
     }
@@ -56,7 +54,6 @@ class TimeVisualsAggregationRegressionTest {
                 templateId = null,
             ),
         )
-
         val result = TimeVisualsCalculator.computePerDimension(
             selectedDate = day,
             entries = entries,
@@ -64,7 +61,6 @@ class TimeVisualsAggregationRegressionTest {
             allocations = allocations,
             now = day.atTime(23, 0),
         )
-
         val learning = result.first { it.dimensionId == "dim_learning" }
         assertEquals(150L, learning.trackedMinutes)
         assertEquals(120, learning.plannedMinutes)

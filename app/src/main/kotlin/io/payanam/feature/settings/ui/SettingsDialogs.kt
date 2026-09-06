@@ -23,6 +23,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,9 +51,6 @@ import io.payanam.feature.settings.SettingsUiState
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.UhabitsImportResult
 import io.payanam.ui.viewmodel.DimensionPreference
-import io.payanam.ui.viewmodel.LocalAppPreferences
-import io.payanam.ui.viewmodel.labelFor
-import io.payanam.ui.viewmodel.labelForDimensionId
 import kotlin.system.exitProcess
 
 @Composable
@@ -206,7 +204,6 @@ internal fun SettingsImportFeedbackEffects(
             }
         }
     }
-
     LaunchedEffect(uiState.importResult) {
         uiState.importResult?.let { result ->
             when (result) {
@@ -237,17 +234,18 @@ internal fun SettingsImportFeedbackEffects(
 
                 is ImportResult.Error -> {
                     snackbarHostState.showSnackbar(
-                        context.getString(
+                        message = context.getString(
                             R.string.settings_snackbar_import_failed,
                             result.message,
                         ),
+                        withDismissAction = true,
+                        duration = SnackbarDuration.Indefinite,
                     )
                     viewModel.clearImportResult()
                 }
             }
         }
     }
-
     LaunchedEffect(uiState.uhabitsImportResult) {
         uiState.uhabitsImportResult?.let { result ->
             when (result) {
@@ -274,7 +272,6 @@ internal fun SettingsImportFeedbackEffects(
             }
         }
     }
-
     LaunchedEffect(uiState.bulkHabitMappingResult) {
         uiState.bulkHabitMappingResult?.let { result ->
             when (result) {
@@ -419,7 +416,6 @@ internal fun BulkMapImportedHabitsDialog(
     onDismiss: () -> Unit,
 ) {
     val logger = remember { UnifiedLogger.getInstance() }
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(stringResource(id = R.string.settings_bulk_map_dialog_title)) },
