@@ -546,7 +546,11 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                 logger = logger,
                 onViewGithub = {
                     logger.d("SettingsScreen.aboutActionTapped", "About action tapped", mapOf("action" to "github"))
-                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
+                    runCatching {
+                        context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://github.com/Aravinth-Earth/Payanam")))
+                    }.onFailure { e ->
+                        logger.w("SettingsScreen.openGithub", "No browser available for GitHub intent", mapOf("error" to (e.message ?: "unknown")))
+                    }
                 },
                 onCheckForUpdate = viewModel::checkForUpdate,
                 onUpdateChannelSelected = viewModel::onUpdateChannelSelected,

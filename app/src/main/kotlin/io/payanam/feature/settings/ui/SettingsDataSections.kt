@@ -457,8 +457,11 @@ internal fun AboutSettingsSection(
             )
             Spacer(modifier = Modifier.height(8.dp))
             OutlinedButton(onClick = {
-                val intent = Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/io.payanam/"))
-                context.startActivity(intent)
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/io.payanam/")))
+                }.onFailure { e ->
+                    logger.w("AboutSettingsSection.openFDroid", "No browser available for F-Droid intent", mapOf("error" to (e.message ?: "unknown")))
+                }
             }) {
                 Text(stringResource(id = R.string.settings_update_open_fdroid))
             }
@@ -698,7 +701,11 @@ internal fun AboutSettingsSection(
                     Spacer(modifier = Modifier.height(4.dp))
                     OutlinedButton(onClick = {
                         result.releaseUrl?.let { url ->
-                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }.onFailure { e ->
+                                logger.w("AboutSettingsSection.openRelease", "No browser available for release intent", mapOf("error" to (e.message ?: "unknown")))
+                            }
                         }
                     }) {
                         Text(stringResource(id = R.string.settings_update_view_release))
