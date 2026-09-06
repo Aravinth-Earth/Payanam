@@ -13,6 +13,26 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
 ---
 
+## Screenshots
+
+**English (EN)**
+
+| | |
+|---|---|
+| ![Habits list](docs/images/screenshots/en/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/en/2_tasks_list.jpg) |
+| ![Time timeline](docs/images/screenshots/en/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/en/4_dimension_insights.jpg) |
+| ![Lenses radar](docs/images/screenshots/en/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/en/6_settings.jpg) |
+
+**Tamil (தமிழ்)**
+
+| | |
+|---|---|
+| ![Habits list](docs/images/screenshots/ta/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/ta/2_tasks_list.jpg) |
+| ![Time timeline](docs/images/screenshots/ta/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/ta/4_dimension_insights.jpg) |
+| ![Lenses radar](docs/images/screenshots/ta/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/ta/6_settings.jpg) |
+
+---
+
 ## Quick Start
 
 ```bash

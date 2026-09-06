@@ -1,0 +1,40 @@
+Payanam (பயணம் — "journey") is a privacy-first life dimension manager for Android. Track what matters to you across the dimensions of life you define.
+
+<b>Your data never leaves your device.</b> No cloud. No accounts. No tracking. No subscriptions.
+
+<b>Life Dimensions</b>
+Comes with 9 default dimensions — Work & Livelihood, Physical Health, Family & Relationships, Home Environment, Money & Finance, Mental Health, Recreation & Leisure, Learning & Growth, Community & Service. Customize names, icons, colors, or create your own. Set per-dimension weightage that controls how each life area contributes to your scores.
+
+<b>Habits — The Core</b>
+The most mature module. Habits are recurring tasks with frequency-aware scheduling (daily, weekly, or X times per Y days). Every completion cascades through a 3-level metric system — habit-level (score, streaks, progress) → dimension-level (weighted average with carry-forward) → day-level aggregate. Dedicated habits insights include a score matrix (6 metrics, 14-day sparklines, rankings) and a dimension-spread radar chart comparing today's scores against your running average.
+
+<b>Tasks</b>
+Full CRUD with a 6-factor priority scoring engine (dimension importance, impact, goal alignment, energy, control, duration) — all configurable weights. Set due dates, tags, reminders, recurrence, and track occurrence history. Stopping time tracking auto-completes the linked task.
+
+<b>Time Tracking</b>
+Per-dimension time blocks with focus rating (0.0–1.0). Manual sessions: pick a dimension, start, stop. Habit auto-track: completing a habit auto-creates a time entry (opt-in per dimension, 15-min default). Both paths write to the same time store — there's no separate "habit time" vs "task time." Day-plan allocations let you set planned minutes per dimension; a Gaussian model scores how well actual time matches your plan.
+
+<b>Journal</b>
+Two levels per day: overall day reflection + per-dimension prompts. Both independently fillable each day.
+
+<b>Insights & Lenses</b>
+Opt-in by design — pick and enable exactly which charts you want (score cards, trends, heatmaps, radar, splits, timelines). Lenses build planning-vs-reality snapshots from time entries, task occurrences, and day-plan allocations. Five reflection card types detect untracked time, missed tasks, missed habits, focus gaps, and dimension gaps. Some chart metrics are still evolving — marked as pending in-app.
+
+<b>Day Planning</b>
+Template-based with auto/custom modes. Set planned minutes per dimension, with weekday/weekend preferences. Feeds time-deviation scoring and Lenses.
+
+<b>Scoring Configuration</b>
+Fine-grained control: adjust 6 cross-task factor weights plus per-level values for impact, goal alignment, energy, and control. Your priorities, your formula.
+
+<b>Security & Backup</b>
+Encrypted by default — set a strong passphrase (12+ chars, upper/lower/digit/symbol) on first launch. Optional biometric unlock with configurable auto-lock timeout (1 min to 4 hours). Auto-backup on configurable intervals (15 min to 24 hours) with rotation. Manual encrypted export/import with passphrase. Export logs from settings or the unlock screen.
+
+<b>Customization</b>
+Enable or disable individual modules. Choose your default home tab. System theme with Material You dynamic colors. English and Tamil locale support. Font family customization (sans, serif, monospace, cursive).
+
+<b>Cross-Platform & Updates</b>
+Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. In-app update checker across 3 channels (dev/beta/stable) with three opt-in levels: check, auto-download over WiFi, and prompt to install.
+
+Payanam is open source under AGPL-3.0. All improvements stay open.
+
+No ads. No analytics. No dark patterns. Just your journey.

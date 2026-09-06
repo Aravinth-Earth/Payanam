@@ -46,6 +46,8 @@ data class SettingsUiState(
     val downloadState: DownloadUiState = DownloadUiState.Idle,
     /** Pending install file path — non-null when the install popup should show. */
     val pendingInstallPath: String? = null,
+    /** Whether the app was installed from F-Droid (disables in-app update UI). */
+    val isFDroidBuild: Boolean = false,
 ) {
     /** A check result older than 15 minutes is stale — UI should re-check first. */
     fun isUpdateResultStale(): Boolean {

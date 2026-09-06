@@ -1120,6 +1120,10 @@
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_signal">zatu.69</string>
 
+    <string name="settings_update_open_fdroid">F-Droid திற</string>
+    <string name="settings_update_fdroid_managed">F-Droid மூலம் புதுப்பிப்புகள் நிர்வகிக்கப்படும்</string>
+    <string name="settings_update_fdroid_info">இந்தச் செயலி F-Droid-இலிருந்து நிறுவப்பட்டது. புதுப்பிப்புகள் F-Droid வாடிக்கையாளரால் கையாளப்படும்.</string>
+
     <!-- Update checker -->
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
     <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>

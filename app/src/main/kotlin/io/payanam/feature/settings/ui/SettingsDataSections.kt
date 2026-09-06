@@ -5,6 +5,8 @@
 package io.payanam.feature.settings.ui
 
 import android.content.Context
+import android.content.Intent
+import android.net.Uri
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -385,6 +387,7 @@ internal fun AboutSettingsSection(
     onCancelDownload: () -> Unit = {},
     onInstallNow: () -> Unit = {},
     onInstallLater: () -> Unit = {},
+    isFDroidBuild: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
     SettingsCard(
@@ -440,6 +443,29 @@ internal fun AboutSettingsSection(
         HorizontalDivider()
         Spacer(modifier = Modifier.height(8.dp))
 
+        if (isFDroidBuild) {
+            Text(
+                text = stringResource(id = R.string.settings_update_fdroid_managed),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = stringResource(id = R.string.settings_update_fdroid_info),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            OutlinedButton(onClick = {
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse("https://f-droid.org/packages/io.payanam/")))
+                }.onFailure { e ->
+                    logger.w("AboutSettingsSection.openFDroid", "No browser available for F-Droid intent", mapOf("error" to (e.message ?: "unknown")))
+                }
+            }) {
+                Text(stringResource(id = R.string.settings_update_open_fdroid))
+            }
+        } else {
         // Update channel selector
         Text(
             text = stringResource(id = R.string.settings_update_channel_label),
@@ -675,7 +701,11 @@ internal fun AboutSettingsSection(
                     Spacer(modifier = Modifier.height(4.dp))
                     OutlinedButton(onClick = {
                         result.releaseUrl?.let { url ->
-                            context.startActivity(android.content.Intent(android.content.Intent.ACTION_VIEW, android.net.Uri.parse(url)))
+                            runCatching {
+                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                            }.onFailure { e ->
+                                logger.w("AboutSettingsSection.openRelease", "No browser available for release intent", mapOf("error" to (e.message ?: "unknown")))
+                            }
                         }
                     }) {
                         Text(stringResource(id = R.string.settings_update_view_release))
@@ -828,6 +858,7 @@ internal fun AboutSettingsSection(
                 },
             )
         }
+        } // End if (!isFDroidBuild)
     }
 }
 

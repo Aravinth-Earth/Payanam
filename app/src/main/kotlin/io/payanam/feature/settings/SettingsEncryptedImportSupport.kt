@@ -203,6 +203,16 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                         breadcrumb(stage = "settings_import_reencrypted", data = mapOf("convertedToEncrypted" to encrypted))
                     }
                 } catch (e: Exception) {
+                    logger.e(
+                        "SettingsViewModel.importDatabase",
+                        "IMPORT_PROBE_CATCH_FILE_STATE",
+                        e,
+                        mapOf(
+                            "file" to dbFile.name,
+                            "exists" to dbFile.exists(),
+                            "sizeBytes" to dbFile.length(),
+                        ),
+                    )
                     if (!pausedForPassphrase) {
                         logger.e(
                             "SettingsViewModel.importDatabase",

@@ -1585,7 +1585,7 @@ Write-LogWithTime "Build Name: $buildName" "Cyan"
 # Update version code in build.gradle.kts
 $appBuildGradle = Get-Content "app/build.gradle.kts" -Raw
 $appBuildGradle = $appBuildGradle -replace 'versionCode = \d+', "versionCode = $buildNumber"
-$versionDisplayName = "#$buildNumber ($dateTimeStamp)"
+$versionDisplayName = "$buildNumber"
 $appBuildGradle = $appBuildGradle -replace 'versionName = \"[^\"]+\"', "versionName = `"$versionDisplayName`""
 Set-Content "app/build.gradle.kts" $appBuildGradle -Encoding UTF8 -NoNewline
 Write-LogWithTime "Updated versionCode to $buildNumber" "Green"
