@@ -5,7 +5,7 @@
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-purple?style=flat-square&labelColor=1a1a1a)](LICENSE)
 [![FOSS](https://img.shields.io/badge/FOSS-Yes-brightgreen?style=flat-square&labelColor=1a1a1a)](LICENSE)
 ![Android 9+](https://img.shields.io/badge/Android-9%2B-green?style=flat-square&labelColor=1a1a1a)
-[![🔧 Dev](https://img.shields.io/badge/%F0%9F%94%A7-Dev-orange?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev)
+[![🔧 Dev](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?include_prereleases&filter=dev*&label=Dev&color=orange&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 [![🧪 Beta](https://img.shields.io/badge/%F0%9F%A7%AA-Beta-blue?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta)
 [![✅ Stable](https://img.shields.io/badge/%E2%9C%85-Stable-green?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable)
 
