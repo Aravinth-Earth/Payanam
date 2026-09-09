@@ -94,18 +94,34 @@ class UpdateCheckerTest {
     // ── Channel mapping ───────────────────────────────────────────────────
 
     @Test
-    fun `channel from tag maps correctly`() {
-        assertEquals(UpdateChannel.DEV, channelFromTag("latest-dev"))
-        assertEquals(UpdateChannel.BETA, channelFromTag("latest-beta"))
-        assertEquals(UpdateChannel.STABLE, channelFromTag("latest-stable"))
-    }
-
-    @Test
     fun `channel from tag ignores non-channel tags`() {
         assertNull(channelFromTag("v1.2.3"))
         assertNull(channelFromTag("latest"))
         assertNull(channelFromTag(""))
         assertNull(channelFromTag("latest-nightly"))
+        assertNull(channelFromTag("latest-dev"))       // former rolling tag
+        assertNull(channelFromTag("latest-stable"))     // former rolling tag
+    }
+
+    @Test
+    fun `channel from tag maps persistent tags correctly`() {
+        assertEquals(UpdateChannel.DEV, channelFromTag("dev-v1704"))
+        assertEquals(UpdateChannel.BETA, channelFromTag("beta-v1500"))
+        assertEquals(UpdateChannel.STABLE, channelFromTag("stable-v200"))
+    }
+
+    @Test
+    fun `channel from tag maps plain v tags to stable`() {
+        assertEquals(UpdateChannel.STABLE, channelFromTag("v1704"))
+        assertEquals(UpdateChannel.STABLE, channelFromTag("v200"))
+    }
+
+    @Test
+    fun `channel from tag rejects malformed persistent tags`() {
+        assertNull(channelFromTag("dev-v"))            // no build number
+        assertNull(channelFromTag("dev-vabc"))         // non-numeric build
+        assertNull(channelFromTag("nightly-v1704"))    // unknown channel
+        assertNull(channelFromTag("dev-v1704-extra"))  // trailing content
     }
 
     @Test

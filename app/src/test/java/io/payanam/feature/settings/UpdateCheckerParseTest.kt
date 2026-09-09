@@ -23,12 +23,12 @@ class UpdateCheckerParseTest {
     fun `parseReleases extracts all channels with build numbers and asset urls`() {
         val body = """
             [
-              {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev",
-               "assets":[{"name":"Payanam_Android_1562_20260810.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/latest-dev/Payanam_Android_1562_20260810.apk"}]},
-              {"tag_name":"latest-beta","name":"Latest Beta Build (#1560)","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta",
-               "assets":[{"name":"Payanam_Android_1560_20260805.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/latest-beta/Payanam_Android_1560_20260805.apk"}]},
-              {"tag_name":"latest-stable","name":"Latest Stable Build (#1558)","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable",
-               "assets":[{"name":"Payanam_Android_1558_20260801.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/latest-stable/Payanam_Android_1558_20260801.apk"}]}
+              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v1562",
+               "assets":[{"name":"Payanam_Android_1562_20260810.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/dev-v1562/Payanam_Android_1562_20260810.apk"}]},
+              {"tag_name":"beta-v1560","name":"Beta #1560","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/beta-v1560",
+               "assets":[{"name":"Payanam_Android_1560_20260805.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/beta-v1560/Payanam_Android_1560_20260805.apk"}]},
+              {"tag_name":"v1558","name":"Stable #1558","html_url":"https://github.com/Aravinth-Earth/Payanam/releases/tag/v1558",
+               "assets":[{"name":"Payanam_Android_1558_20260801.apk","browser_download_url":"https://github.com/Aravinth-Earth/Payanam/releases/download/v1558/Payanam_Android_1558_20260801.apk"}]}
             ]
         """.trimIndent()
         val statuses = parseReleases(body)
@@ -47,7 +47,7 @@ class UpdateCheckerParseTest {
         val body = """
             [
               {"tag_name":"v1.2.3","name":"Release v1.2.3","html_url":"url","assets":[]},
-              {"tag_name":"latest-dev","name":"Latest Dev Build (#1540)","html_url":"url","assets":[]},
+              {"tag_name":"dev-v1540","name":"Dev #1540","html_url":"url","assets":[]},
               {"tag_name":"latest-nightly","name":"Nightly","html_url":"url","assets":[]}
             ]
         """.trimIndent()
@@ -68,7 +68,7 @@ class UpdateCheckerParseTest {
     fun `parseReleases skips malformed entries`() {
         val body = """
             [
-              {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"url"},
+              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url"},
               {"tag_name":123},
               "not-an-object"
             ]
@@ -82,7 +82,7 @@ class UpdateCheckerParseTest {
     fun `parseReleases picks first apk asset only`() {
         val body = """
             [
-              {"tag_name":"latest-dev","name":"Latest Dev Build (#1562)","html_url":"url",
+              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
                "assets":[
                  {"name":"checksum.txt","browser_download_url":"url/checksum.txt"},
                  {"name":"Payanam_Android_1562.apk","browser_download_url":"url/Payanam_Android_1562.apk"},
@@ -93,6 +93,27 @@ class UpdateCheckerParseTest {
         val statuses = parseReleases(body)
         assertEquals(1, statuses.size)
         assertEquals("url/Payanam_Android_1562.apk", statuses[0].apkDownloadUrl)
+    }
+
+    @Test
+    fun `parseReleases handles multiple persistent releases`() {
+        val body = """
+            [
+              {"tag_name":"dev-v1704","name":"Dev #1704","html_url":"url-dev",
+               "assets":[{"name":"Payanam_Android_1704.apk","browser_download_url":"url-dev.apk"}]},
+              {"tag_name":"dev-v1703","name":"Dev #1703","html_url":"url-dev-old",
+               "assets":[{"name":"Payanam_Android_1703.apk","browser_download_url":"url-dev-old.apk"}]},
+              {"tag_name":"beta-v1703","name":"Beta #1703","html_url":"url-beta",
+               "assets":[{"name":"Payanam_Android_1703.apk","browser_download_url":"url-beta.apk"}]}
+            ]
+        """.trimIndent()
+        val statuses = parseReleases(body)
+        // Both dev-v1704 and dev-v1703 map to DEV channel → 2 entries
+        val devStatuses = statuses.filter { it.channel == UpdateChannel.DEV }
+        assertEquals(2, devStatuses.size)
+        // First one in the list wins for the selected channel
+        assertEquals(1704, devStatuses[0].buildNumber)
+        assertEquals(1, statuses.count { it.channel == UpdateChannel.BETA })
     }
 
     // ── Download failure/paused message mapping ───────────────────────────

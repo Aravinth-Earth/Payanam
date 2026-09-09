@@ -1,12 +1,15 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Publish latest (or specified) APK to GitHub as a rolling release on a channel.
+# Publish APK to GitHub as a persistent release on a channel.
 #
-# Channel matrix (rolling tags, one release per channel at a time):
-#   channel  branch       tag            prerelease  cadence
-#   dev      feature/*    latest-dev     yes         10+ builds/day
-#   beta     dev          latest-beta    yes         2 builds/week
-#   stable   main         latest-stable  no          2 builds/month
-# Explicit -Channel beta/stable from the wrong branch hard-fails (guard below).
+# Channel matrix:
+#   channel  branch       tag format         prerelease  cadence
+#   dev      feature/*    dev-v{build}       yes
+#   beta     dev          beta-v{build}      yes
+#   stable   main         v{build}           no
+#
+# Each publish creates:
+#   1. Persistent release (dev-v{build} / beta-v{build} / v{build})
+#   2. v{build} tag for stable (used by both app and F-Droid)
 #
 # Channel auto-detects from the current git branch when -Channel is omitted.
 # Usage:
@@ -151,82 +154,135 @@ Write-LogWithTime "SHA256: $hash" "Gray"
 
 # ── 6. Build release notes ────────────────────────────────────────────────────
 
-$channelWarning = switch ($Channel) {
-    "dev"    { "🔧 Development build — for testing only" }
-    "beta"   { "🧪 Beta build — feedback welcome" }
-    "stable" { "" }
-}
-
 $releaseNotes = @"
-Payanam $ChannelTitle Build
-
-Build: #$buildNumber | $buildDate $buildTime
-Channel: $Channel
+$buildDate $buildTime
 
 Commit: $commitHash
-Branch: $branch
 
 SHA256: $hash
 
 Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Payanam/blob/main/INSTALL.md) for checksum verification and sideload steps.
-$(if ($channelWarning) { "`n$channelWarning" })
 "@
 
-# ── 7. Delete existing channel release + tag (rolling release) ────────────────
+# ── 7. Guard: gh CLI must exist ─────────────────────────────────────────────
 
-# Guard: gh CLI must exist. Without this, $LASTEXITCODE below would be stale
-# from a previous native command and the script could misbehave silently.
 $ghCmd = Get-Command gh -ErrorAction SilentlyContinue
 if (-not $ghCmd) {
     Write-LogWithTime "❌ 'gh' (GitHub CLI) not found. Install it (https://cli.github.com) or run with -DryRun." "Red"
     exit 1
 }
 
-$tag = "latest-$Channel"
-if ($DryRun) {
-    Write-LogWithTime "[DRY RUN] Would delete existing $tag release + tag (if present)" "Yellow"
+# ── 7b. Channel gap awareness ──────────────────────────────────────────────
+# Before publishing, check how far behind other channels are.
+# Prevents "published 50 dev builds and forgot to promote beta/stable".
+
+$DEV_BETA_THRESHOLD = 30    # warn if beta is this many builds behind dev
+$DEV_STABLE_THRESHOLD = 50  # warn if stable is this many builds behind dev
+$BETA_STABLE_THRESHOLD = 5  # warn if stable is this many builds behind beta
+
+$allReleases = gh release list --limit 50 --json tagName,name --jq '.' 2>$null
+if ($LASTEXITCODE -eq 0 -and $allReleases) {
+    $parsed = $allReleases | ConvertFrom-Json
+    $latestByChannel = @{}
+
+    foreach ($r in $parsed) {
+        $rTag = $r.tagName
+        $tagMatch = [regex]::Match($rTag, '^(?:(dev|beta)-)?v(\d+)$')
+        if (-not $tagMatch.Success) { continue }
+        $rBuild = [int]$tagMatch.Groups[2].Value
+
+        if ($rTag -match '^dev-v\d+$') {
+            if (-not $latestByChannel.ContainsKey('dev') -or $rBuild -gt $latestByChannel['dev']) {
+                $latestByChannel['dev'] = $rBuild
+            }
+        } elseif ($rTag -match '^beta-v\d+$') {
+            if (-not $latestByChannel.ContainsKey('beta') -or $rBuild -gt $latestByChannel['beta']) {
+                $latestByChannel['beta'] = $rBuild
+            }
+        } elseif ($rTag -match '^v\d+$') {
+            if (-not $latestByChannel.ContainsKey('stable') -or $rBuild -gt $latestByChannel['stable']) {
+                $latestByChannel['stable'] = $rBuild
+            }
+        }
+    }
+
+    # Show current state per channel (always show all 3)
+    $devBuild = if ($latestByChannel.ContainsKey('dev')) { "#$($latestByChannel['dev'])" } else { "—" }
+    $betaBuild = if ($latestByChannel.ContainsKey('beta')) { "#$($latestByChannel['beta'])" } else { "—" }
+    $stableBuild = if ($latestByChannel.ContainsKey('stable')) { "#$($latestByChannel['stable'])" } else { "—" }
+    Write-LogWithTime "Channel status: dev:$devBuild | beta:$betaBuild | stable:$stableBuild" "Gray"
+
+    $hasWarning = $false
+
+    if ($latestByChannel.ContainsKey('dev') -and $latestByChannel.ContainsKey('beta')) {
+        $gap = $latestByChannel['dev'] - $latestByChannel['beta']
+        if ($gap -ge $DEV_BETA_THRESHOLD) {
+            Write-LogWithTime "  dev→beta gap: $gap (threshold: $DEV_BETA_THRESHOLD) — ⚠️ WARNING" "Yellow"
+            $hasWarning = $true
+        } else {
+            Write-LogWithTime "  dev→beta gap: $gap (threshold: $DEV_BETA_THRESHOLD) — OK" "Gray"
+        }
+    } else {
+        Write-LogWithTime "  dev→beta gap: — (beta not published yet)" "Gray"
+    }
+
+    if ($latestByChannel.ContainsKey('dev') -and $latestByChannel.ContainsKey('stable')) {
+        $gap = $latestByChannel['dev'] - $latestByChannel['stable']
+        if ($gap -ge $DEV_STABLE_THRESHOLD) {
+            Write-LogWithTime "  dev→stable gap: $gap (threshold: $DEV_STABLE_THRESHOLD) — ⚠️ WARNING" "Yellow"
+            $hasWarning = $true
+        } else {
+            Write-LogWithTime "  dev→stable gap: $gap (threshold: $DEV_STABLE_THRESHOLD) — OK" "Gray"
+        }
+    } else {
+        Write-LogWithTime "  dev→stable gap: — (stable not published yet)" "Gray"
+    }
+
+    if ($latestByChannel.ContainsKey('beta') -and $latestByChannel.ContainsKey('stable')) {
+        $gap = $latestByChannel['beta'] - $latestByChannel['stable']
+        if ($gap -ge $BETA_STABLE_THRESHOLD) {
+            Write-LogWithTime "  beta→stable gap: $gap (threshold: $BETA_STABLE_THRESHOLD) — ⚠️ WARNING" "Yellow"
+            $hasWarning = $true
+        } else {
+            Write-LogWithTime "  beta→stable gap: $gap (threshold: $BETA_STABLE_THRESHOLD) — OK" "Gray"
+        }
+    } else {
+        Write-LogWithTime "  beta→stable gap: — (beta/stable not published yet)" "Gray"
+    }
+
+    if ($hasWarning -and -not $DryRun) {
+        Write-LogWithTime "" "Yellow"
+        Write-LogWithTime "Consider promoting older channels before publishing more builds." "Yellow"
+        $confirm = Read-Host "Continue publishing to $Channel anyway? (y/N)"
+        if ($confirm -ne 'y' -and $confirm -ne 'Y') {
+            Write-LogWithTime "Publish cancelled." "Red"
+            exit 0
+        }
+    }
 } else {
-    $existingRelease = gh release view $tag 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-LogWithTime "Deleting existing $tag release..." "Yellow"
-        gh release delete $tag --yes 2>$null
-    }
-
-    # Always ensure local tag is deleted (even if release doesn't exist)
-    # This prevents "tag exists locally but not pushed" errors
-    $localTagExists = git rev-parse $tag 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-LogWithTime "Removing stale local tag..." "Yellow"
-        git tag -d $tag
-    }
-
-    # Also delete remote tag to prevent stale commit reference
-    $remoteTagExists = git ls-remote origin "refs/tags/$tag" 2>$null
-    if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
-        Write-LogWithTime "Removing stale remote tag..." "Yellow"
-        git push origin ":refs/tags/$tag" 2>$null
-    }
+    Write-LogWithTime "Channel gap check skipped (offline or API unavailable)" "Gray"
 }
 
-# ── 8. Create new release ─────────────────────────────────────────────────────
+# ── 8. Create persistent release ────────────────────────────────────────────
 
+# Stable uses plain v{build} tag (works with F-Droid); dev/beta use {channel}-v{build}
+$tag = if ($Channel -eq "stable") { "v$buildNumber" } else { "$Channel-v$buildNumber" }
 Write-LogWithTime "Creating GitHub release: $tag ..." "Cyan"
 
-# dev/beta roll as prereleases; stable is a full (non-prerelease) release.
+# dev/beta are prereleases; stable is a full (non-prerelease) release.
 $prereleaseFlag = if ($Channel -eq "stable") { @() } else { @("--prerelease") }
 
 if ($DryRun) {
-    Write-LogWithTime "[DRY RUN] Would create release: $tag" "Yellow"
-    Write-LogWithTime "[DRY RUN]   title  : Latest $ChannelTitle Build (#$buildNumber)" "Yellow"
+    Write-LogWithTime "[DRY RUN] Would create persistent release: $tag" "Yellow"
+    Write-LogWithTime "[DRY RUN]   title  : $ChannelTitle #$buildNumber" "Yellow"
     Write-LogWithTime "[DRY RUN]   flags  : $($prereleaseFlag -join ' ')" "Yellow"
     Write-LogWithTime "[DRY RUN]   assets : $($apkFile.Name) + $sha256FileName" "Yellow"
-    Write-LogWithTime "[DRY RUN]   notes  : Payanam $ChannelTitle Build, build #$buildNumber, channel $Channel, commit $commitHash, branch $branch" "Yellow"
 } else {
     # Build the full argument list first, then splat once — splatting
     # mid-command with backtick continuations misparses in PowerShell.
     $ghArgs = @(
         $tag
-        "--title", "Latest $ChannelTitle Build (#$buildNumber)"
+        "--title", "$ChannelTitle #$buildNumber"
         "--notes", $releaseNotes
     )
     if ($Channel -ne "stable") {
@@ -238,22 +294,19 @@ if ($DryRun) {
     gh release create @ghArgs
 
     if ($LASTEXITCODE -ne 0) {
-        Write-LogWithTime "Release creation failed." "Red"
+        Write-LogWithTime "❌ Persistent release creation failed." "Red"
         exit 1
     }
+    Write-LogWithTime "Persistent release created: $tag" "Green"
 
-    # Create persistent lightweight tag for F-Droid version detection
-    $persistentTag = "v$buildNumber"
-    if ($DryRun) {
-        Write-LogWithTime "[DRY RUN] Would create persistent tag: $persistentTag" "Yellow"
-    } else {
-        git tag $persistentTag
-        git push origin $persistentTag
-        Write-LogWithTime "Persistent tag created: $persistentTag" "Green"
+    # F-Droid tag is the same as the release tag for stable (v{build}).
+    # For dev/beta, no F-Droid tag needed.
+    if ($Channel -ne "stable") {
+        Write-LogWithTime "Skipping F-Droid tag (not stable channel)" "Gray"
     }
 }
 
-# ── 9. Print release URL ──────────────────────────────────────────────────────
+# ── 9. Print release URL ──────────────────────────────────────────────────
 
 if ($DryRun) {
     Write-LogWithTime "[DRY RUN] Complete — nothing was published." "Green"
