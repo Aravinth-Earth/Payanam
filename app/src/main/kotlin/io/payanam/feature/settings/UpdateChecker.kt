@@ -9,6 +9,7 @@ import io.payanam.common.logging.UnifiedLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
+import org.json.JSONException
 import org.json.JSONObject
 import java.io.ByteArrayOutputStream
 import java.io.IOException
@@ -18,7 +19,6 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-import org.json.JSONException
 /**
  * Outcome of an update check: availability verdict, latest build/release
  * info, per-channel statuses, and the error reason when it failed.
@@ -35,8 +35,8 @@ data class UpdateCheckResult(
 )
 
 /**
- * Release channels. [tagSuffix] must match the rolling GitHub tag
- * ("latest-<tagSuffix>") produced by publish-release.ps1.
+ * Release channels. [tagSuffix] is used in persistent GitHub release
+ * tags ("{tagSuffix}-v{buildNumber}") produced by publish-release.ps1.
  */
 enum class UpdateChannel(val tagSuffix: String) {
     DEV("dev"),
@@ -68,8 +68,15 @@ data class ChannelStatus(
 )
 
 /** Map a GitHub tag name to a channel, or null for non-channel tags. */
+private val PERSISTENT_TAG_REGEX = Regex("""^(dev|beta|stable)-v(\d+)$""")
+private val STABLE_TAG_REGEX = Regex("""^v(\d+)$""")
+
 internal fun channelFromTag(tagName: String): UpdateChannel? =
-    UpdateChannel.entries.firstOrNull { tagName == "latest-${it.tagSuffix}" }
+    PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
+        UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
+    } ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
+        UpdateChannel.STABLE
+    }
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
@@ -119,8 +126,7 @@ internal fun parseReleases(body: String): List<ChannelStatus> {
 }
 
 /**
- * UpdateCheckError.
- * @property channel Channel.
+ * Error reasons for an update check failure.
  */
 enum class UpdateCheckError {
     NO_INTERNET,
@@ -130,10 +136,16 @@ enum class UpdateCheckError {
     PARSE_ERROR,
     UNKNOWN,
 }
+
+/**
+ * Checks GitHub releases for app updates across all channels.
+ * Fetches the releases list endpoint, parses per-channel statuses,
+ * and compares the latest build number against the installed version.
+ */
 object UpdateChecker {
 
     private const val RELEASES_LIST_URL =
-        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=10"
+        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=30"
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
     private const val MAX_RESPONSE_BYTES = 1_048_576 // 1MB safety cap
@@ -159,6 +171,7 @@ object UpdateChecker {
                 val responseCode = connection.responseCode
                 logger.d("UpdateChecker.check", "Response received", mapOf("code" to responseCode))
                 if (responseCode == 403) {
+                    logger.w("UpdateChecker.check", "Rate limited by GitHub")
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
                         latestBuildNumber = null,
@@ -167,6 +180,7 @@ object UpdateChecker {
                     )
                 }
                 if (responseCode == 404) {
+                    logger.w("UpdateChecker.check", "GitHub returned 404")
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
                         latestBuildNumber = null,
@@ -175,6 +189,7 @@ object UpdateChecker {
                     )
                 }
                 if (responseCode !in 200..299) {
+                    logger.w("UpdateChecker.check", "Unexpected HTTP status", mapOf("code" to responseCode))
                     return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
                         latestBuildNumber = null,
@@ -183,15 +198,18 @@ object UpdateChecker {
                     )
                 }
                 val body = readResponseWithLimit(connection.inputStream)
-                    ?: return@withContext UpdateCheckResult(
+                if (body == null) {
+                    logger.w("UpdateChecker.check", "Response body exceeds size limit")
+                    return@withContext UpdateCheckResult(
                         isUpdateAvailable = false,
                         latestBuildNumber = null,
                         releaseUrl = null,
                         error = UpdateCheckError.PARSE_ERROR,
                     )
+                }
 
                 // List endpoint → JSON array of release objects. Pick out the
-                // rolling channel tags (latest-*) we own; ignore everything else.
+                // Pick out the persistent channel tags ({channel}-v{build}) we own; ignore everything else.
                 val statuses = parseReleases(body)
                 val selected = statuses.firstOrNull { it.channel == channel }
                 val latestBuild = selected?.buildNumber
