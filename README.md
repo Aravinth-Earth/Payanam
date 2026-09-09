@@ -6,7 +6,7 @@
 [![FOSS](https://img.shields.io/badge/FOSS-Yes-brightgreen?style=flat-square&labelColor=1a1a1a)](LICENSE)
 ![Android 9+](https://img.shields.io/badge/Android-9%2B-green?style=flat-square&labelColor=1a1a1a)
 [![🔧 Dev](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?include_prereleases&filter=dev*&label=Dev&color=orange&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
-[![🧪 Beta](https://img.shields.io/badge/%F0%9F%A7%AA-Beta-blue?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta)
+[![🧪 Beta](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?include_prereleases&filter=beta*&label=Beta&color=blue&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 [![✅ Stable](https://img.shields.io/badge/%E2%9C%85-Stable-green?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable)
 
 Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking.
