@@ -112,3 +112,6 @@ output/scroll-jank/
 docs/db/node_modules/
 docs/db/generated/
 build-logs/
+
+# Local test data (DB copies, inject scripts — never commit)
+test-data/
