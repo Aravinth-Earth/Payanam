@@ -145,7 +145,7 @@ enum class UpdateCheckError {
 object UpdateChecker {
 
     private const val RELEASES_LIST_URL =
-        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=30"
+        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=50"
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
     private const val MAX_RESPONSE_BYTES = 1_048_576 // 1MB safety cap

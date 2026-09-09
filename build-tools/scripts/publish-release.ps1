@@ -3,9 +3,9 @@
 #
 # Channel matrix:
 #   channel  branch       tag format         prerelease  cadence
-#   dev      feature/*    dev-v{build}       yes         10+ builds/day
-#   beta     dev          beta-v{build}      yes         2 builds/week
-#   stable   main         v{build}           no          2 builds/month
+#   dev      feature/*    dev-v{build}       yes
+#   beta     dev          beta-v{build}      yes
+#   stable   main         v{build}           no
 #
 # Each publish creates:
 #   1. Persistent release (dev-v{build} / beta-v{build} / v{build})
@@ -180,15 +180,16 @@ $DEV_BETA_THRESHOLD = 30    # warn if beta is this many builds behind dev
 $DEV_STABLE_THRESHOLD = 50  # warn if stable is this many builds behind dev
 $BETA_STABLE_THRESHOLD = 5  # warn if stable is this many builds behind beta
 
-$allReleases = gh release list --limit 30 --json tagName,name --jq '.' 2>$null
+$allReleases = gh release list --limit 50 --json tagName,name --jq '.' 2>$null
 if ($LASTEXITCODE -eq 0 -and $allReleases) {
     $parsed = $allReleases | ConvertFrom-Json
     $latestByChannel = @{}
 
     foreach ($r in $parsed) {
-        $r.name -match '#(\d+)' | Out-Null
-        $rBuild = [int]$Matches[1]
         $rTag = $r.tagName
+        $tagMatch = [regex]::Match($rTag, '^(?:(dev|beta)-)?v(\d+)$')
+        if (-not $tagMatch.Success) { continue }
+        $rBuild = [int]$tagMatch.Groups[2].Value
 
         if ($rTag -match '^dev-v\d+$') {
             if (-not $latestByChannel.ContainsKey('dev') -or $rBuild -gt $latestByChannel['dev']) {
