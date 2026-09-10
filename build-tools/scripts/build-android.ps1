@@ -8,6 +8,7 @@ param(
     [switch]$SkipTests,
     [switch]$SkipGuardrails,
     [switch]$RunMaestro,
+    [switch]$Smoke,
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
@@ -1230,12 +1231,18 @@ switch ($effectiveProfile)
 Write-LogWithTime "Device install: $(if ($runDeviceInstall) { 'enabled' } else { 'disabled' })" "Yellow"
 Write-LogWithTime "Android guardrails: $(if ($runAndroidGuardrails) { 'enabled' } else { 'disabled' })" "Yellow"
 
-$maestroEnabledByFlag = $RunMaestro.IsPresent
+$maestroEnabledByFlag = $RunMaestro.IsPresent -or $Smoke.IsPresent
 $maestroEnvValue = [string]$env:PAYANAM_RUN_MAESTRO
 $maestroEnabledByEnv = $maestroEnvValue -match '^(1|true|yes)$'
 if ($maestroEnabledByFlag -or $maestroEnabledByEnv)
 {
+    # Maestro is flag-only by design: no profile turns it on, including 'full'.
+    # The flow is invoked from inside the post-install verification block, so an
+    # explicit flag must open that path too — otherwise the flag is silently
+    # dropped on quick/normal profiles and the suite never runs.
+    # -Smoke selects the fast inner-loop tier instead of the full regression suite.
     $runMaestroFlow = $true
+    $runPostInstallVerification = $true
 }
 
 if ($SkipTests)
@@ -1846,7 +1853,15 @@ if (-not $runDeviceInstall)
                         Write-LogWithTime "Skipping Maestro UI flow (profile/flag)." "Yellow"
                     } else
                     {
-                        $maestroFlowPath = Join-Path "UI-test-Maestro" "p-k-t-1.yaml"
+                        $maestroFlowPath = if ($Smoke.IsPresent)
+                        {
+                            Join-Path "maestro" "e2e" "smoke" "payanam_smoke.yaml"
+                        }
+                        else
+                        {
+                            Join-Path "maestro" "e2e" "payanam_e2e.yaml"
+                        }
+                        Write-LogWithTime "Maestro tier: $(if ($Smoke.IsPresent) { 'smoke (fast inner loop)' } else { 'full (regression)' }) -> $maestroFlowPath" "Yellow"
                         Invoke-MaestroFlow -FlowPath $maestroFlowPath -BuildName $buildName
                     }
 
