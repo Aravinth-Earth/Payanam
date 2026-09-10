@@ -1,0 +1,67 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
+# SPDX-License-Identifier: AGPL-3.0-or-later
+appId: io.payanam.debug
+tags:
+  - smoke
+---
+# Payanam SMOKE tier — the fast inner-loop subset.
+# NOT a replacement for the full suite (maestro/e2e/payanam_e2e.yaml, tag: full).
+# Scope: boot -> DB init/unlock -> every module screen renders -> one write lands -> data persists.
+# Shared setup/unlock logic lives in ../subflows so it is authored once.
+#
+# Run:  maestro test maestro/e2e/smoke/payanam_smoke.yaml
+#   or: pwsh build-tools/scripts/build-android.ps1 -Smoke
+
+- runFlow: ../subflows/fresh_setup.yaml
+
+# ── TASKS: one write ──
+- tapOn: "Tasks"
+- assertVisible: "No Tasks Due Today"
+- tapOn: "Add Task"
+- tapOn: "Task Title"
+- inputText: "Smoke Task"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save Task"
+    direction: DOWN
+- tapOn: "Save Task"
+- assertVisible: "Smoke Task"
+
+# ── HABITS: screen renders ──
+- tapOn: "Habits"
+- assertVisible: "No Habits Yet"
+
+# ── TIME: start/stop cycle ──
+- tapOn: "Time"
+- tapOn: "Start Tracking"
+- tapOn: "Start"
+- assertVisible: "Stop Tracking"
+- tapOn: "Stop Tracking"
+- tapOn: "Cancel"
+
+# ── JOURNAL: screen renders ──
+- tapOn: "Journal"
+- takeScreenshot: "smoke_journal.png"
+
+# ── NOTES: one write ──
+- tapOn: "Notes"
+- assertVisible: "No Notes Yet"
+- tapOn: "Add Note"
+- tapOn: "Title"
+- inputText: "Smoke Note"
+- hideKeyboard
+- tapOn: "Save"
+- pressKey: Back
+
+# ── LENSES: screen renders ──
+- tapOn: "Lenses"
+- assertVisible: "Lenses"
+
+# ── SETTINGS: screen renders ──
+- tapOn: "Settings"
+- assertVisible: "Settings"
+
+# ── UNLOCK CYCLE + PERSISTENCE ──
+- runFlow: ../subflows/unlock.yaml
+- tapOn: "Tasks"
+- assertVisible: "Smoke Task"
