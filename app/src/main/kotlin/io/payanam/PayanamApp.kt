@@ -41,6 +41,10 @@ class PayanamApp : Application() {
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
         val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        // Enable DEBUG-level logging immediately on debug builds. AppPreferencesViewModel applies
+        // the persisted preference later, but interaction tracing must work from process start —
+        // the onboarding / DB-init / dimension gates all run before preferences are loaded.
+        UnifiedLogger.setDebugLoggingEnabled(BuildConfig.DEBUG)
         logger.i(
             "PayanamApp.onCreate",
             "Application starting",
