@@ -720,7 +720,7 @@
   },
   {
    "id": "DBSM_OPEN_DB",
-   "label": "DatabaseSessionManager.openDatabase(passphrase) - build Room instance with SQLCipher SupportFactory, store in session holder",
+   "label": "DatabaseSessionManager.openDatabase(passphrase) - build Room instance with SQLCipher SupportOpenHelperFactory, store in session holder",
    "type": "process"
   },
   {

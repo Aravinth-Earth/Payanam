@@ -8,7 +8,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
-import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
+import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
 /**
  * Low-level helpers for moving the database between plaintext (Android
  * framework SQLite) and encrypted (SQLCipher) formats during import/export
@@ -203,13 +203,14 @@ object DatabaseEncryptionMigrationSupport {
         if (!databaseFile.exists()) {
             throw IllegalStateException("Database file does not exist for passphrase update.")
         }
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val db =
             SqlCipherDatabase.openDatabase(
                 databaseFile.absolutePath,
                 currentPassphrase,
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             db.rawExecSQL("PRAGMA rekey = '${escapeSql(newPassphrase)}';")
@@ -250,7 +251,7 @@ object DatabaseEncryptionMigrationSupport {
         passphrase: String,
         logTag: String,
     ) {
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val tempEncrypted =
             File(
                 context.cacheDir,
@@ -284,6 +285,7 @@ object DatabaseEncryptionMigrationSupport {
                 "",
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             val sourceVersion = encryptedDb.version
@@ -365,13 +367,14 @@ object DatabaseEncryptionMigrationSupport {
         if (exportedEncrypted.exists()) {
             exportedEncrypted.delete()
         }
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val plainDb =
             SqlCipherDatabase.openDatabase(
                 plaintextDatabase.absolutePath,
                 "",
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             val sourceVersion = plainDb.version
@@ -429,11 +432,13 @@ object DatabaseEncryptionMigrationSupport {
                 null,
                 SQLiteDatabase.OPEN_READONLY,
             )
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val destDb =
-            SqlCipherDatabase.openOrCreateDatabase(
-                encryptedOutput,
+            SqlCipherDatabase.openDatabase(
+                encryptedOutput.absolutePath,
                 passphrase,
+                null,
+                SqlCipherDatabase.OPEN_READWRITE,
                 null,
             )
         try {
@@ -542,13 +547,14 @@ object DatabaseEncryptionMigrationSupport {
         destinationDatabase: File,
         passphrase: String,
     ) {
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val sourceDb =
             SqlCipherDatabase.openDatabase(
                 sourceDatabase.absolutePath,
                 passphrase,
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             sourceDb.rawExecSQL(
@@ -629,13 +635,14 @@ object DatabaseEncryptionMigrationSupport {
         tableNames: List<String>,
     ): Map<String, Int> =
         runCatching {
-            SqlCipherDatabase.loadLibs(context)
+            System.loadLibrary("sqlcipher")
             SqlCipherDatabase
                 .openDatabase(
                     databaseFile.absolutePath,
                     passphrase,
                     null,
                     SqlCipherDatabase.OPEN_READONLY,
+                    null,
                 ).use { db ->
                     tableNames.associateWith { tableName ->
                         db.rawQuery("SELECT COUNT(*) FROM $tableName", null).use { cursor ->
@@ -658,13 +665,14 @@ object DatabaseEncryptionMigrationSupport {
         logTag: String = "DatabaseEncryptionMigrationSupport",
     ): Boolean =
         runCatching {
-            SqlCipherDatabase.loadLibs(context)
+            System.loadLibrary("sqlcipher")
             SqlCipherDatabase
                 .openDatabase(
                     databaseFile.absolutePath,
                     passphrase,
                     null,
                     SqlCipherDatabase.OPEN_READONLY,
+                    null,
                 ).use { db ->
                     db.version >= 0
                 }
@@ -714,8 +722,8 @@ object DatabaseEncryptionMigrationSupport {
         val sql = "INSERT OR REPLACE INTO app_settings(`key`, value, updatedAt) VALUES (?, ?, ?)"
         val args = arrayOf("database_init_completed", "true", updatedAt)
         if (passphrase != null) {
-            SqlCipherDatabase.loadLibs(context)
-            SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE).use { db ->
+            System.loadLibrary("sqlcipher")
+            SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE, null).use { db ->
                 db.execSQL(sql, args)
             }
         } else {
