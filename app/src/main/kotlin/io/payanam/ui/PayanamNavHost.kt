@@ -358,8 +358,8 @@ fun PayanamNavHost(
                                     contentDescription = null,
                                 )
                             },
-                            label = null,
-                            alwaysShowLabel = false,
+                            label = { Text(tabLabel) },
+                            alwaysShowLabel = true,
                             selected = selected,
                             onClick = {
                                 if (isRouteAllowed(screen.route)) {

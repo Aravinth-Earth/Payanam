@@ -4,6 +4,7 @@
 
 package io.payanam.ui.components
 
+import androidx.annotation.StringRes
 import androidx.compose.animation.core.LinearEasing
 import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
@@ -49,9 +50,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.ui.graphics.toArgb
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
@@ -502,17 +505,21 @@ internal fun DimensionColorPicker(
                     horizontalArrangement = Arrangement.spacedBy(12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                 ) {
-                    items(DimensionColorHexOptions) { hex ->
+                    items(DimensionColorOptions) { option ->
+                        val hex = option.hex
                         val normalizedHex = hex.trim().uppercase()
                         val isSelected = normalizedHex == normalizedSelected
                         val isUsed = normalizedHex in usedColorHexes && !isSelected
+                        val colorLabel = stringResource(id = option.labelRes)
                         Surface(
                             onClick = {
                                 onSelect(hex)
                                 showDialog = false
                             },
                             enabled = !isUsed,
-                            modifier = Modifier.size(52.dp),
+                            modifier = Modifier
+                                .size(52.dp)
+                                .semantics { contentDescription = colorLabel },
                             shape = CircleShape,
                             color = colorFromHex(hex).copy(alpha = if (isUsed) 0.25f else 1f),
                             border = BorderStroke(
@@ -587,7 +594,10 @@ internal fun DimensionIconPicker(
                     columns = GridCells.Adaptive(minSize = 44.dp),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .heightIn(max = 360.dp),
+                        .heightIn(max = 360.dp)
+                        // Surfaces each option's testTag as a resource-id so UI tests can
+                        // address icons by stable key instead of an unlabeled glyph.
+                        .semantics { testTagsAsResourceId = true },
                     horizontalArrangement = Arrangement.spacedBy(10.dp),
                     verticalArrangement = Arrangement.spacedBy(10.dp),
                 ) {
@@ -597,6 +607,7 @@ internal fun DimensionIconPicker(
                         Box(
                             modifier = Modifier
                                 .size(44.dp)
+                                .testTag("dimension_icon_${option.key}")
                                 .clip(RoundedCornerShape(12.dp))
                                 .background(
                                     if (isSelected) {
@@ -653,47 +664,63 @@ internal fun DimensionIconPicker(
     }
 }
 
-internal val DimensionColorHexOptions = listOf(
-    Color(0xFF3F51B5).toDimensionHexString(),
-    Color(0xFF4CAF50).toDimensionHexString(),
-    Color(0xFFE91E63).toDimensionHexString(),
-    Color(0xFF009688).toDimensionHexString(),
-    Color(0xFFFF9800).toDimensionHexString(),
-    Color(0xFF9C27B0).toDimensionHexString(),
-    Color(0xFF00BCD4).toDimensionHexString(),
-    Color(0xFF673AB7).toDimensionHexString(),
-    Color(0xFF8BC34A).toDimensionHexString(),
-    Color(0xFF795548).toDimensionHexString(),
-    Color(0xFFFF5722).toDimensionHexString(),
-    Color(0xFF607D8B).toDimensionHexString(),
-    Color(0xFF6D4C41).toDimensionHexString(),
-    Color(0xFF1E88E5).toDimensionHexString(),
-    Color(0xFF43A047).toDimensionHexString(),
-    Color(0xFFD81B60).toDimensionHexString(),
-    Color(0xFF00897B).toDimensionHexString(),
-    Color(0xFFFB8C00).toDimensionHexString(),
-    Color(0xFF8E24AA).toDimensionHexString(),
-    Color(0xFF039BE5).toDimensionHexString(),
-    Color(0xFF5E35B1).toDimensionHexString(),
-    Color(0xFF7CB342).toDimensionHexString(),
-    Color(0xFFE53935).toDimensionHexString(),
-    Color(0xFF546E7A).toDimensionHexString(),
-    Color(0xFF3949AB).toDimensionHexString(),
-    Color(0xFF00838F).toDimensionHexString(),
-    Color(0xFF2E7D32).toDimensionHexString(),
-    Color(0xFFC2185B).toDimensionHexString(),
-    Color(0xFFEF6C00).toDimensionHexString(),
-    Color(0xFF6A1B9A).toDimensionHexString(),
-    Color(0xFF1565C0).toDimensionHexString(),
-    Color(0xFFAD1457).toDimensionHexString(),
-    Color(0xFF00695C).toDimensionHexString(),
-    Color(0xFF7B1FA2).toDimensionHexString(),
-    Color(0xFF0277BD).toDimensionHexString(),
-    Color(0xFFF9A825).toDimensionHexString(),
-    Color(0xFF558B2F).toDimensionHexString(),
-    Color(0xFF8D6E63).toDimensionHexString(),
-    Color(0xFF455A64).toDimensionHexString(),
+/**
+ * One selectable dimension color: the persisted hex value plus the localized label
+ * announced to screen readers and matched by UI tests.
+ */
+internal data class DimensionColorOption(
+    val hex: String,
+    @StringRes val labelRes: Int,
 )
+
+/**
+ * Ordered palette offered by the dimension color picker. Shade-suffixed names keep every
+ * swatch uniquely identifiable for assistive technology and for UI tests alike.
+ */
+internal val DimensionColorOptions: List<DimensionColorOption> = listOf(
+    DimensionColorOption(Color(0xFF3F51B5).toDimensionHexString(), R.string.dimension_color_indigo_500),
+    DimensionColorOption(Color(0xFF4CAF50).toDimensionHexString(), R.string.dimension_color_green_500),
+    DimensionColorOption(Color(0xFFE91E63).toDimensionHexString(), R.string.dimension_color_pink_500),
+    DimensionColorOption(Color(0xFF009688).toDimensionHexString(), R.string.dimension_color_teal_500),
+    DimensionColorOption(Color(0xFFFF9800).toDimensionHexString(), R.string.dimension_color_orange_500),
+    DimensionColorOption(Color(0xFF9C27B0).toDimensionHexString(), R.string.dimension_color_purple_500),
+    DimensionColorOption(Color(0xFF00BCD4).toDimensionHexString(), R.string.dimension_color_cyan_500),
+    DimensionColorOption(Color(0xFF673AB7).toDimensionHexString(), R.string.dimension_color_deep_purple_500),
+    DimensionColorOption(Color(0xFF8BC34A).toDimensionHexString(), R.string.dimension_color_light_green_500),
+    DimensionColorOption(Color(0xFF795548).toDimensionHexString(), R.string.dimension_color_brown_500),
+    DimensionColorOption(Color(0xFFFF5722).toDimensionHexString(), R.string.dimension_color_deep_orange_500),
+    DimensionColorOption(Color(0xFF607D8B).toDimensionHexString(), R.string.dimension_color_blue_grey_500),
+    DimensionColorOption(Color(0xFF6D4C41).toDimensionHexString(), R.string.dimension_color_brown_600),
+    DimensionColorOption(Color(0xFF1E88E5).toDimensionHexString(), R.string.dimension_color_blue_600),
+    DimensionColorOption(Color(0xFF43A047).toDimensionHexString(), R.string.dimension_color_green_600),
+    DimensionColorOption(Color(0xFFD81B60).toDimensionHexString(), R.string.dimension_color_pink_600),
+    DimensionColorOption(Color(0xFF00897B).toDimensionHexString(), R.string.dimension_color_teal_600),
+    DimensionColorOption(Color(0xFFFB8C00).toDimensionHexString(), R.string.dimension_color_orange_600),
+    DimensionColorOption(Color(0xFF8E24AA).toDimensionHexString(), R.string.dimension_color_purple_600),
+    DimensionColorOption(Color(0xFF039BE5).toDimensionHexString(), R.string.dimension_color_light_blue_600),
+    DimensionColorOption(Color(0xFF5E35B1).toDimensionHexString(), R.string.dimension_color_deep_purple_600),
+    DimensionColorOption(Color(0xFF7CB342).toDimensionHexString(), R.string.dimension_color_light_green_600),
+    DimensionColorOption(Color(0xFFE53935).toDimensionHexString(), R.string.dimension_color_red_600),
+    DimensionColorOption(Color(0xFF546E7A).toDimensionHexString(), R.string.dimension_color_blue_grey_600),
+    DimensionColorOption(Color(0xFF3949AB).toDimensionHexString(), R.string.dimension_color_indigo_600),
+    DimensionColorOption(Color(0xFF00838F).toDimensionHexString(), R.string.dimension_color_cyan_800),
+    DimensionColorOption(Color(0xFF2E7D32).toDimensionHexString(), R.string.dimension_color_green_800),
+    DimensionColorOption(Color(0xFFC2185B).toDimensionHexString(), R.string.dimension_color_pink_700),
+    DimensionColorOption(Color(0xFFEF6C00).toDimensionHexString(), R.string.dimension_color_orange_800),
+    DimensionColorOption(Color(0xFF6A1B9A).toDimensionHexString(), R.string.dimension_color_purple_800),
+    DimensionColorOption(Color(0xFF1565C0).toDimensionHexString(), R.string.dimension_color_blue_800),
+    DimensionColorOption(Color(0xFFAD1457).toDimensionHexString(), R.string.dimension_color_pink_800),
+    DimensionColorOption(Color(0xFF00695C).toDimensionHexString(), R.string.dimension_color_teal_800),
+    DimensionColorOption(Color(0xFF7B1FA2).toDimensionHexString(), R.string.dimension_color_purple_700),
+    DimensionColorOption(Color(0xFF0277BD).toDimensionHexString(), R.string.dimension_color_light_blue_800),
+    DimensionColorOption(Color(0xFFF9A825).toDimensionHexString(), R.string.dimension_color_yellow_800),
+    DimensionColorOption(Color(0xFF558B2F).toDimensionHexString(), R.string.dimension_color_light_green_800),
+    DimensionColorOption(Color(0xFF8D6E63).toDimensionHexString(), R.string.dimension_color_brown_300),
+    DimensionColorOption(Color(0xFF455A64).toDimensionHexString(), R.string.dimension_color_blue_grey_700),
+)
+
+/** Hex values only, in palette order — used for default selection and uniqueness checks. */
+internal val DimensionColorHexOptions: List<String> = DimensionColorOptions.map { it.hex }
 
 internal fun colorFromHex(hex: String): Color {
     val normalized = hex.trim().removePrefix("#")
