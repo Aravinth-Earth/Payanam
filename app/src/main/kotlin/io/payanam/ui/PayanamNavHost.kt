@@ -241,12 +241,17 @@ fun PayanamNavHost(
         currentRoute != Routes.FOCUS_MODE_SELECTION
     val navigateToTopLevel: (String) -> Unit = remember(navController) {
         { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
+            // The bottom bar can be composed a frame before NavHost installs its graph, and
+            // navController.graph throws inside that window — a real crash on a very early tap.
+            // currentBackStackEntry does not touch the graph, so it is a safe readiness probe.
+            if (navController.currentBackStackEntry != null) {
+                navController.navigate(route) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
             }
         }
     }

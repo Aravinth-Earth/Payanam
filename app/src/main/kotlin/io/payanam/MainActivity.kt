@@ -4,6 +4,7 @@
 
 package io.payanam
 
+import android.annotation.SuppressLint
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -142,6 +143,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Records key gestures (e.g. Back) into the debug-only interaction trace. */
+    @SuppressLint("RestrictedApi") // @RestrictTo in androidx; overriding is the interception point
     override fun dispatchKeyEvent(event: KeyEvent): Boolean {
         if (event.action == KeyEvent.ACTION_UP) {
             InteractionLog.recordKey(event.keyCode)

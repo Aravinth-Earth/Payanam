@@ -19,6 +19,8 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
@@ -417,6 +419,17 @@ private fun ChartToggleRow(
         Switch(
             checked = checked,
             onCheckedChange = onCheckedChange,
+            // The row's label is a separate Text, so without this the switch is announced as an
+            // unlabelled control — on a screen of 21 switches that is unusable with a screen
+            // reader, and it is also invisible to UI tests, which can only reach a control through
+            // its accessibility node. The label lives in the semantics tree only; nothing about
+            // the visible layout changes, and the switch stays the sole touch target.
+            //
+            // mergeDescendants is what makes the label and the control END UP ON THE SAME NODE: the
+            // switch's own on/off state comes from the toggleable modifier applied inside Material3,
+            // so a plain semantics block would leave a labelled node with no state next to a stateful
+            // node with no label — which reads as "not a switch" to anything inspecting it.
+            modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = label },
         )
     }
 }
