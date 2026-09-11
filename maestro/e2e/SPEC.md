@@ -1,8 +1,40 @@
 # Payanam E2E Test Suite — Specification
+# Last Updated: 2026-09-11
 
 ## Goal
 Fastest possible UI-driven regression suite covering every user-facing interaction in the app.
 All via Maestro UI test automation framework only — no mocking, no internal state checks.
+
+## Two tiers, one specification
+
+| | Maestro tier (merge gate) | In-process tier (fast inner loop) |
+|---|---|---|
+| Framework | Maestro, black box | Compose UI Test, inside the app process |
+| Full suite | `payanam_e2e.yaml` — 161 steps, ~409 s | `FullJourneyTest` — ~57 s |
+| Smoke | `smoke/payanam_smoke.yaml` — ~192 s | `SmokeInProcessTest` — ~24 s |
+| Restart phase | phase 9 in the same flow (`stopApp`) | `UnlockTest`, a second invocation |
+| Clean state | `launchApp clearState: true` | a fresh install (the runner uninstalls between runs) |
+| How to run | `build-android.ps1 -RunMaestro` / `-Smoke` | `build-tools/scripts/run-inprocess-tests.ps1 -Runs N -TestClass …` |
+
+Both tiers execute the same journeys from this same spec; the in-process tier is not a replacement.
+The Maestro tier drives the real, minified artefact and remains the merge gate. Measured on one device
+(SM-A176B): the in-process tier is ~7× faster on the full journey and ~8× on the smoke subset.
+
+Four differences are structural. Do not try to close them with shell access — `pm clear` and `adb` are
+out of scope for both tiers:
+
+1. **No `clearState`.** The app's own Delete All Data flow cannot stand in: it restarts the app
+   process, which kills the instrumentation run. A fresh install is the only reset.
+2. **No mid-flow `stopApp`.** An instrumentation run hosts every test method in ONE process, so the
+   lock screen only appears in a run of its own — hence `UnlockTest` as a second invocation.
+3. **Maestro's `text:` matches `contentDescription` as well; Compose's `hasText` does not.** The
+   in-process harness matches both, mirroring Maestro.
+4. **Work on `Dispatchers.IO` (Room, WorkManager, DataStore, OkHttp) is invisible to Compose's test
+   clock.** Every in-process interaction waits for the expected state rather than trusting a settle.
+
+**Outputs differ.** Maestro pulls screenshots to the host. The in-process tier writes them into the
+app's external files dir, which needs adb or MTP to retrieve, so treat them as secondary evidence: the
+authoritative artefacts there are the host-side JUnit XML, the HTML report and the per-test logcat.
 
 ## Architecture: Single Maestro Flow
 

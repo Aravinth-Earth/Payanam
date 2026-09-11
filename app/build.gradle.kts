@@ -39,8 +39,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1716
-          versionName = "1716"
+          versionCode = 1746
+          versionName = "1746"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -110,10 +110,18 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // The in-process instrumentation tier needs an unminified build. When the debug
+            // build type is minified, AGP also runs R8 over the androidTest APK, and R8 strips
+            // test-runtime classes that are only reached indirectly (kotlin.LazyKt and friends),
+            // which crashes AndroidJUnitRunner before the first test is executed:
+            //   NoClassDefFoundError: Failed resolution of: Lkotlin/LazyKt;
+            //     at androidx.test.platform.io.TestDirCalculator.<init>
+            // build-android.ps1 -RunInProcess passes -Ppayanam.noMinify=true for this reason.
+            val noMinify = (project.providers.gradleProperty("payanam.noMinify").orNull
+                ?: "false").toBoolean()
+            isMinifyEnabled = !noMinify
+            isShrinkResources = !noMinify
             applicationIdSuffix = ".debug"
-            resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
             }
@@ -123,7 +131,6 @@ android {
             )
         }
         release {
-            resValue("string", "launcher_app_name", "@string/app_name")
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -246,6 +253,7 @@ dependencies {
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.truth)
     androidTestImplementation(libs.junit.ext)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))

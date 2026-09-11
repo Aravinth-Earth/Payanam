@@ -9,6 +9,7 @@ param(
     [switch]$SkipGuardrails,
     [switch]$RunMaestro,
     [switch]$Smoke,
+    [switch]$RunInProcess,
     [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
@@ -1249,6 +1250,13 @@ if ($maestroEnabledByFlag -or $maestroEnabledByEnv)
     $runPostInstallVerification = $true
 }
 
+if ($RunInProcess.IsPresent)
+{
+    # Same reason as the Maestro flag: the in-process tier runs from inside the post-install
+    # verification block, so an explicit flag must open that path too.
+    $runPostInstallVerification = $true
+}
+
 if ($SkipTests)
 {
     $runUnitTests = $false
@@ -1652,6 +1660,12 @@ if ($Universal)
 }
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
+# In-process test mode builds unminified: a minified debug build breaks the androidTest APK.
+if ($RunInProcess.IsPresent -and $gradleTask -eq "assembleDebug")
+{
+    $gradleTask = "$gradleTask -Ppayanam.noMinify=true"
+    Write-LogWithTime "In-process mode: assembling unminified debug (minification breaks the androidTest APK)." "Yellow"
+}
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
 if ($buildRun.ExitCode -ne 0)
 {
@@ -1867,6 +1881,23 @@ if (-not $runDeviceInstall)
                         }
                         Write-LogWithTime "Maestro tier: $(if ($Smoke.IsPresent) { 'smoke (fast inner loop)' } else { 'full (regression)' }) -> $maestroFlowPath" "Yellow"
                         Invoke-MaestroFlow -FlowPath $maestroFlowPath -BuildName $buildName
+                    }
+
+                    if ($RunInProcess.IsPresent)
+                    {
+                        # In-process Compose UI test tier. Flag-only by design: no profile enables it,
+                        # exactly like -RunMaestro. Invoked by the script only, never by hand.
+                        Write-LogWithTime "Running in-process instrumented tests (:app:connectedDebugAndroidTest)..." "Yellow"
+                        $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true" -StepLabel "In-process UI tests"
+                        if ($inProcessRun.ExitCode -ne 0)
+                        {
+                            Write-LogWithTime "  ⚠️ In-process tests reported failures — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
+                            $inProcessRun.Output | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                        }
+                        else
+                        {
+                            Write-LogWithTime "  ✅ In-process tests passed." "Green"
+                        }
                     }
 
                     Write-LogWithTime "✅ Post-install verification complete!" "Green"
