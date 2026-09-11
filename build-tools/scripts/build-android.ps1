@@ -500,8 +500,12 @@ function Invoke-GradleStreaming
         $procExitCode = $gradleProc.ExitCode
 
         $fullContent = try { [System.IO.File]::ReadAllText($outFile) } catch { "" }
+        # Gradle writes error-level output (the FAILURE block, Kotlin `e:` compiler errors and
+        # per-task failure diagnostics) to stderr. It used to be deleted unread below, which made
+        # every failing Gradle invocation undiagnosable on Linux. Append it after stdout.
+        $errContent = try { [System.IO.File]::ReadAllText($errFile) } catch { "" }
         $captured.Clear()
-        foreach ($line in ($fullContent -split "`n")) {
+        foreach ($line in (($fullContent + "`n" + $errContent) -split "`n")) {
             $t = $line.Trim()
             if ($t.Length -gt 0) {
                 $captured.Add($t)
