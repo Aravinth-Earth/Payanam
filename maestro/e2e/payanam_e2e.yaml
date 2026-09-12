@@ -188,17 +188,11 @@ tags:
     element: "Theme Mode"
     direction: DOWN
 - tapOn: "Theme Mode"
-- runFlow:
-    when:
-      visible: "Dark Theme"
-    commands:
-      - tapOn: "Dark Theme"
+# Required selections: tapOn waits for the option sheet; no conditional guards — a missing
+# option must fail the flow, not silently skip the feature.
+- tapOn: "Dark Theme"
 - tapOn: "Theme Mode"
-- runFlow:
-    when:
-      visible: "System Theme"
-    commands:
-      - tapOn: "System Theme"
+- tapOn: "System Theme"
 
 # Font
 # Font: the spinner VALUE is the clickable control (class=android.widget.Spinner).
@@ -213,34 +207,18 @@ tags:
 
 # Time Format
 - tapOn: "Time Format"
-- runFlow:
-    when:
-      visible: "24-hour clock"
-    commands:
-      - tapOn: "24-hour clock"
+- tapOn: "24-hour clock"
 - tapOn: "Time Format"
-- runFlow:
-    when:
-      visible: "12-hour clock"
-    commands:
-      - tapOn: "12-hour clock"
+- tapOn: "12-hour clock"
 - tapOn: "Time Format"
-- runFlow:
-    when:
-      visible: "24-hour clock"
-    commands:
-      - tapOn: "24-hour clock"
+- tapOn: "24-hour clock"
 
 # Language
 - scrollUntilVisible:
     element: "App Language"
     direction: UP
 - tapOn: "App Language"
-- runFlow:
-    when:
-      visible: "English"
-    commands:
-      - tapOn: "English"
+- tapOn: "English"
 
 # Default Landing
 - scrollUntilVisible:

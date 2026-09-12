@@ -126,8 +126,9 @@ class FullJourneyTest {
      * Port of Phase 7 — the settings surfaces, exercised one at a time.
      *
      * Every value is set twice on purpose (there and back) so the run leaves no changed state behind
-     * and the toggling itself is what gets exercised. The Maestro flow's `runFlow: {when: visible}`
-     * guards become `isOnScreen` checks; the option sheet only appears after the row is tapped.
+     * and the toggling itself is what gets exercised. Every selection is required: the option sheet
+     * is opened by the row tap directly above it and the waiting assert fails the journey when the
+     * option is absent, instead of silently skipping the feature.
      */
     private fun settings() {
         h.clickNav("Settings")
@@ -138,9 +139,9 @@ class FullJourneyTest {
         h.click("Appearance")
         h.scrollTo("Theme Mode")
         h.click("Theme Mode")
-        pickIfShown("Dark Theme")
+        pick("Dark Theme")
         h.click("Theme Mode")
-        pickIfShown("System Theme")
+        pick("System Theme")
 
         // ── font: the spinner VALUE is the control, not the "Font Family" label ──
         h.click("Font: Sans Serif")
@@ -152,16 +153,16 @@ class FullJourneyTest {
 
         // ── time format: 12 → 24 → 24h confirmed ──
         h.click("Time Format")
-        pickIfShown("24-hour clock")
+        pick("24-hour clock")
         h.click("Time Format")
-        pickIfShown("12-hour clock")
+        pick("12-hour clock")
         h.click("Time Format")
-        pickIfShown("24-hour clock")
+        pick("24-hour clock")
 
         // ── language ──
         h.scrollTo("App Language")
         h.click("App Language")
-        pickIfShown("English")
+        pick("English")
 
         // ── default landing screen, then straight back to Settings ──
         h.scrollTo("Default landing screen")
@@ -197,9 +198,14 @@ class FullJourneyTest {
         h.capture("settings_about")
     }
 
-    /** The `runFlow: {when: {visible: X}}` guard — tap the option only if the sheet actually opened. */
-    private fun pickIfShown(option: String) {
-        if (h.isOnScreen(option)) h.click(option)
+    /**
+     * Required sheet selection: the assert waits for the option sheet (opened by the row tap just
+     * above it) and fails the journey when the option is absent — a required toggle must never be
+     * silently skipped, or the run is green without exercising the feature.
+     */
+    private fun pick(option: String) {
+        h.assertVisible(option)
+        h.click(option)
     }
 
     /**
