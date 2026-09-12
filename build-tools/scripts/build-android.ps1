@@ -991,7 +991,8 @@ function Test-CriticalLoggingCoverageContract
             Patterns = @(
                 "SettingsViewModel\.importDatabase",
                 "SettingsViewModel\.resumeImportWithPassphrase",
-                "SettingsViewModel\.cancelImportPassphrase"
+                "SettingsViewModel\.cancelImportPassphrase",
+                "settings_import_reentry_rejected"
             )
         },
         [PSCustomObject]@{
