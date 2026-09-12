@@ -1,8 +1,13 @@
 # Channel Auto-Update — Flow & State Machine
 
-> Last Updated: 2026-08-13
+> Last Updated: 2026-09-12
 > Diagram-first: review this diagram before any code change to the update flow.
 > Convention: node = logic state; node text carries the UI button/message it shows; edge labels marked `button →` show where the button text changes.
+>
+> **Status (2026-09-12) — truth vs target flow:**
+> - **No in-app hash verification exists today.** The app does not fetch or compare `.sha256` assets before install. Every "sha256 / verification" state in this document (§4, the diagram, §7) is the intended target flow, not implemented behaviour — do not rely on it until the paired `.sha256` wiring lands.
+> - **Releases are persistent, not rolling.** Each publish creates an immutable build-tagged release (`dev-v{N}` / `beta-v{N}` / `v{N}` for stable); older releases stay, and the former rolling `latest-*` model is abandoned. Nothing is deleted on publish.
+> - **Channel to build type:** dev ships `debug`-type APKs; beta/stable ship `release`-type APKs — the filename carries the type (`Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.apk`).
 
 ## 1. Combined flow — single live-check on open
 
@@ -12,7 +17,7 @@ flowchart TD
 
     Check -->|"API error · button → Check again"| CheckFailed[Check failed<br/>offline · rate-limited · timeout<br/>msg: check failed]
     CheckFailed -->|"tap Check again"| Check
-    Check --> Parse[Parse releases<br/>latest-dev / latest-beta / latest-stable<br/>+ sha256 asset URLs]
+    Check --> Parse[Parse releases<br/>dev-v# / beta-v# / v# (persistent)<br/>+ sha256 asset URLs]
     Parse -->|"found=0 or no APK asset · button → Check again"| NoBuild[No build found<br/>for this channel]
     NoBuild -->|"tap Check again"| Check
     Parse --> Compare{Selected channel build<br/>vs installed?}
@@ -76,13 +81,15 @@ flowchart TD
 
 ## 2. Channel mapping
 
-| Branch | Channel | Cadence | Tag | Prerelease |
-|--------|---------|---------|-----|-----------|
-| `feature/*` | dev | 10+/day | `latest-dev` | yes |
-| `dev` | beta | 2/week | `latest-beta` | yes |
-| `main` | stable | 2/month | `latest-stable` | no |
+| Branch | Channel | Cadence | Tag | Prerelease | Ships |
+|--------|---------|---------|-----|-----------|-------|
+| `feature/*` | dev | 10+/day | `dev-v{build}` | yes | debug-type APK |
+| `dev` | beta | 2/week | `beta-v{build}` | yes | release-type APK |
+| `main` | stable | 2/month | `v{build}` | no | release-type APK |
 
-Rolling releases: one release per channel, always the newest. Old releases are deleted on publish.
+Persistent releases: every publish creates a new immutable `{channel}-v{build}` release; older releases stay and keep their download counts. Nothing is deleted on publish.
+
+> **Legacy rolling releases:** `latest-beta` / `latest-stable` still exist, pinned at legacy build #1704, and currently hold GitHub's "Latest" tag slot. Decision: delete them after the first new-scheme beta/stable publish so they stop contradicting this flow. (Not done yet — do not treat them as current.)
 
 ## 3. Toggles (all persisted in app_settings)
 
@@ -92,6 +99,8 @@ Rolling releases: one release per channel, always the newest. Old releases are d
 - **Check for updates after unlock** — app-start check, fires post-DB-unlock
 
 ## 4. APK verification & inventory
+
+> ⚠️ **Not implemented today.** The app does not fetch or verify hashes before install (see the status note at the top). The pipeline below is the target design; treat its verification steps as pending until the paired `.sha256` wiring lands.
 
 **Download pipeline (identical for manual and auto paths — only the trigger differs):**
 
@@ -110,7 +119,7 @@ path | sizeMB | verdict
 
 - `verdict = valid` — hash matches the published sha256 asset
 - `verdict = mismatch` — file present but hash differs from published
-- `verdict = unpublished` — build no longer in rolling releases (orphan)
+- `verdict = unpublished` — build not found among published releases (orphan)
 
 **Inventory is logged at every boundary:** before enqueue, after download complete, after cleanup, and at open-check pre-enqueue probe.
 
@@ -172,7 +181,7 @@ Edge annotations `button → X` in the diagram mark exactly where the label chan
 - Completed downloads persisted (build, file, timestamp) for trace; install offer comes from the live check, not the timestamp
 - Cancel: removes partial file + persisted state; toggle-off also cancels in-flight
 - Single state-driven button: Check → Download → Install now / Retry — one action at a time
-- Every APK is sha256-verified against the published release asset before it can be offered for install
+- SHA-256 verification of each downloaded APK against the published release asset is target behaviour, **not implemented today** (see the status note at the top)
 - All taps, toggles, transitions, verifications, cleanups, and startup-check decisions traced; no user content in logs
 
 ## 1b. State-diagram variant (stateDiagram-v2) — for comparison
