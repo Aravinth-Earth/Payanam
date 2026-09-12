@@ -18,7 +18,6 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Storage
@@ -48,6 +47,8 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -91,6 +92,13 @@ fun DatabaseInitScreen(
     val importLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocumentTree()) { uri ->
         uri?.let { viewModel.importDatabase(it, onSuccess = onDatabaseReady) }
     }
+    // Single-file picker beside the folder picker: `*/*` because Android has no dependable MIME
+    // mapping for `.db` (a specific MIME would hide files on providers reporting octet-stream); the
+    // `.db` extension check in resolveFromSingleFile() is the gate.
+    val importFileLauncher =
+        rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
+            uri?.let { viewModel.importDatabase(it, onSuccess = onDatabaseReady) }
+        }
     if (uiState.showCreateNewWipeConfirm) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelCreateNewWipe() },
@@ -159,7 +167,9 @@ fun DatabaseInitScreen(
         null -> { /* nothing */ }
     }
     Surface(
-        modifier = Modifier.fillMaxSize(),
+        modifier = Modifier
+            .fillMaxSize()
+            .semantics { testTagsAsResourceId = true },
         color = MaterialTheme.colorScheme.background,
     ) {
         Column(
@@ -501,27 +511,18 @@ fun DatabaseInitScreen(
                         Text(androidx.compose.ui.res.stringResource(id = R.string.db_init_action_recheck_database))
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    Button(
-                        onClick = {
-                            logger.i("DatabaseInitScreen", "Import database clicked", mapOf())
-                            importLauncher.launch(null)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                        enabled = !uiState.isCreating && !uiState.isImporting,
-                    ) {
-                        if (uiState.isImporting) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(24.dp),
-                                color = MaterialTheme.colorScheme.onPrimary,
-                            )
-                        } else {
-                            Icon(Icons.Default.CloudUpload, contentDescription = null)
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_valid_database))
-                        }
-                    }
+                    ImportDatabaseFileButton(
+                        logContext = "boot issue path",
+                        isBusy = uiState.isCreating || uiState.isImporting,
+                        onClick = { importFileLauncher.launch(arrayOf("*/*")) },
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ImportDatabaseFolderButton(
+                        logContext = "boot issue path",
+                        labelRes = io.payanam.R.string.loc_import_valid_database,
+                        isBusy = uiState.isCreating || uiState.isImporting,
+                        onClick = { importLauncher.launch(null) },
+                    )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
                         onClick = {
@@ -626,25 +627,28 @@ fun DatabaseInitScreen(
                         modifier = Modifier
                             .fillMaxWidth()
                             .height(56.dp),
+                        // Guards the worst outcome of this branch: a tap mid-import runs
+                        // continueWithExistingDatabase() -> onDatabaseReady -> MainActivity.restartProcess(),
+                        // killing the process before the import's own failure/restore path can run.
+                        enabled = !uiState.isCreating && !uiState.isImporting,
                     ) {
                         Icon(Icons.Default.Storage, contentDescription = null)
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_continue_with_existing_database))
                     }
                     Spacer(modifier = Modifier.height(12.dp))
-                    OutlinedButton(
-                        onClick = {
-                            logger.i("DatabaseInitScreen", "Import database (existing) clicked", mapOf())
-                            importLauncher.launch(null)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(56.dp),
-                    ) {
-                        Icon(Icons.Default.CloudUpload, contentDescription = null)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_different_database))
-                    }
+                    ImportDatabaseFileButton(
+                        logContext = "existing",
+                        isBusy = uiState.isCreating || uiState.isImporting,
+                        onClick = { importFileLauncher.launch(arrayOf("*/*")) },
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ImportDatabaseFolderButton(
+                        logContext = "existing",
+                        labelRes = io.payanam.R.string.loc_import_different_database,
+                        isBusy = uiState.isCreating || uiState.isImporting,
+                        onClick = { importLauncher.launch(null) },
+                    )
                 }
 
                 else -> {
@@ -683,27 +687,18 @@ fun DatabaseInitScreen(
                             Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_create_new_empty_database))
                         }
                         Spacer(modifier = Modifier.height(16.dp))
-                        OutlinedButton(
-                            onClick = {
-                                logger.i("DatabaseInitScreen", "Import database (no existing) clicked", mapOf())
-                                importLauncher.launch(null)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(56.dp),
-                            enabled = !uiState.isCreating && !uiState.isImporting,
-                        ) {
-                            if (uiState.isImporting) {
-                                CircularProgressIndicator(
-                                    modifier = Modifier.size(24.dp),
-                                    color = MaterialTheme.colorScheme.primary,
-                                )
-                            } else {
-                                Icon(Icons.Default.CloudUpload, contentDescription = null)
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_import_existing_database))
-                            }
-                        }
+                        ImportDatabaseFileButton(
+                            logContext = "no existing",
+                            isBusy = uiState.isCreating || uiState.isImporting,
+                            onClick = { importFileLauncher.launch(arrayOf("*/*")) },
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ImportDatabaseFolderButton(
+                            logContext = "no existing",
+                            labelRes = io.payanam.R.string.loc_import_existing_database,
+                            isBusy = uiState.isCreating || uiState.isImporting,
+                            onClick = { importLauncher.launch(null) },
+                        )
                     }
                 }
             }

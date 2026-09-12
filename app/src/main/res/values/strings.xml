@@ -478,9 +478,10 @@
     <string name="loc_hours">Hours</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
-    <string name="loc_import_different_database">Import Different Database</string>
-    <string name="loc_import_existing_database">Import Existing Database</string>
-    <string name="loc_import_valid_database">Import Valid Database</string>
+    <string name="loc_import_different_database">Import Different Database (Folder)</string>
+    <string name="loc_import_existing_database">Import Existing Database (Folder)</string>
+    <string name="loc_import_valid_database">Import Valid Database (Folder)</string>
+    <string name="loc_import_database_file">Import Database File (.db)</string>
     <string name="loc_independent_of_due_date_leave_empty_to_skip">Independent of due date. Leave empty to skip.</string>
     <string name="loc_insights">Insights</string>
     <string name="loc_lenses">Lenses</string>

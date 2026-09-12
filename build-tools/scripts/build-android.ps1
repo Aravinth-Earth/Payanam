@@ -1051,7 +1051,8 @@ function Test-CriticalLoggingCoverageContract
             Patterns = @(
                 "DatabaseInitViewModel\.checkDatabaseStatus",
                 "DatabaseInitViewModel\.executeImportDatabase",
-                "DatabaseInitViewModel\.resumeImportWithPassphrase"
+                "DatabaseInitViewModel\.resumeImportWithPassphrase",
+                "import_reentry_rejected"
             )
         },
         [PSCustomObject]@{

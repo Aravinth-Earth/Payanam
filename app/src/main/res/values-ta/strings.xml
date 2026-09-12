@@ -477,9 +477,10 @@
     <string name="loc_hours">மணிநேரம்</string>
     <string name="loc_how_long_did_it_take">எவ்வளவு நேரம் எடுத்தது?</string>
     <string name="loc_how_was_it_any_observations">எப்படி இருந்தது? </string>
-    <string name="loc_import_different_database">வெவ்வேறு தரவுத்தளத்தை இறக்குமதி செய்யவும்</string>
-    <string name="loc_import_existing_database">தற்போதுள்ள தரவுத்தளத்தை இறக்குமதி செய்யவும்</string>
-    <string name="loc_import_valid_database">சரியான தரவுத்தளத்தை இறக்குமதி செய்யவும்</string>
+    <string name="loc_import_different_database">வெவ்வேறு தரவுத்தளத்தை இறக்குமதி செய்யவும் (கோப்புறை)</string>
+    <string name="loc_import_existing_database">தற்போதுள்ள தரவுத்தளத்தை இறக்குமதி செய்யவும் (கோப்புறை)</string>
+    <string name="loc_import_valid_database">சரியான தரவுத்தளத்தை இறக்குமதி செய்யவும் (கோப்புறை)</string>
+    <string name="loc_import_database_file">தரவுத்தளக் கோப்பை (.db) இறக்குமதி செய்யவும்</string>
     <string name="loc_independent_of_due_date_leave_empty_to_skip">நிலுவைத் தேதியிலிருந்து சாராதது. </string>
     <string name="loc_insights">நுண்ணறிவு</string>
     <string name="loc_lenses">காட்சிகள்</string>

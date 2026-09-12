@@ -7,11 +7,19 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
@@ -19,6 +27,85 @@ import io.payanam.ui.viewmodel.DatabaseBootIssue
 import io.payanam.ui.viewmodel.DatabaseBootIssueType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
+
+/** Test-only locator for the single-file import control (see maestro/e2e/SPEC.md selector policy). */
+internal const val IMPORT_FILE_BUTTON_TAG = "db_init_import_file_button"
+
+/**
+ * Single-file import control, shared by all three DatabaseInitScreen entry points: identical tag,
+ * label, in-flight guard and spinner everywhere — only the logged context differs per call site.
+ */
+@Composable
+internal fun ImportDatabaseFileButton(
+    logContext: String,
+    isBusy: Boolean,
+    onClick: () -> Unit,
+) {
+    Button(
+        onClick = {
+            UnifiedLogger.getInstance().i(
+                "DatabaseInitScreen",
+                "Import database file clicked ($logContext)",
+                mapOf(),
+            )
+            onClick()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .testTag(IMPORT_FILE_BUTTON_TAG),
+        enabled = !isBusy,
+    ) {
+        if (isBusy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.onPrimary,
+            )
+        } else {
+            Icon(Icons.Default.CloudUpload, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(androidx.compose.ui.res.stringResource(id = R.string.loc_import_database_file))
+        }
+    }
+}
+
+/**
+ * Folder-picker import control, shared by all three DatabaseInitScreen entry points — the sibling of
+ * [ImportDatabaseFileButton], so both pickers keep one tag/label/guard/spinner definition.
+ */
+@Composable
+internal fun ImportDatabaseFolderButton(
+    logContext: String,
+    labelRes: Int,
+    isBusy: Boolean,
+    onClick: () -> Unit,
+) {
+    OutlinedButton(
+        onClick = {
+            UnifiedLogger.getInstance().i(
+                "DatabaseInitScreen",
+                "Import database folder clicked ($logContext)",
+                mapOf(),
+            )
+            onClick()
+        },
+        modifier = Modifier
+            .fillMaxWidth()
+            .height(56.dp),
+        enabled = !isBusy,
+    ) {
+        if (isBusy) {
+            CircularProgressIndicator(
+                modifier = Modifier.size(24.dp),
+                color = MaterialTheme.colorScheme.primary,
+            )
+        } else {
+            Icon(Icons.Default.CloudUpload, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(androidx.compose.ui.res.stringResource(id = labelRes))
+        }
+    }
+}
 
 internal fun bootIssueTitleRes(type: DatabaseBootIssueType): Int = when (type) {
     DatabaseBootIssueType.DB_TOO_NEW -> R.string.db_init_issue_title_update_app_required
