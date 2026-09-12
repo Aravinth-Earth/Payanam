@@ -7,10 +7,7 @@ param(
     [switch]$CleanInstall,
     [switch]$SkipTests,
     [switch]$SkipGuardrails,
-    [switch]$RunMaestro,
-    [switch]$Smoke,
     [switch]$RunInProcess,
-    [switch]$SkipMaestro,
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$Publish,
@@ -658,66 +655,6 @@ function Invoke-DeviceSmokePack
     Write-LogWithTime "✅ Device smoke pack passed." "Green"
 }
 
-function Invoke-MaestroFlow
-{
-    param(
-        [string]$FlowPath,
-        [string]$BuildName
-    )
-
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== MAESTRO UI FLOW ===" "Magenta"
-
-    $maestroCommand = Get-Command maestro -ErrorAction SilentlyContinue
-    if (-not $maestroCommand)
-    {
-        throw "Maestro CLI not found on PATH. Install from https://docs.maestro.dev/getting-started/installing-maestro"
-    }
-    if (-not (Test-Path $FlowPath))
-    {
-        throw "Maestro flow file not found: $FlowPath"
-    }
-
-    $maestroDir = Join-Path "output/smoke" $BuildName
-    New-Item -ItemType Directory -Path $maestroDir -Force | Out-Null
-    $logPath = Join-Path $maestroDir "maestro-output.txt"
-
-    Write-LogWithTime "Running Maestro flow: $FlowPath" "Cyan"
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $supportsNativeErrorPreference = $null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
-    if ($supportsNativeErrorPreference)
-    {
-        $previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
-        $PSNativeCommandUseErrorActionPreference = $false
-    }
-    try
-    {
-        $maestroOutput = & maestro test $FlowPath 2>&1 | Tee-Object -FilePath $logPath
-        $exitCode = $LASTEXITCODE
-    } finally
-    {
-        $ErrorActionPreference = $previousErrorActionPreference
-        if ($supportsNativeErrorPreference)
-        {
-            $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
-        }
-    }
-    if ($exitCode -ne 0)
-    {
-        Write-LogWithTime "  ❌ Maestro flow failed (exit $exitCode)." "Red"
-        Write-LogWithTime "  Tail (last 20 lines):" "Red"
-        $tail = $maestroOutput | Select-Object -Last 20
-        foreach ($line in $tail)
-        {
-            Write-Host $line
-        }
-        throw "Maestro flow failed. See $logPath"
-    }
-
-    Write-LogWithTime "✅ Maestro flow passed. Log: $logPath" "Green"
-}
-
 # NOTE: Get-AndroidBuildToolPath and Invoke-ReleaseSecurityVerification live in
 # build-tools/scripts/release-security.ps1 (dot-sourced at the top of this script) so
 # publish-release.ps1 shares the exact same implementation instead of copying it.
@@ -1134,7 +1071,6 @@ $runCoverage = $false
 $runStaticAnalysis = $false
 $runPostInstallVerification = $false
 $runDeviceSmoke = $false
-$runMaestroFlow = $false
 $runDeviceInstall = $true
 $runAndroidGuardrails = $true
 switch ($effectiveProfile)
@@ -1162,31 +1098,16 @@ switch ($effectiveProfile)
         $runStaticAnalysis = $true
         $runPostInstallVerification = $true
         $runDeviceSmoke = $true
-        $runMaestroFlow = $false
     }
 }
 
 Write-LogWithTime "Device install: $(if ($runDeviceInstall) { 'enabled' } else { 'disabled' })" "Yellow"
 Write-LogWithTime "Android guardrails: $(if ($runAndroidGuardrails) { 'enabled' } else { 'disabled' })" "Yellow"
 
-$maestroEnabledByFlag = $RunMaestro.IsPresent -or $Smoke.IsPresent
-$maestroEnvValue = [string]$env:PAYANAM_RUN_MAESTRO
-$maestroEnabledByEnv = $maestroEnvValue -match '^(1|true|yes)$'
-if ($maestroEnabledByFlag -or $maestroEnabledByEnv)
-{
-    # Maestro is flag-only by design: no profile turns it on, including 'full'.
-    # The flow is invoked from inside the post-install verification block, so an
-    # explicit flag must open that path too — otherwise the flag is silently
-    # dropped on quick/normal profiles and the suite never runs.
-    # -Smoke selects the fast inner-loop tier instead of the full regression suite.
-    $runMaestroFlow = $true
-    $runPostInstallVerification = $true
-}
-
 if ($RunInProcess.IsPresent)
 {
-    # Same reason as the Maestro flag: the in-process tier runs from inside the post-install
-    # verification block, so an explicit flag must open that path too.
+    # The in-process tier runs from inside the post-install verification block, so an explicit
+    # flag must open that path too. Flag-only by design: no profile enables it, including 'full'.
     $runPostInstallVerification = $true
 }
 
@@ -1200,11 +1121,6 @@ if ($SkipGuardrails)
 {
     $runAndroidGuardrails = $false
 }
-if ($SkipMaestro)
-{
-    $runMaestroFlow = $false
-}
-Write-LogWithTime "Maestro UI flow: $(if ($runMaestroFlow) { 'enabled' } else { 'disabled' }) (flag=$maestroEnabledByFlag, env='$maestroEnvValue', skip=$($SkipMaestro.IsPresent))" "Yellow"
 
 # ============================================
 # PREFLIGHT CHECKS
@@ -1801,30 +1717,10 @@ if (-not $runDeviceInstall)
                         Write-LogWithTime "Skipping device smoke pack for profile '$effectiveProfile'." "Yellow"
                     }
 
-                    if ($Release)
-                    {
-                        Write-LogWithTime "Skipping Maestro UI flow for release build (flow targets io.payanam.debug)." "Yellow"
-                    } elseif (-not $runMaestroFlow)
-                    {
-                        Write-LogWithTime "Skipping Maestro UI flow (profile/flag)." "Yellow"
-                    } else
-                    {
-                        $maestroFlowPath = if ($Smoke.IsPresent)
-                        {
-                            Join-Path "maestro" "e2e" "smoke" "payanam_smoke.yaml"
-                        }
-                        else
-                        {
-                            Join-Path "maestro" "e2e" "payanam_e2e.yaml"
-                        }
-                        Write-LogWithTime "Maestro tier: $(if ($Smoke.IsPresent) { 'smoke (fast inner loop)' } else { 'full (regression)' }) -> $maestroFlowPath" "Yellow"
-                        Invoke-MaestroFlow -FlowPath $maestroFlowPath -BuildName $buildName
-                    }
-
                     if ($RunInProcess.IsPresent)
                     {
-                        # In-process Compose UI test tier. Flag-only by design: no profile enables it,
-                        # exactly like -RunMaestro. Invoked by the script only, never by hand.
+                        # In-process Compose UI test tier: the only E2E tier the pipeline runs.
+                        # Flag-only by design; invoked by the script only, never by hand.
                         Write-LogWithTime "Running in-process instrumented tests (:app:connectedDebugAndroidTest)..." "Yellow"
                         $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true" -StepLabel "In-process UI tests"
                         if ($inProcessRun.ExitCode -ne 0)
