@@ -8,7 +8,9 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
+import java.io.IOException
 import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
+
 /**
  * Low-level helpers for moving the database between plaintext (Android
  * framework SQLite) and encrypted (SQLCipher) formats during import/export
@@ -17,6 +19,10 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
  */
 object DatabaseEncryptionMigrationSupport {
     private val logger = UnifiedLogger.getInstance()
+
+    /** First 16 bytes of every unencrypted SQLite database file ("SQLite format 3\u0000"). */
+    private val SQLITE_PLAINTEXT_MAGIC = "SQLite format 3\u0000".toByteArray()
+
     /**
      * Exports [sourceDatabase] to [destinationDatabase]. When
      * [exportPlaintext] is false the file is copied as-is; otherwise an
@@ -60,6 +66,7 @@ object DatabaseEncryptionMigrationSupport {
         )
         logger.i(logTag, "Database snapshot exported as plaintext one-time payload")
     }
+
     /**
      * Ensures [databaseFile] is encrypted with [passphrase]: if it already opens
      * under that key, returns false; if it is plaintext, converts it in place to
@@ -93,6 +100,7 @@ object DatabaseEncryptionMigrationSupport {
         logger.i(logTag, "Converted plaintext database into SQLCipher format")
         return true
     }
+
     /**
      * Re-keys an encrypted [databaseFile] from [importedPassphrase] to
      * [targetPassphrase] via `PRAGMA rekey`, verifying it re-opens under the new
@@ -137,12 +145,17 @@ object DatabaseEncryptionMigrationSupport {
         return true
     }
 
-    @Suppress("UnusedParameter")
     /**
      * Best-effort detection: true when [databaseFile] is not plaintext SQLite
      * (no "SQLite format 3" magic) and non-empty, implying SQLCipher
      * encryption. A plaintext file returns false.
+     *
+     * Read-only for non-plaintext files: their header is inspected as bytes and they are never
+     * opened with the framework reader, so classifying an encrypted file cannot delete it. A file
+     * that does carry the plaintext magic may still be removed by Android's own corrupt-database
+     * recovery during the framework probe — that is pre-existing behaviour, not this path.
      */
+    @Suppress("UnusedParameter")
     fun isDetectablyEncrypted(
         context: Context,
         databaseFile: File,
@@ -160,34 +173,29 @@ object DatabaseEncryptionMigrationSupport {
         if (!databaseFile.exists()) {
             return false
         }
-        val isPlaintext = canOpenWithFramework(databaseFile)
+        val inspection = inspectPlaintextHeader(databaseFile)
+        val isPlaintext = inspection.hasPlaintextMagic && canOpenWithFramework(databaseFile)
         if (isPlaintext) {
             return false
         }
 
-        // If it's not plaintext, check if it has SQLCipher characteristics
-        // We can't open it directly, but if it's not plaintext SQLite, assume encrypted
-        val magicBytes =
-            databaseFile.inputStream().use { stream ->
-                ByteArray(16).apply { stream.read(this) }
-            }
-
-        // SQLite magic is "SQLite format 3\0"
-        val sqliteMagic = "SQLite format 3\u0000".toByteArray()
-        val hasPlaintextMagic = magicBytes.take(16) == sqliteMagic.take(16)
-        val result = !hasPlaintextMagic && databaseFile.length() > 0
+        // If it's not plaintext, check if it has SQLCipher characteristics.
+        // We can't open it directly, but if it's not plaintext SQLite, assume encrypted.
+        val result = !inspection.hasPlaintextMagic && databaseFile.length() > 0
         logger.i(
             logTag,
             "Database encryption detection",
             mapOf(
                 "isPlaintext" to isPlaintext,
-                "hasPlaintextMagic" to hasPlaintextMagic,
+                "hasPlaintextMagic" to inspection.hasPlaintextMagic,
+                "headerProbeReason" to inspection.reason,
                 "isDetectablyEncrypted" to result,
                 "fileSizeBytes" to databaseFile.length(),
             ),
         )
         return result
     }
+
     /**
      * Changes the SQLCipher key of [databaseFile] from [currentPassphrase] to
      * [newPassphrase] via `PRAGMA rekey`, then verifies it re-opens. Throws on
@@ -222,6 +230,7 @@ object DatabaseEncryptionMigrationSupport {
         }
         logger.i(logTag, "Database rekey completed")
     }
+
     /**
      * Returns row counts for [tableNames] from [databaseFile], opening it with
      * SQLCipher when [passphrase] is supplied (and valid) or falling back to
@@ -571,9 +580,64 @@ object DatabaseEncryptionMigrationSupport {
         }
     }
 
+    /**
+     * Outcome of inspecting a database file's 16-byte header without opening it as a database.
+     *
+     * [reason] is one of `absent`, `tooShort`, `readFailed`, `noMagic` or `plaintextMagic`, so a
+     * non-plaintext answer is always attributable in the logs instead of a silent `false`.
+     */
+    private data class HeaderInspection(
+        val hasPlaintextMagic: Boolean,
+        val reason: String,
+    )
+
+    /**
+     * Reads the first 16 bytes of [databaseFile] and reports whether they are the plaintext SQLite
+     * magic, **without opening the file as a database**.
+     *
+     * The read is checked (`bytesRead >= 16`) and a failure degrades to `false` with a distinct
+     * reason; no broad catch is used. Do not switch to `readNBytes` — that is API 33+ while the app
+     * supports API 28+.
+     *
+     * Invariant: this classification assumes **full-file encryption**. No
+     * `cipher_plaintext_header_size` (or equivalent partial-header setting) is configured anywhere in
+     * the app, so an encrypted file cannot carry the plaintext magic. If such a setting is ever
+     * introduced, an encrypted file could match the magic and be misclassified, and this check must
+     * be revisited with it.
+     */
+    private fun inspectPlaintextHeader(databaseFile: File): HeaderInspection {
+        if (!databaseFile.exists()) {
+            return HeaderInspection(hasPlaintextMagic = false, reason = "absent")
+        }
+        val header = ByteArray(SQLITE_PLAINTEXT_MAGIC.size)
+        try {
+            val bytesRead = databaseFile.inputStream().use { stream -> stream.read(header) }
+            if (bytesRead < header.size) {
+                return HeaderInspection(hasPlaintextMagic = false, reason = "tooShort")
+            }
+        } catch (e: IOException) {
+            logger.w(
+                "DatabaseEncryptionMigrationSupport",
+                "IMPORT_PROBE_HEADER_READ_FAILED",
+                mapOf(
+                    "file" to databaseFile.name,
+                    "reason" to "readFailed",
+                    "error" to e.javaClass.simpleName,
+                ),
+            )
+            return HeaderInspection(hasPlaintextMagic = false, reason = "readFailed")
+        }
+        return if (header.contentEquals(SQLITE_PLAINTEXT_MAGIC)) {
+            HeaderInspection(hasPlaintextMagic = true, reason = "plaintextMagic")
+        } else {
+            HeaderInspection(hasPlaintextMagic = false, reason = "noMagic")
+        }
+    }
+
     private fun canOpenWithFramework(databaseFile: File): Boolean {
         val existsBefore = databaseFile.exists()
         val sizeBefore = databaseFile.length()
+        val inspection = inspectPlaintextHeader(databaseFile)
         logger.i(
             "DatabaseEncryptionMigrationSupport",
             "IMPORT_PROBE_OPEN_BEFORE",
@@ -581,18 +645,32 @@ object DatabaseEncryptionMigrationSupport {
                 "file" to databaseFile.name,
                 "exists" to existsBefore,
                 "sizeBytes" to sizeBefore,
+                "hasPlaintextMagic" to inspection.hasPlaintextMagic,
+                "headerProbeReason" to inspection.reason,
             ),
         )
-        val result = runCatching {
-            SQLiteDatabase
-                .openDatabase(
-                    databaseFile.absolutePath,
-                    null,
-                    SQLiteDatabase.OPEN_READONLY,
-                ).use { db ->
-                    db.version >= 0
-                }
-        }.getOrDefault(false)
+        if (!inspection.hasPlaintextMagic) {
+            logger.i(
+                "DatabaseEncryptionMigrationSupport",
+                "IMPORT_PROBE_OPEN_SKIPPED",
+                mapOf(
+                    "file" to databaseFile.name,
+                    "headerProbeReason" to inspection.reason,
+                ),
+            )
+            return false
+        }
+        val result =
+            runCatching {
+                SQLiteDatabase
+                    .openDatabase(
+                        databaseFile.absolutePath,
+                        null,
+                        SQLiteDatabase.OPEN_READONLY,
+                    ).use { db ->
+                        db.version >= 0
+                    }
+            }.getOrDefault(false)
         logger.i(
             "DatabaseEncryptionMigrationSupport",
             "IMPORT_PROBE_OPEN_AFTER",
@@ -653,6 +731,7 @@ object DatabaseEncryptionMigrationSupport {
         }.getOrElse {
             tableNames.associateWith { 0 }
         }
+
     /**
      * Probing check: returns true if [databaseFile] opens read-only under
      * [passphrase] via SQLCipher (used to decide plaintext-vs-encrypted and to
@@ -704,6 +783,7 @@ object DatabaseEncryptionMigrationSupport {
 
     // Writes database_init_completed = true directly into app_settings, bypassing Room.
     // Uses SQLCipher if passphrase non-null, plain SQLite otherwise.
+
     /**
      * Writes `database_init_completed = true` directly into the app_settings
      * table (bypassing Room), using SQLCipher when [passphrase] is set or plain
