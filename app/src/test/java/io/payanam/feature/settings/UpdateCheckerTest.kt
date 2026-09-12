@@ -68,9 +68,117 @@ class UpdateCheckerTest {
 
     @Test
     fun `build number extracted from apk filename`() {
-        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_debug_20260812_193754.apk"))
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))   // legacy untyped
         assertEquals("", buildNumberFromFileName("Payanam update"))   // no build number → empty
         assertEquals("", buildNumberFromFileName(""))                  // empty input → empty
+    }
+
+    // ── Type-aware artifact matching (artifact-naming standard) ───────────
+
+    @Test
+    fun `artifact name matches only its own build type`() {
+        assertTrue(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk", "debug"))
+        assertTrue(artifactNameMatchesBuildType("Payanam_Android_1568_release_20260812_193754.apk", "release"))
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk", "release"))
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_release_20260812_193754.apk", "debug"))
+    }
+
+    @Test
+    fun `artifact name predicate fails closed on legacy names and sha siblings`() {
+        // Legacy untyped name: no fallback, never matches.
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_20260812_193754.apk", "debug"))
+        // `.sha256` sibling: carries the type token but is not an APK.
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "debug"))
+        assertFalse(artifactNameMatchesBuildType("", "debug"))
+    }
+
+    @Test
+    fun `apk-for-build matcher requires build, type and apk suffix`() {
+        assertTrue(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk", "1568", "debug"))
+        assertFalse(isApkForBuild("Payanam_Android_1568_20260812_193754.apk", "1568", "debug"))          // legacy: no type token
+        assertFalse(isApkForBuild("Payanam_Android_1568_release_20260812_193754.apk", "1568", "debug"))  // wrong type
+        assertFalse(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "1568", "debug")) // sha sibling must never be returned
+        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug"))    // wrong build
+    }
+
+    @Test
+    fun `channel ships the declared build type`() {
+        assertEquals("debug", UpdateChannel.DEV.shippedApkType())
+        assertEquals("release", UpdateChannel.BETA.shippedApkType())
+        assertEquals("release", UpdateChannel.STABLE.shippedApkType())
+    }
+
+    // ── Fail-closed channel verdict ───────────────────────────────────────
+
+    @Test
+    fun `type mismatch fails the verdict closed`() {
+        val statuses = listOf(
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 9999,
+                releaseUrl = "url",
+                apkDownloadUrl = null,
+                typeMismatch = true,
+            ),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        // Newer build exists, but of another type — the VERDICT must be false.
+        assertFalse(result.isUpdateAvailable)
+        assertTrue(result.typeMismatch)
+        // The build number is still reported (channel status rows use it).
+        assertEquals(9999, result.latestBuildNumber)
+    }
+
+    @Test
+    fun `matching type with a newer build is available`() {
+        val statuses = listOf(
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 101,
+                releaseUrl = "url",
+                apkDownloadUrl = "url/apk",
+                apkSha256Url = "url/apk.sha256",
+                typeMismatch = false,
+            ),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertTrue(result.isUpdateAvailable)
+        assertFalse(result.typeMismatch)
+    }
+
+    @Test
+    fun `matching type with same or older build is not available`() {
+        val sameBuild = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 100, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).isUpdateAvailable)
+        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).typeMismatch)
+
+        val olderBuild = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 99, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, olderBuild).isUpdateAvailable)
+    }
+
+    @Test
+    fun `no release for the channel is not a type mismatch`() {
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = emptyList())
+        assertFalse(result.isUpdateAvailable)
+        assertFalse(result.typeMismatch)
+        assertNull(result.latestBuildNumber)
+        assertNull(result.error)
+    }
+
+    @Test
+    fun `a mismatch on another channel does not affect the selected channel`() {
+        val statuses = listOf(
+            ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 9999, releaseUrl = "beta", typeMismatch = true),
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 101, releaseUrl = "dev", apkDownloadUrl = "dev/apk"),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertTrue(result.isUpdateAvailable)
+        assertFalse(result.typeMismatch)
     }
 
     // ── Error enum coverage ───────────────────────────────────────────────
