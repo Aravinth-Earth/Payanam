@@ -14,8 +14,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.AutoDownloadManager
 import io.payanam.feature.settings.DownloadUiState
+import io.payanam.feature.settings.InstallerChecker
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateChecker
 import kotlinx.coroutines.Dispatchers
@@ -50,6 +52,9 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     private val logger = UnifiedLogger.getInstance()
 
+    /** F-Droid installs are updated by the F-Droid client — the hatch must not offer self-updates. */
+    val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+
     private val _downloadState = MutableStateFlow<DownloadUiState>(DownloadUiState.Idle)
     val downloadState: StateFlow<DownloadUiState> = _downloadState.asStateFlow()
 
@@ -73,6 +78,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
     /** User tapped "Check for update" (manual only). */
     @Suppress("TooGenericExceptionCaught")  // Intentional: UpdateChecker.check network + JSON parsing
     fun checkForUpdate() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.check", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
             logger.d(
@@ -116,6 +125,19 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         ),
                     )
                     _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
+                } else if (result.typeMismatch) {
+                    // Fail closed: the dev channel ships no APK for this
+                    // install's build type. The hatch must name the actual
+                    // reason — never fall through to "up to date".
+                    latestBuildNumber = null
+                    latestReleaseUrl = null
+                    latestApkUrl = null
+                    logger.i(
+                        "PreUnlockUpdateChecker.check",
+                        "Check failed closed: dev channel ships a different build type",
+                        mapOf("runningType" to ApkBuildType.running()),
+                    )
+                    _checkResultMessage.value = "type_mismatch"
                 } else {
                     latestBuildNumber = null
                     latestReleaseUrl = null
@@ -134,6 +156,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     /** User tapped "Download & install" (manual only). */
     fun download() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.download", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val url = latestApkUrl ?: run {
             logger.d("PreUnlockUpdateChecker.download", "No download URL available — check first")
             return

@@ -1213,6 +1213,9 @@
     <string name="settings_update_error_github">GitHub unavailable. Try again later.</string>
     <string name="settings_update_error_parse">Could not determine latest version.</string>
     <string name="settings_update_view_release">View release</string>
+    <string name="settings_update_channel_ships">%1$s channel ships: %2$s APK</string>
+    <string name="settings_update_running_build_type">You are on: %1$s build</string>
+    <string name="settings_update_type_mismatch">Build type mismatch — no compatible update is available for this install.</string>
 
     <!-- Settings About additions -->
 <string name="activity_detail_no_data">No data in this window</string>

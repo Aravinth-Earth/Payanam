@@ -54,11 +54,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
+import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
+import io.payanam.feature.settings.shippedApkType
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.SettingsUiState
 import kotlinx.coroutines.CoroutineScope
@@ -501,6 +503,37 @@ internal fun AboutSettingsSection(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // What this channel ships vs what this install runs — always visible,
+        // from the same rule the asset selection uses (the running build type
+        // decides what is downloadable). Static: no network check needed.
+        val runningBuildType = ApkBuildType.running()
+        val channelShipsType = uiState.updateChannel.shippedApkType()
+        Text(
+            text = stringResource(
+                id = R.string.settings_update_channel_ships,
+                stringResource(id = uiState.updateChannel.labelResId()),
+                channelShipsType,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(id = R.string.settings_update_running_build_type, runningBuildType),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (channelShipsType != runningBuildType) {
+            // Static mismatch (network-free): this install can never take this
+            // channel's APK. Same message as the post-check mismatch state, so a
+            // release build on a debug-shipping channel never reads "up to date".
+            Text(
+                text = stringResource(id = R.string.settings_update_type_mismatch),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
         // Auto-download opt-in + check button
@@ -711,6 +744,15 @@ internal fun AboutSettingsSection(
                         Text(stringResource(id = R.string.settings_update_view_release))
                     }
                 }
+                uiState.updateTypeMismatch -> {
+                    // Fail-closed mismatch: the channel ships no APK for this
+                    // install's build type — must never read "up to date" here.
+                    Text(
+                        text = stringResource(id = R.string.settings_update_type_mismatch),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
                 else -> {
                     Text(
                         text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
@@ -870,6 +912,7 @@ private fun failedMessageRes(key: String): Int = when (key) {
     "no_download_url" -> R.string.settings_update_error_no_url
     "enqueue_failed" -> R.string.settings_update_error_enqueue
     "file_missing" -> R.string.settings_update_error_file_missing
+    "type_mismatch" -> R.string.settings_update_type_mismatch
     "install_launch_failed" -> R.string.settings_update_error_install_launch
     "retry_available" -> R.string.settings_update_error_retry_later
     "download_error_file" -> R.string.settings_update_error_file

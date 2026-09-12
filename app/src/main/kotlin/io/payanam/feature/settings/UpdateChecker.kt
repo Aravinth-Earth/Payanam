@@ -4,6 +4,7 @@
 
 package io.payanam.feature.settings
 
+import io.payanam.BuildConfig
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import kotlinx.coroutines.Dispatchers
@@ -30,6 +31,12 @@ data class UpdateCheckResult(
     val error: UpdateCheckError?,
     /** Status of every channel parsed from the list endpoint. */
     val channelStatuses: List<ChannelStatus> = emptyList(),
+    /**
+     * Fail-closed verdict flag: the selected channel's newest release ships no
+     * `.apk` of the running build type. The UI shows the mismatch message for
+     * this state — it must never read "up to date".
+     */
+    val typeMismatch: Boolean = false,
     /** Epoch millis when this result was produced — staleness for the UI. */
     val checkedAtMs: Long = System.currentTimeMillis(),
 )
@@ -58,6 +65,31 @@ fun UpdateChannel.labelResId(): Int = when (this) {
     UpdateChannel.STABLE -> R.string.settings_update_channel_stable
 }
 
+/**
+ * Build-type tokens used in artifact names:
+ * `Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.apk`.
+ */
+internal object ApkBuildType {
+    const val DEBUG = "debug"
+    const val RELEASE = "release"
+
+    /**
+     * Build type of the APK this process is running. Callers pass this IN as a
+     * parameter down the selection path (unit tests compile against the debug
+     * variant, where reading BuildConfig here would be constant-true).
+     */
+    fun running(): String = if (BuildConfig.DEBUG) DEBUG else RELEASE
+}
+
+/**
+ * Build type a channel ships — one artifact per channel (naming plan):
+ * dev → debug, beta/stable → release.
+ */
+internal fun UpdateChannel.shippedApkType(): String = when (this) {
+    UpdateChannel.DEV -> ApkBuildType.DEBUG
+    UpdateChannel.BETA, UpdateChannel.STABLE -> ApkBuildType.RELEASE
+}
+
 /** Per-channel status parsed from the GitHub releases list endpoint. */
 data class ChannelStatus(
     val channel: UpdateChannel,
@@ -65,6 +97,14 @@ data class ChannelStatus(
     val releaseUrl: String?,
     /** Direct download URL of the APK asset (from the release's assets list). */
     val apkDownloadUrl: String? = null,
+    /** Download URL of the selected APK's paired `.sha256` asset, when present. */
+    val apkSha256Url: String? = null,
+    /**
+     * True when this release ships no `.apk` asset for the running build type
+     * (legacy/untyped or other-type only). Selection fails closed: no URL and
+     * no update verdict for this release.
+     */
+    val typeMismatch: Boolean = false,
 )
 
 /** Map a GitHub tag name to a channel, or null for non-channel tags. */
@@ -80,18 +120,98 @@ internal fun channelFromTag(tagName: String): UpdateChannel? =
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
+/** Build-type token inside an artifact name (`_debug_` / `_release_`). */
+private val ARTIFACT_TYPE_REGEX = Regex("""_(debug|release)_""")
+
 /** File-level logger for top-level helpers that live outside [UpdateChecker].
  *  Lazy so pure helpers (parseReleases et al.) stay usable in plain JVM tests
  *  without UnifiedLogger.initialize(). */
 private val logger: UnifiedLogger by lazy { UnifiedLogger.getInstance() }
 
+/** Outcome of the type-aware asset selection within one release. */
+internal data class ApkAssetSelection(
+    /** Download URL of the `.apk` asset carrying the expected build type, or null. */
+    val apkUrl: String? = null,
+    /** Download URL of that APK's paired `.sha256` sibling, when the release ships one. */
+    val sha256Url: String? = null,
+    /** True when the release ships no `.apk` of the expected build type (fail-closed). */
+    val typeMismatch: Boolean = false,
+    /** Distinct build-type tokens seen across the release's asset names (for fail-closed logs). */
+    val assetTypesSeen: List<String> = emptyList(),
+)
+
 /**
- * Parse the GitHub releases list JSON body into per-channel statuses.
+ * Select the APK + checksum assets for [expectedType] from a release's assets.
+ *
+ * Pure function (no I/O) — the running build type is passed IN so unit tests
+ * (which compile against the debug variant) can exercise both types.
+ *
+ * The APK matcher requires the `_<type>_` token AND a `.apk` suffix: the
+ * `.sha256` sibling carries the same type token and must never be selectable.
+ * A release with no matching APK yields a fail-closed [ApkAssetSelection.typeMismatch];
+ * downstream that becomes `isUpdateAvailable = false`, never just a null URL.
+ */
+internal fun selectApkAssets(assets: JSONArray?, expectedType: String): ApkAssetSelection {
+    if (assets == null) return ApkAssetSelection(typeMismatch = true)
+    val entries = mutableListOf<Pair<String, String>>()
+    for (a in 0 until assets.length()) {
+        val asset = assets.optJSONObject(a) ?: continue
+        val name = asset.optString("name", "")
+        if (name.isNotEmpty()) {
+            entries.add(name to asset.optString("browser_download_url", ""))
+        }
+    }
+    val apkEntry = entries.firstOrNull { (name, _) -> name.endsWith(".apk") && name.contains("_${expectedType}_") }
+    val shaEntry = apkEntry?.let { (apkName, _) -> entries.firstOrNull { (name, _) -> name == "$apkName.sha256" } }
+    return ApkAssetSelection(
+        apkUrl = apkEntry?.second,
+        sha256Url = shaEntry?.second,
+        typeMismatch = apkEntry == null,
+        assetTypesSeen = entries.mapNotNull { (name, _) -> ARTIFACT_TYPE_REGEX.find(name)?.groupValues?.get(1) }.distinct(),
+    )
+}
+
+/**
+ * True when [fileName] names an APK built for [buildType] (`_<type>_` token +
+ * `.apk` suffix). Predicate for validating a persisted download URL's stored
+ * name before a retry enqueue — legacy/untyped and other-type names fail
+ * closed, and a `.sha256` sibling never passes.
+ */
+internal fun artifactNameMatchesBuildType(fileName: String, buildType: String): Boolean =
+    fileName.endsWith(".apk") && fileName.contains("_${buildType}_")
+
+/** Fail-closed selection trace: the release has no APK for the running build
+ *  type. Logged at `i` because release builds turn `d` off; guarded because the
+ *  parse tests call [parseReleases] on a bare JVM without the logger. */
+private fun logFailClosedSelection(
+    channel: UpdateChannel,
+    buildNumber: Int?,
+    runningType: String,
+    assetTypesSeen: List<String>,
+) {
+    if (!UnifiedLogger.isInitialized()) return
+    logger.i(
+        "UpdateChecker.parseReleases",
+        "Update check failed closed: release ships no APK for the running build type",
+        mapOf(
+            "channel" to channel.name,
+            "build" to (buildNumber ?: -1),
+            "runningType" to runningType,
+            "expectedType" to runningType,
+            "assetTypes" to assetTypesSeen.joinToString(",").ifEmpty { "none" },
+        ),
+    )
+}
+
+/**
+ * Parse the GitHub releases list JSON body into per-channel statuses, with the
+ * downloadable APK + checksum selected for [runningType].
+ *
  * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
  * malformed entries are skipped. Returns an empty list for garbage bodies.
  */
 @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
-internal fun parseReleases(body: String): List<ChannelStatus> {
+internal fun parseReleases(body: String, runningType: String): List<ChannelStatus> {
     val releases = try {
         JSONArray(body)
     } catch (e: JSONException) {
@@ -107,22 +227,51 @@ internal fun parseReleases(body: String): List<ChannelStatus> {
         val title = release.optString("name", tagName)
         val match = BUILD_NUMBER_REGEX.find(title)
         val buildNumber = match?.groupValues?.get(1)?.toIntOrNull()
-        // Direct APK asset URL: assets[].browser_download_url (first .apk).
-        val assets = release.optJSONArray("assets")
-        var apkUrl: String? = null
-        if (assets != null) {
-            for (a in 0 until assets.length()) {
-                val asset = assets.optJSONObject(a) ?: continue
-                val assetName = asset.optString("name", "")
-                if (assetName.endsWith(".apk")) {
-                    apkUrl = asset.optString("browser_download_url", "")
-                    break
-                }
-            }
+        // Type-aware selection: the running build type decides which asset is
+        // downloadable. No match ⇒ fail closed (no URL, verdict false) —
+        // never a silent skip that later reads as "up to date".
+        val selection = selectApkAssets(release.optJSONArray("assets"), runningType)
+        if (selection.typeMismatch) {
+            logFailClosedSelection(channel, buildNumber, runningType, selection.assetTypesSeen)
         }
-        statuses.add(ChannelStatus(channel = channel, buildNumber = buildNumber, releaseUrl = htmlUrl, apkDownloadUrl = apkUrl))
+        statuses.add(
+            ChannelStatus(
+                channel = channel,
+                buildNumber = buildNumber,
+                releaseUrl = htmlUrl,
+                apkDownloadUrl = selection.apkUrl,
+                apkSha256Url = selection.sha256Url,
+                typeMismatch = selection.typeMismatch,
+            ),
+        )
     }
     return statuses
+}
+
+/**
+ * Derive the selected channel's verdict from parsed [statuses] (pure, no I/O).
+ *
+ * Fail-closed contract: when the channel's newest release carries no APK for
+ * the running build type ([ChannelStatus.typeMismatch]), the verdict is
+ * `isUpdateAvailable = false` — the mismatch gates the VERDICT, not just the
+ * download URL.
+ */
+internal fun resolveUpdateResult(
+    currentBuildNumber: Int,
+    channel: UpdateChannel,
+    statuses: List<ChannelStatus>,
+): UpdateCheckResult {
+    val selected = statuses.firstOrNull { it.channel == channel }
+    val latestBuild = selected?.buildNumber
+    val typeMismatch = selected?.typeMismatch == true
+    return UpdateCheckResult(
+        isUpdateAvailable = !typeMismatch && latestBuild != null && latestBuild > currentBuildNumber,
+        latestBuildNumber = latestBuild,
+        releaseUrl = selected?.releaseUrl,
+        error = null,
+        channelStatuses = statuses,
+        typeMismatch = typeMismatch,
+    )
 }
 
 /**
@@ -139,8 +288,10 @@ enum class UpdateCheckError {
 
 /**
  * Checks GitHub releases for app updates across all channels.
- * Fetches the releases list endpoint, parses per-channel statuses,
- * and compares the latest build number against the installed version.
+ * Fetches the releases list endpoint, parses per-channel statuses with a
+ * type-aware asset selection for [ApkBuildType.running], and compares the
+ * latest build number against the installed version. A channel whose newest
+ * release ships no APK of the running build type fails the verdict closed.
  */
 object UpdateChecker {
 
@@ -154,11 +305,23 @@ object UpdateChecker {
     /**
      * Fetch release info for ALL channels in one call (list endpoint),
      * then derive the result for the [channel] the user has selected.
+     *
+     * [runningType] is the build type of this install; it decides which asset
+     * each release offers. Passed IN (defaulting to the real running type) so
+     * tests can exercise both types explicitly.
      */
     @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
-    suspend fun check(currentBuildNumber: Int, channel: UpdateChannel = UpdateChannel.DEV): UpdateCheckResult =
+    suspend fun check(
+        currentBuildNumber: Int,
+        channel: UpdateChannel = UpdateChannel.DEV,
+        runningType: String = ApkBuildType.running(),
+    ): UpdateCheckResult =
         withContext(Dispatchers.IO) {
-            logger.d("UpdateChecker.check", "Starting update check", mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name))
+            logger.d(
+                "UpdateChecker.check",
+                "Starting update check",
+                mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name, "runningType" to runningType),
+            )
             try {
                 val connection = URL(RELEASES_LIST_URL).openConnection() as HttpURLConnection
                 connection.apply {
@@ -209,19 +372,23 @@ object UpdateChecker {
                 }
 
                 // List endpoint → JSON array of release objects. Pick out the
-                // Pick out the persistent channel tags ({channel}-v{build}) we own; ignore everything else.
-                val statuses = parseReleases(body)
+                // persistent channel tags ({channel}-v{build}) we own; ignore
+                // everything else. Asset selection is type-aware: only the
+                // running build type's APK is downloadable, and its absence
+                // fails the verdict closed.
+                val statuses = parseReleases(body, runningType)
                 val selected = statuses.firstOrNull { it.channel == channel }
-                val latestBuild = selected?.buildNumber
 
-                logger.d("UpdateChecker.check", "Channels parsed", mapOf("found" to statuses.size, "selectedBuild" to (latestBuild ?: -1)))
-                UpdateCheckResult(
-                    isUpdateAvailable = latestBuild != null && latestBuild > currentBuildNumber,
-                    latestBuildNumber = latestBuild,
-                    releaseUrl = selected?.releaseUrl,
-                    error = null,
-                    channelStatuses = statuses,
+                logger.d(
+                    "UpdateChecker.check",
+                    "Channels parsed",
+                    mapOf(
+                        "found" to statuses.size,
+                        "selectedBuild" to (selected?.buildNumber ?: -1),
+                        "selectedTypeMismatch" to (selected?.typeMismatch == true),
+                    ),
                 )
+                resolveUpdateResult(currentBuildNumber, channel, statuses)
             } catch (e: UnknownHostException) {
                 logger.w("UpdateChecker.check", "No internet", mapOf("exception" to (e.message ?: "unknown")))
                 UpdateCheckResult(false, null, null, UpdateCheckError.NO_INTERNET)

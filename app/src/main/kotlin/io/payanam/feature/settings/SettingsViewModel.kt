@@ -134,7 +134,7 @@ class SettingsViewModel @Inject constructor(
             logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
             lastCheckTimestampMs = 0L
             checkCountInWindow = 0
-            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null) }
+            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null, updateTypeMismatch = false) }
         }
     }
 
@@ -916,7 +916,7 @@ class SettingsViewModel @Inject constructor(
                 "error" to result.error?.name,
             ))
             _uiState.update {
-                it.copy(isCheckingForUpdate = false, updateCheckResult = result)
+                it.copy(isCheckingForUpdate = false, updateCheckResult = result, updateTypeMismatch = result.typeMismatch)
             }
             // Auto-download when update available + toggle ON + no active download.
             if (result.isUpdateAvailable && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
@@ -983,6 +983,20 @@ class SettingsViewModel @Inject constructor(
                 val storedUrl = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL)
                 if (storedUrl.isNullOrEmpty()) return@launch
                 val fileName = storedUrl.substringAfterLast('/')
+                // Fail-closed: the persisted URL may predate an artifact/type
+                // change. A stored name that does not carry this install's
+                // `_<type>_` can never install over it — clear it, log, and
+                // surface a user-visible failure (no silent no-op).
+                if (!artifactNameMatchesBuildType(fileName, ApkBuildType.running())) {
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+                    logger.i(
+                        "SettingsViewModel.downloadOrRetry",
+                        "Persisted download URL failed build-type validation; cleared",
+                        mapOf("file" to fileName, "runningType" to ApkBuildType.running()),
+                    )
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("type_mismatch")) }
+                    return@launch
+                }
                 _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
                 // Rebuild a check-result-like state so startAutoDownload can proceed.
                 val selected = _uiState.value.updateCheckResult?.channelStatuses
@@ -1046,7 +1060,7 @@ class SettingsViewModel @Inject constructor(
                     startAutoDownload(fresh.latestBuildNumber ?: build)
                 } else {
                     // Channel moved past us: no update to download anymore.
-                    _uiState.update { it.copy(updateCheckResult = fresh) }
+                    _uiState.update { it.copy(updateCheckResult = fresh, updateTypeMismatch = fresh.typeMismatch) }
                 }
             }
         }

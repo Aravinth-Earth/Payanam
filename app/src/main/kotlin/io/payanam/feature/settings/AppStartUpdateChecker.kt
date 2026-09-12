@@ -34,6 +34,10 @@ class AppStartUpdateChecker @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
+
+    /** F-Droid installs are updated by the F-Droid client — the in-app updater is disabled. */
+    private val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+
     /**
      * Checks for app updates after the DB session unlocks. Safety net: catches
      * all exceptions so a failed check never crashes the app.
@@ -42,6 +46,12 @@ class AppStartUpdateChecker @Inject constructor(
     fun onAppStart() {
         scope.launch {
             try {
+                // F-Droid owns updates for its installs; the in-app updater must
+                // not run (same gate as the Settings update UI).
+                if (isFDroidBuild) {
+                    logger.i("AppStartUpdateChecker.onAppStart", "F-Droid install; in-app update check disabled")
+                    return@launch
+                }
                 // Wait for the DB to unlock before touching any preference.
                 // The DB is passphrase-locked at app start; reading settings
                 // earlier crashes the app (requireDatabase on closed session).
@@ -62,6 +72,16 @@ class AppStartUpdateChecker @Inject constructor(
                     return@launch
                 }
                 if (!result.isUpdateAvailable) {
+                    // Fail-closed mismatch: the channel's newest release has no
+                    // APK for this install's build type. Logged at `i` (release
+                    // builds turn `d` off) so a skipped auto-update is diagnosable.
+                    if (result.typeMismatch) {
+                        logger.i(
+                            "AppStartUpdateChecker.onAppStart",
+                            "Start check failed closed: channel ships a different build type",
+                            mapOf("channel" to channel.name, "runningType" to ApkBuildType.running()),
+                        )
+                    }
                     logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
                     return@launch
                 }

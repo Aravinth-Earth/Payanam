@@ -1212,6 +1212,9 @@
     <string name="settings_update_error_github">GitHub கிடைக்கவில்லை. பின்னர் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_parse">சமீபத்திய பதிப்பை தீர்மானிக்க முடியவில்லை.</string>
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
+    <string name="settings_update_channel_ships">%1$s சேனல் %2$s APK வழங்குகிறது</string>
+    <string name="settings_update_running_build_type">நீங்கள் இயக்குவது: %1$s பில்ட்</string>
+    <string name="settings_update_type_mismatch">பில்ட் வகை பொருந்தவில்லை — இந்த நிறுவலுக்கு ஏற்ற புதுப்பிப்பு இல்லை.</string>
 
     <!-- Settings About additions -->
 <string name="activity_detail_no_data">இந்த காலகட்டத்தில் தரவு இல்லை</string>
