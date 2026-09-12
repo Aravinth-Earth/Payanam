@@ -53,6 +53,7 @@ import androidx.compose.ui.graphics.toArgb
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.selected
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.testTagsAsResourceId
 import androidx.compose.ui.text.style.TextOverflow
@@ -519,7 +520,10 @@ internal fun DimensionColorPicker(
                             enabled = !isUsed,
                             modifier = Modifier
                                 .size(52.dp)
-                                .semantics { contentDescription = colorLabel },
+                                .semantics {
+                                    contentDescription = colorLabel
+                                    selected = isSelected
+                                },
                             shape = CircleShape,
                             color = colorFromHex(hex).copy(alpha = if (isUsed) 0.25f else 1f),
                             border = BorderStroke(
@@ -635,7 +639,8 @@ internal fun DimensionIconPicker(
                                     )
                                     onSelect(option.key)
                                     showDialog = false
-                                },
+                                }
+                                .semantics { selected = isSelected },
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(
