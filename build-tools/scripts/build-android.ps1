@@ -1829,8 +1829,9 @@ if (-not $runDeviceInstall)
                         $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true" -StepLabel "In-process UI tests"
                         if ($inProcessRun.ExitCode -ne 0)
                         {
-                            Write-LogWithTime "  ⚠️ In-process tests reported failures — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
+                            Write-LogWithTime "  ❌ In-process tests failed — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
                             $inProcessRun.Output | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                            Exit-WithCleanup 1
                         }
                         else
                         {
