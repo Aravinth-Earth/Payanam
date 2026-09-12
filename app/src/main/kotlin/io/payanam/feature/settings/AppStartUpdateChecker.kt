@@ -67,23 +67,32 @@ class AppStartUpdateChecker @Inject constructor(
                 val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
                 val channel = UpdateChannel.fromStorage(channelRaw)
                 val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
-                if (result.error != null) {
-                    logger.d("AppStartUpdateChecker.onAppStart", "Start check failed, will retry next start", mapOf("error" to result.error.name))
-                    return@launch
-                }
-                if (!result.isUpdateAvailable) {
-                    // Fail-closed mismatch: the channel's newest release has no
-                    // APK for this install's build type. Logged at `i` (release
-                    // builds turn `d` off) so a skipped auto-update is diagnosable.
-                    if (result.typeMismatch) {
+                when (result.outcome) {
+                    UpdateOutcome.UPDATE_AVAILABLE -> Unit // handled below
+                    UpdateOutcome.FAILED -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "Start check failed, will retry next start", mapOf("error" to (result.error?.name ?: UpdateCheckError.UNKNOWN.name)))
+                        return@launch
+                    }
+                    UpdateOutcome.TYPE_MISMATCH -> {
+                        // Fail-closed mismatch: the channel's newest release has
+                        // no APK for this install's build type. Logged at `i`
+                        // (release builds turn `d` off) so a skipped auto-update
+                        // is diagnosable.
                         logger.i(
                             "AppStartUpdateChecker.onAppStart",
                             "Start check failed closed: channel ships a different build type",
                             mapOf("channel" to channel.name, "runningType" to ApkBuildType.running()),
                         )
+                        return@launch
                     }
-                    logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
-                    return@launch
+                    UpdateOutcome.NO_RELEASE_ON_CHANNEL, UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "No comparable release on start check", mapOf("outcome" to result.outcome.name))
+                        return@launch
+                    }
+                    UpdateOutcome.UP_TO_DATE -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
+                        return@launch
+                    }
                 }
 
                 // Check found an update. Enqueue only when auto-download is ON;

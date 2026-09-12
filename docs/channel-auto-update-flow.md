@@ -1,6 +1,6 @@
 # Channel Auto-Update — Flow & State Machine
 
-> Last Updated: 2026-09-12
+> Last Updated: 2026-09-13
 > Diagram-first: review this diagram before any code change to the update flow.
 > Convention: node = logic state; node text carries the UI button/message it shows; edge labels marked `button →` show where the button text changes.
 >
@@ -8,6 +8,7 @@
 > - **No in-app hash verification exists today.** The app does not fetch or compare `.sha256` assets before install. Every "sha256 / verification" state in this document (§4, the diagram, §7) is the intended target flow, not implemented behaviour — do not rely on it until the paired `.sha256` wiring lands.
 > - **Releases are persistent, not rolling.** Each publish creates an immutable build-tagged release (`dev-v{N}` / `beta-v{N}` / `v{N}` for stable); older releases stay, and the former rolling `latest-*` model is abandoned. Nothing is deleted on publish.
 > - **Channel to build type:** dev ships `debug`-type APKs; beta/stable ship `release`-type APKs — the filename carries the type (`Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.apk`).
+> - **Verdict model (2026-09-13):** a check resolves to an explicit closed outcome set — update available / up to date / type mismatch / no release on channel / unreadable release / indeterminate / failed. "Up to date" is only shown for a FOUND, parsed, not-newer channel release; a channel absent from the scanned window is never reported as up to date. The releases walk paginates (`per_page=100`, up to 3 pages) and stops as soon as the selected channel is seen.
 
 ## 1. Combined flow — single live-check on open
 
@@ -18,7 +19,7 @@ flowchart TD
     Check -->|"API error · button → Check again"| CheckFailed[Check failed<br/>offline · rate-limited · timeout<br/>msg: check failed]
     CheckFailed -->|"tap Check again"| Check
     Check --> Parse[Parse releases<br/>dev-v# / beta-v# / v# (persistent)<br/>+ sha256 asset URLs]
-    Parse -->|"found=0 or no APK asset · button → Check again"| NoBuild[No build found<br/>for this channel]
+    Parse -->|"no release · type mismatch · unreadable · button → Check again"| NoBuild[No usable release<br/>for this channel]
     NoBuild -->|"tap Check again"| Check
     Parse --> Compare{Selected channel build<br/>vs installed?}
     Compare -->|"same or older"| UptoDate[✓ Up to date<br/>button: Check for update<br/>msg: up to date]
@@ -145,7 +146,7 @@ Reopening the app or About section = fresh check = fresh derivation. Nothing to 
 | Idle / Up to date | `Check for update` | "✓ Up to date" | ✅ |
 | Checking | `Checking…` | — | ❌ (spinner) |
 | Check failed | `Check again` | "Check failed — offline/rate-limited" | ✅ |
-| No build for channel | `Check again` | "No build found for this channel" | ✅ |
+| No releases on channel | `Check again` | "No releases on this channel yet" / build-type mismatch | ✅ |
 | Update available | `Download update` | "v#1578 available" | ✅ |
 | Enqueue failed | `Download update` | "Download couldn't start" | ✅ |
 | Waiting for Wi-Fi | `Cancel` | "Waiting for Wi-Fi…" | ✅ |
@@ -165,7 +166,7 @@ Edge annotations `button → X` in the diagram mark exactly where the label chan
 | Failure | Retry? | Behavior |
 |---------|--------|----------|
 | Check API error (offline/rate-limit/timeout) | Manual only | "Check failed" message; tap Check again |
-| Channel empty / no APK asset | Manual only | "No build found for this channel" |
+| Channel empty / build-type mismatch | Manual only | "No releases on this channel yet" / build-type mismatch message |
 | Enqueue failed | Manual only | "Download couldn't start" |
 | Download failed (network) | **Auto, max 3 attempts** | Progress shows `attempt N/3`; after 3/3 → "Download failed — try again later" |
 | Disk full | **No retry** | "Storage full — free space and retry" (Android-mapped reason) |
@@ -195,14 +196,14 @@ stateDiagram-v2
 
     Checking: button: Checking… (disabled)
     Checking --> CheckFailed: API error · offline · rate-limited · timeout
-    Checking --> NoBuild: found=0 or no APK asset
+    Checking --> NoBuild: channel release missing · type mismatch · unreadable
     Checking --> UpToDate: same or older
     Checking --> UpdateAvailable: newer build
 
     CheckFailed: button → Check again · msg: check failed
     CheckFailed --> Checking: tap Check again
 
-    NoBuild: button → Check again · msg: no build for this channel
+    NoBuild: button → Check again · msg: no releases yet · build-type mismatch
     NoBuild --> Checking: tap Check again
 
     UpToDate: button: Check for update · msg: up to date

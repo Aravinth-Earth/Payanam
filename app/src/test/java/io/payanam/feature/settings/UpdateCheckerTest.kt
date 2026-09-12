@@ -123,9 +123,8 @@ class UpdateCheckerTest {
             ),
         )
         val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        // Newer build exists, but of another type — the VERDICT must be false.
-        assertFalse(result.isUpdateAvailable)
-        assertTrue(result.typeMismatch)
+        // Newer build exists, but of another type — the VERDICT must fail closed.
+        assertEquals(UpdateOutcome.TYPE_MISMATCH, result.outcome)
         // The build number is still reported (channel status rows use it).
         assertEquals(9999, result.latestBuildNumber)
     }
@@ -143,8 +142,7 @@ class UpdateCheckerTest {
             ),
         )
         val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        assertTrue(result.isUpdateAvailable)
-        assertFalse(result.typeMismatch)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
     }
 
     @Test
@@ -152,22 +150,40 @@ class UpdateCheckerTest {
         val sameBuild = listOf(
             ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 100, releaseUrl = "url", apkDownloadUrl = "url/apk"),
         )
-        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).isUpdateAvailable)
-        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).typeMismatch)
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).outcome)
 
         val olderBuild = listOf(
             ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 99, releaseUrl = "url", apkDownloadUrl = "url/apk"),
         )
-        assertFalse(resolveUpdateResult(100, UpdateChannel.DEV, olderBuild).isUpdateAvailable)
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, olderBuild).outcome)
     }
 
     @Test
-    fun `no release for the channel is not a type mismatch`() {
+    fun `no release on the channel is an explicit non-success outcome`() {
         val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = emptyList())
-        assertFalse(result.isUpdateAvailable)
-        assertFalse(result.typeMismatch)
+        assertEquals(UpdateOutcome.NO_RELEASE_ON_CHANNEL, result.outcome)
         assertNull(result.latestBuildNumber)
         assertNull(result.error)
+    }
+
+    @Test
+    fun `an exhausted scan is undetermined, never up to date`() {
+        val result = resolveUpdateResult(
+            currentBuildNumber = 100,
+            channel = UpdateChannel.DEV,
+            statuses = emptyList(),
+            scanComplete = false,
+        )
+        assertEquals(UpdateOutcome.INDETERMINATE, result.outcome)
+    }
+
+    @Test
+    fun `a release without a parseable build number is unreadable, not up to date`() {
+        val statuses = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = null, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertEquals(UpdateOutcome.RELEASE_UNREADABLE, result.outcome)
     }
 
     @Test
@@ -177,8 +193,7 @@ class UpdateCheckerTest {
             ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 101, releaseUrl = "dev", apkDownloadUrl = "dev/apk"),
         )
         val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        assertTrue(result.isUpdateAvailable)
-        assertFalse(result.typeMismatch)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
     }
 
     // ── Error enum coverage ───────────────────────────────────────────────
@@ -260,12 +275,12 @@ class UpdateCheckerTest {
     @Test
     fun `result with update available`() {
         val result = UpdateCheckResult(
-            isUpdateAvailable = true,
+            outcome = UpdateOutcome.UPDATE_AVAILABLE,
             latestBuildNumber = 1515,
             releaseUrl = "https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev",
             error = null,
         )
-        assertTrue(result.isUpdateAvailable)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
         assertEquals(1515, result.latestBuildNumber)
         assertNull(result.error)
     }
@@ -273,13 +288,32 @@ class UpdateCheckerTest {
     @Test
     fun `result with error`() {
         val result = UpdateCheckResult(
-            isUpdateAvailable = false,
+            outcome = UpdateOutcome.FAILED,
             latestBuildNumber = null,
             releaseUrl = null,
             error = UpdateCheckError.NO_INTERNET,
         )
-        assertFalse(result.isUpdateAvailable)
+        assertEquals(UpdateOutcome.FAILED, result.outcome)
         assertNull(result.latestBuildNumber)
         assertEquals(UpdateCheckError.NO_INTERNET, result.error)
+    }
+
+    // ── Pagination + outcome completeness ─────────────────────────────────
+
+    @Test
+    fun `next page url is extracted from a Link header`() {
+        val header = "<https://api.github.com/repos/x/releases?per_page=100&page=2>; rel=\"next\", " +
+            "<https://api.github.com/repos/x/releases?per_page=100&page=9>; rel=\"last\""
+        assertEquals("https://api.github.com/repos/x/releases?per_page=100&page=2", nextPageUrl(header))
+        assertNull(nextPageUrl(""))
+        assertNull(nextPageUrl(null))
+        assertNull(nextPageUrl("<https://api.github.com/repos/x/releases?page=9>; rel=\"last\""))
+    }
+
+    @Test
+    fun `the outcome enum is closed and deliberately sized`() {
+        // Consumers switch exhaustively over UpdateOutcome — adding a state is
+        // a deliberate act that must update this count AND every consumer.
+        assertEquals(7, UpdateOutcome.entries.size)
     }
 }

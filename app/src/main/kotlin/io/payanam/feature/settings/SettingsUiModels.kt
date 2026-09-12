@@ -39,12 +39,6 @@ data class SettingsUiState(
     val isCheckingForUpdate: Boolean = false,
     val updateCheckResult: UpdateCheckResult? = null,
     val updateChannel: UpdateChannel = UpdateChannel.DEV,
-    /**
-     * Fail-closed mismatch flag of the last update check: the selected channel
-     * ships no APK for the running build type. The update UI shows the mismatch
-     * message for this state instead of "up to date".
-     */
-    val updateTypeMismatch: Boolean = false,
     val autoDownloadEnabled: Boolean = false,
     val promptInstallEnabled: Boolean = false,
     val wifiOnlyEnabled: Boolean = false,

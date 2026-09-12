@@ -98,7 +98,7 @@ class SettingsViewModel @Inject constructor(
                 mapOf(
                     "downloadState" to (from.downloadState::class.simpleName + " -> " + to.downloadState::class.simpleName),
                     "checking" to (from.isCheckingForUpdate.toString() + " -> " + to.isCheckingForUpdate.toString()),
-                    "updateAvailable" to ((from.updateCheckResult?.isUpdateAvailable ?: false).toString() + " -> " + (to.updateCheckResult?.isUpdateAvailable ?: false).toString()),
+                    "updateOutcome" to ((from.updateCheckResult?.outcome?.name ?: "none") + " -> " + (to.updateCheckResult?.outcome?.name ?: "none")),
                     "channel" to (from.updateChannel.name + " -> " + to.updateChannel.name),
                     "latestBuild" to (to.updateCheckResult?.latestBuildNumber ?: -1),
                 ),
@@ -134,7 +134,7 @@ class SettingsViewModel @Inject constructor(
             logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
             lastCheckTimestampMs = 0L
             checkCountInWindow = 0
-            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null, updateTypeMismatch = false) }
+            _uiState.update { it.copy(updateChannel = channel, updateCheckResult = null) }
         }
     }
 
@@ -911,15 +911,15 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
             logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
-                "updateAvailable" to result.isUpdateAvailable,
+                "outcome" to result.outcome.name,
                 "latestBuild" to result.latestBuildNumber,
                 "error" to result.error?.name,
             ))
             _uiState.update {
-                it.copy(isCheckingForUpdate = false, updateCheckResult = result, updateTypeMismatch = result.typeMismatch)
+                it.copy(isCheckingForUpdate = false, updateCheckResult = result)
             }
             // Auto-download when update available + toggle ON + no active download.
-            if (result.isUpdateAvailable && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
+            if (result.outcome == UpdateOutcome.UPDATE_AVAILABLE && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
                 val latest = result.latestBuildNumber ?: return@launch
                 startAutoDownload(latest)
             }
@@ -1028,7 +1028,7 @@ class SettingsViewModel @Inject constructor(
         // Plain manual download: only valid when an update is available.
         val result = _uiState.value.updateCheckResult ?: return
         val build = result.latestBuildNumber ?: return
-        if (result.isUpdateAvailable && activeDownloadId == null) {
+        if (result.outcome == UpdateOutcome.UPDATE_AVAILABLE && activeDownloadId == null) {
             // STALE-URL GUARD: the cached check result can be minutes/hours old
             // (rolling channel moves on). Re-fetch the channel's current
             // release so we always download what is latest NOW, never a
@@ -1037,7 +1037,7 @@ class SettingsViewModel @Inject constructor(
             viewModelScope.launch {
                 val channel = _uiState.value.updateChannel
                 val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
-                if (fresh.error != null) {
+                if (fresh.outcome == UpdateOutcome.FAILED) {
                     _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
                     return@launch
                 }
@@ -1056,11 +1056,11 @@ class SettingsViewModel @Inject constructor(
                         "file" to url.substringAfterLast('/'),
                     ),
                 )
-                if (fresh.isUpdateAvailable) {
+                if (fresh.outcome == UpdateOutcome.UPDATE_AVAILABLE) {
                     startAutoDownload(fresh.latestBuildNumber ?: build)
                 } else {
                     // Channel moved past us: no update to download anymore.
-                    _uiState.update { it.copy(updateCheckResult = fresh, updateTypeMismatch = fresh.typeMismatch) }
+                    _uiState.update { it.copy(updateCheckResult = fresh) }
                 }
             }
         }

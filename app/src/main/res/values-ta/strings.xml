@@ -1204,6 +1204,7 @@
     <string name="settings_update_install_later">பின்னர்</string>
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
     <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
+    <string name="settings_update_no_releases">இந்தச் சேனலில் இன்னும் வெளியீடுகள் இல்லை.</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_rate_limited">வரம்பு எட்டப்பட்டது. சில நிமிடங்கள் கழித்து முயற்சிக்கவும்.</string>
     <string name="settings_update_error_github">GitHub கிடைக்கவில்லை. பின்னர் முயற்சிக்கவும்.</string>

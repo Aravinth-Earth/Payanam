@@ -116,6 +116,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
     val message = when {
         resultMessage == "up_to_date" -> stringResource(id = R.string.pre_unlock_update_up_to_date)
         resultMessage == "type_mismatch" -> stringResource(id = R.string.settings_update_type_mismatch)
+        resultMessage == "no_release" -> stringResource(id = R.string.settings_update_no_releases)
         resultMessage?.startsWith("check_failed") == true -> stringResource(id = R.string.pre_unlock_update_check_failed)
         downloadState is DownloadUiState.Failed -> stringResource(id = R.string.pre_unlock_update_download_failed)
         else -> null

@@ -21,29 +21,56 @@ import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 /**
- * Outcome of an update check: availability verdict, latest build/release
- * info, per-channel statuses, and the error reason when it failed.
+ * Closed classification of an update check — consumers route on this enum, so
+ * no branch can classify an absent result as "up to date": a verdict is either
+ * positive ([UPDATE_AVAILABLE]), proven-neutral ([UP_TO_DATE]) or explicitly
+ * non-success. Keeping the consumer `when`s exhaustive over this enum stops a
+ * new state from being silently dropped.
+ */
+enum class UpdateOutcome {
+    /** The selected channel's newest release is newer than this install. */
+    UPDATE_AVAILABLE,
+
+    /** The selected channel's newest release was FOUND and is not newer. */
+    UP_TO_DATE,
+
+    /** The channel's newest release ships no APK of this install's build type. */
+    TYPE_MISMATCH,
+
+    /** The scan completed: the selected channel has no release at all. */
+    NO_RELEASE_ON_CHANNEL,
+
+    /** The channel's newest release carries no parseable build number. */
+    RELEASE_UNREADABLE,
+
+    /** The page cap was reached before the channel was seen — cannot conclude. */
+    INDETERMINATE,
+
+    /** The check itself failed; [UpdateCheckResult.error] carries the reason. */
+    FAILED,
+}
+
+/**
+ * Outcome of an update check: the exhaustive [outcome] verdict, latest
+ * build/release info, per-channel statuses, and the error reason when the
+ * check failed.
  */
 data class UpdateCheckResult(
-    val isUpdateAvailable: Boolean,
+    val outcome: UpdateOutcome,
     val latestBuildNumber: Int?,
     val releaseUrl: String?,
+    /** Non-null iff [outcome] is [UpdateOutcome.FAILED]. */
     val error: UpdateCheckError?,
     /** Status of every channel parsed from the list endpoint. */
     val channelStatuses: List<ChannelStatus> = emptyList(),
-    /**
-     * Fail-closed verdict flag: the selected channel's newest release ships no
-     * `.apk` of the running build type. The UI shows the mismatch message for
-     * this state — it must never read "up to date".
-     */
-    val typeMismatch: Boolean = false,
     /** Epoch millis when this result was produced — staleness for the UI. */
     val checkedAtMs: Long = System.currentTimeMillis(),
 )
 
 /**
- * Release channels. [tagSuffix] is used in persistent GitHub release
- * tags ("{tagSuffix}-v{buildNumber}") produced by publish-release.ps1.
+ * Release channels. Persistent GitHub release tags (publish-release.ps1):
+ * dev/beta use "{tagSuffix}-v{buildNumber}"; stable uses plain "v{buildNumber}"
+ * (matched by [channelFromTag]'s stable regex, not via tagSuffix).
  */
 enum class UpdateChannel(val tagSuffix: String) {
     DEV("dev"),
@@ -149,7 +176,7 @@ internal data class ApkAssetSelection(
  * The APK matcher requires the `_<type>_` token AND a `.apk` suffix: the
  * `.sha256` sibling carries the same type token and must never be selectable.
  * A release with no matching APK yields a fail-closed [ApkAssetSelection.typeMismatch];
- * downstream that becomes `isUpdateAvailable = false`, never just a null URL.
+ * downstream that becomes [UpdateOutcome.TYPE_MISMATCH], never just a null URL.
  */
 internal fun selectApkAssets(assets: JSONArray?, expectedType: String): ApkAssetSelection {
     if (assets == null) return ApkAssetSelection(typeMismatch = true)
@@ -208,15 +235,17 @@ private fun logFailClosedSelection(
  * downloadable APK + checksum selected for [runningType].
  *
  * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
- * malformed entries are skipped. Returns an empty list for garbage bodies.
+ * malformed entries are skipped. Returns NULL when the body is not a JSON
+ * array at all (the caller fails closed as a parse error); a valid empty
+ * array returns an empty list.
  */
 @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
-internal fun parseReleases(body: String, runningType: String): List<ChannelStatus> {
+internal fun parseReleases(body: String, runningType: String): List<ChannelStatus>? {
     val releases = try {
         JSONArray(body)
     } catch (e: JSONException) {
         logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
-        return emptyList()
+        return null
     }
     val statuses = mutableListOf<ChannelStatus>()
     for (i in 0 until releases.length()) {
@@ -251,28 +280,47 @@ internal fun parseReleases(body: String, runningType: String): List<ChannelStatu
 /**
  * Derive the selected channel's verdict from parsed [statuses] (pure, no I/O).
  *
- * Fail-closed contract: when the channel's newest release carries no APK for
- * the running build type ([ChannelStatus.typeMismatch]), the verdict is
- * `isUpdateAvailable = false` — the mismatch gates the VERDICT, not just the
- * download URL.
+ * Fail-closed contract: only a channel release that was actually FOUND and
+ * parsed can produce a verdict. A channel absent from the scan is
+ * [UpdateOutcome.NO_RELEASE_ON_CHANNEL] (scan complete) or
+ * [UpdateOutcome.INDETERMINATE] (page cap hit) — never "up to date". A found
+ * release without a parseable build number is [UpdateOutcome.RELEASE_UNREADABLE],
+ * likewise never "up to date".
  */
 internal fun resolveUpdateResult(
     currentBuildNumber: Int,
     channel: UpdateChannel,
     statuses: List<ChannelStatus>,
+    scanComplete: Boolean = true,
 ): UpdateCheckResult {
     val selected = statuses.firstOrNull { it.channel == channel }
     val latestBuild = selected?.buildNumber
-    val typeMismatch = selected?.typeMismatch == true
+    val outcome = when {
+        selected == null && !scanComplete -> UpdateOutcome.INDETERMINATE
+        selected == null -> UpdateOutcome.NO_RELEASE_ON_CHANNEL
+        selected.typeMismatch -> UpdateOutcome.TYPE_MISMATCH
+        latestBuild == null -> UpdateOutcome.RELEASE_UNREADABLE
+        latestBuild > currentBuildNumber -> UpdateOutcome.UPDATE_AVAILABLE
+        else -> UpdateOutcome.UP_TO_DATE
+    }
     return UpdateCheckResult(
-        isUpdateAvailable = !typeMismatch && latestBuild != null && latestBuild > currentBuildNumber,
+        outcome = outcome,
         latestBuildNumber = latestBuild,
         releaseUrl = selected?.releaseUrl,
         error = null,
         channelStatuses = statuses,
-        typeMismatch = typeMismatch,
     )
 }
+
+/** One page fetch outcome: [Ok] carries the body plus the next-page URL. */
+private sealed interface PageFetch {
+    data class Ok(val body: String, val nextUrl: String?) : PageFetch
+    data class Failed(val error: UpdateCheckError) : PageFetch
+}
+
+/** Extract the `rel="next"` URL from a GitHub `Link` header, or null. */
+internal fun nextPageUrl(linkHeader: String?): String? =
+    linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
 
 /**
  * Error reasons for an update check failure.
@@ -288,23 +336,33 @@ enum class UpdateCheckError {
 
 /**
  * Checks GitHub releases for app updates across all channels.
- * Fetches the releases list endpoint, parses per-channel statuses with a
- * type-aware asset selection for [ApkBuildType.running], and compares the
- * latest build number against the installed version. A channel whose newest
- * release ships no APK of the running build type fails the verdict closed.
+ * Walks the releases list endpoint (paginated, up to [MAX_PAGES] pages),
+ * parses per-channel statuses with a type-aware asset selection for
+ * [ApkBuildType.running], and compares the selected channel's newest build
+ * number against the installed version. Every absence is an explicit
+ * non-success [UpdateOutcome] — never "up to date".
  */
 object UpdateChecker {
 
+    /** GitHub releases list endpoint; per_page=100 with the walk in [check]. */
     private const val RELEASES_LIST_URL =
-        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=50"
+        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=100"
+
+    /**
+     * Page cap for the walk: the selected channel's newest release is searched
+     * page by page (newest first) and the scan stops as soon as it is seen.
+     * Reaching the cap without seeing it yields [UpdateOutcome.INDETERMINATE] —
+     * a "no release" verdict is never emitted from an incomplete scan.
+     */
+    private const val MAX_PAGES = 3
     private const val CONNECT_TIMEOUT_MS = 10_000
     private const val READ_TIMEOUT_MS = 10_000
     private const val MAX_RESPONSE_BYTES = 1_048_576 // 1MB safety cap
     private val logger = UnifiedLogger.getInstance()
 
     /**
-     * Fetch release info for ALL channels in one call (list endpoint),
-     * then derive the result for the [channel] the user has selected.
+     * Fetch release info for ALL channels (paginated list endpoint), then
+     * derive the result for the [channel] the user has selected.
      *
      * [runningType] is the build type of this install; it decides which asset
      * each release offers. Passed IN (defaulting to the real running type) so
@@ -323,89 +381,106 @@ object UpdateChecker {
                 mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name, "runningType" to runningType),
             )
             try {
-                val connection = URL(RELEASES_LIST_URL).openConnection() as HttpURLConnection
-                connection.apply {
-                    requestMethod = "GET"
-                    setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "Payanam/$currentBuildNumber")
-                    connectTimeout = CONNECT_TIMEOUT_MS
-                    readTimeout = READ_TIMEOUT_MS
+                // Walk pages (newest first) until the selected channel is seen or
+                // the list ends. A verdict from an unfinished scan would be a
+                // guess, so scanComplete gates the resolve below.
+                val collected = mutableListOf<ChannelStatus>()
+                var scanComplete = false
+                var url: String? = RELEASES_LIST_URL
+                var page = 0
+                while (url != null && page < MAX_PAGES) {
+                    page++
+                    when (val fetched = fetchPage(url, currentBuildNumber, page)) {
+                        is PageFetch.Failed -> {
+                            logger.w("UpdateChecker.check", "Page fetch failed", mapOf("page" to page, "error" to fetched.error.name))
+                            return@withContext failureResult(fetched.error)
+                        }
+                        is PageFetch.Ok -> {
+                            val statuses = parseReleases(fetched.body, runningType)
+                            if (statuses == null) {
+                                logger.w("UpdateChecker.check", "Response body is not a release list (fail closed)")
+                                return@withContext failureResult(UpdateCheckError.PARSE_ERROR)
+                            }
+                            collected += statuses
+                            if (collected.any { it.channel == channel }) {
+                                scanComplete = true
+                                break
+                            }
+                            url = fetched.nextUrl
+                            if (url == null) scanComplete = true
+                        }
+                    }
                 }
-                val responseCode = connection.responseCode
-                logger.d("UpdateChecker.check", "Response received", mapOf("code" to responseCode))
-                if (responseCode == 403) {
-                    logger.w("UpdateChecker.check", "Rate limited by GitHub")
-                    return@withContext UpdateCheckResult(
-                        isUpdateAvailable = false,
-                        latestBuildNumber = null,
-                        releaseUrl = null,
-                        error = UpdateCheckError.RATE_LIMITED,
-                    )
-                }
-                if (responseCode == 404) {
-                    logger.w("UpdateChecker.check", "GitHub returned 404")
-                    return@withContext UpdateCheckResult(
-                        isUpdateAvailable = false,
-                        latestBuildNumber = null,
-                        releaseUrl = null,
-                        error = UpdateCheckError.GITHUB_UNAVAILABLE,
-                    )
-                }
-                if (responseCode !in 200..299) {
-                    logger.w("UpdateChecker.check", "Unexpected HTTP status", mapOf("code" to responseCode))
-                    return@withContext UpdateCheckResult(
-                        isUpdateAvailable = false,
-                        latestBuildNumber = null,
-                        releaseUrl = null,
-                        error = UpdateCheckError.GITHUB_UNAVAILABLE,
-                    )
-                }
-                val body = readResponseWithLimit(connection.inputStream)
-                if (body == null) {
-                    logger.w("UpdateChecker.check", "Response body exceeds size limit")
-                    return@withContext UpdateCheckResult(
-                        isUpdateAvailable = false,
-                        latestBuildNumber = null,
-                        releaseUrl = null,
-                        error = UpdateCheckError.PARSE_ERROR,
-                    )
-                }
-
-                // List endpoint → JSON array of release objects. Pick out the
-                // persistent channel tags ({channel}-v{build}) we own; ignore
-                // everything else. Asset selection is type-aware: only the
-                // running build type's APK is downloadable, and its absence
-                // fails the verdict closed.
-                val statuses = parseReleases(body, runningType)
-                val selected = statuses.firstOrNull { it.channel == channel }
 
                 logger.d(
                     "UpdateChecker.check",
                     "Channels parsed",
                     mapOf(
-                        "found" to statuses.size,
-                        "selectedBuild" to (selected?.buildNumber ?: -1),
-                        "selectedTypeMismatch" to (selected?.typeMismatch == true),
+                        "pages" to page,
+                        "found" to collected.size,
+                        "scanComplete" to scanComplete,
+                        "selectedBuild" to (collected.firstOrNull { it.channel == channel }?.buildNumber ?: -1),
+                        "selectedTypeMismatch" to (collected.firstOrNull { it.channel == channel }?.typeMismatch == true),
                     ),
                 )
-                resolveUpdateResult(currentBuildNumber, channel, statuses)
+                resolveUpdateResult(currentBuildNumber, channel, collected, scanComplete)
             } catch (e: UnknownHostException) {
                 logger.w("UpdateChecker.check", "No internet", mapOf("exception" to (e.message ?: "unknown")))
-                UpdateCheckResult(false, null, null, UpdateCheckError.NO_INTERNET)
+                failureResult(UpdateCheckError.NO_INTERNET)
             } catch (e: SocketTimeoutException) {
                 logger.w("UpdateChecker.check", "Timeout", mapOf("exception" to (e.message ?: "unknown")))
-                UpdateCheckResult(false, null, null, UpdateCheckError.TIMEOUT)
+                failureResult(UpdateCheckError.TIMEOUT)
             } catch (e: SSLException) {
                 logger.w("UpdateChecker.check", "SSL error", mapOf("exception" to (e.message ?: "unknown")))
-                UpdateCheckResult(false, null, null, UpdateCheckError.NO_INTERNET)
+                failureResult(UpdateCheckError.NO_INTERNET)
             } catch (e: IOException) {
                 logger.w("UpdateChecker.check", "IO error", mapOf("exception" to (e.message ?: "unknown")))
-                UpdateCheckResult(false, null, null, UpdateCheckError.NO_INTERNET)
+                failureResult(UpdateCheckError.NO_INTERNET)
             } catch (e: Exception) {
                 logger.e("UpdateChecker.check", "Unexpected error", e)
-                UpdateCheckResult(false, null, null, UpdateCheckError.UNKNOWN)
+                failureResult(UpdateCheckError.UNKNOWN)
             }
         }
+
+    /** One page fetch: the body plus the next-page URL, or the failure reason. */
+    private fun fetchPage(url: String, currentBuildNumber: Int, page: Int): PageFetch {
+        val connection = URL(url).openConnection() as HttpURLConnection
+        connection.apply {
+            requestMethod = "GET"
+            setRequestProperty("Accept", "application/vnd.github+json")
+            setRequestProperty("User-Agent", "Payanam/$currentBuildNumber")
+            connectTimeout = CONNECT_TIMEOUT_MS
+            readTimeout = READ_TIMEOUT_MS
+        }
+        val responseCode = connection.responseCode
+        logger.d("UpdateChecker.check", "Response received", mapOf("code" to responseCode, "page" to page))
+        if (responseCode == 403) {
+            logger.w("UpdateChecker.check", "Rate limited by GitHub")
+            return PageFetch.Failed(UpdateCheckError.RATE_LIMITED)
+        }
+        if (responseCode == 404) {
+            logger.w("UpdateChecker.check", "GitHub returned 404")
+            return PageFetch.Failed(UpdateCheckError.GITHUB_UNAVAILABLE)
+        }
+        if (responseCode !in 200..299) {
+            logger.w("UpdateChecker.check", "Unexpected HTTP status", mapOf("code" to responseCode))
+            return PageFetch.Failed(UpdateCheckError.GITHUB_UNAVAILABLE)
+        }
+        val body = readResponseWithLimit(connection.inputStream)
+        if (body == null) {
+            logger.w("UpdateChecker.check", "Response body exceeds size limit")
+            return PageFetch.Failed(UpdateCheckError.PARSE_ERROR)
+        }
+        return PageFetch.Ok(body, nextPageUrl(connection.getHeaderField("Link")))
+    }
+
+    /** Result shape for every non-success path — FAILED with its reason. */
+    private fun failureResult(error: UpdateCheckError) = UpdateCheckResult(
+        outcome = UpdateOutcome.FAILED,
+        latestBuildNumber = null,
+        releaseUrl = null,
+        error = error,
+    )
 
     /**
      * Read response body with a size cap. Compatible with API 28+.

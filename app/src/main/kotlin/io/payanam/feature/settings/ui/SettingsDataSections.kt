@@ -58,6 +58,7 @@ import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
+import io.payanam.feature.settings.UpdateOutcome
 import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
 import io.payanam.feature.settings.shippedApkType
@@ -639,7 +640,7 @@ internal fun AboutSettingsSection(
             // Update available but not downloading yet (manual download path).
             // A stale result (>15 min) reverts to "Check for update" so the
             // user always has a fresh-check exit from a stale state.
-            uiState.updateCheckResult?.isUpdateAvailable == true && !uiState.autoDownloadEnabled &&
+            uiState.updateCheckResult?.outcome == UpdateOutcome.UPDATE_AVAILABLE && !uiState.autoDownloadEnabled &&
                 !uiState.isUpdateResultStale() -> {
                 buttonLabel = stringResource(id = R.string.settings_update_download_button)
                 buttonEnabled = true
@@ -665,7 +666,7 @@ internal fun AboutSettingsSection(
                             else -> "unknown"
                         },
                         "checking" to uiState.isCheckingForUpdate,
-                        "updateAvailable" to (uiState.updateCheckResult?.isUpdateAvailable ?: false),
+                        "outcome" to (uiState.updateCheckResult?.outcome?.name ?: "none"),
                         "autoDownload" to uiState.autoDownloadEnabled,
                         "downloadState" to uiState.downloadState::class.simpleName,
                     ),
@@ -705,9 +706,11 @@ internal fun AboutSettingsSection(
         val result = uiState.updateCheckResult
         if (result != null && !uiState.isCheckingForUpdate) {
             Spacer(modifier = Modifier.height(8.dp))
-            when {
-                result.error != null -> {
-                    val errorText = when (result.error) {
+            // Exhaustive over UpdateOutcome: "up to date" is only reachable for
+            // a PROVEN up-to-date result — every other state shows its own copy.
+            when (result.outcome) {
+                UpdateOutcome.FAILED -> {
+                    val errorText = when (result.error ?: UpdateCheckError.UNKNOWN) {
                         UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
                             stringResource(id = R.string.settings_update_error_network)
                         UpdateCheckError.RATE_LIMITED ->
@@ -723,7 +726,7 @@ internal fun AboutSettingsSection(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                result.isUpdateAvailable -> {
+                UpdateOutcome.UPDATE_AVAILABLE -> {
                     Text(
                         text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
                         color = MaterialTheme.colorScheme.primary,
@@ -742,7 +745,7 @@ internal fun AboutSettingsSection(
                         Text(stringResource(id = R.string.settings_update_view_release))
                     }
                 }
-                uiState.updateTypeMismatch -> {
+                UpdateOutcome.TYPE_MISMATCH -> {
                     // Fail-closed mismatch: the channel ships no APK for this
                     // install's build type — must never read "up to date" here.
                     Text(
@@ -751,7 +754,21 @@ internal fun AboutSettingsSection(
                         color = MaterialTheme.colorScheme.error,
                     )
                 }
-                else -> {
+                UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_no_releases),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_error_parse),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                UpdateOutcome.UP_TO_DATE -> {
                     Text(
                         text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
                         style = MaterialTheme.typography.bodySmall,

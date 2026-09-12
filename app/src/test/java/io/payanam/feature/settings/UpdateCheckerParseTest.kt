@@ -50,7 +50,7 @@ class UpdateCheckerParseTest {
                "assets":[{"name":"Payanam_Android_1558_release_20260801_080000.apk","browser_download_url":"https://example.test/v1558/Payanam_Android_1558_release_20260801_080000.apk"}]}
             ]
         """.trimIndent()
-        val statuses = parseReleases(body, "debug")
+        val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(3, statuses.size)
 
         val dev = statuses.first { it.channel == UpdateChannel.DEV }
@@ -78,14 +78,14 @@ class UpdateCheckerParseTest {
             ]
         """.trimIndent()
         // Debug install: the dev release ships only a release-type APK.
-        val debugView = parseReleases(body, "debug")
+        val debugView = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, debugView.size)
         assertTrue(debugView[0].typeMismatch)
         assertNull(debugView[0].apkDownloadUrl)
         assertNull(debugView[0].apkSha256Url)
 
         // Release install: the same release selects cleanly.
-        val releaseView = parseReleases(body, "release")
+        val releaseView = requireNotNull(parseReleases(body, "release"))
         assertEquals("https://example.test/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", releaseView[0].apkDownloadUrl)
         assertFalse(releaseView[0].typeMismatch)
     }
@@ -101,7 +101,7 @@ class UpdateCheckerParseTest {
                ]}
             ]
         """.trimIndent()
-        val statuses = parseReleases(shaFirst, "debug")
+        val statuses = requireNotNull(parseReleases(shaFirst, "debug"))
         assertEquals("url/apk", statuses[0].apkDownloadUrl)
         assertEquals("url/sha", statuses[0].apkSha256Url)
         assertFalse(statuses[0].typeMismatch)
@@ -112,7 +112,7 @@ class UpdateCheckerParseTest {
                "assets":[{"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"url/sha"}]}
             ]
         """.trimIndent()
-        val shaOnlyStatuses = parseReleases(shaOnly, "debug")
+        val shaOnlyStatuses = requireNotNull(parseReleases(shaOnly, "debug"))
         assertNull(shaOnlyStatuses[0].apkDownloadUrl)
         assertTrue(shaOnlyStatuses[0].typeMismatch)
     }
@@ -125,7 +125,7 @@ class UpdateCheckerParseTest {
                "assets":[{"name":"Payanam_Android_1562_20260810.apk","browser_download_url":"url/legacy.apk"}]}
             ]
         """.trimIndent()
-        val statuses = parseReleases(body, "debug")
+        val statuses = requireNotNull(parseReleases(body, "debug"))
         assertNull(statuses[0].apkDownloadUrl)
         assertTrue(statuses[0].typeMismatch)
     }
@@ -141,8 +141,8 @@ class UpdateCheckerParseTest {
                ]}
             ]
         """.trimIndent()
-        assertEquals("url/debug", parseReleases(body, "debug")[0].apkDownloadUrl)
-        assertEquals("url/release", parseReleases(body, "release")[0].apkDownloadUrl)
+        assertEquals("url/debug", requireNotNull(parseReleases(body, "debug"))[0].apkDownloadUrl)
+        assertEquals("url/release", requireNotNull(parseReleases(body, "release"))[0].apkDownloadUrl)
     }
 
     @Test
@@ -154,7 +154,7 @@ class UpdateCheckerParseTest {
               {"tag_name":"latest-nightly","name":"Nightly","html_url":"url","assets":[]}
             ]
         """.trimIndent()
-        val statuses = parseReleases(body, "debug")
+        val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, statuses.size)
         assertEquals(UpdateChannel.DEV, statuses[0].channel)
         assertNull(statuses[0].apkDownloadUrl)
@@ -163,9 +163,9 @@ class UpdateCheckerParseTest {
     }
 
     @Test
-    fun `parseReleases handles garbage body`() {
-        assertEquals(emptyList<ChannelStatus>(), parseReleases("not json at all", "debug"))
-        assertEquals(emptyList<ChannelStatus>(), parseReleases("", "debug"))
+    fun `parseReleases fails closed on a malformed body and accepts a valid empty list`() {
+        assertNull(parseReleases("not json at all", "debug"))
+        assertNull(parseReleases("", "debug"))
         assertEquals(emptyList<ChannelStatus>(), parseReleases("[]", "debug"))
     }
 
@@ -178,7 +178,7 @@ class UpdateCheckerParseTest {
               "not-an-object"
             ]
         """.trimIndent()
-        val statuses = parseReleases(body, "debug")
+        val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, statuses.size)
         assertEquals(UpdateChannel.DEV, statuses[0].channel)
     }
@@ -195,7 +195,7 @@ class UpdateCheckerParseTest {
                "assets":[{"name":"Payanam_Android_1703_release_20260830_120000.apk","browser_download_url":"url-beta.apk"}]}
             ]
         """.trimIndent()
-        val statuses = parseReleases(body, "debug")
+        val statuses = requireNotNull(parseReleases(body, "debug"))
         // Both dev-v1704 and dev-v1703 map to DEV channel → 2 entries
         val devStatuses = statuses.filter { it.channel == UpdateChannel.DEV }
         assertEquals(2, devStatuses.size)
