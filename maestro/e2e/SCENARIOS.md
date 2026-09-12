@@ -1134,13 +1134,14 @@
 ### J1: Export → Import Round-Trip
 - **Start:** App with data (tasks, habits, time, notes, journal from B/C/D/E/F)
 - **Steps:**
-  1. Navigate to Settings → Database → Export
+  1. Navigate to Settings → Data Management → Export
   2. Assert export success
   3. Delete all data (Settings → Delete All Data)
   4. Assert fresh state
   5. Complete fresh setup (passphrase, dimensions, focus)
-  6. Navigate to Settings → Database → Import (this picker selects a folder)
-  7. Select the folder containing the exported file
+  6. Navigate to Settings → Data Management → Import (the single-file picker — the same control the
+     Database init screen offers)
+  7. Select the exported `.db` file
   8. Confirm import
   9. Assert import success
   10. Navigate to Tasks → assert original tasks present
@@ -1150,34 +1151,46 @@
 - **Verify:** All data survives export/import round-trip
 - **End state:** App with restored data
 
-### J2: Import Invalid Folder (Settings picker) / Invalid File (init screen)
-- **Start:** Settings → Database → Import (folder picker), or the Database init screen's
-  "Import Database File (.db)" control for the single-file variant
+### J2: Import Invalid File (both entry points)
+- **Start:** Settings → Data Management → Import, or the Database init screen's "Import Database File (.db)"
+  control — both open the same single-file picker
 - **Steps:**
-  1. Settings variant: select a folder that contains no database file.
-     Init-screen variant: select a non-database file with the file picker
+  1. Select a non-database file (or a `-wal`/`-shm` companion) with the file picker
   2. Assert error message
 - **Verify:** Invalid import rejected
 - **End state:** Settings tab
 
 ### J3: Import Encrypted DB (Wrong Passphrase)
-- **Start:** Settings → Database → Import (folder picker) or the init screen's file picker
+- **Start:** Settings → Data Management → Import or the init screen's file picker — the same single-file
+  picker in both
 - **Steps:**
-  1. Select a folder containing (or the file itself, from the init screen) an encrypted database
+  1. Select the encrypted `.db` file
   2. Enter wrong passphrase when prompted
   3. Assert error: "Wrong passphrase for the imported database"
 - **Verify:** Wrong passphrase rejected
 - **End state:** Import passphrase prompt
 
 ### J3a: Import Encrypted DB From A Single File (now covered by an automated tier)
-- **Start:** Database init screen (any of its three entry points). Settings' database import remains
-  folder-only, so this journey is not reachable from there
+- **Start:** Settings → Data Management → Import, or the Database init screen (any of its three entry
+  points). Both entry points now use the same single-file picker, so this journey is reachable from
+  either — Settings' older folder-only import is gone
 - **Steps:**
-  1. Tap "Import Database File (.db)" — the single-file picker. The "… (Folder)" controls beside it
-     remain for `.db-wal`/`.db-shm` companions of a copied live database
+  1. Tap the single import control — labelled "Import Database File (.db)" on the Database init
+     screen and "Import" in Settings → Data Management
   2. Pick an encrypted `.db` — any file name ending in `.db` is accepted
   3. Enter the correct passphrase when prompted
   4. Assert the import completes and the data is present
+- **WAL trade-off (accepted):** the single-file import resolves only the chosen `.db`; a `.db-wal`
+  companion sitting next to it is **not** carried, and the loss is **unmarked by any warning** — the
+  import still succeeds with the WAL frames missing. It is traceable, not untraceable: the copy's
+  `companionFilesCopied=0` field on the copy log line is the record — "Database file copied
+  successfully" (Settings pipeline) or "Database file copied" (onboarding).
+  The picker's validation copy already steers a WAL-bearing user to select the `.db` itself, and
+  Payanam's own export/auto-backup checkpoints the WAL before writing a single `.db`, so this only
+  affects a hand-copied live database. In the import flow only
+  the tree-URI resolver supplies WAL/SHM companions, and the importer's DB+WAL preserve branch is
+  additionally reached by the encrypted live-DB temp-backup path — so that branch is neither
+  tree-only nor dead, but it is **not** a safeguard for this file-only import.
 - **Verify:** The selected file is **not deleted**, the passphrase prompt is reached, the resumed
   import completes, and the database reopens with the same table counts
 - **End state:** App running with the imported database

@@ -184,7 +184,7 @@ output/e2e/YYYY-MM-DD_HH-mm-ss/
 
 - Biometric unlock (requires device enrollment)
 - Driving the SAF picker itself (a system UI, out of reach for both automated tiers). The import
-  journey behind it is covered by `ImportSeamTest` at the ViewModel seam; picking a file or folder is
+  journey behind it is covered by `ImportSeamTest` at the ViewModel seam; picking a file is
   the one manual step (SCENARIOS.md J3a)
 - Multi-device sync (not implemented)
 - Notification testing
