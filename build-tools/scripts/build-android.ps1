@@ -1,5 +1,5 @@
 # Android Build Script for Kotlin + Compose
-# Format: Payanam_Android_buildNumber_dateTimeStamp
+# Format: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss> (e.g. Payanam_Android_1607_debug_20260912_143000.apk)
 # Migrated from Capacitor/TypeScript to pure Kotlin
 
 param(
@@ -36,6 +36,10 @@ function Write-LogWithTime
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
+
+# Shared release-security helpers (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
+# Dot-sourced here AND in publish-release.ps1 — single implementation, never copied.
+. "$PSScriptRoot/release-security.ps1"
 
 function Get-DateTimeStamp
 {
@@ -264,10 +268,13 @@ function Get-BuildArtifactMetadata
     }
     $buildNumber = -1
     $timestamp = ""
-    if ($artifactName -match '^Payanam_Android_(\d+)_(\d{8}_\d{6})$')
+    # Current name standard only: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.
+    # Unparsed names (legacy/unrecognized) stay BuildNumber=-1 -> first retention candidates;
+    # retention stays non-throwing by design (cycle-3 amendment 1).
+    if ($artifactName -match '^Payanam_Android_(\d+)_(debug|release)_(\d{8}_\d{6})$')
     {
         $buildNumber = [int]$Matches[1]
-        $timestamp = $Matches[2]
+        $timestamp = $Matches[3]
     }
 
     return [PSCustomObject]@{
@@ -711,85 +718,9 @@ function Invoke-MaestroFlow
     Write-LogWithTime "✅ Maestro flow passed. Log: $logPath" "Green"
 }
 
-function Get-AndroidBuildToolPath
-{
-    param([string]$ToolName)
-
-    $toolCommand = Get-Command $ToolName -ErrorAction SilentlyContinue
-    if ($toolCommand)
-    {
-        return $toolCommand.Source
-    }
-
-    $sdkRoots = @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path $_) } |
-        Select-Object -Unique
-
-    foreach ($sdkRoot in $sdkRoots)
-    {
-        $buildToolsDir = Join-Path $sdkRoot "build-tools"
-        if (-not (Test-Path $buildToolsDir))
-        {
-            continue
-        }
-        $candidate = Get-ChildItem -Path $buildToolsDir -Directory |
-            Sort-Object Name -Descending |
-            ForEach-Object { Join-Path $_.FullName "$ToolName.bat" } |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
-        if ($candidate)
-        {
-            return $candidate
-        }
-    }
-
-    return $null
-}
-
-function Invoke-ReleaseSecurityVerification
-{
-    param([string]$ApkPath)
-
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== RELEASE SECURITY VERIFY ===" "Magenta"
-
-    $aaptPath = Get-AndroidBuildToolPath -ToolName "aapt"
-    if ([string]::IsNullOrWhiteSpace($aaptPath))
-    {
-        Write-LogWithTime "  ⚠️ aapt not found; cannot verify manifest debuggable flag from built APK." "Yellow"
-    } else
-    {
-        $badgingOutput = & $aaptPath dump badging $ApkPath 2>&1
-        if ($LASTEXITCODE -ne 0)
-        {
-            throw "aapt badging inspection failed: $badgingOutput"
-        }
-        if ($badgingOutput -match "application-debuggable")
-        {
-            throw "Release security verify failed: APK manifest is debuggable."
-        }
-        Write-LogWithTime "  ✅ APK manifest is non-debuggable." "Green"
-    }
-
-    $apksignerPath = Get-AndroidBuildToolPath -ToolName "apksigner"
-    if ([string]::IsNullOrWhiteSpace($apksignerPath))
-    {
-        Write-LogWithTime "  ⚠️ apksigner not found; cannot verify signature certificate identity." "Yellow"
-        return
-    }
-
-    $verifyOutput = & $apksignerPath verify --verbose --print-certs $ApkPath 2>&1
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "apksigner verification failed: $verifyOutput"
-    }
-    if ($verifyOutput -match "CN=Android Debug")
-    {
-        throw "Release security verify failed: APK is signed with Android Debug certificate."
-    }
-
-    Write-LogWithTime "  ✅ APK signature verification passed (non-debug cert)." "Green"
-}
+# NOTE: Get-AndroidBuildToolPath and Invoke-ReleaseSecurityVerification live in
+# build-tools/scripts/release-security.ps1 (dot-sourced at the top of this script) so
+# publish-release.ps1 shares the exact same implementation instead of copying it.
 
 
 function Test-LocalizedStringDuplicates
@@ -1597,9 +1528,11 @@ if ([int]$counter.totalBuilds -ne $expectedTotal) {
 Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
 Write-LogWithTime "Build counter saved" "Green"
 
-# Generate build name
+# Generate build name — type token comes from -Release: release when set, else debug.
+# Standard: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>
+$buildTypeToken = if ($Release) { "release" } else { "debug" }
 $dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Android_$($buildNumber)_$dateTimeStamp"
+$buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
 Write-LogWithTime "Build Name: $buildName" "Cyan"
 
 # Update version code in build.gradle.kts
@@ -1713,6 +1646,9 @@ $apkSize = [math]::Round((Get-Item $apkFinalPath).Length / 1MB, 2)
 Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 if ($Release)
 {
+    # Fail-open by design on the build path (historical behaviour): if the toolchain
+    # cannot complete the checks, warn and continue. The publish path
+    # (publish-release.ps1, beta/stable) calls this with -FailClosed instead.
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
 }
 
