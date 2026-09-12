@@ -53,6 +53,7 @@ import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.cancelImportPassphrase
 import io.payanam.feature.settings.resumeImportWithPassphrase
+import io.payanam.ui.components.IMPORT_PICKER_MIME
 import io.payanam.ui.components.toDimensionHexString
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
@@ -101,7 +102,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
             showImportConfirmDialog = true
         }
     }
-    val importFolderLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocumentTree(), onDatabaseImportSourceSelected)
+    val importDatabaseLauncher = rememberLauncherForActivityResult(ActivityResultContracts.OpenDocument(), onDatabaseImportSourceSelected)
     val importUhabitsLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
         uri?.let { viewModel.importUhabitsData(it) }
     }
@@ -515,8 +516,10 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                         exportLauncher.launch(viewModel.generateExportFileName())
                     },
                     onImportClick = {
+                        // Kept alongside the shared button's own i-level click line: this one is the
+                        // d-level data-action breadcrumb, the button logs the tap itself.
                         logger.d("SettingsScreen.dataActionTapped", "Data management action tapped", mapOf("action" to "import"))
-                        importFolderLauncher.launch(null)
+                        importDatabaseLauncher.launch(IMPORT_PICKER_MIME)
                     },
                     onImportUhabitsClick = {
                         logger.d("SettingsScreen.dataActionTapped", "Data management action tapped", mapOf("action" to "import_uhabits"))

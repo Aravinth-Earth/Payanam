@@ -532,6 +532,9 @@ internal object DatabaseImportSupport {
     }
 
     private fun resolveFromTree(context: Context, sourceTreeUri: Uri): ResolvedSource {
+        // No UI path launches OpenDocumentTree any more (both entry points use the single-file
+        // picker); kept for tree-URI compatibility. It is also the ONLY resolver that can carry
+        // -wal/-shm companions — resolveFromSingleFile hardcodes them to null.
         val childDocuments = listChildDocuments(context, sourceTreeUri)
         val fileDocuments = childDocuments.filterNot { it.isDirectory }
         val preferredDb = fileDocuments.firstOrNull {

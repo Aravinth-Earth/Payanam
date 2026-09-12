@@ -63,6 +63,8 @@ import io.payanam.feature.settings.labelResId
 import io.payanam.feature.settings.shippedApkType
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.SettingsUiState
+import io.payanam.ui.components.ImportButtonStyle
+import io.payanam.ui.components.ImportDatabaseFileButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -115,27 +117,23 @@ internal fun DataManagementSettingsSection(
                 }
                 Text(stringResource(id = R.string.settings_action_export))
             }
-            OutlinedButton(
-                onClick = onImportClick,
-                enabled = !uiState.isExporting && !uiState.isImporting,
+            ImportDatabaseFileButton(
                 modifier = Modifier.weight(1f),
-            ) {
-                if (uiState.isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(id = R.string.settings_action_import))
-            }
+                height = null,
+                style = ImportButtonStyle.OUTLINED,
+                icon = Icons.Default.CloudDownload,
+                labelRes = R.string.settings_action_import,
+                logSource = "SettingsDataManagement.importFileClicked",
+                logContext = "settings data management",
+                // Every busy flag, not just isImporting: while the encrypted-import passphrase
+                // prompt is open the import is staged, so the button must not accept a second tap.
+                enabled = !uiState.isExporting &&
+                    !uiState.isImporting &&
+                    !uiState.awaitingImportPassphrase,
+                showProgress = uiState.isImporting || uiState.awaitingImportPassphrase,
+                iconSize = 18.dp,
+                onClick = onImportClick,
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(

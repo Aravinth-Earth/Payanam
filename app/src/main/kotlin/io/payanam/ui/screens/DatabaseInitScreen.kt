@@ -18,6 +18,7 @@ import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Storage
@@ -60,6 +61,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.PassphrasePolicy
+import io.payanam.ui.components.IMPORT_PICKER_MIME
+import io.payanam.ui.components.ImportDatabaseFileButton
 import io.payanam.ui.viewmodel.DatabaseBootIssueType
 import io.payanam.ui.viewmodel.DatabaseInitViewModel
 import io.payanam.ui.viewmodel.RestoreResult
@@ -89,12 +92,9 @@ fun DatabaseInitScreen(
     var showCreatePassphraseConfirm by rememberSaveable { mutableStateOf(false) }
     var showImportPassphrase by rememberSaveable { mutableStateOf(false) }
     var hasFinishedOnboarding by rememberSaveable { mutableStateOf(false) }
-    val importLauncher = rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocumentTree()) { uri ->
-        uri?.let { viewModel.importDatabase(it, onSuccess = onDatabaseReady) }
-    }
-    // Single-file picker beside the folder picker: `*/*` because Android has no dependable MIME
-    // mapping for `.db` (a specific MIME would hide files on providers reporting octet-stream); the
-    // `.db` extension check in resolveFromSingleFile() is the gate.
+    // The single-file import launcher for this screen; the picker's `*/*` MIME filter lives on
+    // IMPORT_PICKER_MIME. This is the ONLY import picker: the folder/tree picker was removed with the
+    // import-picker unification.
     val importFileLauncher =
         rememberLauncherForActivityResult(contract = ActivityResultContracts.OpenDocument()) { uri ->
             uri?.let { viewModel.importDatabase(it, onSuccess = onDatabaseReady) }
@@ -186,6 +186,12 @@ fun DatabaseInitScreen(
                 tint = MaterialTheme.colorScheme.primary,
             )
             Spacer(modifier = Modifier.height(24.dp))
+
+            // Fold the passphrase-pause state in too: the import is staged there, so a tap must not
+            // start a second one over the only pre-import restore copy. Defined once for all three
+            // onboarding import call sites below (Settings' copy also folds `isExporting`, a flag this
+            // screen does not have).
+            val importInFlight = uiState.isImporting || uiState.awaitingImportPassphrase
 
             when {
                 uiState.awaitingDimensionSetup -> {
@@ -512,16 +518,12 @@ fun DatabaseInitScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     ImportDatabaseFileButton(
+                        icon = Icons.Default.CloudUpload,
+                        labelRes = io.payanam.R.string.loc_import_database_file,
                         logContext = "boot issue path",
-                        isBusy = uiState.isCreating || uiState.isImporting,
-                        onClick = { importFileLauncher.launch(arrayOf("*/*")) },
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ImportDatabaseFolderButton(
-                        logContext = "boot issue path",
-                        labelRes = io.payanam.R.string.loc_import_valid_database,
-                        isBusy = uiState.isCreating || uiState.isImporting,
-                        onClick = { importLauncher.launch(null) },
+                        enabled = !uiState.isCreating && !importInFlight,
+                        showProgress = importInFlight,
+                        onClick = { importFileLauncher.launch(IMPORT_PICKER_MIME) },
                     )
                     Spacer(modifier = Modifier.height(16.dp))
                     OutlinedButton(
@@ -638,16 +640,12 @@ fun DatabaseInitScreen(
                     }
                     Spacer(modifier = Modifier.height(12.dp))
                     ImportDatabaseFileButton(
+                        icon = Icons.Default.CloudUpload,
+                        labelRes = io.payanam.R.string.loc_import_database_file,
                         logContext = "existing",
-                        isBusy = uiState.isCreating || uiState.isImporting,
-                        onClick = { importFileLauncher.launch(arrayOf("*/*")) },
-                    )
-                    Spacer(modifier = Modifier.height(12.dp))
-                    ImportDatabaseFolderButton(
-                        logContext = "existing",
-                        labelRes = io.payanam.R.string.loc_import_different_database,
-                        isBusy = uiState.isCreating || uiState.isImporting,
-                        onClick = { importLauncher.launch(null) },
+                        enabled = !uiState.isCreating && !importInFlight,
+                        showProgress = importInFlight,
+                        onClick = { importFileLauncher.launch(IMPORT_PICKER_MIME) },
                     )
                 }
 
@@ -688,16 +686,12 @@ fun DatabaseInitScreen(
                         }
                         Spacer(modifier = Modifier.height(16.dp))
                         ImportDatabaseFileButton(
+                            icon = Icons.Default.CloudUpload,
+                            labelRes = io.payanam.R.string.loc_import_database_file,
                             logContext = "no existing",
-                            isBusy = uiState.isCreating || uiState.isImporting,
-                            onClick = { importFileLauncher.launch(arrayOf("*/*")) },
-                        )
-                        Spacer(modifier = Modifier.height(16.dp))
-                        ImportDatabaseFolderButton(
-                            logContext = "no existing",
-                            labelRes = io.payanam.R.string.loc_import_existing_database,
-                            isBusy = uiState.isCreating || uiState.isImporting,
-                            onClick = { importLauncher.launch(null) },
+                            enabled = !uiState.isCreating && !importInFlight,
+                            showProgress = importInFlight,
+                            onClick = { importFileLauncher.launch(IMPORT_PICKER_MIME) },
                         )
                     }
                 }
