@@ -1139,8 +1139,8 @@
   3. Delete all data (Settings → Delete All Data)
   4. Assert fresh state
   5. Complete fresh setup (passphrase, dimensions, focus)
-  6. Navigate to Settings → Database → Import
-  7. Select the exported file
+  6. Navigate to Settings → Database → Import (this picker selects a folder)
+  7. Select the folder containing the exported file
   8. Confirm import
   9. Assert import success
   10. Navigate to Tasks → assert original tasks present
@@ -1150,22 +1150,41 @@
 - **Verify:** All data survives export/import round-trip
 - **End state:** App with restored data
 
-### J2: Import Invalid File
-- **Start:** Settings → Database → Import
+### J2: Import Invalid Folder (Settings picker) / Invalid File (init screen)
+- **Start:** Settings → Database → Import (folder picker), or the Database init screen's
+  "Import Database File (.db)" control for the single-file variant
 - **Steps:**
-  1. Select a non-database file
+  1. Settings variant: select a folder that contains no database file.
+     Init-screen variant: select a non-database file with the file picker
   2. Assert error message
 - **Verify:** Invalid import rejected
 - **End state:** Settings tab
 
 ### J3: Import Encrypted DB (Wrong Passphrase)
-- **Start:** Settings → Database → Import
+- **Start:** Settings → Database → Import (folder picker) or the init screen's file picker
 - **Steps:**
-  1. Select an encrypted database file
+  1. Select a folder containing (or the file itself, from the init screen) an encrypted database
   2. Enter wrong passphrase when prompted
   3. Assert error: "Wrong passphrase for the imported database"
 - **Verify:** Wrong passphrase rejected
 - **End state:** Import passphrase prompt
+
+### J3a: Import Encrypted DB From A Single File (now covered by an automated tier)
+- **Start:** Database init screen (any of its three entry points). Settings' database import remains
+  folder-only, so this journey is not reachable from there
+- **Steps:**
+  1. Tap "Import Database File (.db)" — the single-file picker. The "… (Folder)" controls beside it
+     remain for `.db-wal`/`.db-shm` companions of a copied live database
+  2. Pick an encrypted `.db` — any file name ending in `.db` is accepted
+  3. Enter the correct passphrase when prompted
+  4. Assert the import completes and the data is present
+- **Verify:** The selected file is **not deleted**, the passphrase prompt is reached, the resumed
+  import completes, and the database reopens with the same table counts
+- **End state:** App running with the imported database
+- **Automated:** `app/src/androidTest/java/io/payanam/e2e/ImportSeamTest.kt` drives this journey at the
+  ViewModel seam (the SAF picker itself stays manual — steps 1–2 are the only manual part). The
+  deletion regression is guarded by
+  `core/database/src/test/kotlin/io/payanam/database/security/DatabaseEncryptionMigrationSupportRegressionTest.kt`.
 
 
 # ─────────────────────────────────────────────────────────────
@@ -1307,7 +1326,7 @@
 #   I1-I5
 #
 # GROUP J (Export/Import) → after B/C/D/E/F (needs data)
-#   J1-J3
+#   J1-J3 + J3a (J3a steps 1-2 are manual: the system picker)
 #
 # GROUP K (Scoring) → after A
 #   K1-K3
@@ -1321,7 +1340,7 @@
 #   3. G1-G9 (Lenses verification) — ~3 min
 #   4. H1-H21 (Settings) — ~8 min
 #   5. I1-I5 (Passphrase) — ~3 min
-#   6. J1-J3 (Export/Import) — ~5 min
+#   6. J1-J3 + J3a (Export/Import) — ~5 min
 #   7. K1-K3 (Scoring) — ~2 min
 #   8. L1-L7 (Cross-cutting) — ~3 min
 #   TOTAL: ~37 min estimated

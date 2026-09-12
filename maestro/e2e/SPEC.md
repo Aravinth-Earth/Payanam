@@ -1,5 +1,5 @@
 # Payanam E2E Test Suite — Specification
-# Last Updated: 2026-09-11
+# Last Updated: 2026-09-12
 
 ## Goal
 Fastest possible UI-driven regression suite covering every user-facing interaction in the app.
@@ -183,6 +183,8 @@ output/e2e/YYYY-MM-DD_HH-mm-ss/
 ## What's NOT in scope (yet)
 
 - Biometric unlock (requires device enrollment)
-- Import from external file (requires file on device)
+- Driving the SAF picker itself (a system UI, out of reach for both automated tiers). The import
+  journey behind it is covered by `ImportSeamTest` at the ViewModel seam; picking a file or folder is
+  the one manual step (SCENARIOS.md J3a)
 - Multi-device sync (not implemented)
 - Notification testing
