@@ -130,7 +130,7 @@ class TasksViewModelIntegrationTest {
         habitMetricRepository = habitMetricRepository,
         scoreWindowRepository = scoreWindowRepository,
         scoreChangeEventBus = scoreChangeEventBus,
-    )
+    ).apply { shapingDispatcher = testDispatcher }
 
     @Test
     /**
