@@ -1180,17 +1180,18 @@
   2. Pick an encrypted `.db` — any file name ending in `.db` is accepted
   3. Enter the correct passphrase when prompted
   4. Assert the import completes and the data is present
-- **WAL trade-off (accepted):** the single-file import resolves only the chosen `.db`; a `.db-wal`
-  companion sitting next to it is **not** carried, and the loss is **unmarked by any warning** — the
-  import still succeeds with the WAL frames missing. It is traceable, not untraceable: the copy's
-  `companionFilesCopied=0` field on the copy log line is the record — "Database file copied
-  successfully" (Settings pipeline) or "Database file copied" (onboarding).
-  The picker's validation copy already steers a WAL-bearing user to select the `.db` itself, and
-  Payanam's own export/auto-backup checkpoints the WAL before writing a single `.db`, so this only
-  affects a hand-copied live database. In the import flow only
-  the tree-URI resolver supplies WAL/SHM companions, and the importer's DB+WAL preserve branch is
-  additionally reached by the encrypted live-DB temp-backup path — so that branch is neither
-  tree-only nor dead, but it is **not** a safeguard for this file-only import.
+- **Import input:** the picker resolves only the one selected `.db`; the import expects Payanam's
+  encrypted database — you enter its passphrase, and the import decrypts, validates the schema and
+  re-encrypts the data under your own passphrase.
+- **WAL trade-off (accepted):** the single-file import carries no companion files, so a `.db-wal`
+  sitting next to the selected file is **not** included and the import completes without a separate
+  warning. A copy whose source was a live database is consistent only as of its last checkpoint and
+  can miss the most recent committed transactions. It is traceable, not untraceable: the copy log
+  line records `companionFilesCopied=0` — "Database file copied successfully" (Settings pipeline) or
+  "Database file copied" (onboarding). Payanam's own export and auto-backup checkpoint the WAL
+  before writing a single `.db`, so a Payanam-produced file is not affected; the residual case is a
+  live database hand-copied while its app was running — no UI path can supply WAL/SHM companions to
+  the import (picking a `-wal`/`-shm` companion itself is rejected).
 - **Verify:** The selected file is **not deleted**, the passphrase prompt is reached, the resumed
   import completes, and the database reopens with the same table counts
 - **End state:** App running with the imported database
