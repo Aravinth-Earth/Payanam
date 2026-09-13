@@ -311,40 +311,21 @@ object DatabaseEncryptionMigrationSupport {
         if (!tempEncrypted.exists() || tempEncrypted.length() == 0L) {
             throw IllegalStateException("Encrypted migration output was unreadable.")
         }
-        var encryptedOutput = tempEncrypted
-        if (!canOpenWithSqlCipher(context, encryptedOutput, passphrase)) {
+        // Single standard path: the rekey result must open under the passphrase. If it does not, the
+        // migration fails and the caller restores the previous database. There is deliberately no
+        // fallback chain — untested fallbacks masked failures (the row-copy fallback could never
+        // open its destination and shipped unnoticed) and recovery is the callers' job.
+        if (!canOpenWithSqlCipher(context, tempEncrypted, passphrase)) {
             logger.w(
                 logTag,
-                "Rekey path did not produce SQLCipher-readable output; attempting sqlcipher_export fallback",
+                "Rekey output did not open as SQLCipher; failing the migration (no fallback)",
             )
-            encryptedOutput =
-                runCatching {
-                    exportPlaintextToEncryptedViaAttach(
-                        context = context,
-                        plaintextDatabase = tempEncrypted,
-                        passphrase = passphrase,
-                        logTag = logTag,
-                    )
-                }.getOrElse { attachError ->
-                    logger.w(
-                        logTag,
-                        "sqlcipher_export fallback failed; attempting row-copy fallback",
-                        mapOf(
-                            "error" to (attachError.message ?: "Unknown error"),
-                            "exception" to attachError.javaClass.simpleName,
-                        ),
-                    )
-                    copyPlaintextToSqlCipherByRow(
-                        context = context,
-                        plaintextDatabase = tempEncrypted,
-                        passphrase = passphrase,
-                        logTag = logTag,
-                    )
-                }
+            tempEncrypted.delete()
+            throw IllegalStateException("Encrypted migration output was unreadable.")
         }
         replaceWithEncryptedSnapshot(
             sourceDatabase = sourceDatabase,
-            tempEncrypted = encryptedOutput,
+            tempEncrypted = tempEncrypted,
         )
         if (!canOpenWithSqlCipher(context, sourceDatabase, passphrase)) {
             val frameworkReadable = canOpenWithFramework(sourceDatabase)
@@ -360,180 +341,6 @@ object DatabaseEncryptionMigrationSupport {
             )
             throw IllegalStateException("Encrypted migration output was unreadable.")
         }
-    }
-
-    private fun exportPlaintextToEncryptedViaAttach(
-        context: Context,
-        plaintextDatabase: File,
-        passphrase: String,
-        logTag: String,
-    ): File {
-        val exportedEncrypted =
-            File(
-                context.cacheDir,
-                "${plaintextDatabase.name}.${System.currentTimeMillis()}.export.enc.tmp",
-            )
-        if (exportedEncrypted.exists()) {
-            exportedEncrypted.delete()
-        }
-        System.loadLibrary("sqlcipher")
-        val plainDb =
-            SqlCipherDatabase.openDatabase(
-                plaintextDatabase.absolutePath,
-                "",
-                null,
-                SqlCipherDatabase.OPEN_READWRITE,
-                null,
-            )
-        try {
-            val sourceVersion = plainDb.version
-            logger.i(
-                logTag,
-                "Starting sqlcipher_export fallback",
-                mapOf(
-                    "sourcePath" to plaintextDatabase.absolutePath,
-                    "targetPath" to exportedEncrypted.absolutePath,
-                ),
-            )
-            plainDb.rawExecSQL(
-                "ATTACH DATABASE '${escapeSql(exportedEncrypted.absolutePath)}' AS encrypted KEY '${escapeSql(passphrase)}';",
-            )
-            plainDb.rawExecSQL("SELECT sqlcipher_export('encrypted');")
-            plainDb.rawExecSQL("PRAGMA encrypted.user_version = $sourceVersion;")
-            plainDb.rawExecSQL("DETACH DATABASE encrypted;")
-            logger.i(
-                logTag,
-                "sqlcipher_export fallback completed",
-                mapOf("userVersion" to sourceVersion),
-            )
-        } finally {
-            plainDb.close()
-        }
-        if (!exportedEncrypted.exists() || exportedEncrypted.length() == 0L ||
-            !canOpenWithSqlCipher(context, exportedEncrypted, passphrase)
-        ) {
-            throw IllegalStateException("Encrypted migration output was unreadable.")
-        }
-        if (plaintextDatabase.exists()) {
-            plaintextDatabase.delete()
-        }
-        return exportedEncrypted
-    }
-
-    @Suppress("NestedBlockDepth", "LoopWithTooManyJumpStatements")
-    private fun copyPlaintextToSqlCipherByRow(
-        context: Context,
-        plaintextDatabase: File,
-        passphrase: String,
-        logTag: String,
-    ): File {
-        val encryptedOutput =
-            File(
-                context.cacheDir,
-                "${plaintextDatabase.name}.${System.currentTimeMillis()}.rowcopy.enc.tmp",
-            )
-        if (encryptedOutput.exists()) {
-            encryptedOutput.delete()
-        }
-        val sourceDb =
-            SQLiteDatabase.openDatabase(
-                plaintextDatabase.absolutePath,
-                null,
-                SQLiteDatabase.OPEN_READONLY,
-            )
-        System.loadLibrary("sqlcipher")
-        val destDb =
-            SqlCipherDatabase.openDatabase(
-                encryptedOutput.absolutePath,
-                passphrase,
-                null,
-                SqlCipherDatabase.OPEN_READWRITE,
-                null,
-            )
-        try {
-            destDb.rawExecSQL("PRAGMA foreign_keys = OFF;")
-            val tableDefinitions = mutableListOf<Pair<String, String>>()
-            sourceDb
-                .rawQuery(
-                    "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY name",
-                    null,
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val tableName = cursor.getString(0) ?: continue
-                        val createSql = cursor.getString(1) ?: continue
-                        tableDefinitions.add(tableName to createSql)
-                    }
-                }
-
-            tableDefinitions.forEach { (_, createSql) ->
-                destDb.rawExecSQL(createSql)
-            }
-
-            tableDefinitions.forEach { (tableName, _) ->
-                val escapedTable = tableName.replace("\"", "\"\"")
-                sourceDb.rawQuery("SELECT * FROM \"$escapedTable\"", null).use { cursor ->
-                    val columns = cursor.columnNames
-                    if (columns.isEmpty()) return@use
-                    val columnSql = columns.joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
-                    val valueSql = columns.joinToString(",") { "?" }
-                    val statement =
-                        destDb.compileStatement(
-                            "INSERT INTO \"$escapedTable\" ($columnSql) VALUES ($valueSql)",
-                        )
-                    destDb.beginTransaction()
-                    try {
-                        while (cursor.moveToNext()) {
-                            statement.clearBindings()
-                            for (index in columns.indices) {
-                                when (cursor.getType(index)) {
-                                    android.database.Cursor.FIELD_TYPE_NULL -> statement.bindNull(index + 1)
-                                    android.database.Cursor.FIELD_TYPE_INTEGER -> statement.bindLong(index + 1, cursor.getLong(index))
-                                    android.database.Cursor.FIELD_TYPE_FLOAT -> statement.bindDouble(index + 1, cursor.getDouble(index))
-                                    android.database.Cursor.FIELD_TYPE_STRING -> statement.bindString(index + 1, cursor.getString(index))
-                                    android.database.Cursor.FIELD_TYPE_BLOB -> statement.bindBlob(index + 1, cursor.getBlob(index))
-                                    else -> statement.bindNull(index + 1)
-                                }
-                            }
-                            statement.executeInsert()
-                        }
-                        destDb.setTransactionSuccessful()
-                    } finally {
-                        destDb.endTransaction()
-                        statement.close()
-                    }
-                }
-            }
-            sourceDb
-                .rawQuery(
-                    "SELECT sql FROM sqlite_master WHERE type IN ('index','trigger','view') AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY type, name",
-                    null,
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val ddl = cursor.getString(0) ?: continue
-                        runCatching { destDb.rawExecSQL(ddl) }
-                    }
-                }
-
-            destDb.rawExecSQL("PRAGMA user_version = ${sourceDb.version};")
-            logger.i(
-                logTag,
-                "Row-copy fallback completed",
-                mapOf(
-                    "tableCount" to tableDefinitions.size,
-                    "targetPath" to encryptedOutput.absolutePath,
-                ),
-            )
-        } finally {
-            runCatching { sourceDb.close() }
-            runCatching { destDb.close() }
-        }
-        if (!encryptedOutput.exists() || encryptedOutput.length() == 0L || !canOpenWithSqlCipher(context, encryptedOutput, passphrase)) {
-            throw IllegalStateException("Encrypted migration output was unreadable.")
-        }
-        if (plaintextDatabase.exists()) {
-            plaintextDatabase.delete()
-        }
-        return encryptedOutput
     }
 
     private fun replaceWithEncryptedSnapshot(

@@ -776,7 +776,8 @@ class DatabaseInitViewModel @Inject constructor(
                             ?: context.getString(io.payanam.R.string.loc_unknown_error_occurred)
                     val resolvedMessage = if (
                         rawMessage.contains("unable to open database", ignoreCase = true) ||
-                        rawMessage.contains("cannot open database", ignoreCase = true)
+                        rawMessage.contains("cannot open database", ignoreCase = true) ||
+                        rawMessage.contains("unreadable", ignoreCase = true)
                     ) {
                         context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
                     } else {
