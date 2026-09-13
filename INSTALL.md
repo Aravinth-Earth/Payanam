@@ -1,5 +1,5 @@
 # Installing Payanam (Sideload Guide)
-Last Updated: 2026-09-12
+Last Updated: 2026-09-13
 
 This guide covers how to download, verify, and install Payanam on your Android device.
 
@@ -72,7 +72,7 @@ Android blocks sideloaded apps by default. Enable it once:
 ## Notes
 
 - **Minimum Android version:** Android 9 (API 28)
-- This is a **development build** — expect rough edges
+- **What to expect by channel:** dev builds are development builds (`debug`-type) — expect rough edges; beta and stable are `release`-type builds and are the steadier way to run the app day to day.
 - All data stays on your device; no accounts or internet required
 - **Channels ship different build types:** the dev channel ships `debug`-type APKs; beta and stable ship `release`-type APKs. The type is part of the filename (`Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.apk`).
 - **To update:** install a newer APK of the same build type over the existing one — data is preserved. Debug-type and release-type installs use different app IDs, so switching between types is a different app — export your data and re-import after installing.
