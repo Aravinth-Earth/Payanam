@@ -73,6 +73,26 @@ function Get-AndroidBuildToolPath
     return $null
 }
 
+function Get-ApprovedReleaseSignerDigests
+{
+    param(
+        [string]$ApprovedDigestsPath
+    )
+
+    # One SHA-256 digest per line; blank lines and #-comments ignored; colons optional.
+    if ([string]::IsNullOrWhiteSpace($ApprovedDigestsPath) -or -not (Test-Path $ApprovedDigestsPath))
+    {
+        return @()
+    }
+
+    return @(
+        Get-Content -Path $ApprovedDigestsPath |
+            ForEach-Object { $_.Trim() } |
+            Where-Object { $_ -and -not $_.StartsWith("#") } |
+            ForEach-Object { ($_ -replace "[:\s]", "").ToUpperInvariant() }
+    )
+}
+
 function Invoke-ReleaseSecurityVerification
 {
     param(
@@ -118,7 +138,9 @@ function Invoke-ReleaseSecurityVerification
         return
     }
 
-    $verifyOutput = & $apksignerPath verify --verbose --print-certs $ApkPath 2>&1
+    # Join the captured output: PowerShell returns it as a line array, and the signer-digest
+    # regex needs real newlines to anchor per line.
+    $verifyOutput = (& $apksignerPath verify --verbose --print-certs $ApkPath 2>&1) -join "`n"
     if ($LASTEXITCODE -ne 0)
     {
         throw "apksigner verification failed: $verifyOutput"
@@ -128,5 +150,43 @@ function Invoke-ReleaseSecurityVerification
         throw "Release security verify failed: APK is signed with Android Debug certificate."
     }
 
-    Write-LogWithTime "  ✅ APK signature verification passed (non-debug cert)." "Green"
+    # Signer identity: "not the Android Debug cert" is not enough — the certificate must be an
+    # approved release signer. Android accepts updates only from the installed certificate (or a
+    # proven rotation lineage), so a wrong-keystore build must never reach a release: it would
+    # publish fine and then block every future in-place update. The approved digests live in
+    # build-tools/release-signer.sha256 (public info — the certificate ships inside every APK).
+    $approvedDigestsPath = Join-Path (Split-Path -Parent $PSScriptRoot) "release-signer.sha256"
+    $approvedDigests = Get-ApprovedReleaseSignerDigests -ApprovedDigestsPath $approvedDigestsPath
+    $signerDigests = @(
+        [regex]::Matches($verifyOutput, "(?im)^\s*Signer #\d+ certificate SHA-256 digest:\s*([0-9A-Fa-f:]+)\s*$") |
+            ForEach-Object { ($_.Groups[1].Value -replace "[:\s]", "").ToUpperInvariant() }
+    )
+
+    if ($signerDigests.Count -eq 0)
+    {
+        if ($FailClosed)
+        {
+            throw "Release security verify (fail-closed): no signer certificate digest found in apksigner output."
+        }
+        Write-LogWithTime "  ⚠️ No signer certificate digest found; cannot match the approved signer." "Yellow"
+        return
+    }
+    if ($approvedDigests.Count -eq 0)
+    {
+        if ($FailClosed)
+        {
+            throw "Release security verify (fail-closed): no approved signer digests configured at $approvedDigestsPath."
+        }
+        Write-LogWithTime "  ⚠️ No approved signer digests configured ($approvedDigestsPath); signer identity not checked." "Yellow"
+        return
+    }
+    foreach ($digest in $signerDigests)
+    {
+        if ($approvedDigests -notcontains $digest)
+        {
+            throw "Release security verify failed: signer certificate $digest is not in the approved list ($approvedDigestsPath)."
+        }
+    }
+
+    Write-LogWithTime "  ✅ APK signature and signer identity verified (approved release signer)." "Green"
 }
