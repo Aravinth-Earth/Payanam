@@ -170,7 +170,9 @@ for ($i = 1; $i -le $Runs; $i++) {
     if (Test-Path $resultsRoot) { Copy-Item -Path (Join-Path $resultsRoot "*") -Destination $runDir -Recurse -Force }
     if (Test-Path $reportRoot)  { Copy-Item -Path (Join-Path $reportRoot "*")  -Destination $runDir -Recurse -Force }
 
-    $green = $verdict -like "OK*"
+    # A run is green only when Gradle succeeded, the log parsed as OK, and the log reports no
+    # failures — the verdict alone once called a Gradle failure green when an OK line existed.
+    $green = ($rc -eq 0) -and ($verdict -like "OK*") -and ($verdict -notmatch "Failures: [1-9]")
     $colour = if ($green) { "Green" } else { "Red" }
     Write-Host "  rc=$rc  verdict=[$verdict]" -ForegroundColor $colour
     if ($totalMs) {
@@ -212,3 +214,13 @@ if ($streak.Count -gt 0) {
 }
 Write-Host "  csv       : $csvPath"
 Write-Host "========================================="
+
+# Automation contract: exit 0 only when every run in the campaign was green. A red run — a test
+# failure or a Gradle failure — must surface to callers as a non-zero exit, otherwise a failed
+# campaign reads as success from the exit code alone.
+if ($redRuns.Count -gt 0) {
+    Write-Host "  exit      : 1 ($($redRuns.Count) red run(s) failed the campaign)" -ForegroundColor Red
+    exit 1
+}
+Write-Host "  exit      : 0 (all runs green)" -ForegroundColor Green
+exit 0
