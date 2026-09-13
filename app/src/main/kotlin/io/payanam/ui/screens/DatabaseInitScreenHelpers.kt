@@ -20,6 +20,13 @@ import io.payanam.ui.viewmodel.DatabaseBootIssueType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
+/*
+ * Onboarding-side helpers for DatabaseInitScreen: boot-issue copy, log-export actions and passphrase
+ * validation messages. The single-file import control that used to live here (with the folder-picker
+ * sibling that was deleted with the import-picker unification) is now
+ * `io.payanam.ui.components.ImportDatabaseFileButton`, shared with Settings.
+ */
+
 internal fun bootIssueTitleRes(type: DatabaseBootIssueType): Int = when (type) {
     DatabaseBootIssueType.DB_TOO_NEW -> R.string.db_init_issue_title_update_app_required
 

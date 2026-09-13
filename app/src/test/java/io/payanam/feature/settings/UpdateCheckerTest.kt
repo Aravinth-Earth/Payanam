@@ -68,9 +68,132 @@ class UpdateCheckerTest {
 
     @Test
     fun `build number extracted from apk filename`() {
-        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_debug_20260812_193754.apk"))
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))   // legacy untyped
         assertEquals("", buildNumberFromFileName("Payanam update"))   // no build number → empty
         assertEquals("", buildNumberFromFileName(""))                  // empty input → empty
+    }
+
+    // ── Type-aware artifact matching (artifact-naming standard) ───────────
+
+    @Test
+    fun `artifact name matches only its own build type`() {
+        assertTrue(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk", "debug"))
+        assertTrue(artifactNameMatchesBuildType("Payanam_Android_1568_release_20260812_193754.apk", "release"))
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk", "release"))
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_release_20260812_193754.apk", "debug"))
+    }
+
+    @Test
+    fun `artifact name predicate fails closed on legacy names and sha siblings`() {
+        // Legacy untyped name: no fallback, never matches.
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_20260812_193754.apk", "debug"))
+        // `.sha256` sibling: carries the type token but is not an APK.
+        assertFalse(artifactNameMatchesBuildType("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "debug"))
+        assertFalse(artifactNameMatchesBuildType("", "debug"))
+    }
+
+    @Test
+    fun `apk-for-build matcher requires build, type and apk suffix`() {
+        assertTrue(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk", "1568", "debug"))
+        assertFalse(isApkForBuild("Payanam_Android_1568_20260812_193754.apk", "1568", "debug"))          // legacy: no type token
+        assertFalse(isApkForBuild("Payanam_Android_1568_release_20260812_193754.apk", "1568", "debug"))  // wrong type
+        assertFalse(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "1568", "debug")) // sha sibling must never be returned
+        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug"))    // wrong build
+    }
+
+    @Test
+    fun `channel ships the declared build type`() {
+        assertEquals("debug", UpdateChannel.DEV.shippedApkType())
+        assertEquals("release", UpdateChannel.BETA.shippedApkType())
+        assertEquals("release", UpdateChannel.STABLE.shippedApkType())
+    }
+
+    // ── Fail-closed channel verdict ───────────────────────────────────────
+
+    @Test
+    fun `type mismatch fails the verdict closed`() {
+        val statuses = listOf(
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 9999,
+                releaseUrl = "url",
+                apkDownloadUrl = null,
+                typeMismatch = true,
+            ),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        // Newer build exists, but of another type — the VERDICT must fail closed.
+        assertEquals(UpdateOutcome.TYPE_MISMATCH, result.outcome)
+        // The build number is still reported (channel status rows use it).
+        assertEquals(9999, result.latestBuildNumber)
+    }
+
+    @Test
+    fun `matching type with a newer build is available`() {
+        val statuses = listOf(
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 101,
+                releaseUrl = "url",
+                apkDownloadUrl = "url/apk",
+                apkSha256Url = "url/apk.sha256",
+                typeMismatch = false,
+            ),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
+    }
+
+    @Test
+    fun `matching type with same or older build is not available`() {
+        val sameBuild = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 100, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).outcome)
+
+        val olderBuild = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 99, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, olderBuild).outcome)
+    }
+
+    @Test
+    fun `no release on the channel is an explicit non-success outcome`() {
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = emptyList())
+        assertEquals(UpdateOutcome.NO_RELEASE_ON_CHANNEL, result.outcome)
+        assertNull(result.latestBuildNumber)
+        assertNull(result.error)
+    }
+
+    @Test
+    fun `an exhausted scan is undetermined, never up to date`() {
+        val result = resolveUpdateResult(
+            currentBuildNumber = 100,
+            channel = UpdateChannel.DEV,
+            statuses = emptyList(),
+            scanComplete = false,
+        )
+        assertEquals(UpdateOutcome.INDETERMINATE, result.outcome)
+    }
+
+    @Test
+    fun `a release without a parseable build number is unreadable, not up to date`() {
+        val statuses = listOf(
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = null, releaseUrl = "url", apkDownloadUrl = "url/apk"),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertEquals(UpdateOutcome.RELEASE_UNREADABLE, result.outcome)
+    }
+
+    @Test
+    fun `a mismatch on another channel does not affect the selected channel`() {
+        val statuses = listOf(
+            ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 9999, releaseUrl = "beta", typeMismatch = true),
+            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 101, releaseUrl = "dev", apkDownloadUrl = "dev/apk"),
+        )
+        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
     }
 
     // ── Error enum coverage ───────────────────────────────────────────────
@@ -152,12 +275,12 @@ class UpdateCheckerTest {
     @Test
     fun `result with update available`() {
         val result = UpdateCheckResult(
-            isUpdateAvailable = true,
+            outcome = UpdateOutcome.UPDATE_AVAILABLE,
             latestBuildNumber = 1515,
             releaseUrl = "https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev",
             error = null,
         )
-        assertTrue(result.isUpdateAvailable)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
         assertEquals(1515, result.latestBuildNumber)
         assertNull(result.error)
     }
@@ -165,13 +288,32 @@ class UpdateCheckerTest {
     @Test
     fun `result with error`() {
         val result = UpdateCheckResult(
-            isUpdateAvailable = false,
+            outcome = UpdateOutcome.FAILED,
             latestBuildNumber = null,
             releaseUrl = null,
             error = UpdateCheckError.NO_INTERNET,
         )
-        assertFalse(result.isUpdateAvailable)
+        assertEquals(UpdateOutcome.FAILED, result.outcome)
         assertNull(result.latestBuildNumber)
         assertEquals(UpdateCheckError.NO_INTERNET, result.error)
+    }
+
+    // ── Pagination + outcome completeness ─────────────────────────────────
+
+    @Test
+    fun `next page url is extracted from a Link header`() {
+        val header = "<https://api.github.com/repos/x/releases?per_page=100&page=2>; rel=\"next\", " +
+            "<https://api.github.com/repos/x/releases?per_page=100&page=9>; rel=\"last\""
+        assertEquals("https://api.github.com/repos/x/releases?per_page=100&page=2", nextPageUrl(header))
+        assertNull(nextPageUrl(""))
+        assertNull(nextPageUrl(null))
+        assertNull(nextPageUrl("<https://api.github.com/repos/x/releases?page=9>; rel=\"last\""))
+    }
+
+    @Test
+    fun `the outcome enum is closed and deliberately sized`() {
+        // Consumers switch exhaustively over UpdateOutcome — adding a state is
+        // a deliberate act that must update this count AND every consumer.
+        assertEquals(7, UpdateOutcome.entries.size)
     }
 }

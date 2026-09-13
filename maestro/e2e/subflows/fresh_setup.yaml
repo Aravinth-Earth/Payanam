@@ -1,0 +1,29 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
+# SPDX-License-Identifier: AGPL-3.0-or-later
+appId: io.payanam.debug
+---
+# Fresh Setup — onboarding -> database init -> passphrase -> dimensions -> main screen.
+# Shared by the full suite and the smoke tier so the setup logic is not duplicated.
+# The previous "Don't show again" guard was removed: the Android 16 compat dialog was
+# fixed by the SQLCipher 16 KB page-size migration, so it never appears (0/51 runs).
+# The "Choose Your Focus" guard was removed: that screen no longer appears (0/47 runs).
+
+- launchApp:
+    clearState: true
+    stopApp: true
+
+- assertVisible: "Your Privacy First"
+- tapOn: "Skip Tour"
+- assertVisible: "Welcome To Payanam"
+- tapOn: "Create New Empty Database"
+- assertVisible: "Secure your database"
+- tapOn: "Passphrase"
+- inputText: "E2ETestPass!2026"
+- tapOn: "Confirm passphrase"
+- inputText: "E2ETestPass!2026"
+- hideKeyboard
+- tapOn: "Set passphrase and continue"
+
+- assertVisible: "Set up your life dimensions"
+- tapOn: "Verify and proceed"
+- assertVisible: "Per Dimension"

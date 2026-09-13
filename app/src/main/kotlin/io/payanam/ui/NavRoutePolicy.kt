@@ -51,4 +51,15 @@ internal object NavRoutePolicy {
         if (minimalModeEnabled && route !in minimalModeAllowedTabs) return false
         return true
     }
+
+    /**
+     * A module is disabled when the user hid its tab (focus preset or manual override) or
+     * minimal mode excludes the route. External commands must respect this instead of
+     * bypassing the user's choice.
+     */
+    fun isModuleDisabled(
+        route: String,
+        minimalModeEnabled: Boolean,
+        tabVisibility: Map<String, Boolean>,
+    ): Boolean = tabVisibility[route] == false || !isAllowed(route, minimalModeEnabled)
 }

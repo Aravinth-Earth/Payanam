@@ -30,6 +30,7 @@ import io.payanam.service.BackupStatusStore
 import io.payanam.service.BackupTrigger
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.settings.FocusModePreset
+import io.payanam.ui.logging.DebugLoggingPrefs
 import io.payanam.ui.model.DimensionIconCatalog
 import io.payanam.ui.model.DimensionIconOption
 import io.payanam.ui.model.DimensionTextCatalog
@@ -529,7 +530,7 @@ class AppPreferencesViewModel @Inject constructor(
     private val _habitScoreDiagnosticsInProgress = MutableStateFlow(false)
     val habitScoreDiagnosticsInProgress: StateFlow<Boolean> = _habitScoreDiagnosticsInProgress.asStateFlow()
     init {
-        UnifiedLogger.setDebugLoggingEnabled(BuildConfig.DEBUG)
+        UnifiedLogger.setDebugLoggingEnabled(DebugLoggingPrefs.resolve(context))
         observeSettings()
     }
 
@@ -680,8 +681,10 @@ class AppPreferencesViewModel @Inject constructor(
         val chartDailyRhythmEnabled = settings[KEY_CHART_DAILY_RHYTHM]?.toBoolean() ?: false
         val chartWeeklyPatternExclEmpty = settings[KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY]?.toBoolean() ?: false
         val chartDailyRhythmExclEmpty = settings[KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY]?.toBoolean() ?: false
-        // Update UnifiedLogger debug logging
+        // Update UnifiedLogger debug logging + re-sync the plain-prefs mirror so the
+        // process-start path honors the stored choice (the DB is the source of truth).
         io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(debugLoggingEnabled)
+        DebugLoggingPrefs.write(context, debugLoggingEnabled)
         _uiState.update {
             it.copy(
                 themeMode = themeMode,
@@ -1319,6 +1322,8 @@ class AppPreferencesViewModel @Inject constructor(
     fun setDebugLoggingEnabled(enabled: Boolean) {
         saveSetting(KEY_DEBUG_LOGGING_ENABLED, enabled.toString())
         UnifiedLogger.setDebugLoggingEnabled(enabled)
+        // Mirror for the process-start path: the DB preference is unreadable before unlock.
+        DebugLoggingPrefs.write(context, enabled)
     }
     /**
      * Persists the global auto-track-habit-time toggle.

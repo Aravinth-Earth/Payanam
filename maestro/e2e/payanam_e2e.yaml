@@ -1,0 +1,336 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
+# SPDX-License-Identifier: AGPL-3.0-or-later
+appId: io.payanam.debug
+tags:
+  - full
+---
+# Payanam E2E Test Suite — Single Flow
+# Covers ALL interactive elements across ALL screens
+# Fresh setup ONCE, sequential module testing, zero coordinate taps
+# Full regression tier. For the fast inner loop use maestro/e2e/smoke/payanam_smoke.yaml
+# (tag: smoke) or `pwsh build-tools/scripts/build-android.ps1 -Smoke`.
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 0: FRESH SETUP (runs ONCE)
+# ═══════════════════════════════════════════════════════════════
+
+- launchApp:
+    clearState: true
+    stopApp: true
+
+
+- assertVisible: "Your Privacy First"
+- tapOn: "Skip Tour"
+- assertVisible: "Welcome To Payanam"
+- tapOn: "Create New Empty Database"
+- assertVisible: "Secure your database"
+- tapOn: "Passphrase"
+- inputText: "E2ETestPass!2026"
+- tapOn: "Confirm passphrase"
+- inputText: "E2ETestPass!2026"
+- hideKeyboard
+- tapOn: "Set passphrase and continue"
+- assertVisible: "Set up your life dimensions"
+- assertVisible: "Physical Health"
+- scrollUntilVisible:
+    element: "Work & Livelihood"
+    direction: DOWN
+- assertVisible: "Work & Livelihood"
+
+# ── Dimension Setup: Edit Dialog Opens ──
+- tapOn: "Edit"
+- assertVisible: "Edit life dimension"
+
+# ── Dimension Setup: Color Picker (localized swatch labels) ──
+# "Deep Purple 500" is free (no default dimension uses it) and unique.
+- tapOn: "Choose color"
+- assertVisible: "Deep Purple 500"
+- tapOn: "Deep Purple 500"
+- assertVisible: "Edit life dimension"
+
+# ── Dimension Setup: Icon Picker (testTag surfaced as resource-id) ──
+- tapOn: "Choose icon"
+- tapOn:
+    id: "dimension_icon_favorite"
+- assertVisible: "Edit life dimension"
+
+# Discard — keep default colors/icons intact for the later phases.
+- tapOn: "Cancel"
+
+# ── Dimension Setup: Validation (empty name via add) ──
+- scrollUntilVisible:
+    element: "Add New"
+    direction: UP
+- tapOn: "Add New"
+- assertVisible: "Add life dimension"
+- tapOn: "Save"
+- assertVisible: "Every active dimension must have a name."
+- tapOn: "Cancel"
+
+# ── Dimension Setup: Proceed ──
+- tapOn: "Verify and proceed"
+- assertVisible: "Per Dimension"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 1: TASKS
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Tasks"
+- assertVisible: "No Tasks Due Today"
+
+# Create task 1
+- tapOn: "Add Task"
+- assertVisible: "Task Title"
+- tapOn: "Task Title"
+- inputText: "Quick Task"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save Task"
+    direction: DOWN
+- tapOn: "Save Task"
+- assertVisible: "Quick Task"
+
+# Create task 2
+- tapOn: "Add Task"
+- tapOn: "Task Title"
+- inputText: "Full Detail Task"
+- hideKeyboard
+- tapOn: "Description (optional)"
+- inputText: "Important task"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save Task"
+    direction: DOWN
+- tapOn: "Save Task"
+- assertVisible: "Full Detail Task"
+
+# View detail
+- tapOn: "Full Detail Task"
+- assertVisible: "Task Details"
+- pressKey: Back
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 2: HABITS
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Habits"
+- assertVisible: "No Habits Yet"
+
+- tapOn: "Add Task"
+- tapOn: "Task Title"
+- inputText: "Daily Meditation"
+- hideKeyboard
+- scrollUntilVisible:
+    element: "Save Task"
+    direction: DOWN
+- tapOn: "Save Task"
+# Habit save may need recurring type — continue regardless
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 3: TIME
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Time"
+- tapOn: "Start Tracking"
+# Dialog opens — tap Start button
+- tapOn: "Start"
+- assertVisible: "Stop Tracking"
+- tapOn: "Stop Tracking"
+# Dismiss Edit Time Entry dialog
+- tapOn: "Cancel"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 4: JOURNAL
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Journal"
+- takeScreenshot: "journal_screen.png"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 5: NOTES
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Notes"
+- assertVisible: "No Notes Yet"
+
+- tapOn: "Add Note"
+- takeScreenshot: "add_note_dialog.png"
+# Note dialog needs title to save
+- tapOn: "Title"
+- inputText: "Test Note"
+- hideKeyboard
+- tapOn: "Save"
+# Dismiss dialog if still open
+- pressKey: Back
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 6: LENSES
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Lenses"
+# Assert we're on Lenses screen (title visible)
+- assertVisible: "Lenses"
+- takeScreenshot: "lenses_main.png"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 7: SETTINGS
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Settings"
+- assertVisible: "Settings"
+
+# Theme — tap Appearance section to expand, then find Theme Mode
+- scrollUntilVisible:
+    element: "Appearance"
+    direction: UP
+- tapOn: "Appearance"
+- scrollUntilVisible:
+    element: "Theme Mode"
+    direction: DOWN
+- tapOn: "Theme Mode"
+# Required selections: tapOn waits for the option sheet; no conditional guards — a missing
+# option must fail the flow, not silently skip the feature.
+- tapOn: "Dark Theme"
+- tapOn: "Theme Mode"
+- tapOn: "System Theme"
+
+# Font
+# Font: the spinner VALUE is the clickable control (class=android.widget.Spinner).
+# The "Font Family" label is an inert TextView, so the previous guards searched for
+# bare "Monospace"/"Sans Serif" and never matched -> this feature was never exercised.
+- tapOn: "Font: Sans Serif"
+- tapOn: "Font: Monospace"
+- assertVisible: "Font: Monospace"
+- tapOn: "Font: Monospace"
+- tapOn: "Font: Sans Serif"
+- assertVisible: "Font: Sans Serif"
+
+# Time Format
+- tapOn: "Time Format"
+- tapOn: "24-hour clock"
+- tapOn: "Time Format"
+- tapOn: "12-hour clock"
+- tapOn: "Time Format"
+- tapOn: "24-hour clock"
+
+# Language
+- scrollUntilVisible:
+    element: "App Language"
+    direction: UP
+- tapOn: "App Language"
+- tapOn: "English"
+
+# Default Landing
+- scrollUntilVisible:
+    element: "Default landing screen"
+    direction: UP
+- tapOn: "Default landing screen"
+# Navigate back to Settings
+- tapOn: "Settings"
+
+# Life Dimensions
+- scrollUntilVisible:
+    element: "Life Dimensions"
+    direction: UP
+- tapOn: "Life Dimensions"
+- pressKey: Back
+# Reset scroll position by tapping Settings tab
+- tapOn: "Settings"
+
+# Scoring — tap section header to expand
+- scrollUntilVisible:
+    element: "Scoring Configuration"
+    direction: UP
+- tapOn: "Scoring Configuration"
+- tapOn: "Configure Scoring Weights"
+- assertVisible: "Scoring Configuration"
+- pressKey: Back
+
+# Data Management — skip Export (opens system file picker, Maestro can't handle)
+- scrollUntilVisible:
+    element: "Data Management"
+    direction: DOWN
+- tapOn: "Data Management"
+
+# Log export — in Debug section, not Data Management
+- scrollUntilVisible:
+    element: "Debug"
+    direction: DOWN
+- tapOn: "Debug"
+- scrollUntilVisible:
+    element: "Export Current Session Log"
+    direction: DOWN
+- tapOn: "Export Current Session Log"
+
+# About
+- scrollUntilVisible:
+    element: "About"
+    direction: DOWN
+- tapOn: "About"
+- takeScreenshot: "settings_about.png"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 8: PASSPHRASE CHANGE
+# ═══════════════════════════════════════════════════════════════
+
+# Passphrase Change — in Data Management section
+- tapOn: "Settings"
+- scrollUntilVisible:
+    element: "Data Management"
+    direction: DOWN
+- tapOn: "Data Management"
+- scrollUntilVisible:
+    element: "Update Passphrase"
+    direction: DOWN
+- tapOn: "Update Passphrase"
+- takeScreenshot: "passphrase_change.png"
+- pressKey: Back
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 9: UNLOCK FLOW
+# ═══════════════════════════════════════════════════════════════
+
+- launchApp:
+    stopApp: true
+
+
+# Unlock may or may not appear (depends on timeout)
+- runFlow:
+    when:
+      visible: "Unlock"
+    commands:
+      - tapOn: "Passphrase"
+      - inputText: "E2ETestPass!2026"
+      - hideKeyboard
+      - tapOn: "Unlock"
+
+- assertVisible: "Lenses"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 10: VERIFY DATA PERSISTS
+# ═══════════════════════════════════════════════════════════════
+
+- tapOn: "Tasks"
+- assertVisible: "Quick Task"
+- assertVisible: "Full Detail Task"
+
+- tapOn: "Lenses"
+- assertVisible: "Lenses"
+
+# ═══════════════════════════════════════════════════════════════
+# PHASE 11: FINAL LOG EXPORT
+# ═══════════════════════════════════════════════════════════════
+# Phase 0 wiped app data and phase 9 restarted the process, so this session's log is a
+# DIFFERENT file from the one exported in phase 7. Export it too, so the app-side interaction
+# trace covers the whole suite from launch to the final step.
+
+- tapOn: "Settings"
+- assertVisible: "Settings"
+- scrollUntilVisible:
+    element: "Debug"
+    direction: DOWN
+- tapOn: "Debug"
+- scrollUntilVisible:
+    element: "Export Current Session Log"
+    direction: DOWN
+- tapOn: "Export Current Session Log"

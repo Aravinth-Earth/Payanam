@@ -101,8 +101,9 @@ fun NotesScreen(
             FloatingActionButton(onClick = { showAddNoteDialog = true }) {
                 Icon(
                     Icons.Default.Add,
-                    androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add_note),
+                    contentDescription = null,
                 )
+                Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add_note))
             }
         },
     ) { padding ->

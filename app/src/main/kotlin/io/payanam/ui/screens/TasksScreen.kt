@@ -292,7 +292,8 @@ fun TasksScreen(
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
-                Icon(Icons.Default.Add, contentDescription = androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add_task))
+                Icon(Icons.Default.Add, contentDescription = null)
+                Text(androidx.compose.ui.res.stringResource(id = io.payanam.R.string.loc_add_task))
             }
         },
     ) { paddingValues ->

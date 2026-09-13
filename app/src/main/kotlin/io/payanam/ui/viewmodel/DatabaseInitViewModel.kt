@@ -38,6 +38,7 @@ sealed class RestoreResult {
     object RestoredOk : RestoreResult()
     object RestoreFailed : RestoreResult()
 }
+
 /**
  * Full UI state for the database-initialization screen: health/status of any
  * existing DB, counts, import/create progress and confirmation prompts, restore
@@ -67,6 +68,7 @@ data class DatabaseInitUiState(
     val importPassphraseError: String? = null,
     val awaitingDimensionSetup: Boolean = false,
 )
+
 /**
  * The category of problem detected when the existing database cannot be
  * opened at boot (missing sidecar, version too old/new, invalid schema, open
@@ -81,6 +83,7 @@ enum class DatabaseBootIssueType {
     REPAIRABLE_GENERIC,
     NON_REPAIRABLE_GENERIC,
 }
+
 /**
  * A specific boot problem: its [type], an optional human-readable [detailMessage],
  * and the [detectedVersion] of the offending database.
@@ -179,7 +182,7 @@ class DatabaseInitViewModel @Inject constructor(
         return !databaseInitCompleted && !hasUserData
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun checkDatabaseStatus() {
         viewModelScope.launch {
             _uiState.update { it.copy(isChecking = true) }
@@ -278,6 +281,7 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Re-runs the database health/status check (used by the retry button after
      * a failure or corruption report).
@@ -286,6 +290,7 @@ class DatabaseInitViewModel @Inject constructor(
         logger.i("DatabaseInitViewModel.retryDatabaseStatusCheck", "Retrying database status check")
         checkDatabaseStatus()
     }
+
     /**
      * Starts the "create new database" flow with [passphrase]: if existing DB
      * artifacts are present, asks for wipe confirmation first, otherwise goes
@@ -305,6 +310,7 @@ class DatabaseInitViewModel @Inject constructor(
         }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = false)
     }
+
     /**
      * User confirmed the wipe-then-create: proceeds to mandatory dimension
      * setup with [passphrase] and [needsWipe] = true.
@@ -314,6 +320,7 @@ class DatabaseInitViewModel @Inject constructor(
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
         beginMandatoryDimensionSetup(passphrase = passphrase, needsWipe = true)
     }
+
     /**
      * Dismisses the create-new wipe confirmation prompt without wiping.
      */
@@ -321,6 +328,7 @@ class DatabaseInitViewModel @Inject constructor(
         logger.i("DatabaseInitViewModel.cancelCreateNewWipe", "User cancelled create new wipe confirm")
         _uiState.update { it.copy(showCreateNewWipeConfirm = false) }
     }
+
     /**
      * Clears the shown restore outcome and re-checks DB status.
      */
@@ -346,12 +354,13 @@ class DatabaseInitViewModel @Inject constructor(
             )
         }
     }
+
     /**
      * Finalizes a new database: configures the passphrase, optionally wipes the
      * old artifacts (with a safety backup), opens the session, and persists the
      * mandatory life-dimension setup; on failure restores from the backup.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun completeNewDatabaseDimensionSetup(
         dimensionInputs: List<NewDatabaseDimensionInput>,
         onSuccess: () -> Unit,
@@ -439,12 +448,30 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Begins importing a database from [sourceUri]: if existing DB artifacts are
      * present, asks for wipe confirmation first, otherwise imports immediately;
      * [onSuccess] runs after a successful import.
      */
     fun importDatabase(sourceUri: Uri, onSuccess: () -> Unit) {
+        // Re-entry guard. `isImporting || awaitingImportPassphrase`, not `isImporting` alone: while the
+        // encrypted-import passphrase prompt is open, `isImporting` is false but the staged state
+        // (pendingImportDbFile / pendingImportTempBackupDir) is live, and a second import would
+        // overwrite the only pre-import restore copy. The UI disables its controls too; this guard is
+        // the belt-and-braces half so the invariant holds even if a future UI path forgets.
+        if (uiState.value.isImporting || uiState.value.awaitingImportPassphrase) {
+            logger.i(
+                "DatabaseInitViewModel.importDatabase",
+                "import_reentry_rejected: an import is already in progress; ignoring the new request",
+                mapOf(
+                    "isImporting" to uiState.value.isImporting.toString(),
+                    "awaitingImportPassphrase" to uiState.value.awaitingImportPassphrase.toString(),
+                    "sourceUri" to sourceUri.toString(),
+                ),
+            )
+            return
+        }
         logger.i(
             "DatabaseInitViewModel.importDatabase",
             "Import database requested",
@@ -466,6 +493,7 @@ class DatabaseInitViewModel @Inject constructor(
         }
         executeImportDatabase(sourceUri, onSuccess)
     }
+
     /**
      * User confirmed the wipe-then-import: runs the actual import of the
      * previously-staged [Uri] into the app's database.
@@ -479,10 +507,11 @@ class DatabaseInitViewModel @Inject constructor(
         pendingImportOnSuccess = null
         executeImportDatabase(uri, cb)
     }
+
     /**
      * Dismisses the import wipe confirmation prompt without importing.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun cancelImportWipe() {
         logger.i("DatabaseInitViewModel.cancelImportWipe", "User cancelled import wipe confirm")
         pendingImportUri = null
@@ -496,11 +525,13 @@ class DatabaseInitViewModel @Inject constructor(
          * for the passphrase; [dbFile] and [tempBackupDir] are retained for resume.
          */
         data class NeedsPassphrase(val dbFile: File, val tempBackupDir: File?) : ImportIOResult()
+
         /**
          * The import finished successfully; [dbFile] is the finalized database and
          * [passphrase] is the session key (null in plaintext mode).
          */
         data class Completed(val dbFile: File, val passphrase: String?) : ImportIOResult()
+
         /**
          * The import failed: [cause] is the error, [restoreAttempted]/
          * [restoreSucceeded] describe whether the pre-import backup was recovered.
@@ -722,12 +753,14 @@ class DatabaseInitViewModel @Inject constructor(
                         )
                     }
                 }
+
                 is ImportIOResult.Completed -> {
                     delay(500)
                     _uiState.update { it.copy(isImporting = false) }
                     breadcrumb(stage = "import_success_callback")
                     onSuccess()
                 }
+
                 is ImportIOResult.Failed -> {
                     logger.e("DatabaseInitViewModel.executeImportDatabase", "Import failed", result.cause)
                     breadcrumb(
@@ -738,14 +771,16 @@ class DatabaseInitViewModel @Inject constructor(
                         ),
                     )
                     clearPendingImport()
-                    val rawMessage = result.cause.message ?: "Unknown error"
+                    val rawMessage =
+                        result.cause.message
+                            ?: context.getString(io.payanam.R.string.loc_unknown_error_occurred)
                     val resolvedMessage = if (
                         rawMessage.contains("unable to open database", ignoreCase = true) ||
                         rawMessage.contains("cannot open database", ignoreCase = true)
                     ) {
                         context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
                     } else {
-                        "Import failed: $rawMessage"
+                        context.getString(io.payanam.R.string.settings_snackbar_import_failed, rawMessage)
                     }
                     val restoreResult = when {
                         result.restoreAttempted && result.restoreSucceeded -> RestoreResult.RestoredOk
@@ -763,12 +798,13 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Resumes an encrypted import using the user-supplied [passphrase]: verifies
      * it unlocks the staged DB, configures it, health-checks, opens the session,
      * and on wrong passphrase keeps the prompt open (other failures restore backup).
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun resumeImportWithPassphrase(passphrase: String, onSuccess: () -> Unit) {
         logger.i("DatabaseInitViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
         breadcrumb(
@@ -874,6 +910,7 @@ class DatabaseInitViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Cancels the encrypted-import passphrase prompt: restores pre-import backup,
      * deletes the staged file, and returns to the status screen.
@@ -913,11 +950,12 @@ class DatabaseInitViewModel @Inject constructor(
     }
 
     private fun readDatabaseInitCompletedFlag(dbFile: File): Boolean = dbInitReadInitCompletedFlag(dbFile)
+
     /**
      * Marks DB-init as completed for an already-healthy existing database and
      * proceeds (best-effort; still calls [onSuccess] if the flag write fails).
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun continueWithExistingDatabase(onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {

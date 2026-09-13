@@ -101,6 +101,8 @@ dependencies {
     androidTestImplementation(libs.robolectric)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.coroutines.test)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }
 
 jacoco {

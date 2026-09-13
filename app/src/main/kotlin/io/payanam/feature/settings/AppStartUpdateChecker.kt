@@ -34,6 +34,10 @@ class AppStartUpdateChecker @Inject constructor(
 ) {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
+
+    /** F-Droid installs are updated by the F-Droid client — the in-app updater is disabled. */
+    private val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+
     /**
      * Checks for app updates after the DB session unlocks. Safety net: catches
      * all exceptions so a failed check never crashes the app.
@@ -42,6 +46,12 @@ class AppStartUpdateChecker @Inject constructor(
     fun onAppStart() {
         scope.launch {
             try {
+                // F-Droid owns updates for its installs; the in-app updater must
+                // not run (same gate as the Settings update UI).
+                if (isFDroidBuild) {
+                    logger.i("AppStartUpdateChecker.onAppStart", "F-Droid install; in-app update check disabled")
+                    return@launch
+                }
                 // Wait for the DB to unlock before touching any preference.
                 // The DB is passphrase-locked at app start; reading settings
                 // earlier crashes the app (requireDatabase on closed session).
@@ -57,13 +67,32 @@ class AppStartUpdateChecker @Inject constructor(
                 val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
                 val channel = UpdateChannel.fromStorage(channelRaw)
                 val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
-                if (result.error != null) {
-                    logger.d("AppStartUpdateChecker.onAppStart", "Start check failed, will retry next start", mapOf("error" to result.error.name))
-                    return@launch
-                }
-                if (!result.isUpdateAvailable) {
-                    logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
-                    return@launch
+                when (result.outcome) {
+                    UpdateOutcome.UPDATE_AVAILABLE -> Unit // handled below
+                    UpdateOutcome.FAILED -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "Start check failed, will retry next start", mapOf("error" to (result.error?.name ?: UpdateCheckError.UNKNOWN.name)))
+                        return@launch
+                    }
+                    UpdateOutcome.TYPE_MISMATCH -> {
+                        // Fail-closed mismatch: the channel's newest release has
+                        // no APK for this install's build type. Logged at `i`
+                        // (release builds turn `d` off) so a skipped auto-update
+                        // is diagnosable.
+                        logger.i(
+                            "AppStartUpdateChecker.onAppStart",
+                            "Start check failed closed: channel ships a different build type",
+                            mapOf("channel" to channel.name, "runningType" to ApkBuildType.running()),
+                        )
+                        return@launch
+                    }
+                    UpdateOutcome.NO_RELEASE_ON_CHANNEL, UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "No comparable release on start check", mapOf("outcome" to result.outcome.name))
+                        return@launch
+                    }
+                    UpdateOutcome.UP_TO_DATE -> {
+                        logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
+                        return@launch
+                    }
                 }
 
                 // Check found an update. Enqueue only when auto-download is ON;

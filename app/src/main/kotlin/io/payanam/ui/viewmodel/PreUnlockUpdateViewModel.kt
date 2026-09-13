@@ -14,10 +14,14 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.AutoDownloadManager
 import io.payanam.feature.settings.DownloadUiState
+import io.payanam.feature.settings.InstallerChecker
 import io.payanam.feature.settings.UpdateChannel
+import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.UpdateChecker
+import io.payanam.feature.settings.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -50,6 +54,9 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     private val logger = UnifiedLogger.getInstance()
 
+    /** F-Droid installs are updated by the F-Droid client — the hatch must not offer self-updates. */
+    val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+
     private val _downloadState = MutableStateFlow<DownloadUiState>(DownloadUiState.Idle)
     val downloadState: StateFlow<DownloadUiState> = _downloadState.asStateFlow()
 
@@ -73,6 +80,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
     /** User tapped "Check for update" (manual only). */
     @Suppress("TooGenericExceptionCaught")  // Intentional: UpdateChecker.check network + JSON parsing
     fun checkForUpdate() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.check", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
             logger.d(
@@ -93,35 +104,71 @@ class PreUnlockUpdateViewModel @Inject constructor(
             )
             try {
                 val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV)
-                if (result.error != null) {
-                    logger.e(
-                        "PreUnlockUpdateChecker.check",
-                        "Check failed",
-                        null,
-                        mapOf("error" to result.error.name),
-                    )
-                    _checkResultMessage.value = "check_failed_${result.error.name}"
-                } else if (result.isUpdateAvailable) {
-                    latestBuildNumber = result.latestBuildNumber
-                    latestReleaseUrl = result.releaseUrl
-                    val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
-                    latestApkUrl = selected?.apkDownloadUrl
-                    logger.i(
-                        "PreUnlockUpdateChecker.check",
-                        "Update available",
-                        mapOf(
-                            "latestBuild" to (result.latestBuildNumber ?: -1),
-                            "releaseUrl" to (result.releaseUrl ?: ""),
-                            "hasApkUrl" to (latestApkUrl != null),
-                        ),
-                    )
-                    _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
-                } else {
-                    latestBuildNumber = null
-                    latestReleaseUrl = null
-                    latestApkUrl = null
-                    logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
-                    _checkResultMessage.value = "up_to_date"
+                when (result.outcome) {
+                    UpdateOutcome.FAILED -> {
+                        logger.e(
+                            "PreUnlockUpdateChecker.check",
+                            "Check failed",
+                            null,
+                            mapOf("error" to (result.error?.name ?: UpdateCheckError.UNKNOWN.name)),
+                        )
+                        _checkResultMessage.value = "check_failed_${result.error?.name ?: UpdateCheckError.UNKNOWN.name}"
+                    }
+                    UpdateOutcome.UPDATE_AVAILABLE -> {
+                        latestBuildNumber = result.latestBuildNumber
+                        latestReleaseUrl = result.releaseUrl
+                        val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
+                        latestApkUrl = selected?.apkDownloadUrl
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Update available",
+                            mapOf(
+                                "latestBuild" to (result.latestBuildNumber ?: -1),
+                                "releaseUrl" to (result.releaseUrl ?: ""),
+                                "hasApkUrl" to (latestApkUrl != null),
+                            ),
+                        )
+                        _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
+                    }
+                    UpdateOutcome.TYPE_MISMATCH -> {
+                        // Fail closed: the dev channel ships no APK for this
+                        // install's build type. The hatch must name the actual
+                        // reason — never fall through to "up to date".
+                        latestBuildNumber = null
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Check failed closed: dev channel ships a different build type",
+                            mapOf("runningType" to ApkBuildType.running()),
+                        )
+                        _checkResultMessage.value = "type_mismatch"
+                    }
+                    UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
+                        latestBuildNumber = null
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        logger.i("PreUnlockUpdateChecker.check", "Check complete: no releases on the dev channel yet")
+                        _checkResultMessage.value = "no_release"
+                    }
+                    UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                        latestBuildNumber = null
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Check inconclusive — newest release not comparable",
+                            mapOf("outcome" to result.outcome.name),
+                        )
+                        _checkResultMessage.value = "check_failed_parse"
+                    }
+                    UpdateOutcome.UP_TO_DATE -> {
+                        latestBuildNumber = null
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
+                        _checkResultMessage.value = "up_to_date"
+                    }
                 }
             } catch (e: Exception) {
                 logger.e("PreUnlockUpdateChecker.check", "Check threw", e)
@@ -134,6 +181,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     /** User tapped "Download & install" (manual only). */
     fun download() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.download", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val url = latestApkUrl ?: run {
             logger.d("PreUnlockUpdateChecker.download", "No download URL available — check first")
             return

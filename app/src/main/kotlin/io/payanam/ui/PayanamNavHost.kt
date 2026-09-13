@@ -239,20 +239,31 @@ fun PayanamNavHost(
         currentRoute != Routes.PASSPHRASE_CHANGE &&
         currentRoute != Routes.DATABASE_INIT &&
         currentRoute != Routes.FOCUS_MODE_SELECTION
-    val navigateToTopLevel: (String) -> Unit = remember(navController) {
+    val navigateToTopLevel: (String) -> Boolean = remember(navController) {
         { route ->
-            navController.navigate(route) {
-                popUpTo(navController.graph.findStartDestination().id) {
-                    saveState = true
+            // The bottom bar can be composed a frame before NavHost installs its graph, and
+            // navController.graph throws inside that window — a real crash on a very early tap.
+            // currentBackStackEntry does not touch the graph, so it is a safe readiness probe.
+            // Returns false while the graph is not ready: callers that must not lose the
+            // request (external commands) retry instead of dropping the navigation.
+            if (navController.currentBackStackEntry != null) {
+                navController.navigate(route) {
+                    popUpTo(navController.graph.findStartDestination().id) {
+                        saveState = true
+                    }
+                    launchSingleTop = true
+                    restoreState = true
                 }
-                launchSingleTop = true
-                restoreState = true
+                true
+            } else {
+                false
             }
         }
     }
     LaunchedEffect(
         externalCommand,
         currentRoute,
+        preferencesState.tabVisibility,
         shouldShowPassphraseUnlock,
         shouldShowPassphraseSetup,
         shouldShowDatabaseInit,
@@ -268,24 +279,56 @@ fun PayanamNavHost(
         }
         when (val command = externalCommand) {
             is ExternalNavigationCommand.OpenTimeScreen -> {
-                if (command.openQuickStart) {
-                    pendingTimeQuickStartRequestId = command.requestId
-                }
-                if (command.openStopTracking) {
-                    pendingTimeStopTrackingRequestId = command.requestId
-                }
-                navigateToTopLevel(Screen.Time.route)
-                logger.i(
-                    "PayanamNavHost",
-                    "Handled external navigation command",
-                    mapOf(
-                        "route" to Screen.Time.route,
-                        "source" to command.source,
-                        "openQuickStart" to command.openQuickStart,
-                        "openStopTracking" to command.openStopTracking,
-                    ),
+                val targetModuleDisabled = NavRoutePolicy.isModuleDisabled(
+                    route = Screen.Time.route,
+                    minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                    tabVisibility = preferencesState.tabVisibility,
                 )
-                onExternalCommandConsumed()
+                if (targetModuleDisabled) {
+                    // Respect a disabled module: drop the command and log it instead of opening a
+                    // surface the user turned off. Consuming it keeps it from firing later when
+                    // the module is re-enabled.
+                    logger.w(
+                        "PayanamNavHost",
+                        "External navigation command blocked: target module is disabled",
+                        mapOf(
+                            "route" to Screen.Time.route,
+                            "source" to command.source,
+                            "tabVisibility" to preferencesState.tabVisibility[Screen.Time.route],
+                        ),
+                    )
+                    onExternalCommandConsumed()
+                } else if (navigateToTopLevel(Screen.Time.route)) {
+                    if (command.openQuickStart) {
+                        pendingTimeQuickStartRequestId = command.requestId
+                    }
+                    if (command.openStopTracking) {
+                        pendingTimeStopTrackingRequestId = command.requestId
+                    }
+                    logger.i(
+                        "PayanamNavHost",
+                        "Handled external navigation command",
+                        mapOf(
+                            "route" to Screen.Time.route,
+                            "source" to command.source,
+                            "openQuickStart" to command.openQuickStart,
+                            "openStopTracking" to command.openStopTracking,
+                        ),
+                    )
+                    onExternalCommandConsumed()
+                } else {
+                    // The graph is not installed yet (preferences still loading). Keep the command
+                    // pending; the effect re-runs as currentRoute/tabVisibility change while the
+                    // app becomes ready, and the navigation is retried then.
+                    logger.d(
+                        "PayanamNavHost",
+                        "External navigation command deferred until the navigation graph is ready",
+                        mapOf(
+                            "route" to Screen.Time.route,
+                            "source" to command.source,
+                        ),
+                    )
+                }
             }
 
             null -> Unit
@@ -358,8 +401,8 @@ fun PayanamNavHost(
                                     contentDescription = null,
                                 )
                             },
-                            label = null,
-                            alwaysShowLabel = false,
+                            label = { Text(tabLabel) },
+                            alwaysShowLabel = true,
                             selected = selected,
                             onClick = {
                                 if (isRouteAllowed(screen.route)) {

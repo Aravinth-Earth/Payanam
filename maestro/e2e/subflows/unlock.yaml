@@ -1,0 +1,21 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
+# SPDX-License-Identifier: AGPL-3.0-or-later
+appId: io.payanam.debug
+---
+# Unlock — relaunch the app and unlock the encrypted database if the lock screen shows.
+# Shared by the full suite and the smoke tier.
+
+- launchApp:
+    stopApp: true
+
+# The lock screen appears after a process restart; keep the guard for robustness.
+- runFlow:
+    when:
+      visible: "Unlock"
+    commands:
+      - tapOn: "Passphrase"
+      - inputText: "E2ETestPass!2026"
+      - hideKeyboard
+      - tapOn: "Unlock"
+
+- assertVisible: "Lenses"

@@ -317,6 +317,48 @@
     <string name="db_init_dimension_setup_error_unique_colors">Each active dimension needs a unique color.</string>
     <string name="db_init_dimension_setup_error_unique_icons">Each dimension needs a unique icon.</string>
     <string name="db_init_dimension_setup_error_no_slots_left">No more dimension slots available. Re-add a deleted one or rename existing dimensions.</string>
+
+    <!-- Dimension color palette: screen-reader labels for the color picker swatches.
+         Shade numbers keep each of the 39 swatches uniquely identifiable. -->
+    <string name="dimension_color_indigo_500">Indigo 500</string>
+    <string name="dimension_color_green_500">Green 500</string>
+    <string name="dimension_color_pink_500">Pink 500</string>
+    <string name="dimension_color_teal_500">Teal 500</string>
+    <string name="dimension_color_orange_500">Orange 500</string>
+    <string name="dimension_color_purple_500">Purple 500</string>
+    <string name="dimension_color_cyan_500">Cyan 500</string>
+    <string name="dimension_color_deep_purple_500">Deep Purple 500</string>
+    <string name="dimension_color_light_green_500">Light Green 500</string>
+    <string name="dimension_color_brown_500">Brown 500</string>
+    <string name="dimension_color_deep_orange_500">Deep Orange 500</string>
+    <string name="dimension_color_blue_grey_500">Blue Grey 500</string>
+    <string name="dimension_color_brown_600">Brown 600</string>
+    <string name="dimension_color_blue_600">Blue 600</string>
+    <string name="dimension_color_green_600">Green 600</string>
+    <string name="dimension_color_pink_600">Pink 600</string>
+    <string name="dimension_color_teal_600">Teal 600</string>
+    <string name="dimension_color_orange_600">Orange 600</string>
+    <string name="dimension_color_purple_600">Purple 600</string>
+    <string name="dimension_color_light_blue_600">Light Blue 600</string>
+    <string name="dimension_color_deep_purple_600">Deep Purple 600</string>
+    <string name="dimension_color_light_green_600">Light Green 600</string>
+    <string name="dimension_color_red_600">Red 600</string>
+    <string name="dimension_color_blue_grey_600">Blue Grey 600</string>
+    <string name="dimension_color_indigo_600">Indigo 600</string>
+    <string name="dimension_color_cyan_800">Cyan 800</string>
+    <string name="dimension_color_green_800">Green 800</string>
+    <string name="dimension_color_pink_700">Pink 700</string>
+    <string name="dimension_color_orange_800">Orange 800</string>
+    <string name="dimension_color_purple_800">Purple 800</string>
+    <string name="dimension_color_blue_800">Blue 800</string>
+    <string name="dimension_color_pink_800">Pink 800</string>
+    <string name="dimension_color_teal_800">Teal 800</string>
+    <string name="dimension_color_purple_700">Purple 700</string>
+    <string name="dimension_color_light_blue_800">Light Blue 800</string>
+    <string name="dimension_color_yellow_800">Yellow 800</string>
+    <string name="dimension_color_light_green_800">Light Green 800</string>
+    <string name="dimension_color_brown_300">Brown 300</string>
+    <string name="dimension_color_blue_grey_700">Blue Grey 700</string>
     <string name="db_init_dimension_setup_disable_action">Disable</string>
     <string name="db_init_dimension_setup_enable_action">Enable</string>
     <string name="db_init_dimension_setup_continue_action">Verify and proceed</string>
@@ -436,9 +478,7 @@
     <string name="loc_hours">Hours</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
-    <string name="loc_import_different_database">Import Different Database</string>
-    <string name="loc_import_existing_database">Import Existing Database</string>
-    <string name="loc_import_valid_database">Import Valid Database</string>
+    <string name="loc_import_database_file">Import Database File (.db)</string>
     <string name="loc_independent_of_due_date_leave_empty_to_skip">Independent of due date. Leave empty to skip.</string>
     <string name="loc_insights">Insights</string>
     <string name="loc_lenses">Lenses</string>
@@ -1165,11 +1205,15 @@
     <string name="settings_update_install_later">Later</string>
     <string name="settings_update_available">Update available: build #%1$d</string>
     <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
+    <string name="settings_update_no_releases">No releases on this channel yet.</string>
     <string name="settings_update_error_network">Could not check for updates. Try again later.</string>
     <string name="settings_update_error_rate_limited">Rate limited. Try again in a few minutes.</string>
     <string name="settings_update_error_github">GitHub unavailable. Try again later.</string>
     <string name="settings_update_error_parse">Could not determine latest version.</string>
     <string name="settings_update_view_release">View release</string>
+    <string name="settings_update_channel_ships">%1$s channel ships: %2$s APK</string>
+    <string name="settings_update_running_build_type">You are on: %1$s build</string>
+    <string name="settings_update_type_mismatch">Build type mismatch — no compatible update is available for this install.</string>
 
     <!-- Settings About additions -->
 <string name="activity_detail_no_data">No data in this window</string>

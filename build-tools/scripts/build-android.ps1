@@ -1,5 +1,5 @@
 # Android Build Script for Kotlin + Compose
-# Format: Payanam_Android_buildNumber_dateTimeStamp
+# Format: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss> (e.g. Payanam_Android_1607_debug_20260912_143000.apk)
 # Migrated from Capacitor/TypeScript to pure Kotlin
 
 param(
@@ -7,8 +7,7 @@ param(
     [switch]$CleanInstall,
     [switch]$SkipTests,
     [switch]$SkipGuardrails,
-    [switch]$RunMaestro,
-    [switch]$SkipMaestro,
+    [switch]$RunInProcess,
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$Publish,
@@ -34,6 +33,10 @@ function Write-LogWithTime
     $timestamp = Get-Date -Format "HH:mm:ss"
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
+
+# Shared release-security helpers (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
+# Dot-sourced here AND in publish-release.ps1 — single implementation, never copied.
+. "$PSScriptRoot/release-security.ps1"
 
 function Get-DateTimeStamp
 {
@@ -262,10 +265,13 @@ function Get-BuildArtifactMetadata
     }
     $buildNumber = -1
     $timestamp = ""
-    if ($artifactName -match '^Payanam_Android_(\d+)_(\d{8}_\d{6})$')
+    # Current name standard only: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.
+    # Unparsed names (legacy/unrecognized) stay BuildNumber=-1 -> first retention candidates;
+    # retention stays non-throwing by design (cycle-3 amendment 1).
+    if ($artifactName -match '^Payanam_Android_(\d+)_(debug|release)_(\d{8}_\d{6})$')
     {
         $buildNumber = [int]$Matches[1]
-        $timestamp = $Matches[2]
+        $timestamp = $Matches[3]
     }
 
     return [PSCustomObject]@{
@@ -499,8 +505,12 @@ function Invoke-GradleStreaming
         $procExitCode = $gradleProc.ExitCode
 
         $fullContent = try { [System.IO.File]::ReadAllText($outFile) } catch { "" }
+        # Gradle writes error-level output (the FAILURE block, Kotlin `e:` compiler errors and
+        # per-task failure diagnostics) to stderr. It used to be deleted unread below, which made
+        # every failing Gradle invocation undiagnosable on Linux. Append it after stdout.
+        $errContent = try { [System.IO.File]::ReadAllText($errFile) } catch { "" }
         $captured.Clear()
-        foreach ($line in ($fullContent -split "`n")) {
+        foreach ($line in (($fullContent + "`n" + $errContent) -split "`n")) {
             $t = $line.Trim()
             if ($t.Length -gt 0) {
                 $captured.Add($t)
@@ -645,145 +655,9 @@ function Invoke-DeviceSmokePack
     Write-LogWithTime "✅ Device smoke pack passed." "Green"
 }
 
-function Invoke-MaestroFlow
-{
-    param(
-        [string]$FlowPath,
-        [string]$BuildName
-    )
-
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== MAESTRO UI FLOW ===" "Magenta"
-
-    $maestroCommand = Get-Command maestro -ErrorAction SilentlyContinue
-    if (-not $maestroCommand)
-    {
-        throw "Maestro CLI not found on PATH. Install from https://docs.maestro.dev/getting-started/installing-maestro"
-    }
-    if (-not (Test-Path $FlowPath))
-    {
-        throw "Maestro flow file not found: $FlowPath"
-    }
-
-    $maestroDir = Join-Path "output/smoke" $BuildName
-    New-Item -ItemType Directory -Path $maestroDir -Force | Out-Null
-    $logPath = Join-Path $maestroDir "maestro-output.txt"
-
-    Write-LogWithTime "Running Maestro flow: $FlowPath" "Cyan"
-    $previousErrorActionPreference = $ErrorActionPreference
-    $ErrorActionPreference = "Continue"
-    $supportsNativeErrorPreference = $null -ne (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue)
-    if ($supportsNativeErrorPreference)
-    {
-        $previousNativeErrorPreference = $PSNativeCommandUseErrorActionPreference
-        $PSNativeCommandUseErrorActionPreference = $false
-    }
-    try
-    {
-        $maestroOutput = & maestro test $FlowPath 2>&1 | Tee-Object -FilePath $logPath
-        $exitCode = $LASTEXITCODE
-    } finally
-    {
-        $ErrorActionPreference = $previousErrorActionPreference
-        if ($supportsNativeErrorPreference)
-        {
-            $PSNativeCommandUseErrorActionPreference = $previousNativeErrorPreference
-        }
-    }
-    if ($exitCode -ne 0)
-    {
-        Write-LogWithTime "  ❌ Maestro flow failed (exit $exitCode)." "Red"
-        Write-LogWithTime "  Tail (last 20 lines):" "Red"
-        $tail = $maestroOutput | Select-Object -Last 20
-        foreach ($line in $tail)
-        {
-            Write-Host $line
-        }
-        throw "Maestro flow failed. See $logPath"
-    }
-
-    Write-LogWithTime "✅ Maestro flow passed. Log: $logPath" "Green"
-}
-
-function Get-AndroidBuildToolPath
-{
-    param([string]$ToolName)
-
-    $toolCommand = Get-Command $ToolName -ErrorAction SilentlyContinue
-    if ($toolCommand)
-    {
-        return $toolCommand.Source
-    }
-
-    $sdkRoots = @($env:ANDROID_SDK_ROOT, $env:ANDROID_HOME) |
-        Where-Object { -not [string]::IsNullOrWhiteSpace($_) -and (Test-Path $_) } |
-        Select-Object -Unique
-
-    foreach ($sdkRoot in $sdkRoots)
-    {
-        $buildToolsDir = Join-Path $sdkRoot "build-tools"
-        if (-not (Test-Path $buildToolsDir))
-        {
-            continue
-        }
-        $candidate = Get-ChildItem -Path $buildToolsDir -Directory |
-            Sort-Object Name -Descending |
-            ForEach-Object { Join-Path $_.FullName "$ToolName.bat" } |
-            Where-Object { Test-Path $_ } |
-            Select-Object -First 1
-        if ($candidate)
-        {
-            return $candidate
-        }
-    }
-
-    return $null
-}
-
-function Invoke-ReleaseSecurityVerification
-{
-    param([string]$ApkPath)
-
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== RELEASE SECURITY VERIFY ===" "Magenta"
-
-    $aaptPath = Get-AndroidBuildToolPath -ToolName "aapt"
-    if ([string]::IsNullOrWhiteSpace($aaptPath))
-    {
-        Write-LogWithTime "  ⚠️ aapt not found; cannot verify manifest debuggable flag from built APK." "Yellow"
-    } else
-    {
-        $badgingOutput = & $aaptPath dump badging $ApkPath 2>&1
-        if ($LASTEXITCODE -ne 0)
-        {
-            throw "aapt badging inspection failed: $badgingOutput"
-        }
-        if ($badgingOutput -match "application-debuggable")
-        {
-            throw "Release security verify failed: APK manifest is debuggable."
-        }
-        Write-LogWithTime "  ✅ APK manifest is non-debuggable." "Green"
-    }
-
-    $apksignerPath = Get-AndroidBuildToolPath -ToolName "apksigner"
-    if ([string]::IsNullOrWhiteSpace($apksignerPath))
-    {
-        Write-LogWithTime "  ⚠️ apksigner not found; cannot verify signature certificate identity." "Yellow"
-        return
-    }
-
-    $verifyOutput = & $apksignerPath verify --verbose --print-certs $ApkPath 2>&1
-    if ($LASTEXITCODE -ne 0)
-    {
-        throw "apksigner verification failed: $verifyOutput"
-    }
-    if ($verifyOutput -match "CN=Android Debug")
-    {
-        throw "Release security verify failed: APK is signed with Android Debug certificate."
-    }
-
-    Write-LogWithTime "  ✅ APK signature verification passed (non-debug cert)." "Green"
-}
+# NOTE: Get-AndroidBuildToolPath and Invoke-ReleaseSecurityVerification live in
+# build-tools/scripts/release-security.ps1 (dot-sourced at the top of this script) so
+# publish-release.ps1 shares the exact same implementation instead of copying it.
 
 
 function Test-LocalizedStringDuplicates
@@ -1045,7 +919,8 @@ function Test-CriticalLoggingCoverageContract
             Patterns = @(
                 "DatabaseInitViewModel\.checkDatabaseStatus",
                 "DatabaseInitViewModel\.executeImportDatabase",
-                "DatabaseInitViewModel\.resumeImportWithPassphrase"
+                "DatabaseInitViewModel\.resumeImportWithPassphrase",
+                "import_reentry_rejected"
             )
         },
         [PSCustomObject]@{
@@ -1053,7 +928,8 @@ function Test-CriticalLoggingCoverageContract
             Patterns = @(
                 "SettingsViewModel\.importDatabase",
                 "SettingsViewModel\.resumeImportWithPassphrase",
-                "SettingsViewModel\.cancelImportPassphrase"
+                "SettingsViewModel\.cancelImportPassphrase",
+                "settings_import_reentry_rejected"
             )
         },
         [PSCustomObject]@{
@@ -1195,7 +1071,6 @@ $runCoverage = $false
 $runStaticAnalysis = $false
 $runPostInstallVerification = $false
 $runDeviceSmoke = $false
-$runMaestroFlow = $false
 $runDeviceInstall = $true
 $runAndroidGuardrails = $true
 switch ($effectiveProfile)
@@ -1223,19 +1098,17 @@ switch ($effectiveProfile)
         $runStaticAnalysis = $true
         $runPostInstallVerification = $true
         $runDeviceSmoke = $true
-        $runMaestroFlow = $false
     }
 }
 
 Write-LogWithTime "Device install: $(if ($runDeviceInstall) { 'enabled' } else { 'disabled' })" "Yellow"
 Write-LogWithTime "Android guardrails: $(if ($runAndroidGuardrails) { 'enabled' } else { 'disabled' })" "Yellow"
 
-$maestroEnabledByFlag = $RunMaestro.IsPresent
-$maestroEnvValue = [string]$env:PAYANAM_RUN_MAESTRO
-$maestroEnabledByEnv = $maestroEnvValue -match '^(1|true|yes)$'
-if ($maestroEnabledByFlag -or $maestroEnabledByEnv)
+if ($RunInProcess.IsPresent)
 {
-    $runMaestroFlow = $true
+    # The in-process tier runs from inside the post-install verification block, so an explicit
+    # flag must open that path too. Flag-only by design: no profile enables it, including 'full'.
+    $runPostInstallVerification = $true
 }
 
 if ($SkipTests)
@@ -1248,11 +1121,6 @@ if ($SkipGuardrails)
 {
     $runAndroidGuardrails = $false
 }
-if ($SkipMaestro)
-{
-    $runMaestroFlow = $false
-}
-Write-LogWithTime "Maestro UI flow: $(if ($runMaestroFlow) { 'enabled' } else { 'disabled' }) (flag=$maestroEnabledByFlag, env='$maestroEnvValue', skip=$($SkipMaestro.IsPresent))" "Yellow"
 
 # ============================================
 # PREFLIGHT CHECKS
@@ -1577,9 +1445,11 @@ if ([int]$counter.totalBuilds -ne $expectedTotal) {
 Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
 Write-LogWithTime "Build counter saved" "Green"
 
-# Generate build name
+# Generate build name — type token comes from -Release: release when set, else debug.
+# Standard: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>
+$buildTypeToken = if ($Release) { "release" } else { "debug" }
 $dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Android_$($buildNumber)_$dateTimeStamp"
+$buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
 Write-LogWithTime "Build Name: $buildName" "Cyan"
 
 # Update version code in build.gradle.kts
@@ -1641,6 +1511,12 @@ if ($Universal)
 }
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
+# In-process test mode builds unminified: a minified debug build breaks the androidTest APK.
+if ($RunInProcess.IsPresent -and $gradleTask -eq "assembleDebug")
+{
+    $gradleTask = "$gradleTask -Ppayanam.noMinify=true"
+    Write-LogWithTime "In-process mode: assembling unminified debug (minification breaks the androidTest APK)." "Yellow"
+}
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
 if ($buildRun.ExitCode -ne 0)
 {
@@ -1687,6 +1563,9 @@ $apkSize = [math]::Round((Get-Item $apkFinalPath).Length / 1MB, 2)
 Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 if ($Release)
 {
+    # Fail-open by design on the build path (historical behaviour): if the toolchain
+    # cannot complete the checks, warn and continue. The publish path
+    # (publish-release.ps1, beta/stable) calls this with -FailClosed instead.
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
 }
 
@@ -1838,16 +1717,22 @@ if (-not $runDeviceInstall)
                         Write-LogWithTime "Skipping device smoke pack for profile '$effectiveProfile'." "Yellow"
                     }
 
-                    if ($Release)
+                    if ($RunInProcess.IsPresent)
                     {
-                        Write-LogWithTime "Skipping Maestro UI flow for release build (flow targets io.payanam.debug)." "Yellow"
-                    } elseif (-not $runMaestroFlow)
-                    {
-                        Write-LogWithTime "Skipping Maestro UI flow (profile/flag)." "Yellow"
-                    } else
-                    {
-                        $maestroFlowPath = Join-Path "UI-test-Maestro" "p-k-t-1.yaml"
-                        Invoke-MaestroFlow -FlowPath $maestroFlowPath -BuildName $buildName
+                        # In-process Compose UI test tier: the only E2E tier the pipeline runs.
+                        # Flag-only by design; invoked by the script only, never by hand.
+                        Write-LogWithTime "Running in-process instrumented tests (:app:connectedDebugAndroidTest)..." "Yellow"
+                        $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true" -StepLabel "In-process UI tests"
+                        if ($inProcessRun.ExitCode -ne 0)
+                        {
+                            Write-LogWithTime "  ❌ In-process tests failed — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
+                            $inProcessRun.Output | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+                            Exit-WithCleanup 1
+                        }
+                        else
+                        {
+                            Write-LogWithTime "  ✅ In-process tests passed." "Green"
+                        }
                     }
 
                     Write-LogWithTime "✅ Post-install verification complete!" "Green"

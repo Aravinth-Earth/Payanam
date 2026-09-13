@@ -28,6 +28,7 @@ internal data class DatabaseImportCopyResult(
 
 internal object DatabaseImportSupport {
     private val logger = UnifiedLogger.getInstance()
+
     /**
      * Copies the selected database (plus any -wal/-shm companions) from
      * [sourceUri] over the target files, returning what was copied.
@@ -152,7 +153,7 @@ internal object DatabaseImportSupport {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     private fun readPlaintextDatabaseUserVersion(databaseFile: File, logTag: String): Int? = try {
         SQLiteDatabase.openDatabase(
             databaseFile.absolutePath,
@@ -201,7 +202,7 @@ internal object DatabaseImportSupport {
      * Returns true if the header matches the standard SQLite magic ("SQLite format 3\0...").
      * Returns false if the file appears to be SQLCipher-encrypted (random salt header) or corrupt.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
         logger.i(
             logTag,
@@ -248,11 +249,12 @@ internal object DatabaseImportSupport {
             false
         }
     }
+
     /**
      * Merges an imported WAL into its database via a temp-copy checkpoint and
      * removes WAL artifacts (false when consolidation was skipped/failed).
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun consolidateWalAfterImport(dbFile: File, logTag: String): Boolean {
         val walFile = File(dbFile.parent, "${dbFile.name}-wal")
         val shmFile = File(dbFile.parent, "${dbFile.name}-shm")
@@ -403,7 +405,7 @@ internal object DatabaseImportSupport {
      * On success, [databaseFile] is replaced with a standard plaintext SQLite database.
      * Throws if the passphrase is incorrect or the file cannot be opened.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun decryptEncryptedImport(
         context: Context,
         databaseFile: File,
@@ -466,6 +468,7 @@ internal object DatabaseImportSupport {
             throw e
         }
     }
+
     /**
      * Checks an imported plaintext database's schema version is within the
      * migratable range, returning the version; throws with a localized
@@ -529,6 +532,9 @@ internal object DatabaseImportSupport {
     }
 
     private fun resolveFromTree(context: Context, sourceTreeUri: Uri): ResolvedSource {
+        // No UI path launches OpenDocumentTree any more (both entry points use the single-file
+        // picker); kept for tree-URI compatibility. It is also the ONLY resolver that can carry
+        // -wal/-shm companions — resolveFromSingleFile hardcodes them to null.
         val childDocuments = listChildDocuments(context, sourceTreeUri)
         val fileDocuments = childDocuments.filterNot { it.isDirectory }
         val preferredDb = fileDocuments.firstOrNull {
@@ -574,6 +580,16 @@ internal object DatabaseImportSupport {
         return resolved
     }
 
+    /**
+     * True when [fileName] names a database file this importer accepts: a `.db` file, never a
+     * `-wal`/`-shm` companion. Pure, so the single-file acceptance rule is unit-testable without a
+     * ContentResolver. It is the single gate for the file picker, which is launched with a wildcard
+     * MIME filter because Android has no dependable MIME mapping for `.db`.
+     */
+    internal fun isImportableDatabaseFileName(fileName: String): Boolean = !fileName.endsWith(WAL_SUFFIX, ignoreCase = true) &&
+        !fileName.endsWith(SHM_SUFFIX, ignoreCase = true) &&
+        fileName.endsWith(DB_EXTENSION, ignoreCase = true)
+
     private fun resolveFromSingleFile(
         context: Context,
         sourceUri: Uri,
@@ -581,10 +597,7 @@ internal object DatabaseImportSupport {
         val fileName = queryDisplayName(context, sourceUri)
             ?: sourceUri.lastPathSegment?.substringAfterLast('/')
             ?: PayanamDatabase.DATABASE_NAME
-        if (fileName.endsWith(WAL_SUFFIX, ignoreCase = true) ||
-            fileName.endsWith(SHM_SUFFIX, ignoreCase = true) ||
-            !fileName.endsWith(DB_EXTENSION, ignoreCase = true)
-        ) {
+        if (!isImportableDatabaseFileName(fileName)) {
             throw IllegalStateException(
                 context.getString(R.string.settings_import_error_select_main_db),
             )
@@ -604,7 +617,7 @@ internal object DatabaseImportSupport {
         return resolved
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     private fun queryDisplayName(context: Context, uri: Uri): String? = try {
         context.contentResolver.query(
             uri,

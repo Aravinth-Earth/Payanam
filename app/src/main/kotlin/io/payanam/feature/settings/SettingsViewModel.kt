@@ -98,7 +98,7 @@ class SettingsViewModel @Inject constructor(
                 mapOf(
                     "downloadState" to (from.downloadState::class.simpleName + " -> " + to.downloadState::class.simpleName),
                     "checking" to (from.isCheckingForUpdate.toString() + " -> " + to.isCheckingForUpdate.toString()),
-                    "updateAvailable" to ((from.updateCheckResult?.isUpdateAvailable ?: false).toString() + " -> " + (to.updateCheckResult?.isUpdateAvailable ?: false).toString()),
+                    "updateOutcome" to ((from.updateCheckResult?.outcome?.name ?: "none") + " -> " + (to.updateCheckResult?.outcome?.name ?: "none")),
                     "channel" to (from.updateChannel.name + " -> " + to.updateChannel.name),
                     "latestBuild" to (to.updateCheckResult?.latestBuildNumber ?: -1),
                 ),
@@ -911,7 +911,7 @@ class SettingsViewModel @Inject constructor(
         viewModelScope.launch {
             val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
             logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
-                "updateAvailable" to result.isUpdateAvailable,
+                "outcome" to result.outcome.name,
                 "latestBuild" to result.latestBuildNumber,
                 "error" to result.error?.name,
             ))
@@ -919,7 +919,7 @@ class SettingsViewModel @Inject constructor(
                 it.copy(isCheckingForUpdate = false, updateCheckResult = result)
             }
             // Auto-download when update available + toggle ON + no active download.
-            if (result.isUpdateAvailable && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
+            if (result.outcome == UpdateOutcome.UPDATE_AVAILABLE && _uiState.value.autoDownloadEnabled && activeDownloadId == null) {
                 val latest = result.latestBuildNumber ?: return@launch
                 startAutoDownload(latest)
             }
@@ -983,6 +983,20 @@ class SettingsViewModel @Inject constructor(
                 val storedUrl = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL)
                 if (storedUrl.isNullOrEmpty()) return@launch
                 val fileName = storedUrl.substringAfterLast('/')
+                // Fail-closed: the persisted URL may predate an artifact/type
+                // change. A stored name that does not carry this install's
+                // `_<type>_` can never install over it — clear it, log, and
+                // surface a user-visible failure (no silent no-op).
+                if (!artifactNameMatchesBuildType(fileName, ApkBuildType.running())) {
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+                    logger.i(
+                        "SettingsViewModel.downloadOrRetry",
+                        "Persisted download URL failed build-type validation; cleared",
+                        mapOf("file" to fileName, "runningType" to ApkBuildType.running()),
+                    )
+                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("type_mismatch")) }
+                    return@launch
+                }
                 _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
                 // Rebuild a check-result-like state so startAutoDownload can proceed.
                 val selected = _uiState.value.updateCheckResult?.channelStatuses
@@ -1014,7 +1028,7 @@ class SettingsViewModel @Inject constructor(
         // Plain manual download: only valid when an update is available.
         val result = _uiState.value.updateCheckResult ?: return
         val build = result.latestBuildNumber ?: return
-        if (result.isUpdateAvailable && activeDownloadId == null) {
+        if (result.outcome == UpdateOutcome.UPDATE_AVAILABLE && activeDownloadId == null) {
             // STALE-URL GUARD: the cached check result can be minutes/hours old
             // (rolling channel moves on). Re-fetch the channel's current
             // release so we always download what is latest NOW, never a
@@ -1023,7 +1037,7 @@ class SettingsViewModel @Inject constructor(
             viewModelScope.launch {
                 val channel = _uiState.value.updateChannel
                 val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
-                if (fresh.error != null) {
+                if (fresh.outcome == UpdateOutcome.FAILED) {
                     _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
                     return@launch
                 }
@@ -1042,7 +1056,7 @@ class SettingsViewModel @Inject constructor(
                         "file" to url.substringAfterLast('/'),
                     ),
                 )
-                if (fresh.isUpdateAvailable) {
+                if (fresh.outcome == UpdateOutcome.UPDATE_AVAILABLE) {
                     startAutoDownload(fresh.latestBuildNumber ?: build)
                 } else {
                     // Channel moved past us: no update to download anymore.
