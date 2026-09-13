@@ -3,7 +3,6 @@
 package io.payanam.ui.screens
 
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -110,15 +109,20 @@ internal fun MandatoryDimensionSetupSection(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
-        Box(
+        // Two stacked rows on purpose: the description owns its full-width row and the button
+        // owns its own row below it. In one shared band (the previous Box) long translations or
+        // large font scales let the wrapping description run into the button, and even when the
+        // glyphs happened to stay apart the button read as part of the description sentence.
+        Column(
             modifier = Modifier.fillMaxWidth(),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = stringResource(id = R.string.db_init_dimension_setup_customize_desc),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.align(Alignment.CenterStart),
+                modifier = Modifier.fillMaxWidth(),
             )
             TextButton(
                 onClick = {
@@ -134,7 +138,7 @@ internal fun MandatoryDimensionSetupSection(
                     }
                 },
                 enabled = !isSaving,
-                modifier = Modifier.align(Alignment.CenterEnd),
+                modifier = Modifier.align(Alignment.End),
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))

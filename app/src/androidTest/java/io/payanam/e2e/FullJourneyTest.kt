@@ -289,6 +289,9 @@ class FullJourneyTest {
     private fun dimensionSetup() {
         // The list is taller than the screen; the flow asserts both ends of it.
         h.assertVisible("Physical Health")
+        // Visual evidence for the header layout (description row + Add New row) — the running
+        // font scale at capture time is whatever the device is set to (large-scale sweeps use this).
+        h.capture("dimension_setup_header")
 
         h.scrollTo("Work & Livelihood")
         h.assertVisible("Work & Livelihood")
