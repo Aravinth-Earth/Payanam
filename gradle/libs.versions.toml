@@ -29,7 +29,7 @@ mockito-kotlin = "5.4.0"
 detekt = "1.23.8"
 ktlint = "1.8.0"
 spotless = "8.4.0"
-sqlcipher = "4.5.4"
+sqlcipher = "4.17.0"
 serialization = "1.9.0"
 compose-multiplatform = "1.10.2"
 sqlite-jdbc = "3.50.3.0"
@@ -98,7 +98,7 @@ robolectric = { group = "org.robolectric", name = "robolectric", version.ref = "
 androidx-test-core = { group = "androidx.test", name = "core", version.ref = "androidx-test-core" }
 mockito-core = { group = "org.mockito", name = "mockito-core", version.ref = "mockito-core" }
 mockito-kotlin = { group = "org.mockito.kotlin", name = "mockito-kotlin", version.ref = "mockito-kotlin" }
-sqlcipher = { group = "net.zetetic", name = "android-database-sqlcipher", version.ref = "sqlcipher" }
+sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "sqlcipher" }
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlite-jdbc" }
 

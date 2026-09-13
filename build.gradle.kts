@@ -32,6 +32,7 @@ tasks.register("coverageCheck") {
 tasks.register("staticAnalysisCheck") {
     dependsOn(
         ":app:lintDebug",
+        ":app:detekt",
         ":desktop:detekt",
         ":core:shared:detekt",
         ":core:common:detekt",

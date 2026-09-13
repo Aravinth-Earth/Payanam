@@ -20,6 +20,7 @@ import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.AppStartUpdateChecker
+import io.payanam.ui.logging.DebugLoggingPrefs
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
@@ -41,6 +42,12 @@ class PayanamApp : Application() {
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
         val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        // Debug-level logging follows the user's stored toggle via a plain-prefs mirror (the
+        // encrypted-DB preference cannot be read before unlock): a stored disable is respected
+        // from process start, and only a never-set value falls back to the build-type default.
+        // The fallback keeps the interaction trace working from process start on debug builds —
+        // the onboarding / DB-init / dimension gates all run before preferences are loaded.
+        UnifiedLogger.setDebugLoggingEnabled(DebugLoggingPrefs.resolve(this))
         logger.i(
             "PayanamApp.onCreate",
             "Application starting",

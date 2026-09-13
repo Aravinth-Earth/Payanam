@@ -27,7 +27,7 @@ sealed class DownloadUiState {
         val totalBytes: Long,
         /** Channel this download belongs to (enriched by the ViewModel). */
         val channelName: String = "",
-        /** Full APK build name, e.g. "Payanam_Android_1568_20260812_193754.apk" (enriched). */
+        /** Full APK build name, e.g. "Payanam_Android_1568_debug_20260812_193754.apk" (enriched). */
         val buildName: String = "",
     ) : DownloadUiState() {
         val progressPercent: Int
@@ -247,13 +247,27 @@ internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: S
 }
 
 /**
- * Scan the app-private downloads dir for an already-downloaded APK of the
- * given build number. Returns the absolute path, or null if not present.
+ * Pure matcher for [findApkForBuild]: true when [fileName] names the APK for
+ * [buildNumber] built as [buildType] (`_<build>_<type>_` token pair + `.apk`
+ * suffix). Legacy untyped names never match (no fallback), and the matching
+ * `.sha256` sibling carries both tokens but is excluded by the suffix guard.
  */
-internal fun AutoDownloadManager.findApkForBuild(context: Context, buildNumber: String): String? {
+internal fun isApkForBuild(fileName: String, buildNumber: String, buildType: String): Boolean =
+    fileName.endsWith(".apk") && fileName.contains("_${buildNumber}_${buildType}_")
+
+/**
+ * Scan the app-private downloads dir for an already-downloaded APK of the
+ * given build number and [buildType]. Returns the absolute path, or null if
+ * not present.
+ */
+internal fun AutoDownloadManager.findApkForBuild(
+    context: Context,
+    buildNumber: String,
+    buildType: String = ApkBuildType.running(),
+): String? {
     val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
     val files = dir.listFiles() ?: return null
-    return files.firstOrNull { it.isFile && it.name.contains("_${buildNumber}_") && it.length() > 0 }?.absolutePath
+    return files.firstOrNull { it.isFile && it.length() > 0 && isApkForBuild(it.name, buildNumber, buildType) }?.absolutePath
 }
 
 internal fun downloadFailureMessage(reason: Int): String = when (reason) {

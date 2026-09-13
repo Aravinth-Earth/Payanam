@@ -10,7 +10,7 @@ import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
-import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
+import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
 object DatabaseHealthChecker {
     private val logger = UnifiedLogger.getInstance()
 
@@ -50,7 +50,7 @@ object DatabaseHealthChecker {
      * critical tables, and schema integrity. Returns a [HealthCheckResult]
      * telling the caller whether to open, migrate, or repair.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: loadLibs() can throw IOException; UnsatisfiedLinkError (Error, not Exception) propagates to caller
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: System.loadLibrary can throw UnsatisfiedLinkError (Error, not Exception) which propagates to caller
     fun checkDatabaseHealth(
         context: Context,
         sqlCipherPassphrase: String? = null,
@@ -87,13 +87,14 @@ object DatabaseHealthChecker {
                         SQLiteDatabase.OPEN_READONLY,
                     ).use { db -> validateOpenedDatabase(db) }
             } else {
-                SqlCipherDatabase.loadLibs(context)
+                System.loadLibrary("sqlcipher")
                 SqlCipherDatabase
                     .openDatabase(
                         dbFile.absolutePath,
                         sqlCipherPassphrase,
                         null,
                         SqlCipherDatabase.OPEN_READONLY,
+                        null,
                     ).use { db ->
                         validateOpenedDatabaseCompat(
                             version = db.version,

@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<resources>
+    <!-- Debug launcher label. Declared as a real variant resource instead of a resValue string:
+         a resValue whose value is a "@string/..." reference cannot be resolved from the
+         androidTest namespace (io.payanam.debug.test), which broke the test resource link. -->
+    <string name="launcher_app_name" translatable="false">@string/debug_launcher_app_name</string>
+</resources>

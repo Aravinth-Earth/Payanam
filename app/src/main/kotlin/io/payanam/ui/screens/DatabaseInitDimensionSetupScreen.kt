@@ -109,16 +109,20 @@ internal fun MandatoryDimensionSetupSection(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
-        Row(
+        // Two stacked rows on purpose: the description owns its full-width row and the button
+        // owns its own row below it. In one shared band (the previous Box) long translations or
+        // large font scales let the wrapping description run into the button, and even when the
+        // glyphs happened to stay apart the button read as part of the description sentence.
+        Column(
             modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(
                 text = stringResource(id = R.string.db_init_dimension_setup_customize_desc),
                 style = MaterialTheme.typography.labelLarge,
                 color = MaterialTheme.colorScheme.primary,
                 fontWeight = FontWeight.SemiBold,
+                modifier = Modifier.fillMaxWidth(),
             )
             TextButton(
                 onClick = {
@@ -134,6 +138,7 @@ internal fun MandatoryDimensionSetupSection(
                     }
                 },
                 enabled = !isSaving,
+                modifier = Modifier.align(Alignment.End),
             ) {
                 Icon(Icons.Default.Add, contentDescription = null, modifier = Modifier.size(18.dp))
                 Spacer(modifier = Modifier.width(4.dp))
@@ -365,7 +370,11 @@ private fun DimensionSetupRow(
                 IconButton(onClick = onToggleEnabled) {
                     Icon(
                         imageVector = if (item.isEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = null,
+                        contentDescription = if (item.isEnabled) {
+                            stringResource(id = R.string.db_init_dimension_setup_disable_action)
+                        } else {
+                            stringResource(id = R.string.db_init_dimension_setup_enable_action)
+                        },
                         tint = if (item.isEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
                     )
                 }

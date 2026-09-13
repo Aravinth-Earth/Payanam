@@ -4,6 +4,7 @@
 
 package io.payanam.ui.viewmodel
 import android.os.SystemClock
+import androidx.annotation.VisibleForTesting
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -21,6 +22,7 @@ import io.payanam.notification.NotificationScheduler
 import io.payanam.ui.components.CheckmarkStatus
 import io.payanam.ui.perf.PerfBaselineTelemetry
 import io.payanam.usecase.RecurrenceManager
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -63,6 +65,15 @@ class TasksViewModel @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(TasksUiState())
     val uiState: StateFlow<TasksUiState> = _uiState.asStateFlow()
+
+    /**
+     * Dispatcher for the list-shaping pass. Injectable so tests can run the shaping on the test
+     * scheduler: the default pool is not tracked by test dispatchers, so the shaping result could
+     * land after the assertions had already read the state (a wall-clock race).
+     */
+    @VisibleForTesting
+    internal var shapingDispatcher: CoroutineDispatcher = Dispatchers.Default
+
     val chromeUiState: StateFlow<TasksChromeUiState> = uiState
         .map { state ->
             TasksChromeUiState(
@@ -438,7 +449,7 @@ class TasksViewModel @Inject constructor(
                         data = mapOf("habitCount" to recurringSource.size, "durationMs" to (System.currentTimeMillis() - checkmarkBuildStart)),
                     )
                     val listShapingStart = System.currentTimeMillis()
-                    val preparedState = withContext(Dispatchers.Default) {
+                    val preparedState = withContext(shapingDispatcher) {
                         // Fresh read: the pre-suspension snapshot (`state`) may
                         // predate persisted-preference updates applied while the
                         // DB queries above were in flight.

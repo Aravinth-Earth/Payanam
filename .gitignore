@@ -50,7 +50,7 @@ app-logs-for-analysis/
 # Temporary files
 *.tmp
 *.temp
-debug/
+# debug/
 dev_dry_runs/
 
 # Coverage

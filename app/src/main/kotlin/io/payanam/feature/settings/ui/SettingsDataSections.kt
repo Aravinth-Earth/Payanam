@@ -54,13 +54,18 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
+import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
+import io.payanam.feature.settings.UpdateOutcome
 import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
+import io.payanam.feature.settings.shippedApkType
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.SettingsUiState
+import io.payanam.ui.components.ImportButtonStyle
+import io.payanam.ui.components.ImportDatabaseFileButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -113,27 +118,23 @@ internal fun DataManagementSettingsSection(
                 }
                 Text(stringResource(id = R.string.settings_action_export))
             }
-            OutlinedButton(
-                onClick = onImportClick,
-                enabled = !uiState.isExporting && !uiState.isImporting,
+            ImportDatabaseFileButton(
                 modifier = Modifier.weight(1f),
-            ) {
-                if (uiState.isImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(id = R.string.settings_action_import))
-            }
+                height = null,
+                style = ImportButtonStyle.OUTLINED,
+                icon = Icons.Default.CloudDownload,
+                labelRes = R.string.settings_action_import,
+                logSource = "SettingsDataManagement.importFileClicked",
+                logContext = "settings data management",
+                // Every busy flag, not just isImporting: while the encrypted-import passphrase
+                // prompt is open the import is staged, so the button must not accept a second tap.
+                enabled = !uiState.isExporting &&
+                    !uiState.isImporting &&
+                    !uiState.awaitingImportPassphrase,
+                showProgress = uiState.isImporting || uiState.awaitingImportPassphrase,
+                iconSize = 18.dp,
+                onClick = onImportClick,
+            )
         }
         Spacer(modifier = Modifier.height(8.dp))
         Row(
@@ -501,6 +502,37 @@ internal fun AboutSettingsSection(
                 }
             }
         }
+        Spacer(modifier = Modifier.height(4.dp))
+
+        // What this channel ships vs what this install runs — always visible,
+        // from the same rule the asset selection uses (the running build type
+        // decides what is downloadable). Static: no network check needed.
+        val runningBuildType = ApkBuildType.running()
+        val channelShipsType = uiState.updateChannel.shippedApkType()
+        Text(
+            text = stringResource(
+                id = R.string.settings_update_channel_ships,
+                stringResource(id = uiState.updateChannel.labelResId()),
+                channelShipsType,
+            ),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        Text(
+            text = stringResource(id = R.string.settings_update_running_build_type, runningBuildType),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant,
+        )
+        if (channelShipsType != runningBuildType) {
+            // Static mismatch (network-free): this install can never take this
+            // channel's APK. Same message as the post-check mismatch state, so a
+            // release build on a debug-shipping channel never reads "up to date".
+            Text(
+                text = stringResource(id = R.string.settings_update_type_mismatch),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+        }
         Spacer(modifier = Modifier.height(8.dp))
 
         // Auto-download opt-in + check button
@@ -608,7 +640,7 @@ internal fun AboutSettingsSection(
             // Update available but not downloading yet (manual download path).
             // A stale result (>15 min) reverts to "Check for update" so the
             // user always has a fresh-check exit from a stale state.
-            uiState.updateCheckResult?.isUpdateAvailable == true && !uiState.autoDownloadEnabled &&
+            uiState.updateCheckResult?.outcome == UpdateOutcome.UPDATE_AVAILABLE && !uiState.autoDownloadEnabled &&
                 !uiState.isUpdateResultStale() -> {
                 buttonLabel = stringResource(id = R.string.settings_update_download_button)
                 buttonEnabled = true
@@ -634,7 +666,7 @@ internal fun AboutSettingsSection(
                             else -> "unknown"
                         },
                         "checking" to uiState.isCheckingForUpdate,
-                        "updateAvailable" to (uiState.updateCheckResult?.isUpdateAvailable ?: false),
+                        "outcome" to (uiState.updateCheckResult?.outcome?.name ?: "none"),
                         "autoDownload" to uiState.autoDownloadEnabled,
                         "downloadState" to uiState.downloadState::class.simpleName,
                     ),
@@ -674,9 +706,11 @@ internal fun AboutSettingsSection(
         val result = uiState.updateCheckResult
         if (result != null && !uiState.isCheckingForUpdate) {
             Spacer(modifier = Modifier.height(8.dp))
-            when {
-                result.error != null -> {
-                    val errorText = when (result.error) {
+            // Exhaustive over UpdateOutcome: "up to date" is only reachable for
+            // a PROVEN up-to-date result — every other state shows its own copy.
+            when (result.outcome) {
+                UpdateOutcome.FAILED -> {
+                    val errorText = when (result.error ?: UpdateCheckError.UNKNOWN) {
                         UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
                             stringResource(id = R.string.settings_update_error_network)
                         UpdateCheckError.RATE_LIMITED ->
@@ -692,7 +726,7 @@ internal fun AboutSettingsSection(
                         style = MaterialTheme.typography.bodySmall,
                     )
                 }
-                result.isUpdateAvailable -> {
+                UpdateOutcome.UPDATE_AVAILABLE -> {
                     Text(
                         text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
                         color = MaterialTheme.colorScheme.primary,
@@ -711,7 +745,30 @@ internal fun AboutSettingsSection(
                         Text(stringResource(id = R.string.settings_update_view_release))
                     }
                 }
-                else -> {
+                UpdateOutcome.TYPE_MISMATCH -> {
+                    // Fail-closed mismatch: the channel ships no APK for this
+                    // install's build type — must never read "up to date" here.
+                    Text(
+                        text = stringResource(id = R.string.settings_update_type_mismatch),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+                UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_no_releases),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_error_parse),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+                UpdateOutcome.UP_TO_DATE -> {
                     Text(
                         text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
                         style = MaterialTheme.typography.bodySmall,
@@ -870,6 +927,7 @@ private fun failedMessageRes(key: String): Int = when (key) {
     "no_download_url" -> R.string.settings_update_error_no_url
     "enqueue_failed" -> R.string.settings_update_error_enqueue
     "file_missing" -> R.string.settings_update_error_file_missing
+    "type_mismatch" -> R.string.settings_update_type_mismatch
     "install_launch_failed" -> R.string.settings_update_error_install_launch
     "retry_available" -> R.string.settings_update_error_retry_later
     "download_error_file" -> R.string.settings_update_error_file

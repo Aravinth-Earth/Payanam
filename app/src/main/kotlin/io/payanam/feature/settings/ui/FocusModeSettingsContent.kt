@@ -19,6 +19,8 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
@@ -100,13 +102,14 @@ fun focusModeSettingsContent(
         )
 
         tabs.forEach { (tabRoute, labelRes) ->
+            val tabLabel = stringResource(id = labelRes)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
             ) {
                 Text(
-                    text = stringResource(id = labelRes),
+                    text = tabLabel,
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 if (tabRoute == "settings") {
@@ -115,6 +118,10 @@ fun focusModeSettingsContent(
                         checked = true,
                         onCheckedChange = null, // Disabled
                         enabled = false,
+                        // Label lives in the semantics tree only (same pattern as ChartToggleRow):
+                        // without it the control is unlabelled for screen readers and invisible to
+                        // UI tests, which can only reach a control through its accessibility node.
+                        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = tabLabel },
                     )
                 } else {
                     Switch(
@@ -127,6 +134,10 @@ fun focusModeSettingsContent(
                                 mapOf("tab" to tabRoute, "visible" to visible),
                             )
                         },
+                        // The row's label is a separate Text; merging it onto the switch node keeps
+                        // the label and the toggle state on one node so the control is announced
+                        // with its name and reachable by label-driven UI tests.
+                        modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = tabLabel },
                     )
                 }
             }

@@ -1,7 +1,7 @@
 {
  "spec_version": 2,
  "name": "db-flow-boot-entry-flows",
- "last_updated": "2026-08-13",
+ "last_updated": "2026-09-12",
  "description": "DB flow boot-entry routes covering successful paths (retained data, new DB, import, migration to schema v18, auth, runtime) plus the score roll-up backfill runtime flow and its positive, negative and edge outcomes.",
  "entry_states": [
   "UPGRADE_RETAINED_DATA"
@@ -720,7 +720,7 @@
   },
   {
    "id": "DBSM_OPEN_DB",
-   "label": "DatabaseSessionManager.openDatabase(passphrase) - build Room instance with SQLCipher SupportFactory, store in session holder",
+   "label": "DatabaseSessionManager.openDatabase(passphrase) - build Room instance with SQLCipher SupportOpenHelperFactory, store in session holder",
    "type": "process"
   },
   {
@@ -1050,7 +1050,7 @@
   },
   {
    "id": "IMPORT_DB_PICKER",
-   "label": "Pick full Payanam DB file/folder",
+   "label": "Pick full Payanam DB file",
    "type": "screen"
   },
   {
@@ -1444,7 +1444,7 @@
    "id": "T004D2",
    "from": "IMPORT_PICKER_RESULT",
    "trigger": "resolved",
-   "guard": "Selected file/folder",
+   "guard": "Selected file",
    "action": "Inspect imported DB format",
    "to": "IMPORT_FORMAT_DETECT"
   },

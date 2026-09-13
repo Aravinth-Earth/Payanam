@@ -38,6 +38,33 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
  */
 @Suppress("TooGenericExceptionCaught")  // Intentional: settings pipeline; multiple failure modes
 fun SettingsViewModel.importDatabase(sourceUri: Uri) {
+    // Re-entry guard, at the top so a rejected call emits neither the "Import started" line below nor
+    // the settings_import_started breadcrumb. `isImporting || awaitingImportPassphrase`, not
+    // `isImporting` alone: while the encrypted-import passphrase prompt is open `isImporting` is
+    // false, but the staged state (pendingEncryptedImportDbFile / pendingEncryptedImportBackupMappings)
+    // is live, and a second import would clobber the in-memory mapping reference
+    // (SettingsViewModel.kt:80) — orphaning the timestamp-named `.bak` files the first import wrote
+    // (SettingsDatabaseArtifactSupport.kt:287), which could then never be restored or cleaned up.
+    // That window's real UI barrier is the modal ImportEncryptedDbPassphraseDialog (SettingsScreen.kt):
+    // it owns the screen, and the surrounding controls' `enabled` flags do not all exclude
+    // awaitingImportPassphrase, so this guard is not merely the UI check repeated. Mirrors
+    // DatabaseInitViewModel's import_reentry_rejected guard.
+    val isImporting = uiState.value.isImporting
+    val awaitingImportPassphrase = uiState.value.awaitingImportPassphrase
+    if (isImporting || awaitingImportPassphrase) {
+        // Payload is deliberately the two booleans only — the onboarding twin also logs sourceUri.
+        // Observability asked for parity; Security preferred the narrower payload. Reviewed,
+        // recorded, kept as-is (not an oversight).
+        logger.i(
+            "SettingsViewModel.importDatabase",
+            "settings_import_reentry_rejected: an import is already in progress; ignoring the new request",
+            mapOf(
+                "isImporting" to isImporting.toString(),
+                "awaitingImportPassphrase" to awaitingImportPassphrase.toString(),
+            ),
+        )
+        return
+    }
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
     breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
     viewModelScope.launch {
@@ -318,11 +345,15 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
             )
             Timber.e(e, "Import: Failed with error")
             val rawMessage = e.message ?: "Import failed"
-            val resolvedMessage = if (rawMessage.contains("unable to open database", ignoreCase = true)) {
-                context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
-            } else {
-                rawMessage
-            }
+            val resolvedMessage =
+                if (rawMessage.contains("unable to open database", ignoreCase = true) ||
+                    rawMessage.contains("cannot open database", ignoreCase = true) ||
+                    rawMessage.contains("unreadable", ignoreCase = true)
+                ) {
+                    context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
+                } else {
+                    rawMessage
+                }
             updateUiState {
                 it.copy(
                     isImporting = false,

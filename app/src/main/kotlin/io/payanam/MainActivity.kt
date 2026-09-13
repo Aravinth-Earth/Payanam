@@ -4,6 +4,7 @@
 
 package io.payanam
 
+import android.annotation.SuppressLint
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -13,6 +14,8 @@ import android.os.Bundle
 import android.os.LocaleList
 import android.os.Process
 import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -50,6 +53,7 @@ import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.notification.NotificationScheduler
 import io.payanam.service.AutoBackupWorker
 import io.payanam.ui.PayanamNavHost
+import io.payanam.ui.logging.InteractionLog
 import io.payanam.ui.theme.PayanamTheme
 import io.payanam.ui.viewmodel.AppLanguageOption
 import io.payanam.ui.viewmodel.AppPreferencesState
@@ -127,6 +131,24 @@ class MainActivity : FragmentActivity() {
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
+    }
+
+    /**
+     * Feeds the debug-only interaction trace. Purely observational: the event is forwarded
+     * untouched, so this can never alter gesture handling.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        InteractionLog.recordTouch(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Records key gestures (e.g. Back) into the debug-only interaction trace. */
+    @SuppressLint("RestrictedApi") // @RestrictTo in androidx; overriding is the interception point
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_UP) {
+            InteractionLog.recordKey(event.keyCode)
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     /**

@@ -31,8 +31,8 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
-import net.sqlcipher.database.SQLiteDatabase
-import net.sqlcipher.database.SupportFactory
+import net.zetetic.database.sqlcipher.SQLiteDatabase
+import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -110,7 +110,7 @@ class DatabaseSessionManager
                             )
                         }
                     }
-                    val bytes = SQLiteDatabase.getBytes(passphrase.toCharArray())
+                    System.loadLibrary("sqlcipher")
                     val db =
                         Room
                             .databaseBuilder(
@@ -119,7 +119,7 @@ class DatabaseSessionManager
                                 PayanamDatabase.DATABASE_NAME,
                             ).setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
                             .addMigrations(MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
-                            .openHelperFactory(SupportFactory(bytes))
+                            .openHelperFactory(SupportOpenHelperFactory(passphrase.toByteArray()))
                             .build()
                     // Force open so SQLCipher validation happens now (throws on wrong passphrase)
                     db.openHelper.writableDatabase

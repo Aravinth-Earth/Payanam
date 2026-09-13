@@ -1,0 +1,13 @@
+# Approved release signer certificate(s) — one SHA-256 digest per line (colons optional).
+#
+# Beta/stable publishes (publish-release.ps1) are fail-closed against this list: the APK's
+# signer certificate MUST match one of these digests, so a wrong-keystore build can never
+# ship and then silently block future in-place updates (Android accepts updates only from
+# the installed certificate or a proven signing lineage).
+#
+# The certificate digest is PUBLIC information — it ships inside every signed APK.
+# Update this list deliberately when rotating the release key (add the new digest, keep the
+# old one while updates must stay installable).
+#
+# CN=Payanam (release keystore; used by current stable/beta builds)
+8c161783e197ded43d59560dd6599a7c8bfc0d639bd1c3915251ab3a2008b7f9

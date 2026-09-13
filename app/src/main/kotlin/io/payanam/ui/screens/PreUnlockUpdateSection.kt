@@ -44,6 +44,16 @@ import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
  */
 @Composable
 fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
+    // F-Droid manages updates for its installs: the hatch cannot act there, so
+    // it is replaced by a static note — never rendered as a dead button.
+    if (viewModel.isFDroidBuild) {
+        Text(
+            text = stringResource(id = R.string.settings_update_fdroid_managed),
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.4f),
+        )
+        return
+    }
     val logger = UnifiedLogger.getInstance()
     val downloadState by viewModel.downloadState.collectAsState()
     val checking by viewModel.checking.collectAsState()
@@ -105,6 +115,8 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
     }
     val message = when {
         resultMessage == "up_to_date" -> stringResource(id = R.string.pre_unlock_update_up_to_date)
+        resultMessage == "type_mismatch" -> stringResource(id = R.string.settings_update_type_mismatch)
+        resultMessage == "no_release" -> stringResource(id = R.string.settings_update_no_releases)
         resultMessage?.startsWith("check_failed") == true -> stringResource(id = R.string.pre_unlock_update_check_failed)
         downloadState is DownloadUiState.Failed -> stringResource(id = R.string.pre_unlock_update_download_failed)
         else -> null
@@ -191,6 +203,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                         text = message,
                         style = MaterialTheme.typography.labelSmall,
                         color = if (resultMessage?.startsWith("check_failed") == true ||
+                            resultMessage == "type_mismatch" ||
                             downloadState is DownloadUiState.Failed
                         ) {
                             Color(0xFFF28B82)

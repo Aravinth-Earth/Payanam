@@ -84,4 +84,50 @@ class NavRoutePolicyMinimalModeTest {
             )
         }
     }
+
+    // ── Module disable (focus preset / manual override) ────────────────────
+    @Test fun `module disabled - hidden tab counts as disabled`() =
+        assertTrue(
+            NavRoutePolicy.isModuleDisabled(
+                "time",
+                minimalModeEnabled = false,
+                tabVisibility = mapOf("time" to false),
+            ),
+        )
+
+    @Test fun `module disabled - visible tab is not disabled`() =
+        assertFalse(
+            NavRoutePolicy.isModuleDisabled(
+                "time",
+                minimalModeEnabled = false,
+                tabVisibility = mapOf("time" to true),
+            ),
+        )
+
+    @Test fun `module disabled - absent entry is not disabled`() =
+        assertFalse(
+            NavRoutePolicy.isModuleDisabled(
+                "time",
+                minimalModeEnabled = false,
+                tabVisibility = emptyMap(),
+            ),
+        )
+
+    @Test fun `module disabled - minimal mode exclusion counts as disabled`() =
+        assertTrue(
+            NavRoutePolicy.isModuleDisabled(
+                "habits",
+                minimalModeEnabled = true,
+                tabVisibility = emptyMap(),
+            ),
+        )
+
+    @Test fun `module disabled - minimal mode blocks even a visible tab`() =
+        assertTrue(
+            NavRoutePolicy.isModuleDisabled(
+                "habits",
+                minimalModeEnabled = true,
+                tabVisibility = mapOf("habits" to true),
+            ),
+        )
 }
