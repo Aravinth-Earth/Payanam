@@ -215,6 +215,7 @@ class FullJourneyTest {
     private fun habits() {
         h.goToTab("Habits")
         h.assertVisible("No Habits Yet")
+        h.capture("tasks_screen")
 
         h.click("Add Task")
         h.type(TASK_TITLE_FIELD, "Daily Meditation")
@@ -243,6 +244,7 @@ class FullJourneyTest {
     private fun notes() {
         h.goToTab("Notes")
         h.assertVisible("No Notes Yet")
+        h.capture("notes_screen")
 
         h.click("Add Note")
         h.capture("add_note_dialog")
