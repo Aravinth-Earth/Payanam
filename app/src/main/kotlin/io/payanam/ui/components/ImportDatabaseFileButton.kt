@@ -24,7 +24,7 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.payanam.common.logging.UnifiedLogger
 
-/** Test-only locator for the single-file import control (see maestro/e2e/SPEC.md selector policy). */
+/** Test-only locator for the single-file import control (see docs/e2e/SPEC.md label & selector policy). */
 internal const val IMPORT_DATABASE_FILE_BUTTON_TAG = "import_database_file_button"
 
 /**

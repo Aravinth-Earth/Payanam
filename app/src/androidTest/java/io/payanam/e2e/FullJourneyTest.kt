@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * In-process port of `maestro/e2e/payanam_e2e.yaml` — one journey, one execution cycle.
+ * In-process port of the retired Maestro tier's journey flow — one journey, one execution cycle.
  *
  * Same rules as the Maestro tier: behaviour-driven only (no mocks, no internal state, no DB
  * manipulation), zero coordinate taps, every action once, sequential navigation.

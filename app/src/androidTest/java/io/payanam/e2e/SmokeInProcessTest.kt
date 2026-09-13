@@ -11,7 +11,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * In-process port of `maestro/e2e/smoke/payanam_smoke.yaml` — the fast inner loop.
+ * In-process port of the retired Maestro tier's smoke flow — the fast inner loop.
  *
  * Same relationship to [FullJourneyTest] as the smoke YAML has to the full one: an independent step
  * list sharing the same setup, not a replacement. Scope is boot → every module renders → one write

@@ -3,7 +3,7 @@
 package io.payanam.e2e
 
 /**
- * Port of `maestro/e2e/subflows/fresh_setup.yaml`.
+ * Port of the retired Maestro tier's fresh-setup subflow.
  *
  * Onboarding → database creation → passphrase → leaves the app on the dimension setup screen.
  *

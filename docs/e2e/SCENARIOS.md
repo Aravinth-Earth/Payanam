@@ -1,69 +1,36 @@
-# Payanam E2E Test Scenarios v2
+# Payanam E2E Journey Catalog
+# Last Updated: 2026-09-13
 #
 # STRUCTURE:
-#   1. Reusable subflows (shared steps, called by many scenarios)
-#   2. Independent test scenarios (each = one user journey, separate test)
-#   3. Execution order (dependencies)
+#   1. Shared setup (in-process equivalents of the old subflows)
+#   2. Journey groups (A–L): each entry = one testable user journey
+#   3. Journey dependencies (execution order)
+#   4. Appendix: interactive element map (coverage intent)
+#
+# AUTOMATION: the in-process Compose tier (app/src/androidTest/java/io/payanam/e2e/) — this file is
+# the tier-neutral inventory the automated classes map onto, and the roadmap for journeys not yet
+# automated. The Maestro YAML tier that first consumed this catalog was retired 2026-09-13 (see
+# SPEC.md in this directory).
 #
 # PRINCIPLE: Each scenario = ONE testable user journey.
 #   - Starts from known state (fresh setup, or unlocked)
 #   - Tests ONE specific behaviour
 #   - Ends at a stable state for the next scenario
-#   - Minimal repetition — club common steps into shared subflows
+#   - Zero coordinate taps — selector-based only; when an element lacks a selector, add an a11y
+#     label (or testTag) to the code, build, and resume
+#   - No mocks, no internal state checks; every action happens once; sequential navigation
 #
 # PASSPHRASE: 'E2ETestPass!2026' (used across all scenarios)
 
 
 # ═══════════════════════════════════════════════════════════════
-# PART 1: REUSABLE SUBFLOWS (shared steps)
+# PART 1: SHARED SETUP (in-process equivalents)
 # ═══════════════════════════════════════════════════════════════
-
-## SUBFLOW: fresh_setup
-##   Onboarding → Database → Passphrase → Dimensions → Focus → Lenses
-##   Used by: most scenarios that need a fresh app state
-##   Steps:
-##     1. Dismiss compat dialog if present ("Don't show again")
-##     2. Assert "Your Privacy First" → tap "Skip Tour"
-##     3. Assert "Welcome To Payanam" → tap "Create New Empty Database"
-##     4. Assert "Secure your database" → enter passphrase → confirm → save
-##     5. Assert "Set up your life dimensions" → "Verify and proceed"
-##     6. Assert "Choose Your Focus" → "I'll choose later"
-##     7. Assert "Per Dimension" (Lenses screen)
-
-## SUBFLOW: unlock
-##   Stop app → relaunch → enter passphrase → unlock
-##   Used by: scenarios that need to verify persistence after app restart
-##   Steps:
-##     1. Stop app (NOT clearState)
-##     2. Relaunch
-##     3. Dismiss compat dialog if present
-##     4. Assert "Unlock your database"
-##     5. Enter passphrase → tap "Unlock"
-##     6. Assert main screen (Lenses)
-
-## SUBFLOW: navigate_to_tab
-##   Tap bottom nav tab by a11y label
-##   Parameter: tab name (Tasks/Habits/Time/Journal/Notes/Lenses/Settings)
-
-## SUBFLOW: add_task
-##   Navigate to Tasks → tap FAB → enter title → optional dimension/due → save
-##   Parameters: title, dimension (optional), due date (optional)
-
-## SUBFLOW: add_habit
-##   Navigate to Habits → tap FAB → enter title → select frequency → save
-##   Parameters: title, frequency type
-
-## SUBFLOW: add_note
-##   Navigate to Notes → tap Add → enter text → save
-##   Parameters: note text
-
-## SUBFLOW: add_journal_entry
-##   Navigate to Journal → enter text → save
-##   Parameters: journal text
-
-## SUBFLOW: add_time_entry
-##   Navigate to Time → Start Tracking → (optional: select task/dimension) → Stop Tracking
-##   Parameters: duration (wait seconds), optional task
+# The Maestro subflows (fresh_setup, unlock, add_task, …) lived in YAML files; the in-process tier
+# implements the shared steps as code:
+#   - fresh_setup → app/src/androidTest/java/io/payanam/e2e/FreshSetup.kt
+#   - unlock      → UnlockTest (a second invocation; the lock screen needs its own process)
+#   - navigation, typing and assertions → E2eHarness.kt
 
 
 # ═══════════════════════════════════════════════════════════════
@@ -1309,7 +1276,7 @@
 
 
 # ═══════════════════════════════════════════════════════════════
-# PART 3: EXECUTION ORDER (Dependencies)
+# PART 3: JOURNEY DEPENDENCIES
 # ═══════════════════════════════════════════════════════════════
 #
 # GROUP A (Setup) → must complete first
@@ -1348,13 +1315,100 @@
 # GROUP L (Cross-cutting) → after all data groups
 #   L1-L7
 #
-# RECOMMENDED BATCH ORDER:
-#   1. A1-A20 (Setup) — ~3 min
-#   2. B1-B14 + C1-C12 + D1-D6 + E1-E5 + F1-F6 (All CRUD) — ~10 min
-#   3. G1-G9 (Lenses verification) — ~3 min
-#   4. H1-H21 (Settings) — ~8 min
-#   5. I1-I5 (Passphrase) — ~3 min
-#   6. J1-J3 + J3a (Export/Import) — ~5 min
-#   7. K1-K3 (Scoring) — ~2 min
-#   8. L1-L7 (Cross-cutting) — ~3 min
-#   TOTAL: ~37 min estimated
+# The in-process runner takes one class per invocation and a fresh install is the reset (see
+# SPEC.md for the run commands); the Maestro-era batch timings are not carried over.
+
+
+# ═══════════════════════════════════════════════════════════════
+# APPENDIX: INTERACTIVE ELEMENT MAP (coverage intent)
+# ═══════════════════════════════════════════════════════════════
+# Counts measured while mapping the suite; use as a coverage checklist when extending the
+# automated tier.
+
+### Phase 0: First-Time Setup (runs ONCE)
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 0.1 | Onboarding | Next, Skip Tour, Get Started | 3 |
+| 0.2 | Database Init | Create New Empty DB, Import DB, I'll choose later | 3 |
+| 0.3 | Passphrase Setup | Passphrase input, Confirm input, Show/Hide toggle, Set passphrase button, Reset local data, Back | 6 |
+| 0.4 | Dimension Setup | Edit per dimension (×9), Disable/Enable per dimension (×9), Add New, Use Defaults, Verify and proceed | 21 |
+| 0.5 | Focus Mode | Simple: Tasks, Simple: Time+Habits, Simple: Journal, I'll choose later | 4 |
+| **Subtotal** | | | **37** |
+
+### Phase 1: Tasks Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 1.1 | Tasks List | Tab filters (All/Active/Inactive/Overdue/Today/Future), FAB (Add Task), Search, Sort, Task card tap, Habits strip | 7 |
+| 1.2 | Add Task | Title input, Task Type (One Time/Recurring), Due Date picker, Due Time picker, Reminder (Off/Custom/Auto), Description input, Dimension selector, Duration input, Estimated Duration, Save Task, Cancel | 11 |
+| 1.3 | Task Detail | Back, Edit, Delete, Complete, Reschedule, Skip, Score link | 7 |
+| 1.4 | Edit Task | Same as Add Task (pre-filled) | 11 |
+| 1.5 | Recurring Options | Frequency (One Time/Every N days/Specific days/Weekly/Monthly), Day picker | 5 |
+| **Subtotal** | | | **41** |
+
+### Phase 2: Habits Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 2.1 | Habits List | Habit cards, Complete checkbox, Skip button, Calendar view, Sort, Search, FAB | 7 |
+| 2.2 | Habit Detail | Calendar, Streak info, Completion history, Score | 4 |
+| **Subtotal** | | | **11** |
+
+### Phase 3: Time Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 3.1 | Time Screen | Start Tracking, Stop Tracking, Scale selector (1m-2h), Day plan, Time entries list, Entry tap | 6 |
+| 3.2 | Start Tracking Dialog | Task selector, Dimension selector, Start button, Cancel | 4 |
+| 3.3 | Stop Tracking Dialog | Notes input, Stop button, Cancel | 3 |
+| 3.4 | Time Entry Edit | Duration, Notes, Dimension, Delete, Save | 5 |
+| 3.5 | Day Plan Template | Dimension time allocations, Save template, Delete template | 3 |
+| **Subtotal** | | | **21** |
+
+### Phase 4: Journal Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 4.1 | Journal Screen | Date navigation (prev/next), Add entry, Entry tap, Journal notes | 4 |
+| 4.2 | Entry Editor | Text input, Save, Cancel | 3 |
+| **Subtotal** | | | **7** |
+
+### Phase 5: Notes Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 5.1 | Notes List | FAB (Add Note), Search, Note card tap, Edit, Delete | 5 |
+| 5.2 | Note Editor | Text input, Save, Cancel | 3 |
+| **Subtotal** | | | **8** |
+
+### Phase 6: Lenses Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 6.1 | Lenses Main | Dimension tabs (PH/MH/FR/HE/WL/MF/LG/RL/CS), Per Dimension view, Time insights card, Habit insights card, Task insights card, Focus insights card | 11 |
+| 6.2 | Dimension Detail | Score breakdown, Time section, Habits section, Tasks section, Journal section, Chart interactions | 6 |
+| 6.3 | Time Insights | Window selector (30D/90D/180D/365D/All), Chart types, Dimension trend, Heatmap, Weekly pattern, Daily rhythm | 8 |
+| 6.4 | Day Detail | Day summary, Time entries, Completed habits, Tasks due | 4 |
+| **Subtotal** | | | **29** |
+
+### Phase 7: Settings Module
+| # | Screen | Interactive Elements | Count |
+|---|--------|---------------------|-------|
+| 7.1 | Appearance | Theme Mode (System/Light/Dark), Font Family (Sans/Serif/Mono/Cursive), Time Format (12h/24h), App Language (System/EN/TA) | 4 |
+| 7.2 | Default Landing | Landing screen selector | 1 |
+| 7.3 | Tab Visibility | Show/Hide per tab, Focus mode preset | 8 |
+| 7.4 | Life Dimensions | Edit dimension (name/color/icon × N), Add dimension, Delete dimension | 5 |
+| 7.5 | Auto-Track Habit Time | Global toggle, Per-dimension toggles | 3 |
+| 7.6 | Auto-Backup | Enable toggle, Interval selector, Run Backup Now, Rotation enable, Rotation count | 5 |
+| 7.7 | Scoring Config | Dimension weight sliders, Reset defaults | 3 |
+| 7.8 | Security | Unlock timeout selector, Biometric toggle | 2 |
+| 7.9 | Database | Size display, Schema info, Export, Import, Stale file cleanup, Log export (session + all) | 6 |
+| 7.10 | Passphrase Change | Current passphrase, New passphrase, Confirm, Save | 4 |
+| 7.11 | About | Version, Codename, Tagline, GitHub link | 4 |
+| 7.12 | Debug | Enable debug logging toggle | 1 |
+| 7.13 | Delete All Data | Delete button, Confirmation dialog | 2 |
+| **Subtotal** | | | **48** |
+
+### Phase 8: Cross-Cutting
+| # | Scenario | Interactive Elements | Count |
+|---|----------|---------------------|-------|
+| 8.1 | Unlock Flow | Passphrase input, Unlock, Forgot passphrase, Reset | 4 |
+| 8.2 | Export → Import → Verify | Export, Delete all, Fresh setup, Import, Verify data | 5 |
+| 8.3 | Insights Verification | Scroll all charts, Verify data populates | 3 |
+| **Subtotal** | | | **12** |
+
+## GRAND TOTAL: ~214 interactive elements across 20+ screens
