@@ -1,6 +1,6 @@
 # Payanam Vision & Philosophy
 
-Last Updated: 2026-07-24
+Last Updated: 2026-09-14
 
 ## Core Vision
 
@@ -22,8 +22,9 @@ All data stays on your device. No cloud, no accounts, no tracking — unless you
 | Desktop foundation (Windows) | ✅ Foundation built |
 | Sync (e2ee, cross-device) | 🔄 Planned |
 | On-device AI assistance | 🔄 Planned |
+| AI assistance — BYOK (bring your own model key) | 🧪 In development (optional) |
 
-The app is fully functional locally today. Future sync and AI layers will be **optional** — the core app stays local-first and free.
+The app is fully functional locally today. Future sync and AI layers will be **optional** — the core app stays local-first and free. The BYOK AI assistant follows the same rule: off unless you configure your own model key, and when used it only sends the question plus the minimum data rows needed to answer it to the provider you chose. Removing the key switches it fully off.
 
 ---
 
