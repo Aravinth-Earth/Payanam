@@ -57,6 +57,8 @@ import androidx.navigation.navArgument
 import io.payanam.ExternalNavigationCommand
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.assistant.ui.AssistantScreen
+import io.payanam.feature.assistant.ui.AssistantSettingsScreen
 import io.payanam.feature.settings.ui.SettingsScreen
 import io.payanam.ui.screens.AddTaskScreen
 import io.payanam.ui.screens.DatabaseInitScreen
@@ -150,6 +152,8 @@ object Routes {
     const val EDIT_TASK = "edit_task/{taskId}"
     const val SCORE_DETAIL = "score_detail/{type}/{key}"
     const val SCORING_CONFIG = "scoring_config"
+    const val ASSISTANT = "assistant"
+    const val ASSISTANT_SETTINGS = "assistant_settings"
     /**
      * Builds the concrete task-detail route for [taskId].
      */
@@ -657,6 +661,10 @@ fun PayanamNavHost(
                         logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
                         navController.navigate(Routes.scoreDetail(type, key))
                     },
+                    onOpenAssistant = {
+                        logger.i("PayanamNavHost", "Opening AI assistant from lenses", mapOf())
+                        navController.navigate(Routes.ASSISTANT)
+                    },
                 )
             }
             composable(Screen.Settings.route) {
@@ -732,6 +740,22 @@ fun PayanamNavHost(
                 ScoringConfigScreen(
                     onNavigateBack = { navController.popBackStack() },
                 )
+            }
+            if (FeatureFlags.aiAssistantEnabled) {
+                composable(Routes.ASSISTANT) {
+                    AssistantScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                        onOpenSettings = {
+                            logger.i("PayanamNavHost", "Opening assistant settings", mapOf())
+                            navController.navigate(Routes.ASSISTANT_SETTINGS)
+                        },
+                    )
+                }
+                composable(Routes.ASSISTANT_SETTINGS) {
+                    AssistantSettingsScreen(
+                        onNavigateBack = { navController.popBackStack() },
+                    )
+                }
             }
 
 

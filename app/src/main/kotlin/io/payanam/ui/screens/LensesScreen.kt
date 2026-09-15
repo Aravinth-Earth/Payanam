@@ -7,6 +7,7 @@ package io.payanam.ui.screens
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -23,6 +24,7 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -66,6 +68,7 @@ fun LensesScreen(
     onOpenJournal: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
     onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
+    onOpenAssistant: () -> Unit = {},
 ) {
     val uiState by viewModel.uiState.collectAsState()
     val logger = remember { UnifiedLogger.getInstance() }
@@ -274,6 +277,42 @@ fun LensesScreen(
                 onDimensionSplitShiftRight = { viewModel.shiftDimensionSplitRight() },
                 onDimensionTrendWindowSelect = { viewModel.selectDimensionTrendWindow(it) },
             )
+            if (FeatureFlags.aiAssistantEnabled) {
+                AssistantEntryCard(
+                    onOpen = {
+                        logger.d("LensesScreen.assistantOpened", "AI Assistance entry tapped")
+                        onOpenAssistant()
+                    },
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun AssistantEntryCard(onOpen: () -> Unit) {
+    Card(modifier = Modifier.fillMaxWidth()) {
+        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = stringResource(id = R.string.assistant_title),
+                    fontWeight = FontWeight.SemiBold,
+                    modifier = Modifier.weight(1f),
+                )
+                Text(
+                    text = stringResource(id = R.string.assistant_chip_experimental),
+                    style = MaterialTheme.typography.labelSmall,
+                    color = MaterialTheme.colorScheme.primary,
+                )
+            }
+            Text(
+                text = stringResource(id = R.string.assistant_entry_subtitle),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            TextButton(onClick = onOpen, modifier = Modifier.align(Alignment.End)) {
+                Text(stringResource(id = R.string.assistant_entry_cta))
+            }
         }
     }
 }

@@ -21,6 +21,7 @@ object FeatureFlags {
     val plansCtaEnabled: Boolean = BuildConfig.PLANS_CTA_ENABLED
     val focusModeSettingsEnabled: Boolean = BuildConfig.FOCUS_MODE_SETTINGS_ENABLED
     val scoreSettingsEnabled: Boolean = BuildConfig.SCORE_SETTINGS_ENABLED
+    val aiAssistantEnabled: Boolean = BuildConfig.AI_ASSISTANT
 
     init {
         logger.i(
@@ -35,6 +36,7 @@ object FeatureFlags {
                 "plansCtaEnabled" to plansCtaEnabled.toString(),
                 "focusModeSettingsEnabled" to focusModeSettingsEnabled.toString(),
                 "scoreSettingsEnabled" to scoreSettingsEnabled.toString(),
+                "aiAssistantEnabled" to aiAssistantEnabled.toString(),
             ),
         )
     }
