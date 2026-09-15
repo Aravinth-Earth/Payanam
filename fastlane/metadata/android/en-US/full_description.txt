@@ -1,6 +1,6 @@
 Payanam (பயணம் — "journey") is a privacy-first life dimension manager for Android. Track what matters to you across the dimensions of life you define.
 
-<b>Your data never leaves your device.</b> No cloud. No accounts. No tracking. No subscriptions.
+<b>Your data never leaves your device. But you control what does.</b> No cloud. No accounts. No tracking. No subscriptions. Payanam has no servers of its own: its one optional network feature (AI Assistance) is off unless you enable it yourself, and when used it only sends your question plus the minimum data rows needed to answer it to the model provider you choose.
 
 <b>Life Dimensions</b>
 Comes with 9 default dimensions — Work & Livelihood, Physical Health, Family & Relationships, Home Environment, Money & Finance, Mental Health, Recreation & Leisure, Learning & Growth, Community & Service. Customize names, icons, colors, or create your own. Set per-dimension weightage that controls how each life area contributes to your scores.
@@ -34,6 +34,9 @@ Enable or disable individual modules. Choose your default home tab. System theme
 
 <b>Cross-Platform & Updates</b>
 Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. In-app update checker across 3 channels (dev/beta/stable) with three opt-in levels: check, auto-download over WiFi, and prompt to install.
+
+<b>AI Assistance (optional, BYOK)</b>
+An optional chat screen (Lenses → AI Assistance) where you connect your own model provider key and ask questions about your data in plain language. Entirely opt-in: if you never set it up, no network call is ever made and the app stays fully offline. When you use it, your question plus the read-only data rows needed to answer it are sent to the model provider you chose; the key is stored only in the app's encrypted database; and removing the key switches it fully off. AI answers are statistical and can be wrong — verify the numbers, and treat readings as hints, not verdicts.
 
 Payanam is open source under AGPL-3.0. All improvements stay open.
 
