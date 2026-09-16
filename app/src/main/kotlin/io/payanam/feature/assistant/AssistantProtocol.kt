@@ -4,6 +4,10 @@
 
 package io.payanam.feature.assistant
 
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
+
 /**
  * Pure helpers for the agentic-SQL message protocol (POC port).
  *
@@ -13,19 +17,26 @@ package io.payanam.feature.assistant
  */
 object AssistantProtocol {
     /** Matches a single flat JSON object containing a "sql" key (DOTALL). */
-    private val sqlJson = Regex("\\{[^{}]*\"sql\"[^{}]*\\}", RegexOption.DOT_MATCHES_ALL)
-
-    /** Extracts the SQL string value from a `"sql": "..."` fragment, with JSON unescaping. */
-    private val sqlValue = Regex("\"sql\"\\s*:\\s*\"((?:[^\"\\\\]|\\\\.)*)\"")
+    private val sqlJson = Regex("\\{[^{}]*\\\"sql\\\"[^{}]*\\}", RegexOption.DOT_MATCHES_ALL)
 
     /**
      * Returns the SQL statement when [reply] carries a complete `{"sql": ...}` object,
      * or null when the reply is a final answer / malformed JSON.
      */
     fun extractSql(reply: String): String? {
-        if (!sqlJson.containsMatchIn(reply)) return null
-        val match = sqlValue.find(reply) ?: return null
-        return unescapeJson(match.groupValues[1]).trim().takeIf { it.isNotEmpty() }
+        var match: MatchResult? = sqlJson.find(reply) ?: return null
+        while (match != null) {
+            val candidate = match
+            val root = runCatching {
+                Json.parseToJsonElement(candidate.value) as? JsonObject
+            }.getOrNull()
+            val value = root?.get("sql") as? JsonPrimitive
+            if (value != null && value.isString) {
+                return value.content.trim().takeIf { it.isNotEmpty() }
+            }
+            match = sqlJson.find(reply, candidate.range.first + 1)
+        }
+        return null
     }
 
     /** True when the reply mentions a sql key at all — used to detect truncated JSON. */
@@ -54,29 +65,4 @@ object AssistantProtocol {
     /** The final nudge when the round budget is exhausted. */
     const val ROUND_LIMIT_PROMPT =
         "ROUND_LIMIT: no more SQL allowed. Give your final answer now, using the data you already have."
-
-    /** Unescapes the JSON string escapes the protocol can encounter. */
-    internal fun unescapeJson(value: String): String {
-        val builder = StringBuilder(value.length)
-        var index = 0
-        while (index < value.length) {
-            val char = value[index]
-            if (char == '\\' && index + 1 < value.length) {
-                when (val next = value[index + 1]) {
-                    'n' -> builder.append('\n')
-                    't' -> builder.append('\t')
-                    'r' -> builder.append('\r')
-                    '"' -> builder.append('"')
-                    '\\' -> builder.append('\\')
-                    '/' -> builder.append('/')
-                    else -> builder.append(next)
-                }
-                index += 2
-            } else {
-                builder.append(char)
-                index += 1
-            }
-        }
-        return builder.toString()
-    }
 }

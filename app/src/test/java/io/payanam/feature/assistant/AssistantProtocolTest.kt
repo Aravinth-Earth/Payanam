@@ -57,16 +57,20 @@ class AssistantProtocolTest {
     }
 
     @Test
-    fun `unescape handles tab carriage-return slash and backslash`() {
-        assertEquals("a\tb", AssistantProtocol.unescapeJson("a\\tb"))
-        assertEquals("a\rb", AssistantProtocol.unescapeJson("a\\rb"))
-        assertEquals("a/b", AssistantProtocol.unescapeJson("a\\/b"))
-        assertEquals("a\\b", AssistantProtocol.unescapeJson("a\\\\b"))
+    fun `extracts first valid sql from reply with multiple json objects`() {
+        val reply = "thinking {\"sql\": null} ... {\"sql\": \"SELECT 1\"}"
+        assertEquals("SELECT 1", AssistantProtocol.extractSql(reply))
     }
 
     @Test
-    fun `unescape drops the backslash on an unknown escape and keeps a trailing one`() {
-        assertEquals("aqb", AssistantProtocol.unescapeJson("a\\qb"))
-        assertEquals("trailing\\", AssistantProtocol.unescapeJson("trailing\\"))
+    fun `handles unicode escapes in sql value`() {
+        val reply = "{\"sql\": \"SELECT * FROM t WHERE name = \\u0041\"}"
+        assertEquals("SELECT * FROM t WHERE name = A", AssistantProtocol.extractSql(reply))
+    }
+
+    @Test
+    fun `returns null for non-string sql value`() {
+        val reply = "{\"sql\": 123}"
+        assertNull(AssistantProtocol.extractSql(reply))
     }
 }
