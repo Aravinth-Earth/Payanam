@@ -315,7 +315,6 @@ class AssistantViewModel
                 val messages = mutableListOf(ChatTurn("system", system))
                 messages += history
                 messages += ChatTurn("user", question)
-                conversation += ChatTurn("user", question)
                 logger.i(
                     "AssistantTurn.start",
                     "Question asked",
@@ -400,6 +399,7 @@ class AssistantViewModel
                             "(max rounds reached)"
                         }
                 }
+                conversation += ChatTurn("user", question)
                 conversation += ChatTurn("assistant", finalAnswer)
                 _uiState.update { state ->
                     state.copy(
