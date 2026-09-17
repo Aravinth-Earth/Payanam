@@ -62,8 +62,12 @@ data class DbQueryOutcome(
 
 /**
  * Executes guarded, SELECT-only SQL against the app's live (unlocked) database and logs
- * every executed statement with its receipt: SQL text, columns, row count, truncation,
- * duration and a small row preview — the trace Aravinth asked for.
+ * every executed statement with its receipt: SQL length, columns, row count, truncation,
+ * and duration — the trace asked for.
+ *
+ * Raw SQL text and row contents are deliberately omitted from info-level logs to prevent
+ * personal data leakage. The full SQL and rows are still available to the model via
+ * [DbQueryOutcome.renderForModel].
  *
  * Read path is the existing Room session ([DatabaseSessionManager.requireDatabase]) —
  * no second handle, no file copy, no adb.
@@ -136,22 +140,13 @@ class DbQueryTool
                 "AssistantDbQuery.logOutcome",
                 if (outcome.error == null) "Query executed" else "Query failed",
                 mapOf(
-                    "sql" to DbQueryOutcome.clip(outcome.sql, 2000),
+                    "sql_chars" to outcome.sql.length,
                     "columns" to outcome.columns.joinToString(","),
                     "row_count" to outcome.rowCount,
                     "truncated" to outcome.truncated,
                     "duration_ms" to outcome.durationMs,
                     "error" to (outcome.error ?: "-"),
-                    "preview" to buildPreview(outcome),
                 ),
             )
-        }
-
-        private fun buildPreview(outcome: DbQueryOutcome): String {
-            if (outcome.rows.isEmpty()) return "-"
-            val preview = outcome.rows
-                .take(AssistantDefaults.PREVIEW_ROWS)
-                .joinToString("\n") { row -> outcome.renderRow(row, AssistantDefaults.PREVIEW_CELL_CLIP) }
-            return DbQueryOutcome.clip(preview, AssistantDefaults.PREVIEW_TOTAL_CLIP)
         }
     }
