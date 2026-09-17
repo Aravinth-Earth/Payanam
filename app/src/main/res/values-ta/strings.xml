@@ -102,7 +102,7 @@
     <string name="settings_about_codename_label">குறியீட்டு பெயர்</string>
     <string name="settings_about_codename_value">கோட்லின் கம்போஸ் மைக்ரேஷன்</string>
     <string name="settings_about_tagline">உங்கள் முன்னேற்றம், உங்கள் தனியுரிமை</string>
-    <string name="settings_about_description">உள்ளூர்-முதன்மை பணிநிர்வாகம் மற்றும் தனியுரிமை. அனைத்து தரவும் உங்கள் சாதனத்திலேயே இருக்கும்.</string>
+    <string name="settings_about_description">உள்ளூர்-முதன்மை பணிநிர்வாகம் மற்றும் தனியுரிமை. Optional AI உதவியாளரை நீங்கள் இயக்கி, அதில் கேள்வி கேட்காத வரை, உங்கள் data அனைத்தும் உங்கள் சாதனத்திலேயே இருக்கும்.</string>
     <string name="settings_visibility_visible">காண்பி</string>
     <string name="settings_visibility_hidden">மறை</string>
     <string name="settings_dimension_label">பெயர்</string>
@@ -1252,11 +1252,11 @@
 
     <!-- AI Assistance (feature-flagged, BYOK via OpenCode Go) -->
     <string name="assistant_title">AI உதவியாளர்</string>
-    <string name="assistant_entry_subtitle">Optional — உங்கள் சொந்த model key-ஐ பயன்படுத்துங்கள். நீங்கள் set up செய்து கேட்காத வரை எதுவும் வெளியே போகாது.</string>
+    <string name="assistant_entry_subtitle">Optional — உங்கள் சொந்த model key-ஐ பயன்படுத்துங்கள். நீங்கள் set up செய்து கேட்காத வரை உங்கள் data எதுவும் வெளியே அனுப்பப்படாது.</string>
     <string name="assistant_entry_cta">Chat-ஐ திற</string>
     <string name="assistant_chip_experimental">சோதனை</string>
     <string name="assistant_setup_headline">Model provider-ஐ இணைக்கவும்</string>
-    <string name="assistant_setup_caption">முழுவதும் optional. Payanam எப்போதும் fully offline — நீங்கள் இதை set up செய்யாத வரை எதுவும் எங்கும் அனுப்பப்படாது. Key இந்த app-ன் encrypted database-லே மட்டும் சேமிக்கப்படும்.</string>
+    <string name="assistant_setup_caption">முழுவதும் optional. இதற்கு network தேவையில்லை — நீங்கள் இதை set up செய்யாத வரை உங்கள் data எதுவும் எங்கும் அனுப்பப்படாது. Key இந்த app-ன் encrypted database-லே மட்டும் சேமிக்கப்படும்.</string>
     <string name="assistant_setup_offline_note">Servers இல்லை, telemetry இல்லை: இந்த screen-ஐ நீங்கள் பயன்படுத்தவில்லை என்றால், எதுவும் உங்கள் device-ஐ விட்டு வெளியே போகாது.</string>
     <string name="assistant_key_label">உங்கள் API key</string>
     <string name="assistant_key_hint">உங்கள் key-ஐ paste செய்யுங்கள்</string>
@@ -1288,13 +1288,13 @@
     <string name="assistant_receipt">%1$s · %2$d queries · %3$d வரிசைகள்</string>
     <string name="assistant_ai_generated">AI உருவாக்கியது</string>
     <string name="assistant_notice_title">AI பதில்கள் பற்றி</string>
-    <string name="assistant_notice_body">AI உதவியாளர் முழுவதும் optional. Payanam-க்கு servers இல்லை, telemetry இல்லை — இந்த feature-ஐ நீங்கள் பயன்படுத்தவில்லை என்றால், எதுவும் உங்கள் device-ஐ விட்டு வெளியே போகாது; app முழுமையாக offline-ல வேலை செய்யும். நீங்கள் பயன்படுத்தத் தேர்ந்தெடுத்தால், உங்கள் சொந்த model key-ஐ (BYOK) பயன்படுத்துவீர்கள்: உங்கள் கேள்வியும், பதிலுக்குத் தேவையான data rows-ம் நீங்கள் தேர்ந்தெடுத்த model provider-க்கு அனுப்பப்படும்; பதில் அங்கே உருவாகும். இது புள்ளிவிவர AI அமைப்பு — மனித தீர்ப்பு அல்ல; பதில்கள் தவறாக இருக்கலாம்; எண்களை சரிபார்த்து, வாசிப்புகளை hints-ஆக மட்டும் எடுத்துக்கொள்ளுங்கள். அந்த data rows-ஐ அந்த provider-க்கு அனுப்புவதில் சம்மதம் இருந்தால் மட்டுமே தொடருங்கள். Key-ஐ நீக்கினால் அனைத்தும் மீண்டும் off ஆகும். இங்கே பயன்படும் provider: OpenCode Zen — ஒரு third-party service; உங்கள் key-ம் பயன்பாடும் OpenCode-ன் Terms of Service-க்கு உட்பட்டது; Payanam, OpenCode-உடன் affiliated இல்லை.</string>
+    <string name="assistant_notice_body">AI உதவியாளர் முழுவதும் optional. Payanam-க்கு servers இல்லை, telemetry இல்லை — இந்த feature-ஐ நீங்கள் பயன்படுத்தவில்லை என்றால், உங்கள் data எதுவும் எங்கும் அனுப்பப்படாது; app முழுமையாக offline-ல வேலை செய்யும். நீங்கள் பயன்படுத்தத் தேர்ந்தெடுத்தால், உங்கள் சொந்த model key-ஐ (BYOK) பயன்படுத்துவீர்கள்: நீங்கள் தேர்ந்தெடுத்த model provider-க்கு அனுப்பப்படுவது — உங்கள் கேள்வி, பதிலுக்குத் தேவையான read-only data rows, database schema (table வரையறைகள் — பெயர்கள், columns, வகைகள், constraints), இந்த உரையாடலின் சமீபத்திய பகுதி — மேலும் நீங்கள் அமைத்திருந்தால் உங்கள் prompt additions-ம் About me values-ம்; உங்கள் தரவில் வேறு எதுவும் அனுப்பப்படாது; பதில் அங்கே உருவாகும். இது புள்ளிவிவர AI அமைப்பு — மனித தீர்ப்பு அல்ல; பதில்கள் தவறாக இருக்கலாம்; எண்களை சரிபார்த்து, வாசிப்புகளை hints-ஆக மட்டும் எடுத்துக்கொள்ளுங்கள். அந்த உள்ளடக்கத்தை அந்த provider-க்கு அனுப்புவதில் சம்மதம் இருந்தால் மட்டுமே தொடருங்கள். Key-ஐ நீக்கினால் அனைத்தும் மீண்டும் off ஆகும். இங்கே பயன்படும் provider: OpenCode Zen — ஒரு third-party service; உங்கள் key-ம் பயன்பாடும் OpenCode-ன் Terms of Service-க்கு உட்பட்டது; Payanam, OpenCode-உடன் affiliated இல்லை.</string>
     <string name="assistant_notice_ok">புரிந்தது</string>
     <string name="assistant_empty_hint">இவற்றில் ஒன்றை முயற்சிக்கவும்</string>
     <string name="assistant_empty_prompt">உங்கள் data பற்றி ஒரு கேள்வி கேளுங்கள். Suggestion chips settings-ல off செய்யப்பட்டுள்ளது.</string>
     <string name="assistant_settings_title">Assistant அமைப்புகள்</string>
     <string name="assistant_settings_saved_note">மாற்றங்கள் தானாக save ஆகும்; அடுத்த கேள்விக்கு apply ஆகும்.</string>
-    <string name="assistant_settings_privacy_note">உங்கள் கேள்வியும், பதிலுக்குத் தேவையான data rows-ம் மட்டுமே — நீங்கள் தேர்ந்தெடுத்த provider-க்கு — அனுப்பப்படும். வேறு எதுவும் app-ஐ விட்டு வெளியே போகாது.</string>
+    <string name="assistant_settings_privacy_note">உங்கள் கேள்வி, பதிலுக்குத் தேவையான read-only rows, database schema, இந்த உரையாடலின் சமீபத்திய பகுதி — மேலும் நீங்கள் அமைத்திருந்தால் உங்கள் prompt additions-ம் About me values-ம் — நீங்கள் தேர்ந்தெடுத்த provider-க்கு அனுப்பப்படும். உங்கள் தரவில் வேறு எதுவும் அனுப்பப்படாது.</string>
     <string name="assistant_settings_length_title">பதிலின் நீளம்</string>
     <string name="assistant_length_short">Short · ~5 வரிகள்</string>
     <string name="assistant_length_balanced">Balanced · ~20 வரிகள்</string>
@@ -1309,7 +1309,7 @@
     <string name="assistant_settings_builtin_title">உள்ளமைந்த instructions (locked)</string>
     <string name="assistant_settings_builtin_caption">Read-only. பாதுகாப்பு code-ல இருப்பதால், prompt-ஐ மாற்றினாலும் write அனுமதிக்கப்படாது.</string>
     <string name="assistant_settings_about_title">என்னைப் பற்றி</string>
-    <string name="assistant_settings_about_caption">வாசிப்புகளை personalise செய்ய optional குறிப்புகள். இந்த device-லேயே சேமிக்கப்படும்.</string>
+    <string name="assistant_settings_about_caption">வாசிப்புகளை personalise செய்யும் optional குறிப்புகள். இந்த device-லேயே சேமிக்கப்படும்; நீங்கள் நிரப்பினால் உங்கள் கேள்விகளுடன் provider-க்கு அனுப்பப்படும்.</string>
     <string name="assistant_about_goals">இலக்குகள்</string>
     <string name="assistant_about_wants">விருப்பங்கள்</string>
     <string name="assistant_about_needs">தேவைகள்</string>

@@ -102,7 +102,7 @@
     <string name="settings_about_codename_label">Codename</string>
     <string name="settings_about_codename_value">Kotlin Compose Migration</string>
     <string name="settings_about_tagline">Your Progress, Your Privacy</string>
-    <string name="settings_about_description">Local-first task management with privacy. All data stays on your device.</string>
+    <string name="settings_about_description">Local-first task management with privacy. All data of yours stays on your device unless you enable the optional AI Assistance and ask it something.</string>
     <string name="settings_visibility_visible">Visible</string>
     <string name="settings_visibility_hidden">Hidden</string>
     <string name="settings_dimension_label">Label</string>
@@ -1253,11 +1253,11 @@
 
     <!-- AI Assistance (feature-flagged, BYOK via OpenCode Go) -->
     <string name="assistant_title">AI Assistance</string>
-    <string name="assistant_entry_subtitle">Optional — bring your own model key. Nothing leaves your device unless you set this up and ask.</string>
+    <string name="assistant_entry_subtitle">Optional — bring your own model key. None of your data is sent anywhere unless you set this up and ask.</string>
     <string name="assistant_entry_cta">Open</string>
     <string name="assistant_chip_experimental">Experimental</string>
     <string name="assistant_setup_headline">Connect a model provider</string>
-    <string name="assistant_setup_caption">Entirely optional. Payanam stays fully offline — nothing is sent anywhere unless you set this up. The key is stored only in this app\'s encrypted database.</string>
+    <string name="assistant_setup_caption">Entirely optional. Payanam needs no network for this — nothing of yours is sent anywhere unless you set this up. The key is stored only in this app\'s encrypted database.</string>
     <string name="assistant_setup_offline_note">No servers, no telemetry: if you never use this screen, no data ever leaves your device.</string>
     <string name="assistant_key_label">API key</string>
     <string name="assistant_key_hint">Paste your key</string>
@@ -1289,13 +1289,13 @@
     <string name="assistant_receipt">%1$s · %2$d queries · %3$d rows</string>
     <string name="assistant_ai_generated">AI-generated</string>
     <string name="assistant_notice_title">About AI answers</string>
-    <string name="assistant_notice_body">AI Assistance is entirely optional. Payanam has no servers and no telemetry — if you never use this feature, nothing ever leaves your device, and the app stays fully functional offline. When you choose to use it, you bring your own model key (BYOK): your question plus the data rows needed to answer it are sent to the model provider you selected, and the answer is generated there. This is a statistical AI system, not a human judgement — answers can be wrong; verify the numbers and treat readings as hints, not verdicts. Only continue if you are comfortable sending those data rows to that provider. Removing the key switches everything back off. Third-party service: OpenCode Zen. Your key and usage are governed by OpenCode\'s Terms of Service. Payanam is not affiliated with OpenCode.</string>
+    <string name="assistant_notice_body">AI Assistance is entirely optional. Payanam has no servers and no telemetry — if you never use this feature, none of your data is sent anywhere, and the app stays fully functional offline. When you choose to use it, you bring your own model key (BYOK): what is sent to the model provider you selected is your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints), and the recent part of this conversation — plus your prompt additions and About-me values, if you set them. Nothing else of yours is sent. The answer is generated there. This is a statistical AI system, not a human judgement — answers can be wrong; verify the numbers and treat readings as hints, not verdicts. Only continue if you are comfortable sending that content to that provider. Removing the key switches everything back off. Third-party service: OpenCode Zen. Your key and usage are governed by OpenCode\'s Terms of Service. Payanam is not affiliated with OpenCode.</string>
     <string name="assistant_notice_ok">Got it</string>
     <string name="assistant_empty_hint">Try one of these</string>
     <string name="assistant_empty_prompt">Ask a question about your data. Suggestion chips are turned off in settings.</string>
     <string name="assistant_settings_title">Assistant settings</string>
     <string name="assistant_settings_saved_note">Changes save automatically and apply to your next question.</string>
-    <string name="assistant_settings_privacy_note">Only your question and the data rows needed to answer it are sent — to the provider you chose. Nothing else ever leaves the app.</string>
+    <string name="assistant_settings_privacy_note">Your question, the read-only rows needed, the database schema, and the recent part of this conversation — plus your prompt additions and About-me values if you set them — go to the provider you chose. Nothing else of yours is sent.</string>
     <string name="assistant_settings_length_title">Response length</string>
     <string name="assistant_length_short">Short · ~5 lines</string>
     <string name="assistant_length_balanced">Balanced · ~20 lines</string>
@@ -1310,7 +1310,7 @@
     <string name="assistant_settings_builtin_title">Built-in instructions (locked)</string>
     <string name="assistant_settings_builtin_caption">Read-only. Safety is enforced in code, so prompt edits can never unlock writes.</string>
     <string name="assistant_settings_about_title">About me</string>
-    <string name="assistant_settings_about_caption">Optional notes used to personalise readings. Stored on this device only.</string>
+    <string name="assistant_settings_about_caption">Optional notes used to personalise readings. Stored on this device; sent with your questions if you fill them in.</string>
     <string name="assistant_about_goals">Goals</string>
     <string name="assistant_about_wants">Wants</string>
     <string name="assistant_about_needs">Needs</string>

@@ -75,7 +75,7 @@ Payanam is offline by design. It has no servers, no accounts, no analytics, and 
 
 - **Opt-in and off by default.** If you never open it and add a key, it never runs and no network call is ever made on its behalf.
 - **You bring your own key** — your key is stored only inside the app's encrypted database, never in plain text.
-- **Minimum data only.** When — and only when — you ask a question, your question plus the read-only SQL result rows needed to answer it are sent to the model provider you chose; the answer is generated there. Your database is never uploaded.
+- **Minimum data only.** When — and only when — you ask a question, your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — are sent to the model provider you chose; the answer is generated there. Nothing else of yours is sent. Your database is never uploaded.
 - **AI answers are statistical.** They can be wrong, and a model's reading is not human or professional judgement — verify the numbers, treat suggestions as hints.
 - **Fully reversible.** Remove the key at any time and the feature is off again.
 - **Third-party service.** The optional connection uses OpenCode Zen. Your key and your usage are governed by [OpenCode's Terms of Service](https://opencode.ai/legal/terms-of-service); Payanam is not affiliated with OpenCode.
