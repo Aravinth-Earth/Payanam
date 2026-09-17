@@ -70,10 +70,14 @@ class OpenCodeGoClient(private val transport: HttpTransport) {
     }
 
     /**
-     * Validates [key] with a real chat call on [model]. The models endpoint is NOT
-     * authenticated (it returns the catalog for any key, valid or not), so the model list can
-     * never prove a key works; a minimal chat round-trip can. 401/403 surface as KEY_REJECTED
-     * via [ensureSuccess].
+     * Validates [key] with a minimal chat round-trip on [model].
+     *
+     * The models endpoint is NOT authenticated (it returns the catalog for any key,
+     * valid or not), so listing models can never prove a key works.
+     *
+     * @throws AssistantHttpException with [AssistantErrorKind.KEY_REJECTED] only on HTTP 401.
+     * Every other non-2xx status (403 included) throws [AssistantErrorKind.SERVER] via
+     * [ensureSuccess], keeping the provider's own message verbatim.
      */
     fun validateKey(key: String, session: String, model: String) {
         val payload =
