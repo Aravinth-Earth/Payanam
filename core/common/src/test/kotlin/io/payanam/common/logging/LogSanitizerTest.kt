@@ -108,6 +108,27 @@ class LogSanitizerTest {
     }
 
     @Test
+    fun sanitizeData_redactsSeparatorVariantsOfSensitiveTokens() {
+        val input =
+            mapOf(
+                "api-key" to "sk-test-0123456789",
+                "X-Api-Key" to "sk-test-0123456789",
+                "api key" to "sk-test-0123456789",
+                "apiKey" to "sk-test-0123456789",
+                "pass-word" to "hunter2",
+            )
+
+        val output = LogSanitizer.sanitizeData(input)
+        logger.d("LogSanitizerTest.sanitizeData_redactsSeparatorVariantsOfSensitiveTokens", "Sanitized map", output)
+
+        assertThat(output["api-key"]).isEqualTo("<redacted>")
+        assertThat(output["X-Api-Key"]).isEqualTo("<redacted>")
+        assertThat(output["api key"]).isEqualTo("<redacted>")
+        assertThat(output["apiKey"]).isEqualTo("<redacted>")
+        assertThat(output["pass-word"]).isEqualTo("<redacted>")
+    }
+
+    @Test
     fun sanitizeMessage_stripsPathsAndLineBreaks() {
         val input = "Import failed\nat C:\\Users\\user\\Documents\\payanam\\data\\backup.db"
         val output = LogSanitizer.sanitizeMessage(input)
