@@ -4,8 +4,12 @@
 
 package io.payanam.feature.assistant
 
+import java.io.BufferedInputStream
+import java.io.IOException
 import java.net.HttpURLConnection
 import java.net.URL
+import java.nio.ByteBuffer
+import java.nio.charset.Charset
 
 /** Minimal HTTP result: status code + body text. */
 data class HttpResult(val code: Int, val body: String)
@@ -57,7 +61,7 @@ class UrlConnectionTransport : HttpTransport {
             }
             val code = connection.responseCode
             val stream = if (code in 200..299) connection.inputStream else connection.errorStream
-            val text = stream?.bufferedReader(Charsets.UTF_8)?.use { reader -> reader.readText() } ?: ""
+            val text = stream?.use { readResponseBody(it) } ?: ""
             return HttpResult(code, text)
         } finally {
             connection.disconnect()
@@ -66,5 +70,37 @@ class UrlConnectionTransport : HttpTransport {
 
     private companion object {
         private const val CONNECT_TIMEOUT_MS = 20_000
+        /** Max response body size (~5 MB). Abort with IOException if exceeded. */
+        private const val MAX_RESPONSE_BYTES = 5 * 1024 * 1024
+        /** Read buffer size for streaming response bodies. */
+        private const val READ_BUFFER_SIZE = 8192
     }
+
+    /**
+     * Reads an [InputStream] into a [String], enforcing a hard size cap of
+     * [MAX_RESPONSE_BYTES]. Uses [java.nio.charset.CharsetDecoder] to safely handle
+     * multi-byte UTF-8 characters that may span buffer boundaries.
+     *
+     * @throws IOException if the response body exceeds [MAX_RESPONSE_BYTES].
+     */
+    private fun readResponseBody(stream: java.io.InputStream): String =
+        BufferedInputStream(stream, READ_BUFFER_SIZE).use { buffered ->
+            val sb = StringBuilder(MAX_RESPONSE_BYTES / 2)
+            val buf = ByteArray(READ_BUFFER_SIZE)
+            val decoder = Charsets.UTF_8.newDecoder()
+                .onMalformedInput(java.nio.charset.CodingErrorAction.REPORT)
+                .onUnmappableCharacter(java.nio.charset.CodingErrorAction.REPORT)
+            var totalBytes = 0
+            var read: Int
+            while (buffered.read(buf).also { read = it } != -1) {
+                totalBytes += read
+                if (totalBytes > MAX_RESPONSE_BYTES) {
+                    throw IOException(
+                        "Response exceeded ${MAX_RESPONSE_BYTES / 1024} KB limit"
+                    )
+                }
+                sb.append(decoder.decode(ByteBuffer.wrap(buf, 0, read)))
+            }
+            sb.toString()
+        }
 }
