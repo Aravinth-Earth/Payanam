@@ -31,6 +31,7 @@ import javax.inject.Inject
 /** Full UI state of the assistant screen. */
 data class AssistantUiState(
     val loading: Boolean = true,
+    /** True while a stored key exists — including during a pending reconfigure (setup shown, chat disabled). */
     val hasKey: Boolean = false,
     val keyDraft: String = "",
     val keyInvalid: Boolean = false,
@@ -41,7 +42,7 @@ data class AssistantUiState(
     val busy: AssistantBusy? = null,
     val error: AssistantErrorKind? = null,
 
-    /** The provider's own error text, shown as-is for provider-side failures (never reworded). */
+    /** Provider-side error text for the banner — redacted (submitted-key echoes) and truncated like the log. */
     val errorDetail: String? = null,
     val noticeVisible: Boolean = false,
 )
@@ -80,19 +81,25 @@ class AssistantViewModel
             refresh()
         }
 
-        /** Loads the stored key + settings (DB must be open). */
+        /** Loads the stored key + settings + reconfigure flag (DB must be open). */
         fun refresh() {
             viewModelScope.launch {
                 try {
-                    val key = settingsStore.loadApiKey()
-                    val stored = settingsStore.load()
-                    // No key ⇒ no model: a model left over from an earlier key must never surface.
-                    val settings = if (key.isEmpty()) stored.copy(model = "") else stored
-                    apiKey = key
+                    val config = settingsStore.loadConfig()
+                    // No key ⇒ no model; a pending reconfigure ⇒ no model either: the stored
+                    // model must never surface before the user completes setup again
+                    // ("Save & start" / key removal are the only paths that clear the flag).
+                    val settings =
+                        if (config.apiKey.isEmpty() || config.setupRequired) {
+                            config.settings.copy(model = "")
+                        } else {
+                            config.settings
+                        }
+                    apiKey = config.apiKey
                     _uiState.update {
                         it.copy(
                             loading = false,
-                            hasKey = key.isNotEmpty(),
+                            hasKey = config.apiKey.isNotEmpty(),
                             settings = settings,
                             noticeVisible = !settings.noticeShown,
                         )
@@ -100,8 +107,19 @@ class AssistantViewModel
                     logger.d(
                         "AssistantViewModel.refresh",
                         "Assistant state loaded",
-                        mapOf("hasKey" to key.isNotEmpty(), "model" to settings.model),
+                        mapOf(
+                            "hasKey" to config.apiKey.isNotEmpty(),
+                            "model" to settings.model,
+                            "setupRequired" to config.setupRequired,
+                        ),
                     )
+                    if (config.setupRequired) {
+                        logger.i(
+                            "AssistantViewModel.refresh",
+                            "Setup required flag set; model suppressed (key retained)",
+                            mapOf("setupRequired" to true, "hasKey" to config.apiKey.isNotEmpty()),
+                        )
+                    }
                 } catch (closed: IllegalStateException) {
                     handleDbClosed("AssistantViewModel.refresh", closed, resetKey = false)
                     _uiState.update { it.copy(loading = false, hasKey = false) }
@@ -114,20 +132,29 @@ class AssistantViewModel
             _uiState.update { it.copy(keyDraft = text, keyInvalid = false) }
         }
 
+        /** The key the next provider call should use: the trimmed draft, else the stored key. */
+        private fun resolveKey(): String = _uiState.value.keyDraft.trim().ifEmpty { apiKey }
+
         /**
          * Validates the pasted key with a real chat call, then loads the selectable models.
          * A key rejection is surfaced as [AssistantErrorKind.KEY_REJECTED].
          */
         fun loadModels() {
-            val key = _uiState.value.keyDraft.trim()
-            if (key.isEmpty()) return
             viewModelScope.launch {
+                val usedDraft = _uiState.value.keyDraft.trim().isNotEmpty()
+                val source = if (usedDraft) "draft" else "stored"
+                // Falls back to the stored key so "Change provider or key" can reload the
+                // models without re-pasting a key the app already holds. The value stays a
+                // LOCAL val — it never enters keyDraft/uiState/error payloads.
+                val key = resolveKey()
+                if (key.isEmpty()) {
+                    logger.d("AssistantViewModel.loadModels", "Load models skipped: no key available", mapOf("source" to source))
+                    return@launch
+                }
                 _uiState.update { it.copy(modelsLoading = true, error = null, keyInvalid = false) }
-                logger.i(
-                    "AssistantViewModel.loadModels",
-                    "Validating key and loading models",
-                    mapOf("keyLength" to key.length, "fingerprint" to settingsStore.fingerprint(key)),
-                )
+                val logData = mutableMapOf<String, Any?>("keyLength" to key.length, "source" to source)
+                if (usedDraft) logData["fingerprint"] = settingsStore.fingerprint(key)
+                logger.i("AssistantViewModel.loadModels", "Validating key and loading models", logData)
                 try {
                     val models = withContext(Dispatchers.IO) { client.fetchModels(key, sessionId) }
                     if (models.isEmpty()) {
@@ -156,7 +183,7 @@ class AssistantViewModel
                         mapOf("count" to models.size, "models" to models.joinToString(",").take(400)),
                     )
                 } catch (http: AssistantHttpException) {
-                    handleHttpError("AssistantViewModel.loadModels", http)
+                    handleHttpError("AssistantViewModel.loadModels", http, key)
                 } catch (io: IOException) {
                     handleIoError("AssistantViewModel.loadModels", io)
                 } finally {
@@ -166,14 +193,17 @@ class AssistantViewModel
             }
         }
 
-        /** Selects the active model. */
+        /**
+         * Selects the active model in the current state only — the row itself is persisted by
+         * [saveAndStart] (single-writer), so selecting alone never writes to the store.
+         */
         fun selectModel(model: String) {
             updateSettings { it.copy(model = model) }
         }
 
         /** Persists key + settings and switches to the chat surface (requires a picked model). */
         fun saveAndStart() {
-            val key = _uiState.value.keyDraft.trim().ifEmpty { apiKey }
+            val key = resolveKey()
             if (key.isEmpty()) return
             if (_uiState.value.settings.model.isEmpty()) {
                 logger.w("AssistantViewModel.saveAndStart", "Save attempted without a selected model")
@@ -206,19 +236,35 @@ class AssistantViewModel
             }
         }
 
-        /** Returns to the setup surface for changing key/model. */
+        /**
+         * Reconfigures the provider: flags a pending setup (persisted so the assistant
+         * destination re-reads it on entry and resolves to the setup surface) and clears the
+         * in-memory model selection. The stored key is kept — "Remove key" is the destructive
+         * path — and neutral writers never touch the model row.
+         */
         fun changeProvider() {
-            // A pending debounced save would re-persist the model this reset just cleared.
+            // Cancel any in-flight debounced neutral save so the reconfigure write below is the
+            // last persistence to land; neutral saves cannot touch the model row anyway.
             saveJob?.cancel()
             _uiState.update {
                 it.copy(
-                    hasKey = false,
-                    keyDraft = "",
-                    keyInvalid = false,
                     modelOptions = emptyList(),
                     settings = it.settings.copy(model = ""),
                     error = null,
                 )
+            }
+            viewModelScope.launch {
+                withContext(NonCancellable) {
+                    // runCatching sits INSIDE NonCancellable: a throw must never reach the
+                    // default handler, and the write must outlive the navigation pop.
+                    runCatching { settingsStore.beginReconfigure() }
+                        .onSuccess {
+                            logger.i("AssistantViewModel.changeProvider", "Reconfigure requested; chat disabled until Save & start")
+                        }
+                        .onFailure { error ->
+                            logger.e("AssistantViewModel.changeProvider", "Reconfigure persist failed", error)
+                        }
+                }
             }
         }
 
@@ -230,7 +276,7 @@ class AssistantViewModel
             saveJob =
                 viewModelScope.launch {
                     delay(SAVE_DEBOUNCE_MS)
-                    persistSettings("AssistantViewModel.updateSettings", updated)
+                    tryPersistSettings("AssistantViewModel.updateSettings", updated)
                 }
         }
 
@@ -239,7 +285,7 @@ class AssistantViewModel
             saveJob?.cancel()
             val settings = _uiState.value.settings
             viewModelScope.launch {
-                persistSettings("AssistantViewModel.flushSettings", settings)
+                tryPersistSettings("AssistantViewModel.flushSettings", settings)
             }
         }
 
@@ -427,7 +473,7 @@ class AssistantViewModel
                     ),
                 )
             } catch (http: AssistantHttpException) {
-                handleHttpError("AssistantTurn", http)
+                handleHttpError("AssistantTurn", http, apiKey)
             } catch (closed: IllegalStateException) {
                 handleDbClosed("AssistantTurn.dbClosed", closed)
                 _uiState.update { it.copy(hasKey = false) }
@@ -449,7 +495,7 @@ class AssistantViewModel
             super.onCleared()
             val settings = _uiState.value.settings
             viewModelScope.launch(NonCancellable + Dispatchers.IO) {
-                persistSettings("AssistantViewModel.onCleared", settings)
+                tryPersistSettings("AssistantViewModel.onCleared", settings)
             }
         }
 
@@ -483,20 +529,16 @@ class AssistantViewModel
          * failure the state stops claiming a key instead of pretending the removal worked.
          */
         fun removeProviderKey() {
-            // Cancel the pending debounced save first: it would otherwise re-persist the model
-            // this removal clears (and could fire after the key row is deleted).
+            // Cancel the pending debounced save first so the delete below is the last write to
+            // land (it could also fire after the key row is deleted).
             saveJob?.cancel()
             viewModelScope.launch {
                 val removed =
                     try {
                         withContext(NonCancellable) {
-                            settingsStore.clearApiKey()
-                            // The persisted model is meaningless without a key; clear it too so the
-                            // settings screen can never show a stale selection after removal.
-                            persistSettings(
-                                "AssistantViewModel.removeProviderKey",
-                                _uiState.value.settings.copy(model = ""),
-                            )
+                            // Deletes the key, the model row and the reconfigure flag in ONE
+                            // transaction — no follow-up write needed.
+                            settingsStore.clearProviderConfiguration()
                         }
                         true
                     } catch (closed: IllegalStateException) {
@@ -541,26 +583,48 @@ class AssistantViewModel
             _uiState.update { it.copy(busy = null, error = AssistantErrorKind.DB_LOCKED) }
         }
 
-        /** Best-effort settings persist: a failure is logged, never silently dropped. */
-        private suspend fun persistSettings(tag: String, settings: AssistantSettings) {
+        /** Best-effort settings persist; true when the write landed. Failure is logged, never silently dropped. */
+        private suspend fun tryPersistSettings(tag: String, settings: AssistantSettings): Boolean =
             runCatching { settingsStore.save(settings) }
                 .onFailure { error -> logger.e(tag, "Settings save failed", error) }
+                .isSuccess
+
+        /** Replaces every occurrence of the given (non-empty) secret values in [text]. Internal for direct test pinning. */
+        internal fun redactSecrets(text: String, vararg secrets: String): String {
+            var redacted = text
+            secrets.filter { it.isNotEmpty() }.forEach { secret -> redacted = redacted.replace(secret, "<redacted>") }
+            return redacted
         }
 
-        private fun handleHttpError(tag: String, http: AssistantHttpException) {
+        /**
+         * Logs one provider failure. The provider body can echo the submitted key, so the
+         * detail is redacted (REDACT then truncate) before it reaches the log, and the
+         * throwable passed to the logger carries the redacted text too (UnifiedLogger writes
+         * `error.message`); a rejected key never logs the body at all.
+         */
+        private fun handleHttpError(tag: String, http: AssistantHttpException, submittedKey: String) {
+            val rejected = http.kind == AssistantErrorKind.KEY_REJECTED
+            val safeDetail =
+                if (rejected) {
+                    null
+                } else {
+                    redactSecrets(http.detail, submittedKey, apiKey).take(300)
+                }
+            val error: Throwable? = if (safeDetail == null) null else AssistantHttpException(http.kind, safeDetail)
             logger.e(
                 "$tag.http",
                 "Provider error",
-                http,
-                mapOf("kind" to http.kind.name, "detail" to http.detail.take(300)),
+                error,
+                mapOf("kind" to http.kind.name, "detailChars" to http.detail.length, "detail" to safeDetail),
             )
             _uiState.update {
                 it.copy(
                     busy = null,
                     error = http.kind,
-                    // Provider-side failures carry the provider's own words, shown verbatim.
-                    errorDetail = if (http.kind == AssistantErrorKind.KEY_REJECTED) null else http.detail,
-                    keyInvalid = http.kind == AssistantErrorKind.KEY_REJECTED,
+                    // Provider-side failures carry the provider's own words — redacted and
+                    // truncated exactly like the log channel, so the screen cannot echo the key.
+                    errorDetail = if (rejected) null else safeDetail,
+                    keyInvalid = rejected,
                 )
             }
         }

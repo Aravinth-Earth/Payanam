@@ -1261,6 +1261,7 @@
     <string name="assistant_setup_offline_note">No servers, no telemetry: if you never use this screen, no data ever leaves your device.</string>
     <string name="assistant_key_label">API key</string>
     <string name="assistant_key_hint">Paste your key</string>
+    <string name="assistant_key_stored_hint">A stored key is in use — paste a new key to replace it.</string>
     <string name="assistant_key_show">Show key</string>
     <string name="assistant_key_hide">Hide key</string>
     <string name="assistant_key_load_models">Load models</string>

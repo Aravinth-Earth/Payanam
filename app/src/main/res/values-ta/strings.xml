@@ -1260,6 +1260,7 @@
     <string name="assistant_setup_offline_note">Servers இல்லை, telemetry இல்லை: இந்த screen-ஐ நீங்கள் பயன்படுத்தவில்லை என்றால், எதுவும் உங்கள் device-ஐ விட்டு வெளியே போகாது.</string>
     <string name="assistant_key_label">உங்கள் API key</string>
     <string name="assistant_key_hint">உங்கள் key-ஐ paste செய்யுங்கள்</string>
+    <string name="assistant_key_stored_hint">சேமித்த key பயன்பாட்டில் உள்ளது — மாற்ற வேண்டுமெனில் புதிய key-ஐ paste செய்யுங்கள்.</string>
     <string name="assistant_key_show">Key-ஐ காட்டு</string>
     <string name="assistant_key_hide">Key-ஐ மறை</string>
     <string name="assistant_key_load_models">Models load செய்</string>

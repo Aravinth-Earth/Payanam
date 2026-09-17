@@ -230,18 +230,26 @@ private fun SetupContent(
             style = MaterialTheme.typography.labelMedium,
             color = MaterialTheme.colorScheme.primary,
         )
+        val storedKeyHint = uiState.hasKey && uiState.keyDraft.isBlank()
         OutlinedTextField(
             value = uiState.keyDraft,
             onValueChange = onKeyChange,
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.assistant_key_label)) },
-            placeholder = { Text(stringResource(id = R.string.assistant_key_hint)) },
+            placeholder =
+                if (storedKeyHint) {
+                    null
+                } else {
+                    @Composable { Text(stringResource(id = R.string.assistant_key_hint)) }
+                },
             singleLine = true,
             visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
             isError = uiState.keyInvalid,
             supportingText =
                 if (uiState.keyInvalid) {
                     { Text(stringResource(id = R.string.assistant_error_key_rejected)) }
+                } else if (storedKeyHint) {
+                    { Text(stringResource(id = R.string.assistant_key_stored_hint)) }
                 } else {
                     null
                 },
@@ -258,7 +266,7 @@ private fun SetupContent(
         )
         Button(
             onClick = onLoadModels,
-            enabled = uiState.keyDraft.isNotBlank() && !uiState.modelsLoading,
+            enabled = (uiState.keyDraft.isNotBlank() || uiState.hasKey) && !uiState.modelsLoading,
             modifier = Modifier.fillMaxWidth(),
         ) {
             if (uiState.modelsLoading) {

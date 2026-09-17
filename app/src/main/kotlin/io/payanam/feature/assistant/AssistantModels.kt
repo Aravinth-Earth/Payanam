@@ -146,7 +146,9 @@ sealed interface AssistantBusy {
 /**
  * True once the assistant is fully configured — a stored key AND a user-picked model. The chat
  * surface is reachable only in this state, so the predicate lives in one place instead of being
- * re-derived by every gate.
+ * re-derived by every gate. Deterministic despite a possibly stale model row: the assistant
+ * ViewModel blanks the model during refresh while a reconfigure is pending, so this never
+ * reports configured mid-reconfigure.
  */
 val AssistantUiState.isConfigured: Boolean
     get() = hasKey && settings.model.isNotEmpty()

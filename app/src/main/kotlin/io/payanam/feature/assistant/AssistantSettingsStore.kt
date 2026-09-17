@@ -18,6 +18,13 @@ import javax.inject.Singleton
  * the rest of the user's data, and is unavailable while the DB session is closed.
  *
  * The key value is never logged: only its length and a short SHA-256 fingerprint.
+ *
+ * Two rows follow a single-writer discipline: the model row is written only by [saveAll],
+ * and the reconfigure flag (`KEY_SETUP_REQUIRED`) only by [beginReconfigure] (set) and
+ * [saveAll]/[clearProviderConfiguration] (clear). Neutral writers ([save] and dispose/
+ * onCleared flushes) write neither, so they can never resurrect a model or clear a pending
+ * reconfigure. A pending flag rides database backups like any other row; recovery is the
+ * normal setup path (the stored key keeps "Load models" usable).
  */
 @Singleton
 class AssistantSettingsStore
@@ -27,21 +34,27 @@ class AssistantSettingsStore
     ) {
         private val logger = UnifiedLogger.getInstance()
 
-        /** Loads the stored API key (empty string when unset). */
-        suspend fun loadApiKey(): String = read(KEY_API_KEY) ?: ""
+        /**
+         * Reads the key + settings + reconfigure flag in ONE transaction (one consistent
+         * snapshot; the flag tells the caller to show the setup surface).
+         */
+        suspend fun loadConfig(): StoredAssistantConfig =
+            sessionManager.requireDatabase().withTransaction {
+                StoredAssistantConfig(
+                    apiKey = read(KEY_API_KEY) ?: "",
+                    settings = loadSettings(),
+                    setupRequired = read(KEY_SETUP_REQUIRED)?.toBooleanStrictOrNull() ?: false,
+                )
+            }.also { config ->
+                logger.d(
+                    "AssistantSettingsStore.loadConfig",
+                    "Assistant config loaded",
+                    mapOf("hasKey" to config.apiKey.isNotEmpty(), "setupRequired" to config.setupRequired),
+                )
+            }
 
-        /** Stores the API key; logs only length + fingerprint. */
-        suspend fun saveApiKey(value: String) {
-            write(KEY_API_KEY, value)
-            logger.i(
-                "AssistantSettingsStore.saveApiKey",
-                "API key stored",
-                mapOf("length" to value.length, "fingerprint" to fingerprint(value)),
-            )
-        }
-
-        /** Loads every non-secret setting, applying defaults for missing rows. */
-        suspend fun load(): AssistantSettings {
+        /** Loads the non-secret settings, applying defaults for missing rows. */
+        private suspend fun loadSettings(): AssistantSettings {
             val settings = AssistantSettings(
                 model = read(KEY_MODEL) ?: "",
                 length = AssistantLength.fromName(read(KEY_LENGTH)),
@@ -61,30 +74,26 @@ class AssistantSettingsStore
                 ),
                 noticeShown = read(KEY_NOTICE_SHOWN)?.toBooleanStrictOrNull() ?: false,
             ).sanitized()
-            logger.d(
-                "AssistantSettingsStore.load",
-                "Assistant settings loaded",
-                mapOf(
-                    "model" to settings.model,
-                    "length" to settings.length.name,
-                    "maxRows" to settings.maxRows,
-                    "rounds" to settings.rounds,
-                    "historyDepth" to settings.historyDepth,
-                    "showMethod" to settings.showMethod,
-                    "chipsEnabled" to settings.chipsEnabled,
-                    "promptAdditionsChars" to settings.promptAdditions.length,
-                    "aboutMeEmpty" to settings.aboutMe.isEmpty(),
-                    "noticeShown" to settings.noticeShown,
-                ),
-            )
             return settings
         }
 
-        /** Stores every non-secret setting field atomically (single transaction). */
+        /**
+         * Flags that the provider must be reconfigured: until [saveAll] (or a key removal)
+         * clears it, the assistant destination resolves to the setup surface.
+         */
+        suspend fun beginReconfigure() {
+            writeSetupRequired(true)
+            logger.i("AssistantSettingsStore.beginReconfigure", "Reconfigure requested; assistant disabled until Save & start")
+        }
+
+        /**
+         * Stores the neutral (non-secret, non-model) setting rows in one transaction.
+         * The model row is owned by [saveAll]; the flag by [beginReconfigure]/[saveAll].
+         */
         suspend fun save(settings: AssistantSettings) {
             val clean = settings.sanitized()
             sessionManager.requireDatabase().withTransaction { writeAll(clean) }
-            logger.d("AssistantSettingsStore.save", "Assistant settings saved", mapOf("fields" to FIELD_COUNT))
+            logger.d("AssistantSettingsStore.save", "Assistant settings saved", mapOf("fields" to STORED_SETTING_ROWS))
         }
 
         /**
@@ -97,18 +106,25 @@ class AssistantSettingsStore
             val clean = settings.sanitized()
             sessionManager.requireDatabase().withTransaction {
                 writeAll(clean)
+                write(KEY_MODEL, clean.model)
                 if (apiKey != null) write(KEY_API_KEY, apiKey)
+                // Unconditional: the reconfigure-with-same-key path (apiKey == null) must clear it too.
+                writeSetupRequired(false)
             }
-            logger.d(
+            logger.i(
                 "AssistantSettingsStore.saveAll",
                 "Key + settings saved in one transaction",
-                mapOf("fields" to FIELD_COUNT, "keyWritten" to (apiKey != null)),
+                mapOf("fields" to STORED_SETTING_ROWS, "keyWritten" to (apiKey != null), "setupRequired" to false),
             )
         }
 
-        /** Writes the key + every settings row; callers must already hold the transaction. */
+        /**
+         * Writes the neutral settings rows; callers must already hold the transaction.
+         * Deliberately EXCLUDES the model row (single-writer: [saveAll]) and the reconfigure
+         * flag ([writeSetupRequired]) so neutral writers (debounced saves, dispose/onCleared
+         * flushes) can never resurrect a model or clear the flag.
+         */
         private suspend fun writeAll(clean: AssistantSettings) {
-            write(KEY_MODEL, clean.model)
             write(KEY_LENGTH, clean.length.name)
             write(KEY_MAX_ROWS, clean.maxRows.toString())
             write(KEY_ROUNDS, clean.rounds.toString())
@@ -131,10 +147,20 @@ class AssistantSettingsStore
             logger.i("AssistantSettingsStore.markNoticeShown", "First-run notice acknowledged")
         }
 
-        /** Deletes the stored key (used when the user replaces it). */
-        suspend fun clearApiKey() {
-            sessionManager.requireDatabase().appSettingsDao().deleteSetting(KEY_API_KEY)
-            logger.i("AssistantSettingsStore.clearApiKey", "API key cleared")
+        /**
+         * Removes the stored provider configuration — key, model and the reconfigure flag —
+         * in ONE transaction (used by "Remove key" / replacing the provider).
+         */
+        suspend fun clearProviderConfiguration() {
+            sessionManager.requireDatabase().withTransaction {
+                delete(KEY_API_KEY)
+                delete(KEY_SETUP_REQUIRED)
+                delete(KEY_MODEL)
+            }
+            logger.i(
+                "AssistantSettingsStore.clearProviderConfiguration",
+                "Provider configuration cleared (key, model, reconfigure flag)",
+            )
         }
 
         /** Short non-reversible fingerprint used for trace correlation. */
@@ -151,6 +177,18 @@ class AssistantSettingsStore
             sessionManager.requireDatabase().appSettingsDao().insertSetting(
                 AppSettingEntity(key = key, value = value, updatedAt = Instant.now().toString()),
             )
+        }
+
+        private suspend fun delete(key: String) {
+            sessionManager.requireDatabase().appSettingsDao().deleteSetting(key)
+        }
+
+        /**
+         * Writes the reconfigure flag. Called ONLY by [beginReconfigure] and [saveAll] —
+         * deliberately not from [writeAll], so neutral writers can never clear it.
+         */
+        private suspend fun writeSetupRequired(value: Boolean) {
+            write(KEY_SETUP_REQUIRED, value.toString())
         }
 
         private companion object {
@@ -171,6 +209,22 @@ class AssistantSettingsStore
             private const val KEY_ABOUT_FOCUS = "assistant.about_focus"
             private const val KEY_ABOUT_NOTE = "assistant.about_note"
             private const val KEY_NOTICE_SHOWN = "assistant.notice_shown"
-            private const val FIELD_COUNT = 15
+            private const val KEY_SETUP_REQUIRED = "assistant.setup_required"
+
+            /** Rows [writeAll] persists; the model row and the flag are written separately. */
+            private const val STORED_SETTING_ROWS = 14
         }
     }
+
+/**
+ * One consistent snapshot of the assistant configuration: the stored key (empty when
+ * unset), the non-secret settings, and the reconfigure flag. [toString] never emits the key.
+ */
+data class StoredAssistantConfig(
+    val apiKey: String,
+    val settings: AssistantSettings,
+    val setupRequired: Boolean,
+) {
+    override fun toString(): String =
+        "StoredAssistantConfig(apiKey=<redacted>, setupRequired=$setupRequired)"
+}

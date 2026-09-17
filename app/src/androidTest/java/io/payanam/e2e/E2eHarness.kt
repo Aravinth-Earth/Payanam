@@ -407,6 +407,27 @@ class E2eHarness(
     }
 
     /**
+     * Enabled state of the first on-screen node carrying this label.
+     *
+     * Compose marks a disabled node with [SemanticsProperties.Disabled]; "enabled" is the absence
+     * of that key — there is no positive Enabled property in the semantics tree. Returns `false`
+     * when the node is disabled OR when there is no displayed match at all (callers treat a
+     * missing node as "not usable", which is the honest reading for gates).
+     */
+    fun isEnabled(label: String): Boolean {
+        ensurePresent(label)
+        if (!isOnScreen(label)) scrollTo(label)
+        val nodes = rule.onAllNodes(labelled(label))
+        val count = runCatching { nodes.fetchSemanticsNodes().size }.getOrDefault(0)
+        for (i in 0 until count) {
+            if (!nodes[i].isDisplayed()) continue
+            val disabled = nodes[i].fetchSemanticsNode().config.getOrNull(SemanticsProperties.Disabled)
+            return disabled == null
+        }
+        return false
+    }
+
+    /**
      * How many switch ROWS carry this exact label.
      *
      * A row renders its label twice — once as text and again as the switch's accessibility label — so
@@ -605,5 +626,18 @@ class E2eHarness(
         clickNav(name)
         rule.waitForIdle()
         log("nav=$name")
+    }
+
+    /** Opens the assistant destination from Lenses (waits out the loading spinner first). */
+    fun openAssistant() {
+        goToTab("Lenses")
+        // Lenses renders a bare spinner while it loads — no scrollable at all, so the honest
+        // readiness signal is the scrollable list itself; only then can the card be searched for.
+        rule.waitUntil(60_000) {
+            rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty()
+        }
+        scrollTo("AI Assistance")
+        assertVisible("Experimental")
+        click("Open")
     }
 }

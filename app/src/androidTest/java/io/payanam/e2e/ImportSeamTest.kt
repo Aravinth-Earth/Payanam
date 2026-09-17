@@ -161,9 +161,7 @@ class ImportSeamTest {
     }
 
     private fun deleteCanonicalArtifacts() {
-        val basePath = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath
-        COMPANION_SUFFIXES.forEach { suffix -> File(basePath + suffix).delete() }
-        File(basePath).delete()
+        deleteCanonicalDatabaseArtifacts(context)
     }
 
     /** Minimal in-memory stand-in: the import path never reads settings, only writes on success. */
@@ -193,7 +191,6 @@ class ImportSeamTest {
         const val PASSPHRASE = "ImportSeam#Test123"
         const val FIXTURE_DIR_NAME = "import-seam-fixture"
         const val POLL_MILLIS = 50L
-        val COMPANION_SUFFIXES = listOf("-wal", "-shm", "-journal")
         val REQUIRED_TABLES =
             listOf("tasks", "time_entries", "notes", "day_journal_entries", "app_settings")
     }

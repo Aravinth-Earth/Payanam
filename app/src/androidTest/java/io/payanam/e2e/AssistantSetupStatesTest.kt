@@ -2,7 +2,6 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.e2e
 
-import androidx.compose.ui.test.hasScrollAction
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.payanam.MainActivity
@@ -49,7 +48,7 @@ class AssistantSetupStatesTest {
         h.click("Verify and proceed")
         h.assertVisible("Per Dimension")
 
-        openAssistant()
+        h.openAssistant()
 
         // ── 1. the disclosure: shown on first open, acknowledged, never again ──
         h.assertVisible(NOTICE_TITLE)
@@ -98,26 +97,13 @@ class AssistantSetupStatesTest {
         // ── 5. leaving and returning: notice stays acknowledged, key was never persisted ──
         h.back()
         h.assertVisible("Lenses")
-        openAssistant()
+        h.openAssistant()
         h.assertNotVisible(NOTICE_TITLE)
         h.assertVisible("Connect a model provider")
         h.assertNotVisible(CHAT_INPUT_HINT)
         h.log("notice-persisted=ok")
 
         h.log("assistant-setup=done")
-    }
-
-    private fun openAssistant() {
-        h.goToTab("Lenses")
-        // Lenses renders a bare spinner while it loads — no scrollable at all. The bottom nav alone
-        // supplies plenty of text nodes, so the honest readiness signal is the scrollable list
-        // itself; only then can the assistant card be searched for.
-        rule.waitUntil(60_000) {
-            rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty()
-        }
-        h.scrollTo("AI Assistance")
-        h.assertVisible("Experimental")
-        h.click("Open")
     }
 
     private companion object {
