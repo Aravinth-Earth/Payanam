@@ -319,7 +319,7 @@ class AssistantViewModel
                     "AssistantTurn.start",
                     "Question asked",
                     mapOf(
-                        "question" to question,
+                        "questionChars" to question.length,
                         "model" to settings.model,
                         "historyTurns" to history.size,
                         "schemaChars" to schema.length,
@@ -367,7 +367,7 @@ class AssistantViewModel
                             logger.w(
                                 "AssistantTurn.guard",
                                 "SQL rejected by read-only guard",
-                                mapOf("reason" to guarded.reason, "sql" to sql.take(400)),
+                                mapOf("reason" to guarded.reason, "sqlChars" to sql.length),
                             )
                             messages += ChatTurn("assistant", reply.content)
                             messages += ChatTurn("user", AssistantProtocol.guardRejectionPrompt(guarded.reason))
@@ -471,7 +471,7 @@ class AssistantViewModel
                     "finish" to reply.finishReason.ifEmpty { "-" },
                     "promptTokens" to reply.promptTokens,
                     "completionTokens" to reply.completionTokens,
-                    "preview" to reply.content.replace('\n', ' ').take(240),
+                    "replyChars" to reply.content.length,
                 ),
             )
         }
