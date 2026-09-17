@@ -6,13 +6,13 @@ package io.payanam.feature.assistant
 
 import io.payanam.common.logging.UnifiedLogger
 import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import kotlinx.serialization.json.buildJsonObject
 import kotlinx.serialization.json.contentOrNull
 import kotlinx.serialization.json.intOrNull
-import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
-import kotlinx.serialization.json.jsonPrimitive
 import kotlinx.serialization.json.put
 import kotlinx.serialization.json.putJsonArray
 
@@ -60,9 +60,9 @@ class OpenCodeGoClient(private val transport: HttpTransport) {
             .onFailure { error -> logParseFailure("OpenCodeGoClient.fetchModels", error) }
             .getOrNull()
             ?: throw AssistantHttpException(AssistantErrorKind.SERVER, "models: unparseable response")
-        val ids = root["data"]?.jsonArray.orEmpty()
+        val ids = (root["data"] as? JsonArray).orEmpty()
             .mapNotNull { element ->
-                (element as? JsonObject)?.get("id")?.jsonPrimitive?.contentOrNull
+                ((element as? JsonObject)?.get("id") as? JsonPrimitive)?.contentOrNull
             }
             .filter { id -> AssistantDefaults.BLOCKED_MODEL_PREFIXES.none { id.startsWith(it) } }
             .distinct()
@@ -125,16 +125,16 @@ class OpenCodeGoClient(private val transport: HttpTransport) {
             .onFailure { error -> logParseFailure("OpenCodeGoClient.chat", error) }
             .getOrNull()
             ?: throw AssistantHttpException(AssistantErrorKind.SERVER, "chat: unparseable response")
-        val choice = root["choices"]?.jsonArray?.firstOrNull()?.jsonObject
+        val choice = (root["choices"] as? JsonArray)?.firstOrNull() as? JsonObject
             ?: throw AssistantHttpException(AssistantErrorKind.SERVER, "chat: empty choices")
-        val content = choice["message"]?.jsonObject?.get("content")?.jsonPrimitive?.contentOrNull ?: ""
-        val finish = choice["finish_reason"]?.jsonPrimitive?.contentOrNull ?: ""
-        val usage = root["usage"]?.jsonObject
+        val content = ((choice["message"] as? JsonObject)?.get("content") as? JsonPrimitive)?.contentOrNull ?: ""
+        val finish = (choice["finish_reason"] as? JsonPrimitive)?.contentOrNull ?: ""
+        val usage = root["usage"] as? JsonObject
         return ChatReply(
             content = content,
             finishReason = finish,
-            promptTokens = usage?.get("prompt_tokens")?.jsonPrimitive?.intOrNull ?: 0,
-            completionTokens = usage?.get("completion_tokens")?.jsonPrimitive?.intOrNull ?: 0,
+            promptTokens = (usage?.get("prompt_tokens") as? JsonPrimitive)?.intOrNull ?: 0,
+            completionTokens = (usage?.get("completion_tokens") as? JsonPrimitive)?.intOrNull ?: 0,
         )
     }
 
