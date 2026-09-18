@@ -1,5 +1,7 @@
 # Payanam (பயணம்)
 
+Last Updated: 2026-09-14
+
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
 [![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-purple?style=flat-square&labelColor=1a1a1a)](LICENSE)
@@ -9,7 +11,7 @@
 [![🧪 Beta](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?include_prereleases&filter=beta*&label=Beta&color=blue&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 [![✅ Stable](https://img.shields.io/badge/%E2%9C%85-Stable-green?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 
-Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking.
+Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking, no telemetry — and no network call ever carries your data. The one clearly-flagged exception that can send your data is the BYOK AI assistant, which is off unless you set it up yourself (an optional update check also talks to GitHub, but it sends none of your data; see [Privacy & network](#privacy--network)).
 
 See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
@@ -59,8 +61,24 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new.
 | ✅ | Journal — Daily notes with dimension tagging |
 | ✅ | Tamil (தமிழ்) — Full string parity in `values-ta/` |
 | ✅ | Desktop foundation — Compose Desktop with Windows EXE/MSI |
+| 🧪 | Optional AI Assistance (BYOK) — ask your data in plain language using your own model provider key; off by default, and the app stays fully offline without it |
 | 🔄 | Export / Import — Auto-backup + manual export/import with passphrase |
 | ⏭️ | Cross-device sync (planned) |
+
+---
+
+## Privacy & network
+
+Payanam is offline by design. It has no servers, no accounts, no analytics, and no telemetry: unless you explicitly enable the one optional feature below, no data about you or your usage ever leaves your device, and the app is fully functional offline.
+
+**AI Assistance — optional, BYOK (bring your own key).** A chat screen (Lenses → AI Assistance) where you connect your own model provider key and ask questions about your tracked data. The rules:
+
+- **Opt-in and off by default.** If you never open it and add a key, it never runs and no network call is ever made on its behalf.
+- **You bring your own key** — your key is stored only inside the app's encrypted database, never in plain text.
+- **Minimum data only.** When — and only when — you ask a question, your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — are sent to the model provider you chose; the answer is generated there. Nothing else of yours is sent. Your database is never uploaded.
+- **AI answers are statistical.** They can be wrong, and a model's reading is not human or professional judgement — verify the numbers, treat suggestions as hints.
+- **Fully reversible.** Remove the key at any time and the feature is off again.
+- **Third-party service.** The optional connection uses OpenCode Zen. Your key and your usage are governed by [OpenCode's Terms of Service](https://opencode.ai/legal/terms-of-service); Payanam is not affiliated with OpenCode.
 
 ---
 
@@ -122,7 +140,9 @@ Windows users can also use `.\build-tools\scripts\build-android.ps1` for the ful
 ## Credits
 
 Inspiration from [uHabits](https://github.com/iSoron/uhabits), [SATT](https://github.com/Razeeman/Android-SimpleTimeTracker), and [Google Stitch](https://stitch.google.com).  
-Third-party libraries: AndroidX, Compose, Hilt, Room, Coroutines, [Vico Charts](https://github.com/patrykandpatrick/vico), Timber.
+Third-party libraries: AndroidX, Kotlin & kotlinx (Coroutines, Serialization), Jetpack Compose + Material3, Hilt (Dagger), Room, [SQLCipher](https://www.zetetic.net/sqlcipher/) (database encryption), [Vico Charts](https://github.com/patrykandpatrick/vico), Timber, WorkManager.  
+Quality tooling: [detekt](https://detekt.dev), [Spotless](https://github.com/diffplug/spotless) + [ktlint](https://ktlint.github.io), JUnit, [Robolectric](https://robolectric.org), [Mockito](https://site.mockito.org), [Truth](https://truth.dev), Espresso.  
+Optional AI gateway: [OpenCode Zen](https://opencode.ai/zen) — the BYOK provider the optional AI Assistance feature talks to. Payanam is not affiliated with OpenCode.
 
 ---
 

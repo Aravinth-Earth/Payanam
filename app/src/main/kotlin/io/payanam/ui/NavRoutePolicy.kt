@@ -28,6 +28,8 @@ internal object NavRoutePolicy {
         "task_detail",
         "edit_task",
         "scoring_config",
+        "assistant",
+        "assistant_settings",
     )
     val minimalModeAllowedTabs: Set<String> = setOf(
         "time",

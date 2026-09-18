@@ -1,6 +1,6 @@
 Payanam (பயணம் — "journey") is a privacy-first life dimension manager for Android. Track what matters to you across the dimensions of life you define.
 
-<b>Your data never leaves your device.</b> No cloud. No accounts. No tracking. No subscriptions.
+<b>Your data stays on your device by default. You control what leaves it.</b> No cloud of ours. No accounts. No tracking. No subscriptions. Payanam has no servers of its own: the only feature that sends your data (AI Assistance) is off unless you enable it yourself, and when you use it, only your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — are sent to the model provider you choose. Nothing else of yours is sent.
 
 <b>Life Dimensions</b>
 Comes with 9 default dimensions — Work & Livelihood, Physical Health, Family & Relationships, Home Environment, Money & Finance, Mental Health, Recreation & Leisure, Learning & Growth, Community & Service. Customize names, icons, colors, or create your own. Set per-dimension weightage that controls how each life area contributes to your scores.
@@ -34,6 +34,9 @@ Enable or disable individual modules. Choose your default home tab. System theme
 
 <b>Cross-Platform & Updates</b>
 Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. In-app update checker across 3 channels (dev/beta/stable) with three opt-in levels: check, auto-download over WiFi, and prompt to install.
+
+<b>AI Assistance (optional, BYOK)</b>
+An optional chat screen (Lenses → AI Assistance) where you connect your own model provider key and ask questions about your data in plain language. Entirely opt-in: if you never set it up, no network call is made for this feature and the app stays fully functional offline. When you use it, your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — are sent to the model provider you chose; nothing else of yours is sent; the key is stored only in the app's encrypted database; and removing the key switches it fully off. AI answers are statistical and can be wrong — verify the numbers, and treat readings as hints, not verdicts.
 
 Payanam is open source under AGPL-3.0. All improvements stay open.
 

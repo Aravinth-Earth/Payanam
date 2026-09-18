@@ -1,6 +1,6 @@
 # Payanam Vision & Philosophy
 
-Last Updated: 2026-07-24
+Last Updated: 2026-09-14
 
 ## Core Vision
 
@@ -10,7 +10,7 @@ Last Updated: 2026-07-24
 - **See patterns** — how your energy, focus, and priorities shift over time
 - **Reflect** — a private mirror for your own growth, not a productivity dashboard for someone else's goals
 
-All data stays on your device. No cloud, no accounts, no tracking — unless you choose otherwise.
+All data of yours stays on your device, unless you deliberately opt in to an optional feature that sends it — such as AI Assistance, described under Current State below. No cloud of ours, no accounts, no tracking.
 
 ---
 
@@ -22,8 +22,9 @@ All data stays on your device. No cloud, no accounts, no tracking — unless you
 | Desktop foundation (Windows) | ✅ Foundation built |
 | Sync (e2ee, cross-device) | 🔄 Planned |
 | On-device AI assistance | 🔄 Planned |
+| AI assistance — BYOK (bring your own model key) | 🧪 In development (optional) |
 
-The app is fully functional locally today. Future sync and AI layers will be **optional** — the core app stays local-first and free.
+The app is fully functional locally today. Future sync and AI layers will be **optional** — the core app stays local-first and free. The BYOK AI assistant follows the same rule: off unless you configure your own model key, and when used it only sends your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — to the provider you chose; nothing else of yours is sent.. Removing the key switches it fully off.
 
 ---
 

@@ -39,8 +39,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1790
-          versionName = "1790"
+          versionCode = 1822
+          versionName = "1822"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -50,6 +50,7 @@ android {
         buildConfigField("boolean", "PLANS_CTA_ENABLED", "true")
         buildConfigField("boolean", "FOCUS_MODE_SETTINGS_ENABLED", "true")
         buildConfigField("boolean", "SCORE_SETTINGS_ENABLED", "true")
+        buildConfigField("boolean", "AI_ASSISTANT", "true")
 
 
 
@@ -238,6 +239,7 @@ dependencies {
 
     // Room (for direct DB/DAO access via DatabaseSessionManager)
     implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
 
     // WorkManager for auto-backup
     implementation(libs.workmanager)

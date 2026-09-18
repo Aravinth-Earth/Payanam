@@ -24,6 +24,12 @@ internal object LogSanitizer {
         )
     private val lineBreakRegex = Regex("[\\r\\n]+")
     private val allowedEmptyIdentifierTokens = setOf("none", "null", "n/a", "unknown")
+
+    /**
+     * Substrings that mark a map key as sensitive. Matching is case- and
+     * separator-insensitive, so `api-key`, `X-Api-Key`, `api key` and
+     * `api_key` all match the same `apikey` entry.
+     */
     private val sensitiveKeyTokens =
         setOf(
             "task",
@@ -46,12 +52,18 @@ internal object LogSanitizer {
             "secret",
             "token",
             "otp",
+            "apikey",
+            "api_key",
+            "authorization",
+            "credential",
             "prompt",
             "response",
             "answer",
             "dimension",
             "category",
-        )
+        ).map { token ->
+            token.filter { character -> character.isLetterOrDigit() }
+        }.toSet()
 
     /**
      * Recursively walks a structured [data] map and redacts sensitive values
@@ -86,6 +98,9 @@ internal object LogSanitizer {
         }
 
         val normalizedKey = key.lowercase(Locale.US)
+        // Separator-insensitive view of the key, so hyphen/underscore/space
+        // variants ("api-key", "api_key", "api key") hit the same sensitive entry.
+        val comparableKey = normalizedKey.filter { character -> character.isLetterOrDigit() }
 
         if (isIdentifierKey(normalizedKey)) {
             val idValue = value.toString()
@@ -95,7 +110,7 @@ internal object LogSanitizer {
             return if (uuidRegex.matches(idValue)) idValue else NON_UUID_VALUE
         }
 
-        if (sensitiveKeyTokens.any { normalizedKey.contains(it) } && shouldRedactValue(value)) {
+        if (sensitiveKeyTokens.any { comparableKey.contains(it) } && shouldRedactValue(value)) {
             return REDACTED_VALUE
         }
 
