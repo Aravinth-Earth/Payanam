@@ -10,8 +10,9 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.shared.security.PassphraseKdf
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -20,9 +21,7 @@ import java.util.Arrays
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 
 @Suppress("TooManyFunctions")
 /**
@@ -142,8 +141,7 @@ class DatabaseEncryptionManager(
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
         )
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.disableBiometricUnlock",
             stage = "requested",
             data =
@@ -154,8 +152,7 @@ class DatabaseEncryptionManager(
         )
         return runCatching {
             disableBiometricUnlockInternal()
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.disableBiometricUnlock",
                 stage = "completed",
             )
@@ -170,8 +167,7 @@ class DatabaseEncryptionManager(
                 "Failed to disable biometric unlock cleanly",
                 error,
             )
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.disableBiometricUnlock",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -193,8 +189,7 @@ class DatabaseEncryptionManager(
                 "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
             ),
         )
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.configurePassphrase",
             stage = "started",
             data =
@@ -205,14 +200,12 @@ class DatabaseEncryptionManager(
         )
         return runCatching {
             persistVerifier(passphrase)
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "verifier_persisted",
             )
             disableBiometricUnlockInternal()
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "biometric_state_cleared",
             )
@@ -223,8 +216,7 @@ class DatabaseEncryptionManager(
                     .putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
                     .commit(),
             ) { "Failed to persist encryption mode" }
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "mode_persisted",
             )
@@ -241,8 +233,7 @@ class DatabaseEncryptionManager(
                 "Failed to configure database passphrase",
                 error,
             )
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -290,8 +281,7 @@ class DatabaseEncryptionManager(
      * of encryption entirely. Returns true on success.
      */
     fun resetEncryptionState(): Boolean {
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.resetEncryptionState",
             stage = "started",
         )
@@ -300,16 +290,14 @@ class DatabaseEncryptionManager(
             deleteKeyAlias(BIOMETRIC_KEY_ALIAS)
             deleteKeyAlias(LEGACY_WRAP_KEY_ALIAS)
             logger.w("DatabaseEncryptionManager.resetEncryptionState", "Encryption state reset and keystore keys cleared")
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.resetEncryptionState",
                 stage = "completed",
             )
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.resetEncryptionState", "Failed to reset encryption state", error)
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.resetEncryptionState",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -582,7 +570,7 @@ class DatabaseEncryptionManager(
     }
 
     private fun persistVerifier(passphrase: String) {
-        val salt = ByteArray(SALT_BYTES).also { secureRandom.nextBytes(it) }
+        val salt = ByteArray(PassphraseKdf.SALT_BYTES).also { secureRandom.nextBytes(it) }
         val hash = deriveVerifier(passphrase, salt)
         try {
             val persisted =
@@ -610,11 +598,11 @@ class DatabaseEncryptionManager(
         salt: ByteArray,
     ): ByteArray {
         val passphraseChars = passphrase.toCharArray()
-        val keySpec = PBEKeySpec(passphraseChars, salt, PBKDF2_ITERATIONS, PBKDF2_BITS)
         return try {
-            SecretKeyFactory.getInstance(PBKDF2_ALGORITHM).generateSecret(keySpec).encoded
+            // The SHARED configuration: Android and the desktop must not derive the same passphrase at
+            // different costs, which is what a private constant on each side produced.
+            PassphraseKdf.derive(passphraseChars, salt)
         } finally {
-            keySpec.clearPassword()
             Arrays.fill(passphraseChars, '\u0000')
         }
     }
@@ -777,7 +765,6 @@ class DatabaseEncryptionManager(
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
-        private const val SALT_BYTES = 32
 
         private const val BACKUP_PREFIX = "_bak_"
         private val BACKUP_STRING_KEYS =
@@ -792,9 +779,6 @@ class DatabaseEncryptionManager(
             )
         private val BACKUP_BOOLEAN_KEYS = arrayOf(KEY_BIOMETRIC_UNLOCK_ENABLED)
 
-        private const val PBKDF2_ITERATIONS = 210_000
-        private const val PBKDF2_BITS = 256
-        private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
         private const val DEFAULT_SESSION_TIMEOUT_MINUTES = 10
         private const val MIN_SESSION_TIMEOUT_MINUTES = 1
         private const val MAX_SESSION_TIMEOUT_MINUTES = 240

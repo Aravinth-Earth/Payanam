@@ -1,8 +1,5 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-// Two screens' worth of small composables live in this file and the root chat surface is long
-// by design (one scrolling surface); TooManyFunctions is file-level by nature, so the exemption
-// is deliberate here rather than an oversight.
 @file:Suppress("MagicNumber", "LongMethod", "TooManyFunctions")
 
 package io.payanam.feature.assistant.ui
@@ -237,22 +234,22 @@ private fun SetupContent(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(stringResource(id = R.string.assistant_key_label)) },
             placeholder =
-                if (storedKeyHint) {
-                    null
-                } else {
-                    @Composable { Text(stringResource(id = R.string.assistant_key_hint)) }
-                },
+            if (storedKeyHint) {
+                null
+            } else {
+                @Composable { Text(stringResource(id = R.string.assistant_key_hint)) }
+            },
             singleLine = true,
             visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
             isError = uiState.keyInvalid,
             supportingText =
-                if (uiState.keyInvalid) {
-                    { Text(stringResource(id = R.string.assistant_error_key_rejected)) }
-                } else if (storedKeyHint) {
-                    { Text(stringResource(id = R.string.assistant_key_stored_hint)) }
-                } else {
-                    null
-                },
+            if (uiState.keyInvalid) {
+                { Text(stringResource(id = R.string.assistant_error_key_rejected)) }
+            } else if (storedKeyHint) {
+                { Text(stringResource(id = R.string.assistant_key_stored_hint)) }
+            } else {
+                null
+            },
             trailingIcon = {
                 IconButton(onClick = { keyVisible = !keyVisible }) {
                     Icon(
@@ -416,6 +413,7 @@ private fun ChatContent(
 private fun MessageBubble(message: AssistantChatMessage) {
     when {
         message.isError -> Unit
+
         message.role == AssistantChatMessage.ROLE_USER -> {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
                 Surface(
@@ -470,7 +468,9 @@ private fun MarkdownText(text: String) {
                 )
 
                 is MdBlock.Bullet -> Text("• ${block.text}", style = MaterialTheme.typography.bodyMedium)
+
                 is MdBlock.Numbered -> Text(block.text, style = MaterialTheme.typography.bodyMedium)
+
                 is MdBlock.TableRow -> Text(
                     text = block.text,
                     fontFamily = FontFamily.Monospace,
@@ -478,6 +478,7 @@ private fun MarkdownText(text: String) {
                 )
 
                 is MdBlock.Plain -> InlineText(block.text)
+
                 MdBlock.Blank -> Spacer(modifier = Modifier.height(4.dp))
             }
         }

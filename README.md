@@ -71,6 +71,10 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new.
 
 Payanam is offline by design. It has no servers, no accounts, no analytics, and no telemetry: unless you explicitly enable the one optional feature below, no data about you or your usage ever leaves your device, and the app is fully functional offline.
 
+**Local session logs.** Both the Android and desktop builds keep a session log on your device recording app errors, navigation and diagnostics — that log is what makes a bug report actionable, and it also records that a passphrase reset was attempted. It never leaves your device, it rotates automatically (the desktop keeps the 9 most recent sessions), and credentials, file paths and note/journal content are redacted before they are written. On desktop, debug-level entries are off by default and appear only when you launch with debug logging enabled (`export PAYANAM_DEBUG_LOGGING=true` on Linux/macOS; `$env:PAYANAM_DEBUG_LOGGING = "true"` in Windows PowerShell).
+
+**Fail-closed security state.** If the desktop app cannot read its stored passphrase configuration, it refuses to start rather than continuing, because it cannot tell a fresh install apart from a damaged one. The recovery it offers clears only the passphrase and its lockout state — your tasks, journal, notes and settings are not touched.
+
 **AI Assistance — optional, BYOK (bring your own key).** A chat screen (Lenses → AI Assistance) where you connect your own model provider key and ask questions about your tracked data. The rules:
 
 - **Opt-in and off by default.** If you never open it and add a key, it never runs and no network call is ever made on its behalf.

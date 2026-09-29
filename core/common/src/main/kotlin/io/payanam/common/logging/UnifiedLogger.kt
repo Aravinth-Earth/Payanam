@@ -13,6 +13,7 @@ import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import android.os.SystemClock
+import io.payanam.shared.logging.LogSanitizer
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -35,7 +36,7 @@ import java.util.concurrent.atomic.AtomicLong
 class UnifiedLogger private constructor(
     private val context: Context,
     private val buildNumber: Int,
-) {
+) : io.payanam.shared.logging.UnifiedLogger {
     private val logDir: File
     private var logFile: File
     private val logBuffer = mutableListOf<String>()
@@ -67,10 +68,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Logs a DEBUG-level entry. No-op unless debug logging is enabled. */
-    fun d(
+    override fun d(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         if (isDebugLoggingEnabled()) {
             log("DEBUG", source, message, data)
@@ -78,29 +79,29 @@ class UnifiedLogger private constructor(
     }
 
     /** Logs an INFO-level entry. */
-    fun i(
+    override fun i(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         log("INFO", source, message, data)
     }
 
     /** Logs a WARN-level entry. */
-    fun w(
+    override fun w(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         log("WARN", source, message, data)
     }
 
     /** Logs an ERROR-level entry, attaching [error] stack/metadata when present. */
-    fun e(
+    override fun e(
         source: String,
         message: String,
-        error: Throwable? = null,
-        data: Map<String, Any?>? = null,
+        error: Throwable?,
+        data: Map<String, Any?>,
     ) {
         log("ERROR", source, message, buildErrorData(error, data, MAX_STACK_FRAMES))
     }
@@ -109,11 +110,11 @@ class UnifiedLogger private constructor(
      * Synchronously logs an ERROR entry and writes it to logcat immediately,
      * bypassing the async buffer (used where a crash is imminent).
      */
-    fun eSync(
+    override fun eSync(
         source: String,
         message: String,
-        error: Throwable? = null,
-        data: Map<String, Any?>? = null,
+        error: Throwable?,
+        data: Map<String, Any?>,
     ) {
         val preparedLog =
             runBlocking {
@@ -137,7 +138,7 @@ class UnifiedLogger private constructor(
         level: String,
         source: String,
         message: String,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
     ) {
         scope.launch {
             mutex.withLock {
@@ -154,40 +155,15 @@ class UnifiedLogger private constructor(
 
     private fun buildErrorData(
         error: Throwable?,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
         stackFrameLimit: Int,
-    ): Map<String, Any?>? {
-        if (error == null) return data
-
-        val combined = data?.toMutableMap() ?: mutableMapOf()
-        combined["error"] = error.message ?: error.javaClass.simpleName
-        combined["exception"] = error.javaClass.simpleName
-        combined["stack"] =
-            error.stackTrace.take(stackFrameLimit).joinToString(" > ") {
-                "${it.fileName}:${it.lineNumber}:${it.methodName}"
-            }
-        val causeTrace =
-            buildString {
-                var current: Throwable? = error.cause
-                var depth = 0
-                while (current != null && depth < MAX_CAUSE_DEPTH) {
-                    if (isNotEmpty()) append(" || ")
-                    append("${current.javaClass.simpleName}:${current.message ?: "no-message"}")
-                    current = current.cause
-                    depth++
-                }
-            }
-        if (causeTrace.isNotEmpty()) {
-            combined["causeChain"] = causeTrace
-        }
-        return combined
-    }
+    ): Map<String, Any?> = io.payanam.shared.logging.ErrorPayload.build(error, data, stackFrameLimit)
 
     private fun prepareLog(
         level: String,
         source: String,
         message: String,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
     ): PreparedLog {
         val timestamp = dateFormat.format(Date())
         val safeMessage = LogSanitizer.sanitizeMessage(message)
@@ -542,9 +518,8 @@ class UnifiedLogger private constructor(
     companion object {
         private const val HEADER_LINE_LENGTH = 120
         private const val AUTO_FLUSH_INTERVAL_MS = 5000L
-        private const val MAX_STACK_FRAMES = 3
-        private const val MAX_CRASH_STACK_FRAMES = 64
-        private const val MAX_CAUSE_DEPTH = 8
+        private const val MAX_STACK_FRAMES = io.payanam.shared.logging.ErrorPayload.MAX_STACK_FRAMES
+        private const val MAX_CRASH_STACK_FRAMES = io.payanam.shared.logging.ErrorPayload.MAX_CRASH_STACK_FRAMES
         private const val LOG_LEVEL_WIDTH = 5
         private const val MAX_BUFFER_SIZE = 100
         private const val EXPORT_RETENTION_KEEP = 20

@@ -3,6 +3,15 @@
 package io.payanam.ui.theme
 
 import androidx.compose.ui.graphics.Color
+import io.payanam.core.ui.theme.LifeDimensionColors
+import io.payanam.core.ui.theme.PayanamDarkPrimary
+import io.payanam.core.ui.theme.PayanamDarkSecondary
+import io.payanam.core.ui.theme.PayanamDarkTertiary
+import io.payanam.core.ui.theme.PayanamLightPrimary
+import io.payanam.core.ui.theme.PayanamLightSecondary
+import io.payanam.core.ui.theme.PayanamLightTertiary
+import io.payanam.core.ui.theme.StatusColors
+import io.payanam.core.ui.theme.scoreColor
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import kotlin.math.max

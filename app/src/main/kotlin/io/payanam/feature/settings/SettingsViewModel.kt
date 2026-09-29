@@ -8,7 +8,6 @@ import android.content.Context
 import android.content.Intent
 import android.net.Uri
 import androidx.biometric.BiometricManager
-import io.payanam.BuildConfig
 import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
@@ -17,17 +16,19 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.BackupInterval
 import io.payanam.database.DatabaseHealthChecker
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.NoteRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.service.DatabaseBackupCoordinator
-import io.payanam.ui.viewmodel.BackupInterval
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -282,7 +283,7 @@ class SettingsViewModel @Inject constructor(
     }
 
     /** User tapped "Update now" in the popup → launch the system installer. */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     internal fun onInstallNow() {
         // Button path (Downloaded state) may not have a pending popup — derive
         // the file from the download state when that's the case.
@@ -318,7 +319,8 @@ class SettingsViewModel @Inject constructor(
     internal fun onInstallLater() {
         _uiState.update { it.copy(pendingInstallPath = null) }
     }
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
         viewModelScope.launch {
@@ -341,7 +343,7 @@ class SettingsViewModel @Inject constructor(
                 )
                 // Get database file size and artifacts in one pass; using artifact scan
                 // so WAL-only state (primary .db absent, -wal present) reports correct non-zero size.
-                val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+                val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
                 val (sizeKb, databaseArtifacts) = withContext(Dispatchers.IO) {
                     val files = listDatabaseArtifactFiles(context).filter { it.exists() }
                     val size = files.sumOf { it.length() } / 1024
@@ -380,6 +382,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Public wrapper for exporting the database to [destinationUri] (delegates
      * to [exportDatabase]) so the UI can bind a one-tap export action.
@@ -389,6 +392,7 @@ class SettingsViewModel @Inject constructor(
     ) {
         exportDatabase(destinationUri)
     }
+
     /**
      * Public wrapper for importing a database from [sourceUri] (delegates to the
      * extension-based import pipeline) so the UI can bind a one-tap import.
@@ -398,12 +402,13 @@ class SettingsViewModel @Inject constructor(
     ) {
         importDatabase(sourceUri)
     }
+
     /**
      * Exports the live encrypted database to [destinationUri] via the backup
      * coordinator, reporting success/failure into [_uiState], then refreshes
      * stats.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun exportDatabase(
         destinationUri: Uri,
     ) {
@@ -439,12 +444,13 @@ class SettingsViewModel @Inject constructor(
             loadDatabaseStats()
         }
     }
+
     /**
      * Imports a uHabits database export from [sourceUri], upserting habits and
      * their repetitions, then refreshes stats. Reports progress/errors into
      * [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun importUhabitsData(sourceUri: Uri) {
         logger.i("SettingsViewModel.importUhabitsData", "uHabits import started", mapOf("sourceUri" to sourceUri.toString()))
         viewModelScope.launch {
@@ -481,12 +487,13 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Bulk-tags every uHabits-imported task with [targetDimensionId] /
      * [targetDimensionLabel], so imported habits appear under the chosen life
      * dimension. Reports the mapped count into [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
         viewModelScope.launch {
             _uiState.update {
@@ -533,15 +540,16 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Builds the timestamped filename used when exporting the encrypted database
      * (e.g. `payanam_backup_encrypted_YYYYMMDD_HHMMSS.db`).
      */
-    fun generateExportFileName(
-    ): String {
+    fun generateExportFileName(): String {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
         return "payanam_backup_encrypted_$timestamp.db"
     }
+
     /**
      * Opens the "delete database" confirmation prompt (sets
      * [SettingsUiState.showDeleteExportPrompt]).
@@ -550,17 +558,19 @@ class SettingsViewModel @Inject constructor(
         logger.i("SettingsViewModel.requestDeleteDatabase", "Delete database flow initiated")
         _uiState.update { it.copy(showDeleteExportPrompt = true) }
     }
+
     /**
      * Dismisses the "delete database" confirmation prompt without deleting.
      */
     fun dismissDeleteExportPrompt() {
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
     }
+
     /**
      * Confirms deletion: wipes every database artifact file, then signals the app
      * to restart into the DB-init flow.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun deleteDatabase() {
         logger.i("SettingsViewModel.deleteDatabase", "Delete database confirmed — wiping all artifacts")
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
@@ -592,11 +602,12 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Deletes a single database artifact by [fileName] (e.g. a stray WAL/SHM
      * file) and refreshes stats.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun deleteDatabaseArtifact(fileName: String) {
         logger.i(
             "SettingsViewModel.deleteDatabaseArtifact",
@@ -619,11 +630,12 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Deletes stale/crashed database artifacts left by interrupted import or
      * encrypt flows, then refreshes stats.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun cleanStaleArtifacts() {
         logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale artifact cleanup requested")
         viewModelScope.launch {
@@ -638,31 +650,36 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Clears the last export result so the success/failure snackbar dismisses.
      */
     fun clearExportResult() {
         _uiState.update { it.copy(exportResult = null) }
     }
+
     /**
      * Clears the last import result so the success/failure snackbar dismisses.
      */
     fun clearImportResult() {
         _uiState.update { it.copy(importResult = null) }
     }
+
     /**
      * Clears the uHabits import result so its result UI dismisses.
      */
     fun clearUhabitsImportResult() {
         _uiState.update { it.copy(uhabitsImportResult = null) }
     }
+
     /**
      * Clears the bulk habit-mapping result so its result UI dismisses.
      */
     fun clearBulkHabitMappingResult() {
         _uiState.update { it.copy(bulkHabitMappingResult = null) }
     }
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun syncTimeoutFromDb() {
         viewModelScope.launch {
             try {
@@ -693,11 +710,12 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Persists the auto-lock timeout as [minutes] (clamping via the manager) and
      * mirrors it into settings storage and [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun updateUnlockSessionTimeoutMinutes(minutes: Int) {
         databaseEncryptionManager.setSessionTimeoutMinutes(minutes)
         val effectiveMinutes = databaseEncryptionManager.getSessionTimeoutMinutes()
@@ -710,6 +728,7 @@ class SettingsViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Turns biometric unlock off: tears down the Keystore-wrapped passphrase and
      * flips the preference (mirrored into [_uiState]).
@@ -730,6 +749,7 @@ class SettingsViewModel @Inject constructor(
             _uiState.update { it.copy(biometricUnlockEnabled = false) }
         }
     }
+
     /**
      * Enables biometric unlock: verifies [passphrase], confirms the device can
      * authenticate, then runs the system biometric prompt and — on success —
@@ -885,6 +905,7 @@ class SettingsViewModel @Inject constructor(
     private var lastCheckTimestampMs = 0L
     private var checkCountInWindow = 0
     private var windowStartMs = 0L
+
     /**
      * Manually checks the release channel for a newer build, honouring the 1-minute
      * cooldown and 5-checks-per-5-minute rate limit, then surfaces the result and
@@ -910,11 +931,15 @@ class SettingsViewModel @Inject constructor(
         _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckResult = null) }
         viewModelScope.launch {
             val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
-            logger.i("SettingsViewModel.checkForUpdate", "Update check complete", mapOf(
-                "outcome" to result.outcome.name,
-                "latestBuild" to result.latestBuildNumber,
-                "error" to result.error?.name,
-            ))
+            logger.i(
+                "SettingsViewModel.checkForUpdate",
+                "Update check complete",
+                mapOf(
+                    "outcome" to result.outcome.name,
+                    "latestBuild" to result.latestBuildNumber,
+                    "error" to result.error?.name,
+                ),
+            )
             _uiState.update {
                 it.copy(isCheckingForUpdate = false, updateCheckResult = result)
             }
@@ -1091,6 +1116,7 @@ class SettingsViewModel @Inject constructor(
                     is DownloadUiState.Downloading, is DownloadUiState.Paused -> {
                         // keep polling (Paused is transient — system resumes)
                     }
+
                     is DownloadUiState.Downloaded -> {
                         appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
                         // Remember the completed download so a later restart can
@@ -1105,10 +1131,12 @@ class SettingsViewModel @Inject constructor(
                         }
                         terminal = true
                     }
+
                     is DownloadUiState.Failed -> {
                         appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
                         terminal = true
                     }
+
                     DownloadUiState.Idle -> terminal = true
                 }
                 if (!terminal) delay(POLL_INTERVAL_MS)
@@ -1118,11 +1146,12 @@ class SettingsViewModel @Inject constructor(
 
     companion object {
         private const val IMPORT_SOURCE_UHABITS = "uhabits"
-        private const val CHECK_COOLDOWN_MS = 60_000L        // 1 minute between checks
-        private const val MAX_CHECKS_PER_WINDOW = 5          // max 5 checks
-        private const val RATE_WINDOW_MS = 5 * 60_000L       // 5-minute window
-        private const val POLL_INTERVAL_MS = 1_000L          // progress poll cadence
-        private const val MAX_POLLS = 600                    // 10 min cap (E4)
+        private const val CHECK_COOLDOWN_MS = 60_000L // 1 minute between checks
+        private const val MAX_CHECKS_PER_WINDOW = 5 // max 5 checks
+        private const val RATE_WINDOW_MS = 5 * 60_000L // 5-minute window
+        private const val POLL_INTERVAL_MS = 1_000L // progress poll cadence
+        private const val MAX_POLLS = 600 // 10 min cap (E4)
+
         /** A completed download is "fresh" for 15 min — after that, re-check first. */
         private const val COMPLETED_DOWNLOAD_FRESH_MS = 15 * 60 * 1_000L
     }

@@ -1,0 +1,323 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
+package io.payanam.presentation.tasks
+
+import io.payanam.domain.model.Task
+import io.payanam.shared.logging.AppLogger
+import java.time.LocalDate
+import java.time.LocalDateTime
+
+/**
+ * Sorts habits for the listing according to [option].
+ *
+ * The scoring metric ([HabitL1Summary.runningAvg]) uses high-precision values, so
+ * genuine ties are rare — they occur only when two habits share the same frequency,
+ * creation day, and completion pattern. To keep ordering deterministic in that edge
+ * case, every branch applies a stable [Task.id] tiebreaker (creation order), so the
+ * list never appears to reorder randomly between renders.
+ */
+internal fun sortHabits(
+    habits: List<Task>,
+    option: HabitSortOption,
+    taskCheckmarks: Map<String, List<DayCheckmark>>,
+    todayStatusByTaskId: Map<String, CheckmarkStatus> = emptyMap(),
+    latestL1ByHabit: Map<String, io.payanam.domain.model.HabitL1Summary> = emptyMap(),
+): List<Task> {
+    val scoreOf: (Task) -> Double = { latestL1ByHabit[it.id]?.runningAvg ?: 0.0 }
+    return when (option) {
+        HabitSortOption.SCORE_HIGH_LOW -> {
+            habits.sortedWith(compareByDescending(scoreOf).thenBy { it.id })
+        }
+
+        HabitSortOption.SCORE_LOW_HIGH -> {
+            habits.sortedWith(compareBy(scoreOf).thenBy { it.id })
+        }
+
+        HabitSortOption.BY_NAME -> {
+            habits.sortedWith(compareBy<Task> { it.title.lowercase() }.thenBy { it.id })
+        }
+
+        HabitSortOption.BY_NAME_REVERSE -> {
+            habits.sortedWith(compareByDescending<Task> { it.title.lowercase() }.thenBy { it.id })
+        }
+
+        HabitSortOption.BY_DUE_TIME -> {
+            habits.sortedWith(
+                compareBy<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MAX }
+                    .thenByDescending(scoreOf)
+                    .thenBy { it.id },
+            )
+        }
+
+        HabitSortOption.BY_DUE_TIME_REVERSE -> {
+            habits.sortedWith(
+                compareByDescending<Task> { it.dueDate?.toLocalTime() ?: java.time.LocalTime.MIN }
+                    .thenByDescending(scoreOf)
+                    .thenBy { it.id },
+            )
+        }
+    }
+}
+
+internal fun filterAndSortTasks(
+    tasks: List<Task>,
+    filter: TaskFilter,
+    sort: TaskSortOption,
+): List<Task> {
+    val filtered = filterTasks(tasks, filter)
+    return sortTasks(filtered, sort)
+}
+
+internal fun visibleHabitsForDisplay(
+    habits: List<Task>,
+    todayStatusByTaskId: Map<String, CheckmarkStatus>,
+    showCompletedHabits: Boolean,
+    hideAllMarkedToday: Boolean = false,
+    dueTodayOnly: Boolean = false,
+    dueTodayByTaskId: Map<String, Boolean> = emptyMap(),
+): List<Task> {
+    if (showCompletedHabits && !hideAllMarkedToday && !dueTodayOnly) {
+        AppLogger.current.d(
+            "TasksViewModelSorting.visibleHabitsForDisplay",
+            "No filtering applied (all visible)",
+            mapOf("habitCount" to habits.size, "showCompletedHabits" to showCompletedHabits, "dueTodayOnly" to dueTodayOnly),
+        )
+
+        return habits
+    }
+    val result =
+        habits.filter { task ->
+            // Due-today narrows first (actionable queue), then status hides.
+            if (dueTodayOnly && dueTodayByTaskId[task.id] == false) {
+                AppLogger.current.d(
+                    "TasksViewModelSorting.visibleHabitsForDisplay",
+                    "Habit hidden",
+                    mapOf("taskId" to task.id, "reason" to "notDueToday", "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent")),
+                )
+
+                return@filter false
+            }
+            val status = todayStatusByTaskId[task.id] ?: CheckmarkStatus.UNKNOWN
+            val shown =
+                when {
+                    hideAllMarkedToday -> {
+                        status != CheckmarkStatus.COMPLETED && status != CheckmarkStatus.SKIPPED &&
+                            status != CheckmarkStatus.MISSED
+                    }
+
+                    !showCompletedHabits -> {
+                        status != CheckmarkStatus.COMPLETED
+                    }
+
+                    else -> {
+                        true
+                    }
+                }
+            AppLogger.current.d(
+                "TasksViewModelSorting.visibleHabitsForDisplay",
+                "Habit shown",
+                mapOf(
+                    "taskId" to task.id,
+                    "dueTodayFlag" to (dueTodayByTaskId[task.id] ?: "absent"),
+                    "status" to status.name,
+                    "shown" to shown,
+                ),
+            )
+
+            shown
+        }
+    return result
+}
+
+internal fun buildTaskFilterCounts(
+    oneTimeTasks: List<Task>,
+    todayCount: Int,
+    overdueCount: Int,
+    futureCount: Int,
+): TaskFilterCounts {
+    val activeCount = oneTimeTasks.count { it.status == "active" || it.status == "pending" || it.status == null }
+    val completedCount = oneTimeTasks.count { it.status == "completed" }
+    val archivedCount = oneTimeTasks.count { it.status == "archived" }
+    return TaskFilterCounts(
+        all = oneTimeTasks.size,
+        active = activeCount,
+        today = todayCount,
+        overdue = overdueCount,
+        future = futureCount,
+        completed = completedCount,
+        archived = archivedCount,
+        notActive = completedCount + archivedCount,
+    )
+}
+
+private fun filterTasks(
+    tasks: List<Task>,
+    filter: TaskFilter,
+): List<Task> {
+    val now = LocalDateTime.now()
+    val today = LocalDate.now()
+    return when (filter) {
+        TaskFilter.ALL -> {
+            tasks
+        }
+
+        TaskFilter.ACTIVE -> {
+            tasks.filter {
+                it.status == "active" || it.status == "pending" || it.status == null
+            }
+        }
+
+        TaskFilter.TODAY -> {
+            tasks.filter { task ->
+                task.dueDate?.toLocalDate() == today &&
+                    task.status != "completed" && task.status != "archived"
+            }
+        }
+
+        TaskFilter.OVERDUE -> {
+            tasks.filter { task ->
+                task.dueDate?.isBefore(now) == true &&
+                    task.status != "completed" && task.status != "archived"
+            }
+        }
+
+        TaskFilter.FUTURE -> {
+            tasks.filter { task ->
+                task.status != "completed" && task.status != "archived" &&
+                    (task.dueDate == null || task.dueDate?.toLocalDate()?.isAfter(today) == true)
+            }
+        }
+
+        TaskFilter.COMPLETED -> {
+            tasks.filter { it.status == "completed" }
+        }
+
+        TaskFilter.ARCHIVED -> {
+            tasks.filter { it.status == "archived" }
+        }
+
+        TaskFilter.NOT_ACTIVE -> {
+            tasks.filter { it.status == "completed" || it.status == "archived" }
+        }
+    }
+}
+
+private fun sortTasks(
+    tasks: List<Task>,
+    sort: TaskSortOption,
+): List<Task> =
+    when (sort) {
+        TaskSortOption.SCORE_DESC -> {
+            tasks.sortedByDescending { it.taskScore ?: 0.0 }
+        }
+
+        TaskSortOption.SCORE_ASC -> {
+            tasks.sortedBy { it.taskScore ?: 0.0 }
+        }
+
+        TaskSortOption.DUE_DATE_ASC -> {
+            tasks.sortedWith(
+                compareBy(nullsLast()) { it.dueDate },
+            )
+        }
+
+        TaskSortOption.DUE_DATE_DESC -> {
+            tasks.sortedWith(
+                compareByDescending(nullsLast()) { it.dueDate },
+            )
+        }
+
+        TaskSortOption.TITLE_ASC -> {
+            tasks.sortedBy { it.title.lowercase() }
+        }
+
+        TaskSortOption.TITLE_DESC -> {
+            tasks.sortedByDescending { it.title.lowercase() }
+        }
+
+        TaskSortOption.CREATED_DESC -> {
+            tasks.sortedByDescending { it.createdAt }
+        }
+
+        TaskSortOption.CREATED_ASC -> {
+            tasks.sortedBy { it.createdAt }
+        }
+
+        TaskSortOption.IMPACT_DESC -> {
+            tasks.sortedByDescending { impactLevelToValue(it.impactLevel) }
+        }
+
+        TaskSortOption.ENERGY_ASC -> {
+            tasks.sortedBy { energyLevelToValue(it.energyLevel) }
+        }
+
+        TaskSortOption.DIMENSION -> {
+            tasks.sortedBy { it.lifeIntentionCategory }
+        }
+    }
+
+private fun impactLevelToValue(level: String): Int =
+    when (level) {
+        "Minor Impact" -> {
+            1
+        }
+
+        "Low Impact" -> {
+            2
+        }
+
+        "Minimal Impact" -> {
+            2
+        }
+
+        "Moderate Impact" -> {
+            3
+        }
+
+        "High Impact" -> {
+            4
+        }
+
+        "Major Impact" -> {
+            4
+        }
+
+        "Critical Impact" -> {
+            5
+        }
+
+        else -> {
+            AppLogger.current.w(
+                "TasksViewModelSorting.impactLevelToValue",
+                "Unknown impact level, using default sort weight",
+                mapOf("impactLevel" to level),
+            )
+
+            3
+        }
+    }
+
+private fun energyLevelToValue(level: String): Int =
+    when (level) {
+        "Low" -> 1
+        "Moderate" -> 2
+        "High" -> 3
+        else -> 2
+    }
+
+/**
+ * Whether this task matches [query] for the tasks/habits search field.
+ *
+ * Title-only fuzzy matcher, shared by the Tasks and Habits tab search fields: it matches what the listing
+ * shows, so internal fields (status, dimensionId, ...) are not searched.
+ *
+ * Public because the shared screens filter their rows with it - the predicate must live with the rows it
+ * describes, not be re-implemented per screen. A blank query matches everything.
+ */
+fun Task.matchesTaskSearch(query: String): Boolean {
+    if (query.isBlank()) return true
+    // Defensive: lowercase both sides so the matcher is caller-independent.
+    return title.lowercase().contains(query.lowercase())
+}

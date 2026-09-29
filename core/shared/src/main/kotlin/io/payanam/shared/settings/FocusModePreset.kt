@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.settings
+
 /**
  * Curated desktop focus presets: each exposes a subset of top-level routes so the
  * shell can show a simplified surface.
@@ -15,13 +16,25 @@ enum class FocusModePreset(
         presetId = "simple_time_habits",
         nameKey = "preset_simple_time_habits",
         descriptionKey = "preset_simple_time_habits_desc",
-        visibleRoutes = setOf(DesktopTopLevelRoute.TIME, DesktopTopLevelRoute.HABITS, DesktopTopLevelRoute.LENSES, DesktopTopLevelRoute.SETTINGS),
+        visibleRoutes =
+            setOf(
+                DesktopTopLevelRoute.TIME,
+                DesktopTopLevelRoute.HABITS,
+                DesktopTopLevelRoute.LENSES,
+                DesktopTopLevelRoute.SETTINGS,
+            ),
     ),
     SIMPLE_JOURNAL(
         presetId = "simple_journal",
         nameKey = "preset_simple_journal",
         descriptionKey = "preset_simple_journal_desc",
-        visibleRoutes = setOf(DesktopTopLevelRoute.JOURNAL, DesktopTopLevelRoute.NOTES, DesktopTopLevelRoute.LENSES, DesktopTopLevelRoute.SETTINGS),
+        visibleRoutes =
+            setOf(
+                DesktopTopLevelRoute.JOURNAL,
+                DesktopTopLevelRoute.NOTES,
+                DesktopTopLevelRoute.LENSES,
+                DesktopTopLevelRoute.SETTINGS,
+            ),
     ),
     SIMPLE_TASKS(
         presetId = "simple_tasks",
@@ -36,6 +49,7 @@ enum class FocusModePreset(
         visibleRoutes = DesktopTopLevelRoute.entries.toSet(),
     ),
     ;
+
     val visibleTabs: Set<String>
         get() = visibleRoutes.map(DesktopTopLevelRoute::storageKey).toSet()
 

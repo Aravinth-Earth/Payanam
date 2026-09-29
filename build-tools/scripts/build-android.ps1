@@ -18,7 +18,7 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-$MaxApkArtifacts = 2
+$MaxApkArtifacts = 5
 $MaxSmokeArtifacts = 2
 $MaxAndroidTestFailureArtifacts = 2
 
@@ -229,8 +229,8 @@ function Resolve-BuildProfile
 
     $fullEveryHours = [double]$PolicyState.autoProfile.fullEveryHours
     $normalEveryHours = [double]$PolicyState.autoProfile.normalEveryHours
-    $hoursSinceFull = Get-HoursSinceTimestamp -IsoDateTime $CounterState.lastFullRunDate
-    $hoursSinceNormal = Get-HoursSinceTimestamp -IsoDateTime $CounterState.lastNormalRunDate
+    $hoursSinceFull = Get-HoursSinceTimestamp -IsoDateTime $CounterState.android.lastFull
+    $hoursSinceNormal = Get-HoursSinceTimestamp -IsoDateTime $CounterState.android.lastNormal
 
     if ($hoursSinceFull -ge $fullEveryHours)
     {
@@ -293,9 +293,11 @@ function Invoke-BuildArtifactRetention
         [string]$Filter = "*"
     )
 
-    if ($KeepCount -lt 1)
+    # KeepCount is the TOTAL number of artifacts retained, including the current build.
+    # Both platforms use the same meaning, so 'keep 5' means 5 files on each.
+    if ($KeepCount -lt 2)
     {
-        throw "KeepCount must be >= 1 for artifact retention."
+        throw "KeepCount must be >= 2 for artifact retention (current build + at least one older)."
     }
     if (-not (Test-Path $TargetPath))
     {
@@ -312,7 +314,7 @@ function Invoke-BuildArtifactRetention
     }
     if ($items.Count -le $KeepCount)
     {
-        Write-LogWithTime "  ℹ️ Retention skip: $TargetPath has $($items.Count) item(s), keep=$KeepCount" "DarkGray"
+        Write-LogWithTime "  ℹ️ Retention skip: $TargetPath has $($items.Count) item(s), keep=$KeepCount total" "DarkGray"
         return
     }
 
@@ -324,8 +326,11 @@ function Invoke-BuildArtifactRetention
     @{ Expression = "Timestamp"; Descending = $true }, `
     @{ Expression = "LastWriteUtc"; Descending = $true }
 
-    $toKeep = @($orderedCandidates | Select-Object -First $KeepCount)
-    $toDelete = @($orderedCandidates | Select-Object -Skip $KeepCount)
+    # The current build is protected in addition to these, so keep KeepCount-1 candidates to land
+    # on KeepCount files in total. Previously this kept KeepCount candidates + current, which meant
+    # a configured 2 actually retained 3 - the count did not describe what happened.
+    $toKeep = @($orderedCandidates | Select-Object -First ($KeepCount - 1))
+    $toDelete = @($orderedCandidates | Select-Object -Skip ($KeepCount - 1))
 
     foreach ($entry in $toDelete)
     {
@@ -333,6 +338,14 @@ function Invoke-BuildArtifactRetention
         {
             Remove-Item -LiteralPath $entry.Item.FullName -Force -ErrorAction Stop
             Write-LogWithTime "  Deleted file: $($entry.Item.FullName)" "DarkGray"
+            # A .sha256 only means anything next to the artifact it verifies. Leaving it behind is
+            # how output/apks accumulated 65 orphaned checksums against 3 resident APKs.
+            $sidecar = "$($entry.Item.FullName).sha256"
+            if (Test-Path -LiteralPath $sidecar)
+            {
+                Remove-Item -LiteralPath $sidecar -Force -ErrorAction Stop
+                Write-LogWithTime "  Deleted file: $sidecar (checksum)" "DarkGray"
+            }
         } else
         {
             Remove-Item -LiteralPath $entry.Item.FullName -Recurse -Force -ErrorAction Stop
@@ -342,6 +355,37 @@ function Invoke-BuildArtifactRetention
 
     $keptTotal = $toKeep.Count + $protected.Count
     Write-LogWithTime "  ✅ Retention applied on $TargetPath (deleted=$($toDelete.Count), kept=$keptTotal, protectedCurrent=$($protected.Count))" "Green"
+}
+
+function Remove-OrphanedArtifactChecksums
+{
+    param(
+        [string]$TargetPath
+    )
+
+    if (-not (Test-Path $TargetPath))
+    {
+        return
+    }
+
+    # A .sha256 whose matching artifact is gone can never be verified against anything, so it is dead
+    # weight that only grows. publish-release.ps1 writes these beside the APK, and build retention used
+    # to leave them behind - output/apks had accumulated 65 orphaned .apk.sha256 files against 3
+    # resident APKs before this sweep was added.
+    $suffixLength = ".sha256".Length
+    $orphans = @(Get-ChildItem -Path $TargetPath -File -Filter "*.sha256" | Where-Object {
+        $owner = $_.FullName.Substring(0, $_.FullName.Length - $suffixLength)
+        -not (Test-Path -LiteralPath $owner)
+    })
+    foreach ($orphan in $orphans)
+    {
+        Remove-Item -LiteralPath $orphan.FullName -Force -ErrorAction Stop
+        Write-LogWithTime "  Deleted orphaned checksum: $($orphan.Name)" "DarkGray"
+    }
+    if ($orphans.Count -gt 0)
+    {
+        Write-LogWithTime "  ✅ Removed $($orphans.Count) orphaned checksum(s) from $TargetPath" "Green"
+    }
 }
 
 function Invoke-DaemonCleanup
@@ -799,6 +843,171 @@ function Test-LocalizedStringDuplicates
     return $true
 }
 
+function Get-StringTable
+{
+    param([string]$Path)
+
+    if (-not (Test-Path $Path))
+    {
+        return $null
+    }
+
+    try
+    {
+        [xml]$doc = Get-Content $Path -Raw
+    } catch
+    {
+        return $null
+    }
+
+    $table = @{}
+    foreach ($node in $doc.resources.string)
+    {
+        $name = [string]$node.name
+        if ([string]::IsNullOrWhiteSpace($name))
+        {
+            continue
+        }
+
+        $rawValue = [string]$node.'#text'
+        if ($null -eq $rawValue)
+        {
+            $rawValue = ""
+        }
+
+        $table[$name] = ($rawValue.Trim() -replace '\s+', ' ')
+    }
+
+    return $table
+}
+
+function Test-StringParity
+{
+    # WHAT "PARITY" MEANS HERE, because the word gets used loosely and the resources hold no category
+    # to hang it on. There are exactly FOUR shipping string tables - app/.../values + values-ta, and
+    # core/strings/.../values + values-ta - and they are FLAT: every entry is a single <string
+    # name="...">, with no plurals, no string-arrays, no translatable="false", and no "normal" versus
+    # "promoted" split anywhere. "Promoted" is history rather than a category: it describes a string
+    # that MOVED from app/... into :core:strings so the desktop renders the same words, and the only
+    # place the word survives is the name of a test file.
+    #
+    # So this guard checks the two invariants those four tables must satisfy. Both have been broken.
+    #
+    #  RULE A - one language cannot lose a key. app EN and app TA must hold the SAME key set, and so
+    #  must core EN and core TA. A key held by one language only is a screen that ships untranslated,
+    #  and the count difference is the visible symptom of it.
+    #  (app/src/debug/res and app/src/release/res are build-variant OVERLAYS with no Tamil counterpart
+    #  by design, so they are deliberately not paired here rather than being silently skipped.)
+    #
+    #  RULE B - where the two tables hold the same key, they must agree. A key in both ships TWICE:
+    #  once from the shared table the promoted ViewModels read, and once from the platform table the
+    #  Android UI actually resolves. Measured 2026-09-29: 972 keys are held by both, in each language.
+    #
+    #  RULE B is the one that has actually failed in the field. settings_import_error_unreadable_db was
+    #  reworded in the shared table while the app table kept "Export a plaintext backup from the source
+    #  device, then re-import" - an instruction no Payanam version can satisfy, because Payanam's export
+    #  IS the encrypted database file - so user-facing Android copy told users to do the impossible.
+    #  The unit test that pinned the wording passed throughout, because it reads UiStrings.of(language),
+    #  which is the shared table. A green test, a wrong APK: the PAIR is what needs checking, and only a
+    #  guard that reads both files can check it.
+    $pairs = @(
+        @{ Name = "app"; En = "app/src/main/res/values/strings.xml"; Ta = "app/src/main/res/values-ta/strings.xml" },
+        @{ Name = "core/strings"; En = "core/strings/src/main/res/values/strings.xml"; Ta = "core/strings/src/main/res/values-ta/strings.xml" }
+    )
+
+    $violations = @()
+    $tables = @{}
+
+    foreach ($pair in $pairs)
+    {
+        $enPath = Join-Path $projectRoot $pair.En
+        $taPath = Join-Path $projectRoot $pair.Ta
+
+        if (-not (Test-Path $enPath))
+        {
+            $violations += "[$($pair.Name)] EN table not found: $($pair.En)"
+            continue
+        }
+        if (-not (Test-Path $taPath))
+        {
+            $violations += "[$($pair.Name)] TA table not found: $($pair.Ta)"
+            continue
+        }
+
+        $enTable = Get-StringTable -Path $enPath
+        $taTable = Get-StringTable -Path $taPath
+
+        if ($null -eq $enTable -or $null -eq $taTable)
+        {
+            $violations += "[$($pair.Name)] could not parse one of the two language tables (invalid XML?)"
+            continue
+        }
+
+        $tables["$($pair.Name)|en"] = $enTable
+        $tables["$($pair.Name)|ta"] = $taTable
+
+        $enOnly = @($enTable.Keys | Where-Object { -not $taTable.ContainsKey($_) } | Sort-Object)
+        $taOnly = @($taTable.Keys | Where-Object { -not $enTable.ContainsKey($_) } | Sort-Object)
+
+        if ($enOnly.Count -gt 0)
+        {
+            $shown = ($enOnly | Select-Object -First 10) -join ', '
+            $suffix = if ($enOnly.Count -gt 10) { " (+$($enOnly.Count - 10) more)" } else { "" }
+            $violations += "[$($pair.Name)] $($enOnly.Count) key(s) exist in EN but not in TA: $shown$suffix"
+        }
+        if ($taOnly.Count -gt 0)
+        {
+            $shown = ($taOnly | Select-Object -First 10) -join ', '
+            $suffix = if ($taOnly.Count -gt 10) { " (+$($taOnly.Count - 10) more)" } else { "" }
+            $violations += "[$($pair.Name)] $($taOnly.Count) key(s) exist in TA but not in EN: $shown$suffix"
+        }
+    }
+
+    foreach ($language in @("en", "ta"))
+    {
+        $appTable = $tables["app|$language"]
+        $coreTable = $tables["core/strings|$language"]
+
+        if ($null -eq $appTable -or $null -eq $coreTable)
+        {
+            continue
+        }
+
+        $differing = 0
+        foreach ($key in ($appTable.Keys | Sort-Object))
+        {
+            if (-not $coreTable.ContainsKey($key))
+            {
+                continue
+            }
+
+            if ($appTable[$key] -ne $coreTable[$key])
+            {
+                $differing++
+                $appValue = $appTable[$key]
+                $coreValue = $coreTable[$key]
+                if ($appValue.Length -gt 110) { $appValue = $appValue.Substring(0, 110) + "..." }
+                if ($coreValue.Length -gt 110) { $coreValue = $coreValue.Substring(0, 110) + "..." }
+
+                $violations += "[$language] '$key' differs between the two tables:`n         app : $appValue`n         core: $coreValue"
+            }
+        }
+    }
+
+    if ($violations.Count -gt 0)
+    {
+        Write-LogWithTime "  ❌ String parity failed ($($violations.Count) issue(s)):" "Red"
+        foreach ($violation in $violations)
+        {
+            Write-LogWithTime "     - $violation" "Red"
+        }
+        Write-LogWithTime "  EN and TA must hold the same keys in each table, and a key held by BOTH tables must carry the same value." "Yellow"
+        return $false
+    }
+
+    return $true
+}
+
 function Test-DbAuthFlowSecurityContract
 {
     param([string]$SpecPath = "docs/db/db-flow-boot-entry-flows.json")
@@ -911,11 +1120,52 @@ function Test-DbAuthFlowSecurityContract
     return $true
 }
 
+function Test-AppLoggerInstallContract
+{
+    # core/domain and core/scoring are platform-neutral modules: they log through AppLogger, which
+    # defaults to a SILENT no-op. Unit tests cannot catch a missing install - a no-op logger is exactly
+    # what a test expects - so if a platform entry point stops installing the real logger, every
+    # diagnostic from those modules disappears with no error anywhere. This guard is what catches it.
+    $entryPoints = @(
+        "app/src/main/kotlin/io/payanam/PayanamApp.kt",
+        "desktop/src/main/kotlin/io/payanam/desktop/DesktopMain.kt"
+    )
+
+    $missing = @()
+    foreach ($relative in $entryPoints)
+    {
+        $full = Join-Path $projectRoot $relative
+        if (-not (Test-Path $full))
+        {
+            Write-LogWithTime "  ❌ AppLogger install contract: entry point missing: $relative" "Red"
+            return $false
+        }
+        if (-not (Select-String -Path $full -Pattern "^(?!\s*//).*AppLogger\.install\(" -Quiet))
+        {
+            $missing += $relative
+        }
+    }
+
+    if ($missing.Count -gt 0)
+    {
+        Write-LogWithTime "  ❌ AppLogger install contract: no AppLogger.install(...) call found in:" "Red"
+        foreach ($item in $missing)
+        {
+            Write-LogWithTime "       $item" "Red"
+        }
+        Write-LogWithTime "     Without that call AppLogger.current stays at the no-op default, so every" "Red"
+        Write-LogWithTime "     core/domain and core/scoring log entry is discarded silently." "Red"
+        return $false
+    }
+
+    return $true
+}
+
 function Test-CriticalLoggingCoverageContract
 {
     $contract = @(
         [PSCustomObject]@{
-            Path = "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabaseInitViewModel.kt"
+            Path = "core/presentation/src/main/kotlin/io/payanam/presentation/database/DatabaseInitViewModel.kt"
             Patterns = @(
                 "DatabaseInitViewModel\.checkDatabaseStatus",
                 "DatabaseInitViewModel\.executeImportDatabase",
@@ -933,7 +1183,11 @@ function Test-CriticalLoggingCoverageContract
             )
         },
         [PSCustomObject]@{
-            Path = "app/src/main/kotlin/io/payanam/ui/viewmodel/DatabasePassphraseUnlockViewModel.kt"
+            # The unlock ViewModel moved out of `:app` into `:core:presentation` so the Linux desktop can reuse
+            # the unlock gate. The log keys are unchanged; only the file that carries them moved. When a
+            # ViewModel is promoted like this, this path must follow it in the SAME change - the contract is
+            # about the logging surviving the move, not about where the file lives.
+            Path = "core/presentation/src/main/kotlin/io/payanam/presentation/database/DatabasePassphraseUnlockViewModel.kt"
             Patterns = @(
                 "DatabasePassphraseUnlockViewModel\.unlock",
                 "DatabasePassphraseUnlockViewModel\.startBiometricUnlock",
@@ -1040,17 +1294,10 @@ if (-not (Test-Path $counterPath))
     throw "Build counter file not found: $counterPath"
 }
 $counter = Get-Content $counterPath -Raw | ConvertFrom-Json
-if (-not (Get-Member -InputObject $counter -Name "lastQuickRunDate" -MemberType NoteProperty))
+# Ensure android section exists (backward compat with old flat JSON)
+if (-not (Get-Member -InputObject $counter -Name "android" -MemberType NoteProperty))
 {
-    $counter | Add-Member -MemberType NoteProperty -Name "lastQuickRunDate" -Value ""
-}
-if (-not (Get-Member -InputObject $counter -Name "lastNormalRunDate" -MemberType NoteProperty))
-{
-    $counter | Add-Member -MemberType NoteProperty -Name "lastNormalRunDate" -Value ""
-}
-if (-not (Get-Member -InputObject $counter -Name "lastFullRunDate" -MemberType NoteProperty))
-{
-    $counter | Add-Member -MemberType NoteProperty -Name "lastFullRunDate" -Value ""
+    $counter | Add-Member -MemberType NoteProperty -Name "android" -Value ([PSCustomObject]@{ builds = 0; lastQuick = ""; lastNormal = ""; lastFull = "" })
 }
 
 $profilePolicy = $null
@@ -1135,8 +1382,8 @@ $javaHome = $env:JAVA_HOME
 if (-not $javaHome)
 {
     # Try gradle.properties
-    $gradleProps = Get-Content "gradle.properties" -Raw
-    if ($gradleProps -match 'org\.gradle\.java\.home=(.+)')
+    $gradlePropertiesContent = Get-Content "gradle.properties" -Raw
+    if ($gradlePropertiesContent -match 'org\.gradle\.java\.home=(.+)')
     {
         $javaHome = $matches[1].Trim()
     }
@@ -1200,6 +1447,16 @@ if ($runAndroidGuardrails)
         "core/database/src/main/kotlin" = 9650
         "core/domain/src/main/kotlin" = 9300
         "core/scoring/src/main/kotlin" = 9350
+        # New JVM data-layer modules. Caps are initial generous bounds in the same spirit as the
+        # existing entries (core/domain is 2,913 lines against a 9,300 cap), not tight limits:
+        # core/database-model is 1,586 lines today, core/database-jvm 403 and about to grow as the 15
+        # repository interfaces are implemented.
+        "core/database-model/src/main/kotlin" = 4000
+        "core/database-jvm/src/main/kotlin" = 8000
+        # The shared UI layer. This one is DELIBERATELY large: it is where the whole shared UI is
+        # heading (~50,700 lines of screens and view models), so the cap is a loose sanity bound
+        # rather than a size target. 248 lines today.
+        "core/ui/src/commonMain/kotlin" = 60000
     }
     $warningRatio = 0.70
     $lengthViolations = @()
@@ -1307,6 +1564,13 @@ if ($runAndroidGuardrails)
     }
     Write-LogWithTime "  ✅ Localized strings duplicate guard passed" "Green"
 
+    Write-LogWithTime "Checking string parity (EN <-> TA keys, app <-> core/strings values)..." "Cyan"
+    if (-not (Test-StringParity))
+    {
+        Exit-WithCleanup 1
+    }
+    Write-LogWithTime "  ✅ String parity guard passed" "Green"
+
     Write-LogWithTime "Checking DB auth flow security contract..." "Cyan"
     if (-not (Test-DbAuthFlowSecurityContract))
     {
@@ -1320,6 +1584,13 @@ if ($runAndroidGuardrails)
         Exit-WithCleanup 1
     }
     Write-LogWithTime "  ✅ Critical logging coverage contract passed" "Green"
+
+    Write-LogWithTime "Checking AppLogger install contract..." "Cyan"
+    if (-not (Test-AppLoggerInstallContract))
+    {
+        Exit-WithCleanup 1
+    }
+    Write-LogWithTime "  ✅ AppLogger install contract passed" "Green"
 } else
 {
     Write-LogWithTime "Skipping Android guardrails (explicit -SkipGuardrails)." "Yellow"
@@ -1329,7 +1600,7 @@ if ($runAndroidGuardrails)
 if ($runUnitTests)
 {
     Write-LogWithTime "Running unit tests..." "Cyan"
-    $testRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest :core:common:testDebugUnitTest :core:database:testDebugUnitTest :core:domain:testDebugUnitTest :core:scoring:testDebugUnitTest :core:shared:test" -StepLabel "Unit tests"
+    $testRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest :core:common:testDebugUnitTest :core:database:testDebugUnitTest :core:domain:test :core:scoring:test :core:shared:test :core:database-model:test :core:database-jvm:test $gradleProps" -StepLabel "Unit tests"
     if ($testRun.ExitCode -ne 0)
     {
         Write-LogWithTime "  ❌ Unit tests failed!" "Red"
@@ -1345,7 +1616,7 @@ if ($runUnitTests)
 if ($runRegressionTests)
 {
     Write-LogWithTime "Running regression lock tests..." "Cyan"
-    $regressionRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest --tests `"*RegressionTest*`"" -StepLabel "Regression tests"
+    $regressionRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest --tests `"*RegressionTest*`" $gradleProps" -StepLabel "Regression tests"
     if ($regressionRun.ExitCode -ne 0)
     {
         Write-LogWithTime "  ❌ Regression lock tests failed!" "Red"
@@ -1361,10 +1632,23 @@ if ($runRegressionTests)
 if ($runCoverage)
 {
     Write-LogWithTime "Running coverage check..." "Cyan"
-    $coverageRun = Invoke-GradleStreaming -GradleArgs "coverageCheck" -StepLabel "Coverage"
+    $coverageRun = Invoke-GradleStreaming -GradleArgs "coverageCheck $gradleProps" -StepLabel "Coverage"
     if ($coverageRun.ExitCode -ne 0)
     {
-        Write-LogWithTime "  ⚠️ Coverage check reported issues (non-fatal on first public setup)" "Yellow"
+        # FATAL. This previously warned and continued ("non-fatal on first public setup"), which let a
+        # coverage floor sit below the real ratio indefinitely: core/domain was 0.95 against 0.78
+        # measured, core/scoring 0.95 against 0.91, core/shared 0.94 against 0.93 - all failing
+        # silently. A check that cannot fail is not a check.
+        #
+        # CAVEAT - this enforcement is only real for the JVM modules (core/shared, core/domain,
+        # core/scoring, desktop). The two android.library modules still pass VACUOUSLY: core/common
+        # (floor 0.95) and core/database (floor 0.50). Proven for core/common by forcing its floor to
+        # 1.00 - unsatisfiable by real code - and watching it BUILD SUCCESSFUL. Their classDirectories
+        # resolve empty, the same AGP-path defect the core/domain promotion exposed. Making those two
+        # real is its own task; do not read a green coverage check as covering all six modules.
+        Write-LogWithTime "  ❌ Coverage check failed - a module is below its floor. Fix before building." "Red"
+        $coverageRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        Exit-WithCleanup 1
     } else {
         Write-LogWithTime "  ✅ Coverage check passed" "Green"
     }
@@ -1380,13 +1664,27 @@ if ($runCoverage)
 if ($runStaticAnalysis)
 {
     Write-LogWithTime "Running static analysis..." "Cyan"
-    $staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck" -StepLabel "Static analysis"
+    $staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck $gradleProps" -StepLabel "Static analysis"
     if ($staticRun.ExitCode -ne 0)
     {
         Write-LogWithTime "  ❌ Static analysis failed (detekt/lint regression). Fix before building." "Red"
         Exit-WithCleanup 1
     } else {
         Write-LogWithTime "  ✅ Static analysis passed" "Green"
+    }
+
+    # Spotless ratchet — blocks NEW formatting drift while the ~216 files of pre-existing drift stay
+    # untouched (see spotless-ratchet.ps1 for why this is a ratchet rather than a plain spotlessCheck).
+    # Invoked as a child process: the script does Set-Location, which must not leak into this session.
+    Write-LogWithTime "Running spotless ratchet..." "Cyan"
+    $ratchetOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "spotless-ratchet.ps1") 2>&1
+    $ratchetOutput | ForEach-Object { Write-Host "    $_" }
+    if ($LASTEXITCODE -ne 0)
+    {
+        Write-LogWithTime "  ❌ Spotless ratchet failed — changed .kt files are unformatted. Fix before building." "Red"
+        Exit-WithCleanup 1
+    } else {
+        Write-LogWithTime "  ✅ Spotless ratchet passed" "Green"
     }
 } else
 {
@@ -1402,43 +1700,44 @@ Write-LogWithTime "" "White"
 Write-LogWithTime "=== BUILD COUNTER ===" "Magenta"
 
 $counter.totalBuilds++
-$counter.androidBuilds++
+$counter.android.builds++
 $counter.lastBuildDate = Get-LocalDateTime
 switch ($effectiveProfile)
 {
     "quick"
     {
+        $counter.android.lastQuick = $counter.lastBuildDate
     }
     "normal"
-    { $counter.lastNormalRunDate = $counter.lastBuildDate
+    { $counter.android.lastQuick = $counter.lastBuildDate
+        $counter.android.lastNormal = $counter.lastBuildDate
     }
     "full"
     {
-        $counter.lastNormalRunDate = $counter.lastBuildDate
-        $counter.lastFullRunDate = $counter.lastBuildDate
+        $counter.android.lastQuick = $counter.lastBuildDate
+        $counter.android.lastNormal = $counter.lastBuildDate
+        $counter.android.lastFull = $counter.lastBuildDate
     }
 }
 
-$buildNumber = $counter.androidBuilds
+$buildNumber = $counter.android.builds
 Write-LogWithTime "Build #$buildNumber (Total: $($counter.totalBuilds))" "Cyan"
 
 # ── Build counter integrity guard ───────────────────────────────────────
-# Invariant: totalBuilds must equal androidBuilds + windowsBuilds. The counter
+# Invariant: totalBuilds must equal androidBuilds + windowsBuilds + linuxBuilds.
+$expectedTotal = [int]$counter.android.builds + [int]$counter.windows.builds + [int]$counter.linux.builds
 # file is the only manual-edit-prone artifact in incremental builds, so a drift
 # here means a previous run left it inconsistent. We do NOT auto-fix — a human
-# must correct build-counter.json by hand (set totalBuilds = androidBuilds +
-# windowsBuilds) before the build can proceed. Blocking here prevents shipping a
-# release whose build metadata is internally inconsistent.
-$expectedTotal = [int]$counter.androidBuilds + [int]$counter.windowsBuilds
+# must correct build-counter.json by hand before the build can proceed.
 if ([int]$counter.totalBuilds -ne $expectedTotal) {
     Write-LogWithTime "" "White"
     Write-LogWithTime "  ❌ BUILD COUNTER INTEGRITY CHECK FAILED" "Red"
-    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != androidBuilds ($($counter.androidBuilds)) + windowsBuilds ($($counter.windowsBuilds)) = $expectedTotal" "Red"
-    Write-LogWithTime "  Fix build-counter.json manually: set totalBuilds = $expectedTotal, then re-run the build." "Yellow"
+    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != android ($($counter.android.builds)) + windows ($($counter.windows.builds)) + linux ($($counter.linux.builds)) = $expectedTotal" "Red"
+    Write-LogWithTime "  Fix build-counter.json manually before the build can proceed." "Yellow"
     Write-LogWithTime "  Build aborted — no counter file written, no APK produced." "Red"
     exit 1
 } else {
-    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows = $expectedTotal)" "Green"
+    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows + linux = $expectedTotal)" "Green"
 }
 
 # Save counter
@@ -1452,14 +1751,14 @@ $dateTimeStamp = Get-DateTimeStamp
 $buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
 Write-LogWithTime "Build Name: $buildName" "Cyan"
 
-# Update version code in build.gradle.kts
-$appBuildGradle = Get-Content "app/build.gradle.kts" -Raw
-$appBuildGradle = $appBuildGradle -replace 'versionCode = \d+', "versionCode = $buildNumber"
-$versionDisplayName = "$buildNumber"
-$appBuildGradle = $appBuildGradle -replace 'versionName = \"[^\"]+\"', "versionName = `"$versionDisplayName`""
-Set-Content "app/build.gradle.kts" $appBuildGradle -Encoding UTF8 -NoNewline
-Write-LogWithTime "Updated versionCode to $buildNumber" "Green"
-Write-LogWithTime "Updated versionName to '$versionDisplayName'" "Green"
+# Update version code — pass via -P flags (matches desktop pattern)
+$buildTypeToken = if ($Release) { "release" } else { "debug" }
+$dateTimeStamp = Get-DateTimeStamp
+$buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
+Write-LogWithTime "Build Name: $buildName" "Cyan"
+
+# Gradle properties for build info generation (matches desktop pattern)
+$gradleProps = "-PbuildNumber=$buildNumber -PbuildPlatform=Android -PbuildTimestamp=$dateTimeStamp -PbuildTotalBuilds=$overallBuildNumber"
 
 # ============================================
 # CLEAN (if requested)
@@ -1484,7 +1783,7 @@ if ($Clean)
     }
 
     Write-LogWithTime "Running Gradle clean..." "Yellow"
-    $cleanRun = Invoke-GradleStreaming -GradleArgs "clean" -StepLabel "Clean"
+    $cleanRun = Invoke-GradleStreaming -GradleArgs "clean $gradleProps" -StepLabel "Clean"
     if ($cleanRun.ExitCode -ne 0)
     {
         Write-LogWithTime "  ⚠️ Gradle clean had issues" "Yellow"
@@ -1517,7 +1816,7 @@ if ($RunInProcess.IsPresent -and $gradleTask -eq "assembleDebug")
     $gradleTask = "$gradleTask -Ppayanam.noMinify=true"
     Write-LogWithTime "In-process mode: assembling unminified debug (minification breaks the androidTest APK)." "Yellow"
 }
-$buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask" -StepLabel "APK assembly"
+$buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask $gradleProps" -StepLabel "APK assembly"
 if ($buildRun.ExitCode -ne 0)
 {
     Write-LogWithTime "❌ Gradle build failed!" "Red"
@@ -1561,6 +1860,18 @@ Copy-Item $apkSourcePath $apkFinalPath -Force
 
 $apkSize = [math]::Round((Get-Item $apkFinalPath).Length / 1MB, 2)
 Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
+
+# Checksum sidecar, written HERE (by the build) rather than at publish time.
+# The publish step now VERIFIES this instead of generating it, so there is exactly one place that
+# hashes the artifact: the step that produced it. A checksum generated by the publisher only proves
+# the publisher hashed something - it cannot detect an APK swapped or altered between build and
+# publish, which is the case worth failing on.
+#
+# Format is unchanged from what publish-release.ps1 always uploaded - uppercase hex, two spaces,
+# bare filename - so the published asset is byte-compatible with every existing release.
+$apkHash = (Get-FileHash -Path $apkFinalPath -Algorithm SHA256).Hash.ToUpper()
+Set-Content -Path "$apkFinalPath.sha256" -Value "$apkHash  $apkFinalName" -Encoding UTF8
+Write-LogWithTime "SHA256: $apkHash" "Cyan"
 if ($Release)
 {
     # Fail-open by design on the build path (historical behaviour): if the toolchain
@@ -1722,7 +2033,7 @@ if (-not $runDeviceInstall)
                         # In-process Compose UI test tier: the only E2E tier the pipeline runs.
                         # Flag-only by design; invoked by the script only, never by hand.
                         Write-LogWithTime "Running in-process instrumented tests (:app:connectedDebugAndroidTest)..." "Yellow"
-                        $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true" -StepLabel "In-process UI tests"
+                        $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true $gradleProps" -StepLabel "In-process UI tests"
                         if ($inProcessRun.ExitCode -ne 0)
                         {
                             Write-LogWithTime "  ❌ In-process tests failed — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
@@ -1782,6 +2093,7 @@ Write-LogWithTime "=== ARTIFACT RETENTION ===" "Magenta"
 try
 {
     Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.apk" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
+    Remove-OrphanedArtifactChecksums -TargetPath $OutputDir
     Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.mapping.txt" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/smoke" -ItemType Directory -KeepCount $MaxSmokeArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/androidtest-failures" -ItemType Directory -KeepCount $MaxAndroidTestFailureArtifacts -CurrentBuildName $buildName

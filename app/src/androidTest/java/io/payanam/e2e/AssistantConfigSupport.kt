@@ -5,12 +5,12 @@ package io.payanam.e2e
 import android.content.Context
 import androidx.test.platform.app.InstrumentationRegistry
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.feature.assistant.AssistantSettings
 import io.payanam.feature.assistant.AssistantSettingsStore
+import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
 import java.io.File
@@ -24,7 +24,7 @@ private val COMPANION_SUFFIXES = listOf("-wal", "-shm", "-journal")
  * Shared by e2e seeds and import tests, which both need a pristine canonical path.
  */
 fun deleteCanonicalDatabaseArtifacts(context: Context) {
-    val basePath = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath
+    val basePath = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath
     COMPANION_SUFFIXES.forEach { suffix -> File(basePath + suffix).delete() }
     File(basePath).delete()
 }

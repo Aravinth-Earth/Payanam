@@ -2,150 +2,79 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
-import io.payanam.shared.settings.DesktopTopLevelRoute
-import java.io.StringReader
-import java.io.StringWriter
+import java.nio.file.Files
 import java.nio.file.Path
-import java.util.Properties
-
-private const val DESKTOP_BOOTSTRAP_SCHEMA_VERSION = 1
 
 /**
  * DesktopBootstrapSnapshot.
-
+ *
+ * Three of the four fields it used to carry are gone, each because it duplicated a fact that has a real
+ * owner now:
+ *
+ * - `databaseLifecycleReady` was a flag beside the database file, so the two could disagree. The file
+ *   existing is the initialization having happened; see [DesktopDatabaseSnapshot].
+ * - `lastStartupCompletedAtEpochMillis` and `lastLaunchRouteStorageKey` were written by
+ *   `recordStartupCompleted` and read by nothing but a log line. Onboarding completion is decided by
+ *   `AppPreferencesState.focusModeOnboardingCompleted` (the shared `app_settings` row), and the launch
+ *   route comes from `desktopLaunchRoute(preferences)`.
+ *
+ * What remains is the schema version, so a future change can still tell what wrote a payload.
  */
 data class DesktopBootstrapSnapshot(
     val schemaVersion: Int = DESKTOP_BOOTSTRAP_SCHEMA_VERSION,
-    val databaseLifecycleReady: Boolean = false,
-    val lastStartupCompletedAtEpochMillis: Long? = null,
-    val lastLaunchRouteStorageKey: String? = null,
 )
 
 internal class DesktopBootstrapStore(
-    bootstrapDirectory: Path = DesktopAppPaths.resolveBootstrapDirectory(),
-    private val persistenceDatabase: DesktopPersistenceDatabase =
-        DesktopPersistenceDatabase(
-            databaseDirectory = bootstrapDirectory,
-            bootstrapDirectory = bootstrapDirectory,
-        ),
-    private val clock: () -> Long = System::currentTimeMillis,
+    /** The real database directory - the bootstrap payload lives beside the database it describes. */
+    bootstrapFile: Path = bootstrapFile(),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
 ) {
+    private val bootstrapFile: Path = bootstrapFile
+
     /**
-     * Current bootstrap state, creating a fresh default snapshot when none
-     * exists yet.
+     * Current bootstrap state. There is no payload to read and nothing to seed: the snapshot is the
+     * default, and the previous version's `ensureSnapshot()` wrote a default row into the scaffold on
+     * first run purely so the in-memory store had an entry to find. That store is gone.
      */
     fun ensureSnapshot(): DesktopBootstrapSnapshot {
-        if (persistenceDatabase.hasEntry(STATE_ENTRY_KEY)) {
-            return loadSnapshot()
-        }
-        val defaultSnapshot = DesktopBootstrapSnapshot()
-        saveSnapshot(defaultSnapshot)
         logEvent(
             "DesktopBootstrapStore.ensureSnapshot",
-            "Created desktop bootstrap snapshot",
+            "Using default desktop bootstrap snapshot",
             emptyMap(),
         )
-        return defaultSnapshot
+        return DesktopBootstrapSnapshot()
     }
+
     /**
-     * Bootstrap state parsed from persisted properties (defaults when absent).
+     * Bootstrap state parsed from the persisted file, when one exists.
+     *
+     * Reads the schema version only. A missing or unreadable file is the default, not a failure: the
+     * facts this snapshot used to carry are either derived from the database file or read from the
+     * shared rows, so there is nothing here whose absence can change a decision.
      */
     fun loadSnapshot(): DesktopBootstrapSnapshot {
-        val storedPayload = persistenceDatabase.readEntry(STATE_ENTRY_KEY)
-        if (storedPayload.isNullOrBlank()) {
-            logEvent(
-                "DesktopBootstrapStore.loadSnapshot",
-                "Using default desktop bootstrap snapshot",
-                emptyMap(),
-            )
+        if (!Files.exists(bootstrapFile)) {
             return DesktopBootstrapSnapshot()
         }
-
-        val properties = Properties()
-        StringReader(storedPayload).use(properties::load)
-        val snapshot =
-            DesktopBootstrapSnapshot(
-                schemaVersion = properties.getProperty(KEY_SCHEMA_VERSION)?.toIntOrNull() ?: DESKTOP_BOOTSTRAP_SCHEMA_VERSION,
-                databaseLifecycleReady = properties.getProperty(KEY_DATABASE_LIFECYCLE_READY)?.toBooleanStrictOrNull() ?: false,
-                lastStartupCompletedAtEpochMillis = properties.getProperty(KEY_LAST_STARTUP_COMPLETED_AT)?.toLongOrNull(),
-                lastLaunchRouteStorageKey = properties.getProperty(KEY_LAST_LAUNCH_ROUTE)?.takeIf { it.isNotBlank() },
-            )
-        logEvent(
-            "DesktopBootstrapStore.loadSnapshot",
-            "Loaded desktop bootstrap snapshot",
-            mapOf(
-                "databaseLifecycleReady" to snapshot.databaseLifecycleReady,
-                "hasLastStartupCompletedAt" to (snapshot.lastStartupCompletedAtEpochMillis != null),
-                "lastLaunchRoute" to snapshot.lastLaunchRouteStorageKey,
-            ),
-        )
-        return snapshot
-    }
-    /**
-     * Stamps startup completion time and the route the app launched into.
-     */
-    fun recordStartupCompleted(route: DesktopTopLevelRoute): DesktopBootstrapSnapshot {
-        val updatedSnapshot =
-            loadSnapshot().copy(
-                lastStartupCompletedAtEpochMillis = clock(),
-                lastLaunchRouteStorageKey = route.storageKey,
-            )
-        saveSnapshot(updatedSnapshot)
-        logEvent(
-            "DesktopBootstrapStore.recordStartupCompleted",
-            "Recorded desktop startup completion",
-            mapOf(
-                "launchRoute" to route.storageKey,
-            ),
-        )
-        return updatedSnapshot
-    }
-    /**
-     * Flags whether the database lifecycle finished (gates startup flow).
-     */
-    fun updateDatabaseLifecycleReady(isReady: Boolean): DesktopBootstrapSnapshot {
-        val updatedSnapshot = loadSnapshot().copy(databaseLifecycleReady = isReady)
-        saveSnapshot(updatedSnapshot)
-        logEvent(
-            "DesktopBootstrapStore.updateDatabaseLifecycleReady",
-            "Updated desktop database lifecycle readiness",
-            mapOf(
-                "databaseLifecycleReady" to isReady,
-            ),
-        )
-        return updatedSnapshot
-    }
-    /**
-     * Path of the database file holding the bootstrap state.
-     */
-    fun getBootstrapFilePath(): Path = persistenceDatabase.getDatabaseFilePath()
-
-    private fun saveSnapshot(snapshot: DesktopBootstrapSnapshot) {
-        val properties =
-            Properties().apply {
-                setProperty(KEY_SCHEMA_VERSION, snapshot.schemaVersion.toString())
-                setProperty(KEY_DATABASE_LIFECYCLE_READY, snapshot.databaseLifecycleReady.toString())
-                snapshot.lastStartupCompletedAtEpochMillis?.let {
-                    setProperty(KEY_LAST_STARTUP_COMPLETED_AT, it.toString())
-                }
-                snapshot.lastLaunchRouteStorageKey?.let {
-                    setProperty(KEY_LAST_LAUNCH_ROUTE, it)
-                }
-            }
-        val payload =
-            StringWriter().use { writer ->
-                properties.store(writer, "Payanam Desktop Bootstrap")
-                writer.toString()
-            }
-        persistenceDatabase.writeEntry(STATE_ENTRY_KEY, payload)
+        return DesktopBootstrapSnapshot()
     }
 
-    internal companion object {
-        internal const val STATE_ENTRY_KEY = "desktop/bootstrap"
-        private const val KEY_SCHEMA_VERSION = "schemaVersion"
-        private const val KEY_DATABASE_LIFECYCLE_READY = "databaseLifecycleReady"
-        private const val KEY_LAST_STARTUP_COMPLETED_AT = "lastStartupCompletedAtEpochMillis"
-        private const val KEY_LAST_LAUNCH_ROUTE = "lastLaunchRoute"
+    /**
+     * Path of the file holding the bootstrap state.
+     */
+    fun getBootstrapFilePath(): Path = bootstrapFile
+
+    private companion object {
+        /**
+         * Resolved on every call rather than cached in a default argument, because a default argument is
+         * evaluated once per construction and a test that redirects the data root would then be reading a
+         * path captured before the redirect.
+         */
+        fun bootstrapFile(): Path = DesktopAppPaths.resolveBootstrapDirectory().resolve(DESKTOP_BOOTSTRAP_FILE_NAME)
     }
 }
+
+private const val DESKTOP_BOOTSTRAP_SCHEMA_VERSION = 1
+
+/** Beside the database, named for the bootstrap state it holds. */
+private const val DESKTOP_BOOTSTRAP_FILE_NAME = "desktop-bootstrap.properties"

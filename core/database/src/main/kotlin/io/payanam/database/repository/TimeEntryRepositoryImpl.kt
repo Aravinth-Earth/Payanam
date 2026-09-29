@@ -7,10 +7,10 @@ import io.payanam.common.util.PersistedDateTime
 import io.payanam.database.entity.TimeEntryEntity
 import io.payanam.database.mapper.TimeEntryMapper.toDomain
 import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.TimeEntry
 import io.payanam.domain.model.TimeEntryInput
 import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.domain.time.TimeEntryDimensionRule
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -19,12 +19,12 @@ import java.util.UUID
 import javax.inject.Inject
 import javax.inject.Singleton
 
-@Singleton
 /**
  * Room-backed implementation of [TimeEntryRepository]. Wraps [TimeEntryDao],
  * resolves the life-dimension, and (on every mutation) marks the affected day's
  * insight dirty. `startTimeEntry` always stops any already-running entry first.
  */
+@Singleton
 class TimeEntryRepositoryImpl
     @Inject
     constructor(
@@ -133,7 +133,7 @@ class TimeEntryRepositoryImpl
             // Stop any existing active entry first
             stopActiveTimeEntry()
             val resolvedDimensionId =
-                resolvePersistedDimensionId(
+                TimeEntryDimensionRule.resolveDimensionId(
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
@@ -145,7 +145,7 @@ class TimeEntryRepositoryImpl
                     lifeIntentionCategory = input.lifeIntentionCategory,
                     dimensionId = resolvedDimensionId,
                     dayKey = PersistedDateTime.dayKey(input.startedAt),
-                    taskId = normalizeOptionalIdentifier(input.taskId),
+                    taskId = TimeEntryDimensionRule.normalizeIdentifier(input.taskId),
                     startedAt = PersistedDateTime.format(input.startedAt),
                     endedAt = null,
                     focusRating = input.focusRating,
@@ -257,12 +257,12 @@ class TimeEntryRepositoryImpl
                 existing.copy(
                     lifeIntentionCategory = input.lifeIntentionCategory,
                     dimensionId =
-                        resolvePersistedDimensionId(
+                        TimeEntryDimensionRule.resolveDimensionId(
                             dimensionId = input.dimensionId,
                             lifeIntentionCategory = input.lifeIntentionCategory,
                             fallbackDimensionId = existing.dimensionId,
                         ),
-                    taskId = normalizeOptionalIdentifier(input.taskId),
+                    taskId = TimeEntryDimensionRule.normalizeIdentifier(input.taskId),
                     dayKey = PersistedDateTime.dayKey(input.startedAt),
                     startedAt = PersistedDateTime.format(input.startedAt),
                     endedAt = input.endedAt?.let(PersistedDateTime::format),
@@ -314,7 +314,7 @@ class TimeEntryRepositoryImpl
             val now = LocalDateTime.now()
             val id = UUID.randomUUID().toString()
             val resolvedDimensionId =
-                resolvePersistedDimensionId(
+                TimeEntryDimensionRule.resolveDimensionId(
                     dimensionId = input.dimensionId,
                     lifeIntentionCategory = input.lifeIntentionCategory,
                 )
@@ -324,7 +324,7 @@ class TimeEntryRepositoryImpl
                     lifeIntentionCategory = input.lifeIntentionCategory,
                     dimensionId = resolvedDimensionId,
                     dayKey = PersistedDateTime.dayKey(input.startedAt),
-                    taskId = normalizeOptionalIdentifier(input.taskId),
+                    taskId = TimeEntryDimensionRule.normalizeIdentifier(input.taskId),
                     startedAt = PersistedDateTime.format(input.startedAt),
                     endedAt = input.endedAt?.let(PersistedDateTime::format),
                     focusRating = input.focusRating,
@@ -381,12 +381,12 @@ class TimeEntryRepositoryImpl
                 existing.copy(
                     lifeIntentionCategory = entry.lifeIntentionCategory,
                     dimensionId =
-                        resolvePersistedDimensionId(
+                        TimeEntryDimensionRule.resolveDimensionId(
                             dimensionId = entry.dimensionId,
                             lifeIntentionCategory = entry.lifeIntentionCategory,
                             fallbackDimensionId = existing.dimensionId,
                         ),
-                    taskId = normalizeOptionalIdentifier(entry.taskId),
+                    taskId = TimeEntryDimensionRule.normalizeIdentifier(entry.taskId),
                     dayKey = PersistedDateTime.dayKey(entry.startedAt),
                     startedAt = PersistedDateTime.format(entry.startedAt),
                     endedAt = entry.endedAt?.let(PersistedDateTime::format),
@@ -424,29 +424,3 @@ class TimeEntryRepositoryImpl
             )
         }
     }
-
-internal fun resolvePersistedDimensionId(
-    dimensionId: String?,
-    lifeIntentionCategory: String,
-    fallbackDimensionId: String? = null,
-): String? {
-    val normalizedDimensionId = normalizeOptionalIdentifier(dimensionId)
-    val canonicalDimensionId = normalizedDimensionId?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
-    if (canonicalDimensionId == null && normalizedDimensionId != null) {
-        UnifiedLogger.getInstance().w(
-            "TimeEntryRepositoryImpl.resolvePersistedDimensionId",
-            "Ignoring non-canonical dimension id",
-            mapOf("dimensionId" to normalizedDimensionId),
-        )
-    }
-    if (canonicalDimensionId == null && lifeIntentionCategory.isNotBlank()) {
-        UnifiedLogger.getInstance().w(
-            "TimeEntryRepositoryImpl.resolvePersistedDimensionId",
-            "Ignoring non-canonical time-entry category label during dimension resolution",
-            mapOf("lifeIntentionCategory" to lifeIntentionCategory),
-        )
-    }
-    return canonicalDimensionId ?: fallbackDimensionId?.let { DimensionTaxonomyCatalog.fromCanonicalId(it)?.id }
-}
-
-internal fun normalizeOptionalIdentifier(value: String?): String? = value?.trim()?.takeIf { it.isNotEmpty() }

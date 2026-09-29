@@ -2,22 +2,22 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.shared.journal
 
-import java.time.LocalDateTime
 import kotlinx.serialization.Serializable
+import java.time.LocalDateTime
 
-@Serializable
 /**
  * One journal prompt definition: a stable [key] and the prompt text shown to the user.
  */
+@Serializable
 data class JournalPromptDefinition(
     val key: String,
     val prompt: String,
 )
 
-@Serializable
 /**
  * All responses for a single day: overall prompts + per-dimension prompt maps.
  */
+@Serializable
 data class JournalDayRecord(
     val dateIso: String,
     val overallResponses: Map<String, String> = emptyMap(),
@@ -26,14 +26,15 @@ data class JournalDayRecord(
     val updatedAtIso: String,
 )
 
-@Serializable
 /**
  * Serializable journal state holding every day record for the desktop<->mobile sync.
  */
+@Serializable
 data class JournalSnapshot(
     val schemaVersion: Int = JournalReflectionContracts.SCHEMA_VERSION,
     val days: List<JournalDayRecord> = emptyList(),
 )
+
 object JournalReflectionContracts {
     const val SCHEMA_VERSION = 1
     val overallPrompts: List<JournalPromptDefinition> =
@@ -55,10 +56,12 @@ object JournalReflectionContracts {
             JournalPromptDefinition("feeling", "How do I feel about this dimension?"),
             JournalPromptDefinition("insight", "Any insights or realizations?"),
         )
+
     /**
      * Returns an empty [JournalSnapshot] (no days).
      */
     fun emptySnapshot(): JournalSnapshot = JournalSnapshot()
+
     /**
      * Returns the [JournalDayRecord] for [dateIso] within [snapshot], or null.
      */
@@ -66,6 +69,7 @@ object JournalReflectionContracts {
         snapshot: JournalSnapshot,
         dateIso: String,
     ): JournalDayRecord? = snapshot.days.firstOrNull { it.dateIso == dateIso }
+
     /**
      * Returns a copy of [snapshot] with [response] set for the overall [promptKey] on
      * [dateIso] (whitespace-only clears the entry).
@@ -83,6 +87,7 @@ object JournalReflectionContracts {
                 updatedAtIso = now.toString(),
             )
         }
+
     /**
      * Returns a copy of [snapshot] with [response] set for [dimensionId]'s [promptKey]
      * on [dateIso].

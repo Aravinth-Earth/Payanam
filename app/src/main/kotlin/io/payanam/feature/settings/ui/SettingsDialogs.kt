@@ -42,15 +42,15 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.payanam.R
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.DimensionPreference
 import io.payanam.feature.settings.BulkHabitMappingResult
 import io.payanam.feature.settings.ExportResult
 import io.payanam.feature.settings.ImportResult
 import io.payanam.feature.settings.SettingsUiState
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.UhabitsImportResult
-import io.payanam.ui.viewmodel.DimensionPreference
+import io.payanam.shared.logging.CrashBreadcrumbs
 import kotlin.system.exitProcess
 
 @Composable
@@ -318,8 +318,7 @@ private fun restartAppAfterDatabaseImport(context: Context) {
         "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
         "Restarting app to reopen imported database with fresh Room handles",
     )
-    CrashSafeBreadcrumbs.record(
-        context = context,
+    CrashBreadcrumbs.record(
         source = "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
         stage = "kill_process_for_restart",
     )

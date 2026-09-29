@@ -7,7 +7,6 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.LifeDimension
@@ -16,6 +15,7 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import io.payanam.shared.database.PayanamDatabaseSchema
 
 /**
  * Integration tests for database import flows with password protection.
@@ -101,7 +101,7 @@ class DatabaseImportFlowIntegrationTest {
 
             // Step 4: Backup and prepare for import
             // (In real flow, backup file would be from a previous export or another DB handoff)
-            val sourceDbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+            val sourceDbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
             assertThat(sourceDbFile.exists()).isTrue()
 
             // Step 5: Reset encryption for new import
@@ -279,9 +279,9 @@ class DatabaseImportFlowIntegrationTest {
         }
 
     private fun deleteAllDatabaseFiles() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
         if (dbDir != null) {
-            val dbName = PayanamDatabase.DATABASE_NAME
+            val dbName = PayanamDatabaseSchema.DATABASE_NAME
             try {
                 listOf(
                     File(dbDir, dbName),

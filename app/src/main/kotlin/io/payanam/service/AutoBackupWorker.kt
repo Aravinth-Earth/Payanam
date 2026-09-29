@@ -15,8 +15,9 @@ import androidx.work.WorkManager
 import androidx.work.WorkerParameters
 import dagger.hilt.android.EntryPointAccessors
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
+import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -36,7 +37,7 @@ class AutoBackupWorker(
      * Runs the backup via [DatabaseBackupCoordinator] (manual or auto trigger
      * from input data), logging duration and outcome; never retries.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     override suspend fun doWork(): Result {
         val trigger = backupTrigger()
         val workId = id.toString()
@@ -205,6 +206,7 @@ class AutoBackupWorker(
                 schedule(context, intervalMinutes)
             }
         }
+
         /**
          * Aligns the WorkManager schedule with the current settings at app
          * start: schedules when enabled, cancels the worker when disabled.
@@ -249,10 +251,11 @@ class AutoBackupWorker(
             val sessionDirectoryFiles = backupDir.listFiles { file ->
                 file.isDirectory && file.name.startsWith("auto_bk_")
             }?.mapNotNull { sessionDir ->
-                File(sessionDir, PayanamDatabase.DATABASE_NAME).takeIf { it.exists() }
+                File(sessionDir, PayanamDatabaseSchema.DATABASE_NAME).takeIf { it.exists() }
             } ?: emptyList()
             return (legacyFlatFiles + sessionDirectoryFiles).sortedByDescending { it.lastModified() }
         }
+
         /**
          * Epoch millis of the last recorded successful backup (0 if never).
          */
@@ -260,6 +263,7 @@ class AutoBackupWorker(
             val prefs = context.getSharedPreferences(BackupStatusStore.BACKUP_META_PREFS, Context.MODE_PRIVATE)
             return prefs.getLong(BackupStatusStore.KEY_LAST_BACKUP_SUCCESS_AT_MILLIS, 0L)
         }
+
         /**
          * Display string for when a backup last ran: the newest of the stored
          * success timestamp and the latest backup file's mtime.
@@ -279,6 +283,7 @@ class AutoBackupWorker(
                 else -> BackupStatusStore.formatBackupTimestamp(effectiveMillis)
             }
         }
+
         /**
          * The persisted latest failure (message + display time), if not dismissed.
          */
@@ -293,6 +298,7 @@ class AutoBackupWorker(
                 recordedAtDisplay = display,
             )
         }
+
         /**
          * Clears the persisted failure so it stops showing on the settings screen.
          */

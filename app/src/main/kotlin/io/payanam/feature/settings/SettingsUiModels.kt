@@ -4,6 +4,8 @@
 
 package io.payanam.feature.settings
 
+import io.payanam.presentation.settings.DatabaseArtifactUiModel
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.BuildConfig
 import io.payanam.database.DatabaseHealthChecker
 /**
