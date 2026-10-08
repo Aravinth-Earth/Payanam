@@ -30,6 +30,10 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
+// F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
+// the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
+val fdroidBuild = (project.findProperty("fdroidBuild") as String?)?.toBoolean() ?: false
+
 android {
     namespace = "io.payanam"
     compileSdk = 36
@@ -50,6 +54,7 @@ android {
         buildConfigField("boolean", "PLANS_CTA_ENABLED", "true")
         buildConfigField("boolean", "FOCUS_MODE_SETTINGS_ENABLED", "true")
         buildConfigField("boolean", "SCORE_SETTINGS_ENABLED", "true")
+        buildConfigField("boolean", "FDROID_BUILD", "$fdroidBuild")
 
 
 
@@ -158,6 +163,9 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir("src/main/kotlin")
+        }
+        if (fdroidBuild) {
+            getByName("release").manifest.srcFile("src/fdroid/AndroidManifest.xml")
         }
     }
 }
