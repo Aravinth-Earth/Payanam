@@ -67,14 +67,16 @@ class PayanamApp : Application() {
         // extra is constructed during super.onCreate() (Hilt field injection
         // there would eagerly build the DB-session chain before the crash
         // handler is installed; a failure would crash with no log export).
-        try {
-            val checker = EntryPointAccessors.fromApplication(
-                this,
-                AppStartUpdateCheckerEntryPoint::class.java,
-            ).appStartUpdateChecker()
-            checker.onAppStart()
-        } catch (e: Exception) {
-            logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
+        if (!BuildConfig.FDROID_BUILD) {
+            try {
+                val checker = EntryPointAccessors.fromApplication(
+                    this,
+                    AppStartUpdateCheckerEntryPoint::class.java,
+                ).appStartUpdateChecker()
+                checker.onAppStart()
+            } catch (e: Exception) {
+                logger.e("PayanamApp.onCreate", "App-start update check skipped", e)
+            }
         }
     }
 

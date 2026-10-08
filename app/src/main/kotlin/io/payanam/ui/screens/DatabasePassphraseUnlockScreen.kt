@@ -70,6 +70,7 @@ import androidx.compose.ui.unit.sp
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import io.payanam.R
+import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.ui.theme.LifeDimensionColors
 import io.payanam.ui.viewmodel.DatabasePassphraseUnlockViewModel
@@ -485,8 +486,10 @@ fun DatabasePassphraseUnlockScreen(
 
             // Pre-unlock update hatch (manual check → download → install).
             // Lives in the Diagnostics zone; works with the DB locked.
-            Spacer(modifier = Modifier.height(4.dp))
-            PreUnlockUpdateSection(viewModel = preUnlockUpdateViewModel)
+            if (!BuildConfig.FDROID_BUILD) {
+                Spacer(modifier = Modifier.height(4.dp))
+                PreUnlockUpdateSection(viewModel = preUnlockUpdateViewModel)
+            }
 
             // Privacy Footer
             Text(
