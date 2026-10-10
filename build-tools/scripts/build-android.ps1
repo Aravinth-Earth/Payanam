@@ -1634,15 +1634,16 @@ $gradleTask = if ($Release)
 { "assembleDebug"
 }
 
-# Universal (all ABIs) is the DEFAULT so any device can install on every channel
-# (dev/beta/stable). Pass -Arm64Only for the arm64-only build used on local USB iteration.
+# Universal (all ABIs) is the GRADLE default, so the task needs no ABI property and a
+# plain gradle build is universal too. Pass -Arm64Only for the arm64-only build used
+# on local USB iteration.
 if ($Arm64Only)
 {
+    $gradleTask += " -Parm64Only=true"
     Write-LogWithTime "Arm64-only: -Arm64Only passed (arm64-v8a)" "Yellow"
 }
 else
 {
-    $gradleTask += " -PuniversalBuild=true"
     Write-LogWithTime "Universal: all ABIs included (arm64, arm32, x86, x86_64)" "Yellow"
 }
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"

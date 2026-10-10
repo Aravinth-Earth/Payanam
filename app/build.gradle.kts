@@ -66,10 +66,11 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
 
-        // ARM64-only default for all builds (debug + release).
-        // Pass -PuniversalBuild=true to include all ABIs (emulator, CI, Chromebook).
-        val universalBuild = (project.findProperty("universalBuild") as String?)?.toBoolean() ?: false
-        if (!universalBuild) {
+        // Universal APK by default: every ABI ships, so a build from any channel
+        // installs on any device. Pass -Parm64Only=true for the arm64-only APK used
+        // for local USB iteration.
+        val arm64Only = (project.findProperty("arm64Only") as String?)?.toBoolean() ?: false
+        if (arm64Only) {
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }
