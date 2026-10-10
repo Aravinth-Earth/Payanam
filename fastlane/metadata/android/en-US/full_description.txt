@@ -33,7 +33,7 @@ Encrypted by default — set a strong passphrase (12+ chars, upper/lower/digit/s
 Enable or disable individual modules. Choose your default home tab. System theme with Material You dynamic colors. English and Tamil locale support. Font family customization (sans, serif, monospace, cursive).
 
 <b>Cross-Platform & Updates</b>
-Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. In-app update checker across 3 channels (dev/beta/stable) with three opt-in levels: check, auto-download over WiFi, and prompt to install.
+Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. GitHub builds include an in-app update checker (dev/beta/stable, opt-in). The F-Droid build has no in-app updates — update through your F-Droid client. For in-app updates, install from GitHub releases.
 
 Payanam is open source under AGPL-3.0. All improvements stay open.
 

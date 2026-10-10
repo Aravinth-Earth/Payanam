@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Layered only for the F-Droid build; the installer path that needs this
+     permission is not shipped in that APK. -->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+    <uses-permission
+        android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+        tools:node="remove" />
+</manifest>

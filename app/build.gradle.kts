@@ -30,6 +30,10 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
+// F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
+// the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
+val fdroidBuild = (project.findProperty("fdroidBuild") as String?)?.toBoolean() ?: false
+
 android {
     namespace = "io.payanam"
     compileSdk = 36
@@ -39,8 +43,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1704
-          versionName = "1704"
+          versionCode = 1706
+          versionName = "1706"
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -50,6 +54,7 @@ android {
         buildConfigField("boolean", "PLANS_CTA_ENABLED", "true")
         buildConfigField("boolean", "FOCUS_MODE_SETTINGS_ENABLED", "true")
         buildConfigField("boolean", "SCORE_SETTINGS_ENABLED", "true")
+        buildConfigField("boolean", "FDROID_BUILD", "$fdroidBuild")
 
 
 
@@ -61,10 +66,11 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
 
-        // ARM64-only default for all builds (debug + release).
-        // Pass -PuniversalBuild=true to include all ABIs (emulator, CI, Chromebook).
-        val universalBuild = (project.findProperty("universalBuild") as String?)?.toBoolean() ?: false
-        if (!universalBuild) {
+        // Universal APK by default: every ABI ships, so a build from any channel
+        // installs on any device. Pass -Parm64Only=true for the arm64-only APK used
+        // for local USB iteration.
+        val arm64Only = (project.findProperty("arm64Only") as String?)?.toBoolean() ?: false
+        if (arm64Only) {
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }
@@ -158,6 +164,9 @@ android {
     sourceSets {
         getByName("main") {
             java.srcDir("src/main/kotlin")
+        }
+        if (fdroidBuild) {
+            getByName("release").manifest.srcFile("src/fdroid/AndroidManifest.xml")
         }
     }
 }

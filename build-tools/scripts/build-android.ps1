@@ -12,7 +12,7 @@ param(
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$Publish,
-    [switch]$Universal,
+    [switch]$Arm64Only,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -1634,9 +1634,16 @@ $gradleTask = if ($Release)
 { "assembleDebug"
 }
 
-if ($Universal)
+# Universal (all ABIs) is the GRADLE default, so the task needs no ABI property and a
+# plain gradle build is universal too. Pass -Arm64Only for the arm64-only build used
+# on local USB iteration.
+if ($Arm64Only)
 {
-    $gradleTask += " -PuniversalBuild=true"
+    $gradleTask += " -Parm64Only=true"
+    Write-LogWithTime "Arm64-only: -Arm64Only passed (arm64-v8a)" "Yellow"
+}
+else
+{
     Write-LogWithTime "Universal: all ABIs included (arm64, arm32, x86, x86_64)" "Yellow"
 }
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
@@ -1649,10 +1656,10 @@ if ($buildRun.ExitCode -ne 0)
     Exit-WithCleanup 1
 }
 Write-LogWithTime "✅ APK build successful!" "Green"
-if ($Universal) {
-    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
-} else {
+if ($Arm64Only) {
     Write-LogWithTime "ABI filter: arm64-v8a only (~11 MB saved vs universal)" "Yellow"
+} else {
+    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
 }
 
 # Find APK
