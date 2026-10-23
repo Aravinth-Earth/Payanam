@@ -1,0 +1,290 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("ktlint:standard:function-naming")
+
+package io.payanam.core.ui.components
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.gestures.detectTapGestures
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxHeight
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.Immutable
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.CornerRadius
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.PathEffect
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.drawscope.Stroke
+import androidx.compose.ui.hapticfeedback.HapticFeedbackType
+import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.TextMeasurer
+import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.drawText
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.rememberTextMeasurer
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.presentation.tasks.CheckmarkStatus
+import io.payanam.presentation.tasks.DayCheckmark
+import io.payanam.shared.logging.AppLogger
+
+/**
+ * Single-Canvas CheckmarkPanel — draws all checkmarks in one pass.
+ *
+ * Replaces the Row-of-CheckmarkButtons approach with a single Canvas draw.
+ * Reduces composable count from ~45 per card to ~1.
+ *
+ * Touch handling: calculates which checkmark was tapped from x-coordinate.
+ */
+@Composable
+fun CheckmarkPanelCanvas(
+    checkmarks: List<DayCheckmark>,
+    onCheckmarkClick: (DayCheckmark) -> Unit,
+    onCheckmarkLongClick: (DayCheckmark) -> Unit,
+    modifier: Modifier = Modifier,
+    shortToggleEnabled: Boolean = true,
+    habitName: String = "",
+) {
+    val strings = LocalUiStrings.current
+    val haptic = LocalHapticFeedback.current
+    val density = LocalDensity.current
+    val textMeasurer = rememberTextMeasurer()
+
+    // Pre-compute colors once (not per-button)
+    val completedColor = Color(0xFF4CAF50).copy(alpha = 0.9f)
+    val skippedColor = Color(0xFF9E9E9E).copy(alpha = 0.6f)
+    val missedColor = Color(0xFFF44336).copy(alpha = 0.8f)
+    val pendingBorder = MaterialTheme.colorScheme.outline.copy(alpha = 0.5f)
+    val unknownBg = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.3f)
+    val pendingIcon = MaterialTheme.colorScheme.outline.copy(alpha = 0.3f)
+    val unknownIcon = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.3f)
+    val notesColor = MaterialTheme.colorScheme.tertiary
+
+    // Layout constants
+    val buttonSizePx = with(density) { 28.dp.toPx() }
+    val spacingPx = with(density) { 3.dp.toPx() }
+    val cornerRadiusPx = with(density) { 6.dp.toPx() }
+    val borderWidthPx = with(density) { 1.2.dp.toPx() }
+    val notesDotRadius = with(density) { 3.dp.toPx() }
+
+    // Total width = sum of button sizes + spacing
+    val totalCount = checkmarks.size
+    val totalWidthPx = totalCount * buttonSizePx + (totalCount - 1) * spacingPx
+    val totalHeightPx = buttonSizePx
+    val totalWidthDp = with(density) { totalWidthPx.toDp() }
+    val totalHeightDp = with(density) { totalHeightPx.toDp() }
+    val buttonSizeDp = with(density) { buttonSizePx.toDp() }
+
+    val statusCompletedText = strings.locCompleted
+    val statusSkippedText = strings.locSkipped
+    val statusMissedText = strings.locMissed
+    val statusNotFilledText = strings.locNotFilled
+
+    // Stable checkmarks reference for click calculation
+    val reversedCheckmarks = remember(checkmarks) { checkmarks.reversed() }
+
+    // Accessibility overlay: one semantics node per day cell so screen readers
+    // (and DOM-based UI automation) can address each visible day individually.
+    // The overlay and the Canvas are stacked in a single Box occupying exactly
+    // the panel footprint, so the drawing position is unchanged; the overlay
+    // renders nothing and forwards taps to the Canvas pointerInput below.
+    Box(
+        modifier = modifier.size(width = totalWidthDp, height = totalHeightDp),
+    ) {
+        androidx.compose.foundation.layout.Row(
+            modifier = Modifier.size(width = totalWidthDp, height = totalHeightDp),
+            horizontalArrangement = Arrangement.Start,
+        ) {
+            for (i in reversedCheckmarks.indices) {
+                val checkmark = reversedCheckmarks[i]
+                val statusText =
+                    when (checkmark.status) {
+                        CheckmarkStatus.COMPLETED -> statusCompletedText
+                        CheckmarkStatus.SKIPPED -> statusSkippedText
+                        CheckmarkStatus.MISSED -> statusMissedText
+                        CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> statusNotFilledText
+                    }
+                androidx.compose.foundation.layout.Box(
+                    modifier =
+                        Modifier
+                            .width(buttonSizeDp)
+                            .fillMaxHeight()
+                            .semantics {
+                                contentDescription =
+                                    "$habitName, ${checkmark.date}, $statusText"
+                            },
+                )
+            }
+        }
+
+        Canvas(
+            modifier =
+                Modifier
+                    .size(width = totalWidthDp, height = totalHeightDp)
+                    .pointerInput(reversedCheckmarks) {
+                        detectTapGestures(
+                            onTap = { offset ->
+                                val index =
+                                    (offset.x / (buttonSizePx + spacingPx))
+                                        .toInt()
+                                        .coerceIn(0, reversedCheckmarks.lastIndex)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onCheckmarkClick(reversedCheckmarks[index])
+                            },
+                            onLongPress = { offset ->
+                                val index =
+                                    (offset.x / (buttonSizePx + spacingPx))
+                                        .toInt()
+                                        .coerceIn(0, reversedCheckmarks.lastIndex)
+                                haptic.performHapticFeedback(HapticFeedbackType.LongPress)
+                                onCheckmarkLongClick(reversedCheckmarks[index])
+                            },
+                        )
+                    },
+        ) {
+            val canvasWidth = size.width
+            val canvasHeight = size.height
+
+            // Draw each checkmark in a single pass
+            for (i in reversedCheckmarks.indices) {
+                val checkmark = reversedCheckmarks[i]
+                val x = i * (buttonSizePx + spacingPx)
+                val y = (canvasHeight - buttonSizePx) / 2
+                drawCheckmark(
+                    checkmark = checkmark,
+                    x = x,
+                    y = y,
+                    size = buttonSizePx,
+                    cornerRadius = cornerRadiusPx,
+                    borderWidth = borderWidthPx,
+                    completedColor = completedColor,
+                    skippedColor = skippedColor,
+                    missedColor = missedColor,
+                    pendingBorder = pendingBorder,
+                    unknownBg = unknownBg,
+                    pendingIcon = pendingIcon,
+                    unknownIcon = unknownIcon,
+                    notesColor = notesColor,
+                    notesDotRadius = notesDotRadius,
+                    textMeasurer = textMeasurer,
+                )
+            }
+        }
+    }
+}
+
+/**
+ * Draw a single checkmark in the canvas.
+ */
+private fun DrawScope.drawCheckmark(
+    checkmark: DayCheckmark,
+    x: Float,
+    y: Float,
+    size: Float,
+    cornerRadius: Float,
+    borderWidth: Float,
+    completedColor: Color,
+    skippedColor: Color,
+    missedColor: Color,
+    pendingBorder: Color,
+    unknownBg: Color,
+    pendingIcon: Color,
+    unknownIcon: Color,
+    notesColor: Color,
+    notesDotRadius: Float,
+    textMeasurer: TextMeasurer,
+) {
+    val rect =
+        androidx.compose.ui.geometry
+            .Rect(x, y, x + size, y + size)
+    val cornerShape = CornerRadius(cornerRadius, cornerRadius)
+
+    // Background
+    val bgColor =
+        when (checkmark.status) {
+            CheckmarkStatus.COMPLETED -> completedColor
+            CheckmarkStatus.SKIPPED -> skippedColor
+            CheckmarkStatus.MISSED -> missedColor
+            CheckmarkStatus.PENDING -> Color.Transparent
+            CheckmarkStatus.UNKNOWN -> unknownBg
+        }
+    if (bgColor != Color.Transparent) {
+        drawRoundRect(
+            color = bgColor,
+            topLeft = Offset(x, y),
+            size = Size(size, size),
+            cornerRadius = cornerShape,
+        )
+    }
+
+    // Border (only for PENDING)
+    if (checkmark.status == CheckmarkStatus.PENDING) {
+        drawRoundRect(
+            color = pendingBorder,
+            topLeft = Offset(x, y),
+            size = Size(size, size),
+            cornerRadius = cornerShape,
+            style =
+                Stroke(
+                    width = borderWidth,
+                    pathEffect = PathEffect.cornerPathEffect(cornerRadius),
+                ),
+        )
+    }
+
+    // Icon glyph (drawn as text)
+    val iconColor =
+        when (checkmark.status) {
+            CheckmarkStatus.COMPLETED, CheckmarkStatus.SKIPPED, CheckmarkStatus.MISSED -> Color.White
+            CheckmarkStatus.PENDING -> pendingIcon
+            CheckmarkStatus.UNKNOWN -> unknownIcon
+        }
+    val glyph =
+        when (checkmark.status) {
+            CheckmarkStatus.COMPLETED -> "✓"
+            CheckmarkStatus.SKIPPED -> "−"
+            CheckmarkStatus.MISSED -> "✗"
+            CheckmarkStatus.PENDING -> "?"
+            CheckmarkStatus.UNKNOWN -> "?"
+        }
+    val fontSize =
+        when (checkmark.status) {
+            CheckmarkStatus.PENDING, CheckmarkStatus.UNKNOWN -> 12.sp
+            else -> 14.sp
+        }
+    val textStyle =
+        TextStyle(
+            color = iconColor,
+            fontSize = fontSize,
+            fontWeight = FontWeight.Bold,
+        )
+    val textLayout = textMeasurer.measure(glyph, textStyle)
+    val textX = x + (size - textLayout.size.width) / 2
+    val textY = y + (size - textLayout.size.height) / 2
+    drawText(textLayout, topLeft = Offset(textX, textY))
+
+    // Notes indicator dot
+    if (checkmark.hasNote) {
+        drawCircle(
+            color = notesColor,
+            radius = notesDotRadius,
+            center = Offset(x + size - notesDotRadius, y + notesDotRadius),
+        )
+    }
+}

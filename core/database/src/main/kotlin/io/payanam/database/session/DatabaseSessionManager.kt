@@ -9,7 +9,6 @@ import androidx.annotation.VisibleForTesting
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.PayanamDatabase
@@ -18,6 +17,7 @@ import io.payanam.database.migration.MIGRATION_17_18
 import io.payanam.database.migration.MIGRATION_18_19
 import io.payanam.database.migration.MIGRATION_19_20
 import io.payanam.database.migration.MIGRATION_20_21
+import io.payanam.database.migration.MIGRATION_21_22
 import io.payanam.database.security.DatabaseEncryptionManager
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -35,6 +35,9 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import javax.inject.Inject
 import javax.inject.Singleton
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.shared.database.WalCheckpointRule
 
 /**
  * Crypto-gate holder for the Room database session.
@@ -116,9 +119,16 @@ class DatabaseSessionManager
                             .databaseBuilder(
                                 context,
                                 PayanamDatabase::class.java,
-                                PayanamDatabase.DATABASE_NAME,
+                                PayanamDatabaseSchema.DATABASE_NAME,
                             ).setJournalMode(RoomDatabase.JournalMode.WRITE_AHEAD_LOGGING)
-                            .addMigrations(MIGRATION_16_17, MIGRATION_17_18, MIGRATION_18_19, MIGRATION_19_20, MIGRATION_20_21)
+                            .addMigrations(
+                                MIGRATION_16_17,
+                                MIGRATION_17_18,
+                                MIGRATION_18_19,
+                                MIGRATION_19_20,
+                                MIGRATION_20_21,
+                                MIGRATION_21_22,
+                            )
                             .openHelperFactory(SupportOpenHelperFactory(passphrase.toByteArray()))
                             .build()
                     // Force open so SQLCipher validation happens now (throws on wrong passphrase)
@@ -130,7 +140,7 @@ class DatabaseSessionManager
                     logger.i(
                         "DatabaseSessionManager.openDatabase",
                         "DB session opened",
-                        mapOf("dbName" to PayanamDatabase.DATABASE_NAME),
+                        mapOf("dbName" to PayanamDatabaseSchema.DATABASE_NAME),
                     )
                     startInactivityTimer()
                     startPeriodicCheckpointTimer()
@@ -228,26 +238,48 @@ class DatabaseSessionManager
          * Flushes WAL journal to the main DB file. Call on lifecycle boundaries
          * (Activity.onStop, Service.onDestroy, pre-kill) to reduce data-loss window.
          * No-op if the DB session is not open.
+         *
+         * Reports rather than refuses, and that is a NAMED choice, not a weaker gate: this runs on
+         * lifecycle boundaries where throwing would be a crash, and a fold that did not empty the log is
+         * not worth one. The DECISION itself is the shared rule's, so what this log line says about
+         * emptiness is the same answer the export and backup paths act on.
          */
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         fun checkpoint() {
             val db = _db ?: return
             try {
-                val cursor = db.openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)")
-                var busy = -1
-                var logPages = -1
-                var checkpointedPages = -1
-                if (cursor.moveToFirst()) {
-                    busy = cursor.getInt(0)
-                    logPages = cursor.getInt(1)
-                    checkpointedPages = cursor.getInt(2)
+                val report =
+                    db.openHelper.writableDatabase.query(WalCheckpointRule.FOLD_STATEMENT).use { cursor ->
+                        if (cursor.moveToFirst()) {
+                            WalCheckpointRule.reportOf(
+                                intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
+                            )
+                        } else {
+                            WalCheckpointRule.NO_ROW
+                        }
+                    }
+                if (WalCheckpointRule.walIsEmpty(report)) {
+                    logger.d(
+                        "DatabaseSessionManager.checkpoint",
+                        "WAL checkpoint left the log empty",
+                        mapOf(
+                            "logFrames" to report.logFrames,
+                            "checkpointedFrames" to report.checkpointedFrames,
+                        ),
+                    )
+                } else {
+                    // The old line said "completed" for a fold that was blocked or left frames behind.
+                    // Nothing read those counts, so a log that stayed full read as a successful flush.
+                    logger.w(
+                        "DatabaseSessionManager.checkpoint",
+                        "WAL checkpoint did not leave the log empty; the main file may not hold every write",
+                        mapOf(
+                            "busy" to report.busy,
+                            "logFrames" to report.logFrames,
+                            "checkpointedFrames" to report.checkpointedFrames,
+                        ),
+                    )
                 }
-                cursor.close()
-                logger.d(
-                    "DatabaseSessionManager.checkpoint",
-                    "WAL checkpoint completed",
-                    mapOf("busy" to busy, "logPages" to logPages, "checkpointedPages" to checkpointedPages),
-                )
             } catch (e: Exception) {
                 logger.e("DatabaseSessionManager.checkpoint", "WAL checkpoint failed", e)
             }
@@ -336,8 +368,7 @@ class DatabaseSessionManager
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun closeDatabaseForTimeout() {
             logger.i("DatabaseSessionManager.closeDatabaseForTimeout", "Closing DB session after inactivity timeout")
-            CrashSafeBreadcrumbs.record(
-                context = context,
+            CrashBreadcrumbs.record(
                 source = "DatabaseSessionManager.closeDatabaseForTimeout",
                 stage = "started",
             )
@@ -362,8 +393,7 @@ class DatabaseSessionManager
             _isOpen.value = false
             db?.close()
 
-            CrashSafeBreadcrumbs.record(
-                context = context,
+            CrashBreadcrumbs.record(
                 source = "DatabaseSessionManager.closeDatabaseForTimeout",
                 stage = "session_closed_for_timeout",
             )

@@ -4,9 +4,10 @@ package io.payanam.ui.screens
 
 import androidx.compose.ui.graphics.Color
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.DimensionPreference
+import io.payanam.core.ui.time.buildDayPlanDialogSavePayload
 import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.repository.DayPlanRepository
-import io.payanam.ui.viewmodel.DimensionPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -35,10 +36,10 @@ class DayPlanDialogPayloadTest {
         ),
     )
 
-    @Test
     /**
      * Build day plan dialog save payload filters invalid minutes and keeps positive values.
      */
+    @Test
     fun buildDayPlanDialogSavePayload_filters_invalid_minutes_and_keeps_positive_values() {
         val payload = buildDayPlanDialogSavePayload(
             dayMode = DayPlanRepository.MODE_CUSTOM,
@@ -62,10 +63,10 @@ class DayPlanDialogPayloadTest {
         assertEquals(true, payload.isStarredDay)
     }
 
-    @Test
     /**
      * Build day plan dialog save payload maps day type template ids and template selection.
      */
+    @Test
     fun buildDayPlanDialogSavePayload_maps_day_type_template_ids_and_template_selection() {
         val payload = buildDayPlanDialogSavePayload(
             dayMode = DayPlanRepository.MODE_TEMPLATE,

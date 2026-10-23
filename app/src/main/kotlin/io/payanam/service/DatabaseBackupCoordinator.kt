@@ -6,16 +6,20 @@ package io.payanam.service
 
 import android.content.Context
 import android.content.pm.PackageManager
+import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
 import android.os.Environment
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.BackupExecutionResult
+import io.payanam.domain.port.BackupTrigger
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.database.WalCheckpointRule
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
-import android.database.sqlite.SQLiteDatabase
 import java.io.File
 import java.io.FileInputStream
 import java.time.LocalDateTime
@@ -23,27 +27,6 @@ import java.time.format.DateTimeFormatter
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.coroutines.cancellation.CancellationException
-import kotlinx.coroutines.Dispatchers
-/**
- * What started a backup: scheduled auto, user-initiated manual, or a
- * settings-screen export. Drives the retry policy.
- */
-enum class BackupTrigger(val key: String) {
-    AUTO("auto"),
-    MANUAL("manual"),
-    EXPORT("export"),
-}
-/**
- * Outcome of a completed backup: when it was recorded, where it landed, and
- * how many snapshot attempts it took.
- */
-data class BackupExecutionResult(
-    val recordedAtMillis: Long,
-    val recordedAtDisplay: String,
-    val destinationPath: String,
-    val attemptsUsed: Int,
-)
-
 private data class SnapshotAttemptResult(
     val snapshotFile: File,
     val attemptsUsed: Int,
@@ -60,14 +43,15 @@ class DatabaseBackupCoordinator @Inject constructor(
     @ApplicationContext private val context: Context,
     private val sessionManager: DatabaseSessionManager,
     private val backupStatusStore: BackupStatusStore,
-) {
+) : io.payanam.domain.port.DatabaseBackupCoordinator {
     private val logger = UnifiedLogger.getInstance()
+
     /**
      * Runs a full backup into the app's Documents backup folder: WAL
      * checkpoint + verified snapshot with retries, then rotation cleanup.
      * Records success/failure in [BackupStatusStore].
      */
-    suspend fun backupToAppBackupDirectory(trigger: BackupTrigger): BackupExecutionResult = withContext(Dispatchers.IO) {
+    override suspend fun backupToAppBackupDirectory(trigger: BackupTrigger): BackupExecutionResult = withContext(Dispatchers.IO) {
         val policy = retryPolicyFor(trigger)
         runCatching {
             val snapshotResult = createSnapshot(trigger, policy.maxAttempts, policy.retryDelayMs)
@@ -75,7 +59,7 @@ class DatabaseBackupCoordinator @Inject constructor(
             try {
                 val backupRootDir = getBackupDirectory().apply { mkdirs() }
                 val sessionDir = File(backupRootDir, buildBackupFolderName()).apply { mkdirs() }
-                val destination = File(sessionDir, PayanamDatabase.DATABASE_NAME)
+                val destination = File(sessionDir, PayanamDatabaseSchema.DATABASE_NAME)
                 snapshot.copyTo(destination, overwrite = true)
                 val recordedAtMillis = destination.lastModified().takeIf { it > 0L } ?: System.currentTimeMillis()
                 val result = BackupExecutionResult(
@@ -102,6 +86,7 @@ class DatabaseBackupCoordinator @Inject constructor(
             throw IllegalStateException(finalMessage, error)
         }
     }
+
     /**
      * Streams a verified snapshot to a user-chosen [destinationUri] via SAF,
      * returning the bytes written.
@@ -142,7 +127,7 @@ class DatabaseBackupCoordinator @Inject constructor(
         maxAttempts: Int,
         retryDelayMs: Long,
     ): SnapshotAttemptResult {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (!dbFile.exists()) {
             throw IllegalStateException("Database file not found at ${dbFile.absolutePath}")
         }
@@ -161,7 +146,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     ),
                 )
                 checkpointIfPossible(trigger, attemptNumber, maxAttempts)
-                val walFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal")
+                val walFile = File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
                 if (walFile.exists() && walFile.length() > 0L) {
                     throw IllegalStateException(
                         if (sessionManager.isDbOpen()) {
@@ -225,16 +210,18 @@ class DatabaseBackupCoordinator @Inject constructor(
             )
             return
         }
-        val cursor = sessionManager.requireDatabase().openHelper.writableDatabase.query("PRAGMA wal_checkpoint(TRUNCATE)")
-        var busy = -1
-        var logPages = -1
-        var checkpointedPages = -1
-        if (cursor.moveToFirst()) {
-            busy = cursor.getInt(0)
-            logPages = cursor.getInt(1)
-            checkpointedPages = cursor.getInt(2)
-        }
-        cursor.close()
+        val report =
+            sessionManager.requireDatabase().openHelper.writableDatabase
+                .query(WalCheckpointRule.FOLD_STATEMENT)
+                .use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        WalCheckpointRule.reportOf(
+                            intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
+                        )
+                    } else {
+                        WalCheckpointRule.NO_ROW
+                    }
+                }
         logger.i(
             "DatabaseBackupCoordinator.checkpointIfPossible",
             "Checkpoint attempt completed",
@@ -242,14 +229,18 @@ class DatabaseBackupCoordinator @Inject constructor(
                 "trigger" to trigger.key,
                 "attempt" to attemptNumber,
                 "maxAttempts" to maxAttempts,
-                "busy" to busy,
-                "logPages" to logPages,
-                "checkpointedPages" to checkpointedPages,
+                "busy" to report.busy,
+                "logPages" to report.logFrames,
+                "checkpointedPages" to report.checkpointedFrames,
+                "walIsEmpty" to report.walIsEmpty,
             ),
         )
-        if (busy > 0) {
-            throw IllegalStateException("Database is busy during checkpoint")
-        }
+        // A backup REFUSES a log it could not empty, and this is the refusing half of the shared rule.
+        // The old check was `busy > 0` alone, so a fold that ran and left frames behind passed here and
+        // produced a snapshot missing whatever was still sitting in the log. The `-wal` size check in
+        // createSnapshot caught most of those, but it cannot tell a genuinely non-WAL database from a
+        // fold that silently left pages behind.
+        WalCheckpointRule.requireWalEmpty(report, "backup snapshot for ${trigger.key}")
     }
 
     private fun verifySnapshot(snapshot: File) {
@@ -269,15 +260,13 @@ class DatabaseBackupCoordinator @Inject constructor(
         }
     }
 
-    private fun hasStandardSqliteHeader(databaseFile: File): Boolean {
-        return try {
-            val header = ByteArray(16)
-            val bytesRead = databaseFile.inputStream().use { it.read(header) }
-            val sqliteMagic = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1)
-            bytesRead >= sqliteMagic.size && header.copyOf(sqliteMagic.size).contentEquals(sqliteMagic)
-        } catch (_: Exception) {
-            false
-        }
+    private fun hasStandardSqliteHeader(databaseFile: File): Boolean = try {
+        val header = ByteArray(16)
+        val bytesRead = databaseFile.inputStream().use { it.read(header) }
+        val sqliteMagic = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1)
+        bytesRead >= sqliteMagic.size && header.copyOf(sqliteMagic.size).contentEquals(sqliteMagic)
+    } catch (_: Exception) {
+        false
     }
 
     private fun retryPolicyFor(trigger: BackupTrigger): BackupRetryPolicy = when (trigger) {
@@ -391,6 +380,7 @@ class DatabaseBackupCoordinator @Inject constructor(
                     "failed" to failed,
                     "failedDirsSample" to when {
                         failedNames.size <= 10 -> failedNames.joinToString(",")
+
                         else -> {
                             val first = failedNames.take(5).joinToString(",")
                             val last = failedNames.takeLast(5).joinToString(",")

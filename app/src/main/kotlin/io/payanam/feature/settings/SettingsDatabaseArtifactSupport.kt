@@ -4,24 +4,13 @@ package io.payanam.feature.settings
 
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.security.DatabaseFileGuard
+import io.payanam.presentation.settings.DatabaseArtifactUiModel
+import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-
-/**
- * Display model for a single database file shown in the Settings > Database
- * screen. Carries the file name, size in KB, a human-readable last-modified
- * label, and whether the file is part of the live (active) SQLite set.
- */
-data class DatabaseArtifactUiModel(
-    val fileName: String,
-    val sizeKb: Long,
-    val lastModifiedLabel: String,
-    val isActive: Boolean = true,
-)
 
 private val activeSuffixes = setOf("", "-wal", "-shm", "-journal")
 
@@ -30,7 +19,7 @@ private val activeSuffixes = setOf("", "-wal", "-shm", "-journal")
  * — the main database plus its `-wal`, `-shm`, and `-journal` companion files.
  * Anything else (`.bak`, temp import files, orphaned companions) is stale.
  */
-fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabase.DATABASE_NAME): Boolean = activeSuffixes.any { fileName == "$dbName$it" }
+fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabaseSchema.DATABASE_NAME): Boolean = activeSuffixes.any { fileName == "$dbName$it" }
 
 private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -41,7 +30,7 @@ private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPat
  */
 fun listDatabaseArtifactFiles(context: Context): List<File> {
     val logger = UnifiedLogger.getInstance()
-    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+    val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     val dbDir = dbFile.parentFile ?: return listOf(dbFile).also {
         logger.w(
             "SettingsDatabaseArtifactSupport.listDatabaseArtifactFiles",
@@ -50,7 +39,7 @@ fun listDatabaseArtifactFiles(context: Context): List<File> {
         )
     }
     return dbDir.listFiles()?.filter { file ->
-        file.isFile && file.name.startsWith(PayanamDatabase.DATABASE_NAME)
+        file.isFile && file.name.startsWith(PayanamDatabaseSchema.DATABASE_NAME)
     }?.sortedBy { it.name }?.also { files ->
         logger.d(
             "SettingsDatabaseArtifactSupport.listDatabaseArtifactFiles",
@@ -84,13 +73,13 @@ fun File.toDatabaseArtifactUiModel(): DatabaseArtifactUiModel {
  */
 fun deleteStaleArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
-    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+    val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     val dbDir = dbFile.parentFile ?: return 0.also {
         logger.w("SettingsDatabaseArtifactSupport.deleteStaleArtifactFiles", "Delete stale skipped: DB dir unavailable")
     }
     var deletedCount = 0
     dbDir.listFiles()?.filter { file ->
-        file.isFile && file.name.startsWith(PayanamDatabase.DATABASE_NAME) && !isActiveArtifact(file.name)
+        file.isFile && file.name.startsWith(PayanamDatabaseSchema.DATABASE_NAME) && !isActiveArtifact(file.name)
     }?.forEach { file ->
         val deleted = DatabaseFileGuard.safeDelete(
             file,
@@ -121,12 +110,12 @@ fun deleteStaleArtifactFiles(context: Context): Int {
  */
 fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
     val logger = UnifiedLogger.getInstance()
-    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+    val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     val dbDir = dbFile.parentFile ?: return false.also {
         logger.w("SettingsDatabaseArtifactSupport.deleteDatabaseArtifactFile", "Delete artifact blocked: DB dir unavailable")
     }
     val target = File(dbDir, fileName)
-    if (!target.name.startsWith(PayanamDatabase.DATABASE_NAME)) {
+    if (!target.name.startsWith(PayanamDatabaseSchema.DATABASE_NAME)) {
         logger.w(
             "SettingsDatabaseArtifactSupport.deleteDatabaseArtifactFile",
             "Delete artifact blocked: target outside DB namespace",
@@ -155,7 +144,7 @@ fun deleteDatabaseArtifactFile(context: Context, fileName: String): Boolean {
 fun deleteAllDatabaseArtifactFiles(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
     var deletedCount = 0
-    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+    val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     val dbDir = dbFile.parentFile ?: return 0.also {
         logger.w("SettingsDatabaseArtifactSupport.deleteAllDatabaseArtifactFiles", "Delete-all blocked: DB dir unavailable")
     }
@@ -216,17 +205,17 @@ fun deleteAllDatabaseArtifactFiles(context: Context): Int {
 fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     val logger = UnifiedLogger.getInstance()
     var deletedCount = 0
-    val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+    val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     val dbDir = dbFile.parentFile ?: return 0.also {
         logger.w("SettingsDatabaseArtifactSupport.deleteRuntimeDatabaseArtifacts", "Runtime delete skipped: DB dir unavailable")
     }
     dbDir.listFiles()?.forEach { file ->
         if (!file.isFile) return@forEach
         val isActive = isActiveArtifact(file.name)
-        val isTransientImportTemp = file.name == "${PayanamDatabase.DATABASE_NAME}.enc.tmp" ||
-            file.name.startsWith("${PayanamDatabase.DATABASE_NAME}.enc.tmp-") ||
-            file.name.startsWith("${PayanamDatabase.DATABASE_NAME}.wal_merge_tmp") ||
-            file.name.startsWith("${PayanamDatabase.DATABASE_NAME}.import_decrypt.tmp")
+        val isTransientImportTemp = file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp" ||
+            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp-") ||
+            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.wal_merge_tmp") ||
+            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.import_decrypt.tmp")
         if (isActive || isTransientImportTemp) {
             val deleted = DatabaseFileGuard.safeDelete(
                 file,
@@ -262,7 +251,7 @@ fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
  */
 fun wipeTempBackupDir(context: Context): Boolean {
     val logger = UnifiedLogger.getInstance()
-    val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile ?: return false.also {
+    val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile ?: return false.also {
         logger.w("SettingsDatabaseArtifactSupport.wipeTempBackupDir", "Temp backup wipe skipped: DB dir unavailable")
     }
     val dir = File(dbDir, "payanam_temp_backup")

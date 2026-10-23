@@ -4,6 +4,7 @@ package io.payanam.shared.settings
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
+
 class DesktopPreferenceContractsTest {
     @Test
     fun `default snapshot stays stable for desktop bootstrap`() {
@@ -16,6 +17,19 @@ class DesktopPreferenceContractsTest {
         assertThat(snapshot.focusModeOnboardingCompleted).isFalse()
         assertThat(snapshot.visibleRoutes()).containsExactlyElementsIn(DesktopTopLevelRoute.entries).inOrder()
         assertThat(snapshot.sessionLoggingEnabled).isTrue()
+        // Scope A: previously non-persisted controls
+        assertThat(snapshot.focusModeEnabled).isTrue()
+        assertThat(snapshot.habitTrackingEnabled).isFalse()
+        assertThat(snapshot.timeInsightsEnabled).isTrue()
+        assertThat(snapshot.autoBackupEnabled).isFalse()
+        assertThat(snapshot.backupFrequency).isEqualTo("60m")
+        assertThat(snapshot.scoringModel).isEqualTo("balanced")
+        assertThat(snapshot.unlockTimeout).isEqualTo(120)
+        // Scope B: genuinely missing desktop settings
+        assertThat(snapshot.timeFormat).isEqualTo("24h")
+        assertThat(snapshot.launchTaskFilter).isEqualTo(DesktopLaunchTaskFilter.NONE)
+        assertThat(snapshot.backupRotationEnabled).isFalse()
+        assertThat(snapshot.backupRotationCount).isEqualTo(50)
     }
 
     @Test
@@ -27,15 +41,16 @@ class DesktopPreferenceContractsTest {
 
     @Test
     fun `all desktop top level routes remain available for shared app shell`() {
-        assertThat(DesktopTopLevelRoute.entries.map { it.storageKey }).containsExactly(
-            "tasks",
-            "habits",
-            "time",
-            "journal",
-            "notes",
-            "lenses",
-            "settings",
-        ).inOrder()
+        assertThat(DesktopTopLevelRoute.entries.map { it.storageKey })
+            .containsExactly(
+                "tasks",
+                "habits",
+                "time",
+                "journal",
+                "notes",
+                "lenses",
+                "settings",
+            ).inOrder()
     }
 
     @Test

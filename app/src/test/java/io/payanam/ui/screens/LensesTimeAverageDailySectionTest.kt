@@ -4,6 +4,8 @@ package io.payanam.ui.screens
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import io.payanam.core.ui.lenses.averageDailyTimeColumnTotals
+import io.payanam.core.ui.lenses.averageDailyTimeCellShare
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.repository.AverageDailyTimeRow
 import io.payanam.domain.repository.AverageDailyTimeRowType

@@ -16,12 +16,12 @@ import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.AutoDownloadManager
-import io.payanam.feature.settings.DownloadUiState
 import io.payanam.feature.settings.InstallerChecker
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.UpdateChecker
 import io.payanam.feature.settings.UpdateOutcome
+import io.payanam.presentation.download.DownloadUiState
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -78,7 +78,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: UpdateChecker.check network + JSON parsing
+    @Suppress("TooGenericExceptionCaught") // Intentional: UpdateChecker.check network + JSON parsing
     fun checkForUpdate() {
         if (isFDroidBuild) {
             logger.i("PreUnlockUpdateChecker.check", "F-Droid install; in-app update hatch disabled")
@@ -114,6 +114,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         )
                         _checkResultMessage.value = "check_failed_${result.error?.name ?: UpdateCheckError.UNKNOWN.name}"
                     }
+
                     UpdateOutcome.UPDATE_AVAILABLE -> {
                         latestBuildNumber = result.latestBuildNumber
                         latestReleaseUrl = result.releaseUrl
@@ -130,6 +131,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         )
                         _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
                     }
+
                     UpdateOutcome.TYPE_MISMATCH -> {
                         // Fail closed: the dev channel ships no APK for this
                         // install's build type. The hatch must name the actual
@@ -144,6 +146,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         )
                         _checkResultMessage.value = "type_mismatch"
                     }
+
                     UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
                         latestBuildNumber = null
                         latestReleaseUrl = null
@@ -151,6 +154,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         logger.i("PreUnlockUpdateChecker.check", "Check complete: no releases on the dev channel yet")
                         _checkResultMessage.value = "no_release"
                     }
+
                     UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
                         latestBuildNumber = null
                         latestReleaseUrl = null
@@ -162,6 +166,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         )
                         _checkResultMessage.value = "check_failed_parse"
                     }
+
                     UpdateOutcome.UP_TO_DATE -> {
                         latestBuildNumber = null
                         latestReleaseUrl = null
@@ -227,7 +232,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /** User tapped "Install now" — launch the system installer (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: FileProvider + startActivity system installer handoff
+    @Suppress("TooGenericExceptionCaught") // Intentional: FileProvider + startActivity system installer handoff
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")

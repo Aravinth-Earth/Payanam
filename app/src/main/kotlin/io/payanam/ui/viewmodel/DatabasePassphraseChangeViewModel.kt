@@ -7,13 +7,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.database.security.PassphrasePolicy
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.ProcessRestart
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -45,16 +46,20 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     @ApplicationContext private val context: Context,
     private val encryptionManager: DatabaseEncryptionManager,
     private val sessionManager: DatabaseSessionManager,
+    // The process-end sequence, as a port. On Android this call does not return; the four calls it makes
+    // are the ones this class used to make inline (see AndroidProcessRestartPort), unchanged.
+    private val processRestart: ProcessRestart,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
     private val _uiState = MutableStateFlow(DatabasePassphraseChangeUiState())
     val uiState: StateFlow<DatabasePassphraseChangeUiState> = _uiState.asStateFlow()
+
     /**
      * Validates and applies a passphrase change: policy + confirm checks,
      * verified current passphrase, artifact backup, rekey, rollback on any
      * failure, then process restart on success.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: passphrase change + backup restore pipeline
+    @Suppress("TooGenericExceptionCaught") // Intentional: passphrase change + backup restore pipeline
     fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
         val validation = PassphrasePolicy.validate(newPassphrase)
         if (!validation.isValid) {
@@ -82,7 +87,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     }
 
     private suspend fun changePassphraseWithRollback(currentPassphrase: String, newPassphrase: String): String? {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (!dbFile.exists()) {
             logger.w("DatabasePassphraseChangeViewModel.submit", "Database file missing for passphrase update")
             return "generic"
@@ -131,17 +136,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     }
 
     private fun restartProcess() {
-        CrashSafeBreadcrumbs.record(
-            context = context,
-            source = "DatabasePassphraseChangeViewModel.restartProcess",
-            stage = "kill_process_for_passphrase_change",
-        )
-        logger.flush()
-        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { intent ->
-            intent.addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK or android.content.Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            context.startActivity(intent)
-        }
-        android.os.Process.killProcess(android.os.Process.myPid())
+        processRestart.restartProcess()
     }
 
     private fun backupDatabaseArtifacts(): List<Pair<File, File>> {
@@ -172,12 +167,7 @@ class DatabasePassphraseChangeViewModel @Inject constructor(
     }
 
     private fun getDatabaseArtifactFiles(): List<File> {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-        return listOf(
-            dbFile,
-            File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal"),
-            File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-shm"),
-            File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-journal"),
-        )
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+        return DatabaseArtifacts.filesFor(dbFile)
     }
 }

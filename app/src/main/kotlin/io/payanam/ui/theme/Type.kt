@@ -7,7 +7,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.unit.em
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.FontFamilyOption
+import io.payanam.core.ui.preferences.FontFamilyOption
 
 private val logger: UnifiedLogger? by lazy { runCatching { UnifiedLogger.getInstance() }.getOrNull() }
 private var lastTypographySignature: String? = null

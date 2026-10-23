@@ -10,16 +10,36 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
-import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
+import org.junit.After
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+
 /**
  * Provides the desktop startup gate ui test.
  */
 class DesktopStartupGateUiTest {
     @get:Rule
     val composeRule = createComposeRule()
+
+    @get:Rule
+    val temporaryFolder = TemporaryFolder()
+
+    @Before
+    fun resetSingleton() {
+        // These tests never close the memoized session logger; dropping it here keeps a
+        // leaked instance from pointing later test classes at a deleted TemporaryFolder.
+        UnifiedLogger.resetForTests()
+    }
+
+    @After
+    fun releaseSingleton() {
+        // A failing assertion aborts the test body before it can close the logger, which would
+        // leave the singleton pointing into a TemporaryFolder this rule then deletes.
+        UnifiedLogger.resetForTests()
+    }
 
     @Test
     fun `startup gate renders setup mode and forwards configured passphrase`() {
@@ -31,6 +51,7 @@ class DesktopStartupGateUiTest {
                     startupMode = DesktopStartupMode.SetupPassphrase,
                     runtimeState = testRuntimeState(hasPassphrase = false, sessionOpen = false, databaseReady = false),
                     databaseSnapshot = testDatabaseSnapshot(databaseReady = false),
+                    dimensionInputs = emptyList(),
                     sessionLogger = testSessionLogger(),
                     callbacks =
                         testShellCallbacks(
@@ -55,6 +76,45 @@ class DesktopStartupGateUiTest {
     }
 
     @Test
+    fun `startup gate keeps the passphrase and its length out of the session log`() {
+        val logger =
+            UnifiedLogger.initialize(
+                logsDirectory = temporaryFolder.newFolder("gate-passphrase-log").toPath(),
+                clock = { java.time.Instant.EPOCH },
+            )
+        composeRule.setContent {
+            MaterialTheme(colors = desktopColorPalette().materialColors) {
+                desktopStartupGateSurface(
+                    snapshot = testStartupSnapshot(hasPassphrase = false, sessionOpen = false, databaseReady = false),
+                    startupMode = DesktopStartupMode.SetupPassphrase,
+                    runtimeState = testRuntimeState(hasPassphrase = false, sessionOpen = false, databaseReady = false),
+                    databaseSnapshot = testDatabaseSnapshot(databaseReady = false),
+                    dimensionInputs = emptyList(),
+                    sessionLogger = logger,
+                    callbacks =
+                        testShellCallbacks(
+                            onConfigurePassphrase = { DesktopPassphraseActionResult.Success },
+                        ),
+                )
+            }
+        }
+
+        composeRule.onNodeWithContentDescription("Desktop passphrase field").performTextInput("LocalPass123!")
+        composeRule.onNodeWithContentDescription("Desktop confirm passphrase field").performTextInput("LocalPass123!")
+        composeRule.onNodeWithContentDescription("Save passphrase").performClick()
+
+        composeRule.runOnIdle {
+            val contents =
+                java.nio.file.Files
+                    .readString(logger.getLogPath())
+            assertThat(contents).contains("Desktop passphrase setup requested")
+            assertThat(contents).doesNotContain("passphraseLength")
+            assertThat(contents).doesNotContain("LocalPass123!")
+        }
+        logger.close()
+    }
+
+    @Test
     fun `startup gate renders database initialization action`() {
         var databaseInitialized = false
         var importInvoked = false
@@ -65,17 +125,11 @@ class DesktopStartupGateUiTest {
                     startupMode = DesktopStartupMode.InitializeDatabase,
                     runtimeState = testRuntimeState(hasPassphrase = true, sessionOpen = true, databaseReady = false),
                     databaseSnapshot = testDatabaseSnapshot(databaseReady = false),
+                    dimensionInputs = emptyList(),
                     sessionLogger = testSessionLogger(),
                     callbacks =
                         testShellCallbacks(
-                            onImportLocalState = {
-                                importInvoked = true
-                                DesktopDataHandoffSnapshot(
-                                    "C:/Users/test/AppData/Local/Payanam/exports/export.zip",
-                                    true,
-                                    true,
-                                )
-                            },
+                            onImportDatabase = { importInvoked = true },
                             onInitializeDatabase = { databaseInitialized = true },
                         ),
                 )
@@ -83,7 +137,7 @@ class DesktopStartupGateUiTest {
         }
 
         composeRule.onNodeWithText("Create local data space").assertIsDisplayed()
-        composeRule.onNodeWithContentDescription("Import latest desktop handoff action").performClick()
+        composeRule.onNodeWithContentDescription("Import database from Android action").performClick()
         composeRule.onNodeWithContentDescription("Initialize desktop database action").performClick()
 
         composeRule.runOnIdle {
@@ -102,6 +156,7 @@ class DesktopStartupGateUiTest {
                     startupMode = DesktopStartupMode.UnlockPassphrase,
                     runtimeState = testRuntimeState(hasPassphrase = true, sessionOpen = false, databaseReady = true),
                     databaseSnapshot = testDatabaseSnapshot(databaseReady = true),
+                    dimensionInputs = emptyList(),
                     sessionLogger = testSessionLogger(),
                     callbacks =
                         testShellCallbacks(
@@ -121,6 +176,7 @@ class DesktopStartupGateUiTest {
     @Test
     fun `setup gate blocks submit when confirmation does not match`() {
         var configuredPassphrase: String? = null
+        val logger = testSessionLogger()
         composeRule.setContent {
             MaterialTheme(colors = desktopColorPalette().materialColors) {
                 desktopStartupGateSurface(
@@ -128,7 +184,8 @@ class DesktopStartupGateUiTest {
                     startupMode = DesktopStartupMode.SetupPassphrase,
                     runtimeState = testRuntimeState(hasPassphrase = false, sessionOpen = false, databaseReady = false),
                     databaseSnapshot = testDatabaseSnapshot(databaseReady = false),
-                    sessionLogger = testSessionLogger(),
+                    dimensionInputs = emptyList(),
+                    sessionLogger = logger,
                     callbacks =
                         testShellCallbacks(
                             onConfigurePassphrase = { passphrase ->
@@ -148,6 +205,15 @@ class DesktopStartupGateUiTest {
         composeRule.runOnIdle {
             assertThat(configuredPassphrase).isNull()
         }
+
+        // The mismatch must also reach the session log — the log is the only post-mortem surface.
+        val logContents =
+            java.nio.file.Files
+                .readString(logger.getLogPath())
+        assertThat(logContents).contains("Passphrase confirmation does not match")
+        assertThat(logContents).contains("| WARN  |")
+        // The passphrase value itself must never be written to the log.
+        assertThat(logContents).doesNotContain("Mismatch123!")
     }
 
     private fun testStartupSnapshot(
@@ -155,8 +221,7 @@ class DesktopStartupGateUiTest {
         sessionOpen: Boolean,
         databaseReady: Boolean,
     ) = desktopStartupSnapshot(
-        settings = DesktopSettingsSnapshot(launchRoute = DesktopTopLevelRoute.SETTINGS),
-        settingsFilePath = "C:/Users/test/AppData/Local/Payanam/preferences/desktop-settings.properties",
+        launchRoute = DesktopTopLevelRoute.SETTINGS,
         appDataRoot = "C:/Users/test/AppData/Local/Payanam",
         bootstrapFilePath = "C:/Users/test/AppData/Local/Payanam/bootstrap/desktop-bootstrap.properties",
         securityFilePath = "C:/Users/test/AppData/Local/Payanam/security/desktop-security.properties",
@@ -200,34 +265,41 @@ class DesktopStartupGateUiTest {
     private fun testShellCallbacks(
         onConfigurePassphrase: (String) -> DesktopPassphraseActionResult = { DesktopPassphraseActionResult.Success },
         onForgotPassphraseReset: () -> Unit = {},
-        onImportLocalState: () -> DesktopDataHandoffSnapshot =
-            { DesktopDataHandoffSnapshot("C:/Users/test/AppData/Local/Payanam/exports/export.zip", true, true) },
+        onImportDatabase: () -> Unit = {},
         onInitializeDatabase: () -> Unit = {},
     ) = DesktopShellCallbacks(
         onRouteSelected = {},
-        onSettingsChanged = {},
+        onSettingChanged = { _, _ -> },
         onSelectionChanged = {},
-        onTaskBoardChanged = {},
-        onJournalDateSelected = {},
-        onJournalOverallResponseChanged = { _, _ -> },
-        onJournalDimensionResponseChanged = { _, _, _ -> },
-        onCreateNote = { _, _, _, _, _ -> },
-        onUpdateNote = { _, _, _, _, _, _ -> },
-        onDeleteNote = {},
         onConfigurePassphrase = onConfigurePassphrase,
         onUnlockPassphrase = { DesktopPassphraseActionResult.Success },
         onForgotPassphraseReset = onForgotPassphraseReset,
+        onOnboardingIntroAdvanced = {},
+        onDatabaseChoiceSelected = {},
+        onDimensionSetupSaved = {},
         onInitializeDatabase = onInitializeDatabase,
         onCompleteFocusModeOnboarding = {},
-        onExportLocalState = { DesktopDataHandoffSnapshot("C:/Users/test/AppData/Local/Payanam/exports/export.zip", true, false) },
-        onImportLocalState = onImportLocalState,
+        onExportDatabase = {},
+        onImportDatabase = onImportDatabase,
+        // The graph's backup-banner and return-route inputs. This gate test renders the startup surface,
+        // not the graph, so these are inert here - supplied because the callbacks are built once for the
+        // whole shell rather than per surface.
+        onDismissBackupFailure = {},
+        onSilentUnlockRequested = { },
+        onUnlockReturnRouteConsumed = {},
+        onSecurityResetRequested = {},
+        onQuitRequested = {},
     )
 
-    private fun testSessionLogger(): DesktopSessionLogger =
-        DesktopSessionLogger.initialize(
-            logsDirectory =
-                java.nio.file.Paths
-                    .get(System.getProperty("java.io.tmpdir"), "payanam-desktop-test-logs"),
+    private val sessionLogsDirectory: java.nio.file.Path by lazy {
+        // Per-test directory: a shared tmpdir path let a previous run's entries satisfy
+        // `doesNotContain` assertions (and let concurrent JVM workers collide).
+        temporaryFolder.newFolder("session-logs").toPath()
+    }
+
+    private fun testSessionLogger(): UnifiedLogger =
+        UnifiedLogger.initialize(
+            logsDirectory = sessionLogsDirectory,
             clock = { java.time.Instant.EPOCH },
         )
 }

@@ -551,7 +551,10 @@ class ScoreRollupBackfillService
             val occDao = db.taskOccurrenceDao()
             val recurring = taskDao.getRecurringTasks()
             val hasLegacyNumDenRules = recurring.any { task ->
-                !task.recurrenceRule.isNullOrBlank() && !task.recurrenceRule.startsWith("CONFIG:")
+                // Local val: `recurrenceRule` is declared in another module, so Kotlin cannot
+                // smart-cast the property itself after the null check.
+                val rule = task.recurrenceRule
+                !rule.isNullOrBlank() && !rule.startsWith("CONFIG:")
             }
             val hasAnyOccurrences = occDao.countAllOccurrences() > 0
             if (!hasLegacyNumDenRules && !hasAnyOccurrences) {

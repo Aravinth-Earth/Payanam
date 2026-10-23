@@ -10,8 +10,10 @@ data class SharedPassphraseValidation(
     val isValid: Boolean,
     val reasonCode: String?,
 )
+
 object SharedPassphrasePolicy {
     private const val MIN_LENGTH = 12
+
     /**
      * Validates a passphrase against length + character-class rules; returns the
      * failure [reasonCode] when invalid.
@@ -35,6 +37,7 @@ object SharedPassphrasePolicy {
         return SharedPassphraseValidation(isValid = true, reasonCode = null)
     }
 }
+
 @Suppress("MagicNumber")
 object SharedPassphraseLockoutPolicy {
     /**

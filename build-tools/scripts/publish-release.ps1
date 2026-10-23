@@ -210,14 +210,45 @@ if ($Channel -eq "dev") {
     Invoke-ReleaseSecurityVerification -ApkPath $apkFile.FullName -FailClosed
 }
 
-# ── 6. Generate SHA256 checksum ───────────────────────────────────────────────
+# ── 6. Verify the SHA256 checksum written by the BUILD ────────────────────────
+#
+# This step used to GENERATE the checksum. It now VERIFIES it, because the build script is the only
+# place that should hash the artifact: a publisher-generated checksum is computed from whatever file
+# it is handed, so it can never detect an APK altered between build and publish. Verifying against a
+# build-time checksum can, and that is the whole point of shipping one.
+#
+# Fail-closed in both directions:
+#   - no checksum beside the APK  -> the APK did not come from build-android.ps1; refuse
+#   - checksum does not match     -> the artifact changed after it was built; refuse
+# Runs BEFORE the dry-run branch, so a dry run verifies too and reports only afterwards.
 
-Write-LogWithTime "Generating SHA256 checksum..." "Gray"
-$hash = (Get-FileHash -Path $apkFile.FullName -Algorithm SHA256).Hash.ToUpper()
+Write-LogWithTime "Verifying SHA256 checksum from the build..." "Gray"
 $sha256FileName = "$($apkFile.Name).sha256"
 $sha256FilePath = Join-Path $apkFile.DirectoryName $sha256FileName
-"$hash  $($apkFile.Name)" | Set-Content -Path $sha256FilePath -Encoding UTF8
-Write-LogWithTime "SHA256: $hash" "Gray"
+
+if (-not (Test-Path -LiteralPath $sha256FilePath))
+{
+    Write-LogWithTime "❌ No checksum beside the APK: $sha256FileName" "Red"
+    Write-LogWithTime "   build-android.ps1 writes it next to the APK it produces. Refusing to publish an artifact that cannot be verified." "Yellow"
+    exit 1
+}
+
+# First token of the first line is the hash; the rest is the filename. Tolerant of either case so a
+# hand-written or tool-written checksum verifies, but the compared values are normalised.
+$recordedHash = (((Get-Content -LiteralPath $sha256FilePath -Raw) -split "`n")[0].Trim() -split '\s+')[0].ToUpper()
+$actualHash = (Get-FileHash -Path $apkFile.FullName -Algorithm SHA256).Hash.ToUpper()
+
+if ($recordedHash -ne $actualHash)
+{
+    Write-LogWithTime "❌ Checksum MISMATCH - refusing to publish." "Red"
+    Write-LogWithTime "   recorded at build : $recordedHash" "Yellow"
+    Write-LogWithTime "   computed now      : $actualHash" "Yellow"
+    Write-LogWithTime "   The APK changed after it was built. Rebuild rather than publishing." "Yellow"
+    exit 1
+}
+
+$hash = $actualHash
+Write-LogWithTime "✅ Checksum verified: $hash" "Green"
 
 # ── 7. Build release notes ────────────────────────────────────────────────────
 

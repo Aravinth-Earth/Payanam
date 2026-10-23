@@ -5,7 +5,8 @@
 package io.payanam.domain.model
 
 
-import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 /**
  * One canonical life-dimension definition: stable [id], [slug], localized
  * fallback label/description, display order, and default weight/color/icon.
@@ -22,7 +23,7 @@ data class CanonicalDimensionDefinition(
 )
 @Suppress("MagicNumber")
 object DimensionTaxonomyCatalog {
-    private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
+    private fun logger(): UnifiedLogger = AppLogger.current
     private const val CATALOG_CLASS_NAME = "io.payanam.domain.model.DimensionTaxonomyCatalog"
     val PHYSICAL_HEALTH = CanonicalDimensionDefinition(
         id = "dim_physical_health",
@@ -175,7 +176,7 @@ object DimensionTaxonomyCatalog {
         return fromCanonicalId(id)?.also {
             if (id != it.id) {
                 val callerData = fallbackCallerTrace()
-                loggerOrNull()?.w(
+                logger().w(
                     "DimensionTaxonomyCatalog.fromAnyId",
                     "Rejected non-canonical dimension id",
                     mapOf(
@@ -187,7 +188,7 @@ object DimensionTaxonomyCatalog {
             }
         } ?: run {
             val callerData = fallbackCallerTrace()
-            loggerOrNull()?.w(
+            logger().w(
                 "DimensionTaxonomyCatalog.fromAnyId",
                 "Rejected non-canonical dimension id",
                 mapOf(
@@ -208,7 +209,7 @@ object DimensionTaxonomyCatalog {
         }
         val trimmed = label.trim()
         val callerData = fallbackCallerTrace()
-        loggerOrNull()?.w(
+        logger().w(
             "DimensionTaxonomyCatalog.fromAnyLabel",
             "Rejected dimension label; canonical id required",
             mapOf(

@@ -3,7 +3,8 @@
 package io.payanam.database.security
 
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 
 /**
@@ -30,8 +31,8 @@ object DatabaseFileGuard {
     }
 
     private fun primaryDbNames(): Set<String> {
-        val baseName = PayanamDatabase.DATABASE_NAME
-        return setOf(baseName, "$baseName-wal", "$baseName-shm", "$baseName-journal")
+        val baseName = PayanamDatabaseSchema.DATABASE_NAME
+        return DatabaseArtifacts.artifactSuffixes.mapTo(mutableSetOf()) { "$baseName$it" }
     }
 
     /**

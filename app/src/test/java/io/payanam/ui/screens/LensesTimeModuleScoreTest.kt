@@ -4,6 +4,9 @@ package io.payanam.ui.screens
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import io.payanam.core.ui.lenses.formatSignedMinutes
+import io.payanam.core.ui.lenses.formatLensScore
+import io.payanam.core.ui.lenses.calculateBoundedTimeModuleScore
 import io.payanam.common.logging.UnifiedLogger
 import org.junit.Assert.assertEquals
 import org.junit.Before

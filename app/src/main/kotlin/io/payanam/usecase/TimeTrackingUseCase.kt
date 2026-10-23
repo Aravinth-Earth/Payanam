@@ -7,9 +7,11 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
+import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.scoring.RecurrenceManager
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
@@ -25,7 +27,7 @@ class TimeTrackingUseCase @Inject constructor(
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
     private val recurrenceManager: RecurrenceManager,
-) {
+) : TimeTrackingController {
     private val logger = UnifiedLogger.getInstance()
 
     /**
@@ -33,9 +35,9 @@ class TimeTrackingUseCase @Inject constructor(
      * Returns the stopped time entry.
      */
     @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
-    suspend fun stopTrackingAndCompleteTask(
-        focusRating: Double = 0.0,
-        focusNote: String? = null,
+    override suspend fun stopTrackingAndCompleteTask(
+        focusRating: Double,
+        focusNote: String?,
     ): TimeEntry? {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
@@ -110,7 +112,7 @@ class TimeTrackingUseCase @Inject constructor(
                 )
 
                 // Update recurrence state
-                recurrenceManager.onTaskCompleted(task, "Completed via time tracking", null)
+                recurrenceManager.onTaskCompleted(task, "Completed via time tracking", null, null)
             }
 
             logger.i(

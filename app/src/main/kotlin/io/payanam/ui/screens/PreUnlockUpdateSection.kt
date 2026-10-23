@@ -31,10 +31,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.feature.settings.DownloadUiState
-import io.payanam.ui.theme.LifeDimensionColors
+import io.payanam.core.ui.theme.LifeDimensionColors
 import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 
 /**

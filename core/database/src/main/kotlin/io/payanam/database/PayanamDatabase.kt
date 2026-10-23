@@ -52,7 +52,16 @@ import io.payanam.database.entity.TimeEntryTagEntity
 import io.payanam.database.entity.TimeGoalEntity
 import io.payanam.database.entity.TimeRuleEntity
 import io.payanam.database.entity.UserPreferenceEntity
-const val PAYANAM_DATABASE_SCHEMA_VERSION = 21
+import io.payanam.shared.database.PayanamDatabaseSchema
+
+/**
+ * Schema version of the Payanam database.
+ *
+ * Re-exported from [PayanamDatabaseSchema.VERSION] so existing Android call sites need no change.
+ * The shared contract in `core:shared` is the single source of truth, because the desktop app cannot
+ * import from this Android-only module and would otherwise hardcode its own copy.
+ */
+const val PAYANAM_DATABASE_SCHEMA_VERSION = PayanamDatabaseSchema.VERSION
 
 /**
  * Room Database for Payanam.
@@ -191,8 +200,4 @@ abstract class PayanamDatabase : RoomDatabase() {
     abstract fun dimensionMetricDao(): DimensionMetricDao
     /** DAO for day-level (L3) score metrics. */
     abstract fun dayMetricDao(): DayMetricDao
-
-    companion object {
-        const val DATABASE_NAME = "payanam.db"
-    }
 }

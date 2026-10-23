@@ -17,13 +17,14 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.MainActivity
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
-import io.payanam.ui.model.DimensionTextCatalog
+import io.payanam.presentation.dimensions.DimensionTextCatalog
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -136,7 +137,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     private fun updateWidget(
         context: Context,
         appWidgetManager: AppWidgetManager,
@@ -378,7 +379,7 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         return uiMode == Configuration.UI_MODE_NIGHT_YES
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     private fun handleToggleTracking(context: Context) {
         scope.launch {
             try {
@@ -483,17 +484,8 @@ private fun localizedWidgetCatalogLabel(
     canonicalId: String?,
     languageTag: String?,
 ): String? {
-    val resId = DimensionTextCatalog.labelResIdForCanonicalId(canonicalId) ?: return null
-    return runCatching {
-        if (languageTag.isNullOrBlank()) {
-            context.getString(resId)
-        } else {
-            val config = Configuration(context.resources.configuration)
-            config.setLocale(Locale.forLanguageTag(languageTag))
-            context.createConfigurationContext(config).getString(resId)
-        }
-    }.getOrElse {
-        runCatching { context.getString(resId) }.getOrNull()
-            ?: DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.fallbackLabel
-    }
+    // No exception path: the copy comes from a generated table, not from a resource lookup that can throw
+    // Resource.NotFoundException. An unknown id still answers null, which is the caller's fallback signal.
+    val strings = if (languageTag.isNullOrBlank()) uiStringsFor(context) else uiStringsFor(languageTag)
+    return DimensionTextCatalog.localizedLabel(canonicalId, strings)
 }

@@ -5,9 +5,11 @@ package io.payanam.ui.screens
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.DimensionOption
+import io.payanam.core.ui.theme.LifeDimensionColors
+import io.payanam.core.ui.time.resolveContinueAction
+import io.payanam.core.ui.time.resolveGapConvertDateTimeRange
 import io.payanam.domain.model.LifeDimension
-import io.payanam.ui.theme.LifeDimensionColors
-import io.payanam.ui.viewmodel.DimensionOption
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull

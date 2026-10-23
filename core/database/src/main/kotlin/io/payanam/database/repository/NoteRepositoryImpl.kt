@@ -10,7 +10,7 @@ import io.payanam.database.entity.JournalNoteEntity
 import io.payanam.database.entity.NoteEntity
 import io.payanam.database.mapper.NoteMapper.toDomain
 import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.note.NoteDimensionResolution
 import io.payanam.domain.model.Note
 import io.payanam.domain.model.NoteInput
 import io.payanam.domain.repository.NoteRepository
@@ -110,12 +110,12 @@ class NoteRepositoryImpl
             val now = LocalDateTime.now()
             val id = UUID.randomUUID().toString()
             val resolvedDimensionId =
-                resolveDimensionId(
+                NoteDimensionResolution.resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
             val resolvedDimensionLabel =
-                resolveDimensionLabel(
+                NoteDimensionResolution.resolveDimensionLabel(
                     explicitLabel = input.lifeIntentionCategory,
                     resolvedDimensionId = resolvedDimensionId,
                 )
@@ -160,13 +160,13 @@ class NoteRepositoryImpl
                     }
             val now = LocalDateTime.now()
             val resolvedDimensionId =
-                resolveDimensionId(
+                NoteDimensionResolution.resolveDimensionId(
                     explicitDimensionId = input.dimensionId,
                     categoryLabel = input.lifeIntentionCategory,
                 )
             val resolvedDimensionLabel =
                 resolvedDimensionId
-                    ?.let { resolveDimensionLabel(null, it) }
+                    ?.let { NoteDimensionResolution.resolveDimensionLabel(null, it) }
                     ?: existing.lifeIntentionCategory
             val updated =
                 existing.copy(
@@ -228,26 +228,4 @@ class NoteRepositoryImpl
                 updatedAt = updatedAt,
             ).toDomain()
 
-        private fun resolveDimensionId(
-            explicitDimensionId: String?,
-            categoryLabel: String?,
-        ): String? =
-            explicitDimensionId?.trim()?.takeIf { it.isNotEmpty() }?.let { requestedId ->
-                DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id ?: requestedId
-            } ?: categoryLabel?.trim()?.takeIf { it.isNotEmpty() }?.let { label ->
-                logger.w(
-                    "NoteRepositoryImpl.resolveDimensionId",
-                    "Ignoring non-canonical note category label during dimension resolution",
-                    mapOf("categoryLabel" to label),
-                )
-                null
-            }
-
-        private fun resolveDimensionLabel(
-            explicitLabel: String?,
-            resolvedDimensionId: String?,
-        ): String =
-            explicitLabel?.trim()?.takeIf { it.isNotEmpty() }
-                ?: DimensionTaxonomyCatalog.fromCanonicalId(resolvedDimensionId)?.fallbackLabel
-                ?: DimensionTaxonomyCatalog.WORK_LIVELIHOOD.fallbackLabel
     }

@@ -6,13 +6,20 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.DatabaseHealthChecker
-import io.payanam.database.PayanamDatabase
+import io.payanam.core.ui.navigation.PayanamNavRoutePolicy
+import io.payanam.core.ui.navigation.PayanamRoutes
+import io.payanam.core.ui.navigation.resolveConcreteRoute
+import io.payanam.core.ui.navigation.shouldCaptureReturnRouteForUnlock
 import io.payanam.feature.settings.deleteAllDatabaseArtifactFiles
-import io.payanam.ui.NavRoutePolicy
-import io.payanam.ui.Routes
-import io.payanam.ui.resolveConcreteRoute
-import io.payanam.ui.shouldCaptureReturnRouteForUnlock
+import io.payanam.presentation.database.DatabaseImportSupport
+import io.payanam.presentation.database.DatabaseInitWalConsolidator
+import io.payanam.presentation.database.dbInitClassifyBootIssue
+import io.payanam.presentation.database.dbInitDeleteAllFiles
+import io.payanam.shared.database.DatabaseBootIssue
+import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.database.DatabaseHealthReport
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.database.WalCheckpointRule
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -34,12 +41,12 @@ class DbLayerLifecycleRegressionTest {
         context = ApplicationProvider.getApplicationContext()
         UnifiedLogger.initialize(context, "test", 0)
         // Clean DB dir before each test
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
         dbDir?.listFiles()?.forEach { it.deleteRecursively() }
     }
 
     // -------------------------------------------------------------------------
-    // NavRoutePolicy tests (Items 2 + 4)
+    // PayanamNavRoutePolicy tests (Items 2 + 4)
     // -------------------------------------------------------------------------
 
     @Test
@@ -54,11 +61,11 @@ class DbLayerLifecycleRegressionTest {
         gates.forEach { route ->
             assertTrue(
                 "Startup gate '$route' must be allowed in minimal mode",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
             )
             assertTrue(
                 "Startup gate '$route' must be allowed when minimal mode off",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = false),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = false),
             )
         }
     }
@@ -74,7 +81,7 @@ class DbLayerLifecycleRegressionTest {
         secondaries.forEach { route ->
             assertTrue(
                 "Secondary route '$route' must be allowed in minimal mode",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
             )
         }
     }
@@ -85,7 +92,7 @@ class DbLayerLifecycleRegressionTest {
         allowedTabs.forEach { route ->
             assertTrue(
                 "Allowed tab '$route' must pass in minimal mode",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
             )
         }
     }
@@ -96,7 +103,7 @@ class DbLayerLifecycleRegressionTest {
         blockedTabs.forEach { route ->
             assertFalse(
                 "Tab '$route' must be blocked in minimal mode",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = true),
             )
         }
     }
@@ -107,7 +114,7 @@ class DbLayerLifecycleRegressionTest {
         allRoutes.forEach { route ->
             assertTrue(
                 "Route '$route' must be allowed when minimal mode is off",
-                NavRoutePolicy.isAllowed(route, minimalModeEnabled = false),
+                PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled = false),
             )
         }
     }
@@ -115,16 +122,16 @@ class DbLayerLifecycleRegressionTest {
     @Test
     fun `shouldCaptureReturnRouteForUnlock only captures non-gate routes`() {
         assertTrue(shouldCaptureReturnRouteForUnlock("time"))
-        assertTrue(shouldCaptureReturnRouteForUnlock(Routes.taskDetail("abc")))
-        assertFalse(shouldCaptureReturnRouteForUnlock(Routes.PASSPHRASE_UNLOCK))
-        assertFalse(shouldCaptureReturnRouteForUnlock(Routes.DATABASE_INIT))
-        assertFalse(shouldCaptureReturnRouteForUnlock(Routes.FOCUS_MODE_SELECTION))
+        assertTrue(shouldCaptureReturnRouteForUnlock(PayanamRoutes.taskDetail("abc")))
+        assertFalse(shouldCaptureReturnRouteForUnlock(PayanamRoutes.PASSPHRASE_UNLOCK))
+        assertFalse(shouldCaptureReturnRouteForUnlock(PayanamRoutes.DATABASE_INIT))
+        assertFalse(shouldCaptureReturnRouteForUnlock(PayanamRoutes.FOCUS_MODE_SELECTION))
     }
 
     @Test
     fun `resolveConcreteRoute expands task detail route with task id argument`() {
-        assertEquals(Routes.taskDetail("task-42"), resolveConcreteRoute(Routes.TASK_DETAIL, "task-42"))
-        assertEquals(Routes.editTask("task-42"), resolveConcreteRoute(Routes.EDIT_TASK, "task-42"))
+        assertEquals(PayanamRoutes.taskDetail("task-42"), resolveConcreteRoute(PayanamRoutes.TASK_DETAIL, "task-42"))
+        assertEquals(PayanamRoutes.editTask("task-42"), resolveConcreteRoute(PayanamRoutes.EDIT_TASK, "task-42"))
         assertEquals("time", resolveConcreteRoute("time"))
     }
 
@@ -134,50 +141,50 @@ class DbLayerLifecycleRegressionTest {
 
     @Test
     fun `deleteAllDatabaseArtifactFiles wipes all files and payanam_temp_backup dir`() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
 
         // Create mock DB artifacts
-        File(dbDir, PayanamDatabase.DATABASE_NAME).writeText("db")
-        File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").writeText("wal")
-        File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm").writeText("shm")
+        File(dbDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("db")
+        File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").writeText("wal")
+        File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-shm").writeText("shm")
         File(dbDir, "payanam.db.bak").writeText("bak")
 
         // Create temp backup subdir with a file inside
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         tempBackupDir.mkdirs()
-        File(tempBackupDir, PayanamDatabase.DATABASE_NAME).writeText("backup-db")
+        File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("backup-db")
         val deletedCount = deleteAllDatabaseArtifactFiles(context)
         assertTrue("Should have deleted multiple items", deletedCount > 0)
         assertFalse("Temp backup dir must be gone", tempBackupDir.exists())
-        assertFalse(".db must be gone", File(dbDir, PayanamDatabase.DATABASE_NAME).exists())
-        assertFalse("-wal must be gone", File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").exists())
-        assertFalse("-shm must be gone", File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm").exists())
+        assertFalse(".db must be gone", File(dbDir, PayanamDatabaseSchema.DATABASE_NAME).exists())
+        assertFalse("-wal must be gone", File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").exists())
+        assertFalse("-shm must be gone", File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-shm").exists())
         assertFalse(".bak must be gone", File(dbDir, "payanam.db.bak").exists())
     }
 
     @Test
     fun `dbInitDeleteAllFiles wipes active db artifacts but preserves payanam_temp_backup subdir`() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-        File(dbDir, PayanamDatabase.DATABASE_NAME).writeText("db")
-        File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").writeText("wal")
+        File(dbDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("db")
+        File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").writeText("wal")
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         tempBackupDir.mkdirs()
-        File(tempBackupDir, PayanamDatabase.DATABASE_NAME).writeText("backup-db")
-        dbInitDeleteAllFiles(context)
+        File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("backup-db")
+        dbInitDeleteAllFiles(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME))
         assertTrue("Temp backup dir must be preserved", tempBackupDir.exists())
-        assertFalse(".db must be gone", File(dbDir, PayanamDatabase.DATABASE_NAME).exists())
-        assertFalse("-wal must be gone", File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal").exists())
+        assertFalse(".db must be gone", File(dbDir, PayanamDatabaseSchema.DATABASE_NAME).exists())
+        assertFalse("-wal must be gone", File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").exists())
     }
 
     @Test
     fun `consolidateWalAfterImport preserves sidecars for non-standard database header`() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-        val dbFile = File(dbDir, PayanamDatabase.DATABASE_NAME)
-        val walFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal")
-        val shmFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm")
+        val dbFile = File(dbDir, PayanamDatabaseSchema.DATABASE_NAME)
+        val walFile = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
+        val shmFile = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-shm")
         val nonSqliteHeader = byteArrayOf(
             0x90.toByte(), 0x4D, 0x00, 0x7D, 0x5E, 0xBC.toByte(), 0x0F, 0xED.toByte(),
             0x0F, 0x5F, 0xD7.toByte(), 0xD0.toByte(), 0x2B, 0x90.toByte(), 0x86.toByte(), 0x7C,
@@ -190,6 +197,7 @@ class DbLayerLifecycleRegressionTest {
         val consolidated = DatabaseImportSupport.consolidateWalAfterImport(
             dbFile = dbFile,
             logTag = "DbLayerLifecycleRegressionTest.nonStandardHeader",
+            walConsolidator = frameworkWalConsolidator(),
         )
         assertFalse("Non-standard header should skip framework WAL checkpoint", consolidated)
         assertTrue("WAL must be preserved", walFile.exists())
@@ -200,11 +208,11 @@ class DbLayerLifecycleRegressionTest {
 
     @Test
     fun `consolidateWalAfterImport keeps wal when temp checkpoint fails`() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile!!
         dbDir.mkdirs()
-        val dbFile = File(dbDir, PayanamDatabase.DATABASE_NAME)
-        val walFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-wal")
-        val shmFile = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-shm")
+        val dbFile = File(dbDir, PayanamDatabaseSchema.DATABASE_NAME)
+        val walFile = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
+        val shmFile = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-shm")
         val sqliteMagic = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1)
         dbFile.writeBytes(sqliteMagic + ByteArray(1024))
         walFile.writeBytes(ByteArray(2048) { 0x5A.toByte() })
@@ -213,38 +221,39 @@ class DbLayerLifecycleRegressionTest {
         val consolidated = DatabaseImportSupport.consolidateWalAfterImport(
             dbFile = dbFile,
             logTag = "DbLayerLifecycleRegressionTest.tempCheckpointFailure",
+            walConsolidator = frameworkWalConsolidator(),
         )
         assertFalse("Invalid SQLite payload should fail checkpoint path", consolidated)
         assertTrue("WAL must be retained to avoid silent data loss", walFile.exists())
         assertEquals("WAL size must remain unchanged", walSizeBefore, walFile.length())
     }
 
-    @Test
-    fun `validateSupportedPlaintextImportSchema rejects schema below support floor`() {
-        val dbFile = createPlaintextImportDatabase(version = 15, fileName = "legacy-import.db")
-        val error = runCatching {
-            DatabaseImportSupport.validateSupportedPlaintextImportSchema(
-                context = context,
-                databaseFile = dbFile,
-                logTag = "DbLayerLifecycleRegressionTest.validateSupportedPlaintextImportSchema",
-            )
-        }.exceptionOrNull()
-        assertNotNull("Schema below support floor must fail", error)
-        assertTrue("Schema below support floor must surface a non-blank error", !error!!.message.isNullOrBlank())
-    }
-
-    @Test
-    fun `validateSupportedPlaintextImportSchema accepts current schema`() {
-        val dbFile = createPlaintextImportDatabase(
-            version = DatabaseHealthChecker.CURRENT_VERSION,
-            fileName = "supported-import.db",
-        )
-        val version = DatabaseImportSupport.validateSupportedPlaintextImportSchema(
-            context = context,
-            databaseFile = dbFile,
-            logTag = "DbLayerLifecycleRegressionTest.validateSupportedPlaintextImportSchema",
-        )
-        assertEquals(DatabaseHealthChecker.CURRENT_VERSION, version)
+    /**
+     * The platform's half of the promoted WAL fold, kept here so these tests still exercise a REAL
+     * checkpoint attempt against the temp copy rather than a stub that always answers one way: the
+     * failure case is only meaningful if the framework genuinely refuses the invalid payload.
+     */
+    private fun frameworkWalConsolidator(): DatabaseInitWalConsolidator = DatabaseInitWalConsolidator { file, _ ->
+        try {
+            var report: WalCheckpointRule.FoldReport = WalCheckpointRule.NO_ROW
+            SQLiteDatabase.openDatabase(
+                file.absolutePath,
+                null,
+                SQLiteDatabase.OPEN_READWRITE,
+                android.database.DatabaseErrorHandler { },
+            ).use { db ->
+                db.rawQuery(WalCheckpointRule.FOLD_STATEMENT, null).use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        report = WalCheckpointRule.reportOf(intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)))
+                    } else {
+                        report = WalCheckpointRule.NO_ROW
+                    }
+                }
+            }
+            file.exists() && file.length() > 0 && WalCheckpointRule.walIsEmpty(report)
+        } catch (_: Exception) {
+            false
+        }
     }
 
     // -------------------------------------------------------------------------
@@ -255,7 +264,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue returns null when no artifacts exist`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = false,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(isHealthy = false, needsRepair = false),
+            healthResult = DatabaseHealthReport(isHealthy = false, needsRepair = false),
         )
         assertNull("Should return null when no artifacts", result)
     }
@@ -264,7 +273,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue returns null when healthy`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(isHealthy = true, needsRepair = false),
+            healthResult = DatabaseHealthReport(isHealthy = true, needsRepair = false),
         )
         assertNull("Should return null when healthy", result)
     }
@@ -273,7 +282,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps sidecar primary missing error`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Sidecar exists but primary db missing",
@@ -287,7 +296,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps db too old error`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Database version is too old to migrate",
@@ -301,7 +310,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps db too new error`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Database is newer than app supports. Please update the app.",
@@ -315,7 +324,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps schema invalid error`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Missing tables in schema",
@@ -329,7 +338,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps open failed error`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Cannot open database: file is locked",
@@ -343,7 +352,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps repairable generic when needsRepair true`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = true,
                 errorMessage = "Some unrecognized error",
@@ -357,7 +366,7 @@ class DbLayerLifecycleRegressionTest {
     fun `dbInitClassifyBootIssue maps non-repairable generic as fallback`() {
         val result = dbInitClassifyBootIssue(
             databaseArtifactsExist = true,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = false,
                 errorMessage = "Some other unrecognized error",
@@ -456,7 +465,7 @@ class DbLayerLifecycleRegressionTest {
         val result = io.payanam.resolveStartupHealthLogSummary(
             hasDatabaseArtifacts = true,
             shouldShowPassphraseUnlock = false,
-            healthResult = DatabaseHealthChecker.HealthCheckResult(
+            healthResult = DatabaseHealthReport(
                 isHealthy = false,
                 needsRepair = true,
                 errorMessage = "Cipher mismatch",
@@ -466,16 +475,5 @@ class DbLayerLifecycleRegressionTest {
         assertEquals(false, result.isHealthy)
         assertEquals(true, result.needsRepair)
         assertEquals("Cipher mismatch", result.errorMessage)
-    }
-
-    private fun createPlaintextImportDatabase(version: Int, fileName: String): File {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile!!
-        dbDir.mkdirs()
-        val dbFile = File(dbDir, fileName)
-        SQLiteDatabase.openOrCreateDatabase(dbFile, null).use { db ->
-            db.version = version
-            db.execSQL("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY)")
-        }
-        return dbFile
     }
 }

@@ -12,6 +12,7 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 import java.time.LocalDateTime
+import io.payanam.domain.lens.dayBoundedDurationMinutes
 
 @RunWith(RobolectricTestRunner::class)
 /**

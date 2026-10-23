@@ -13,7 +13,7 @@ import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.notification.NotificationScheduler
-import io.payanam.usecase.RecurrenceManager
+import io.payanam.scoring.RecurrenceManager
 import io.payanam.usecase.TimeTrackingUseCase
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi

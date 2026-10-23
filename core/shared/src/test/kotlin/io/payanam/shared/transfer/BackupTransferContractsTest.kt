@@ -7,8 +7,8 @@ import kotlinx.serialization.json.Json
 import kotlinx.serialization.json.jsonArray
 import kotlinx.serialization.json.jsonObject
 import org.junit.Test
-class BackupTransferContractsTest {
 
+class BackupTransferContractsTest {
     @Test
     fun `default module selection has an active selection`() {
         assertThat(DataModuleSelection().hasSelection()).isTrue()
@@ -17,14 +17,14 @@ class BackupTransferContractsTest {
     @Test
     fun `empty module selection reports no active modules`() {
         assertThat(
-            DataModuleSelection(tasks = false, timeEntries = false, notes = false).hasSelection()
+            DataModuleSelection(tasks = false, timeEntries = false, notes = false).hasSelection(),
         ).isFalse()
     }
 
     @Test
     fun `single selected module still reports active selection`() {
         assertThat(
-            DataModuleSelection(tasks = false, timeEntries = true, notes = false).hasSelection()
+            DataModuleSelection(tasks = false, timeEntries = true, notes = false).hasSelection(),
         ).isTrue()
     }
 
@@ -49,14 +49,15 @@ class BackupTransferContractsTest {
 
     @Test
     fun `data module selection supports stable json round trip`() {
-        val json = Json.encodeToString(
-            DataModuleSelection(tasks = true, timeEntries = false, notes = true)
-        )
+        val json =
+            Json.encodeToString(
+                DataModuleSelection(tasks = true, timeEntries = false, notes = true),
+            )
         assertThat(json).isNotEmpty()
 
         val decoded = Json.decodeFromString<DataModuleSelection>(json)
         assertThat(decoded).isEqualTo(
-            DataModuleSelection(tasks = true, timeEntries = false, notes = true)
+            DataModuleSelection(tasks = true, timeEntries = false, notes = true),
         )
     }
 
@@ -67,13 +68,15 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload json encodes wrapped modules with stable keys`() {
-        val payload = BackupPayloadEnvelope(
-            exportedAt = "2026-03-26T09:00:00",
-            modules = BackupModulePayloads(
-                tasks = Json.parseToJsonElement("""[{"id":"task-1"}]""").jsonArray,
-                notes = Json.parseToJsonElement("""[{"id":"note-1"}]""").jsonArray
+        val payload =
+            BackupPayloadEnvelope(
+                exportedAt = "2026-03-26T09:00:00",
+                modules =
+                    BackupModulePayloads(
+                        tasks = Json.parseToJsonElement("""[{"id":"task-1"}]""").jsonArray,
+                        notes = Json.parseToJsonElement("""[{"id":"note-1"}]""").jsonArray,
+                    ),
             )
-        )
 
         val encoded = BackupPayloadJson.encode(payload)
         val root = Json.parseToJsonElement(encoded).jsonObject
@@ -87,11 +90,12 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload models expose defaults and rarely used module getters`() {
-        val modules = BackupModulePayloads(
-            taskReschedules = Json.parseToJsonElement("""[{"id":"res-1"}]""").jsonArray,
-            dayJournalEntries = Json.parseToJsonElement("""[{"id":"entry-1"}]""").jsonArray,
-            dayJournalResponses = Json.parseToJsonElement("""[{"id":"response-1"}]""").jsonArray
-        )
+        val modules =
+            BackupModulePayloads(
+                taskReschedules = Json.parseToJsonElement("""[{"id":"res-1"}]""").jsonArray,
+                dayJournalEntries = Json.parseToJsonElement("""[{"id":"entry-1"}]""").jsonArray,
+                dayJournalResponses = Json.parseToJsonElement("""[{"id":"response-1"}]""").jsonArray,
+            )
         val payload = BackupPayloadEnvelope(modules = modules)
         val defaultPayload = BackupPayloadEnvelope()
         assertThat(payload.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
@@ -105,26 +109,27 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload json decodes wrapped envelope metadata and module arrays`() {
-        val decoded = BackupPayloadJson.decode(
-            """
-            {
-              "schemaVersion": 1,
-              "exportedAt": "2026-03-26T09:00:00",
-              "modules": {
-                "tasks": [
-                  {
-                    "id": "task-1"
+        val decoded =
+            BackupPayloadJson.decode(
+                """
+                {
+                  "schemaVersion": 1,
+                  "exportedAt": "2026-03-26T09:00:00",
+                  "modules": {
+                    "tasks": [
+                      {
+                        "id": "task-1"
+                      }
+                    ],
+                    "timeEntries": [
+                      {
+                        "id": "time-1"
+                      }
+                    ]
                   }
-                ],
-                "timeEntries": [
-                  {
-                    "id": "time-1"
-                  }
-                ]
-              }
-            }
-            """.trimIndent()
-        )
+                }
+                """.trimIndent(),
+            )
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T09:00:00")
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -134,22 +139,23 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload json decodes legacy root module payloads without wrapper`() {
-        val decoded = BackupPayloadJson.decode(
-            """
-            {
-              "tasks": [
+        val decoded =
+            BackupPayloadJson.decode(
+                """
                 {
-                  "id": "task-legacy-root"
+                  "tasks": [
+                    {
+                      "id": "task-legacy-root"
+                    }
+                  ],
+                  "journalNotes": [
+                    {
+                      "id": "journal-note-1"
+                    }
+                  ]
                 }
-              ],
-              "journalNotes": [
-                {
-                  "id": "journal-note-1"
-                }
-              ]
-            }
-            """.trimIndent()
-        )
+                """.trimIndent(),
+            )
         assertThat(decoded.schemaVersion).isEqualTo(BackupJsonContract.SCHEMA_VERSION)
         assertThat(decoded.exportedAt).isNull()
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -159,19 +165,20 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload json keeps legacy root metadata while filtering non-module keys`() {
-        val decoded = BackupPayloadJson.decode(
-            """
-            {
-              "schemaVersion": 3,
-              "exportedAt": "2026-03-26T10:30:00",
-              "tasks": [
+        val decoded =
+            BackupPayloadJson.decode(
+                """
                 {
-                  "id": "task-legacy-root"
+                  "schemaVersion": 3,
+                  "exportedAt": "2026-03-26T10:30:00",
+                  "tasks": [
+                    {
+                      "id": "task-legacy-root"
+                    }
+                  ]
                 }
-              ]
-            }
-            """.trimIndent()
-        )
+                """.trimIndent(),
+            )
         assertThat(decoded.schemaVersion).isEqualTo(3)
         assertThat(decoded.exportedAt).isEqualTo("2026-03-26T10:30:00")
         assertThat(decoded.modules.tasks).hasSize(1)
@@ -180,41 +187,43 @@ class BackupTransferContractsTest {
 
     @Test
     fun `backup payload json falls back to legacy root when modules field is not an object`() {
-        val decoded = BackupPayloadJson.decode(
-            """
-            {
-              "modules": "invalid-wrapper",
-              "timeEntries": [
+        val decoded =
+            BackupPayloadJson.decode(
+                """
                 {
-                  "id": "time-legacy-root"
+                  "modules": "invalid-wrapper",
+                  "timeEntries": [
+                    {
+                      "id": "time-legacy-root"
+                    }
+                  ]
                 }
-              ]
-            }
-            """.trimIndent()
-        )
+                """.trimIndent(),
+            )
         assertThat(decoded.modules.timeEntries).hasSize(1)
         assertThat(decoded.modules.tasks).isNull()
     }
 
     @Test
     fun `backup payload json ignores malformed module field types`() {
-        val decoded = BackupPayloadJson.decode(
-            """
-            {
-              "schemaVersion": 1,
-              "modules": {
-                "tasks": {"id": "not-an-array"},
-                "timeEntries": "invalid-type",
-                "notes": 42,
-                "journalNotes": [
-                  {
-                    "id": "journal-note-1"
+        val decoded =
+            BackupPayloadJson.decode(
+                """
+                {
+                  "schemaVersion": 1,
+                  "modules": {
+                    "tasks": {"id": "not-an-array"},
+                    "timeEntries": "invalid-type",
+                    "notes": 42,
+                    "journalNotes": [
+                      {
+                        "id": "journal-note-1"
+                      }
+                    ]
                   }
-                ]
-              }
-            }
-            """.trimIndent()
-        )
+                }
+                """.trimIndent(),
+            )
         assertThat(decoded.modules.tasks).isNull()
         assertThat(decoded.modules.timeEntries).isNull()
         assertThat(decoded.modules.notes).isNull()
@@ -248,17 +257,18 @@ class BackupTransferContractsTest {
     @Test
     fun `legacy module root strips reserved metadata keys only`() {
         val legacyRoot =
-            Json.parseToJsonElement(
-                """
-                {
-                  "schemaVersion": 7,
-                  "exportedAt": "2026-03-27T15:00:00",
-                  "modules": {"tasks": []},
-                  "notes": [{"id": "note-1"}],
-                  "timeEntries": [{"id": "time-1"}]
-                }
-                """.trimIndent(),
-            ).jsonObject
+            Json
+                .parseToJsonElement(
+                    """
+                    {
+                      "schemaVersion": 7,
+                      "exportedAt": "2026-03-27T15:00:00",
+                      "modules": {"tasks": []},
+                      "notes": [{"id": "note-1"}],
+                      "timeEntries": [{"id": "time-1"}]
+                    }
+                    """.trimIndent(),
+                ).jsonObject
 
         val filtered = BackupJsonContract.legacyModulesRoot(legacyRoot)
         assertThat(filtered.keys).containsExactly("notes", "timeEntries")

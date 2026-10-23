@@ -55,26 +55,43 @@ import androidx.lifecycle.repeatOnLifecycle
 import io.payanam.FeatureFlags
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.day.DayPlanTemplateScreen
+import io.payanam.core.ui.preferences.DimensionOption
+import io.payanam.core.ui.preferences.LocalAppPreferences
+import io.payanam.core.ui.preferences.labelForDimension
+import io.payanam.core.ui.preferences.labelForDimensionId
+import io.payanam.core.ui.preferences.optionsForSelection
+import io.payanam.core.ui.preferences.visibleDimensionOptions
+import io.payanam.core.ui.preferences.visibleDimensions
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.time.TaskBlockActionState
+import io.payanam.core.ui.time.TimeBlockModalDialog
+import io.payanam.core.ui.time.TimeBlockModalTarget
+import io.payanam.core.ui.time.TimeCalendarView
+import io.payanam.core.ui.time.TimeDimensionCompactOverviewPanel
+import io.payanam.core.ui.time.TimeScalePresetSelector
+import io.payanam.core.ui.time.TimeScreenPlanningDialogs
+import io.payanam.core.ui.time.buildTimeBlockModalInitialContext
+import io.payanam.core.ui.time.hourHeightDpForSlotMinutes
+import io.payanam.core.ui.time.label
+import io.payanam.core.ui.time.nearestTimeScalePreset
+import io.payanam.core.ui.time.resolveDayPlanActionLabel
+import io.payanam.core.ui.time.resolveGapConvertDateTimeRange
 import io.payanam.domain.model.DimensionTaxonomyCatalog
-
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-import io.payanam.ui.viewmodel.DayPlanViewModel
-import io.payanam.ui.viewmodel.DimensionOption
-import io.payanam.ui.viewmodel.LocalAppPreferences
-import io.payanam.ui.viewmodel.TimeTagEditorViewModel
+import io.payanam.presentation.day.DayPlanViewModel
+import io.payanam.presentation.day.dayPlanViewModel
+import io.payanam.presentation.time.TimeTagEditorViewModel
+import io.payanam.presentation.time.timeTagEditorViewModel
 import io.payanam.ui.viewmodel.TimeViewModel
-import io.payanam.ui.viewmodel.TimeVisualsViewModel
-import io.payanam.ui.viewmodel.labelForDimension
-import io.payanam.ui.viewmodel.labelForDimensionId
-import io.payanam.ui.viewmodel.optionsForSelection
-import io.payanam.ui.viewmodel.visibleDimensionOptions
-import io.payanam.ui.viewmodel.visibleDimensions
+import io.payanam.ui.retainSharedViewModel
+import io.payanam.presentation.time.TimeVisualsViewModel
+import io.payanam.presentation.time.timeVisualsViewModel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
-
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.Locale
@@ -89,12 +106,16 @@ fun TimeScreen(
     onOpenStopTrackingDialogHandled: (Long) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
 ) {
+    val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
-    val timeTagEditorViewModel: TimeTagEditorViewModel = hiltViewModel()
+    val timeTagEditorViewModel: TimeTagEditorViewModel =
+        retainSharedViewModel(key = "timeTagEditor", onRelease = { it.dispose() }) { timeTagEditorViewModel() }
     val timeTagEditorState by timeTagEditorViewModel.uiState.collectAsState()
-    val timeVisualsViewModel: TimeVisualsViewModel = hiltViewModel()
+    val timeVisualsViewModel: TimeVisualsViewModel =
+        retainSharedViewModel(key = "timeVisuals", onRelease = { it.dispose() }) { timeVisualsViewModel() }
     val timeVisualsState by timeVisualsViewModel.uiState.collectAsState()
-    val dayPlanViewModel: DayPlanViewModel = hiltViewModel()
+    val dayPlanViewModel: DayPlanViewModel =
+        retainSharedViewModel(key = "dayPlan", onRelease = { it.dispose() }) { dayPlanViewModel() }
     val dayPlanState by dayPlanViewModel.uiState.collectAsState()
     val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
     val logger = remember { UnifiedLogger.getInstance() }
@@ -211,6 +232,7 @@ fun TimeScreen(
     val selectedScalePreset = remember(timeHourHeightDp) {
         nearestTimeScalePreset(timeHourHeightDp)
     }
+
     /**
      * Scrolls the timeline to the current time (only for today's date).
      */
@@ -663,7 +685,7 @@ fun TimeScreen(
             else -> null
         }
         TimeBlockModalDialog(
-            title = stringResource(id = initialContext.titleResId),
+            title = initialContext.titleKind.label(strings),
             tasks = uiState.taskPickerTasks,
             dimensionOptions = dimensionOptions,
             initialDimension = initialDimensionOption,

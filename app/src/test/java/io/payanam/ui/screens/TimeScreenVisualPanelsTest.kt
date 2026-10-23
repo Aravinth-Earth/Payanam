@@ -3,7 +3,9 @@
 package io.payanam.ui.screens
 
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.TimeDayOverallSummary
+import io.payanam.core.ui.time.shortDimensionLabel
+import io.payanam.core.ui.time.shouldShowTimelineQualityCues
+import io.payanam.presentation.time.TimeDayOverallSummary
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -11,20 +13,20 @@ import org.junit.Test
 class TimeScreenVisualPanelsTest {
     private val logger: UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
-    @Test
     /**
      * Should show timeline quality cues returns false when all cues are zero.
      */
+    @Test
     fun shouldShowTimelineQualityCues_returnsFalse_whenAllCuesAreZero() {
         val summary = TimeDayOverallSummary(gapCount = 0, overlapCount = 0)
         logger?.d("TimeScreenVisualPanelsTest", "Validating hidden quality cues for all-zero summary")
         assertFalse(shouldShowTimelineQualityCues(summary))
     }
 
-    @Test
     /**
      * Should show timeline quality cues returns true when any cue is present.
      */
+    @Test
     fun shouldShowTimelineQualityCues_returnsTrue_whenAnyCueIsPresent() {
         val summary = TimeDayOverallSummary(gapCount = 1, overlapCount = 0)
         logger?.d("TimeScreenVisualPanelsTest", "Validating visible quality cues when signal exists")
@@ -36,10 +38,10 @@ class TimeScreenVisualPanelsTest {
         assertEquals("LG", shortDimensionLabel("Learning & Grow"))
     }
 
-    @Test
     /**
      * Short dimension label returns first two letters for single word label.
      */
+    @Test
     fun shortDimensionLabel_returnsFirstTwoLetters_forSingleWordLabel() {
         assertEquals("FI", shortDimensionLabel("Financial"))
     }
@@ -49,10 +51,10 @@ class TimeScreenVisualPanelsTest {
         assertEquals("கவ", shortDimensionLabel("கற்று வளர"))
     }
 
-    @Test
     /**
      * Short dimension label supports tamil single word first two graphemes.
      */
+    @Test
     fun shortDimensionLabel_supportsTamil_singleWordFirstTwoGraphemes() {
         assertEquals("நேர", shortDimensionLabel("நேரம்"))
     }

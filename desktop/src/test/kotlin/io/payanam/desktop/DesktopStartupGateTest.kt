@@ -3,10 +3,10 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
-import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import io.payanam.shared.settings.FocusModePreset
 import org.junit.Test
+
 /**
  * Provides the desktop startup gate test.
  */
@@ -15,8 +15,7 @@ class DesktopStartupGateTest {
     fun `startup snapshot carries launch route and attention state for desktop shell`() {
         val snapshot =
             desktopStartupSnapshot(
-                settings = DesktopSettingsSnapshot(launchRoute = DesktopTopLevelRoute.TIME),
-                settingsFilePath = "C:/Users/test/AppData/Local/Payanam/desktop-settings.properties",
+                launchRoute = DesktopTopLevelRoute.TIME,
                 appDataRoot = "C:/Users/test/AppData/Local/Payanam",
                 bootstrapFilePath = "C:/Users/test/AppData/Local/Payanam/bootstrap/desktop-bootstrap.properties",
                 securityFilePath = "C:/Users/test/AppData/Local/Payanam/security/desktop-security.properties",
@@ -50,8 +49,7 @@ class DesktopStartupGateTest {
     fun `startup snapshot is fully ready when desktop lifecycle bootstrap is ready`() {
         val snapshot =
             desktopStartupSnapshot(
-                settings = DesktopSettingsSnapshot(launchRoute = DesktopTopLevelRoute.TASKS),
-                settingsFilePath = "C:/Users/test/AppData/Local/Payanam/preferences/desktop-settings.properties",
+                launchRoute = DesktopTopLevelRoute.TASKS,
                 appDataRoot = "C:/Users/test/AppData/Local/Payanam",
                 bootstrapFilePath = "C:/Users/test/AppData/Local/Payanam/bootstrap/desktop-bootstrap.properties",
                 securityFilePath = "C:/Users/test/AppData/Local/Payanam/security/desktop-security.properties",

@@ -3,8 +3,9 @@
 package io.payanam.shared.journal
 
 import com.google.common.truth.Truth.assertThat
-import java.time.LocalDateTime
 import org.junit.Test
+import java.time.LocalDateTime
+
 class JournalReflectionContractsTest {
     @Test
     fun `upsert overall response creates day and trims value`() {

@@ -24,7 +24,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.AppPreferencesState
+import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 
 /**

@@ -9,6 +9,7 @@ import android.content.Context
 import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
 object DatabaseHealthChecker {
@@ -17,9 +18,10 @@ object DatabaseHealthChecker {
     // Current expected database version - derived from PayanamDatabase
     const val CURRENT_VERSION = PAYANAM_DATABASE_SCHEMA_VERSION
 
-    // Build #1081 was the first beta build shipped to users, and it used schema 16.
-    // Anything older is outside the supported in-place Room migration contract.
-    const val MIN_MIGRATABLE_VERSION = 16
+    // Build #1081 was the first beta build shipped to users, and it used schema 16. Anything older is
+    // outside the supported in-place Room migration contract. Sourced from the shared contract so the
+    // desktop's refusal floor cannot drift from Android's.
+    const val MIN_MIGRATABLE_VERSION = PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION
     /**
      * Outcome of [checkDatabaseHealth]: whether the database is safe to open,
      * whether it needs a Room migration or a repair, plus the detected version.
@@ -37,12 +39,20 @@ object DatabaseHealthChecker {
      * Performs a comprehensive health check on the database.
      * Returns true if database is safe to use, false if needs repair/recreation.
      */
-    fun hasDatabaseArtifacts(context: Context): Boolean {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-        val walFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal")
-        val shmFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-shm")
-        val journalFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-journal")
-        return dbFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
+    fun hasDatabaseArtifacts(context: Context): Boolean =
+        hasDatabaseArtifacts(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME))
+
+    /**
+     * The same question about an explicit file. The app's own database is not the only file that gets
+     * checked: an import candidate is one the user picked and it lives outside the app's database
+     * directory, so re-deriving the path from a `Context` would answer a question nobody asked.
+     * Sidecars follow the file they belong to, which is why the name is taken from the file itself.
+     */
+    fun hasDatabaseArtifacts(databaseFile: File): Boolean {
+        val walFile = File(databaseFile.parent, "${databaseFile.name}-wal")
+        val shmFile = File(databaseFile.parent, "${databaseFile.name}-shm")
+        val journalFile = File(databaseFile.parent, "${databaseFile.name}-journal")
+        return databaseFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
     }
     /**
      * Opens the database read-only (plain SQLite or SQLCipher when
@@ -50,13 +60,26 @@ object DatabaseHealthChecker {
      * critical tables, and schema integrity. Returns a [HealthCheckResult]
      * telling the caller whether to open, migrate, or repair.
      */
-    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: System.loadLibrary can throw UnsatisfiedLinkError (Error, not Exception) which propagates to caller
     fun checkDatabaseHealth(
         context: Context,
         sqlCipherPassphrase: String? = null,
+    ): HealthCheckResult = checkDatabaseHealth(
+        databaseFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME),
+        sqlCipherPassphrase = sqlCipherPassphrase,
+    )
+
+    /**
+     * The same check against an explicit file. The port in `:core:shared` promises that the file it was
+     * handed is the file checked, and an import candidate is never the app's own database, so the path
+     * has to arrive as a parameter instead of being re-derived from a `Context`.
+     */
+    @Suppress("TooGenericExceptionCaught", "SwallowedException")  // Intentional: System.loadLibrary can throw UnsatisfiedLinkError (Error, not Exception) which propagates to caller
+    fun checkDatabaseHealth(
+        databaseFile: File,
+        sqlCipherPassphrase: String? = null,
     ): HealthCheckResult {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-        if (!hasDatabaseArtifacts(context)) {
+        val dbFile = databaseFile
+        if (!hasDatabaseArtifacts(dbFile)) {
             logger.i("DatabaseHealthChecker.checkDatabaseHealth", "No database file found")
             return HealthCheckResult(isHealthy = false, needsRepair = false)
         }
@@ -163,7 +186,7 @@ object DatabaseHealthChecker {
         tables: Set<String>,
         schemaIssues: List<String>,
     ): HealthCheckResult {
-        val requiredTables = setOf("tasks", "time_entries", "notes", "day_journal_entries", "app_settings")
+        val requiredTables = PayanamDatabaseSchema.CRITICAL_TABLES
         val missingTables = requiredTables - tables
         if (missingTables.isNotEmpty()) {
             logger.w(
@@ -177,6 +200,11 @@ object DatabaseHealthChecker {
                 isHealthy = false,
                 errorMessage = "Missing tables: ${missingTables.joinToString(", ")}",
                 needsRepair = true,
+                // The version WAS read - it is the parameter above - so reporting the default 0 here
+                // would claim a measurement nobody made, and 0 means "too old" to every reader. An
+                // import candidate is checked for its version before anything else, and it can be
+                // missing tables for reasons that have nothing to do with its schema version.
+                currentVersion = version,
             )
         }
         if (version < CURRENT_VERSION && version >= MIN_MIGRATABLE_VERSION) {

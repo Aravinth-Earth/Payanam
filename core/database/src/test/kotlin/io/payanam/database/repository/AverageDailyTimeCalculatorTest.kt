@@ -14,6 +14,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
+import io.payanam.domain.lens.DailyStatsCalculator
 
 @RunWith(RobolectricTestRunner::class)
 /**

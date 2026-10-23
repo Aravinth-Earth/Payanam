@@ -13,16 +13,16 @@ import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
-import androidx.compose.runtime.LaunchedEffect
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.AppPreferencesState
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.presentation.tasks.TaskFilter
+import io.payanam.presentation.tasks.displayName
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-import io.payanam.ui.viewmodel.TaskFilter
-import io.payanam.ui.viewmodel.displayName
 
 @Composable
 internal fun SettingsDefaultLandingSection(

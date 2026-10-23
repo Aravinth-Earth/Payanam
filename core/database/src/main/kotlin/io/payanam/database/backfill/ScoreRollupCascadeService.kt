@@ -20,6 +20,7 @@ import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.RecurrenceConfig
 import io.payanam.domain.model.RecurrenceType
+import io.payanam.domain.port.ScoreRollupTrigger
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
@@ -64,12 +65,12 @@ class ScoreRollupCascadeService
     constructor(
         private val sessionManager: DatabaseSessionManager,
         private val scoreChangeEventBus: ScoreChangeEventBus,
-    ) {
+    ) : ScoreRollupTrigger {
         private val logger = UnifiedLogger.getInstance()
 
         /** Recompute L1/L2/L3 tails after a status change on [date]. */
         @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
-        suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
+        override suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForStatusChange"
             val started = System.currentTimeMillis()
@@ -273,7 +274,7 @@ class ScoreRollupCascadeService
          * refresh the affected dimension L2 tail and day L3 tail.
          */
         @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
-        suspend fun recalcForRuleChange(taskId: String) {
+        override suspend fun recalcForRuleChange(taskId: String) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcForRuleChange"
             val started = System.currentTimeMillis()
@@ -364,7 +365,7 @@ class ScoreRollupCascadeService
          * histories (day rows are dense by design).
          */
         @Suppress("TooGenericExceptionCaught")  // Intentional: scoring cascade must not crash app; log and continue
-        suspend fun recalcDayOnly(changeDate: LocalDate) {
+        override suspend fun recalcDayOnly(changeDate: LocalDate) {
             val db = sessionManager.requireDatabase()
             val tag = "ScoreRollupCascadeService.recalcDayOnly"
             val started = System.currentTimeMillis()

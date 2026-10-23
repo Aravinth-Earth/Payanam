@@ -3,16 +3,16 @@
 package io.payanam.ui.viewmodel
 
 import android.content.Context
-import android.content.res.Configuration
-import android.content.res.Resources
-import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
-import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.presentation.database.NewDatabaseDimensionInput
+import io.payanam.core.ui.database.buildDimensionSeedRows
+import io.payanam.core.ui.database.defaultNewDatabaseDimensionInputs
+import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -22,9 +22,9 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
-import java.util.Locale
 
 @RunWith(RobolectricTestRunner::class)
 class DatabaseInitDimensionSetupTest {
@@ -38,60 +38,6 @@ class DatabaseInitDimensionSetupTest {
 
     private fun testLogger(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
 
-    private fun mockDimensionLabelContext(currentLocaleTag: String = "ta"): Context {
-        val englishStrings = mapOf(
-            R.string.loc_dimension_name_work_livelihood to "Work & Livelihood",
-            R.string.loc_dimension_name_physical_health to "Physical Health",
-            R.string.loc_dimension_name_mental_health to "Mental Health",
-            R.string.loc_dimension_name_family_relationships to "Family & Relationships",
-            R.string.loc_dimension_name_home_environment to "Home & Environment",
-            R.string.loc_dimension_name_learning_growth to "Learning & Growth",
-            R.string.loc_dimension_name_money_finance to "Money & Finance",
-            R.string.loc_dimension_name_recreation_leisure to "Recreation & Leisure",
-            R.string.loc_dimension_name_community_service to "Community & Service",
-            R.string.loc_dimension_fallback_unassigned to "Unassigned",
-        )
-        val tamilStrings = mapOf(
-            R.string.loc_dimension_name_work_livelihood to "வேலை & வாழ்வாதாரம்",
-            R.string.loc_dimension_name_physical_health to "உடல் ஆரோக்கியம்",
-            R.string.loc_dimension_name_mental_health to "மனநலம்",
-            R.string.loc_dimension_name_family_relationships to "குடும்பம் & உறவுகள்",
-            R.string.loc_dimension_name_home_environment to "வீடு & சூழல்",
-            R.string.loc_dimension_name_learning_growth to "கற்றல் & வளர்ச்சி",
-            R.string.loc_dimension_name_money_finance to "பணம் & நிதி",
-            R.string.loc_dimension_name_recreation_leisure to "பொழுதுபோக்கு & ஓய்வு",
-            R.string.loc_dimension_name_community_service to "சமூகம் & சேவை",
-            R.string.loc_dimension_fallback_unassigned to "ஒதுக்கப்படாதது",
-        )
-        fun contextFor(strings: Map<Int, String>, localeTag: String): Context {
-            val localeConfiguration = Configuration().apply { setLocale(Locale.forLanguageTag(localeTag)) }
-            val resources = mock<Resources>()
-            whenever(resources.configuration).thenReturn(localeConfiguration)
-            val localizedContext = mock<Context>()
-            whenever(localizedContext.resources).thenReturn(resources)
-            strings.forEach { (resId, value) ->
-                whenever(localizedContext.getString(resId)).thenReturn(value)
-            }
-            return localizedContext
-        }
-        val currentStrings = if (currentLocaleTag == "ta") tamilStrings else englishStrings
-        val baseResources = mock<Resources>()
-        val baseConfiguration = Configuration().apply { setLocale(Locale.forLanguageTag(currentLocaleTag)) }
-        whenever(baseResources.configuration).thenReturn(baseConfiguration)
-        val baseContext = mock<Context>()
-        whenever(baseContext.resources).thenReturn(baseResources)
-        currentStrings.forEach { (resId, value) ->
-            whenever(baseContext.getString(resId)).thenReturn(value)
-        }
-        val englishContext = contextFor(englishStrings, "en")
-        val tamilContext = contextFor(tamilStrings, "ta")
-        whenever(baseContext.createConfigurationContext(any())).thenAnswer { invocation ->
-            val requestedConfig = invocation.getArgument<Configuration>(0)
-            val locale = requestedConfig.locales[0]?.language ?: "en"
-            if (locale == "ta") tamilContext else englishContext
-        }
-        return baseContext
-    }
 
     @Test
     fun `buildDimensionSeedRows keeps defaults when no custom input is provided`() {
@@ -132,7 +78,7 @@ class DatabaseInitDimensionSetupTest {
     @Test
     fun `defaultNewDatabaseDimensionInputs uses localized app-owned labels`() {
         testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying localized default dimension labels")
-        val tamilDefaults = defaultNewDatabaseDimensionInputs(mockDimensionLabelContext())
+        val tamilDefaults = defaultNewDatabaseDimensionInputs(uiStringsFor("ta"))
         assertEquals(
             "வேலை & வாழ்வாதாரம்",
             tamilDefaults.first { it.id == DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id }.label,
@@ -144,44 +90,47 @@ class DatabaseInitDimensionSetupTest {
     }
 
     @Test
-    fun `persistNewDatabaseDimensionSetup writes all NOT NULL columns including weight`() {
-        testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying seed insert against real Room schema")
-        val db =
-            Room
-                .inMemoryDatabaseBuilder(context, PayanamDatabase::class.java)
-                .fallbackToDestructiveMigration()
-                .allowMainThreadQueries()
-                .build()
-        try {
-            val sessionManager = mock<DatabaseSessionManager>()
-            whenever(sessionManager.requireDatabase()).thenReturn(db)
-            val settingsRepository = mock<AppSettingsRepository>()
-            runBlocking {
-                whenever(settingsRepository.setSetting(any(), any())).thenReturn(Unit)
-                persistNewDatabaseDimensionSetup(
-                    context = mockDimensionLabelContext(),
-                    databaseSessionManager = sessionManager,
-                    appSettingsRepository = settingsRepository,
-                    dimensionInputs = defaultNewDatabaseDimensionInputs(mockDimensionLabelContext()),
-                )
+    fun `persistNewDatabaseDimensionSetup replaces the catalog and seeds every dimension at weight one`() {
+        testLogger()?.d("DatabaseInitDimensionSetupTest", "Verifying the catalog replace")
+        val catalog = mock<LifeDimensionCatalogRepository>()
+        val settingsRepository = mock<AppSettingsRepository>()
+        val captured = mutableListOf<ConfiguredLifeDimension>()
+        val completedSetting = arrayOfNulls<Pair<String, String>>(1)
+
+        runBlocking {
+            whenever(settingsRepository.setSetting(any(), any())).thenAnswer { invocation ->
+                @Suppress("UNCHECKED_CAST")
+                completedSetting[0] =
+                    (invocation.getArgument<String>(0) to invocation.getArgument<String>(1))
+                Unit
             }
-            val rows =
-                db.query(
-                    "SELECT id, key, label, color, icon, sortOrder, isActive, weight FROM life_dimensions",
-                    null,
-                )
-            try {
-                assertTrue(rows.moveToFirst())
-                assertTrue(rows.count > 0)
-                val weightColumn = rows.getColumnIndexOrThrow("weight")
-                do {
-                    assertEquals(1.0, rows.getDouble(weightColumn), 0.0)
-                } while (rows.moveToNext())
-            } finally {
-                rows.close()
+            whenever(
+                catalog.replaceAllDimensions(any()),
+            ).thenAnswer { invocation ->
+                @Suppress("UNCHECKED_CAST")
+                val rows = invocation.getArgument<List<ConfiguredLifeDimension>>(0)
+                captured.addAll(rows)
+                rows.size
             }
-        } finally {
-            db.close()
+
+            persistNewDatabaseDimensionSetup(
+                lifeDimensionCatalogRepository = catalog,
+                appSettingsRepository = settingsRepository,
+                dimensionInputs = defaultNewDatabaseDimensionInputs(uiStringsFor("ta")),
+            )
         }
+
+        // The seed is written through the shared atomic replace, not raw SQL on the session. The rows are
+        // captured rather than read back from a database because that is now the repository's own
+        // contract, already covered by LifeDimensionCatalogRepositoryJvmTest against a real SQLCipher
+        // file; what this test owns is the SEED's shape.
+        assertTrue(captured.isNotEmpty())
+        assertTrue(captured.all { it.weight == 1.0 })
+        assertTrue(captured.any { it.id == "dim_unassigned" })
+        assertTrue(captured.all { it.label.isNotBlank() })
+        // Every dimension starts active-equivalent: a fresh database must not silently score nothing.
+        assertTrue(captured.any { it.isActive })
+        // The seed must mark DB init complete, or the gate is shown again on the next launch.
+        assertEquals("database_init_completed" to "true", completedSetting[0])
     }
 }
