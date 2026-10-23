@@ -116,14 +116,36 @@ if ($workTreeBuilds -ne $commitBuilds) {
 $versionCode = $commitBuilds
 $tag = "fdroid-v$versionCode"
 
-# ── 3. Never re-tag ─────────────────────────────────────────────────────────
+# ── 3. A changelog must exist for the version this tag will publish ─────────
+# F-Droid shows fastlane/metadata/android/<locale>/changelogs/<versionCode>.txt as the
+# "What's new" text for that release. Because the version code is computed from the build
+# counter, the filename can never be committed in advance for the number this run will
+# produce - so the check is that the file for THIS number already exists at the commit
+# being tagged. The default locale is required; a missing translation is a warning rather
+# than a refusal, because a locale with no changelogs directory at all would otherwise
+# block every tag. The filename carries the version number; the file body is prose for
+# users and is deliberately not parsed for a version token.
+$changelogRoot = "fastlane/metadata/android"
+$requiredChangelog = "$changelogRoot/en-US/changelogs/$versionCode.txt"
+if ($null -eq (Get-RepoFileText -Path $requiredChangelog -Commit $commit)) {
+    Refuse "Refusing: no changelog for version $versionCode." "Expected $requiredChangelog at $head. F-Droid shows that file as What's new, so a tag without it publishes release notes that do not exist."
+}
+Write-LogWithTime "Changelog: $requiredChangelog" "Cyan"
+foreach ($locale in @("ta-IN")) {
+    $translatedChangelog = "$changelogRoot/$locale/changelogs/$versionCode.txt"
+    if ($null -eq (Get-RepoFileText -Path $translatedChangelog -Commit $commit)) {
+        Write-LogWithTime "⚠️ No $locale changelog for $versionCode - the default locale is shown." "Yellow"
+    }
+}
+
+# ── 4. Never re-tag ─────────────────────────────────────────────────────────
 $localTags = @(git tag -l $tag 2>$null)
 if ($localTags -contains $tag) { Refuse "Tag $tag already exists locally. Nothing to do." }
 $remoteTags = (git ls-remote --tags origin "refs/tags/$tag" 2>$null | Out-String).Trim()
 if ($LASTEXITCODE -ne 0) { Refuse "Could not reach origin to check for an existing $tag - refusing to tag blind." }
 if ($remoteTags -match [regex]::Escape("refs/tags/$tag")) { Refuse "Tag $tag already exists on origin. Nothing to do." }
 
-# ── 4. Create the tag LOCALLY ───────────────────────────────────────────────
+# ── 5. Create the tag LOCALLY ───────────────────────────────────────────────
 Write-LogWithTime "Branch  : $branch (head $head)" "Cyan"
 Write-LogWithTime "Version : $versionCode (app + counter agree at $head)" "Cyan"
 Write-LogWithTime "Tag     : $tag" "Cyan"
@@ -132,7 +154,7 @@ git tag $tag $commit
 if ($LASTEXITCODE -ne 0) { Refuse "git tag failed." }
 Write-LogWithTime "✅ Created local tag $tag on $head" "Green"
 
-# ── 5. Push only when asked ─────────────────────────────────────────────────
+# ── 6. Push only when asked ─────────────────────────────────────────────────
 if ($Push) {
     git push origin $tag
     if ($LASTEXITCODE -ne 0) { Refuse "git push failed - the tag exists locally." }
