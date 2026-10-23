@@ -4,15 +4,17 @@
 # Tag the F-Droid release commit so F-Droid's update check can see it.
 #
 # ── F-Droid recipe contract (the recipe lives OUTSIDE this repo) ─────────────
-# The recipe must carry UpdateCheckMode: Tags ^fdroid-v\d+$ and read the version
-# code from the tag name (UpdateCheckData). It MUST be updated to that contract
-# BEFORE the first fdroid-v* tag is published: a tag the recipe cannot see means
-# F-Droid never offers the new version. Do not tag blindly - check the recipe.
+# versionCode is computed from the build counter, so F-Droid's default check cannot
+# read it: that check regex-matches the build file and finds no literal number. The
+# recipe must therefore carry BOTH of these:
+#   UpdateCheckMode: Tags ^fdroid-v\d+$
+#   UpdateCheckData: '|fdroid-v(\d+)||fdroid-v(.*)'
+# The second reads the version from the tag name. Without it a tagged release is
+# invisible to F-Droid, with no error anywhere. Confirm both before publishing a tag.
 #
 # Tag namespace: fdroid-v{versionCode} (e.g. fdroid-v2047) - its own namespace,
 # distinct from publish-release.ps1's v{build} / dev-v{build} / beta-v{build}.
-# The tag is created LOCALLY; it is pushed only with an explicit -Push, and only
-# Aravinth pushes (repo rule: agents never push).
+# The tag is created LOCALLY; it is pushed only with an explicit -Push.
 #
 # Usage: pwsh build-tools/scripts/tag-fdroid-release.ps1 [-Push]
 
