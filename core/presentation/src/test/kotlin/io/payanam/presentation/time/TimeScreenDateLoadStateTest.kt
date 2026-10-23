@@ -11,56 +11,61 @@ import java.time.LocalDate
 class TimeScreenDateLoadStateTest {
     @Test
     fun isTimeScreenDateContentReady_false_until_all_required_sections_are_loaded() {
-        val isReady = isTimeScreenDateContentReady(
-            entriesLoaded = true,
-            plannedTasksLoaded = false,
-            occurrencesLoaded = true,
-            needsOccurrences = true,
-        )
+        val isReady =
+            isTimeScreenDateContentReady(
+                entriesLoaded = true,
+                plannedTasksLoaded = false,
+                occurrencesLoaded = true,
+                needsOccurrences = true,
+            )
         assertFalse(isReady)
     }
 
     @Test
     fun isTimeScreenDateContentReady_true_when_entries_planned_tasks_and_occurrences_are_loaded() {
-        val isReady = isTimeScreenDateContentReady(
-            entriesLoaded = true,
-            plannedTasksLoaded = true,
-            occurrencesLoaded = true,
-            needsOccurrences = true,
-        )
+        val isReady =
+            isTimeScreenDateContentReady(
+                entriesLoaded = true,
+                plannedTasksLoaded = true,
+                occurrencesLoaded = true,
+                needsOccurrences = true,
+            )
         assertTrue(isReady)
     }
 
     @Test
     fun isTimeScreenDateContentReady_true_without_occurrences_when_minimal_mode_contract_applies() {
-        val isReady = isTimeScreenDateContentReady(
-            entriesLoaded = true,
-            plannedTasksLoaded = true,
-            occurrencesLoaded = false,
-            needsOccurrences = false,
-        )
+        val isReady =
+            isTimeScreenDateContentReady(
+                entriesLoaded = true,
+                plannedTasksLoaded = true,
+                occurrencesLoaded = false,
+                needsOccurrences = false,
+            )
         assertTrue(isReady)
     }
 
     @Test
     fun isTimeScreenDateContentReady_false_without_entries() {
-        val isReady = isTimeScreenDateContentReady(
-            entriesLoaded = false,
-            plannedTasksLoaded = true,
-            occurrencesLoaded = true,
-            needsOccurrences = true,
-        )
+        val isReady =
+            isTimeScreenDateContentReady(
+                entriesLoaded = false,
+                plannedTasksLoaded = true,
+                occurrencesLoaded = true,
+                needsOccurrences = true,
+            )
         assertFalse(isReady)
     }
 
     @Test
     fun isTimeScreenDateContentReady_false_without_planned_tasks() {
-        val isReady = isTimeScreenDateContentReady(
-            entriesLoaded = true,
-            plannedTasksLoaded = false,
-            occurrencesLoaded = true,
-            needsOccurrences = true,
-        )
+        val isReady =
+            isTimeScreenDateContentReady(
+                entriesLoaded = true,
+                plannedTasksLoaded = false,
+                occurrencesLoaded = true,
+                needsOccurrences = true,
+            )
         assertFalse(isReady)
     }
 
@@ -80,8 +85,9 @@ class TimeScreenDateLoadStateTest {
 
     @Test
     fun loadState_is_not_ready_until_the_last_required_section_arrives() {
-        val entries = TimeScreenDateLoadState(1L, needsOccurrences = true)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+        val entries =
+            TimeScreenDateLoadState(1L, needsOccurrences = true)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
         assertFalse(entries.isReady())
 
         val planned = entries.markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
@@ -90,34 +96,38 @@ class TimeScreenDateLoadStateTest {
 
     @Test
     fun loadState_is_ready_once_occurrences_arrive_in_full_mode() {
-        val state = TimeScreenDateLoadState(requestId = 1L, needsOccurrences = true)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
-            .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
-            .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
+        val state =
+            TimeScreenDateLoadState(requestId = 1L, needsOccurrences = true)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+                .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
+                .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
         assertTrue(state.isReady())
     }
 
     @Test
     fun loadState_is_ready_without_occurrences_in_minimal_mode() {
-        val state = TimeScreenDateLoadState(requestId = 1L, needsOccurrences = false)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
-            .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
+        val state =
+            TimeScreenDateLoadState(requestId = 1L, needsOccurrences = false)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+                .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
         assertTrue(state.isReady())
     }
 
     @Test
     fun loadState_stays_not_ready_on_occurrences_alone() {
-        val state = TimeScreenDateLoadState(requestId = 1L, needsOccurrences = true)
-            .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
+        val state =
+            TimeScreenDateLoadState(requestId = 1L, needsOccurrences = true)
+                .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
         assertFalse(state.isReady())
     }
 
     @Test
     fun loadState_ignores_occurrences_in_minimal_mode() {
-        val state = TimeScreenDateLoadState(requestId = 1L, needsOccurrences = false)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
-            .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
-            .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
+        val state =
+            TimeScreenDateLoadState(requestId = 1L, needsOccurrences = false)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+                .markSectionLoaded(TimeScreenDateSection.PLANNED_TASKS)
+                .markSectionLoaded(TimeScreenDateSection.OCCURRENCES)
         assertTrue(state.isReady())
     }
 
@@ -131,15 +141,17 @@ class TimeScreenDateLoadStateTest {
 
     @Test
     fun loadState_preserves_the_request_id_across_section_marks() {
-        val state = TimeScreenDateLoadState(requestId = 42L, needsOccurrences = true)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+        val state =
+            TimeScreenDateLoadState(requestId = 42L, needsOccurrences = true)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
         assertEquals(42L, state.requestId)
     }
 
     @Test
     fun loadState_repeating_a_section_mark_does_not_change_readiness() {
-        val once = TimeScreenDateLoadState(1L, needsOccurrences = true)
-            .markSectionLoaded(TimeScreenDateSection.ENTRIES)
+        val once =
+            TimeScreenDateLoadState(1L, needsOccurrences = true)
+                .markSectionLoaded(TimeScreenDateSection.ENTRIES)
         val twice = once.markSectionLoaded(TimeScreenDateSection.ENTRIES)
         assertFalse(once.isReady())
         assertFalse(twice.isReady())

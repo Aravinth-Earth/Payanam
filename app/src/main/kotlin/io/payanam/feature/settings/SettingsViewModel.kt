@@ -17,6 +17,9 @@ import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
@@ -24,12 +27,15 @@ import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.BulkHabitMappingResult
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.listDatabaseArtifactFiles
 import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.settings.toDatabaseArtifactUiModel
 import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.presentation.updates.UpdatePrefKeys
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.settings.BackupInterval
@@ -74,6 +80,8 @@ class SettingsViewModel(
     private val noteRepository = LocalDataLayer.current.notes
     private val appSettingsRepository = LocalDataLayer.current.appSettings
     internal val logger = UnifiedLogger.getInstance()
+    internal val localDatabaseFile: File
+        get() = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
     // The five values that are facts about THIS build and THIS database are supplied here rather
@@ -367,7 +375,7 @@ class SettingsViewModel(
                 // so WAL-only state (primary .db absent, -wal present) reports correct non-zero size.
                 val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
                 val (sizeKb, databaseArtifacts) = withContext(Dispatchers.IO) {
-                    val files = listDatabaseArtifactFiles(context).filter { it.exists() }
+                    val files = listDatabaseArtifactFiles(localDatabaseFile).filter { it.exists() }
                     val size = files.sumOf { it.length() } / 1024
                     val artifacts = files
                         .sortedByDescending { it.lastModified() }
@@ -422,7 +430,14 @@ class SettingsViewModel(
     fun importData(
         sourceUri: Uri,
     ) {
-        importDatabase(sourceUri)
+        importDatabase(
+            sourceUri.toString(),
+            context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME),
+            AndroidDatabaseEncryptionProbe(context),
+            uiStringsFor(context),
+            AndroidDocumentSource(context),
+            appDatabaseInitWalConsolidator(context, logger),
+        )
     }
 
     /**

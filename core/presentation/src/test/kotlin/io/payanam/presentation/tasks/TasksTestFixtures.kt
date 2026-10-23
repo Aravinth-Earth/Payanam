@@ -28,9 +28,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.dropWhile
 import kotlinx.coroutines.flow.flatMapConcat
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -185,14 +185,20 @@ internal class FakeTaskRepository : TaskRepository {
     private var readCount = 0
 
     override fun getAllTasks(): Flow<List<Task>> =
-        if (failGetAllTasks) flow { throw IllegalStateException("tasks unavailable") }
-        else tasks.map { list -> list.sortedBy { it.title } }
+        if (failGetAllTasks) {
+            flow { throw IllegalStateException("tasks unavailable") }
+        } else {
+            tasks.map { list -> list.sortedBy { it.title } }
+        }
 
     override fun getTasksByStatus(status: String): Flow<List<Task>> = tasks.map { list -> list.filter { it.status == status } }
 
     override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> =
-        if (failTasksDueOn) flow { throw IllegalStateException("due unavailable") }
-        else tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == date } }
+        if (failTasksDueOn) {
+            flow { throw IllegalStateException("due unavailable") }
+        } else {
+            tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == date } }
+        }
 
     override suspend fun getTaskById(id: String): Task? {
         if (failGetById) throw IllegalStateException("task unavailable")
@@ -270,8 +276,11 @@ internal class FakeTaskRepository : TaskRepository {
         }
 
     override fun getTodaysTasks(): Flow<List<Task>> =
-        if (failTodaysTasks) flow { throw IllegalStateException("planned unavailable") }
-        else tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == TASKS_TEST_DAY } }
+        if (failTodaysTasks) {
+            flow { throw IllegalStateException("planned unavailable") }
+        } else {
+            tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == TASKS_TEST_DAY } }
+        }
 
     override suspend fun getRecurringTasks(): List<Task> = tasks.value.filter { it.recurrenceEnabled }
 

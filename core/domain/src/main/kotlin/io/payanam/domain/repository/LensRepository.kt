@@ -6,10 +6,8 @@ import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
 
-/**
- * Repository for lens calculations (Planning and Reality).
- * Provides data aggregation and gap detection for lens views.
- */
+// Repository for lens calculations (Planning and Reality).
+// Provides data aggregation and gap detection for lens views.
 @Suppress("TooManyFunctions")
 /**
  * Aggregates per-day planning + reality data for the lens views (time

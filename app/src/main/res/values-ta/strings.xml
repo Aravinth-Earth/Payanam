@@ -156,7 +156,6 @@
     <string name="settings_import_error_plaintext_db">இந்தக் கோப்பு குறியாக்கம் செய்யப்படாத தரவுத்தளம். Payanam குறியாக்கப்பட்ட தரவுத்தளங்களை மட்டுமே இறக்குமதி செய்யும் — அதற்குப் பதிலாக Payanam ஏற்றுமதியிலிருந்து பெற்ற .db கோப்பை இறக்குமதி செய்யவும்.</string>
     <string name="settings_import_error_schema_too_old">இறக்குமதி தரவுத்தளத்தின் திட்டப் பதிப்பு %1$d மிகவும் பழையது. குறைந்தபட்ச ஆதரிக்கப்பட்ட திட்டப் பதிப்பு %2$d.</string>
     <string name="settings_import_error_schema_too_new">இறக்குமதி தரவுத்தளத்தின் திட்டப் பதிப்பு %1$d இந்த செயலி ஆதரிப்பதைக் (%2$d) காட்டிலும் புதியது.</string>
-    <string name="settings_import_error_encrypted_different_passphrase">இறக்குமதி தரவுத்தளம் வேறுபட்ட கடவுச்சொல்லுடன் குறியாக்கப்பட்டுள்ளது. மூல சாதனத்திலிருந்து ஒரு குறியாக்கப்பட்டாத காப்புப்பிரதியை ஏற்றுமதி செய்து மீண்டும் இறக்குமதி செய்க, அல்லது உள்ளூர் தரவை மீட்டமைத்து புதிய கடவுச்சொல் அமைக்கவும்.</string>    <string name="settings_import_error_encrypted_requires_passphrase">இறக்குமதி தரவுத்தளம் குறியாக்கப்பட்டுள்ளது. முதலில் அமைப்பில் குறியாக்கத்தை இயக்கவும், பின்னர் கடவுச்சொல்லை வழங்க மீண்டும் இறக்குமதி செய்யவும். அல்லது மூல சாதனத்திலிருந்து ஒரு குறியாக்கப்படாத காப்புப்பிரதியை ஏற்றுமதி செய்யவும்.</string>
     <string name="db_import_passphrase_prompt_title">இறக்குமதி தரவுத்தளத்திற்கு கடவுச்சொல் தேவை</string>
     <string name="db_import_passphrase_prompt_desc">இந்த தரவுத்தளம் குறியாக்கப்பட்டுள்ளது. காப்புப்பிரதி எடுக்கப்பட்டபோது பயன்படுத்திய கடவுச்சொல்லை உள்ளிடவும்.</string>
     <string name="db_import_passphrase_prompt_action">திறந்து இறக்குமதி செய்</string>
@@ -167,7 +166,6 @@
     <string name="settings_snackbar_export_success">%1$s க்கு ஏற்றுமதி செய்யப்பட்டது</string>
     <string name="settings_snackbar_export_failed">ஏற்றுமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_import_success">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன</string>
-    <string name="settings_snackbar_import_success_restart">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன. இறக்குமதி தரவை ஏற்ற பயன்பாடு மீண்டும் துவங்கப்படுகிறது.</string>
     <string name="settings_snackbar_import_failed">இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_uhabits_import_success">uHabits இலிருந்து %1$d பழக்கங்கள், %2$d மீளுருப்படிகள் இறக்குமதி செய்யப்பட்டன</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>

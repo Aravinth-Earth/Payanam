@@ -251,6 +251,20 @@ fun shouldCaptureReturnRouteForUnlock(route: String): Boolean =
         route != PayanamRoutes.ONBOARDING_INTRO
 
 /**
+ * Whether [route] is one of the app's own startup gates rather than a place the user was.
+ *
+ * These screens are the app asking its own questions. A silent unlock must never fire over one of them:
+ * the gate the user is standing on is the newer answer, so dragging them to the unlock screen makes an
+ * earlier decision (an unlock resolved at cold boot) override the action they just took. Measured case:
+ * the forgot-passphrase reset deletes the database and navigates to the passphrase-setup screen, then a
+ * still-set "unlock required" flag (computed once, before the reset) sent the user back to an unlock
+ * screen for a database that no longer existed - on Android and desktop alike, because this graph is
+ * shared. Same rule the passphrase-change screen already had, applied to the whole gate set instead of
+ * one screen at a time.
+ */
+fun isStartupGateRoute(route: String): Boolean = !shouldCaptureReturnRouteForUnlock(route)
+
+/**
  * The minimal-mode tab filter, shared so both platforms hide exactly the same tabs.
  *
  * Settings is always visible; every other tab is hidden when the user turned it off or when minimal mode

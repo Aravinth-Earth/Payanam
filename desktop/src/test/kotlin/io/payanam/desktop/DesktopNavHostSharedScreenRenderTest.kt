@@ -506,9 +506,14 @@ class DesktopNavHostSharedScreenRenderTest {
      */
     private fun desktopNavHostScreens(): DesktopPayanamNavHostScreens =
         DesktopPayanamNavHostScreens(
+            // No fact-reload hook: these cases mount the graph, not the reset leg that fires it.
+            onDatabaseResetObserved = {},
             databaseInitCollaborators =
                 DesktopDatabaseInitCollaborators(
                     sessionController = sessionController,
+                    // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                    // store, and the default resolves the operator's real data directory.
+                    onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                     documentSource = AwtDocumentSource(),
                     passphraseVault = vault,
                     databasePathResolver =
@@ -587,11 +592,13 @@ class DesktopNavHostSharedScreenRenderTest {
          */
         fun isPresent(rule: ComposeContentTestRule): Boolean =
             when (copiedBy) {
-                CopiedBy.CONTENT_DESCRIPTION ->
+                CopiedBy.CONTENT_DESCRIPTION -> {
                     rule.onAllNodesWithContentDescription(copy).fetchSemanticsNodes().isNotEmpty()
+                }
 
-                CopiedBy.TEXT ->
+                CopiedBy.TEXT -> {
                     rule.onAllNodesWithText(copy).fetchSemanticsNodes().isNotEmpty()
+                }
             }
 
         /**
@@ -605,11 +612,13 @@ class DesktopNavHostSharedScreenRenderTest {
          */
         fun assertRendered(rule: ComposeContentTestRule) {
             when (copiedBy) {
-                CopiedBy.CONTENT_DESCRIPTION ->
+                CopiedBy.CONTENT_DESCRIPTION -> {
                     rule.onNodeWithContentDescription(copy).assertExists()
+                }
 
-                CopiedBy.TEXT ->
+                CopiedBy.TEXT -> {
                     rule.onNodeWithText(copy).assertExists()
+                }
             }
         }
     }

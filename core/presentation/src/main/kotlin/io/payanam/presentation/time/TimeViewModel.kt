@@ -1,13 +1,13 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 @file:Suppress("TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.presentation.time
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskInput
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
 import io.payanam.domain.model.TimeEntryInput
-import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
@@ -16,6 +16,7 @@ import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -33,6 +34,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
 import java.util.concurrent.atomic.AtomicReference
+
 /**
  * ViewModel for the Time-tracking screen: loads the selected day's entries,
  * planned tasks, and past occurrences, and drives start/stop/edit/continue
@@ -56,19 +58,22 @@ class TimeViewModel(
     private var plannedTasksJob: Job? = null
     private var occurrencesJob: Job? = null
     private var selectedDateLoadRequestId: Long = 0L
-    private val selectedDateLoadState = TimeScreenDateLoadStateHolder(
-        TimeScreenDateLoadState(
-            requestId = selectedDateLoadRequestId,
-            needsOccurrences = !PlatformFeatureFlags.current.minimalModeEnabled,
-        ),
-    )
+    private val selectedDateLoadState =
+        TimeScreenDateLoadStateHolder(
+            TimeScreenDateLoadState(
+                requestId = selectedDateLoadRequestId,
+                needsOccurrences = !PlatformFeatureFlags.current.minimalModeEnabled,
+            ),
+        )
+
     init {
         logger.i("TimeViewModel.init", "ViewModel initialized")
         loadData()
         observeActiveEntry()
         observeLastEntry()
     }
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadData() {
         scope.launch {
             _uiState.update { it.copy(isLoading = true) }
@@ -87,6 +92,7 @@ class TimeViewModel(
         }
         loadEntriesForDate(_uiState.value.selectedDate)
     }
+
     private fun observeActiveEntry() {
         scope.launch {
             timeEntryRepository.observeActiveTimeEntry().collect { active ->
@@ -94,16 +100,19 @@ class TimeViewModel(
             }
         }
     }
+
     private fun observeLastEntry() {
         scope.launch {
             timeEntryRepository.getAllTimeEntries().collect { entries ->
-                val lastCompleted = entries
-                    .filter { it.endedAt != null }
-                    .maxByOrNull { it.endedAt ?: it.startedAt }
+                val lastCompleted =
+                    entries
+                        .filter { it.endedAt != null }
+                        .maxByOrNull { it.endedAt ?: it.startedAt }
                 _uiState.update { it.copy(lastEntry = lastCompleted) }
             }
         }
     }
+
     /**
      * Loads all data for [date]: cancels any in-flight loads and (re)starts the
      * entries, planned-tasks, and occurrences collections for that day.
@@ -143,7 +152,10 @@ class TimeViewModel(
         occurrencesJob = launchOccurrencesCollection(requestId, date)
     }
 
-    private fun markSelectedDateSectionLoaded(requestId: Long, section: TimeScreenDateSection) {
+    private fun markSelectedDateSectionLoaded(
+        requestId: Long,
+        section: TimeScreenDateSection,
+    ) {
         val merged = selectedDateLoadState.markSectionLoaded(requestId, section)
         if (merged == null) {
             logger.d(
@@ -199,24 +211,27 @@ class TimeViewModel(
     fun navigateToPreviousDay() {
         loadEntriesForDate(_uiState.value.selectedDate.minusDays(1))
     }
+
     /**
      * Switches the screen to the next day and reloads its data.
      */
     fun navigateToNextDay() {
         loadEntriesForDate(_uiState.value.selectedDate.plusDays(1))
     }
+
     /**
      * Switches the screen back to today and reloads its data.
      */
     fun navigateToToday() {
         loadEntriesForDate(LocalDate.now())
     }
+
     /**
      * Starts a time entry for [dimensionId]/[dimensionLabel] (optionally tied to
      * [taskId]) from [startedAt], stops any active entry first, and hands off to
      * the foreground tracking service + widget.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun startTracking(
         dimensionId: String,
         dimensionLabel: String,
@@ -238,12 +253,13 @@ class TimeViewModel(
             try {
                 timeEntryRepository.stopActiveTimeEntry()
                 timeTrackingController.stopTracking()
-                val input = TimeEntryInput(
-                    lifeIntentionCategory = dimensionLabel,
-                    dimensionId = dimensionId,
-                    taskId = normalizedTaskId,
-                    startedAt = startedAt,
-                )
+                val input =
+                    TimeEntryInput(
+                        lifeIntentionCategory = dimensionLabel,
+                        dimensionId = dimensionId,
+                        taskId = normalizedTaskId,
+                        startedAt = startedAt,
+                    )
                 val entry = timeEntryRepository.startTimeEntry(input)
                 logger.i(
                     "TimeViewModel.startTracking",
@@ -254,9 +270,12 @@ class TimeViewModel(
                         "startTime" to startedAt.toString(),
                     ),
                 )
-                val taskTitle = normalizedTaskId?.let { id ->
-                    _uiState.value.tasks.find { it.id == id }?.title
-                }
+                val taskTitle =
+                    normalizedTaskId?.let { id ->
+                        _uiState.value.tasks
+                            .find { it.id == id }
+                            ?.title
+                    }
                 timeTrackingController.startTracking(
                     taskId = normalizedTaskId,
                     taskTitle = taskTitle ?: dimensionLabel,
@@ -280,6 +299,7 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Stops the running time entry without recording focus (delegates with
      * zero rating).
@@ -287,12 +307,16 @@ class TimeViewModel(
     fun stopTracking() {
         stopTracking(focusRating = 0.0, focusNote = null)
     }
+
     /**
      * Stops the running time entry and records the supplied [focusRating] (0..1)
      * plus optional [focusNote].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    fun stopTracking(focusRating: Double, focusNote: String?) {
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    fun stopTracking(
+        focusRating: Double,
+        focusNote: String?,
+    ) {
         val safeFocusRating = focusRating.coerceIn(0.0, 1.0)
         val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
         logger.i(
@@ -305,10 +329,11 @@ class TimeViewModel(
         )
         scope.launch {
             try {
-                val stoppedEntry = timeTrackingController.stopTrackingAndCompleteTask(
-                    focusRating = safeFocusRating,
-                    focusNote = normalizedFocusNote,
-                )
+                val stoppedEntry =
+                    timeTrackingController.stopTrackingAndCompleteTask(
+                        focusRating = safeFocusRating,
+                        focusNote = normalizedFocusNote,
+                    )
                 timeTrackingController.stopTracking()
                 widgetRefresher.refreshWidget()
                 logger.i(
@@ -326,11 +351,12 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Edits an existing time entry ([entryId]) with new dimension/task/time window
      * and focus rating/note, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun updateTimeEntry(
         entryId: String,
         dimensionId: String,
@@ -348,26 +374,29 @@ class TimeViewModel(
             try {
                 val normalizedFocusRating = focusRating?.coerceIn(0.0, 1.0)
                 val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
-                val resolvedFocusRatedAt = focusRatedAt
-                    ?: if (normalizedFocusRating != null || normalizedFocusNote != null) {
-                        LocalDateTime.now()
-                    } else {
-                        null
-                    }
-                val input = TimeEntryInput(
-                    lifeIntentionCategory = dimensionLabel,
-                    dimensionId = dimensionId,
-                    taskId = taskId,
-                    startedAt = LocalDateTime.of(startDate, startTime),
-                    endedAt = if (endDate != null && endTime != null) {
-                        LocalDateTime.of(endDate, endTime)
-                    } else {
-                        null
-                    },
-                    focusRating = normalizedFocusRating,
-                    focusNote = normalizedFocusNote,
-                    focusRatedAt = resolvedFocusRatedAt,
-                )
+                val resolvedFocusRatedAt =
+                    focusRatedAt
+                        ?: if (normalizedFocusRating != null || normalizedFocusNote != null) {
+                            LocalDateTime.now()
+                        } else {
+                            null
+                        }
+                val input =
+                    TimeEntryInput(
+                        lifeIntentionCategory = dimensionLabel,
+                        dimensionId = dimensionId,
+                        taskId = taskId,
+                        startedAt = LocalDateTime.of(startDate, startTime),
+                        endedAt =
+                            if (endDate != null && endTime != null) {
+                                LocalDateTime.of(endDate, endTime)
+                            } else {
+                                null
+                            },
+                        focusRating = normalizedFocusRating,
+                        focusNote = normalizedFocusNote,
+                        focusRatedAt = resolvedFocusRatedAt,
+                    )
                 timeEntryRepository.updateTimeEntry(entryId, input)
                 loadEntriesForDate(_uiState.value.selectedDate)
             } catch (e: Exception) {
@@ -383,11 +412,12 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Deletes [entryId] and, if it was linked to a task, reverts that task's
      * completion status, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun deleteTimeEntry(entryId: String) {
         logger.w("TimeViewModel.deleteTimeEntry", "Deleting time entry", mapOf("entryId" to entryId))
         scope.launch {
@@ -412,7 +442,11 @@ class TimeViewModel(
             }
         }
     }
-    private suspend fun revertTaskCompletionFromTimeTracking(taskId: String, timeEntry: TimeEntry) {
+
+    private suspend fun revertTaskCompletionFromTimeTracking(
+        taskId: String,
+        timeEntry: TimeEntry,
+    ) {
         logger.i(
             "TimeViewModel.revertTaskCompletionFromTimeTracking",
             "Reverting task completion from deleted time entry",
@@ -495,11 +529,12 @@ class TimeViewModel(
             )
         }
     }
+
     /**
      * Creates a finished (already-stopped) time entry spanning the given start/end
      * window and dimension/task/focus, then reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun createManualEntry(
         dimensionId: String,
         dimensionLabel: String,
@@ -526,21 +561,23 @@ class TimeViewModel(
             try {
                 val normalizedFocusRating = focusRating?.coerceIn(0.0, 1.0)
                 val normalizedFocusNote = focusNote?.trim()?.takeIf { it.isNotEmpty() }
-                val focusRatedAt = if (normalizedFocusRating != null || normalizedFocusNote != null) {
-                    LocalDateTime.now()
-                } else {
-                    null
-                }
-                val input = TimeEntryInput(
-                    lifeIntentionCategory = dimensionLabel,
-                    dimensionId = dimensionId,
-                    taskId = taskId,
-                    startedAt = LocalDateTime.of(startDate, startTime),
-                    endedAt = LocalDateTime.of(endDate, endTime),
-                    focusRating = normalizedFocusRating,
-                    focusNote = normalizedFocusNote,
-                    focusRatedAt = focusRatedAt,
-                )
+                val focusRatedAt =
+                    if (normalizedFocusRating != null || normalizedFocusNote != null) {
+                        LocalDateTime.now()
+                    } else {
+                        null
+                    }
+                val input =
+                    TimeEntryInput(
+                        lifeIntentionCategory = dimensionLabel,
+                        dimensionId = dimensionId,
+                        taskId = taskId,
+                        startedAt = LocalDateTime.of(startDate, startTime),
+                        endedAt = LocalDateTime.of(endDate, endTime),
+                        focusRating = normalizedFocusRating,
+                        focusNote = normalizedFocusNote,
+                        focusRatedAt = focusRatedAt,
+                    )
                 val created = timeEntryRepository.createTimeEntry(input)
                 logger.i(
                     "TimeViewModel.createManualEntry",
@@ -562,12 +599,14 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Clears the current error message shown on the screen.
      */
     fun clearError() {
         _uiState.update { it.copy(error = null) }
     }
+
     /**
      * Resumes tracking from the most recent completed entry (re-opening it as the
      * active entry).
@@ -585,37 +624,43 @@ class TimeViewModel(
         )
         continueEntry(lastEntry.id)
     }
+
     /**
      * Re-opens a specific finished [entryId] as the active tracking entry and
      * hands off to the foreground tracking service.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun continueEntry(entryId: String) {
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         scope.launch {
             try {
                 timeEntryRepository.stopActiveTimeEntry()
                 timeTrackingController.stopTracking()
-                val entry = _uiState.value.timeEntries.find { it.id == entryId }
-                    ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
+                val entry =
+                    _uiState.value.timeEntries.find { it.id == entryId }
+                        ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
                 if (entry == null) {
                     logger.w("TimeViewModel.continueEntry", "Entry not found", mapOf("entryId" to entryId))
                     return@launch
                 }
-                val input = TimeEntryInput(
-                    lifeIntentionCategory = entry.lifeIntentionCategory,
-                    dimensionId = entry.dimensionId,
-                    taskId = entry.taskId,
-                    startedAt = entry.startedAt,
-                    endedAt = null,
-                    focusRating = entry.focusRating,
-                    focusNote = entry.focusNote,
-                    focusRatedAt = entry.focusRatedAt,
-                )
+                val input =
+                    TimeEntryInput(
+                        lifeIntentionCategory = entry.lifeIntentionCategory,
+                        dimensionId = entry.dimensionId,
+                        taskId = entry.taskId,
+                        startedAt = entry.startedAt,
+                        endedAt = null,
+                        focusRating = entry.focusRating,
+                        focusNote = entry.focusNote,
+                        focusRatedAt = entry.focusRatedAt,
+                    )
                 timeEntryRepository.updateTimeEntry(entryId, input)
-                val taskTitle = entry.taskId?.let { id ->
-                    _uiState.value.tasks.find { it.id == id }?.title
-                }
+                val taskTitle =
+                    entry.taskId?.let { id ->
+                        _uiState.value.tasks
+                            .find { it.id == id }
+                            ?.title
+                    }
                 val dimensionLabel = entry.lifeIntentionCategory
                 val dimensionId = entry.dimensionId ?: "dim_unassigned"
                 timeTrackingController.startTracking(
@@ -640,11 +685,15 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Marks [taskId] complete (no explicit timing details) and, for recurring
      * tasks, records the occurrence and schedules the next reminder.
      */
-    fun completeTask(taskId: String, note: String?) {
+    fun completeTask(
+        taskId: String,
+        note: String?,
+    ) {
         completeTaskWithDetails(
             taskId = taskId,
             note = note,
@@ -652,11 +701,12 @@ class TimeViewModel(
             actualDurationMinutes = null,
         )
     }
+
     /**
      * Completes [taskId] with explicit [actualCompletedAt]/[actualDurationMinutes],
      * records the occurrence (and next reminder for recurring tasks), then reloads.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun completeTaskWithDetails(
         taskId: String,
         note: String?,
@@ -714,12 +764,16 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Marks [taskId] skipped: records the occurrence and applies decay for
      * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    fun skipTask(taskId: String, note: String?) {
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    fun skipTask(
+        taskId: String,
+        note: String?,
+    ) {
         logger.i(
             "TimeViewModel.skipTask",
             "Skipping task",
@@ -775,12 +829,16 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Marks [taskId] missed: records the occurrence and applies decay for
      * recurring tasks, otherwise just cancels its reminder, then reloads.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    fun missTask(taskId: String, note: String?) {
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    fun missTask(
+        taskId: String,
+        note: String?,
+    ) {
         logger.i(
             "TimeViewModel.missTask",
             "Missing task",
@@ -836,10 +894,11 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Archives [taskId] (removes it from active lists) and reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun archiveTask(taskId: String) {
         logger.i("TimeViewModel.archiveTask", "Archiving task", mapOf("taskId" to taskId))
         scope.launch {
@@ -866,10 +925,11 @@ class TimeViewModel(
             }
         }
     }
+
     /**
      * Permanently deletes [taskId] (canceling its reminder) and reloads the day.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun deleteTask(taskId: String) {
         logger.w("TimeViewModel.deleteTask", "Deleting task from time screen", mapOf("taskId" to taskId))
         scope.launch {
@@ -890,6 +950,7 @@ class TimeViewModel(
             }
         }
     }
+
     private suspend fun recordOccurrence(
         taskId: String,
         dueDate: LocalDate,
@@ -911,18 +972,19 @@ class TimeViewModel(
             ),
         )
         val now = LocalDateTime.now()
-        val occurrence = TaskOccurrence(
-            id = UUID.randomUUID().toString(),
-            taskId = taskId,
-            occurrenceDate = dueDate.toString(),
-            status = status,
-            statusNote = note,
-            completedAt = if (status == "completed") now.toString() else null,
-            actualCompletedAt = actualCompletedAt,
-            actualDurationMinutes = actualDurationMinutes,
-            dueDate = dueDate.atStartOfDay(),
-            createdAt = now,
-        )
+        val occurrence =
+            TaskOccurrence(
+                id = UUID.randomUUID().toString(),
+                taskId = taskId,
+                occurrenceDate = dueDate.toString(),
+                status = status,
+                statusNote = note,
+                completedAt = if (status == "completed") now.toString() else null,
+                actualCompletedAt = actualCompletedAt,
+                actualDurationMinutes = actualDurationMinutes,
+                dueDate = dueDate.atStartOfDay(),
+                createdAt = now,
+            )
         logger.d(
             "TimeViewModel.recordOccurrence",
             "CREATED_OCCURRENCE_OBJECT",
@@ -942,7 +1004,11 @@ class TimeViewModel(
             ),
         )
     }
-    private suspend fun scheduleNextRecurringReminder(taskId: String, source: String) {
+
+    private suspend fun scheduleNextRecurringReminder(
+        taskId: String,
+        source: String,
+    ) {
         val updatedTask = taskRepository.getTaskById(taskId)
         if (updatedTask == null || !updatedTask.recurrenceEnabled) {
             return
@@ -953,7 +1019,11 @@ class TimeViewModel(
             logger.e(source, "Failed to schedule next recurring reminder", e, mapOf("taskId" to taskId))
         }
     }
-    private suspend fun cancelOneTimeReminder(taskId: String, source: String) {
+
+    private suspend fun cancelOneTimeReminder(
+        taskId: String,
+        source: String,
+    ) {
         try {
             reminderScheduler.cancelForTask(taskId)
         } catch (e: Exception) {
@@ -961,7 +1031,7 @@ class TimeViewModel(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun launchTimeEntriesCollection(requestId: Long, date: LocalDate): Job =
         scope.launch {
             var receivedInitialEntries = false
@@ -994,23 +1064,25 @@ class TimeViewModel(
             }
         }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun launchPlannedTasksCollection(requestId: Long, date: LocalDate): Job =
         scope.launch {
             var receivedInitialPlannedTasks = false
             try {
                 val useTodaysTasks = shouldUseTodaysPlannedTasks(date)
-                val plannedTasksFlow = if (useTodaysTasks) {
-                    taskRepository.getTodaysTasks()
-                } else {
-                    taskRepository.getTasksDueOn(date)
-                }
-                plannedTasksFlow.collect { tasks ->
-                    val filtered = if (PlatformFeatureFlags.current.minimalModeEnabled) {
-                        tasks.filter { !it.recurrenceEnabled }
+                val plannedTasksFlow =
+                    if (useTodaysTasks) {
+                        taskRepository.getTodaysTasks()
                     } else {
-                        tasks
+                        taskRepository.getTasksDueOn(date)
                     }
+                plannedTasksFlow.collect { tasks ->
+                    val filtered =
+                        if (PlatformFeatureFlags.current.minimalModeEnabled) {
+                            tasks.filter { !it.recurrenceEnabled }
+                        } else {
+                            tasks
+                        }
                     _uiState.update { state ->
                         state.copy(
                             plannedTasks = filtered,
@@ -1040,7 +1112,7 @@ class TimeViewModel(
             }
         }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun launchOccurrencesCollection(requestId: Long, date: LocalDate): Job? {
         if (PlatformFeatureFlags.current.minimalModeEnabled) {
             _uiState.update { it.copy(pastOccurrences = emptyList()) }

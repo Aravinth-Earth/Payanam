@@ -17,7 +17,8 @@ import io.payanam.database.jvm.TaskOccurrenceRepositoryJvm
 import io.payanam.database.jvm.TaskRepositoryJvm
 import io.payanam.database.jvm.TaskRescheduleRepositoryJvm
 import io.payanam.database.jvm.TimeEntryRepositoryJvm
-import io.payanam.desktop.port.DesktopTaskReminderScheduler
+import io.payanam.database.jvm.backfill.ScoreRollupTriggerJdbc
+import io.payanam.database.jvm.event.ScoreChangeEventBusJvm
 import io.payanam.desktop.port.DesktopTimeTrackingController
 import io.payanam.desktop.port.DesktopUnsupportedPorts
 import io.payanam.domain.port.HabitTimeEntryRecorder
@@ -112,9 +113,11 @@ class DesktopPayanamDataLayer(
     // platform's own no-ops, and each one says so in the log - see [DesktopUnsupportedPorts].
     override val scoreCalculator: ScoreCalculator = ElegantTaskScoring
 
-    override val reminderScheduler: TaskReminderScheduler = DesktopTaskReminderScheduler()
+    override val reminderScheduler: TaskReminderScheduler = DesktopUnsupportedPorts.reminderScheduler
 
-    override val scoreRollupTrigger: ScoreRollupTrigger = DesktopUnsupportedPorts.scoreRollupTrigger
+    private val scoreChangeEventBus = ScoreChangeEventBusJvm()
+
+    override val scoreRollupTrigger: ScoreRollupTrigger = ScoreRollupTriggerJdbc(session, scoreChangeEventBus)
 
     override val recurrenceHandler: TaskRecurrenceHandler = DesktopUnsupportedPorts.recurrenceHandler
 
@@ -123,7 +126,7 @@ class DesktopPayanamDataLayer(
 
     override val tracer: PerformanceTracer = DesktopUnsupportedPorts.tracer
 
-    override val scoreChanges: ScoreChangeStream = DesktopUnsupportedPorts.scoreChanges
+    override val scoreChanges: ScoreChangeStream = scoreChangeEventBus
 
     /**
      * The tracking-session port, over THIS layer's repositories and this platform's recurrence answer.

@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.core.ui.theme
 
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.material3.ColorScheme
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Typography
@@ -9,6 +10,8 @@ import androidx.compose.material3.darkColorScheme
 import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import io.payanam.core.ui.preferences.FontFamilyOption
+import io.payanam.core.ui.preferences.ThemeModeOption
 import io.payanam.shared.logging.AppLogger
 
 /**
@@ -45,16 +48,15 @@ val PayanamLightColorScheme: ColorScheme =
 expect fun platformDynamicColorScheme(darkTheme: Boolean): ColorScheme?
 
 /**
- * The shared theme, rendered by both apps.
+ * The shared theme, rendered by both apps, for a caller that has already resolved the appearance.
  *
- * [darkTheme] arrives RESOLVED rather than as a preference enum, because the enums that describe the user's
- * choice (`ThemeModeOption` and friends) still live in the app module. A second copy of them here would be
- * the parallel default this migration exists to remove, so the caller resolves `SYSTEM` against its own
- * platform's dark-mode signal and passes the answer.
+ * [darkTheme] arrives RESOLVED rather than as a preference enum: this is the entry point for a caller that
+ * has decided the palette itself (previews, tests, and any surface with no preference rows behind it). The
+ * preference-driven entry point is the [themeMode] overload below, and that is the one both apps call in
+ * production - so there is one translation of the stored preference, not one per platform.
  *
- * [typography] is a parameter for the same reason: Android picks a typeface from the user's font-family
- * preference, and the desktop has no such preference yet. The default keeps the shared screens renderable
- * without either platform duplicating Material's type scale.
+ * [typography] is a parameter for the same reason: a caller that has resolved the user's font-family
+ * preference passes the type scale it built, and a caller that has not keeps Material's own.
  */
 @Composable
 fun PayanamTheme(
@@ -99,4 +101,37 @@ private var lastThemeSignature: String? = null
 /** Test hook: the deduplicating log in [PayanamTheme] keeps state across calls. */
 internal fun resetThemeLogForTests() {
     lastThemeSignature = null
+}
+
+/**
+ * The shared theme, applied from the user's stored preferences - the single translation both apps use.
+ *
+ * `themeMode` is the resolution this exists for. `SYSTEM` means "whatever the platform's dark-mode signal
+ * says", and the signal is a parameter rather than a call made here, for two reasons: each platform answers
+ * it its own way (Android reads the system setting; the desktop reads the one its toolkit exposes), and
+ * keeping it injectable is what lets the resolution be tested without a platform under it.
+ *
+ * The font-family preference is applied here too, so a user's typeface choice reaches the screens on both
+ * platforms instead of only the one that used to translate it.
+ */
+@Composable
+fun PayanamTheme(
+    themeMode: ThemeModeOption,
+    fontFamily: FontFamilyOption = FontFamilyOption.SANS_SERIF,
+    dynamicColor: Boolean = true,
+    systemInDarkTheme: Boolean = isSystemInDarkTheme(),
+    content: @Composable () -> Unit,
+) {
+    val darkTheme =
+        when (themeMode) {
+            ThemeModeOption.DARK -> true
+            ThemeModeOption.LIGHT -> false
+            ThemeModeOption.SYSTEM -> systemInDarkTheme
+        }
+    PayanamTheme(
+        darkTheme = darkTheme,
+        dynamicColor = dynamicColor,
+        typography = buildTypography(fontFamily),
+        content = content,
+    )
 }

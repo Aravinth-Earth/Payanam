@@ -1,0 +1,67 @@
+# payanam-desktop.service — systemd user unit for the Payanam desktop app.
+#
+# WHAT THIS UNIT DOES
+# -------------------
+# Runs the Payanam desktop application as a systemd user service and ties its
+# lifecycle to the graphical session, so that each of the following events
+# causes the desktop to re-reconcile exactly as it does at first start:
+#
+#   1. Session logout  → systemd stops graphical-session.target, which stops
+#                         this service (PartOf=). The app receives SIGTERM and
+#                         its JVM shutdown hook folds the database session and
+#                         flushes the log (DesktopMain.finally →
+#                         flushDurableSessionState).
+#   2. Session login   → systemd starts graphical-session.target, which starts
+#                         this service (WantedBy=). The app starts and its own
+#                         startup reconciliation runs (onSessionEstablished +
+#                         ReconcileOnWindowResume).
+#   3. systemctl --user restart payanam-desktop.service
+#                      → stop + start, same as (1) then (2).
+#   4. systemctl --user stop payanam-desktop.service
+#                      → stop only; the next start reconciles as in (2).
+#
+# The reconciliation events are visible in the app's own session log
+# (UnifiedLogger), satisfying the gate's "read from the desktop app's own log"
+# requirement.
+#
+# INSTALL (human step — the gate requires the unit be installed and active,
+# not merely present on disk):
+#   mkdir -p ~/.config/systemd/user
+#   cp payanam-desktop.service ~/.config/systemd/user/
+#   systemctl --user daemon-reload
+#   systemctl --user enable --now payanam-desktop.service
+#
+# VERIFY:
+#   systemctl --user status payanam-desktop.service
+#   journalctl --user -u payanam-desktop.service
+
+[Unit]
+Description=Payanam Desktop
+# Tie the app's lifecycle to the graphical session: logout stops it, login
+# starts it. This is the "session/logout detection" the item names.
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+# Path to the installed Payanam binary. Adjust to the actual install location
+# (jpackage .deb installs to /usr/bin/Payanam; a manual install may differ).
+ExecStart=/usr/bin/Payanam
+# Pass the display environment through so the GUI can connect to the session.
+# These are normally already set in the graphical-session environment; the
+# PassEnvironment directive makes the requirement explicit.
+PassEnvironment=DISPLAY WAYLAND_DISPLAY XDG_SESSION_TYPE XDG_RUNTIME_DIR
+# Restart on crash, not on clean exit (clean exit = user closed the window or
+# logged out; no restart wanted in that case).
+# A clean `systemctl stop` delivers SIGTERM, and the app exits 143. Without this, every
+# ORDERLY stop is recorded as a failure - the journal shows "Main process exited ... status=143"
+# followed by "Failed with result 'exit-code'", and the unit's state reads `failed` after a stop
+# that went exactly as intended. Measured 2026-10-07 while exercising start/restart/stop:
+# both stops exited 143 and both were mis-reported as failures.
+SuccessExitStatus=143
+Restart=on-failure
+RestartSec=5
+
+[Install]
+# Start automatically when the graphical session starts.
+WantedBy=graphical-session.target

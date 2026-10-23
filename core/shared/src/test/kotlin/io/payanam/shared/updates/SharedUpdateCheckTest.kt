@@ -111,4 +111,181 @@ class SharedUpdateCheckTest {
         assertThat(result.outcome).isEqualTo(UpdateOutcome.UP_TO_DATE)
         assertThat(result.latestBuildNumber).isEqualTo(119)
     }
+
+    @Test
+    fun `FAILED is a distinct outcome, not a synonym for any other`() {
+        // FAILED is the only outcome that carries an error reason; conflating it with
+        // INDETERMINATE or NO_RELEASE_ON_CHANNEL would let a failed check render as
+        // "could not tell" or "no release", hiding the real problem from the user.
+        val failed = UpdateOutcome.FAILED
+        assertThat(failed).isNotEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.UP_TO_DATE)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.TYPE_MISMATCH)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.NO_RELEASE_ON_CHANNEL)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.RELEASE_UNREADABLE)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.INDETERMINATE)
+    }
+
+    @Test
+    fun `every UpdateOutcome entry is distinct`() {
+        assertThat(UpdateOutcome.entries.toSet()).hasSize(UpdateOutcome.entries.size)
+    }
+
+    @Test
+    fun `every UpdateCheckError reason is distinct`() {
+        assertThat(UpdateCheckError.entries.toSet()).hasSize(UpdateCheckError.entries.size)
+    }
+
+    @Test
+    fun `ChannelStatus carries the APK download and checksum URLs`() {
+        // The download URL is what the installer fetches; the checksum URL is what verifies it.
+        // A status that loses either would ship an unverifiable update.
+        val status =
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 121,
+                releaseUrl = "https://example.invalid/release",
+                apkDownloadUrl = "https://example.invalid/app.apk",
+                apkSha256Url = "https://example.invalid/app.apk.sha256",
+            )
+        assertThat(status.apkDownloadUrl).isEqualTo("https://example.invalid/app.apk")
+        assertThat(status.apkSha256Url).isEqualTo("https://example.invalid/app.apk.sha256")
+    }
+
+    @Test
+    fun `ChannelStatus defaults APK URLs to null when the release ships no APK`() {
+        val status =
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = 121,
+                releaseUrl = "https://example.invalid/release",
+            )
+        assertThat(status.apkDownloadUrl).isNull()
+        assertThat(status.apkSha256Url).isNull()
+    }
+
+    @Test
+    fun `UpdateCheckResult carries the error reason when the outcome is FAILED`() {
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.FAILED,
+                latestBuildNumber = null,
+                releaseUrl = null,
+                error = UpdateCheckError.NO_INTERNET,
+            )
+        assertThat(result.error).isEqualTo(UpdateCheckError.NO_INTERNET)
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.FAILED)
+    }
+
+    @Test
+    fun `UpdateCheckResult carries the per-channel statuses it was built from`() {
+        val statuses =
+            listOf(
+                ChannelStatus(
+                    channel = UpdateChannel.DEV,
+                    buildNumber = 121,
+                    releaseUrl = "https://example.invalid/dev",
+                ),
+                ChannelStatus(
+                    channel = UpdateChannel.STABLE,
+                    buildNumber = 120,
+                    releaseUrl = "https://example.invalid/stable",
+                ),
+            )
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UPDATE_AVAILABLE,
+                latestBuildNumber = 121,
+                releaseUrl = "https://example.invalid/dev",
+                error = null,
+                channelStatuses = statuses,
+            )
+        assertThat(result.channelStatuses).hasSize(2)
+        assertThat(result.channelStatuses[0].channel).isEqualTo(UpdateChannel.DEV)
+        assertThat(result.channelStatuses[1].channel).isEqualTo(UpdateChannel.STABLE)
+    }
+
+    @Test
+    fun `UpdateCheckResult carries the timestamp it was produced at`() {
+        val before = System.currentTimeMillis()
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UP_TO_DATE,
+                latestBuildNumber = 120,
+                releaseUrl = null,
+                error = null,
+            )
+        val after = System.currentTimeMillis()
+        assertThat(result.checkedAtMs).isAtLeast(before)
+        assertThat(result.checkedAtMs).isAtMost(after)
+    }
+
+    @Test
+    fun `resolveUpdateResult propagates the release URL from the selected channel`() {
+        val result =
+            resolveUpdateResult(
+                currentBuildNumber = 120,
+                channel = UpdateChannel.DEV,
+                statuses =
+                    listOf(
+                        status(buildNumber = 121).copy(releaseUrl = "https://example.invalid/r/121"),
+                    ),
+            )
+        assertThat(result.releaseUrl).isEqualTo("https://example.invalid/r/121")
+    }
+
+    @Test
+    fun `resolveUpdateResult propagates all channel statuses, not just the selected one`() {
+        val statuses =
+            listOf(
+                status(channel = UpdateChannel.DEV, buildNumber = 121),
+                status(channel = UpdateChannel.STABLE, buildNumber = 120),
+            )
+        val result =
+            resolveUpdateResult(
+                currentBuildNumber = 120,
+                channel = UpdateChannel.DEV,
+                statuses = statuses,
+            )
+        assertThat(result.channelStatuses).hasSize(2)
+        assertThat(result.channelStatuses.map { it.channel })
+            .containsExactly(UpdateChannel.DEV, UpdateChannel.STABLE)
+    }
+
+    @Test
+    fun `resolveUpdateResult sets latestBuildNumber to null when the release has no parseable build`() {
+        val result =
+            resolveUpdateResult(
+                currentBuildNumber = 120,
+                channel = UpdateChannel.DEV,
+                statuses = listOf(status(buildNumber = null)),
+            )
+        assertThat(result.latestBuildNumber).isNull()
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.RELEASE_UNREADABLE)
+    }
+
+    @Test
+    fun `UpdateChannel fromStorage parses every known channel name`() {
+        assertThat(UpdateChannel.fromStorage("DEV")).isEqualTo(UpdateChannel.DEV)
+        assertThat(UpdateChannel.fromStorage("BETA")).isEqualTo(UpdateChannel.BETA)
+        assertThat(UpdateChannel.fromStorage("STABLE")).isEqualTo(UpdateChannel.STABLE)
+    }
+
+    @Test
+    fun `UpdateChannel fromStorage falls back to DEV for unknown or null values`() {
+        // A stored value from a removed channel or a corrupted preference must not crash the parser;
+        // it falls back to the most conservative channel (dev) rather than crashing or returning null.
+        assertThat(UpdateChannel.fromStorage("GAMMA")).isEqualTo(UpdateChannel.DEV)
+        assertThat(UpdateChannel.fromStorage("")).isEqualTo(UpdateChannel.DEV)
+        assertThat(UpdateChannel.fromStorage(null)).isEqualTo(UpdateChannel.DEV)
+    }
+
+    @Test
+    fun `UpdateChannel carries the tag suffix the release publisher writes`() {
+        // The tag suffix is what the GitHub release tag is built from: "{tagSuffix}-v{buildNumber}".
+        // A wrong suffix would make the parser look for tags that do not exist.
+        assertThat(UpdateChannel.DEV.tagSuffix).isEqualTo("dev")
+        assertThat(UpdateChannel.BETA.tagSuffix).isEqualTo("beta")
+        assertThat(UpdateChannel.STABLE.tagSuffix).isEqualTo("stable")
+    }
 }

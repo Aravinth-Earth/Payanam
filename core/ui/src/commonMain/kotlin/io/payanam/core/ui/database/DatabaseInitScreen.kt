@@ -105,6 +105,33 @@ fun DatabaseInitScreen(
      * startup surface first, so the graph must not show it a second time.
      */
     onboardingIntroAlreadyCompleted: Boolean = false,
+    /**
+     * Records that the user has now been through the tour, so a LATER visit to this gate does not repeat it.
+     *
+     * The fact is the PLATFORM's to keep, and it must not live in the encrypted database: this gate is also
+     * reached after a reset, which deletes that database, so a tour flag stored inside it is answered "no"
+     * by the very wipe that made the user reach this screen again. The owner's ruling (2026-10-14):
+     * *"When a user is using a reset option which means user already know how an app works only then they
+     * will be using the reset option. So in that case we don't need to show them the onboarding flow once
+     * more."* A genuinely fresh install has no marker and still sees the tour.
+     */
+    onOnboardingCompleted: () -> Unit = {},
+    /**
+     * Opens this gate at its CREATE form instead of the first-run pair of the tour and the create/import
+     * chooser.
+     *
+     * WHY IT EXISTS, and why it is not "onboarding again". A reset the user asked for leaves a state no
+     * first install has: they know the app, they asked for the data to be replaced, and the only question
+     * that is genuinely open is the passphrase for the database that will replace it. Both alternatives were
+     * measured as wrong on the device (build 2038): the tour re-taught an app the user had been using, and
+     * the chooser offered "create a new database" over the one the reset had just replaced.
+     *
+     * The dimension step behind it is NOT skipped: a new database genuinely needs its life dimensions, and
+     * [io.payanam.presentation.database.DatabaseInitViewModel.createNewDatabase] decides from a FRESH
+     * artifact check at that moment whether there is anything to wipe first - a row or a flag cannot answer
+     * that question.
+     */
+    beginAtDatabaseCreation: Boolean = false,
 ) {
     val strings = LocalUiStrings.current
     val logger = AppLogger.current
@@ -112,7 +139,9 @@ fun DatabaseInitScreen(
     val uiState by viewModel.uiState.collectAsState()
 
     var importPassphraseInput by rememberSaveable { mutableStateOf("") }
-    var showCreatePassphraseForm by rememberSaveable { mutableStateOf(false) }
+    // Seeded from the host for the same reason `hasFinishedOnboarding` is: the reset leg of the flow opens
+    // this gate straight at the create form, and the user must never see the tour or the chooser it skips.
+    var showCreatePassphraseForm by rememberSaveable { mutableStateOf(beginAtDatabaseCreation) }
     var createPassphrase by rememberSaveable { mutableStateOf("") }
     var createPassphraseConfirm by rememberSaveable { mutableStateOf("") }
     var createPassphraseError by rememberSaveable { mutableStateOf<String?>(null) }
@@ -683,6 +712,9 @@ fun DatabaseInitScreen(
                             language = language,
                             onFinished = {
                                 hasFinishedOnboarding = true
+                                // The platform keeps the fact, so the wipe that sent the user here cannot
+                                // resurrect the tour on the next visit.
+                                onOnboardingCompleted()
                             },
                         )
                     } else {

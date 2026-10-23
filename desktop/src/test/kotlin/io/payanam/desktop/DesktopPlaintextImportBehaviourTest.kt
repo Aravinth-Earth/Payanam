@@ -5,6 +5,7 @@ package io.payanam.desktop
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.desktop.DesktopSecurityStore
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseOpenerAdapter
@@ -14,7 +15,6 @@ import io.payanam.desktop.database.databaseInitViewModel
 import io.payanam.desktop.platform.AwtDocumentSource
 import io.payanam.desktop.security.DesktopEncryptionStateCheckpoint
 import io.payanam.desktop.security.DesktopPassphraseVault
-import io.payanam.desktop.DesktopSecurityStore
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.PassphraseVault
@@ -89,66 +89,70 @@ class DesktopPlaintextImportBehaviourTest {
     }
 
     @Test
-    fun `a plaintext database offered to the desktop import reaches the shared decision`() = runBlocking {
-        val dataRoot = temporaryFolder.newFolder("plaintext-import-data").toPath()
-        val databaseFile = dataRoot.resolve("Payanam").resolve("database").resolve("payanam.db")
-        val securityDirectory = dataRoot.resolve("Payanam").resolve("security")
-        val plaintextSource = temporaryFolder.newFile("user-export.db").toPath()
-        writePlaintextDatabase(plaintextSource)
+    fun `a plaintext database offered to the desktop import reaches the shared decision`() =
+        runBlocking {
+            val dataRoot = temporaryFolder.newFolder("plaintext-import-data").toPath()
+            val databaseFile = dataRoot.resolve("Payanam").resolve("database").resolve("payanam.db")
+            val securityDirectory = dataRoot.resolve("Payanam").resolve("security")
+            val plaintextSource = temporaryFolder.newFile("user-export.db").toPath()
+            writePlaintextDatabase(plaintextSource)
 
-        // The plaintext file really is plaintext: its first bytes are the shared declaration's magic, read
-        // through the same constant the classifier uses. A test that offered the wrong bytes would prove
-        // nothing about the plaintext branch.
-        val header = Files.readAllBytes(plaintextSource).copyOf(16)
-        assertThat(header).isEqualTo(io.payanam.shared.database.EncryptedFileClassifier.SQLITE_PLAINTEXT_MAGIC)
+            // The plaintext file really is plaintext: its first bytes are the shared declaration's magic, read
+            // through the same constant the classifier uses. A test that offered the wrong bytes would prove
+            // nothing about the plaintext branch.
+            val header = Files.readAllBytes(plaintextSource).copyOf(16)
+            assertThat(header).isEqualTo(io.payanam.shared.database.EncryptedFileClassifier.SQLITE_PLAINTEXT_MAGIC)
 
-        val controller =
-            DesktopDatabaseSessionController(
-                databaseFilePath = { databaseFile.toAbsolutePath().toString() },
-                open = { path, secret -> DesktopDatabaseOpenerAdapter().openSession(path, secret) },
-                logger = logger,
+            val controller =
+                DesktopDatabaseSessionController(
+                    databaseFilePath = { databaseFile.toAbsolutePath().toString() },
+                    open = { path, secret -> DesktopDatabaseOpenerAdapter().openSession(path, secret) },
+                    logger = logger,
+                )
+            sessionController = controller
+            LocalDataLayer.install(DesktopBootstrapDataLayer)
+            val vault: PassphraseVault = DesktopPassphraseVault(DesktopSecurityStore(securityDirectory = securityDirectory))
+            val viewModel =
+                databaseInitViewModel(
+                    collaborators =
+                        DesktopDatabaseInitCollaborators(
+                            sessionController = controller,
+                            // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                            // store, and the default resolves the operator's real data directory.
+                            onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
+                            documentSource = AwtDocumentSource(),
+                            passphraseVault = vault,
+                            databasePathResolver =
+                                DesktopDatabasePathResolver(
+                                    databaseDirectory = { databaseFile.parent.toAbsolutePath().toString() },
+                                ),
+                            encryptionStateCheckpoint = DesktopEncryptionStateCheckpoint(),
+                        ),
+                    strings = UiStrings.of(UiLanguage.ENGLISH),
+                    scope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { viewModelScope = it },
+                )
+
+            viewModel.importDatabase(plaintextSource.toAbsolutePath().toString()) { }
+
+            // Settle: wait until the import's own transient flag clears and the check is done, so the
+            // assertions below read a decided state rather than a race.
+            var attempts = 0
+            while ((viewModel.uiState.value.isImporting || viewModel.uiState.value.isChecking) && attempts < 120) {
+                delay(50)
+                attempts++
+            }
+            val state = viewModel.uiState.value
+            // THE DECISION, in the two facts that make it visible: a plaintext file needs no passphrase, so
+            // the import must NOT be waiting for one; and the decision must have produced an outcome rather
+            // than an unexplained error. Printed first so the first run of this test measures the shared
+            // behaviour instead of asserting a guess about it.
+            println(
+                "plaintext import settled: awaitingPassphrase=${state.awaitingImportPassphrase} " +
+                    "isImporting=${state.isImporting} errorMessage=${state.errorMessage} " +
+                    "importPassphraseError=${state.importPassphraseError}",
             )
-        sessionController = controller
-        LocalDataLayer.install(DesktopBootstrapDataLayer)
-        val vault: PassphraseVault = DesktopPassphraseVault(DesktopSecurityStore(securityDirectory = securityDirectory))
-        val viewModel =
-            databaseInitViewModel(
-                collaborators =
-                    DesktopDatabaseInitCollaborators(
-                        sessionController = controller,
-                        documentSource = AwtDocumentSource(),
-                        passphraseVault = vault,
-                        databasePathResolver =
-                            DesktopDatabasePathResolver(
-                                databaseDirectory = { databaseFile.parent.toAbsolutePath().toString() },
-                            ),
-                        encryptionStateCheckpoint = DesktopEncryptionStateCheckpoint(),
-                    ),
-                strings = UiStrings.of(UiLanguage.ENGLISH),
-                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default).also { viewModelScope = it },
-            )
-
-        viewModel.importDatabase(plaintextSource.toAbsolutePath().toString()) { }
-
-        // Settle: wait until the import's own transient flag clears and the check is done, so the
-        // assertions below read a decided state rather than a race.
-        var attempts = 0
-        while ((viewModel.uiState.value.isImporting || viewModel.uiState.value.isChecking) && attempts < 120) {
-            delay(50)
-            attempts++
+            assertThat(state.awaitingImportPassphrase).isFalse()
         }
-        val state = viewModel.uiState.value
-        // THE DECISION, in the two facts that make it visible: a plaintext file needs no passphrase, so
-        // the import must NOT be waiting for one; and the decision must have produced an outcome rather
-        // than an unexplained error. Printed first so the first run of this test measures the shared
-        // behaviour instead of asserting a guess about it.
-        println(
-            "plaintext import settled: awaitingPassphrase=${state.awaitingImportPassphrase} " +
-                "isImporting=${state.isImporting} errorMessage=${state.errorMessage} " +
-                "importPassphraseError=${state.importPassphraseError}",
-        )
-        assertThat(state.awaitingImportPassphrase).isFalse()
-    }
 
     @Test
     fun `a file shorter than the plaintext magic is refused on the desktop too`() {
@@ -163,7 +167,9 @@ class DesktopPlaintextImportBehaviourTest {
             val file = temporaryFolder.newFile("short-$length.db").toPath()
             Files.write(file, ByteArray(length.toInt()) { (it % 251).toByte() })
             val header = Files.readAllBytes(file).copyOf(boundary.toInt())
-            val verdict = io.payanam.shared.database.EncryptedFileClassifier.classify(header, Files.size(file))
+            val verdict =
+                io.payanam.shared.database.EncryptedFileClassifier
+                    .classify(header, Files.size(file))
             assertThat(verdict.reason)
                 .isEqualTo(io.payanam.shared.database.EncryptedFileClassifier.Reason.TOO_SHORT)
         }
@@ -179,5 +185,4 @@ class DesktopPlaintextImportBehaviourTest {
         assertThat(boundaryVerdict.reason)
             .isNotEqualTo(io.payanam.shared.database.EncryptedFileClassifier.Reason.TOO_SHORT)
     }
-
 }

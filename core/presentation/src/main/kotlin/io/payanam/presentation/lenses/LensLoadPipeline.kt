@@ -7,18 +7,18 @@ import io.payanam.domain.repository.LensRepository
 import io.payanam.domain.repository.PlanningLensData
 import io.payanam.domain.repository.RealityLensData
 import io.payanam.domain.repository.UnifiedLensSnapshot
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.withContext
+import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.lenses.LensRangeSummary
 import io.payanam.presentation.lenses.LensTimeMode
 import io.payanam.presentation.lenses.LensTrendPoint
 import io.payanam.presentation.lenses.ResolvedLensWindowRange
 import io.payanam.presentation.lenses.TimeModuleHistorySummary
+import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
-import io.payanam.presentation.flags.PlatformFeatureFlags
-import io.payanam.shared.logging.AppLogger
 
 private const val UNASSIGNED_DIMENSION_KEY = "unassigned"
 private const val LENS_MAX_RANGE_DAYS = 730
@@ -43,48 +43,55 @@ internal suspend fun prepareLensLoadData(
     fastHistoryDays: Int,
     loadTimeHistorySummary: Boolean,
 ): LensPreparedLoadData {
-    val rangeDates = buildLensDatesForRange(
-        rangeStartDate = resolvedRange.startDate,
-        rangeEndDate = resolvedRange.endDate,
-        maxRangeDays = LENS_MAX_RANGE_DAYS,
-    )
-    val rangeSnapshotsByDay = withContext(Dispatchers.IO) {
-        snapshotCache.loadForDays(
-            dayKeys = rangeDates.map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) },
-            seededDataByDay = emptyMap(),
-        ).toMutableMap()
-    }
-    val snapshot = rangeSnapshotsByDay[dayKey] ?: withContext(Dispatchers.IO) {
-        snapshotCache.getOrLoad(dayKey, rangeSnapshotsByDay).also {
-            rangeSnapshotsByDay[dayKey] = it
-        }
-    }
-    val selectedRangeSummary = withContext(Dispatchers.Default) {
-        buildRangeSummaryForSnapshots(
-            resolvedRange = resolvedRange,
-            dates = rangeDates,
-            daySnapshotsByDay = rangeSnapshotsByDay,
+    val rangeDates =
+        buildLensDatesForRange(
+            rangeStartDate = resolvedRange.startDate,
+            rangeEndDate = resolvedRange.endDate,
+            maxRangeDays = LENS_MAX_RANGE_DAYS,
         )
-    }
-    val timeModuleHistorySummary = if (loadTimeHistorySummary) {
+    val rangeSnapshotsByDay =
+        withContext(Dispatchers.IO) {
+            snapshotCache
+                .loadForDays(
+                    dayKeys = rangeDates.map { it.format(DateTimeFormatter.ISO_LOCAL_DATE) },
+                    seededDataByDay = emptyMap(),
+                ).toMutableMap()
+        }
+    val snapshot =
+        rangeSnapshotsByDay[dayKey] ?: withContext(Dispatchers.IO) {
+            snapshotCache.getOrLoad(dayKey, rangeSnapshotsByDay).also {
+                rangeSnapshotsByDay[dayKey] = it
+            }
+        }
+    val selectedRangeSummary =
         withContext(Dispatchers.Default) {
-            buildTimeModuleHistorySummary(
-                lensRepository = lensRepository,
-                focusDate = focusDate,
-                seededDataByDay = rangeSnapshotsByDay,
-                historyDayLimit = fastHistoryDays,
+            buildRangeSummaryForSnapshots(
+                resolvedRange = resolvedRange,
+                dates = rangeDates,
+                daySnapshotsByDay = rangeSnapshotsByDay,
             )
         }
-    } else {
-        null
-    }
-    val reflections: List<LensReflectionRecord> = if (resolvedRange.mode == LensTimeMode.FUTURE) {
-        emptyList()
-    } else {
-        withContext(Dispatchers.IO) {
-            lensRepository.observeReflections(dayKey).firstOrNull() ?: emptyList()
+    val timeModuleHistorySummary =
+        if (loadTimeHistorySummary) {
+            withContext(Dispatchers.Default) {
+                buildTimeModuleHistorySummary(
+                    lensRepository = lensRepository,
+                    focusDate = focusDate,
+                    seededDataByDay = rangeSnapshotsByDay,
+                    historyDayLimit = fastHistoryDays,
+                )
+            }
+        } else {
+            null
         }
-    }
+    val reflections: List<LensReflectionRecord> =
+        if (resolvedRange.mode == LensTimeMode.FUTURE) {
+            emptyList()
+        } else {
+            withContext(Dispatchers.IO) {
+                lensRepository.observeReflections(dayKey).firstOrNull() ?: emptyList()
+            }
+        }
     lensLoadPipelineLogger.d(
         "LensLoadPipeline.prepareLensLoadData",
         "Prepared lens load payload",
@@ -174,52 +181,57 @@ internal fun buildRangeSummaryForSnapshots(
             }
         }
     }
-    val trendPoints = dates.indices.map { index ->
-        val plan = planning[index]
-        val real = reality[index]
-        LensTrendPoint(
-            dayKey = dates[index].format(DateTimeFormatter.ISO_LOCAL_DATE),
-            plannedMinutes = plan.totalPlannedMinutes,
-            actualMinutes = real.totalActualMinutes,
+    val trendPoints =
+        dates.indices.map { index ->
+            val plan = planning[index]
+            val real = reality[index]
+            LensTrendPoint(
+                dayKey = dates[index].format(DateTimeFormatter.ISO_LOCAL_DATE),
+                plannedMinutes = plan.totalPlannedMinutes,
+                actualMinutes = real.totalActualMinutes,
+            )
+        }
+    val summary =
+        LensRangeSummary(
+            mode = resolvedRange.mode,
+            window = resolvedRange.window,
+            pageIndex = resolvedRange.pageIndex,
+            startDate = dates.first(),
+            endDate = dates.last(),
+            totalPlannedMinutes = planning.sumOf { it.totalPlannedMinutes },
+            totalActualMinutes = reality.sumOf { it.totalActualMinutes },
+            totalUntrackedMinutes = reality.sumOf { it.untrackedMinutes },
+            totalFocusGapMinutes = reality.sumOf { it.focusGapMinutes },
+            supplementalActualMinutes = reality.sumOf { it.supplementalActualMinutes },
+            plannedTaskMinutes = plannedTaskMinutes,
+            plannedHabitMinutes = plannedHabitMinutes,
+            plannedTimeOnlyMinutes =
+                (planning.sumOf { it.totalPlannedMinutes } - plannedTaskMinutes - plannedHabitMinutes).coerceAtLeast(
+                    0,
+                ),
+            unplannedDayMinutes = (dates.size * LENS_DAY_MINUTES - planning.sumOf { it.totalPlannedMinutes }).coerceAtLeast(0),
+            actualTimeOnlyMinutes = actualTimeOnlyMinutes,
+            actualTaskMinutes = actualTaskMinutes,
+            actualHabitMinutes = actualHabitMinutes,
+            plannedTaskCount = planning.sumOf { it.plannedTasks.size },
+            completedTaskCount = reality.sumOf { day -> day.completedTasks.count { it.status == "completed" } },
+            missedTaskCount = reality.sumOf { day -> day.completedTasks.count { it.status == "missed" } },
+            plannedHabitCount = planning.sumOf { it.plannedHabits.size },
+            completedHabitCount = reality.sumOf { day -> day.completedHabits.count { it.status == "completed" } },
+            missedHabitCount = reality.sumOf { day -> day.completedHabits.count { it.status == "missed" } },
+            averagePlanCompleteness = if (planning.isEmpty()) 0f else planning.map { it.planCompletenessScore }.average().toFloat(),
+            averageAdherence = if (reality.isEmpty()) 0f else reality.map { it.adherenceScore }.average().toFloat(),
+            plannedByDimension = plannedByDimension,
+            actualByDimension = actualByDimension,
+            supplementalActualByDimension = supplementalActualByDimension,
+            plannedTasksByDimension = plannedTasksByDimension,
+            completedTasksByDimension = completedTasksByDimension,
+            missedTasksByDimension = missedTasksByDimension,
+            plannedHabitsByDimension = plannedHabitsByDimension,
+            completedHabitsByDimension = completedHabitsByDimension,
+            missedHabitsByDimension = missedHabitsByDimension,
+            trendPoints = trendPoints,
         )
-    }
-    val summary = LensRangeSummary(
-        mode = resolvedRange.mode,
-        window = resolvedRange.window,
-        pageIndex = resolvedRange.pageIndex,
-        startDate = dates.first(),
-        endDate = dates.last(),
-        totalPlannedMinutes = planning.sumOf { it.totalPlannedMinutes },
-        totalActualMinutes = reality.sumOf { it.totalActualMinutes },
-        totalUntrackedMinutes = reality.sumOf { it.untrackedMinutes },
-        totalFocusGapMinutes = reality.sumOf { it.focusGapMinutes },
-        supplementalActualMinutes = reality.sumOf { it.supplementalActualMinutes },
-        plannedTaskMinutes = plannedTaskMinutes,
-        plannedHabitMinutes = plannedHabitMinutes,
-        plannedTimeOnlyMinutes = (planning.sumOf { it.totalPlannedMinutes } - plannedTaskMinutes - plannedHabitMinutes).coerceAtLeast(0),
-        unplannedDayMinutes = (dates.size * LENS_DAY_MINUTES - planning.sumOf { it.totalPlannedMinutes }).coerceAtLeast(0),
-        actualTimeOnlyMinutes = actualTimeOnlyMinutes,
-        actualTaskMinutes = actualTaskMinutes,
-        actualHabitMinutes = actualHabitMinutes,
-        plannedTaskCount = planning.sumOf { it.plannedTasks.size },
-        completedTaskCount = reality.sumOf { day -> day.completedTasks.count { it.status == "completed" } },
-        missedTaskCount = reality.sumOf { day -> day.completedTasks.count { it.status == "missed" } },
-        plannedHabitCount = planning.sumOf { it.plannedHabits.size },
-        completedHabitCount = reality.sumOf { day -> day.completedHabits.count { it.status == "completed" } },
-        missedHabitCount = reality.sumOf { day -> day.completedHabits.count { it.status == "missed" } },
-        averagePlanCompleteness = if (planning.isEmpty()) 0f else planning.map { it.planCompletenessScore }.average().toFloat(),
-        averageAdherence = if (reality.isEmpty()) 0f else reality.map { it.adherenceScore }.average().toFloat(),
-        plannedByDimension = plannedByDimension,
-        actualByDimension = actualByDimension,
-        supplementalActualByDimension = supplementalActualByDimension,
-        plannedTasksByDimension = plannedTasksByDimension,
-        completedTasksByDimension = completedTasksByDimension,
-        missedTasksByDimension = missedTasksByDimension,
-        plannedHabitsByDimension = plannedHabitsByDimension,
-        completedHabitsByDimension = completedHabitsByDimension,
-        missedHabitsByDimension = missedHabitsByDimension,
-        trendPoints = trendPoints,
-    )
     lensLoadPipelineLogger.d(
         "LensLoadPipeline.buildRangeSummaryForSnapshots",
         "Range summary built",

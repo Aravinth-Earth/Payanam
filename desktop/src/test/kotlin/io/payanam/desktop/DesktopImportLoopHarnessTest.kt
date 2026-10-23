@@ -18,6 +18,8 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.PassphraseVault
+import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
+import io.payanam.shared.startup.startupGateInputs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -150,6 +152,9 @@ class DesktopImportLoopHarnessTest {
                     collaborators =
                         DesktopDatabaseInitCollaborators(
                             sessionController = controller,
+                            // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                            // store, and the default resolves the operator's real data directory.
+                            onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                             documentSource = AwtDocumentSource(),
                             passphraseVault = vault,
                             databasePathResolver =
@@ -204,8 +209,8 @@ class DesktopImportLoopHarnessTest {
                         .first()
                 val focusKey = AppPreferenceKeys.KEY_FOCUS_MODE_ONBOARDING_COMPLETED
                 val focusRowRaw = rawRows[focusKey]
-                val mode =
-                    resolveDesktopStartupMode(
+                val inputs =
+                    startupGateInputs(
                         buildDesktopStartupRuntimeState(
                             focusModeOnboardingCompleted = state.focusModeOnboardingCompleted,
                             bootstrapSchema = DesktopBootstrapSchemaProbe().loadSnapshot(),
@@ -231,7 +236,7 @@ class DesktopImportLoopHarnessTest {
                     "LOOP-VERDICT: import=OK bytes=$landedBytes session=${if (controller.isOpen) "open" else "CLOSED"} " +
                         "rawSettingsRows=${rawRows.size} focusRowPresent=${rawRows.containsKey(focusKey)} " +
                         "focusRowRaw=$focusRowRaw mappedFocusCompleted=${state.focusModeOnboardingCompleted} " +
-                        "startupMode=$mode passphraseLength=${passphrase.length} " +
+                        "startupMode=${inputs.gateName} passphraseProvided=${passphrase.isNotEmpty()} " +
                         "tasks=$taskCount notes=$noteCount journal=$journalCount",
                 )
                 println("LOOP-EVIDENCE: $reloadLine")
@@ -252,11 +257,16 @@ class DesktopImportLoopHarnessTest {
                 // says is finished is the defect; matching the data is not.
                 val expectedMode =
                     if (focusRowRaw?.toBoolean() == true) {
-                        DesktopStartupMode.Ready
+                        "Ready"
                     } else {
-                        DesktopStartupMode.FocusModeSelection
+                        "FocusModeSelection"
                     }
-                assertThat(mode).isEqualTo(expectedMode)
+                assertThat(inputs.gateName).isEqualTo(expectedMode)
+                // The NAME above says which decision it is; this says what the graph is TOLD, which is what the
+                // user actually meets. Asserting only the name would still pass if the gate rose and the graph
+                // were handed the wrong surface.
+                assertThat(inputs.shouldShowFocusModeOnboarding)
+                    .isEqualTo(expectedMode == "FocusModeSelection")
             } finally {
                 follower.cancel()
             }

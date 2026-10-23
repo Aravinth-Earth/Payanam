@@ -52,6 +52,16 @@ interface PayanamNavHostScreens {
     fun databaseInit(
         nav: PayanamNavActions,
         onDatabaseReady: () -> Unit,
+        /**
+         * True when this gate is the next step of a RESET: the host sends a completed
+         * forgot-passphrase reset here, because a deleted database is the init gate's own subject on both
+         * platforms.
+         *
+         * The platform renders it as the create form rather than the first-run pair of the tour and the
+         * create/import chooser - see `DatabaseInitScreen.beginAtDatabaseCreation` for why those two are
+         * the wrong questions after a wipe the user asked for, and why the passphrase is collected here.
+         */
+        resumesAfterReset: Boolean,
     )
 
     /** Focus-mode preset onboarding. */

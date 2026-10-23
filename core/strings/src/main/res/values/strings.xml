@@ -925,7 +925,6 @@
     <string name="settings_snackbar_habit_mapping_success">Mapped %1$d imported habits to %2$s</string>
     <string name="settings_snackbar_import_failed">Import failed: %1$s</string>
     <string name="settings_snackbar_import_success">Imported %1$d tasks, %2$d time entries, %3$d notes</string>
-    <string name="settings_snackbar_import_success_restart">Imported %1$d tasks, %2$d time entries, %3$d notes. Restarting app to load imported database.</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits import failed: %1$s</string>
     <string name="settings_snackbar_uhabits_import_success">Imported %1$d habits and %2$d repetitions from uHabits</string>
     <string name="settings_theme_mode">Theme Mode</string>

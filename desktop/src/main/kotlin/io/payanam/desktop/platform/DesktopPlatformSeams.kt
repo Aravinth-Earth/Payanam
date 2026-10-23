@@ -10,9 +10,6 @@ import io.payanam.shared.platform.BackupBackgroundCapability
 import io.payanam.shared.platform.BackupScheduler
 import io.payanam.shared.platform.DebugFlags
 import io.payanam.shared.platform.PlatformCapabilities
-import io.payanam.shared.platform.ReminderCapability
-import io.payanam.shared.platform.ReminderRequest
-import io.payanam.shared.platform.ReminderSink
 import io.payanam.shared.platform.SupportState
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -31,108 +28,6 @@ import kotlin.coroutines.cancellation.CancellationException
 import io.payanam.desktop.UnifiedLogger as DesktopSessionLogger
 
 private const val MILLIS_PER_MINUTE = 60_000L
-
-/**
- * The desktop's implementations of the platform seams that have no OS service behind them.
- *
- * The desktop has no `WorkManager`, no job scheduler and no notification channel, so these run in-process
- * against the app's own coroutine scope. That is a genuine capability difference and every seam here
- * REPORTS it rather than hiding it: a screen that offers a reminder toggle on a platform that cannot
- * surface reminders is worse than one that explains why it is off.
- *
- * Everything is injected — the scope, the delivery hook, the backup action — so the behaviour is testable
- * without a window, a tray or a device. [DesktopPlatformSeams] is what CONSTRUCTS them for the running
- * app, which is the only thing that makes these classes a feature rather than a contract: an implementation
- * nothing calls is a control over nothing.
- */
-internal class DesktopReminderSink(
-    private val scope: CoroutineScope,
-    /**
-     * Delivers a reminder. Returns whether the platform actually showed it.
-     *
-     * Injected because whether a tray icon exists, and whether the session is headless, is a runtime
-     * question this class should not be deciding — and because a test needs to see what was delivered.
-     */
-    private val deliver: (ReminderRequest) -> Boolean,
-) : ReminderSink {
-    private val pending = mutableMapOf<String, Job>()
-
-    /**
-     * Whether a delivery has ever been shown, as state rather than a private flag.
-     *
-     * A flow because the sink's own answer is what the published capability is DERIVED from, and a value
-     * that can only be polled cannot be a published state: the capability would have to be re-read by hand
-     * at every place it is rendered. Read through [capability] and [isSurfaced] as before — this is the
-     * same fact, with somewhere to observe it from.
-     */
-    private val _surfacedState = MutableStateFlow(false)
-
-    /** Whether a delivery has actually been shown. Drives [capability]. */
-    val surfacedState: StateFlow<Boolean> = _surfacedState.asStateFlow()
-
-    /** True once a delivery has actually been shown; drives [capability]. */
-    val isSurfaced: Boolean get() = _surfacedState.value
-
-    /** Reminders are surfaced only if a delivery has ever succeeded. */
-    val capability: ReminderCapability
-        get() = if (_surfacedState.value) ReminderCapability.SUPPORTED else ReminderCapability.NOT_SURFACED
-
-    override suspend fun schedule(request: ReminderRequest) {
-        // Replace, not add: a task's reminder moves when its due time moves, and the old job would
-        // otherwise fire with stale copy.
-        pending.remove(request.id)?.cancel()
-        val delayMillis = (request.atEpochMillis - System.currentTimeMillis()).coerceAtLeast(0L)
-        pending[request.id] =
-            scope.launch {
-                delay(delayMillis)
-                if (deliver(request)) {
-                    _surfacedState.value = true
-                }
-                pending.remove(request.id)
-            }
-    }
-
-    override suspend fun cancel(id: String) {
-        pending.remove(id)?.cancel()
-    }
-
-    override suspend fun cancelAll() {
-        pending.values.forEach { it.cancel() }
-        pending.clear()
-    }
-
-    /** How many reminders are waiting; for tests and for the settings screen's own accounting. */
-    internal fun pendingCount(): Int = pending.size
-}
-
-/**
- * The desktop's log-only delivery hook: it RECORDS the reminder and reports that nothing was shown.
- *
- * This is NOT the delivery the running app uses. `DesktopApp.kt` wires the freedesktop `notify-send`
- * hook instead, so a reminder armed from a user action is actually delivered to the desktop's
- * notification daemon. This function remains as the honest fallback for a platform that has no
- * delivery surface, and as the default when no real hook is injected.
- *
- * Returning `false` is the whole point. A hook that returned `true` — or a tray balloon, or a `System.out`
- * line dressed up as a notification — would flip the sink's capability to
- * [ReminderCapability.SUPPORTED] and make the desktop claim a delivery channel it does not have, which is
- * the exact lie `NOT_SURFACED` exists to prevent. The reminder is logged instead, so a scheduled reminder
- * is legible in the session log even while no window exists to show it, and when a real delivery lands
- * this is the single function a real delivery replaces.
- */
-internal fun desktopLogOnlyReminderDelivery(logger: UnifiedLogger): (ReminderRequest) -> Boolean =
-    { request ->
-        logger.w(
-            source = "DesktopPlatformSeams.deliverReminder",
-            message = "Reminder reached its time; this platform has no delivery surface, so nothing was shown",
-            data =
-                mapOf(
-                    "reminderId" to request.id,
-                    "hasRelatedTask" to (request.relatedTaskId != null),
-                ),
-        )
-        false
-    }
 
 /**
  * The desktop's periodic backup, running only while the app is open.
@@ -197,6 +92,9 @@ internal class DesktopBackupScheduler(
     suspend fun runNow() {
         runCatching { runBackup() }
             .onFailure { error ->
+                // Cancellation is a stopped coroutine, not a failed backup (Android parity):
+                // rethrow so structured concurrency survives the catch.
+                if (error is kotlinx.coroutines.CancellationException) throw error
                 // The class of failure is logged, never the message: it can carry a path.
                 logger.w(
                     "DesktopBackupScheduler",
@@ -232,21 +130,19 @@ internal class DesktopDebugFlags(
 /**
  * Both desktop platform seams, CONSTRUCTED, for as long as the app runs.
  *
- * This is the class the running app builds. Before it existed, [DesktopBackupScheduler] and
- * [DesktopReminderSink] were implemented and unit-tested and were reachable from nowhere else: the settings
- * screen's auto-backup toggle wrote `auto_backup_enabled` and `auto_backup_interval`, and the row stopped
- * there, so a Linux user could turn auto-backup on, pick 15 minutes, and receive no backups at all. A
- * contract with no caller is not a feature, and the fix is construction, not more contract.
+ * This is the class the running app builds. Before it existed, [DesktopBackupScheduler] was implemented
+ * and unit-tested and was reachable from nowhere else: the settings screen's auto-backup toggle wrote
+ * `auto_backup_enabled` and `auto_backup_interval`, and the row stopped there, so a Linux user could
+ * turn auto-backup on, pick 15 minutes, and receive no backups at all. A contract with no caller is not
+ * a feature, and the fix is construction, not more contract.
  *
- * Three things are wired here, and each is a fact the app already had:
+ * Two things are wired here, and each is a fact the app already had:
  *
  * - **the schedule**, reconciled from the SHARED rows on startup and on every later change, by
  *   [reconcileBackupSchedule]. This is Android's `AutoBackupWorker.reconcileSchedule`, same rule and same
  *   rows, applied to an in-process timer instead of a job scheduler;
- * - **the sink**, constructed with a delivery hook that logs and reports that nothing was shown, so a
- *   reminder is honest about reaching the desktop rather than claiming to have been delivered;
- * - **the capabilities**, published as live state from the sink that is actually installed rather than
- *   from a constant.
+ * - **the capabilities**, published from the seams that are actually installed rather than from a
+ *   constant.
  *
  * The dependencies are injected rather than reached for, for the reason the seams themselves are: whether a
  * coroutine scope, a running session and a backup action exist is the app's business, and this class is
@@ -270,19 +166,7 @@ internal class DesktopPlatformSeams(
      * either by naming a literal.
      */
     private val backupRows: suspend () -> Map<String, String?>,
-    /**
-     * How a due reminder is delivered. Defaults to the log-only hook, which reports "not shown".
-     *
-     * A default rather than a required parameter on purpose: the honest state is constructible from the
-     * app's own arguments, so there is no way to install these seams while accidentally claiming a
-     * delivery channel. A platform that can show reminders passes a real hook and nothing else changes —
-     * the capability follows whatever the hook answers.
-     */
-    deliverReminder: (ReminderRequest) -> Boolean = desktopLogOnlyReminderDelivery(logger),
 ) {
-    /** The installed reminder sink. Constructed here so a scheduled reminder has somewhere to arrive. */
-    val reminderSink: DesktopReminderSink = DesktopReminderSink(scope, deliverReminder)
-
     /** The installed backup scheduler. Constructed here so the toggle has something to drive. */
     val backupScheduler: DesktopBackupScheduler = DesktopBackupScheduler(scope, logger, runBackup)
 
@@ -302,22 +186,11 @@ internal class DesktopPlatformSeams(
     /**
      * What this platform can actually do, derived from the seams INSTALLED rather than assumed.
      *
-     * Read from the live sink state, so the value moves on its own the moment a delivery succeeds and no
-     * caller has to remember to re-ask. It is also the ONLY construction of [desktopCapabilities] outside
-     * tests, which is what makes that function a description of this app instead of a description of an
-     * idea.
+     * The ONLY construction of [desktopCapabilities] outside tests, which is what makes that function a
+     * description of this app instead of a description of an idea.
      */
     val capabilities: StateFlow<PlatformCapabilities> =
-        reminderSink.surfacedState
-            // The upstream value is the TRIGGER, not the input: the capability is re-derived from the
-            // sink each time its surfaced state moves, so the only thing the flow carries is "something
-            // changed" - which is exactly why the derivation reads the sink rather than the emission.
-            .map { _ -> desktopCapabilities(reminderSink = reminderSink, backupScheduler = backupScheduler) }
-            .stateIn(
-                scope = scope,
-                started = SharingStarted.Eagerly,
-                initialValue = desktopCapabilities(reminderSink = reminderSink, backupScheduler = backupScheduler),
-            )
+        MutableStateFlow(desktopCapabilities(backupScheduler = backupScheduler))
 
     init {
         // Logged at construction, not on first read: the one thing this class exists to establish is that
@@ -330,7 +203,6 @@ internal class DesktopPlatformSeams(
                     "reminders" to capabilities.value.reminders.name,
                     "backupBackground" to capabilities.value.backupBackground.name,
                     "hasLimitations" to capabilities.value.hasLimitations,
-                    "reminderDelivery" to if (reminderSink.isSurfaced) "surfaced" else "logged-not-surfaced",
                 ),
         )
     }
@@ -448,15 +320,6 @@ internal class DesktopPlatformSeams(
             seams.reconcileBackupSchedule()
             return true
         }
-
-        /**
-         * The sink the installed seams own, or null when none were ever built.
-         *
-         * The producer half's one reader: a task-reminder scheduler needs the sink that is INSTALLED rather
-         * than one captured at bind time, so a reminder armed before the seams exist is refused and logged,
-         * and every later one reaches the same sink the capability is derived from.
-         */
-        fun installedReminderSink(): ReminderSink? = installed?.reminderSink
     }
 }
 
@@ -479,14 +342,12 @@ internal fun desktopPlatformSeams(
     logger: UnifiedLogger,
     runBackup: suspend () -> Unit,
     backupRows: suspend () -> Map<String, String?>,
-    deliverReminder: (ReminderRequest) -> Boolean = desktopLogOnlyReminderDelivery(logger),
 ): DesktopPlatformSeams =
     DesktopPlatformSeams(
         scope = scope,
         logger = logger,
         runBackup = runBackup,
         backupRows = backupRows,
-        deliverReminder = deliverReminder,
     ).also { seams ->
         // Registration HERE, not at the app's call site: this factory is the only place the desktop builds
         // its seams, so registering inside it makes "the window can reach them" true by construction rather
@@ -495,27 +356,16 @@ internal fun desktopPlatformSeams(
     }
 
 /** What the desktop can do, stated in the shared vocabulary — every capability it lacks included. */
-internal fun desktopCapabilities(
-    reminderSink: DesktopReminderSink? = null,
-    backupScheduler: DesktopBackupScheduler? = null,
-): PlatformCapabilities =
+internal fun desktopCapabilities(backupScheduler: DesktopBackupScheduler? = null): PlatformCapabilities =
     PlatformCapabilities(
         // No sensor, no Keystore, no wallpaper-derived palette, no vibrator.
         biometrics = SupportState.NOT_APPLICABLE,
         supportsDynamicColor = false,
         supportsHaptics = false,
-        // DERIVED, never asserted: SUPPORTED only once a delivery has actually been shown on this
-        // platform, so the value cannot claim a channel the desktop has not built. It stays
-        // NOT_SURFACED in both the installed-sink and no-sink cases, and that is the truthful answer
-        // rather than a missing one — the sink ACCEPTS and RETAINS reminders today, and only a real
-        // delivery surface would move this. `NOT_APPLICABLE` would be the false claim: the desktop does
-        // have the concept, it cannot yet show it.
-        reminders =
-            if (reminderSink?.capability == ReminderCapability.SUPPORTED) {
-                SupportState.SUPPORTED
-            } else {
-                SupportState.NOT_SURFACED
-            },
+        // NOT_SURFACED, honestly: the desktop has no reminder sink, so no delivery can ever be shown.
+        // `NOT_APPLICABLE` would be the false claim: the desktop does have the concept, it cannot yet
+        // show it.
+        reminders = SupportState.NOT_SURFACED,
         // The in-process timer is what runs here; a surviving schedule would be the stronger state, and
         // installing a scheduler does not make it so — it stays IN_PROCESS_ONLY with or without one.
         backupBackground =

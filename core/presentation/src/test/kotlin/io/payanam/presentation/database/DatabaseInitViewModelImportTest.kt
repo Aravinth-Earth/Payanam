@@ -183,8 +183,7 @@ class DatabaseInitViewModelImportTest {
     private val shmFile: File get() = File(dbDirectory, pathResolver.databaseFile.name + "-shm")
 
     /** SQLite-shaped bytes: the real 16-byte header, then filler. Enough for the format gate to pass. */
-    private fun sqliteBytes(filler: Int = 4080): ByteArray =
-        "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1) + ByteArray(filler)
+    private fun sqliteBytes(filler: Int = 4080): ByteArray = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1) + ByteArray(filler)
 
     /** Bytes that are NOT a SQLite file - the shape an encrypted export has, or a random file. */
     private fun opaqueBytes(size: Int = 4096): ByteArray = ByteArray(size) { (it % 251 + 7).toByte() }
@@ -545,11 +544,12 @@ class DatabaseInitViewModelImportTest {
             // the -wal get written, and the fold below is the branch that depends on it.
             val container = "content://import/folder"
             documentSource.kinds[container] = DocumentKind.CONTAINER
-            documentSource.children[container] = listOf(
-                DocumentEntry("payanam.db", "doc:db", DocumentKind.FILE),
-                DocumentEntry("payanam.db-wal", "doc:wal", DocumentKind.FILE),
-                DocumentEntry("payanam.db-shm", "doc:shm", DocumentKind.FILE),
-            )
+            documentSource.children[container] =
+                listOf(
+                    DocumentEntry("payanam.db", "doc:db", DocumentKind.FILE),
+                    DocumentEntry("payanam.db-wal", "doc:wal", DocumentKind.FILE),
+                    DocumentEntry("payanam.db-shm", "doc:shm", DocumentKind.FILE),
+                )
             // The database is an ENCRYPTED export's bytes, not `sqliteBytes()`: a folder import of a
             // plaintext database now stops at the header check, so the sidecar copy is what this test
             // can still reach, and it has to reach it through a source that gets that far.
@@ -588,10 +588,11 @@ class DatabaseInitViewModelImportTest {
         runTest(testDispatcher) {
             val container = "content://import/folder"
             documentSource.kinds[container] = DocumentKind.CONTAINER
-            documentSource.children[container] = listOf(
-                DocumentEntry("payanam.db", "doc:db", DocumentKind.FILE),
-                DocumentEntry("payanam.db-wal", "doc:wal", DocumentKind.FILE),
-            )
+            documentSource.children[container] =
+                listOf(
+                    DocumentEntry("payanam.db", "doc:db", DocumentKind.FILE),
+                    DocumentEntry("payanam.db-wal", "doc:wal", DocumentKind.FILE),
+                )
             documentSource.copyBytesByToken =
                 mutableMapOf("doc:db" to opaqueBytes(4096), "doc:wal" to opaqueBytes(1024))
             healthCheck.report =

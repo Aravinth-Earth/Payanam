@@ -52,9 +52,12 @@ class DesktopSharedStateExecutionTest {
         // initialize it HERE (fully qualified, because several siblings import the SHARED UnifiedLogger under
         // the same name) rather than relying on a sibling class's leak - the shared-JVM class order is not a
         // contract, and a solo run of this class must work. The directory outlives the class on purpose.
-        io.payanam.desktop.UnifiedLogger.resetForTests()
+        io.payanam.desktop.UnifiedLogger
+            .resetForTests()
         io.payanam.desktop.UnifiedLogger.initialize(
-            logsDirectory = java.nio.file.Files.createTempDirectory("payanam-desktop-test-logs"),
+            logsDirectory =
+                java.nio.file.Files
+                    .createTempDirectory("payanam-desktop-test-logs"),
         )
         // A per-test database: a shared path would let one test's rows satisfy another's assertion.
         val path = tempFolder.newFolder().toPath().resolve("payanam.db")

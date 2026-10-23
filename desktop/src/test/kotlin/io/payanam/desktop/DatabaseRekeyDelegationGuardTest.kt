@@ -45,7 +45,8 @@ class DatabaseRekeyDelegationGuardTest {
     }
 
     private fun code(file: File): String =
-        file.readText()
+        file
+            .readText()
             .replace(BLOCK_COMMENT, "")
             .replace(LINE_COMMENT, "")
 

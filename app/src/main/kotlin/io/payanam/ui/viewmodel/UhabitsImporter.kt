@@ -5,8 +5,10 @@
 package io.payanam.ui.viewmodel
 
 import android.content.Context
-import android.database.sqlite.SQLiteDatabase
 import android.net.Uri
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.SupportSQLiteOpenHelper
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.dao.DailyInsightDao
 import io.payanam.database.dao.ImportBatchDao
@@ -175,7 +177,16 @@ internal class UhabitsImporter(
 
     private fun readUhabitsHabits(databaseFile: File): List<UhabitsHabitRecord> {
         val habits = mutableListOf<UhabitsHabitRecord>()
-        SQLiteDatabase.openDatabase(databaseFile.absolutePath, null, SQLiteDatabase.OPEN_READONLY).use { db ->
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(databaseFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build(),
+        )
+        helper.readableDatabase.use { db ->
             if (!hasTable(db, "Habits") || !hasTable(db, "Repetitions")) {
                 throw IllegalStateException("Selected file is not a valid uHabits (Loop) database")
             }
@@ -183,7 +194,7 @@ internal class UhabitsImporter(
             val hasRepetitionNotesColumn = hasColumn(db, "Repetitions", "notes")
             val repetitionsQuery = buildRepetitionsQuery(hasRepetitionValueColumn, hasRepetitionNotesColumn)
             val repetitionsByHabit = mutableMapOf<Long, MutableList<UhabitsRepetitionRecord>>()
-            db.rawQuery(repetitionsQuery, null).use { cursor ->
+            db.query(repetitionsQuery).use { cursor ->
                 val habitIndex = cursor.getColumnIndexOrThrow("habit")
                 val timestampIndex = cursor.getColumnIndexOrThrow("timestamp")
                 val valueIndex = cursor.getColumnIndexOrThrow("value")
@@ -209,7 +220,7 @@ internal class UhabitsImporter(
                 }
             }
 
-            db.rawQuery("SELECT id, name, description, freq_num, freq_den, uuid FROM Habits", null).use { cursor ->
+            db.query("SELECT id, name, description, freq_num, freq_den, uuid FROM Habits").use { cursor ->
                 val idIndex = cursor.getColumnIndexOrThrow("id")
                 val nameIndex = cursor.getColumnIndexOrThrow("name")
                 val descriptionIndex = cursor.getColumnIndex("description")
@@ -242,8 +253,8 @@ internal class UhabitsImporter(
         return habits
     }
 
-    private fun hasTable(db: SQLiteDatabase, tableName: String): Boolean {
-        db.rawQuery(
+    private fun hasTable(db: SupportSQLiteDatabase, tableName: String): Boolean {
+        db.query(
             "SELECT COUNT(*) FROM sqlite_master WHERE type='table' AND name=?",
             arrayOf(tableName),
         ).use { cursor ->
@@ -251,8 +262,8 @@ internal class UhabitsImporter(
         }
     }
 
-    private fun hasColumn(db: SQLiteDatabase, tableName: String, columnName: String): Boolean {
-        db.rawQuery("PRAGMA table_info($tableName)", null).use { cursor ->
+    private fun hasColumn(db: SupportSQLiteDatabase, tableName: String, columnName: String): Boolean {
+        db.query("PRAGMA table_info($tableName)").use { cursor ->
             val nameIndex = cursor.getColumnIndex("name")
             if (nameIndex < 0) return false
             while (cursor.moveToNext()) {

@@ -352,7 +352,7 @@ if $RUN_TESTS; then
     # regression there would ship unverified. It is the same JVM as :desktop:test and needs no
     # Android compile.
     #
-    # ── Added-source-without-test ratchet (issue 631) ───────────────────────────────────────────
+    # ── Added-source-without-test ratchet ──────────────────────────────────────────────────────
     # No Gradle task can enforce "a new desktop/src/main class ships with a test or a stated
     # reason": detekt and :desktop:test only ever see the tree as a whole, and jacoco coverage
     # verification has a floor rather than a per-change rule. So it is enforced here, in the one
@@ -371,7 +371,7 @@ if $RUN_TESTS; then
     # It is a RATCHET, not a cleanup pass. With the default baseline the range is "added since this
     # check existed", which is empty on a tree that already satisfies it. The pre-existing uncovered
     # desktop/src/main files (DesktopLogExportActions.kt, DesktopPassphraseSetupViewModel.kt and 12
-    # others) predate the gate and are named in issue 631; they are the backlog's business, not this
+    # others) predate the gate and are named in the tracker; they are the backlog's business, not this
     # check's. Widening the baseline to origin/dev surfaces all 14 today, and that run is a useful
     # audit - it just does not belong in the build gate, where it would block every build.
     #

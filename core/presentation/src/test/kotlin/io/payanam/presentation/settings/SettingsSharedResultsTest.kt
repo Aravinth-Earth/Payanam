@@ -1,6 +1,5 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
 package io.payanam.presentation.settings
 
 import org.junit.Assert.assertEquals
@@ -16,7 +15,7 @@ import org.junit.Test
  * already pure", and nothing tested them - [ImportResult.Success] was the single least covered class in
  * the module at zero of forty instructions, because the app module constructs them on a path this module
  * never runs. What a screen depends on is the PAYLOAD: a successful import's three counts and whether it
- * asks for a restart, a success that reports zero imported rows, and the fact that an [Error] carries a
+ * reports zero imported rows, and the fact that an [Error] carries a
  * message rather than a flag. Those are the fields that would render as an empty summary or a blank error
  * line if a name changed, and nothing else in the build would notice.
  */
@@ -24,31 +23,20 @@ class SettingsSharedResultsTest {
     // ── ImportResult ──────────────────────────────────────────────────────────
 
     @Test
-    fun a_successful_import_reports_each_count_and_asks_for_no_restart_by_default() {
+    fun a_successful_import_reports_each_count_with_no_restart_surface() {
+        // The restart surface is RETIRED (owner ruling, 2026-10-08): an import carries on smoothly on
+        // both platforms, so the payload is the three counts and nothing else. A re-added restart flag
+        // would be a review-visible type change rather than a field a screen could quietly honour.
         val result = ImportResult.Success(tasksImported = 12, timeEntriesImported = 30, notesImported = 4)
 
         assertEquals(12, result.tasksImported)
         assertEquals(30, result.timeEntriesImported)
         assertEquals(4, result.notesImported)
-        assertFalse("an import that changed nothing in place needs no restart", result.requiresAppRestart)
-    }
-
-    @Test
-    fun an_import_that_changed_the_schema_asks_for_a_restart() {
-        val result =
-            ImportResult.Success(
-                tasksImported = 0,
-                timeEntriesImported = 0,
-                notesImported = 0,
-                requiresAppRestart = true,
-            )
-
-        assertTrue(result.requiresAppRestart)
     }
 
     @Test
     fun a_successful_import_of_nothing_is_distinguishable_from_a_failure() {
-        // Zero counts with no restart is a legitimate "there was nothing to import" answer, and it must not
+        // Zero counts is a legitimate "there was nothing to import" answer, and it must not
         // read as an error. The two are separate types precisely so a screen can tell them apart.
         val empty = ImportResult.Success(tasksImported = 0, timeEntriesImported = 0, notesImported = 0)
         val failed: ImportResult = ImportResult.Error("disk full")

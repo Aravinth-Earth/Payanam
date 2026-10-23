@@ -1,5 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("ktlint")
+
 package io.payanam.desktop
 
 import androidx.compose.foundation.background
@@ -17,9 +19,9 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.MaterialTheme as Material3Theme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.MaterialTheme as Material3Theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -39,13 +41,14 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.payanam.backup.BackupCoordinatorCore
 import io.payanam.core.ui.day.DayScreen
 import io.payanam.core.ui.day.DayScreenMode
+import io.payanam.core.ui.flags.LocalFeatureFlags
 import io.payanam.core.ui.navigation.PayanamNavHost
 import io.payanam.core.ui.notes.NotesScreen
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.LocalAppPreferences
-import io.payanam.core.ui.preferences.ThemeModeOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
@@ -67,13 +70,16 @@ import io.payanam.desktop.database.scheduledBackupArtifactName
 import io.payanam.desktop.platform.AwtDocumentSource
 import io.payanam.desktop.platform.DesktopDebugFlags
 import io.payanam.desktop.platform.DesktopPlatformSeams
-import io.payanam.desktop.platform.desktopFreedesktopReminderDelivery
 import io.payanam.desktop.platform.desktopPlatformSeams
+import io.payanam.domain.port.BackupCheckpointPort
+import io.payanam.domain.port.BackupTrigger
+import io.payanam.domain.port.retryPolicyFor
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.day.dayViewModel
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.notes.notesViewModel
 import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.settings.DesktopSettingsSnapshot
@@ -82,15 +88,20 @@ import io.payanam.shared.settings.FoundationArea
 import io.payanam.shared.settings.FoundationReadiness
 import io.payanam.shared.settings.SettingsFoundationContracts
 import io.payanam.shared.settings.SettingsFoundationSnapshot
+import io.payanam.shared.startup.StartupGateInputs
+import io.payanam.shared.startup.withLandingBackedBySession
 import io.payanam.shared.transfer.DataModuleSelection
 import io.payanam.shared.transfer.TransferOutcome
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.launch
 import java.io.File
 import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 @Composable
 internal fun desktopApp(onQuitRequested: () -> Unit) {
@@ -128,13 +139,13 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
     var railRouteRequest by remember { androidx.compose.runtime.mutableStateOf<String?>(null) }
     val models = rememberDesktopAppModels(stores = stores, rememberedState = rememberedState, activeRoute = activeRoute)
     val startupLogState =
-        remember(models.startupSnapshot, models.startupMode) {
+        remember(models.startupSnapshot, models.startupGate) {
             mapOf(
                 "launchRoute" to models.startupSnapshot.launchRoute.storageKey,
                 "readyChecks" to models.startupSnapshot.readyChecks(),
                 "totalChecks" to models.startupSnapshot.checks.size,
                 "requiresAttention" to models.startupSnapshot.requiresAttention(),
-                "startupMode" to models.startupMode.name,
+                "startupMode" to models.startupGate.gateName,
             )
         }
     // Pre-unlock there are no rows to read, so the source reports the absent-row defaults and says why. It
@@ -153,7 +164,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
     desktopStateEffects(
         snapshot = models.shellRenderState.foundationSnapshot,
         activeRoute = activeRoute,
-        startupMode = models.startupMode,
+        startupGate = models.startupGate,
         lifecycleState = models.desktopLifecycleState,
         navigationModel = models.navigationModel,
         onRouteReset = { route ->
@@ -183,13 +194,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
     // preference rows are read on the same event. Without this the flag was written only by the desktop's
     // legacy gate callbacks, and the rows were never read at all - so a session opened by the database-init
     // gate's import was invisible to the gate AND every stored preference showed as its default.
-    LaunchedEffect(databaseSessionController) {
-        followDesktopSessionOpenedState(
-            sessionController = databaseSessionController,
-            gateFlag = rememberedState.sessionOpenState,
-            preferencesSource = rememberedState.preferencesSource,
-        )
-    }
+    // (The LaunchedEffect itself lives below platformSeams, after both exist - see the reconcile wiring.)
     // Export and import of the encrypted database. The gateway moves the file; the controller owns the two
     // orderings around it (fold before copy, release before replace). Both are built here because this is
     // where the scope and the session controller live.
@@ -228,9 +233,9 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             .first()
     }
     // The desktop's platform seams, CONSTRUCTED for as long as this shell lives: the in-process backup
-    // schedule and the reminder sink. Both were implemented and unit-tested and reachable from nowhere,
-    // so the settings screen's auto-backup toggle wrote `auto_backup_enabled` and the row stopped there -
-    // a Linux user could turn auto-backup on, pick 15 minutes, and receive no backups at all.
+    // schedule. It was implemented and unit-tested and reachable from nowhere, so the settings screen's
+    // auto-backup toggle wrote `auto_backup_enabled` and the row stopped there - a Linux user could
+    // turn auto-backup on, pick 15 minutes, and receive no backups at all.
     //
     // Built HERE, immediately after the transfer controller, because that is where everything it needs
     // already exists: the scope, the session controller (the fold), the export gateway (the copy) and
@@ -240,58 +245,30 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             desktopPlatformSeams(
                 scope = databaseScope,
                 logger = sessionLogger,
-                runBackup = backup@{
-                    // A scheduled run is a REAL backup, through the SAME gateway the export button uses:
-                    // fold the open session's write-ahead log, then copy the encrypted file. The fold is
-                    // the gateway's own precondition as well, so a backup can never be a snapshot missing
-                    // the user's most recent writes - and a fold that failed must not produce a file that
-                    // looks like a backup.
-                    if (!WalCheckpointRule.walIsEmpty(databaseSessionController.checkpoint())) {
-                        sessionLogger.w(
-                            source = "DesktopApp.scheduledBackup",
-                            message = "Scheduled backup skipped: the open session's log could not be folded",
-                        )
-                        return@backup
-                    }
-                    val destination = desktopScheduledBackupDestination()
-                    val outcome = transferController.exportTo(destination.toString())
-                    val data = mapOf("fileName" to destination.fileName.toString())
-                    val summary =
-                        DesktopTransferMessages.describe(
-                            outcome,
-                            DesktopTransferMessages.TransferDirection.EXPORT,
-                            destination.toString(),
-                        )
-                    if (outcome.succeededForBackup()) {
-                        sessionLogger.i("DesktopApp.scheduledBackup", summary, data)
-                        // ROTATION, on the path that actually runs. It belongs here, immediately after a
-                        // SUCCESSFUL backup, for the reason Android puts it in its coordinator: a backup
-                        // nobody prunes is a folder that grows without bound, and the user's retention
-                        // setting is then a control over nothing. Rotation used to live only in
-                        // `DesktopDatabaseBackupPort`, which the running app never constructs - so the
-                        // only path that wrote a backup artifact was also the only path that never pruned
-                        // one, and every test of it was a test of a class nothing called. The rows are
-                        // read the same way the schedule reads them, so the two cannot disagree.
-                        pruneScheduledBackupRotation(
-                            backupDirectory = DesktopAppPaths.resolveDatabaseDirectory().toFile(),
-                            backupRows = backupRows,
-                            logger = sessionLogger,
-                        )
-                    } else {
-                        sessionLogger.w("DesktopApp.scheduledBackup", summary, data)
-                    }
-                },
+                runBackup = { runScheduledDesktopBackup(sessionLogger, databaseSessionController, backupRows, stores) },
                 // The shared `app_settings` rows, read the same way every other desktop read reads them.
                 // Before a session is open the data layer is UNINSTALLED and this throws; the seams
                 // class treats a failed read as "no schedule" and logs it, so the window is never taken
                 // down by a reconcile that ran too early.
                 backupRows = backupRows,
-                // The REAL delivery: `notify-send` on the freedesktop bus, with the miss logged rather
-                // than skipped. The log-only default stays the seams constructor's default, so any other
-                // construction site keeps the honest no-channel state rather than silently gaining one.
-                deliverReminder = desktopFreedesktopReminderDelivery(sessionLogger),
             )
         }
+    // The gate's session answer comes from the session itself, exactly as Android's does, and the shared
+    // preference rows are read on the same event - plus the backup schedule is reconciled on that same
+    // event, because the shared unlock screen opens through DesktopSessionControllerOpenerAdapter and
+    // NEVER fires the shell's onSessionEstablished below, so its reconcile never ran on a normal unlock
+    // (measured 2026-10-08: zero 'Auto-backup schedule applied from shared rows' lines in every real run
+    // log, while sqlcipher read auto_backup_enabled=true). Placed after platformSeams so the callback can
+    // capture it; the seams' reconcileMutex keeps a duplicate call (should one path ever fire both)
+    // idempotent.
+    LaunchedEffect(databaseSessionController) {
+        followDesktopSessionOpenedState(
+            sessionController = databaseSessionController,
+            gateFlag = rememberedState.sessionOpenState,
+            preferencesSource = rememberedState.preferencesSource,
+            onOpened = { platformSeams.reconcileBackupSchedule() },
+        )
+    }
     val callbacks =
         buildDesktopShellCallbacks(
             stores = stores,
@@ -397,19 +374,34 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             // route policy inside `PayanamNavHost` decides whether it is allowed.
             onRailRouteRequested = { key -> railRouteRequest = key },
         )
-    // Projected ONCE, above the branch, so the surface that is mounted and the flags the graph is given are
-    // the same decision.
-    val navGateFlags = desktopNavGateFlags(models.startupMode)
-    LaunchedEffect(models.startupMode) {
+    // The ONE startup decision, read straight off the resolved mode. There is no projection type between the
+    // resolver and the graph any more: every mount site asks THIS value which gate it is, so the answer is made
+    // in exactly one place, in shared code, and translated in none.
+    //
+    // AND THE LANDING IS CONJOINED WITH THE SESSION OWNER'S OWN STATE - the belt to this fix's braces. See
+    // [withLandingBackedBySession]: the resolver's `Ready` is fed by a snapshot the platform supplies, and the
+    // shared session contract forbids feeding that from a UI/Compose flag.
+    // `DesktopDatabaseSessionController.isOpen` is the owner's state and is published only AFTER
+    // `LocalDataLayer.install(...)`, so this makes the app route unreachable while no data layer is installed.
+    // The owner's build-405 crash was precisely `LocalDataLayer.lenses was read before a data layer was
+    // installed`, reached because the gate let the landing route compose; the reset fix stops that state
+    // arising, and this stops it being reachable if it ever does.
+    val resolvedStartupGate = models.startupGate
+    val startupGate = withLandingBackedBySession(resolvedStartupGate, sessionOpen = databaseSessionController.isOpen)
+    val landingWithheld = resolvedStartupGate.isLandingReady && !startupGate.isLandingReady
+    LaunchedEffect(startupGate) {
         sessionLogger.i(
             source = "DesktopApp.surfaceMounted",
             message = "Startup surface chosen",
             data =
                 mapOf(
-                    "startupMode" to models.startupMode.name,
-                    "shouldShowDatabaseInit" to navGateFlags.shouldShowDatabaseInit,
-                    "shouldShowPassphraseSetup" to navGateFlags.shouldShowPassphraseSetup,
-                    "shouldShowPassphraseUnlock" to navGateFlags.shouldShowPassphraseUnlock,
+                    "startupMode" to startupGate.gateName,
+                    "shouldShowDatabaseInit" to startupGate.shouldShowDatabaseInit,
+                    "shouldShowPassphraseSetup" to startupGate.shouldShowPassphraseSetup,
+                    "shouldShowPassphraseUnlock" to startupGate.shouldShowPassphraseUnlock,
+                    // Says out loud that the app route was withheld and why, rather than leaving a run whose
+                    // landing never appeared to be diagnosed from the absence of a line.
+                    "landingWithheld" to landingWithheld,
                 ),
         )
     }
@@ -472,7 +464,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             }
         desktopShellSurface(
             landingRoute = sessionLandingRoute.storageKey,
-            gateFlags = navGateFlags,
+            startupGate = startupGate,
             state = models.shellRenderState,
             sessionLogger = sessionLogger,
             // The rail and the graph are SIBLINGS - the rail cannot reach the graph's controller - so the
@@ -488,6 +480,9 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                         // The shell's OWN vault, over the one security store every gate shares - a second
                         // vault here would report a lockout the unlock gate does not apply.
                         passphraseVault = stores.passphraseVault,
+                        // The shell's OWN onboarding marker: device-level, so the reset's own delete cannot
+                        // make it claim this installation has never seen the tour.
+                        onboardingStore = stores.onboardingStore,
                     )
                 },
             passphraseUnlockCollaborators =
@@ -554,10 +549,13 @@ private fun desktopShellSurface(
     /**
      * The shared graph's four gate flags, projected from the one startup decision.
      *
-     * Handed down rather than re-derived: this shell is now mounted for every gate-bearing mode, so passing
-     * the real flags is what puts Android's own gate screens in front of a fresh Linux install.
+     * Handed down rather than re-derived: this shell is mounted for every gate-bearing mode, so passing the
+     * real decision is what puts Android's own gate screens in front of a fresh Linux install.
+     *
+     * It is the resolved mode itself, not a projection of it: one value crosses this boundary, and each mount
+     * site below reads the gate it names.
      */
-    gateFlags: DesktopNavGateFlags,
+    startupGate: StartupGateInputs,
     /** The rail's pending top-level route, or null; owned by `desktopApp`. */
     topLevelNavigationRequest: String?,
     /** Called once the graph has honoured or refused the request; clears the owner's holder. */
@@ -585,14 +583,7 @@ private fun desktopShellSurface(
 ) {
     desktopShellRootSurface(
         preferences = state.preferences,
-        darkTheme = state.preferences.themeMode == ThemeModeOption.DARK,
     ) { language ->
-        // Whether the desktop's OWN chrome is on screen, read from the ONE startup projection rather than
-        // from a second decision here. `showsNoGate` is true for `Ready` and for the three onboarding
-        // scaffold modes - the only two groups that reach this function - so it separates exactly the
-        // ready app (rail, header, inset: the behaviour that must not change) from the four gate-bearing
-        // modes, where the graph's own gate screen IS the window.
-        val showsDesktopChrome = gateFlags.showsNoGate
         // The shipped shape is phone-shaped at EVERY window size, so the layout is held at the phone width
         // and centred rather than being allowed to grow. Without this the content pane lays itself out as a
         // desktop surface once the window is resized - which is the "different shape at a different size"
@@ -603,15 +594,16 @@ private fun desktopShellSurface(
             contentAlignment = Alignment.Center,
         ) {
             Box(
-                modifier = Modifier
-                    .width(PHONE_WINDOW_WIDTH_DP.dp)
-                    .fillMaxHeight(),
+                modifier =
+                    Modifier
+                        .width(PHONE_WINDOW_WIDTH_DP.dp)
+                        .fillMaxHeight(),
             ) {
                 desktopContentPane(
                     state = state,
                     language = language,
                     landingRoute = landingRoute,
-                    gateFlags = gateFlags,
+                    startupGate = startupGate,
                     topLevelNavigationRequest = topLevelNavigationRequest,
                     onTopLevelNavigationRequestConsumed = onTopLevelNavigationRequestConsumed,
                     callbacks = callbacks,
@@ -639,20 +631,18 @@ private fun desktopShellSurface(
  * composable the shell root calls that decides the language, so a test can render it with a `preferences`
  * row and a contradicting JVM default locale without mounting the shared navigation graph beneath it.
  *
- * @param preferences the SHARED rows. `effectiveLanguageTag` is the input, so the row decides.
- * @param darkTheme from the same rows; undefaulted for the reason [desktopRootSurface] gives.
+ * @param preferences the SHARED rows. `effectiveLanguageTag` is the input, so the row decides - and so does
+ *   the theme, which [desktopRootSurface] derives from these same rows.
  * @param content receives the derived language, so the graph below is handed the value this root installed
  *   instead of deriving a second one.
  */
 @Composable
 internal fun desktopShellRootSurface(
     preferences: AppPreferencesState,
-    darkTheme: Boolean,
     content: @Composable (UiLanguage) -> Unit,
 ) {
     val language = desktopUiLanguageForTag(preferences.effectiveLanguageTag)
     desktopRootSurface(
-        darkTheme = darkTheme,
         language = language,
         preferences = preferences,
     ) {
@@ -664,7 +654,7 @@ internal fun desktopShellRootSurface(
 private fun desktopStateEffects(
     snapshot: SettingsFoundationSnapshot,
     activeRoute: DesktopTopLevelRoute,
-    startupMode: DesktopStartupMode,
+    startupGate: StartupGateInputs,
     lifecycleState: DesktopLifecycleState,
     navigationModel: DesktopNavigationModel,
     onRouteReset: (DesktopTopLevelRoute) -> Unit,
@@ -678,8 +668,8 @@ private fun desktopStateEffects(
                 mapOf(
                     "schemaVersion" to snapshot.schemaVersion,
                     "activeRoute" to activeRoute.storageKey,
-                    "startupGateActive" to (startupMode != DesktopStartupMode.Ready),
-                    "startupMode" to startupMode.name,
+                    "startupGateActive" to !startupGate.isLandingReady,
+                    "startupMode" to startupGate.gateName,
                     "sharedReadyAreas" to snapshot.areasWithStatus(FoundationReadiness.SharedReady),
                     "extractionNextAreas" to snapshot.areasWithStatus(FoundationReadiness.ExtractionNext),
                     "androidOnlyAreas" to snapshot.areasWithStatus(FoundationReadiness.AndroidOnly),
@@ -711,11 +701,11 @@ private fun desktopStateEffects(
             data = mapOf("schemaVersion" to lifecycleState.bootstrapSchema.schemaVersion),
         )
     }
-    LaunchedEffect(startupMode) {
+    LaunchedEffect(startupGate) {
         sessionLogger.i(
             source = "DesktopApp.desktopStartupMode",
             message = "Desktop startup mode active",
-            data = mapOf("startupMode" to startupMode.name),
+            data = mapOf("startupMode" to startupGate.gateName),
         )
     }
     LaunchedEffect(navigationModel.primaryRoutes, navigationModel.launchRoute) {
@@ -728,16 +718,20 @@ private fun desktopStateEffects(
 /**
  * The desktop's root surface: the shared theme, the desktop's own palette, and the ambient copy table.
  *
- * @param darkTheme the theme mode to render in. Undefaulted on purpose: a default is a second theme
- *   decision that could win over the preference the caller just read.
- * @param language the copy language for every shared screen below this root. Also undefaulted, and for the
- *   same reason - a default here would silently reinstate a language the caller did not choose (the machine
- *   locale, most likely). Requiring it makes each call site state where its answer comes from: the shared
- *   rows after unlock, the machine locale in the pre-unlock gate.
+ * The appearance is not a parameter: it is derived here from the SAME preference rows this surface is
+ * already handed, through the shared theme's preference entry point - the one Android calls with its own
+ * rows. A `darkTheme` boolean used to arrive from above with the resolution already applied, and that
+ * resolution was the desktop's own: it read `DARK` and treated every other value, `SYSTEM` included, as
+ * light. Deriving it here keeps one translation of the preference and gives `SYSTEM` the same meaning it
+ * has on Android.
+ *
+ * @param language the copy language for every shared screen below this root. Undefaulted, and for the same
+ *   reason a defaulted theme would be wrong - a default here would silently reinstate a language the caller
+ *   did not choose (the machine locale, most likely). Requiring it makes each call site state where its
+ *   answer comes from: the shared rows after unlock, the machine locale in the pre-unlock gate.
  */
 @Composable
 internal fun desktopRootSurface(
-    darkTheme: Boolean,
     language: UiLanguage,
     preferences: AppPreferencesState,
     content: @Composable () -> Unit,
@@ -746,7 +740,7 @@ internal fun desktopRootSurface(
     // and the dynamic-colour seam runs here too (the desktop's actual answers null, selecting the fallback).
     // It is now the ONLY theme installed here: the desktop's own routes were migrated off their Material 2
     // components, so the palette that used to wrap this is gone rather than kept for their sake.
-    io.payanam.core.ui.theme.PayanamTheme(darkTheme = darkTheme) {
+    io.payanam.core.ui.theme.PayanamTheme(themeMode = preferences.themeMode, fontFamily = preferences.fontFamily) {
         CompositionLocalProvider(
             // The shared screens read their copy from this ambient table - they replaced their
             // stringResource(...) calls with lookups against it. Android installs it once inside
@@ -754,6 +748,11 @@ internal fun desktopRootSurface(
             // startup flow and, until every screen lands, individual routes), so the root installs
             // it. Reading it with no provider calls error() and takes the whole surface down.
             LocalUiStrings provides UiStrings.of(language),
+            // The SHARED feature flags, from the same `PlatformFeatureFlags` holder Android's
+            // `MainActivity` reads. Without this, every shared screen reading `LocalFeatureFlags.current`
+            // gets the DEFAULT `FeatureFlagsState()` (remindersEnabled = true), so the desktop renders
+            // reminder controls even though `DesktopMain.kt` installs `remindersEnabled = false`.
+            LocalFeatureFlags provides PlatformFeatureFlags.current,
             // The SHARED preference rows, from the same `app_settings` table Android's
             // `MainActivity` reads. Undefaulted for a sharper reason than the two above: this local
             // DEFAULTS rather than failing, so a route that forgot to provide it would render a real
@@ -776,8 +775,6 @@ internal fun desktopRootSurface(
     }
 }
 
-
-
 @Composable
 private fun desktopContentPane(
     state: DesktopShellRenderState,
@@ -791,7 +788,7 @@ private fun desktopContentPane(
      * Undefaulted on purpose: a default here would be a second answer to which gate is showing, and the
      * answer the mount already made would lose.
      */
-    gateFlags: DesktopNavGateFlags,
+    startupGate: StartupGateInputs,
     /** The rail's pending top-level route, or null - the desktop's counterpart to Android's command channel. */
     topLevelNavigationRequest: String?,
     onTopLevelNavigationRequestConsumed: () -> Unit,
@@ -816,39 +813,30 @@ private fun desktopContentPane(
     /** The assistant routes' collaborators, threaded for the same reason as the settings screen's. */
     assistantCollaborators: DesktopAssistantCollaborators,
 ) {
-    // A gate that OWNS the window gets the whole of it. The pane is then a bare `fillMaxSize` box with
-    // no header above the graph and no 28.dp inset around it, so the shared screen is measured against the
-    // real window constraints instead of a padded, header-shifted pane it cannot lay out in.
-    //
-    // `Ready` (and the scaffold modes, which never reach this function) take the `else` branch unchanged:
-    // the rail, the header, the inset and the semantics label are all still exactly as they were.
+    // The desktop adds NO chrome of its own around the shared graph: no header above it and no inset around
+    // it. The shared screens already render their own header, so the desktop's was a second, stale copy on
+    // every screen; and the pane IS the app's surface, so a 28.dp inset here is a border the Android build
+    // does not have. One convention on both platforms: the graph gets the whole pane.
     val paneStrings = LocalUiStrings.current
     val paneModifier =
-        if (gateFlags.showsNoGate) {
+        if (startupGate.isLandingReady) {
             Modifier
                 .fillMaxSize()
                 .semantics {
                     contentDescription =
                         paneStrings.desktopContentPaneFor.formatArgs(state.activeRoute.displayName)
                 }
-                .padding(28.dp)
         } else {
             Modifier.fillMaxSize()
         }
-    Column(
-        modifier = paneModifier,
-        verticalArrangement = Arrangement.spacedBy(18.dp),
-    ) {
-        if (gateFlags.showsNoGate) {
-            desktopHeader(activeRoute = state.activeRoute)
-        }
+    Box(modifier = paneModifier) {
         // The shared navigation graph, mounted. It owns the routes, the back stack and the
         // parameterised detail routes the desktop's flat 7-tab enum could not express.
         //
-        // The gate flags arrive as this function's `gateFlags` parameter, projected once at the mount from
-        // the one startup decision. They were previously re-derived here from a hardcoded `Ready`, which is
-        // what left a fresh Linux install showing the desktop's own gate instead of the shared graph's
-        // `DatabasePassphraseSetupScreen` and `DatabaseInitScreen`.
+        // The gate reaches this function as `startupGate` - the one resolved decision, handed down unmodified.
+        // It was previously re-derived here from a hardcoded `Ready`, which is what left a fresh Linux install
+        // showing the desktop's own gate instead of the shared graph's `DatabasePassphraseSetupScreen` and
+        // `DatabaseInitScreen`.
         // Named local rather than an inline multi-line argument: `DesktopNavHostParityTest` reads this call
         // site to prove the desktop supplies the same parameters Android does, and its scanner pairs a
         // `name =` with a value on the SAME line. An inline `remember { … }` spanning several lines reads as
@@ -862,6 +850,7 @@ private fun desktopContentPane(
                 language,
                 settingsCollaborators,
                 assistantCollaborators,
+                callbacks.onDatabaseResetObserved,
             ) {
                 DesktopPayanamNavHostScreens(
                     databaseInitCollaborators = databaseInitCollaborators,
@@ -870,6 +859,10 @@ private fun desktopContentPane(
                     language = language,
                     settingsCollaborators = settingsCollaborators,
                     assistantCollaborators = assistantCollaborators,
+                    // The shell's own reaction to a reset: without it the startup decision is read from
+                    // facts the reset has invalidated, which is how the graph ended up composing the app
+                    // route with no data layer installed.
+                    onDatabaseResetObserved = callbacks.onDatabaseResetObserved,
                 )
             }
         // A composition scope for the unlock callback inside this mount: the reconcile it launches must not
@@ -877,6 +870,8 @@ private fun desktopContentPane(
         // local rather than threaded in - nothing else in the pane needs a scope, and a parameter would be a
         // second place for the same handle to live.
         val unlockScope = rememberCoroutineScope()
+        // The gate reaches this call as `startupGate` - the inputs the one shared decision produced, handed
+        // down unmodified. Nothing here translates or re-decides them.
         PayanamNavHost(
             screens = navHostScreens,
             // The value the shell root derived from the shared rows, not a second derivation: the graph
@@ -914,17 +909,20 @@ private fun desktopContentPane(
             // the rail would be a second, racing answer to "where is the graph" alongside the request
             // channel below, and the graph would reinstall on every rail tap.
             landingRoute = landingRoute,
-            isLandingReady = gateFlags.showsNoGate,
+            isLandingReady = startupGate.isLandingReady,
             // The rail's channel: the graph navigates when it can and reports the request honoured or
             // refused, so this holder can be cleared.
             topLevelNavigationRequest = topLevelNavigationRequest,
             onTopLevelNavigationRequestConsumed = onTopLevelNavigationRequestConsumed,
-            shouldShowPassphraseSetup = gateFlags.shouldShowPassphraseSetup,
-            shouldShowPassphraseUnlock = gateFlags.shouldShowPassphraseUnlock,
-            shouldShowDatabaseInit = gateFlags.shouldShowDatabaseInit,
-            shouldShowFocusModeOnboarding = gateFlags.shouldShowFocusModeOnboarding,
-            shouldShowSecurityStateUnavailable = gateFlags.shouldShowSecurityStateUnavailable,
-            shouldShowOnboardingIntro = gateFlags.shouldShowOnboardingIntro,
+            // Which gate is the window, read off the ONE resolved decision. Android feeds these same
+            // parameters from the facts it holds; the desktop feeds them from its resolver's answer, so
+            // neither platform has a second place where "what is the user looking at" is decided.
+            shouldShowPassphraseSetup = startupGate.shouldShowPassphraseSetup,
+            shouldShowPassphraseUnlock = startupGate.shouldShowPassphraseUnlock,
+            shouldShowDatabaseInit = startupGate.shouldShowDatabaseInit,
+            shouldShowFocusModeOnboarding = startupGate.shouldShowFocusModeOnboarding,
+            shouldShowSecurityStateUnavailable = startupGate.shouldShowSecurityStateUnavailable,
+            shouldShowOnboardingIntro = startupGate.shouldShowOnboardingIntro,
             // The refusal destination's two actions: the reset the dialog confirmed, and the exit path
             // every other terminal gate already uses.
             onOnboardingIntroFinished = callbacks.onOnboardingIntroAdvanced,
@@ -955,22 +953,6 @@ private fun desktopContentPane(
     }
 }
 
-@Composable
-private fun desktopHeader(activeRoute: DesktopTopLevelRoute) {
-    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        Text(
-            text = activeRoute.displayName,
-            style = Material3Theme.typography.headlineLarge,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = activeRoute.summary(),
-            style = Material3Theme.typography.bodyLarge,
-            color = Material3Theme.colorScheme.onSurface,
-        )
-    }
-}
-
 /**
  * Foundation facts for a data module selection (used by the settings screen).
  */
@@ -994,11 +976,122 @@ internal fun desktopScheduledBackupDestination(databaseDirectory: Path = Desktop
     val stamp = LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
     // The NAME comes from the shared prefix the rotation matcher prunes with, so an artifact this
     // app writes is one rotation can recognise; a name assembled only here would be invisible to it.
-    return databaseDirectory.resolve(scheduledBackupArtifactName(stamp))
+    val plain = databaseDirectory.resolve(scheduledBackupArtifactName(stamp))
+    if (!Files.exists(plain)) return plain
+    // A SECOND run inside the same second would otherwise name the same file, and the export copies
+    // with REPLACE_EXISTING - so the first backup would be silently overwritten and rotation would
+    // count the survivor once. The path is only CHECKED, never created: creating it here to claim
+    // the name would leave an empty artifact behind whenever the transfer fails, which rotation would
+    // then prune as though it were a backup. The counter is zero-padded and fixed-width because the
+    // rotation tie-break sorts by NAME descending, so `-10` must not sort before `-2`.
+    var attempt = 2
+    while (true) {
+        val suffix = "-${attempt.toString().padStart(2, '0')}"
+        val candidate = databaseDirectory.resolve(scheduledBackupArtifactName(stamp + suffix))
+        if (!Files.exists(candidate)) return candidate
+        attempt++
+    }
 }
 
-/** The backup file's timestamp, to the second: sortable, and no two runs in one second collide. */
+/**
+ * The backup file's timestamp, to the second: sortable, and fixed-width so name order stays
+ * chronological order. Resolution to the SECOND is not uniqueness on its own - a second run in the
+ * same second repeats the stamp, and [desktopScheduledBackupDestination] disambiguates those.
+ */
 private val BACKUP_FILE_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+
+/**
+ * The dispatcher the backup's file work is done on - deliberately NOT the caller's.
+ *
+ * Both triggers reach this backup through `databaseScope`, which is `rememberCoroutineScope()` and so is
+ * bound to Compose Desktop's Main dispatcher, i.e. the AWT event dispatch thread: the scheduled loop at
+ * `DesktopBackupScheduler.schedule` and the settings screen's "back up now" row both land there. A backup
+ * copies the whole encrypted database and then walks the exports folder deleting what retention no longer
+ * keeps, so the window freezes for the length of both - with no repaint, no input handling and no
+ * progress, which reads to a user as a hang rather than as a slow backup.
+ *
+ * `Dispatchers.IO` rather than a private thread because the work is a blocking file copy and a recursive
+ * delete: that is precisely what the IO pool's threads are blocked FOR, and this is the same idiom
+ * `AwtDocumentSource` uses for the same reason - hop off the caller's thread before doing slow blocking
+ * work, and let the UI thread go back to painting.
+ */
+private val BACKUP_DISPATCHER: CoroutineDispatcher = Dispatchers.IO
+
+/**
+ * ONE scheduled backup: fold the open session's write-ahead log, copy the encrypted file, then prune.
+ *
+ * Hoisted out of the shell's `runBackup` lambda - and named, like [pruneScheduledBackupRotation] and
+ * [desktopScheduledBackupDestination] beside it - for the reason that makes it a function at all: the hop
+ * to [BACKUP_DISPATCHER] has to wrap work that lives somewhere a `withContext` can enclose, and a lambda
+ * threaded through the seams constructor has nowhere to put one that a test can see.
+ *
+ * WHAT it does is unchanged, and that is the constraint: same gateway, same destination rule, same
+ * artifact name and path, same rotation on the same success branch. Only the THREAD it happens on moved.
+ */
+private suspend fun runScheduledDesktopBackup(
+    sessionLogger: UnifiedLogger,
+    databaseSessionController: DesktopDatabaseSessionController,
+    backupRows: suspend () -> Map<String, String?>,
+    stores: DesktopPersistenceStores,
+) {
+    // A scheduled run is a REAL backup through the SHARED coordinator core - the same
+    // DatabaseBackupCoordinator logic Android runs (Android parity): checkpoint/WAL gate,
+    // verified snapshot with retries, status recording, and rotation all live in
+    // BackupCoordinatorCore; this function only supplies the desktop's seams.
+    withContext(BACKUP_DISPATCHER) {
+        val tempSnapshotDir = Files.createTempDirectory("payanam_backup_").toFile()
+        runCatching {
+            val checkpointPort = object : BackupCheckpointPort {
+                override fun isDbOpen(): Boolean = databaseSessionController.isOpen
+                override fun foldWal(): WalCheckpointRule.FoldReport =
+                    databaseSessionController.checkpoint() ?: WalCheckpointRule.NO_ROW
+            }
+            val core = BackupCoordinatorCore(
+                dbFile = DesktopAppPaths.resolveDatabaseDirectory()
+                    .resolve(PayanamDatabaseSchema.DATABASE_NAME).toFile(),
+                tempSnapshotDir = tempSnapshotDir,
+                checkpointPort = checkpointPort,
+                retryPolicy = retryPolicyFor(BackupTrigger.AUTO),
+                logger = sessionLogger,
+                backupDirectory = DesktopAppPaths.resolveDatabaseDirectory().toFile(),
+                sessionFolderName = {
+                    "auto_bk_" + LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
+                },
+                destinationFileName = PayanamDatabaseSchema.DATABASE_NAME,
+                rotationRows = backupRows,
+                failureMessage = { trigger, maxAttempts, error ->
+                    "Scheduled backup failed (${trigger.key}): " +
+                        (error.message ?: error::class.java.simpleName)
+                },
+                recordSuccess = { recordedAtMillis ->
+                    stores.backupStatusStore.recordSuccess(recordedAtMillis)
+                },
+                recordFailure = { finalMessage ->
+                    stores.backupStatusStore.recordFailure(finalMessage)
+                },
+            )
+            val result = core.backupToAppBackupDirectory(BackupTrigger.AUTO)
+            sessionLogger.i(
+                "DesktopApp.scheduledBackup",
+                "Scheduled backup completed: ${result.destinationPath}",
+                mapOf(
+                    "destination" to result.destinationPath,
+                    "attempts" to result.attemptsUsed,
+                ),
+            )
+        }.onFailure { error ->
+            // A cancelled backup is a stopped coroutine, not a failed backup: rethrow so the
+            // hop unwinds the way Android's coordinator does.
+            if (error is kotlinx.coroutines.CancellationException) throw error
+            sessionLogger.w(
+                "DesktopApp.scheduledBackup",
+                "Scheduled backup failed: ${error.message ?: error::class.java.simpleName}",
+                mapOf("error" to (error.message ?: error::class.java.simpleName)),
+            )
+        }
+        tempSnapshotDir.deleteRecursively()
+    }
+}
 
 /**
  * Prunes old backup artifacts in the folder a scheduled backup just wrote into.

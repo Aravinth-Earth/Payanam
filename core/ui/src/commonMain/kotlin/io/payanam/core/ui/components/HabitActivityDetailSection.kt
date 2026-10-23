@@ -436,10 +436,10 @@ private fun MetricLineChart(
     // Y-scale: per-chart dynamic bounds from the window's own data (self-gov
     // parity) so each window/range shows its variants clearly.
     val yBounds = yOverrider?.invoke(points.map { it.second })
-    // X-axis: auto label placement (maxCount=0 lets Vico decide spacing from
-    // available width — the same pattern as LensesTimeInsights). Forcing a
-    // fixed count collapsed the 7-day window to one label; auto keeps every
-    // day labeled on short windows and evenly-spaced dates on wide ones.
+    // X-axis: the SHARED label rule decides the count (ChartAxisPolicy - 3 labels on a short window, 5 when
+    // there is room, never 1). Vico's auto placement collapsed a 7-day window to a single number, and forcing
+    // a fixed count collapsed it differently; the spacing below is the middle path, computed from the points
+    // this chart actually has. The rule itself is unit-tested in ChartAxisPolicyTest.
     val rangeProvider = remember(yBounds) {
         if (yBounds != null) {
             CartesianLayerRangeProvider.fixed(
@@ -468,7 +468,9 @@ private fun MetricLineChart(
                 valueFormatter = CartesianValueFormatter { _, value, _ ->
                     epochDayToLabel(value)
                 },
-                itemPlacer = HorizontalAxis.ItemPlacer.aligned(),
+                itemPlacer = HorizontalAxis.ItemPlacer.aligned(
+                    spacing = { ChartAxisPolicy.spacingFor(points.size) },
+                ),
             ),
     )
     val producer = remember { CartesianChartModelProducer() }

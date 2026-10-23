@@ -61,6 +61,7 @@ data class DayTypeTemplatePreferenceRecord(
 interface DayPlanRepository {
 
     // ---- Day Allocations ----
+
     /**
      * Emits the allocations for [dayKey] as a [Flow], for reactive day-plan UI.
      */

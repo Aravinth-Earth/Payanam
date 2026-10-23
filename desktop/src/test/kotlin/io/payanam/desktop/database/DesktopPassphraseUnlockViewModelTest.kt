@@ -6,11 +6,11 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.database.jvm.DatabaseOpenResult
-import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.desktop.DesktopSecurityStore
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.presentation.database.DatabasePassphraseUnlockViewModel
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType

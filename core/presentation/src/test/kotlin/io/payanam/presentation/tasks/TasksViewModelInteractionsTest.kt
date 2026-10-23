@@ -891,7 +891,10 @@ class TasksViewModelInteractionsTest {
             viewModel.updateCheckmark("q3", TASKS_TEST_DAY, CheckmarkStatus.COMPLETED, "done")
             advanceUntilIdle()
 
-            assertThat(viewModel.uiState.value.latestL1ByHabit["q3"]?.score).isEqualTo(0.9)
+            assertThat(
+                viewModel.uiState.value.latestL1ByHabit["q3"]
+                    ?.score,
+            ).isEqualTo(0.9)
         }
 
     /**

@@ -176,6 +176,19 @@ class FullJourneyTest {
         h.click(l.appLanguage)
         pick(l.languageEnglish)
 
+        // The language change RESTARTS the activity, and the restart re-runs the startup gate: the database this
+        // run created has never completed focus-mode onboarding, so the chooser comes up before the app opens.
+        // Nothing in the journey answered it, and the run ended on the chooser while this phase looked for a
+        // Settings row. Answer it, then come back to Settings - a restart lands on the app's landing route, not
+        // on the screen it was restarted from.
+        //
+        // `keepScreenOn` is re-applied FIRST because the flag lives on the OLD activity instance: measured
+        // 2026-10-14, the device's 30-second screen timeout took over after this restart, the screen went off
+        // mid-phase, and the run failed with "No compose hierarchies found in the app" once the app stopped.
+        keepScreenOn(rule.activity)
+        h.answerFocusModeGate({ l.chooseYourFocus }, { l.skipFocusMode })
+        h.clickNav(l.settings)
+
         // ── default landing screen, then straight back to Settings ──
         h.scrollTo(l.defaultLandingScreen)
         h.click(l.defaultLandingScreen)
@@ -241,6 +254,10 @@ class FullJourneyTest {
     /** Port of Phase 3: start the timer, confirm it runs, stop it, dismiss the edit dialog. */
     private fun timeTracking() {
         h.goToTab(l.time)
+        // Captured BEFORE the click, deliberately: this phase has twice failed on the start-tracking control
+        // being absent while the nav bar was present, and a frame taken after the miss shows nothing about the
+        // screen the control was expected on.
+        h.capture("time_screen_before_start")
 
         h.click(l.startTracking)
         h.click(l.start)

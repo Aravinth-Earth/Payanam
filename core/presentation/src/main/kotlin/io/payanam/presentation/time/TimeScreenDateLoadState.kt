@@ -19,8 +19,10 @@ enum class TimeScreenDateSection {
  * True when [selectedDate] is today, so the screen should read today's planned
  * tasks rather than the tasks due on that date.
  */
-fun shouldUseTodaysPlannedTasks(selectedDate: LocalDate, today: LocalDate = LocalDate.now()): Boolean =
-    selectedDate == today
+fun shouldUseTodaysPlannedTasks(
+    selectedDate: LocalDate,
+    today: LocalDate = LocalDate.now(),
+): Boolean = selectedDate == today
 
 /**
  * True when a selected-date load has everything it needs to render: the
@@ -107,7 +109,9 @@ class TimeScreenDateLoadState(
  * [replace] is for starting a fresh load (new [TimeScreenDateLoadState.requestId]), which must replace
  * the whole state rather than merge into the previous load's flags.
  */
-class TimeScreenDateLoadStateHolder(initial: TimeScreenDateLoadState) {
+class TimeScreenDateLoadStateHolder(
+    initial: TimeScreenDateLoadState,
+) {
     private val state = AtomicReference(initial)
 
     /**
@@ -115,14 +119,18 @@ class TimeScreenDateLoadStateHolder(initial: TimeScreenDateLoadState) {
      * when [requestId] is not the current load (a superseded load's late arrival, which must be ignored
      * rather than marking the current one ready).
      */
-    fun markSectionLoaded(requestId: Long, section: TimeScreenDateSection): TimeScreenDateLoadState? =
-        state.updateAndGet { current ->
-            if (current.requestId != requestId) {
-                current
-            } else {
-                current.markSectionLoaded(section)
-            }
-        }.takeIf { it.requestId == requestId }
+    fun markSectionLoaded(
+        requestId: Long,
+        section: TimeScreenDateSection,
+    ): TimeScreenDateLoadState? =
+        state
+            .updateAndGet { current ->
+                if (current.requestId != requestId) {
+                    current
+                } else {
+                    current.markSectionLoaded(section)
+                }
+            }.takeIf { it.requestId == requestId }
 
     /** The merged state after the most recent mark. */
     fun current(): TimeScreenDateLoadState = state.get()

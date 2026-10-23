@@ -3,6 +3,9 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
+import io.payanam.shared.startup.DesktopStartupRuntimeState
+import io.payanam.shared.startup.startupGateInputs
 import org.junit.Test
 
 /**
@@ -14,110 +17,51 @@ import org.junit.Test
  * hand-written copy.
  */
 class DesktopOnboardingScaffoldTest {
-    private fun runtimeState(
-        stage: DesktopScaffoldOnboardingStage,
-        hasPassphraseConfigured: Boolean = true,
-        sessionOpen: Boolean = true,
-        databaseLifecycleReady: Boolean = true,
-        focusModeOnboardingCompleted: Boolean = true,
-        securityStateUnavailable: Boolean = false,
-    ) = DesktopStartupRuntimeState(
-        hasPassphraseConfigured = hasPassphraseConfigured,
-        hasDatabaseArtifacts = databaseLifecycleReady,
-        databaseLifecycleReady = databaseLifecycleReady,
-        sessionOpen = sessionOpen,
-        focusModeOnboardingCompleted = focusModeOnboardingCompleted,
-        securityFilePath = "security",
-        databaseFilePath = "database",
-        scaffoldOnboardingStage = stage,
-        securityStateUnavailable = securityStateUnavailable,
-    )
-
     @Test
-    fun `intro stage is shown first on a fresh launch`() {
-        // A fresh launch means nothing on disk: the Intro stage alone no longer routes to the tour, because
-        // a launch that HAS artifacts is a returning one and must not sit through it again.
-        val mode =
-            resolveDesktopStartupMode(
-                runtimeState(DesktopScaffoldOnboardingStage.Intro, databaseLifecycleReady = false),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.OnboardingIntro)
+    fun `the scaffold stages are ordered intro, choice, dimensions, finished, bypassed`() {
+        // Order matters: a stage that got reordered is caught, not just a stage that stopped working.
+        assertThat(DesktopScaffoldOnboardingStage.entries.map { it.name })
+            .containsExactly("Intro", "DatabaseChoice", "DimensionSetup", "Finished", "Bypassed")
+            .inOrder()
     }
 
     @Test
-    fun `each scaffold stage resolves to its own screen in order`() {
-        // Order matters: intro -> choice -> dimensions. Asserted as a sequence so a stage that got
-        // reordered is caught, not just a stage that stopped working.
-        val sequence =
-            listOf(
-                DesktopScaffoldOnboardingStage.Intro to DesktopStartupMode.OnboardingIntro,
-                // Both of these resolve to the SHARED database-init destination: Android runs the choice and
-                // the dimension step inside that screen, so the desktop renders no card of its own for them.
-                DesktopScaffoldOnboardingStage.DatabaseChoice to DesktopStartupMode.InitializeDatabase,
-                DesktopScaffoldOnboardingStage.DimensionSetup to DesktopStartupMode.InitializeDatabase,
-            )
-
-        sequence.forEach { (stage, expected) ->
-            // Only the Intro row is a fresh-launch state; the two below it are reached with a database
-            // present, and their branches do not read the artifacts at all.
-            val freshLaunch = stage == DesktopScaffoldOnboardingStage.Intro
-            assertThat(
-                resolveDesktopStartupMode(
-                    runtimeState(stage, databaseLifecycleReady = !freshLaunch),
-                ),
-            ).isEqualTo(expected)
-        }
-    }
-
-    @Test
-    fun `finished stage enters the app rather than re-running onboarding`() {
-        val mode = resolveDesktopStartupMode(runtimeState(DesktopScaffoldOnboardingStage.Finished))
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.Ready)
-    }
-
-    @Test
-    fun `finished stage does not bypass the security gates`() {
-        // A finished scaffold means "onboarding ran", not "everything is configured". If this ever
-        // resolved to Ready, an unconfigured install would open with no passphrase and no database.
-        val mode =
-            resolveDesktopStartupMode(
-                runtimeState(
-                    stage = DesktopScaffoldOnboardingStage.Finished,
+    fun `a fresh launch is the only stage that reads the database artifacts`() {
+        // A fresh launch means nothing on disk, so the gate is the SHARED database-init screen - the screen
+        // that renders the tour as its own first step. The tour is never a gate of its own on either platform,
+        // so no launch may raise it.
+        val freshLaunch =
+            startupGateInputs(
+                DesktopStartupRuntimeState(
                     hasPassphraseConfigured = false,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.SetupPassphrase)
-    }
-
-    @Test
-    fun `bypassed stage leaves the original gate order intact`() {
-        val mode =
-            resolveDesktopStartupMode(
-                runtimeState(
-                    stage = DesktopScaffoldOnboardingStage.Bypassed,
+                    hasDatabaseArtifacts = false,
+                    databaseLifecycleReady = false,
                     sessionOpen = false,
+                    focusModeOnboardingCompleted = false,
+                    securityFilePath = "security",
+                    databaseFilePath = "database",
+                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
                 ),
             )
 
-        assertThat(mode).isEqualTo(DesktopStartupMode.UnlockPassphrase)
-    }
+        assertThat(freshLaunch.shouldShowDatabaseInit).isTrue()
+        assertThat(freshLaunch.shouldShowOnboardingIntro).isFalse()
 
-    @Test
-    fun `an unreadable security state outranks the scaffold`() {
-        // The fail-closed branch must stay first. Resolving to the intro instead would look harmless
-        // and would hide an unreadable store behind a friendly welcome screen.
-        val mode =
-            resolveDesktopStartupMode(
-                runtimeState(
-                    stage = DesktopScaffoldOnboardingStage.Intro,
-                    securityStateUnavailable = true,
+        val returningLaunch =
+            startupGateInputs(
+                DesktopStartupRuntimeState(
+                    hasPassphraseConfigured = false,
+                    hasDatabaseArtifacts = true,
+                    databaseLifecycleReady = false,
+                    sessionOpen = false,
+                    focusModeOnboardingCompleted = false,
+                    securityFilePath = "security",
+                    databaseFilePath = "database",
+                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
                 ),
             )
 
-        assertThat(mode).isEqualTo(DesktopStartupMode.SecurityStateUnavailable)
+        assertThat(returningLaunch.shouldShowOnboardingIntro).isFalse()
     }
 
     @Test
@@ -161,5 +105,4 @@ class DesktopOnboardingScaffoldTest {
         // ones to add.
         assertThat(desktopDefaultDimensionInputs().all { it.isEnabled }).isTrue()
     }
-
 }

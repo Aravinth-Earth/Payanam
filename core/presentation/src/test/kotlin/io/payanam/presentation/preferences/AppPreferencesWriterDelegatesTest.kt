@@ -148,7 +148,10 @@ class AppPreferencesWriterDelegatesTest {
 
         override fun observeSetting(key: String): Flow<String?> = flowOf(null)
 
-        override suspend fun setSetting(key: String, value: String?) {
+        override suspend fun setSetting(
+            key: String,
+            value: String?,
+        ) {
             if (key == failOn) error("settings store unavailable")
             writes += key to value
         }
@@ -179,23 +182,38 @@ class AppPreferencesWriterDelegatesTest {
         var failIcons = false
         var failVisibility = false
 
-        override suspend fun updateDimensionLabel(dimensionId: String, label: String) {
+        override suspend fun updateDimensionLabel(
+            dimensionId: String,
+            label: String,
+        ) {
             labels += Triple(dimensionId, label, false)
         }
 
-        override suspend fun updateDimensionWeight(dimensionId: String, weight: Double) = Unit
+        override suspend fun updateDimensionWeight(
+            dimensionId: String,
+            weight: Double,
+        ) = Unit
 
-        override suspend fun updateDimensionColor(dimensionId: String, color: String) {
+        override suspend fun updateDimensionColor(
+            dimensionId: String,
+            color: String,
+        ) {
             if (failColors) error("catalog unavailable")
             colors += dimensionId to color
         }
 
-        override suspend fun updateDimensionIcon(dimensionId: String, icon: String) {
+        override suspend fun updateDimensionIcon(
+            dimensionId: String,
+            icon: String,
+        ) {
             if (failIcons) error("catalog unavailable")
             icons += dimensionId to icon
         }
 
-        override suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean) {
+        override suspend fun updateDimensionActiveState(
+            dimensionId: String,
+            isActive: Boolean,
+        ) {
             if (failVisibility) error("catalog unavailable")
             visibility += dimensionId to isActive
         }
@@ -210,7 +228,10 @@ class AppPreferencesWriterDelegatesTest {
     private class RecordingRollups : ScoreRollupTrigger {
         override suspend fun recalcDayOnly(changeDate: LocalDate) = Unit
 
-        override suspend fun recalcForStatusChange(taskId: String, date: LocalDate) = Unit
+        override suspend fun recalcForStatusChange(
+            taskId: String,
+            date: LocalDate,
+        ) = Unit
 
         override suspend fun recalcForRuleChange(taskId: String) = Unit
     }

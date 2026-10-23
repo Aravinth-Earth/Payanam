@@ -4,20 +4,23 @@
 
 package io.payanam.feature.settings
 
-import android.net.Uri
-import io.payanam.core.ui.text.uiStringsFor
-import io.payanam.database.security.DatabaseEncryptionMigrationSupport
-import io.payanam.platform.AndroidDatabaseEncryptionProbe
-import io.payanam.platform.AndroidDocumentSource
-import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.presentation.database.DatabaseInitWalConsolidator
+import io.payanam.shared.platform.DocumentSource
 import io.payanam.presentation.database.DatabaseImportIntegritySupport
 import io.payanam.presentation.database.DatabaseImportSupport
+import io.payanam.presentation.settings.backupDatabaseArtifactFiles
 import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.cleanupDatabaseArtifactBackups
+import io.payanam.presentation.settings.deleteRuntimeDatabaseArtifacts
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.listDatabaseArtifactFiles
+import io.payanam.presentation.settings.restoreDatabaseArtifactFiles
 import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.database.isActiveArtifact
 import io.payanam.shared.logging.CrashBreadcrumbs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -38,31 +41,7 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
     )
 }
 
-/**
- * The handle the promoted `DatabaseImportIntegritySupport` reads counts through.
- *
- * It is constructed here rather than injected into `SettingsViewModel` because the counts are read by these
- * import extensions, not by the ViewModel's own state — and this file is where the `Context` already lives.
- * `AndroidDatabaseEncryptionProbe` is a thin adapter over the same
- * `DatabaseEncryptionMigrationSupport` this file already calls, so the rules are unchanged: only the handle
- * moved. `SettingsViewModel` is the better home for this once its constructor can take the shared port
- * (`:core:presentation` cannot depend on an Android adapter, and a UI-state ViewModel is the wrong owner
- * of a file-reading port either way).
- */
-private val SettingsViewModel.importEncryptionProbe: DatabaseEncryptionProbe
-    get() = AndroidDatabaseEncryptionProbe(context)
 
-/**
- * The copy table the promoted import support throws with.
- *
- * `SettingsViewModel` predates the shared [io.payanam.core.ui.text.UiStrings] constructor parameter that
- * `DatabaseInitViewModel` already takes, so the language is resolved here through the same
- * [uiStringsFor] the Hilt module uses - one resolution rule, not two. Injecting it properly is a
- * constructor change to a ViewModel this change does not own; reading it here keeps the promoted code's
- * signature honest without editing the ViewModel's public API.
- */
-private val SettingsViewModel.importStrings: io.payanam.core.ui.text.UiStrings
-    get() = uiStringsFor(context)
 
 /**
  * Starts an ENCRYPTED database import from [sourceUri]: backs up the current DB + encryption prefs,
@@ -75,7 +54,14 @@ private val SettingsViewModel.importStrings: io.payanam.core.ui.text.UiStrings
  * restored, so the user's own database survives byte-for-byte.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: settings pipeline; multiple failure modes
-fun SettingsViewModel.importDatabase(sourceUri: Uri) {
+fun SettingsViewModel.importDatabase(
+    sourceToken: String,
+    databaseFile: java.io.File,
+    probe: DatabaseEncryptionProbe,
+    strings: UiStrings,
+    documentSource: DocumentSource,
+    walConsolidator: DatabaseInitWalConsolidator,
+) {
     // Re-entry guard, at the top so a rejected call emits neither the "Import started" line below nor
     // the settings_import_started breadcrumb. `isImporting || awaitingImportPassphrase`, not
     // `isImporting` alone: while the encrypted-import passphrase prompt is open `isImporting` is
@@ -103,8 +89,8 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
         )
         return
     }
-    logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
-    breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
+    logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceToken))
+    breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceToken))
     scope.launch {
         updateUiState { it.copy(isImporting = true, importResult = null) }
 
@@ -113,15 +99,15 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
 
         try {
             withContext(Dispatchers.IO) {
-                val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
-                val existingDatabaseFiles = listDatabaseArtifactFiles(context)
+                val dbFile = databaseFile
+                val existingDatabaseFiles = listDatabaseArtifactFiles(localDatabaseFile)
                     .filter { it.exists() && isActiveArtifact(it.name) }
                 val backupMappings = backupDatabaseArtifactFiles(existingDatabaseFiles)
                 logger.i(
                     "SettingsViewModel.importDatabase",
                     "Import paths resolved",
                     mapOf(
-                        "sourceUri" to sourceUri.toString(),
+                        "sourceUri" to sourceToken,
                         "targetPath" to dbFile.absolutePath,
                         "targetExists" to dbFile.exists(),
                         "existingArtifacts" to existingDatabaseFiles.size,
@@ -139,7 +125,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                 } else {
                     logger.d("SettingsViewModel.importDatabase", "No existing database artifacts to back up")
                 }
-                val deletedFiles = deleteRuntimeDatabaseArtifacts(context)
+                val deletedFiles = deleteRuntimeDatabaseArtifacts(localDatabaseFile)
                 logger.i(
                     "SettingsViewModel.importDatabase",
                     "Cleared existing database artifacts before import",
@@ -152,10 +138,10 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                 breadcrumb(stage = "settings_import_encryption_prefs_backed_up")
                 try {
                     val copyResult = DatabaseImportSupport.copyDatabaseArtifacts(
-                        documentSource = AndroidDocumentSource(context),
-                        sourceToken = sourceUri.toString(),
+                        documentSource = documentSource,
+                        sourceToken = sourceToken,
                         targetDatabaseFile = dbFile,
-                        strings = importStrings,
+                        strings = strings,
                     )
                     val finalSizeKB = dbFile.length() / 1024
                     logger.i(
@@ -191,7 +177,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     DatabaseImportSupport.consolidateWalAfterImport(
                         dbFile = dbFile,
                         logTag = "SettingsViewModel.importDatabase",
-                        walConsolidator = appDatabaseInitWalConsolidator(logger),
+                        walConsolidator = walConsolidator,
                     )
 
                     // Detect encrypted imports; pause and ask user for passphrase if needed.
@@ -200,8 +186,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                         logTag = "SettingsViewModel.importDatabase",
                     )
                     if (!importedDbIsStandardSqlite) {
-                        val isEncrypted = DatabaseEncryptionMigrationSupport.isDetectablyEncrypted(
-                            context = context,
+                        val isEncrypted = probe.isDetectablyEncrypted(
                             databaseFile = dbFile,
                             logTag = "SettingsViewModel.importDatabase",
                         )
@@ -229,7 +214,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                             return@withContext
                         } else {
                             throw IllegalStateException(
-                                context.getString(io.payanam.R.string.settings_import_error_unreadable_db),
+                                strings.settingsImportErrorUnreadableDb,
                             )
                         }
                     }
@@ -247,7 +232,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     )
                     breadcrumb(stage = "settings_import_refused_plaintext", data = mapOf("file" to dbFile.name))
                     throw IllegalStateException(
-                        context.getString(io.payanam.R.string.settings_import_error_plaintext_db),
+                        strings.settingsImportErrorPlaintextDb,
                     )
                 } catch (e: Exception) {
                     logger.e(
@@ -313,13 +298,13 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
             }
 
             logger.i("SettingsViewModel.importDatabase", "Database file operations complete, loading stats")
-            val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+            val dbFile = databaseFile
             val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
                 // The FILE decides whether a passphrase is needed to read it, not the local mode: an
                 // imported file that is detectably encrypted needs the open passphrase to count its rows,
                 // and one that is not needs none - whatever mode this device happens to be in.
                 val passphrase =
-                    if (importEncryptionProbe.isDetectablyEncrypted(dbFile, "SettingsViewModel.importDatabase")) {
+                    if (probe.isDetectablyEncrypted(dbFile, "SettingsViewModel.importDatabase")) {
                         sessionManager.requireOpenPassphrase()
                     } else {
                         null
@@ -328,7 +313,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     DatabaseImportIntegritySupport.readCoreCounts(
                         databaseFile = dbFile,
                         passphrase = passphrase,
-                        encryptionProbe = importEncryptionProbe,
+                        encryptionProbe = probe,
                     )
                 Triple(counts["tasks"] ?: 0, counts["time_entries"] ?: 0, counts["notes"] ?: 0)
             }
@@ -355,7 +340,6 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                         tasksImported = tasksCount,
                         timeEntriesImported = timeEntriesCount,
                         notesImported = notesCount,
-                        requiresAppRestart = true,
                     ),
                 )
             }
@@ -383,7 +367,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     rawMessage.contains("cannot open database", ignoreCase = true) ||
                     rawMessage.contains("unreadable", ignoreCase = true)
                 ) {
-                    context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed)
+                    strings.settingsImportErrorEncryptionConvertFailed
                 } else {
                     rawMessage
                 }
@@ -404,11 +388,18 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
  * stays on the gate; on any other failure it restores the backups.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: settings pipeline; multiple failure modes
-fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
+fun SettingsViewModel.resumeImportWithPassphrase(
+    passphrase: String,
+    databaseFile: java.io.File,
+    probe: DatabaseEncryptionProbe,
+    strings: UiStrings,
+    documentSource: DocumentSource,
+    walConsolidator: DatabaseInitWalConsolidator,
+) {
     logger.i("SettingsViewModel.resumeImportWithPassphrase", "Resuming encrypted import with user passphrase")
     breadcrumb(
         stage = "settings_resume_import_started",
-        data = mapOf("passphraseLength" to passphrase.length),
+        data = mapOf("passphraseProvided" to passphrase.isNotEmpty()),
     )
     scope.launch {
         updateUiState { it.copy(isImporting = true, importPassphraseError = null) }
@@ -416,7 +407,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
             withContext(Dispatchers.IO) {
                 val dbFile = pendingEncryptedImportDbFile
                     ?: throw IllegalStateException("No pending encrypted import DB to resume")
-                val canUnlock = DatabaseEncryptionMigrationSupport.canOpenWithSqlCipher(
+                val canUnlock = probe.canOpen(
                     databaseFile = dbFile,
                     passphrase = passphrase,
                     logTag = "SettingsViewModel.resumeImportWithPassphrase",
@@ -427,7 +418,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                         "Encrypted import passphrase verification failed",
                     )
                     throw IllegalStateException(
-                        context.getString(io.payanam.R.string.db_import_passphrase_wrong),
+                        strings.dbImportPassphraseWrong,
                     )
                 }
                 breadcrumb(stage = "settings_resume_import_passphrase_verified")
@@ -436,7 +427,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                 val configured = databaseEncryptionManager.configurePassphrase(passphrase)
                 if (!configured) {
                     throw IllegalStateException(
-                        context.getString(io.payanam.R.string.settings_import_error_encryption_convert_failed),
+                        strings.settingsImportErrorEncryptionConvertFailed,
                     )
                 }
                 breadcrumb(stage = "settings_resume_import_passphrase_configured")
@@ -454,13 +445,13 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                 )
                 breadcrumb(stage = "settings_resume_import_cleanup_done", data = mapOf("backupFiles" to backupMappings.size))
             }
-            val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+            val dbFile = databaseFile
             val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
                 val counts =
                     DatabaseImportIntegritySupport.readCoreCounts(
                         databaseFile = dbFile,
                         passphrase = passphrase,
-                        encryptionProbe = importEncryptionProbe,
+                        encryptionProbe = probe,
                     )
                 Triple(counts["tasks"] ?: 0, counts["time_entries"] ?: 0, counts["notes"] ?: 0)
             }
@@ -488,7 +479,6 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                         tasksImported = tasksCount,
                         timeEntriesImported = timeEntriesCount,
                         notesImported = notesCount,
-                        requiresAppRestart = true,
                     ),
                 )
             }
@@ -501,7 +491,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
                     "errorMessage" to (e.message ?: "unknown"),
                 ),
             )
-            val isWrongPassphrase = e.message == context.getString(io.payanam.R.string.db_import_passphrase_wrong)
+            val isWrongPassphrase = e.message == strings.dbImportPassphraseWrong
             if (isWrongPassphrase) {
                 logger.w(
                     "SettingsViewModel.resumeImportWithPassphrase",
@@ -548,7 +538,7 @@ fun SettingsViewModel.cancelImportPassphrase() {
     scope.launch {
         withContext(Dispatchers.IO) {
             databaseEncryptionManager.restoreEncryptionPrefs()
-            val deleted = deleteRuntimeDatabaseArtifacts(context)
+            val deleted = deleteRuntimeDatabaseArtifacts(localDatabaseFile)
             val backupMappings = pendingEncryptedImportBackupMappings
             pendingEncryptedImportDbFile = null
             pendingEncryptedImportBackupMappings = emptyList()

@@ -936,6 +936,7 @@ say "using display :$DISPLAY_NUM (allocated; was a fixed number before 2026-09-3
 export DISPLAY=":$DISPLAY_NUM"
 
 DISPLAY=":$DISPLAY_NUM" SKIKO_RENDER_API=SOFTWARE LIBGL_ALWAYS_SOFTWARE=1 HOME="$LOOP_HOME" \
+    LANG=en_US.UTF-8 LANGUAGE=en_US LC_ALL=en_US.UTF-8 \
     "$APP" >"$RUN_DIR/app-stdout.log" 2>&1 &
 APP_PID=$!
 # Stamped before the launch and compared against afterwards, so a pre-existing log from an earlier
@@ -964,6 +965,11 @@ for _ in $(seq 1 "$WAIT_SECONDS"); do
     fi
     WINDOW_ID=""
 done
+
+# Exported because a drive file runs in a CHILD shell (`bash -c "source '<drive>'"`), so only exported
+# variables and exported functions reach it. A drive that derives its OCR region from the window it was
+# launched into cannot see WINDOW_ID otherwise, and would fail safe rather than OCR the whole frame.
+export WINDOW_ID
 
 if [[ -z "$WINDOW_ID" ]]; then
     say "the app did not present a viewable window within ${WAIT_SECONDS}s"
@@ -1012,22 +1018,53 @@ else
 fi
 
 # --- the app's own account of the run ----------------------------------------------------------------------
-# MEASURED: jpackage's launcher resolves the REAL user home for the log, so grepping the isolated
-# $LOOP_HOME printed "no app log was written" on runs that had in fact logged everything. That probe
-# was a false negative, and a false negative here is worse than no probe: it reads as "the app is
-# silent", which looks like the opposite of the crash we are hunting.
-# The isolated HOME is still correct for app DATA - that is what makes this a first run - so only the
-# log location changed. Both directories are searched and the newest file wins, so this stays right
-# whichever home the launcher resolves, on this build and the next.
+# MEASURED TWICE, and both times the PROBE was the thing that was wrong, not the app:
+#   1. jpackage's launcher resolves the REAL user home for the log, so grepping the isolated $LOOP_HOME
+#      printed "no app log was written" on runs that had in fact logged everything. A false negative here
+#      is worse than no probe: it reads as "the app is silent", the opposite of the crash being hunted.
+#   2. The live log sits in a DEBUG-SUFFIXED root (Documents/Payanam-debug/logs) while the search covered
+#      only the unsuffixed one, so every run reported a 296-line log as missing.
+# The isolated HOME is still correct for app DATA - that is what makes this a first run - so only the log
+# LOCATION is derived now, and it is derived from the rule the app itself uses rather than from paths
+# typed in here (DesktopAppPaths):  <parent>/Documents/<rootName>/logs is the current layout and
+# <parent>/.local/share/<rootName>/logs the pre-migration one the app still reads.
+#   <parent>   = $XDG_DATA_HOME when set, else the home the launcher resolves
+#   <rootName> = "Payanam" + "-debug" on a debug build, plain "Payanam" on a release build
+# BOTH root names are searched whichever this build claims to be. The debug flag is frozen in at build
+# time, so a binary left in the tree from an earlier build answers for the wrong root - and choosing a
+# root by a flag that can be stale is this same defect one level up. The newest log across every root
+# wins, so a stale flag can cost a redundant find but never a false "no app log".
+APP_BUILD_INFO="$ROOT/desktop/build/generated/buildinfo/io/payanam/desktop/DesktopBuildInfo.kt"
+if [[ ! -r "$APP_BUILD_INFO" ]]; then
+    say "no generated build info at $APP_BUILD_INFO - cannot tell debug from release, so both root names are searched"
+elif grep -q 'IS_DEBUG_BUILD = true' "$APP_BUILD_INFO"; then
+    say "this build reports IS_DEBUG_BUILD=true, so its root is Payanam-debug (both names are searched regardless)"
+else
+    say "this build reports IS_DEBUG_BUILD=false, so its root is Payanam (both names are searched regardless)"
+fi
+LOG_PARENTS=("$HOME")
+# XDG_DATA_HOME replaces <home> as the parent when the launcher resolves it (DesktopAppPaths), so a
+# caller that set one has its log under THAT, not under $HOME. Appended only when it is a different
+# path, so the same directory is never searched twice for no gain.
+if [[ -n "${XDG_DATA_HOME:-}" && "$XDG_DATA_HOME" != "$HOME" ]]; then
+    LOG_PARENTS+=("$XDG_DATA_HOME")
+fi
+LOG_PARENTS+=("$LOOP_HOME")
+LOG_DIRS=()
+for parent in "${LOG_PARENTS[@]}"; do
+    for root_name in "Payanam-debug" "Payanam"; do
+        LOG_DIRS+=("$parent/Documents/$root_name/logs" "$parent/.local/share/$root_name/logs")
+    done
+done
 CRASH_LINE="appSettings was read before a data layer was installed"
-REAL_LOG_DIR="$HOME/.local/share/Payanam/logs"
-LOOP_LOG_DIR="$LOOP_HOME/.local/share/Payanam/logs"
 LOG=""
-for dir in "$REAL_LOG_DIR" "$LOOP_LOG_DIR"; do
+for dir in "${LOG_DIRS[@]}"; do
     # -newermt on the launch stamp, not ls -t, so yesterday's log can never be reported as today's.
     # The 5s slack absorbs second-granularity stamps: the log file is opened a moment after the
     # launcher forks, and "newest file, any age" was how the wrong file got picked in the first place.
-    candidate=$(find "$dir" -maxdepth 1 -name '*.log' -newermt "@$((LOOP_LAUNCHED_AT - 5))" -printf '%T@ %p\n' 2>/dev/null \
+    # The exported copy is excluded: it is a bundle the operator copied out, not this session's log.
+    candidate=$(find "$dir" -maxdepth 1 -name '*.log' ! -name 'payanam_desktop_latest_export.log' \
+        -newermt "@$((LOOP_LAUNCHED_AT - 5))" -printf '%T@ %p\n' 2>/dev/null \
         | sort -rn | head -1 | cut -d' ' -f2-)
     [[ -n "$candidate" ]] || continue
     if [[ -z "$LOG" || "$candidate" -nt "$LOG" ]]; then
@@ -1052,9 +1089,10 @@ if [[ -n "$LOG" ]]; then
         say "no crash marker in the log"
     fi
 else
-    say "no app log was written for this run (launched at $(date -d "@$LOOP_LAUNCHED_AT" '+%H:%M:%S')) in:"
-    say "  $REAL_LOG_DIR"
-    say "  $LOOP_LOG_DIR"
+    say "no app log was written for this run (launched at $(date -d "@$LOOP_LAUNCHED_AT" '+%H:%M:%S')) in any of:"
+    for dir in "${LOG_DIRS[@]}"; do
+        say "  $dir"
+    done
 fi
 
 say "artifacts: $RUN_DIR"

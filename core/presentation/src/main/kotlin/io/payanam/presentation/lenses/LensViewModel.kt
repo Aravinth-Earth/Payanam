@@ -17,16 +17,8 @@ import io.payanam.domain.repository.PlanningLensData
 import io.payanam.domain.repository.RealityLensData
 import io.payanam.domain.repository.UnifiedLensSnapshot
 import io.payanam.domain.repository.WeekGridData
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
-import kotlinx.coroutines.withContext
+import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.lenses.DimensionSplitWindow
 import io.payanam.presentation.lenses.DimensionTrendWindow
 import io.payanam.presentation.lenses.HeatmapState
@@ -37,19 +29,27 @@ import io.payanam.presentation.lenses.LensTimeWindow
 import io.payanam.presentation.lenses.LensUiState
 import io.payanam.presentation.lenses.LensWindowNavigationState
 import io.payanam.presentation.lenses.MinutePatternState
-import io.payanam.presentation.lenses.WeekGridState
 import io.payanam.presentation.lenses.ResolvedLensWindowRange
 import io.payanam.presentation.lenses.TimeModuleHistorySummary
+import io.payanam.presentation.lenses.WeekGridState
 import io.payanam.presentation.lenses.windowsForMode
-import java.time.LocalDate
-import java.time.format.DateTimeFormatter
-import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.platform.elapsedMillis
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import io.payanam.presentation.platform.elapsedMillis
-import io.payanam.presentation.data.LocalDataLayer
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
 
 private const val MAX_RANGE_DAYS = 730
 private const val FAST_HISTORY_DAYS = 7
@@ -70,7 +70,6 @@ class LensViewModel(
     private val lensRepository: LensRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
-
     private val logger = AppLogger.current
     private var lensLoadJob: Job? = null
     private var reflectionRefreshJob: Job? = null
@@ -89,6 +88,7 @@ class LensViewModel(
         logger.i("LensViewModel.init", "Initializing LensViewModel")
         loadLensData()
     }
+
     /**
      * Focuses the lens on [date], recomputes the resolved range and reloads all
      * planning/reality/reflection data for that day.
@@ -96,11 +96,12 @@ class LensViewModel(
     fun selectDate(date: LocalDate) {
         logger.d("LensViewModel.selectDate", "Selecting date", mapOf("date" to date.toString()))
         _uiState.update { state ->
-            val navigationState = navigationStateForSelection(
-                mode = state.selectedTimeMode,
-                window = state.selectedTimeWindow,
-                pageIndex = 0,
-            )
+            val navigationState =
+                navigationStateForSelection(
+                    mode = state.selectedTimeMode,
+                    window = state.selectedTimeWindow,
+                    pageIndex = 0,
+                )
             state.copy(
                 selectedDate = date,
                 windowPageIndex = 0,
@@ -111,6 +112,7 @@ class LensViewModel(
         }
         loadLensData()
     }
+
     /**
      * Sets the active [LensMoment] (start / live / close day) that scopes which
      * phase of the day the lens renders.
@@ -119,6 +121,7 @@ class LensViewModel(
         logger.d("LensViewModel.selectMoment", "Selecting moment", mapOf("moment" to moment.name))
         _uiState.update { it.copy(selectedMoment = moment) }
     }
+
     /**
      * Switches how lens content is grouped (overall / by module / by dimension)
      * without triggering a data reload.
@@ -128,6 +131,7 @@ class LensViewModel(
         logger.d("LensViewModel.selectGrouping", "Selecting grouping", mapOf("grouping" to grouping.name))
         _uiState.update { it.copy(selectedGrouping = grouping) }
     }
+
     /**
      * Enters the given browsing [mode] (today / past / future), applying its
      * default window and reloading the lens data.
@@ -156,6 +160,7 @@ class LensViewModel(
         }
         loadLensData()
     }
+
     /**
      * Selects a concrete [window] for the current mode (ignored if the mode
      * does not support it) and reloads the lens data.
@@ -187,6 +192,7 @@ class LensViewModel(
         }
         loadLensData()
     }
+
     /**
      * Pages the windowed range backward (older days in PAST, newer in FUTURE),
      * clamped to the available pages, then reloads.
@@ -194,20 +200,26 @@ class LensViewModel(
     fun goToPreviousWindowPage() {
         val state = _uiState.value
         if (!state.canGoToPreviousWindowPage) return
-        val newPageIndex = when (state.selectedTimeMode) {
-            LensTimeMode.TODAY -> 0
+        val newPageIndex =
+            when (state.selectedTimeMode) {
+                LensTimeMode.TODAY -> {
+                    0
+                }
 
-            LensTimeMode.PAST -> {
-                if (state.selectedTimeWindow == LensTimeWindow.ALL_PAST_DAYS) 0 else state.windowPageIndex + 1
+                LensTimeMode.PAST -> {
+                    if (state.selectedTimeWindow == LensTimeWindow.ALL_PAST_DAYS) 0 else state.windowPageIndex + 1
+                }
+
+                LensTimeMode.FUTURE -> {
+                    (state.windowPageIndex - 1).coerceAtLeast(0)
+                }
             }
-
-            LensTimeMode.FUTURE -> (state.windowPageIndex - 1).coerceAtLeast(0)
-        }
-        val navigationState = navigationStateForSelection(
-            mode = state.selectedTimeMode,
-            window = state.selectedTimeWindow,
-            pageIndex = newPageIndex,
-        )
+        val navigationState =
+            navigationStateForSelection(
+                mode = state.selectedTimeMode,
+                window = state.selectedTimeWindow,
+                pageIndex = newPageIndex,
+            )
         _uiState.update {
             it.copy(
                 windowPageIndex = newPageIndex,
@@ -218,6 +230,7 @@ class LensViewModel(
         }
         loadLensData()
     }
+
     /**
      * Pages the windowed range forward (newer days in PAST, older in FUTURE),
      * clamped to the available pages, then reloads.
@@ -225,16 +238,18 @@ class LensViewModel(
     fun goToNextWindowPage() {
         val state = _uiState.value
         if (!state.canGoToNextWindowPage) return
-        val newPageIndex = when (state.selectedTimeMode) {
-            LensTimeMode.TODAY -> 0
-            LensTimeMode.PAST -> (state.windowPageIndex - 1).coerceAtLeast(0)
-            LensTimeMode.FUTURE -> state.windowPageIndex + 1
-        }
-        val navigationState = navigationStateForSelection(
-            mode = state.selectedTimeMode,
-            window = state.selectedTimeWindow,
-            pageIndex = newPageIndex,
-        )
+        val newPageIndex =
+            when (state.selectedTimeMode) {
+                LensTimeMode.TODAY -> 0
+                LensTimeMode.PAST -> (state.windowPageIndex - 1).coerceAtLeast(0)
+                LensTimeMode.FUTURE -> state.windowPageIndex + 1
+            }
+        val navigationState =
+            navigationStateForSelection(
+                mode = state.selectedTimeMode,
+                window = state.selectedTimeWindow,
+                pageIndex = newPageIndex,
+            )
         _uiState.update {
             it.copy(
                 windowPageIndex = newPageIndex,
@@ -245,12 +260,16 @@ class LensViewModel(
         }
         loadLensData()
     }
+
     /**
      * Marks the reflection card [reflectionId] as addressed (persisting
      * [note]) and reloads the lens data.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    fun markReflectionAddressed(reflectionId: String, note: String?) {
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    fun markReflectionAddressed(
+        reflectionId: String,
+        note: String?,
+    ) {
         logger.d("LensViewModel.markReflectionAddressed", "Marking reflection addressed", mapOf("id" to reflectionId))
         scope.launch {
             try {
@@ -267,11 +286,12 @@ class LensViewModel(
             }
         }
     }
+
     /**
      * Regenerates the reflection cards for the selected day from current data
      * and refreshes the UI.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun regenerateReflections() {
         logger.d("LensViewModel.regenerateReflections", "Regenerating reflections")
         scope.launch {
@@ -290,6 +310,7 @@ class LensViewModel(
             }
         }
     }
+
     /**
      * Asks the history backfill coordinator for the next incremental stage of
      * time-history charts, honouring the prefetch cooldown and minimal mode.
@@ -312,6 +333,7 @@ class LensViewModel(
         pendingHistoryLimit = nextLimit
         scheduleHistoryBackfill(context = context, maxHistoryLimit = nextLimit)
     }
+
     /**
      * Applies the user's chart-enablement toggles: decides whether the
      * time-history module is active and triggers the relevant chart loads
@@ -337,191 +359,210 @@ class LensViewModel(
         chartDailyRhythmExclEmpty: Boolean,
     ) {
         chartLoadJob?.cancel()
-        chartLoadJob = scope.launch {
-            timeHistoryChartsEnabled =
-                chartTimeModuleEnabled &&
+        chartLoadJob =
+            scope.launch {
+                timeHistoryChartsEnabled =
+                    chartTimeModuleEnabled &&
                     (
                         (chartTimeScoreCardsEnabled && (chartTimeOverallScoreCardEnabled || chartTimeDimensionScoreCardsEnabled)) ||
-                            (chartTimeLineGraphsEnabled && (chartTimeDailyScoreTrendEnabled || chartTimeProgressTrendEnabled || chartTimeHistoricalRankingEnabled || chartTimeMomentumStreakEnabled))
+                            (
+                                chartTimeLineGraphsEnabled &&
+                                    (
+                                        chartTimeDailyScoreTrendEnabled || chartTimeProgressTrendEnabled ||
+                                            chartTimeHistoricalRankingEnabled ||
+                                            chartTimeMomentumStreakEnabled
+                                    )
+                            )
+                    )
+                logger.d(
+                    "LensViewModel.loadEnabledChartsSequentially",
+                    "Loading enabled insight charts",
+                    mapOf(
+                        "timeModuleEnabled" to chartTimeModuleEnabled,
+                        "timeScoreCardsEnabled" to chartTimeScoreCardsEnabled,
+                        "timeOverallScoreCardEnabled" to chartTimeOverallScoreCardEnabled,
+                        "timeDimensionScoreCardsEnabled" to chartTimeDimensionScoreCardsEnabled,
+                        "timeLineGraphsEnabled" to chartTimeLineGraphsEnabled,
+                        "timeDailyScoreTrendEnabled" to chartTimeDailyScoreTrendEnabled,
+                        "timeProgressTrendEnabled" to chartTimeProgressTrendEnabled,
+                        "timeHistoricalRankingEnabled" to chartTimeHistoricalRankingEnabled,
+                        "timeMomentumStreakEnabled" to chartTimeMomentumStreakEnabled,
+                        "dimSplitEnabled" to chartDimSplitEnabled,
+                        "averageDailyTimeEnabled" to chartAverageDailyTimeEnabled,
+                        "dimTrendEnabled" to chartDimTrendEnabled,
+                        "dailyTimelineEnabled" to chartDailyTimelineEnabled,
+                        "weeklyPatternEnabled" to chartWeeklyPatternEnabled,
+                        "dailyRhythmEnabled" to chartDailyRhythmEnabled,
+                        "timeHistoryChartsEnabled" to timeHistoryChartsEnabled,
+                    ),
+                )
+                if (!timeHistoryChartsEnabled) {
+                    historyBackfill.cancel()
+                    _uiState.update { it.copy(timeModuleHistorySummary = null) }
+                } else if (_uiState.value.timeModuleHistorySummary == null) {
+                    loadTimeModuleHistoryInternal()
+                    backfillContext?.let { context ->
+                        scheduleHistoryBackfill(
+                            context = context,
+                            maxHistoryLimit = INITIAL_BACKFILL_STAGE_LIMIT,
                         )
-            logger.d(
-                "LensViewModel.loadEnabledChartsSequentially",
-                "Loading enabled insight charts",
-                mapOf(
-                    "timeModuleEnabled" to chartTimeModuleEnabled,
-                    "timeScoreCardsEnabled" to chartTimeScoreCardsEnabled,
-                    "timeOverallScoreCardEnabled" to chartTimeOverallScoreCardEnabled,
-                    "timeDimensionScoreCardsEnabled" to chartTimeDimensionScoreCardsEnabled,
-                    "timeLineGraphsEnabled" to chartTimeLineGraphsEnabled,
-                    "timeDailyScoreTrendEnabled" to chartTimeDailyScoreTrendEnabled,
-                    "timeProgressTrendEnabled" to chartTimeProgressTrendEnabled,
-                    "timeHistoricalRankingEnabled" to chartTimeHistoricalRankingEnabled,
-                    "timeMomentumStreakEnabled" to chartTimeMomentumStreakEnabled,
-                    "dimSplitEnabled" to chartDimSplitEnabled,
-                    "averageDailyTimeEnabled" to chartAverageDailyTimeEnabled,
-                    "dimTrendEnabled" to chartDimTrendEnabled,
-                    "dailyTimelineEnabled" to chartDailyTimelineEnabled,
-                    "weeklyPatternEnabled" to chartWeeklyPatternEnabled,
-                    "dailyRhythmEnabled" to chartDailyRhythmEnabled,
-                    "timeHistoryChartsEnabled" to timeHistoryChartsEnabled,
-                ),
-            )
-            if (!timeHistoryChartsEnabled) {
-                historyBackfill.cancel()
-                _uiState.update { it.copy(timeModuleHistorySummary = null) }
-            } else if (_uiState.value.timeModuleHistorySummary == null) {
-                loadTimeModuleHistoryInternal()
-                backfillContext?.let { context ->
-                    scheduleHistoryBackfill(
-                        context = context,
-                        maxHistoryLimit = INITIAL_BACKFILL_STAGE_LIMIT,
-                    )
+                    }
                 }
-            }
-            if (chartTimeModuleEnabled && chartDimSplitEnabled) {
-                loadDimensionSplitInternal()
-            }
-            if (chartTimeModuleEnabled && chartAverageDailyTimeEnabled) {
-                if (_uiState.value.averageDailyTimeTable == null) {
-                    loadAverageDailyTimeInternal()
-                } else {
-                    logger.d(
-                        "LensViewModel.loadEnabledChartsSequentially",
-                        "Reusing cached average daily time table",
-                        mapOf(
-                            "days" to (_uiState.value.averageDailyTimeTable?.totalCalendarDays ?: 0),
-                            "rows" to (_uiState.value.averageDailyTimeTable?.rows?.size ?: 0),
-                        ),
-                    )
+                if (chartTimeModuleEnabled && chartDimSplitEnabled) {
+                    loadDimensionSplitInternal()
                 }
-            } else if (!chartTimeModuleEnabled || !chartAverageDailyTimeEnabled) {
-                _uiState.update { it.copy(averageDailyTimeTable = null) }
+                if (chartTimeModuleEnabled && chartAverageDailyTimeEnabled) {
+                    if (_uiState.value.averageDailyTimeTable == null) {
+                        loadAverageDailyTimeInternal()
+                    } else {
+                        logger.d(
+                            "LensViewModel.loadEnabledChartsSequentially",
+                            "Reusing cached average daily time table",
+                            mapOf(
+                                "days" to (_uiState.value.averageDailyTimeTable?.totalCalendarDays ?: 0),
+                                "rows" to (
+                                    _uiState.value.averageDailyTimeTable
+                                        ?.rows
+                                        ?.size ?: 0
+                                ),
+                            ),
+                        )
+                    }
+                } else if (!chartTimeModuleEnabled || !chartAverageDailyTimeEnabled) {
+                    _uiState.update { it.copy(averageDailyTimeTable = null) }
+                }
+                if (chartTimeModuleEnabled && chartDimTrendEnabled) loadDimensionTrendInternal()
+                if (chartTimeModuleEnabled && chartDailyTimelineEnabled) loadHeatmapInternal()
+                if (chartTimeModuleEnabled && chartWeeklyPatternEnabled) loadWeekGridInternal(chartWeeklyPatternExclEmpty)
+                if (chartTimeModuleEnabled && chartDailyRhythmEnabled) loadMinutePatternInternal(chartDailyRhythmExclEmpty)
             }
-            if (chartTimeModuleEnabled && chartDimTrendEnabled) loadDimensionTrendInternal()
-            if (chartTimeModuleEnabled && chartDailyTimelineEnabled) loadHeatmapInternal()
-            if (chartTimeModuleEnabled && chartWeeklyPatternEnabled) loadWeekGridInternal(chartWeeklyPatternExclEmpty)
-            if (chartTimeModuleEnabled && chartDailyRhythmEnabled) loadMinutePatternInternal(chartDailyRhythmExclEmpty)
-        }
     }
+
     /**
      * Cancels any in-flight load and reloads planning/reality/reflection data
      * for the current selection into [_uiState].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun loadLensData() {
         lensLoadJob?.cancel()
         reflectionRefreshJob?.cancel()
         historyBackfill.cancel()
-        lensLoadJob = scope.launch {
-            try {
-                executeLensDataLoad()
-            } catch (_: CancellationException) {
-                logger.d("LensViewModel.loadLensData", "Previous lens collector cancelled")
-            } catch (e: Exception) {
-                logger.e("LensViewModel.loadLensData", "Failed to load lens data", e)
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        hasError = true,
-                        errorMessage = "Failed to load lens data: ${e.message}",
-                    )
+        lensLoadJob =
+            scope.launch {
+                try {
+                    executeLensDataLoad()
+                } catch (_: CancellationException) {
+                    logger.d("LensViewModel.loadLensData", "Previous lens collector cancelled")
+                } catch (e: Exception) {
+                    logger.e("LensViewModel.loadLensData", "Failed to load lens data", e)
+                    _uiState.update {
+                        it.copy(
+                            isLoading = false,
+                            hasError = true,
+                            errorMessage = "Failed to load lens data: ${e.message}",
+                        )
+                    }
                 }
+            }
+    }
+
+    private suspend fun executeLensDataLoad() {
+        val state = _uiState.value
+        val resolvedRange =
+            resolveDateRange(
+                anchorDate = state.selectedDate,
+                mode = state.selectedTimeMode,
+                window = state.selectedTimeWindow,
+                pageIndex = state.windowPageIndex,
+            )
+        val focusDate = focusDateForRange(resolvedRange)
+        val dayKey = focusDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
+        logger.d(
+            "LensViewModel.loadLensData",
+            "Loading lens data",
+            mapOf(
+                "dayKey" to dayKey,
+                "mode" to resolvedRange.mode.name,
+                "window" to resolvedRange.window.name,
+                "pageIndex" to resolvedRange.pageIndex,
+                "startDate" to resolvedRange.startDate.toString(),
+                "endDate" to resolvedRange.endDate.toString(),
+            ),
+        )
+        val preparedLoadData =
+            prepareLensLoadData(
+                lensRepository = lensRepository,
+                snapshotCache = snapshotCache,
+                resolvedRange = resolvedRange,
+                focusDate = focusDate,
+                dayKey = dayKey,
+                fastHistoryDays = FAST_HISTORY_DAYS,
+                loadTimeHistorySummary = timeHistoryChartsEnabled,
+            )
+        val navigationState =
+            navigationStateForSelection(
+                mode = resolvedRange.mode,
+                window = resolvedRange.window,
+                pageIndex = resolvedRange.pageIndex,
+            )
+        _uiState.update {
+            it.copy(
+                isLoading = false,
+                hasError = false,
+                errorMessage = null,
+                selectedTimeMode = resolvedRange.mode,
+                selectedTimeWindow = resolvedRange.window,
+                windowPageIndex = resolvedRange.pageIndex,
+                canGoToPreviousWindowPage = navigationState.canGoPrevious,
+                canGoToNextWindowPage = navigationState.canGoNext,
+                planningData = preparedLoadData.planningData,
+                realityData = preparedLoadData.realityData,
+                reflections = preparedLoadData.reflections,
+                planCompletenessScore = preparedLoadData.planningData.planCompletenessScore,
+                adherenceScore = preparedLoadData.realityData.adherenceScore,
+                selectedRangeSummary = preparedLoadData.selectedRangeSummary,
+                timeModuleHistorySummary = preparedLoadData.timeModuleHistorySummary,
+                longHorizonSummaries = emptyList(),
+            )
+        }
+        logger.d(
+            "LensViewModel.loadLensData",
+            "Lens data updated",
+            mapOf(
+                "dayKey" to dayKey,
+                "planCompleteness" to preparedLoadData.planningData.planCompletenessScore,
+                "adherence" to preparedLoadData.realityData.adherenceScore,
+                "reflectionsCount" to preparedLoadData.reflections.size,
+                "mode" to resolvedRange.mode.name,
+                "window" to resolvedRange.window.name,
+                "pageIndex" to resolvedRange.pageIndex,
+            ),
+        )
+        backfillContext =
+            LensBackfillContext(
+                focusDate = focusDate,
+                resolvedRange = resolvedRange,
+                rangeSnapshotsByDay = preparedLoadData.rangeSnapshotsByDay,
+            )
+        lastHistoryPrefetchAtMs = 0L
+        pendingHistoryLimit =
+            if (timeHistoryChartsEnabled && INITIAL_BACKFILL_STAGE_LIMIT > FAST_HISTORY_DAYS) INITIAL_BACKFILL_STAGE_LIMIT else null
+        if (PlatformFeatureFlags.current.minimalModeEnabled) {
+            loadMinimalFocusAverages()
+        } else {
+            if (timeHistoryChartsEnabled) {
+                scheduleHistoryBackfill(
+                    context = backfillContext ?: return,
+                    maxHistoryLimit = INITIAL_BACKFILL_STAGE_LIMIT,
+                )
+            }
+            if (resolvedRange.mode != LensTimeMode.FUTURE) {
+                refreshReflections(dayKey)
             }
         }
     }
 
-    private suspend fun executeLensDataLoad() {
-                val state = _uiState.value
-                val resolvedRange = resolveDateRange(
-                    anchorDate = state.selectedDate,
-                    mode = state.selectedTimeMode,
-                    window = state.selectedTimeWindow,
-                    pageIndex = state.windowPageIndex,
-                )
-                val focusDate = focusDateForRange(resolvedRange)
-                val dayKey = focusDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
-                logger.d(
-                    "LensViewModel.loadLensData",
-                    "Loading lens data",
-                    mapOf(
-                        "dayKey" to dayKey,
-                        "mode" to resolvedRange.mode.name,
-                        "window" to resolvedRange.window.name,
-                        "pageIndex" to resolvedRange.pageIndex,
-                        "startDate" to resolvedRange.startDate.toString(),
-                        "endDate" to resolvedRange.endDate.toString(),
-                    ),
-                )
-                val preparedLoadData = prepareLensLoadData(
-                    lensRepository = lensRepository,
-                    snapshotCache = snapshotCache,
-                    resolvedRange = resolvedRange,
-                    focusDate = focusDate,
-                    dayKey = dayKey,
-                    fastHistoryDays = FAST_HISTORY_DAYS,
-                    loadTimeHistorySummary = timeHistoryChartsEnabled,
-                )
-                val navigationState = navigationStateForSelection(
-                    mode = resolvedRange.mode,
-                    window = resolvedRange.window,
-                    pageIndex = resolvedRange.pageIndex,
-                )
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        hasError = false,
-                        errorMessage = null,
-                        selectedTimeMode = resolvedRange.mode,
-                        selectedTimeWindow = resolvedRange.window,
-                        windowPageIndex = resolvedRange.pageIndex,
-                        canGoToPreviousWindowPage = navigationState.canGoPrevious,
-                        canGoToNextWindowPage = navigationState.canGoNext,
-                        planningData = preparedLoadData.planningData,
-                        realityData = preparedLoadData.realityData,
-                        reflections = preparedLoadData.reflections,
-                        planCompletenessScore = preparedLoadData.planningData.planCompletenessScore,
-                        adherenceScore = preparedLoadData.realityData.adherenceScore,
-                        selectedRangeSummary = preparedLoadData.selectedRangeSummary,
-                        timeModuleHistorySummary = preparedLoadData.timeModuleHistorySummary,
-                        longHorizonSummaries = emptyList(),
-                    )
-                }
-                logger.d(
-                    "LensViewModel.loadLensData",
-                    "Lens data updated",
-                    mapOf(
-                        "dayKey" to dayKey,
-                        "planCompleteness" to preparedLoadData.planningData.planCompletenessScore,
-                        "adherence" to preparedLoadData.realityData.adherenceScore,
-                        "reflectionsCount" to preparedLoadData.reflections.size,
-                        "mode" to resolvedRange.mode.name,
-                        "window" to resolvedRange.window.name,
-                        "pageIndex" to resolvedRange.pageIndex,
-                    ),
-                )
-                backfillContext = LensBackfillContext(
-                    focusDate = focusDate,
-                    resolvedRange = resolvedRange,
-                    rangeSnapshotsByDay = preparedLoadData.rangeSnapshotsByDay,
-                )
-                lastHistoryPrefetchAtMs = 0L
-                pendingHistoryLimit = if (timeHistoryChartsEnabled && INITIAL_BACKFILL_STAGE_LIMIT > FAST_HISTORY_DAYS) INITIAL_BACKFILL_STAGE_LIMIT else null
-                if (PlatformFeatureFlags.current.minimalModeEnabled) {
-                    loadMinimalFocusAverages()
-                } else {
-                    if (timeHistoryChartsEnabled) {
-                        scheduleHistoryBackfill(
-                            context = backfillContext ?: return,
-                            maxHistoryLimit = INITIAL_BACKFILL_STAGE_LIMIT,
-                        )
-                    }
-                    if (resolvedRange.mode != LensTimeMode.FUTURE) {
-                        refreshReflections(dayKey)
-                    }
-                }
-    }
-
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadMinimalFocusAverages() {
         scope.launch {
             try {
@@ -535,7 +576,7 @@ class LensViewModel(
         loadDailyTrackedTimeStats()
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadDailyTrackedTimeStats() {
         scope.launch {
             try {
@@ -549,7 +590,7 @@ class LensViewModel(
         loadDailyFocusedHoursStats()
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadDailyFocusedHoursStats() {
         scope.launch {
             try {
@@ -564,14 +605,15 @@ class LensViewModel(
 
     private suspend fun loadTimeModuleHistoryInternal() {
         val context = backfillContext ?: return
-        val summary = withContext(Dispatchers.Default) {
-            buildTimeModuleHistorySummary(
-                lensRepository = lensRepository,
-                focusDate = context.focusDate,
-                seededDataByDay = context.rangeSnapshotsByDay,
-                historyDayLimit = FAST_HISTORY_DAYS,
-            )
-        }
+        val summary =
+            withContext(Dispatchers.Default) {
+                buildTimeModuleHistorySummary(
+                    lensRepository = lensRepository,
+                    focusDate = context.focusDate,
+                    seededDataByDay = context.rangeSnapshotsByDay,
+                    historyDayLimit = FAST_HISTORY_DAYS,
+                )
+            }
         _uiState.update { it.copy(timeModuleHistorySummary = summary) }
         logger.d(
             "LensViewModel.loadTimeModuleHistoryInternal",
@@ -582,6 +624,7 @@ class LensViewModel(
             ),
         )
     }
+
     /**
      * Selects the [window] for the dimension-split chart and reloads it.
      */
@@ -590,6 +633,7 @@ class LensViewModel(
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(window = window, windowOffset = 0, isLoading = true)) }
         loadDimensionSplit()
     }
+
     /**
      * Shifts the dimension-split window earlier (older) when not already at the
      * oldest window, then reloads.
@@ -602,6 +646,7 @@ class LensViewModel(
         _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(windowOffset = newOffset, isLoading = true)) }
         loadDimensionSplit()
     }
+
     /**
      * Shifts the dimension-split window later (newer) when the offset is above
      * zero, then reloads.
@@ -615,7 +660,7 @@ class LensViewModel(
         loadDimensionSplit()
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadDimensionSplit() {
         scope.launch {
             loadDimensionSplitInternal()
@@ -629,25 +674,27 @@ class LensViewModel(
             val split = _uiState.value.dimensionSplit
             val window = split.window
             val offset = split.windowOffset
-            val (requestedStart, requestedEnd) = if (window == DimensionSplitWindow.ALL) {
-                (firstEntry ?: today) to today
-            } else {
-                val spanDays = window.spanDays!!.toLong()
-                val shiftDays = spanDays * offset
-                val end = today.minusDays(shiftDays)
-                val start = end.minusDays(spanDays - 1)
-                start to end
-            }
+            val (requestedStart, requestedEnd) =
+                if (window == DimensionSplitWindow.ALL) {
+                    (firstEntry ?: today) to today
+                } else {
+                    val spanDays = window.spanDays!!.toLong()
+                    val shiftDays = spanDays * offset
+                    val end = today.minusDays(shiftDays)
+                    val start = end.minusDays(spanDays - 1)
+                    start to end
+                }
             val effectiveStart = if (firstEntry != null && requestedStart.isBefore(firstEntry)) firstEntry else requestedStart
             val effectiveEnd = if (requestedEnd.isAfter(today)) today else requestedEnd
             val isClamped = effectiveStart.isAfter(requestedStart)
             val clampedDays = (effectiveEnd.toEpochDay() - effectiveStart.toEpochDay() + 1).toInt().coerceAtLeast(0)
             val requestedDays = window.spanDays ?: (today.toEpochDay() - (firstEntry ?: today).toEpochDay() + 1).toInt()
-            val rawByDimension = if (effectiveStart.isAfter(effectiveEnd)) {
-                emptyMap()
-            } else {
-                lensRepository.getDimensionSplitForRange(effectiveStart, effectiveEnd)
-            }
+            val rawByDimension =
+                if (effectiveStart.isAfter(effectiveEnd)) {
+                    emptyMap()
+                } else {
+                    lensRepository.getDimensionSplitForRange(effectiveStart, effectiveEnd)
+                }
             // Normalize sentinel keys (null, "", "unassigned") all into null so they
             // merge into a single "Unassigned" slice rather than appearing as separate entries.
             val byDimension = mutableMapOf<String?, Int>()
@@ -679,21 +726,22 @@ class LensViewModel(
             )
             _uiState.update {
                 it.copy(
-                    dimensionSplit = it.dimensionSplit.copy(
-                        firstEntryDate = firstEntry,
-                        effectiveStart = effectiveStart,
-                        effectiveEnd = effectiveEnd,
-                        requestedStart = requestedStart,
-                        requestedEnd = requestedEnd,
-                        byDimension = byDimension,
-                        totalMinutes = totalMinutes,
-                        isClamped = isClamped,
-                        clampedDays = clampedDays,
-                        requestedDays = requestedDays,
-                        canShiftLeft = canShiftLeft,
-                        canShiftRight = canShiftRight,
-                        isLoading = false,
-                    ),
+                    dimensionSplit =
+                        it.dimensionSplit.copy(
+                            firstEntryDate = firstEntry,
+                            effectiveStart = effectiveStart,
+                            effectiveEnd = effectiveEnd,
+                            requestedStart = requestedStart,
+                            requestedEnd = requestedEnd,
+                            byDimension = byDimension,
+                            totalMinutes = totalMinutes,
+                            isClamped = isClamped,
+                            clampedDays = clampedDays,
+                            requestedDays = requestedDays,
+                            canShiftLeft = canShiftLeft,
+                            canShiftRight = canShiftRight,
+                            isLoading = false,
+                        ),
                 )
             }
         } catch (e: Exception) {
@@ -701,16 +749,25 @@ class LensViewModel(
             _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(isLoading = false)) }
         }
     }
+
     /**
      * Selects the [window] for the dimension-trend chart and reloads it.
      */
     fun selectDimensionTrendWindow(window: DimensionTrendWindow) {
-        logger.d("LensViewModel.selectDimensionTrendWindow", "Selecting dimension trend window", mapOf("window" to window.name, "spanDays" to window.spanDays))
+        logger.d(
+            "LensViewModel.selectDimensionTrendWindow",
+            "Selecting dimension trend window",
+            mapOf(
+                "window" to window.name,
+                "spanDays" to window.spanDays,
+            ),
+        )
         _uiState.update { it.copy(dimensionTrend = it.dimensionTrend.copy(window = window, isLoading = true)) }
         loadDimensionTrend()
     }
 
     // Public trigger methods — called from LensesScreen when opt-in pref is enabled
+
     /**
      * Public entry point (invoked by the screen when the opt-in pref is on)
      * that kicks off the dimension-trend chart load.
@@ -719,6 +776,7 @@ class LensViewModel(
         logger.d("LensViewModel.triggerDimTrendLoad", "Dimension trend chart load triggered")
         loadDimensionTrend()
     }
+
     /**
      * Public entry point that triggers the daily-timeline (heatmap) chart load.
      */
@@ -726,14 +784,20 @@ class LensViewModel(
         logger.d("LensViewModel.triggerDailyTimelineLoad", "Daily timeline chart load triggered")
         loadHeatmap()
     }
+
     /**
      * Public entry point that triggers the weekly-pattern (week-grid) chart
      * load, forwarding the [excludeEmptyDays] toggle.
      */
     fun triggerWeeklyPatternLoad(excludeEmptyDays: Boolean) {
-        logger.d("LensViewModel.triggerWeeklyPatternLoad", "Weekly pattern chart load triggered", mapOf("excludeEmptyDays" to excludeEmptyDays))
+        logger.d(
+            "LensViewModel.triggerWeeklyPatternLoad",
+            "Weekly pattern chart load triggered",
+            mapOf("excludeEmptyDays" to excludeEmptyDays),
+        )
         loadWeekGrid(excludeEmptyDays)
     }
+
     /**
      * Public entry point that triggers the daily-rhythm (minute-pattern) chart
      * load, forwarding the [excludeEmptyDays] toggle.
@@ -761,7 +825,7 @@ class LensViewModel(
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadMinutePattern(excludeEmptyDays: Boolean = false) {
         scope.launch {
             loadMinutePatternInternal(excludeEmptyDays)
@@ -774,7 +838,14 @@ class LensViewModel(
             logger.d("LensViewModel.loadDimensionTrend", "Loading dimension trend blocks", mapOf("window" to window.name))
             val blocks = withContext(Dispatchers.Default) { lensRepository.getDimensionTrendBlocks(windowDays = window.spanDays) }
             _uiState.update { it.copy(dimensionTrend = it.dimensionTrend.copy(blocks = blocks, isLoading = false)) }
-            logger.d("LensViewModel.loadDimensionTrend", "Dimension trend loaded", mapOf("window" to window.name, "blockCount" to blocks.size))
+            logger.d(
+                "LensViewModel.loadDimensionTrend",
+                "Dimension trend loaded",
+                mapOf(
+                    "window" to window.name,
+                    "blockCount" to blocks.size,
+                ),
+            )
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadDimensionTrend", "Dimension trend load cancelled")
         } catch (e: Exception) {
@@ -789,7 +860,14 @@ class LensViewModel(
             _uiState.update { it.copy(heatmap = it.heatmap.copy(isLoading = true)) }
             val days = withContext(Dispatchers.Default) { lensRepository.getHeatmapDays() }
             _uiState.update { it.copy(heatmap = HeatmapState(days = days, isLoading = false)) }
-            logger.d("LensViewModel.loadHeatmap", "Heatmap loaded", mapOf("dayCount" to days.size, "totalSegments" to days.sumOf { it.segments.size }))
+            logger.d(
+                "LensViewModel.loadHeatmap",
+                "Heatmap loaded",
+                mapOf(
+                    "dayCount" to days.size,
+                    "totalSegments" to days.sumOf { it.segments.size },
+                ),
+            )
         } catch (_: CancellationException) {
             logger.d("LensViewModel.loadHeatmap", "Heatmap load cancelled")
         } catch (e: Exception) {
@@ -851,7 +929,10 @@ class LensViewModel(
         }
     }
 
-    private fun scheduleHistoryBackfill(context: LensBackfillContext, maxHistoryLimit: Int) {
+    private fun scheduleHistoryBackfill(
+        context: LensBackfillContext,
+        maxHistoryLimit: Int,
+    ) {
         historyBackfill.schedule(
             scope = scope,
             lensRepository = lensRepository,
@@ -885,45 +966,47 @@ class LensViewModel(
         )
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun refreshReflections(dayKey: String) {
         reflectionRefreshJob?.cancel()
-        reflectionRefreshJob = scope.launch {
-            try {
-                if (!lensRepository.isDayDirty(dayKey)) {
-                    logger.d("LensViewModel.refreshReflections", "Skipping reflection refresh for clean day", mapOf("dayKey" to dayKey))
-                    return@launch
-                }
-                lensRepository.generateReflectionCards(dayKey)
-                val reflections = lensRepository.observeReflections(dayKey).firstOrNull() ?: emptyList()
-                val selectedFocusDayKey = focusDateForRange(
-                    resolveDateRange(
-                        anchorDate = _uiState.value.selectedDate,
-                        mode = _uiState.value.selectedTimeMode,
-                        window = _uiState.value.selectedTimeWindow,
-                        pageIndex = _uiState.value.windowPageIndex,
-                    ),
-                ).format(DateTimeFormatter.ISO_LOCAL_DATE)
-                if (selectedFocusDayKey != dayKey) {
+        reflectionRefreshJob =
+            scope.launch {
+                try {
+                    if (!lensRepository.isDayDirty(dayKey)) {
+                        logger.d("LensViewModel.refreshReflections", "Skipping reflection refresh for clean day", mapOf("dayKey" to dayKey))
+                        return@launch
+                    }
+                    lensRepository.generateReflectionCards(dayKey)
+                    val reflections = lensRepository.observeReflections(dayKey).firstOrNull() ?: emptyList()
+                    val selectedFocusDayKey =
+                        focusDateForRange(
+                            resolveDateRange(
+                                anchorDate = _uiState.value.selectedDate,
+                                mode = _uiState.value.selectedTimeMode,
+                                window = _uiState.value.selectedTimeWindow,
+                                pageIndex = _uiState.value.windowPageIndex,
+                            ),
+                        ).format(DateTimeFormatter.ISO_LOCAL_DATE)
+                    if (selectedFocusDayKey != dayKey) {
+                        logger.d(
+                            "LensViewModel.refreshReflections",
+                            "Ignoring stale reflections refresh",
+                            mapOf("dayKey" to dayKey, "selectedDayKey" to selectedFocusDayKey),
+                        )
+                        return@launch
+                    }
+                    _uiState.update { it.copy(reflections = reflections) }
                     logger.d(
                         "LensViewModel.refreshReflections",
-                        "Ignoring stale reflections refresh",
-                        mapOf("dayKey" to dayKey, "selectedDayKey" to selectedFocusDayKey),
+                        "Reflections refreshed",
+                        mapOf("dayKey" to dayKey, "count" to reflections.size),
                     )
-                    return@launch
+                } catch (_: CancellationException) {
+                    logger.d("LensViewModel.refreshReflections", "Reflection refresh cancelled")
+                } catch (e: Exception) {
+                    logger.e("LensViewModel.refreshReflections", "Failed to refresh reflections", e)
                 }
-                _uiState.update { it.copy(reflections = reflections) }
-                logger.d(
-                    "LensViewModel.refreshReflections",
-                    "Reflections refreshed",
-                    mapOf("dayKey" to dayKey, "count" to reflections.size),
-                )
-            } catch (_: CancellationException) {
-                logger.d("LensViewModel.refreshReflections", "Reflection refresh cancelled")
-            } catch (e: Exception) {
-                logger.e("LensViewModel.refreshReflections", "Failed to refresh reflections", e)
             }
-        }
     }
 
     private fun resolveDateRange(
@@ -936,13 +1019,15 @@ class LensViewModel(
         val effectiveWindow = if (isWindowAllowedForMode(window, mode)) window else defaultWindowForMode(mode)
 
         return when (mode) {
-            LensTimeMode.TODAY -> ResolvedLensWindowRange(
-                mode = LensTimeMode.TODAY,
-                window = LensTimeWindow.TODAY,
-                pageIndex = 0,
-                startDate = anchorDate,
-                endDate = anchorDate,
-            )
+            LensTimeMode.TODAY -> {
+                ResolvedLensWindowRange(
+                    mode = LensTimeMode.TODAY,
+                    window = LensTimeWindow.TODAY,
+                    pageIndex = 0,
+                    startDate = anchorDate,
+                    endDate = anchorDate,
+                )
+            }
 
             LensTimeMode.PAST -> {
                 if (effectiveWindow == LensTimeWindow.ALL_PAST_DAYS) {
@@ -986,60 +1071,71 @@ class LensViewModel(
         }
     }
 
-    private fun focusDateForRange(resolvedRange: ResolvedLensWindowRange): LocalDate = when (resolvedRange.mode) {
-        LensTimeMode.TODAY -> resolvedRange.startDate
-        LensTimeMode.PAST -> resolvedRange.endDate
-        LensTimeMode.FUTURE -> resolvedRange.startDate
-    }
+    private fun focusDateForRange(resolvedRange: ResolvedLensWindowRange): LocalDate =
+        when (resolvedRange.mode) {
+            LensTimeMode.TODAY -> resolvedRange.startDate
+            LensTimeMode.PAST -> resolvedRange.endDate
+            LensTimeMode.FUTURE -> resolvedRange.startDate
+        }
 
     private fun navigationStateForSelection(
         mode: LensTimeMode,
         window: LensTimeWindow,
         pageIndex: Int,
-    ): LensWindowNavigationState = when (mode) {
-        LensTimeMode.TODAY -> LensWindowNavigationState(canGoPrevious = false, canGoNext = false)
-
-        LensTimeMode.PAST -> {
-            if (window == LensTimeWindow.ALL_PAST_DAYS) {
+    ): LensWindowNavigationState =
+        when (mode) {
+            LensTimeMode.TODAY -> {
                 LensWindowNavigationState(canGoPrevious = false, canGoNext = false)
-            } else {
+            }
+
+            LensTimeMode.PAST -> {
+                if (window == LensTimeWindow.ALL_PAST_DAYS) {
+                    LensWindowNavigationState(canGoPrevious = false, canGoNext = false)
+                } else {
+                    LensWindowNavigationState(
+                        canGoPrevious = true,
+                        canGoNext = pageIndex > 0,
+                    )
+                }
+            }
+
+            LensTimeMode.FUTURE -> {
                 LensWindowNavigationState(
-                    canGoPrevious = true,
-                    canGoNext = pageIndex > 0,
+                    canGoPrevious = pageIndex > 0,
+                    canGoNext = true,
                 )
             }
         }
 
-        LensTimeMode.FUTURE -> LensWindowNavigationState(
-            canGoPrevious = pageIndex > 0,
-            canGoNext = true,
-        )
-    }
+    private fun isWindowAllowedForMode(
+        window: LensTimeWindow,
+        mode: LensTimeMode,
+    ): Boolean = windowsForMode(mode).contains(window)
 
-    private fun isWindowAllowedForMode(window: LensTimeWindow, mode: LensTimeMode): Boolean = windowsForMode(mode).contains(window)
+    private fun defaultWindowForMode(mode: LensTimeMode): LensTimeWindow =
+        when (mode) {
+            LensTimeMode.TODAY -> LensTimeWindow.TODAY
+            LensTimeMode.PAST -> LensTimeWindow.LAST_DAY
+            LensTimeMode.FUTURE -> LensTimeWindow.NEXT_DAY
+        }
 
-    private fun defaultWindowForMode(mode: LensTimeMode): LensTimeWindow = when (mode) {
-        LensTimeMode.TODAY -> LensTimeWindow.TODAY
-        LensTimeMode.PAST -> LensTimeWindow.LAST_DAY
-        LensTimeMode.FUTURE -> LensTimeWindow.NEXT_DAY
-    }
-
-    private fun spanDaysForWindow(window: LensTimeWindow): Long = when (window) {
-        LensTimeWindow.TODAY -> 1
-        LensTimeWindow.LAST_DAY -> 1
-        LensTimeWindow.LAST_7_DAYS -> 7
-        LensTimeWindow.LAST_30_DAYS -> 30
-        LensTimeWindow.LAST_90_DAYS -> 90
-        LensTimeWindow.LAST_180_DAYS -> 180
-        LensTimeWindow.LAST_365_DAYS -> 365
-        LensTimeWindow.ALL_PAST_DAYS -> MAX_RANGE_DAYS.toLong()
-        LensTimeWindow.NEXT_DAY -> 1
-        LensTimeWindow.NEXT_7_DAYS -> 7
-        LensTimeWindow.NEXT_30_DAYS -> 30
-        LensTimeWindow.NEXT_90_DAYS -> 90
-        LensTimeWindow.NEXT_180_DAYS -> 180
-        LensTimeWindow.NEXT_365_DAYS -> 365
-    }
+    private fun spanDaysForWindow(window: LensTimeWindow): Long =
+        when (window) {
+            LensTimeWindow.TODAY -> 1
+            LensTimeWindow.LAST_DAY -> 1
+            LensTimeWindow.LAST_7_DAYS -> 7
+            LensTimeWindow.LAST_30_DAYS -> 30
+            LensTimeWindow.LAST_90_DAYS -> 90
+            LensTimeWindow.LAST_180_DAYS -> 180
+            LensTimeWindow.LAST_365_DAYS -> 365
+            LensTimeWindow.ALL_PAST_DAYS -> MAX_RANGE_DAYS.toLong()
+            LensTimeWindow.NEXT_DAY -> 1
+            LensTimeWindow.NEXT_7_DAYS -> 7
+            LensTimeWindow.NEXT_30_DAYS -> 30
+            LensTimeWindow.NEXT_90_DAYS -> 90
+            LensTimeWindow.NEXT_180_DAYS -> 180
+            LensTimeWindow.NEXT_365_DAYS -> 365
+        }
 
     /**
      * Cancels the work this ViewModel started. Android called this from `onCleared`; the platform calls it
@@ -1050,10 +1146,6 @@ class LensViewModel(
         scope.cancel()
     }
 }
-/**
- * Full UI state for the Lens workspace: selection, loaded planning/reality
- * data, reflections, range summaries, and every chart's state object.
- */
 
 /**
  * The one-line entry point a platform's destination body calls to get the [LensViewModel].

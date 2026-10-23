@@ -925,7 +925,6 @@
     <string name="settings_snackbar_habit_mapping_success">%2$s-க்கு %1$d இறக்குமதி பழக்கங்கள் ஒதுக்கப்பட்டன</string>
     <string name="settings_snackbar_import_failed">இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_import_success">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன</string>
-    <string name="settings_snackbar_import_success_restart">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன. இறக்குமதி தரவை ஏற்ற பயன்பாடு மீண்டும் துவங்கப்படுகிறது.</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_uhabits_import_success">uHabits இலிருந்து %1$d பழக்கங்கள், %2$d மீளுருப்படிகள் இறக்குமதி செய்யப்பட்டன</string>
     <string name="settings_theme_mode">தீம் முறை</string>

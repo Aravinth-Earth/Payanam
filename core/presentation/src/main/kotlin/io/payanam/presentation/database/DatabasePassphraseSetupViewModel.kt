@@ -249,7 +249,6 @@ class DatabasePassphraseSetupViewModel(
      */
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-
     private val logger = AppLogger.current
     private val _uiState = MutableStateFlow(DatabasePassphraseSetupUiState())
     val uiState: StateFlow<DatabasePassphraseSetupUiState> = _uiState.asStateFlow()
@@ -286,23 +285,25 @@ class DatabasePassphraseSetupViewModel(
 
         scope.launch {
             _uiState.update { it.copy(isSaving = true, errorReasonCode = null) }
-            val migrationSucceeded = runCatching {
-                withContext(ioDispatcher) { migrateExistingDatabaseIfNeeded(passphrase) }
-                true
-            }.getOrElse { error ->
-                val reasonCode = if (error.message?.contains("different key or unreadable", ignoreCase = true) == true) {
-                    "migration_incompatible"
-                } else {
-                    "migration_failed"
+            val migrationSucceeded =
+                runCatching {
+                    withContext(ioDispatcher) { migrateExistingDatabaseIfNeeded(passphrase) }
+                    true
+                }.getOrElse { error ->
+                    val reasonCode =
+                        if (error.message?.contains("different key or unreadable", ignoreCase = true) == true) {
+                            "migration_incompatible"
+                        } else {
+                            "migration_failed"
+                        }
+                    logger.e(
+                        "DatabasePassphraseSetupViewModel.configurePassphrase",
+                        "Passphrase setup failed during database migration",
+                        error,
+                    )
+                    _uiState.update { it.copy(isSaving = false, errorReasonCode = reasonCode) }
+                    false
                 }
-                logger.e(
-                    "DatabasePassphraseSetupViewModel.configurePassphrase",
-                    "Passphrase setup failed during database migration",
-                    error,
-                )
-                _uiState.update { it.copy(isSaving = false, errorReasonCode = reasonCode) }
-                false
-            }
             if (!migrationSucceeded) return@launch
             val passphraseChars = passphrase.toCharArray()
             val outcome = withContext(ioDispatcher) { passphraseVault.configurePassphrase(passphraseChars) }
@@ -359,17 +360,18 @@ class DatabasePassphraseSetupViewModel(
 
         scope.launch {
             _uiState.update { it.copy(isSaving = true, errorReasonCode = null) }
-            val resetOk = runCatching {
-                deleteAllDatabaseFiles()
-                reasonCodeForWipeOutcome(encryptionStateCheckpoint.wipeEncryptionState())
-            }.getOrElse { error ->
-                logger.e(
-                    "DatabasePassphraseSetupViewModel.resetLocalDataAndConfigurePassphrase",
-                    "Failed to reset local data before passphrase setup",
-                    error,
-                )
-                "reset_failed"
-            }
+            val resetOk =
+                runCatching {
+                    deleteAllDatabaseFiles()
+                    reasonCodeForWipeOutcome(encryptionStateCheckpoint.wipeEncryptionState())
+                }.getOrElse { error ->
+                    logger.e(
+                        "DatabasePassphraseSetupViewModel.resetLocalDataAndConfigurePassphrase",
+                        "Failed to reset local data before passphrase setup",
+                        error,
+                    )
+                    "reset_failed"
+                }
             if (resetOk != null) {
                 _uiState.update { it.copy(isSaving = false, errorReasonCode = resetOk) }
                 return@launch
@@ -434,9 +436,10 @@ class DatabasePassphraseSetupViewModel(
             )
             val postCounts = readCounts(dbFile, passphraseOrNull = passphrase)
             val tablesToValidate = listOf("tasks", "time_entries", "notes", "day_journal_entries", "journal_notes")
-            val mismatch = tablesToValidate.any { table ->
-                (preCounts[table] ?: 0) != (postCounts[table] ?: 0)
-            }
+            val mismatch =
+                tablesToValidate.any { table ->
+                    (preCounts[table] ?: 0) != (postCounts[table] ?: 0)
+                }
             if (mismatch) {
                 logger.w(
                     "DatabasePassphraseSetupViewModel.migrateExistingDatabaseIfNeeded",
@@ -460,11 +463,12 @@ class DatabasePassphraseSetupViewModel(
     private fun readCounts(
         databaseFile: File,
         passphraseOrNull: String?,
-    ): Map<String, Int> = encryptionProbe.readTableCounts(
-        databaseFile = databaseFile,
-        passphrase = passphraseOrNull,
-        tableNames = trackedTables,
-    )
+    ): Map<String, Int> =
+        encryptionProbe.readTableCounts(
+            databaseFile = databaseFile,
+            passphrase = passphraseOrNull,
+            tableNames = trackedTables,
+        )
 
     private fun deleteAllDatabaseFiles(): Int {
         val dbFile = File(databasePathResolver.databaseFilePath())

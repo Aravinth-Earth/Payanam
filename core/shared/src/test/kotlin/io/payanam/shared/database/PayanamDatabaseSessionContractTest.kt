@@ -3,6 +3,7 @@
 package io.payanam.shared.database
 
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.runBlocking
 import org.junit.Test
 
 /**
@@ -72,5 +73,34 @@ class PayanamDatabaseSessionContractTest {
         // the assertion is that the contract can carry ANY of them rather than a chosen few.
         val carried = DatabaseBootIssueType.entries.map { DatabaseOpenOutcome.Refused(issue(it)) }
         assertThat(carried.map { it.refusalIssue()?.type }).containsExactlyElementsIn(DatabaseBootIssueType.entries)
+    }
+
+    @Test
+    fun `the opener's default readOnly is supplied by the contract when the caller omits it`() {
+        // The $DefaultImpls bridge on PayanamDatabaseOpener.open: calling through the interface type with
+        // readOnly omitted must forward the contract's own default (false) to the implementation. A
+        // platform that received true instead would open read-write when the caller asked only to
+        // inspect, which is the exact mutation readOnly exists to prevent.
+        val opener =
+            object : PayanamDatabaseOpener {
+                override suspend fun verifyPassphrase(
+                    databasePath: String,
+                    passphrase: CharArray,
+                ): Boolean = true
+
+                override suspend fun open(
+                    databasePath: String,
+                    passphrase: CharArray,
+                    readOnly: Boolean,
+                ): DatabaseOpenOutcome {
+                    // The default is false; a caller omitting it must get false, not true.
+                    assertThat(readOnly).isFalse()
+                    return DatabaseOpenOutcome.Refused(issue())
+                }
+            }
+
+        // Call through the INTERFACE type so the compiler routes through DefaultImpls.
+        val interfaceOpener: PayanamDatabaseOpener = opener
+        runBlocking { interfaceOpener.open("/tmp/not-created-by-this-test.db", "pass".toCharArray()) }
     }
 }

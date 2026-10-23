@@ -323,7 +323,10 @@ class AppPreferencesWriter(
     }
 
     /** Persists the auto-track toggle for the dimension [dimensionId]. */
-    suspend fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
+    suspend fun setAutoTrackDimensionPreference(
+        dimensionId: String,
+        enabled: Boolean,
+    ) {
         setSetting("${AppPreferenceKeys.KEY_AUTO_TRACK_DIMENSION_PREFIX}$dimensionId", enabled.toString())
         AppLogger.current.i(
             "AppPreferencesWriter.setAutoTrackDimensionPreference",
@@ -364,7 +367,10 @@ class AppPreferencesWriter(
      * The Settings tab is refused rather than written, for the same reason it is always written visible
      * above: it is the route that leaves a focus mode.
      */
-    suspend fun setTabVisibility(tabRoute: String, visible: Boolean) {
+    suspend fun setTabVisibility(
+        tabRoute: String,
+        visible: Boolean,
+    ) {
         if (tabRoute == SETTINGS_TAB_ROUTE) {
             AppLogger.current.w(
                 "AppPreferencesWriter.setTabVisibility",
@@ -438,8 +444,7 @@ class AppPreferencesWriter(
     suspend fun setChartTimeModuleEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_MODULE, enabled)
 
     /** Toggles the Time overall-snapshot card. */
-    suspend fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled)
+    suspend fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled)
 
     /** Toggles the Time execution-details card. */
     suspend fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) =
@@ -460,20 +465,17 @@ class AppPreferencesWriter(
     suspend fun setChartTimeLineGraphsEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_LINE_GRAPHS, enabled)
 
     /** Toggles the daily score-trend chart. */
-    suspend fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_TIME_DAILY_SCORE_TREND, enabled)
+    suspend fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_DAILY_SCORE_TREND, enabled)
 
     /** Toggles the progress-trend chart. */
-    suspend fun setChartTimeProgressTrendEnabled(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_TIME_PROGRESS_TREND, enabled)
+    suspend fun setChartTimeProgressTrendEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_PROGRESS_TREND, enabled)
 
     /** Toggles the historical-ranking chart. */
     suspend fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) =
         setChart(AppPreferenceKeys.KEY_CHART_TIME_HISTORICAL_RANKING, enabled)
 
     /** Toggles the momentum-streak chart. */
-    suspend fun setChartTimeMomentumStreakEnabled(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_TIME_MOMENTUM_STREAK, enabled)
+    suspend fun setChartTimeMomentumStreakEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TIME_MOMENTUM_STREAK, enabled)
 
     /** Toggles the Task insights module. */
     suspend fun setChartTaskModuleEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_TASK_MODULE, enabled)
@@ -488,8 +490,7 @@ class AppPreferencesWriter(
     suspend fun setChartNoteModuleEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_NOTE_MODULE, enabled)
 
     /** Toggles the average-daily-time chart. */
-    suspend fun setChartAverageDailyTimeEnabled(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_AVERAGE_DAILY_TIME, enabled)
+    suspend fun setChartAverageDailyTimeEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_AVERAGE_DAILY_TIME, enabled)
 
     /** Toggles the dimension-split chart. */
     suspend fun setChartDimSplitEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_DIM_SPLIT, enabled)
@@ -507,12 +508,10 @@ class AppPreferencesWriter(
     suspend fun setChartDailyRhythmEnabled(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM, enabled)
 
     /** Toggles excluding empty days from the weekly-pattern chart. */
-    suspend fun setChartWeeklyPatternExclEmpty(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled)
+    suspend fun setChartWeeklyPatternExclEmpty(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled)
 
     /** Toggles excluding empty days from the daily-rhythm chart. */
-    suspend fun setChartDailyRhythmExclEmpty(enabled: Boolean) =
-        setChart(AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled)
+    suspend fun setChartDailyRhythmExclEmpty(enabled: Boolean) = setChart(AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled)
 
     /**
      * Toggles the chart-visibility row named by [key].
@@ -523,7 +522,10 @@ class AppPreferencesWriter(
      * Android type to write one. An unknown key is rejected loudly: a mistyped key would otherwise
      * create a row nothing ever reads, and the toggle would appear to work forever.
      */
-    suspend fun setChartVisibility(key: String, enabled: Boolean) {
+    suspend fun setChartVisibility(
+        key: String,
+        enabled: Boolean,
+    ) {
         require(key in AppPreferenceKeys.CHART_VISIBILITY_KEYS) { "Not a chart-visibility preference key: $key" }
         setChart(key, enabled)
     }
@@ -537,7 +539,10 @@ class AppPreferencesWriter(
      * log line rather than 23 copies that can drift apart - the divergence this migration is removing
      * anyway, since each copy was hand-written next to the last.
      */
-    private suspend fun setChart(key: String, enabled: Boolean) {
+    private suspend fun setChart(
+        key: String,
+        enabled: Boolean,
+    ) {
         setSetting(key, enabled.toString())
         AppLogger.current.i(
             "AppPreferencesWriter.setChart",
@@ -599,7 +604,10 @@ class AppPreferencesWriter(
     }
 
     /** Writes [value], or clears the row when it is null. */
-    private suspend fun setSettingNullable(key: String, value: String?) {
+    private suspend fun setSettingNullable(
+        key: String,
+        value: String?,
+    ) {
         if (value == null) {
             clearSetting(key)
         } else {

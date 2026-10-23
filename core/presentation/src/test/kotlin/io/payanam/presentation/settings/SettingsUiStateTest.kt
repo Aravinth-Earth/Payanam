@@ -1,6 +1,5 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
 package io.payanam.presentation.settings
 
 import io.payanam.presentation.download.DownloadUiState
@@ -114,64 +113,70 @@ class SettingsUiStateTest {
     @Test
     fun `a fresh result is not stale and an old one is`() {
         val now = System.currentTimeMillis()
-        val fresh = UpdateCheckResult(
-            outcome = UpdateOutcome.UP_TO_DATE,
-            latestBuildNumber = 1234,
-            releaseUrl = null,
-            error = null,
-            checkedAtMs = now,
-        )
+        val fresh =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UP_TO_DATE,
+                latestBuildNumber = 1234,
+                releaseUrl = null,
+                error = null,
+                checkedAtMs = now,
+            )
         assertFalse(state(fresh).isUpdateResultStale())
 
-        val justInside = UpdateCheckResult(
-            outcome = UpdateOutcome.UP_TO_DATE,
-            latestBuildNumber = 1234,
-            releaseUrl = null,
-            error = null,
-            checkedAtMs = now - 15 * 60 * 1000L,
-        )
+        val justInside =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UP_TO_DATE,
+                latestBuildNumber = 1234,
+                releaseUrl = null,
+                error = null,
+                checkedAtMs = now - 15 * 60 * 1000L,
+            )
         assertFalse(state(justInside).isUpdateResultStale())
 
-        val justOutside = UpdateCheckResult(
-            outcome = UpdateOutcome.UP_TO_DATE,
-            latestBuildNumber = 1234,
-            releaseUrl = null,
-            error = null,
-            checkedAtMs = now - 15 * 60 * 1000L - 1,
-        )
+        val justOutside =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UP_TO_DATE,
+                latestBuildNumber = 1234,
+                releaseUrl = null,
+                error = null,
+                checkedAtMs = now - 15 * 60 * 1000L - 1,
+            )
         assertTrue(state(justOutside).isUpdateResultStale())
     }
 
     @Test
     fun `the staleness window is 15 minutes, measured from the result's own timestamp`() {
-        val result = UpdateCheckResult(
-            outcome = UpdateOutcome.UPDATE_AVAILABLE,
-            latestBuildNumber = 2000,
-            releaseUrl = "https://example.invalid/v2000",
-            error = null,
-            channelStatuses = listOf(
-                ChannelStatus(
-                    channel = UpdateChannel.DEV,
-                    buildNumber = 2000,
-                    releaseUrl = "https://example.invalid/v2000",
-                    apkDownloadUrl = "https://example.invalid/app.apk",
-                    apkSha256Url = "https://example.invalid/app.apk.sha256",
-                ),
-            ),
-            checkedAtMs = 0L,
-        )
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UPDATE_AVAILABLE,
+                latestBuildNumber = 2000,
+                releaseUrl = "https://example.invalid/v2000",
+                error = null,
+                channelStatuses =
+                    listOf(
+                        ChannelStatus(
+                            channel = UpdateChannel.DEV,
+                            buildNumber = 2000,
+                            releaseUrl = "https://example.invalid/v2000",
+                            apkDownloadUrl = "https://example.invalid/app.apk",
+                            apkSha256Url = "https://example.invalid/app.apk.sha256",
+                        ),
+                    ),
+                checkedAtMs = 0L,
+            )
         assertTrue(state(result).isUpdateResultStale())
     }
 
     @Test
     fun `a failed check keeps its error and its channel alongside`() {
-        val failed = UpdateCheckResult(
-            outcome = UpdateOutcome.FAILED,
-            latestBuildNumber = null,
-            releaseUrl = null,
-            error = UpdateCheckError.RATE_LIMITED,
-            checkedAtMs = System.currentTimeMillis(),
-        )
+        val failed =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.FAILED,
+                latestBuildNumber = null,
+                releaseUrl = null,
+                error = UpdateCheckError.RATE_LIMITED,
+                checkedAtMs = System.currentTimeMillis(),
+            )
         val withResult = state(failed, channel = UpdateChannel.BETA)
         assertEquals(UpdateCheckError.RATE_LIMITED, withResult.updateCheckResult?.error)
         assertEquals(UpdateChannel.BETA, withResult.updateChannel)

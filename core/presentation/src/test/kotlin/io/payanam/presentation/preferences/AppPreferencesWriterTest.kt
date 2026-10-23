@@ -49,7 +49,10 @@ class AppPreferencesWriterTest {
 
         override fun observeSetting(key: String): Flow<String?> = flowOf(null)
 
-        override suspend fun setSetting(key: String, value: String?) {
+        override suspend fun setSetting(
+            key: String,
+            value: String?,
+        ) {
             if (key == failOn) error("settings store unavailable")
             writes += key to value
         }
@@ -73,24 +76,39 @@ class AppPreferencesWriterTest {
         val visibility = mutableListOf<Pair<String, Boolean>>()
         var failLabels = false
 
-        override suspend fun updateDimensionLabel(dimensionId: String, label: String) {
+        override suspend fun updateDimensionLabel(
+            dimensionId: String,
+            label: String,
+        ) {
             if (failLabels) error("catalog unavailable")
             labels += Triple(dimensionId, label, false)
         }
 
-        override suspend fun updateDimensionWeight(dimensionId: String, weight: Double) {
+        override suspend fun updateDimensionWeight(
+            dimensionId: String,
+            weight: Double,
+        ) {
             weights += dimensionId to weight
         }
 
-        override suspend fun updateDimensionColor(dimensionId: String, color: String) {
+        override suspend fun updateDimensionColor(
+            dimensionId: String,
+            color: String,
+        ) {
             colors += dimensionId to color
         }
 
-        override suspend fun updateDimensionIcon(dimensionId: String, icon: String) {
+        override suspend fun updateDimensionIcon(
+            dimensionId: String,
+            icon: String,
+        ) {
             icons += dimensionId to icon
         }
 
-        override suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean) {
+        override suspend fun updateDimensionActiveState(
+            dimensionId: String,
+            isActive: Boolean,
+        ) {
             visibility += dimensionId to isActive
         }
 
@@ -108,7 +126,10 @@ class AppPreferencesWriterTest {
             recalcs += changeDate
         }
 
-        override suspend fun recalcForStatusChange(taskId: String, date: LocalDate) {
+        override suspend fun recalcForStatusChange(
+            taskId: String,
+            date: LocalDate,
+        ) {
             error("not used by the settings write path")
         }
 
@@ -118,7 +139,9 @@ class AppPreferencesWriterTest {
     }
 
     /** Reports [owned] as the app's own label in any language, so the branch under test is chosen by [owned]. */
-    private class FixedNormalizer(private val owned: Boolean) : DimensionLabelNormalizer {
+    private class FixedNormalizer(
+        private val owned: Boolean,
+    ) : DimensionLabelNormalizer {
         override fun isAppOwnedLabel(
             canonicalId: String,
             candidateLabel: String,

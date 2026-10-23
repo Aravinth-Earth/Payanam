@@ -229,6 +229,15 @@ class UpdateCheckerPureLogicTest {
     fun `a status parsed from a release is the shape the shared resolve step reads`() {
         // The constructor contract parseReleases relies on: unset urls and a false mismatch by default.
         assertThat(ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 3, releaseUrl = "u"))
-            .isEqualTo(ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 3, releaseUrl = "u", apkDownloadUrl = null, apkSha256Url = null, typeMismatch = false))
+            .isEqualTo(
+                ChannelStatus(
+                    channel = UpdateChannel.BETA,
+                    buildNumber = 3,
+                    releaseUrl = "u",
+                    apkDownloadUrl = null,
+                    apkSha256Url = null,
+                    typeMismatch = false,
+                ),
+            )
     }
 }

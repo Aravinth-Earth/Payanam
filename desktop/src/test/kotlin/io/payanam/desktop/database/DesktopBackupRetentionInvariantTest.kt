@@ -93,7 +93,11 @@ class DesktopBackupRetentionInvariantTest {
 
     /** The names of the backup artifacts still in the folder, read back off the filesystem. */
     private fun survivingArtifactNames(root: File): List<String> =
-        root.listFiles().orEmpty().map { it.name }.sorted()
+        root
+            .listFiles()
+            .orEmpty()
+            .map { it.name }
+            .sorted()
 
     // ── The invariant ────────────────────────────────────────────────────────────
 

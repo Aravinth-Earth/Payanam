@@ -316,7 +316,7 @@ internal object DesktopUnsupportedPorts {
                 }
                 val result = checkForUpdates(build, UpdateChannel.STABLE)
                 return when (result.outcome) {
-                    UpdateOutcome.UPDATE_AVAILABLE ->
+                    UpdateOutcome.UPDATE_AVAILABLE -> {
                         UpdateAvailability.Newer(
                             buildNumber = result.latestBuildNumber ?: build,
                             // WHY false AND NOT A STORE CHECK: this platform is not declining — it has no
@@ -327,8 +327,11 @@ internal object DesktopUnsupportedPorts {
                             // the site rather than reconciled into one shared constant.
                             installable = false,
                         )
+                    }
 
-                    UpdateOutcome.UP_TO_DATE -> UpdateAvailability.UpToDate
+                    UpdateOutcome.UP_TO_DATE -> {
+                        UpdateAvailability.UpToDate
+                    }
 
                     UpdateOutcome.TYPE_MISMATCH,
                     UpdateOutcome.NO_RELEASE_ON_CHANNEL,

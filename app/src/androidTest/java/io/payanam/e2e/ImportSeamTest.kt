@@ -2,8 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.e2e
 
-import android.content.Context
 import android.net.Uri
+import android.content.Context
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.payanam.common.logging.UnifiedLogger
@@ -92,8 +92,8 @@ class ImportSeamTest {
                 encryptionProbe = FakeDatabaseEncryptionProbe(),
                 documentSource = AndroidDocumentSource(context),
                 databaseInitFlagWriter = appDatabaseInitFlagWriter(context),
-                databaseInitFlagReader = appDatabaseInitFlagReader(),
-                databaseInitWalConsolidator = appDatabaseInitWalConsolidator(UnifiedLogger.getInstance()),
+                databaseInitFlagReader = appDatabaseInitFlagReader(context),
+                databaseInitWalConsolidator = appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()),
                 dimensionSetupPersister = appDatabaseDimensionSetupPersister(),
                 encryptionStateCheckpoint = AndroidEncryptionStateCheckpoint(encryptionManager),
                 passphraseVault = AndroidPassphraseVault(context, encryptionManager),
@@ -138,14 +138,14 @@ class ImportSeamTest {
 
         // ── Pause: encrypted import is detected and the passphrase prompt is reached ──
         var completed = false
-        viewModel.importDatabase(Uri.fromFile(importSource)) { completed = true }
+        viewModel.importDatabase(Uri.fromFile(importSource).toString()) { completed = true }
         awaitState("awaiting passphrase") { viewModel.uiState.value.awaitingImportPassphrase }
         assertFalse(completed)
         assertTrue(importSource.exists())
 
         // ── Re-entry guard: a second import mid-journey is rejected, silently no more ──
         val stateBefore = viewModel.uiState.value
-        viewModel.importDatabase(Uri.fromFile(importSource)) { completed = true }
+        viewModel.importDatabase(Uri.fromFile(importSource).toString()) { completed = true }
         // The guard also logs `import_reentry_rejected`, and that line is emitted — it is visible in
         // the device logcat for this run and its presence in the source is locked by the build's
         // logging-coverage contract. Asserting it against the session *file* was removed here: the

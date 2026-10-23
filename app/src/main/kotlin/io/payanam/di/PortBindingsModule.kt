@@ -35,7 +35,10 @@ import io.payanam.platform.AndroidBackupStatusPort
 import io.payanam.platform.AndroidDatabaseBackupPort
 import io.payanam.platform.AndroidDatabasePathResolver
 import io.payanam.platform.AndroidDatabaseSessionPort
+import io.payanam.platform.AndroidApkDownloader
+import io.payanam.platform.AndroidApkInstaller
 import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.AndroidInstallSourceReader
 import io.payanam.platform.AndroidProcessRestartPort
 import io.payanam.platform.appDatabaseDimensionSetupPersister
 import io.payanam.platform.appDatabaseInitFlagReader
@@ -45,6 +48,9 @@ import io.payanam.presentation.database.DatabaseDimensionSetupPersister
 import io.payanam.presentation.database.DatabaseInitFlagReader
 import io.payanam.presentation.database.DatabaseInitFlagWriter
 import io.payanam.presentation.database.DatabaseInitWalConsolidator
+import io.payanam.presentation.updates.ApkDownloader
+import io.payanam.presentation.updates.ApkInstaller
+import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.scoring.ElegantTaskScoring
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.scoring.port.TaskRecurrenceHandler
@@ -246,7 +252,7 @@ object PortBindingsModule {
      */
     @Provides
     @Singleton
-    fun provideDatabaseInitFlagReader(): DatabaseInitFlagReader = appDatabaseInitFlagReader()
+    fun provideDatabaseInitFlagReader(@ApplicationContext context: Context): DatabaseInitFlagReader = appDatabaseInitFlagReader(context)
 
     /**
      * Exposes Android's WAL checkpoint-on-a-temp-copy as the shared [DatabaseInitWalConsolidator] port.
@@ -257,7 +263,7 @@ object PortBindingsModule {
      */
     @Provides
     @Singleton
-    fun provideDatabaseInitWalConsolidator(): DatabaseInitWalConsolidator = appDatabaseInitWalConsolidator(UnifiedLogger.getInstance())
+    fun provideDatabaseInitWalConsolidator(@ApplicationContext context: Context): DatabaseInitWalConsolidator = appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance())
 
     /**
      * Exposes Android's re-launch-then-kill as the shared [ProcessRestart] port.
@@ -270,6 +276,27 @@ object PortBindingsModule {
     @Provides
     @Singleton
     fun provideProcessRestart(impl: AndroidProcessRestartPort): ProcessRestart = impl
+
+    /**
+     * Exposes Android's F-Droid install-source check as the shared [InstallSourceReader] port.
+     */
+    @Provides
+    @Singleton
+    fun provideAndroidInstallSourceReader(impl: AndroidInstallSourceReader): InstallSourceReader = impl
+
+    /**
+     * Exposes Android's DownloadManager-backed APK downloader as the shared [ApkDownloader] port.
+     */
+    @Provides
+    @Singleton
+    fun provideAndroidApkDownloader(impl: AndroidApkDownloader): ApkDownloader = impl
+
+    /**
+     * Exposes Android's FileProvider + ACTION_VIEW installer as the shared [ApkInstaller] port.
+     */
+    @Provides
+    @Singleton
+    fun provideAndroidApkInstaller(impl: AndroidApkInstaller): ApkInstaller = impl
 }
 
 /**

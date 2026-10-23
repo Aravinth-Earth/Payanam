@@ -25,8 +25,7 @@ class DesktopAppPathsTest {
     private val linuxOs = "Linux"
     private val windowsHome = "C:\\Users\\demo"
 
-    private fun expectedRootName(): String =
-        if (DesktopBuildInfo.IS_DEBUG_BUILD) "Payanam-debug" else "Payanam"
+    private fun expectedRootName(): String = if (DesktopBuildInfo.IS_DEBUG_BUILD) "Payanam-debug" else "Payanam"
 
     // ── Windows layout ────────────────────────────────────────────────────────────────
 

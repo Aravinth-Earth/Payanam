@@ -4,20 +4,16 @@
 
 package io.payanam.ui.viewmodel
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.presentation.updates.ApkDownloader
+import io.payanam.presentation.updates.ApkInstaller
+import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.ApkBuildType
-import io.payanam.feature.settings.AutoDownloadManager
-import io.payanam.feature.settings.InstallerChecker
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
@@ -41,21 +37,23 @@ import javax.inject.Inject
  *   post-unlock Settings preference)
  * - no auto-check, no auto-download, no prompt popup — every step is a manual
  *   user tap (design confirmed: pre-unlock = manual only)
- * - reuse: [UpdateChecker] (pure, DB-free), [AutoDownloadManager] (app-private
- *   dir, disk guard, retention), FileProvider install (same as Settings)
+ * - reuse: [UpdateChecker] (pure, DB-free), [ApkDownloader] (app-private
+ *   dir, disk guard, retention), [ApkInstaller] (FileProvider handoff, same as Settings)
  *
  * Traces land under "PreUnlockUpdateChecker.*" so a stuck hatch session is
  * fully diagnosable from one log export.
  */
 @HiltViewModel
 class PreUnlockUpdateViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val installSourceReader: InstallSourceReader,
+    private val apkDownloader: ApkDownloader,
+    private val apkInstaller: ApkInstaller,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
 
     /** F-Droid installs are updated by the F-Droid client — the hatch must not offer self-updates. */
-    val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+    val isFDroidBuild: Boolean = installSourceReader.isFDroidBuild()
 
     private val _downloadState = MutableStateFlow<DownloadUiState>(DownloadUiState.Idle)
     val downloadState: StateFlow<DownloadUiState> = _downloadState.asStateFlow()
@@ -202,7 +200,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                 "Manual download requested",
                 mapOf("fileName" to fileName),
             )
-            val id = AutoDownloadManager.enqueue(context, url, fileName, wifiOnly = false)
+            val id = apkDownloader.enqueue(url, fileName, wifiOnly = false)
             if (id == null) {
                 _downloadState.value = DownloadUiState.Failed("enqueue_failed")
                 logger.e("PreUnlockUpdateChecker.download", "Enqueue failed", null)
@@ -211,7 +209,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
             pollJob?.cancel()
             pollJob = viewModelScope.launch(Dispatchers.IO) {
                 while (isActive) {
-                    val state = AutoDownloadManager.queryProgress(context, id)
+                    val state = apkDownloader.queryProgress(id)
                     _downloadState.value = state
                     if (state is DownloadUiState.Downloaded) {
                         logger.i(
@@ -232,7 +230,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     }
 
     /** User tapped "Install now" — launch the system installer (manual only). */
-    @Suppress("TooGenericExceptionCaught") // Intentional: FileProvider + startActivity system installer handoff
+    @Suppress("TooGenericExceptionCaught") // Intentional: installer handoff may throw
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
@@ -245,27 +243,11 @@ class PreUnlockUpdateViewModel @Inject constructor(
             return
         }
         try {
-            val uri: Uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            val success = apkInstaller.install(path)
+            if (!success) {
+                _downloadState.value = DownloadUiState.Failed("install_launch_failed")
+                logger.e("PreUnlockUpdateChecker.install", "Install launch failed", null)
             }
-            val resolved: android.content.ComponentName? = intent.resolveActivity(context.packageManager)
-            val resolvedInstallerName = resolved?.className ?: "none"
-            logger.i(
-                "PreUnlockUpdateChecker.install",
-                "Install handoff to system installer",
-                mapOf(
-                    "fileName" to file.name,
-                    "resolvedInstaller" to resolvedInstallerName,
-                ),
-            )
-            context.startActivity(intent)
         } catch (e: Exception) {
             _downloadState.value = DownloadUiState.Failed("install_launch_failed")
             logger.e("PreUnlockUpdateChecker.install", "Install launch failed", e)

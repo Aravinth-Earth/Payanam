@@ -38,6 +38,7 @@ dependencies {
     // desktop lists the same dimensions as Android rather than a copy. JVM-only module, no Android
     // dependency, so it is safe on the desktop classpath.
     implementation(project(":core:domain"))
+    implementation(project(":core:backup"))
     // The shared data layer, and the shared state layer over it. Both are wired into startup in D4/D5;
     // declaring them here is what puts them on the desktop's classpath at all.
     implementation(project(":core:database-jvm"))

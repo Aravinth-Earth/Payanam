@@ -155,6 +155,28 @@ class DatabaseEncryptionProbeContractTest {
     }
 
     @Test
+    fun `the default logTag is supplied by the contract when the caller omits it`() {
+        // The $DefaultImpls bridge: calling through the interface type with the logTag omitted must
+        // forward the contract's own default ("DatabaseEncryptionProbe") to the implementation. A probe
+        // that received null instead would log under the wrong tag and a caller filtering by tag would
+        // never see the line.
+        // conversionSupported = true so ensureEncrypted completes rather than refusing: the point of this
+        // test is the omitted logTag, not the refusal.
+        val probe = RecordingProbe(encrypted = true, conversionSupported = true)
+        val file = File("/tmp/not-created-by-this-test.db")
+
+        // Call through the INTERFACE type so the compiler routes through DefaultImpls.
+        val interfaceProbe: DatabaseEncryptionProbe = probe
+        interfaceProbe.isDetectablyEncrypted(file)
+        interfaceProbe.canOpen(file, "the-passphrase")
+        interfaceProbe.ensureEncrypted(file, "the-passphrase")
+
+        assertThat(probe.detectionCalls).containsExactly(file)
+        assertThat(probe.openCalls).containsExactly(file to "the-passphrase")
+        assertThat(probe.conversionCalls).containsExactly(file to "the-passphrase")
+    }
+
+    @Test
     fun `a plaintext file is counted with no passphrase at all`() {
         val probe = RecordingProbe(counts = mapOf("tasks" to 1))
         val file = File("/tmp/not-created-by-this-test.db")

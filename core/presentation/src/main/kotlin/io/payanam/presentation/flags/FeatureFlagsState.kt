@@ -25,10 +25,8 @@ data class FeatureFlagsState(
     val scoringEnabled: Boolean = true,
     /** Gates reminder scheduling. A platform with no reminder channel configures this off. */
     val remindersEnabled: Boolean = true,
-
     /** Whether the tag editor is offered. Android reads it from `BuildConfig.TAGS_ENABLED`. */
     val tagsEnabled: Boolean = true,
-
     /**
      * Whether the Time screen offers the day-plan affordances. Android reads it from
      * `BuildConfig.PLANS_CTA_ENABLED`.
@@ -37,7 +35,6 @@ data class FeatureFlagsState(
      * default of false would silently hide a working surface there rather than fail loudly.
      */
     val plansCtaEnabled: Boolean = true,
-
     /**
      * Whether the settings section that edits the focus-mode rows is offered. Android reads it from
      * `BuildConfig.FOCUS_MODE_SETTINGS_ENABLED`.
@@ -47,7 +44,6 @@ data class FeatureFlagsState(
      * would be a divergence no test could see.
      */
     val focusModeSettingsEnabled: Boolean = true,
-
     /**
      * Whether the settings section that edits the score configuration is offered. Android reads it from
      * `BuildConfig.SCORE_SETTINGS_ENABLED`.

@@ -147,7 +147,16 @@ class DesktopLogExportActionsTest {
         assertThat(archives).hasSize(1)
         assertThat(archives.single().name).startsWith("payanam_desktop_all_logs_")
         // The archive is a copy: the session log it was made from is still there, append-only.
-        assertThat(logsDirectory.resolve(UnifiedLogger.getInstance().getLogPath().fileName.toString()).exists()).isTrue()
+        assertThat(
+            logsDirectory
+                .resolve(
+                    UnifiedLogger
+                        .getInstance()
+                        .getLogPath()
+                        .fileName
+                        .toString(),
+                ).exists(),
+        ).isTrue()
     }
 
     @Test

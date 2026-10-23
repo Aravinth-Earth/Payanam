@@ -44,6 +44,22 @@ class DatabaseContractsTest {
     }
 
     @Test
+    fun `a health report defaults to no detected version`() {
+        // null means "nothing was read" — distinct from 0, which is a real (too-old) version. A caller
+        // that cannot tell them apart would report "found version 0" for a file it never opened.
+        val report = DatabaseHealthReport(isHealthy = true)
+
+        assertThat(report.detectedVersion).isNull()
+    }
+
+    @Test
+    fun `a health report carries the version actually found in the file`() {
+        val report = DatabaseHealthReport(isHealthy = false, detectedVersion = 21)
+
+        assertThat(report.detectedVersion).isEqualTo(21)
+    }
+
+    @Test
     fun `the critical table list is non-empty and has no duplicates`() {
         // Both platforms diff their own handle against this list, so an accidental duplicate would make the
         // diff report a table as missing when it is present twice.

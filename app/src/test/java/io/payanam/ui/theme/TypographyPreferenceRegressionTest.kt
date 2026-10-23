@@ -7,6 +7,7 @@ import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontFamily
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.preferences.FontFamilyOption
+import io.payanam.core.ui.theme.buildTypography
 import org.junit.Assert.assertEquals
 import org.junit.Test
 class TypographyPreferenceRegressionTest {

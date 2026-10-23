@@ -6,6 +6,12 @@ kotlin = "2.3.20"
 ksp = "2.3.10"
 hilt = "2.59.2"
 room = "2.7.2"
+# androidx-sqlite: explicit pin matching what Room 2.7.2 resolves transitively (2.7.0, verified in the
+# Gradle cache via javap on sqlite-framework-android-2.7.0). Declared explicitly because Room does NOT
+# expose these as `api`, so :app source importing SupportSQLiteOpenHelper/FrameworkSQLiteOpenHelperFactory
+# fails to compile without a direct dependency (measured in the 2026-10-07 final gate: Unresolved
+# reference 'support'/'net'/SupportSQLiteOpenHelper).
+androidx-sqlite = "2.7.0"
 compose-bom = "2026.02.01"
 activity-compose = "1.13.0"
 lifecycle = "2.10.0"
@@ -124,6 +130,8 @@ sqlcipher = { group = "net.zetetic", name = "sqlcipher-android", version.ref = "
 serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "serialization" }
 org-json = { group = "org.json", name = "json", version.ref = "org-json" }
 sqlite-jdbc = { group = "org.xerial", name = "sqlite-jdbc", version.ref = "sqlite-jdbc" }
+androidx-sqlite = { group = "androidx.sqlite", name = "sqlite", version.ref = "androidx-sqlite" }
+androidx-sqlite-framework = { group = "androidx.sqlite", name = "sqlite-framework", version.ref = "androidx-sqlite" }
 # Desktop-only JVM SQLCipher driver. The core artifact has no natives; the per-platform artifact
 # carries them, so exactly one must be selected by host OS in desktop/build.gradle.kts (declaring
 # both would add ~15-20 MB of unusable natives to every build, since Gradle resolves every

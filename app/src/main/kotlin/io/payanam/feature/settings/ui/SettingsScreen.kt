@@ -24,9 +24,15 @@ import io.payanam.FeatureFlags
 import io.payanam.core.ui.settings.SettingsScreenActions
 import io.payanam.core.ui.settings.SettingsScreenContent
 import io.payanam.core.ui.settings.UHABITS_IMPORT_MIME_TYPES
+import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.feature.settings.SettingsViewModel
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.feature.settings.cancelImportPassphrase
 import io.payanam.feature.settings.resumeImportWithPassphrase
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.platform.SettingsEntryPoint
 import io.payanam.service.AutoBackupWorker
 import io.payanam.ui.retainSharedViewModel
@@ -50,8 +56,9 @@ import kotlinx.coroutines.cancel
  *    intent to pick together with the MIME filter, and the document is held here.
  *  - [AutoBackupWorker], which is an Android component the shared screen can only ask for.
  *  - [AndroidDatabaseSecurityBiometricActions], which resolves the `FragmentActivity` the prompt needs.
- *  - [SettingsImportFeedbackEffects] with `restartAppAfterDatabaseImport`, which needs a `Context` to read
- *    copy and `Process.killProcess` to hand the process fresh Room handles after a replaced database.
+ *  - [SettingsImportFeedbackEffects], which needs a `Context` to read the snackbar copy. It no longer
+ *    restarts anything: the import carries on smoothly (owner ruling, 2026-10-08), so there is no
+ *    `restartAppAfterDatabaseImport` and no `Process.killProcess` on any import path.
  *
  * `isFDroidBuild` is passed as a measured value rather than read from `BuildConfig` here and never reaches
  * shared code as a flag: it arrives in the about content the platform fills, which is where the F-Droid
@@ -207,7 +214,16 @@ fun SettingsScreen(
             onDeleteExportPromptDismissed = { viewModel.dismissDeleteExportPrompt() },
             onDeleteAllDataRequested = { viewModel.requestDeleteDatabase() },
             onDeleteAllDataConfirmed = { viewModel.deleteDatabase() },
-            onImportPassphraseSubmitted = { passphrase -> viewModel.resumeImportWithPassphrase(passphrase) },
+            onImportPassphraseSubmitted = { passphrase ->
+                viewModel.resumeImportWithPassphrase(
+                    passphrase,
+                    context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME),
+                    AndroidDatabaseEncryptionProbe(context),
+                    uiStringsFor(context),
+                    AndroidDocumentSource(context),
+                    appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()),
+                )
+            },
             onImportPassphraseDismissed = { viewModel.cancelImportPassphrase() },
             onBulkMapImportedHabitsConfirmed = { id, label -> viewModel.bulkMapImportedHabitsToDimension(id, label) },
             onNavigateToPassphraseChange = onNavigateToPassphraseChange,

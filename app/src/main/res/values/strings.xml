@@ -156,8 +156,6 @@
     <string name="settings_import_error_plaintext_db">This file is an unencrypted database. Payanam only imports encrypted databases — import a .db file from a Payanam export instead.</string>
     <string name="settings_import_error_schema_too_old">Imported database schema %1$d is too old. Minimum supported schema is %2$d.</string>
     <string name="settings_import_error_schema_too_new">Imported database schema %1$d is newer than this app supports (%2$d).</string>
-    <string name="settings_import_error_encrypted_different_passphrase">The imported database is encrypted with a different passphrase. Please export an unencrypted backup from the source device and re-import, or reset your local data and set a new passphrase.</string>
-    <string name="settings_import_error_encrypted_requires_passphrase">The imported database is encrypted. Enable encryption in Settings first, then re-import to provide the passphrase. Or export an unencrypted backup from the source device.</string>
     <string name="db_import_passphrase_prompt_title">Passphrase required for imported database</string>
     <string name="db_import_passphrase_prompt_desc">This database is encrypted. Enter the passphrase used when it was backed up.</string>
     <string name="db_import_passphrase_prompt_action">Unlock and import</string>
@@ -168,7 +166,6 @@
     <string name="settings_snackbar_export_success">Exported to %1$s</string>
     <string name="settings_snackbar_export_failed">Export failed: %1$s</string>
     <string name="settings_snackbar_import_success">Imported %1$d tasks, %2$d time entries, %3$d notes</string>
-    <string name="settings_snackbar_import_success_restart">Imported %1$d tasks, %2$d time entries, %3$d notes. Restarting app to load imported database.</string>
     <string name="settings_snackbar_import_failed">Import failed: %1$s</string>
     <string name="settings_snackbar_uhabits_import_success">Imported %1$d habits and %2$d repetitions from uHabits</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits import failed: %1$s</string>

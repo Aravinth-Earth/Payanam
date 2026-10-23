@@ -61,6 +61,7 @@ import com.patrykandpatrick.vico.compose.cartesian.rememberVicoScrollState
 import com.patrykandpatrick.vico.compose.cartesian.rememberVicoZoomState
 import com.patrykandpatrick.vico.compose.common.Fill
 import com.patrykandpatrick.vico.compose.common.component.rememberTextComponent
+import io.payanam.core.ui.components.ChartAxisPolicy
 import io.payanam.core.ui.lenses.formatLensScore
 import io.payanam.core.ui.lenses.formatSignedLensScore
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -459,7 +460,9 @@ private fun MultiSeriesLineChartCard(
                 startAxis = VerticalAxis.rememberStart(valueFormatter = yLabelFormatter),
                 bottomAxis = HorizontalAxis.rememberBottom(
                     valueFormatter = xAxisFormatter(xLabels),
-                    itemPlacer = HorizontalAxis.ItemPlacer.aligned(),
+                    itemPlacer = HorizontalAxis.ItemPlacer.aligned(
+                        spacing = { ChartAxisPolicy.spacingFor(xLabels.size) },
+                    ),
                 ),
                 marker = rememberDefaultCartesianMarker(
                     label = rememberTextComponent(),

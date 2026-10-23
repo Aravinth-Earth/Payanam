@@ -32,7 +32,10 @@ import java.io.IOException
  */
 fun interface DatabaseInitFlagWriter {
     /** Writes the init-completed row straight into [databaseFile], SQLCipher when [passphrase] is set. */
-    fun markInitCompleted(databaseFile: File, passphrase: String?)
+    fun markInitCompleted(
+        databaseFile: File,
+        passphrase: String?,
+    )
 }
 
 /** Reads one `app_settings` value straight out of [databaseFile], or null when the row is absent. */
@@ -42,7 +45,10 @@ fun interface DatabaseInitFlagReader {
      * shared caller's question. Null is "absent", never "the empty string", so a caller can tell a
      * missing flag from one that was deliberately cleared.
      */
-    fun readSettingValue(databaseFile: File, key: String): String?
+    fun readSettingValue(
+        databaseFile: File,
+        key: String,
+    ): String?
 }
 
 /** Folds the write-ahead log into [databaseFile] so the main file holds every write. */
@@ -52,7 +58,10 @@ fun interface DatabaseInitWalConsolidator {
      * answer, not a failure to report: the caller keeps the log rather than deleting it, because a
      * database whose log was dropped while a write was still pending loses that write.
      */
-    fun consolidateWalAfterImport(databaseFile: File, logTag: String): Boolean
+    fun consolidateWalAfterImport(
+        databaseFile: File,
+        logTag: String,
+    ): Boolean
 }
 
 /** Every DB-artifact file for [databaseFile] — the main file first, then its sidecars. */
@@ -340,28 +349,36 @@ fun dbInitClassifyBootIssue(
     if (!databaseArtifactsExist || healthResult.isHealthy) return null
     val message = healthResult.errorMessage?.trim()
     val normalized = message.orEmpty().lowercase()
-    val type = when {
-        normalized.contains("sidecar") && normalized.contains("primary") ->
-            DatabaseBootIssueType.SIDECAR_PRIMARY_MISSING
+    val type =
+        when {
+            normalized.contains("sidecar") && normalized.contains("primary") -> {
+                DatabaseBootIssueType.SIDECAR_PRIMARY_MISSING
+            }
 
-        normalized.contains("too old") ->
-            DatabaseBootIssueType.DB_TOO_OLD
+            normalized.contains("too old") -> {
+                DatabaseBootIssueType.DB_TOO_OLD
+            }
 
-        normalized.contains("newer than app supports") || normalized.contains("please update the app") ->
-            DatabaseBootIssueType.DB_TOO_NEW
+            normalized.contains("newer than app supports") || normalized.contains("please update the app") -> {
+                DatabaseBootIssueType.DB_TOO_NEW
+            }
 
-        normalized.contains("missing tables") || normalized.contains("schema issues") ->
-            DatabaseBootIssueType.SCHEMA_INVALID
+            normalized.contains("missing tables") || normalized.contains("schema issues") -> {
+                DatabaseBootIssueType.SCHEMA_INVALID
+            }
 
-        normalized.contains("cannot open database") ->
-            DatabaseBootIssueType.OPEN_FAILED
+            normalized.contains("cannot open database") -> {
+                DatabaseBootIssueType.OPEN_FAILED
+            }
 
-        healthResult.needsRepair ->
-            DatabaseBootIssueType.REPAIRABLE_GENERIC
+            healthResult.needsRepair -> {
+                DatabaseBootIssueType.REPAIRABLE_GENERIC
+            }
 
-        else ->
-            DatabaseBootIssueType.NON_REPAIRABLE_GENERIC
-    }
+            else -> {
+                DatabaseBootIssueType.NON_REPAIRABLE_GENERIC
+            }
+        }
     return DatabaseBootIssue(
         type = type,
         detailMessage = message,

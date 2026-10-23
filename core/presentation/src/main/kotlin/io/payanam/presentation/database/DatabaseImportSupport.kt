@@ -84,10 +84,11 @@ object DatabaseImportSupport {
         CrashBreadcrumbs.record(
             source = "DatabaseImportSupport.copyDatabaseArtifacts",
             stage = "started",
-            data = mapOf(
-                "sourceToken" to sourceToken,
-                "targetPath" to targetDatabaseFile.absolutePath,
-            ),
+            data =
+                mapOf(
+                    "sourceToken" to sourceToken,
+                    "targetPath" to targetDatabaseFile.absolutePath,
+                ),
         )
         val source = resolveSource(documentSource, sourceToken, strings)
         logger.i(
@@ -153,11 +154,12 @@ object DatabaseImportSupport {
             CrashBreadcrumbs.record(
                 source = "DatabaseImportSupport.copyDatabaseArtifacts",
                 stage = "artifact_copied",
-                data = mapOf(
-                    "artifact" to mapping.label,
-                    "target" to mapping.targetFile.name,
-                    "sizeKB" to (currentBytes / 1024),
-                ),
+                data =
+                    mapOf(
+                        "artifact" to mapping.label,
+                        "target" to mapping.targetFile.name,
+                        "sizeKB" to (currentBytes / 1024),
+                    ),
             )
         }
         logger.i(
@@ -181,11 +183,12 @@ object DatabaseImportSupport {
             CrashBreadcrumbs.record(
                 source = "DatabaseImportSupport.copyDatabaseArtifacts",
                 stage = "completed",
-                data = mapOf(
-                    "sourceKind" to source.sourceKind,
-                    "primaryFileName" to source.primaryFileName,
-                    "copiedArtifacts" to copyMappings.size,
-                ),
+                data =
+                    mapOf(
+                        "sourceKind" to source.sourceKind,
+                        "primaryFileName" to source.primaryFileName,
+                        "copiedArtifacts" to copyMappings.size,
+                    ),
             )
         }
     }
@@ -212,8 +215,11 @@ object DatabaseImportSupport {
      * verdict now comes from [EncryptedFileClassifier], so "not encrypted" means the same thing here as
      * it does on the other side of the import flow.
      */
-    @Suppress("TooGenericExceptionCaught") // Intentional: a picked file can fail with SecurityException, IOException or a provider's own fault
-    fun isStandardSqliteFile(databaseFile: File, logTag: String): Boolean {
+    @Suppress("TooGenericExceptionCaught") // Intentional: a picked file can fail with SecurityException, IOException or a provider fault
+    fun isStandardSqliteFile(
+        databaseFile: File,
+        logTag: String,
+    ): Boolean {
         logger.i(
             logTag,
             "IMPORT_PROBE_FORMAT_ENTER",
@@ -239,11 +245,12 @@ object DatabaseImportSupport {
             val header = ByteArray(EncryptedFileClassifier.MINIMUM_PROBE_BYTES)
             val bytesRead = databaseFile.inputStream().use { it.read(header) }
             val hexHeader = header.take(bytesRead.coerceAtLeast(0)).joinToString("") { "%02X".format(it) }
-            val verdict = EncryptedFileClassifier.classify(
-                header = header,
-                totalLength = databaseFile.length(),
-                readSucceeded = bytesRead > 0,
-            )
+            val verdict =
+                EncryptedFileClassifier.classify(
+                    header = header,
+                    totalLength = databaseFile.length(),
+                    readSucceeded = bytesRead > 0,
+                )
             logger.i(
                 logTag,
                 "Database file format check",
@@ -355,31 +362,32 @@ object DatabaseImportSupport {
                     "tempWalSizeKB" to (tempWal.length() / 1024),
                 ),
             )
-            val checkpointed = try {
-                val folded = walConsolidator.consolidateWalAfterImport(tempDb, logTag)
-                logger.i(
-                    logTag,
-                    "WAL checkpoint via temp copy",
-                    mapOf(
-                        "folded" to folded,
-                        "tempDbSurvived" to tempDb.exists(),
-                        "tempDbSizeKB" to (tempDb.length() / 1024),
-                    ),
-                )
-                folded
-            } catch (e: Exception) {
-                logger.w(
-                    logTag,
-                    "WAL checkpoint on temp copy failed; preserving WAL to avoid data loss",
-                    mapOf(
-                        "error" to (e.message ?: "Unknown"),
-                        "exception" to e.javaClass.simpleName,
-                        "tempDbExists" to tempDb.exists(),
-                        "tempDbSizeKB" to (tempDb.length() / 1024),
-                    ),
-                )
-                false
-            }
+            val checkpointed =
+                try {
+                    val folded = walConsolidator.consolidateWalAfterImport(tempDb, logTag)
+                    logger.i(
+                        logTag,
+                        "WAL checkpoint via temp copy",
+                        mapOf(
+                            "folded" to folded,
+                            "tempDbSurvived" to tempDb.exists(),
+                            "tempDbSizeKB" to (tempDb.length() / 1024),
+                        ),
+                    )
+                    folded
+                } catch (e: Exception) {
+                    logger.w(
+                        logTag,
+                        "WAL checkpoint on temp copy failed; preserving WAL to avoid data loss",
+                        mapOf(
+                            "error" to (e.message ?: "Unknown"),
+                            "exception" to e.javaClass.simpleName,
+                            "tempDbExists" to tempDb.exists(),
+                            "tempDbSizeKB" to (tempDb.length() / 1024),
+                        ),
+                    )
+                    false
+                }
             if (checkpointed) {
                 val walDeleted = walFile.delete()
                 logger.i(
@@ -442,26 +450,27 @@ object DatabaseImportSupport {
         strings: UiStrings,
     ): ResolvedSource {
         val childDocuments = documentSource.childrenOf(containerToken).filterNot { it.kind == DocumentKind.CONTAINER }
-        val preferredDb = childDocuments.firstOrNull {
-            it.name.equals(PayanamDatabaseSchema.DATABASE_NAME, ignoreCase = true)
-        }
-        val dbDocument = preferredDb ?: run {
-            val dbCandidates = childDocuments.filter { isImportableDatabaseFileName(it.name) }
-            when (dbCandidates.size) {
-                0 -> throw IllegalStateException(strings.settingsImportErrorFolderMissingDb)
-
-                1 -> dbCandidates.first()
-
-                else -> throw IllegalStateException(strings.settingsImportErrorFolderMultipleDb)
+        val preferredDb =
+            childDocuments.firstOrNull {
+                it.name.equals(PayanamDatabaseSchema.DATABASE_NAME, ignoreCase = true)
             }
-        }
+        val dbDocument =
+            preferredDb ?: run {
+                val dbCandidates = childDocuments.filter { isImportableDatabaseFileName(it.name) }
+                when (dbCandidates.size) {
+                    0 -> throw IllegalStateException(strings.settingsImportErrorFolderMissingDb)
+                    1 -> dbCandidates.first()
+                    else -> throw IllegalStateException(strings.settingsImportErrorFolderMultipleDb)
+                }
+            }
         // Every sidecar SQLite can place beside the main file, matched by name in the SHARED family order
         // — `-wal`, `-shm` and `-journal`. Naming them one by one is how `-journal` went missing once.
         val companions =
-            DatabaseArtifacts.sidecarSuffixes.mapNotNull { suffix ->
-                val match = childDocuments.firstOrNull { it.name.equals(dbDocument.name + suffix, ignoreCase = true) }
-                match?.let { suffix to it.token }
-            }.toMap()
+            DatabaseArtifacts.sidecarSuffixes
+                .mapNotNull { suffix ->
+                    val match = childDocuments.firstOrNull { it.name.equals(dbDocument.name + suffix, ignoreCase = true) }
+                    match?.let { suffix to it.token }
+                }.toMap()
         val resolved =
             ResolvedSource(
                 sourceKind = "folder",
@@ -538,10 +547,8 @@ object DatabaseImportSupport {
 
     private const val DB_EXTENSION = ".db"
 
-    /**
-     * The `-wal` and `-shm` names are read from [DatabaseArtifacts] ([DatabaseArtifacts.WAL_SUFFIX],
-     * [DatabaseArtifacts.SHM_SUFFIX]) and are not restated in this file.
-     * A sidecar this file does not know about would be copied into the temp fold, left behind after a
-     * successful checkpoint, or never deleted — and each of those loses a committed write silently.
-     */
+    // The `-wal` and `-shm` names are read from DatabaseArtifacts (DatabaseArtifacts.WAL_SUFFIX,
+    // DatabaseArtifacts.SHM_SUFFIX) and are not restated in this file.
+    // A sidecar this file does not know about would be copied into the temp fold, left behind after a
+    // successful checkpoint, or never deleted — and each of those loses a committed write silently.
 }

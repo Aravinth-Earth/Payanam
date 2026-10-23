@@ -2,9 +2,13 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.core.ui.text.uiStringsFor
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import android.net.Uri
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
-import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
@@ -94,20 +98,20 @@ class SettingsPlaintextImportRefusalTest {
         val offered = writePlaintextDatabase("offered-plaintext.db")
 
         val viewModel = newViewModel()
-        viewModel.importDatabase(Uri.fromFile(offered))
+        viewModel.importDatabase(Uri.fromFile(offered).toString(), databaseFile, AndroidDatabaseEncryptionProbe(context), uiStringsFor(context), AndroidDocumentSource(context), appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()))
         awaitSettled(viewModel)
 
         // 1. REFUSED — and refused with the PLAINTEXT string, not the unreadable one or a generic
-        //    failure. See `resourceFallback` for why the assertion is on the resource identity
+        //    failure. See `appString` for why the assertion is on the resource identity
         //    rather than on the sentence.
         val result = viewModel.uiState.value.importResult
         assertThat(result).isInstanceOf(ImportResult.Error::class.java)
         val message = (result as ImportResult.Error).message
-        assertThat(message).isEqualTo(resourceFallback(io.payanam.R.string.settings_import_error_plaintext_db))
+        assertThat(message).isEqualTo(appString(io.payanam.R.string.settings_import_error_plaintext_db))
         // The two refusals are genuinely different resources, so this is not a coincidence: a
         // message equal to the UNREADABLE string would mean the wrong branch threw.
         assertThat(message)
-            .isNotEqualTo(resourceFallback(io.payanam.R.string.settings_import_error_unreadable_db))
+            .isNotEqualTo(appString(io.payanam.R.string.settings_import_error_unreadable_db))
         assertThat(viewModel.uiState.value.isImporting).isFalse()
         // Nothing was re-encrypted and no passphrase was ever requested: a file that was going to be
         // converted is a file whose passphrase question is moot.
@@ -154,15 +158,15 @@ class SettingsPlaintextImportRefusalTest {
         offered.writeBytes(ByteArray(8) { 0x2A })
 
         val viewModel = newViewModel()
-        viewModel.importDatabase(Uri.fromFile(offered))
+        viewModel.importDatabase(Uri.fromFile(offered).toString(), databaseFile, AndroidDatabaseEncryptionProbe(context), uiStringsFor(context), AndroidDocumentSource(context), appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()))
         awaitSettled(viewModel)
 
         val result = viewModel.uiState.value.importResult
         assertThat(result).isInstanceOf(ImportResult.Error::class.java)
         val message = (result as ImportResult.Error).message
-        assertThat(message).isEqualTo(resourceFallback(io.payanam.R.string.settings_import_error_unreadable_db))
+        assertThat(message).isEqualTo(appString(io.payanam.R.string.settings_import_error_unreadable_db))
         assertThat(message)
-            .isNotEqualTo(resourceFallback(io.payanam.R.string.settings_import_error_plaintext_db))
+            .isNotEqualTo(appString(io.payanam.R.string.settings_import_error_plaintext_db))
         assertThat(viewModel.uiState.value.awaitingImportPassphrase).isFalse()
     }
 
@@ -178,20 +182,20 @@ class SettingsPlaintextImportRefusalTest {
     }
 
     /**
-     * What [Context.getString] actually returns for [resId] in this module's unit tests, and why the
-     * assertions above are written against it.
+     * What [Context.getString] returns for [resId] in this module's unit tests - the real resolved
+     * sentence - and why the assertions above are written against it.
      *
-     * THE APP MODULE'S ROBOTORIC DOES NOT MERGE ANDROID RESOURCES. Unlike `:core:common` and
-     * `:core:database`, `app/build.gradle.kts` sets no `unitTests.isIncludeAndroidResources`, so
-     * `getString` cannot resolve an app string id and falls back to `"String resource ID #0x…"` with the
-     * id in it. The production code reads its refusal copy through exactly that call, so the message the
-     * screen publishes here is the fallback — and the id inside it is the thing under test.
-     *
-     * The wording itself is not untested by this: `Test-StringParity` pins the value in all four
-     * shipping tables, and the shared `UiStrings` table that the onboarding path uses IS resolvable in
-     * `:core:presentation`, where the matching assertions are made against the real sentence.
+     * HISTORY (retired 2026-10-07): this module's Robolectric DID NOT merge Android resources, so
+     * getString fell back to `"String resource ID #0x…"` and this helper hand-built that placeholder;
+     * production returned the same placeholder, so the equality pinned the resource ID. The fallback
+     * is GONE: `app/build.gradle.kts` now sets `testOptions.unitTests.isIncludeAndroidResources =
+     * true` (added so TaskReminderSchedulerTest could resolve `task_notification_title`), so
+     * production resolves the real sentence and the expectation must too - a wrong resource id still
+     * fails, because it resolves to a different sentence (or throws). The wording itself stays pinned
+     * by `Test-StringParity` in all four shipping tables.
      */
-    private fun resourceFallback(resId: Int): String = "String resource ID #" + String.format("0x%08x", resId)
+    private fun appString(resId: Int): String =
+        androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().getString(resId)
 
     /** Waits for the import coroutine to publish a terminal state, or fails the test. */
     private fun awaitSettled(viewModel: SettingsViewModel) {

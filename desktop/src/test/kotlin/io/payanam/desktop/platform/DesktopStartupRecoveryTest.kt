@@ -5,11 +5,11 @@ package io.payanam.desktop.platform
 import com.google.common.truth.Truth.assertThat
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.desktop.database.DesktopPayanamDataLayer
-import io.payanam.shared.logging.AppLogger
-import io.payanam.shared.logging.UnifiedLogger
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 import io.payanam.shared.platform.StartupRecoveryStep
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -70,9 +70,12 @@ class DesktopStartupRecoveryTest {
         // initialize it HERE (fully qualified, because several siblings import the SHARED UnifiedLogger under
         // the same name) rather than relying on a sibling class's leak - the shared-JVM class order is not a
         // contract, and a solo run of this class must work. The directory outlives the class on purpose.
-        io.payanam.desktop.UnifiedLogger.resetForTests()
+        io.payanam.desktop.UnifiedLogger
+            .resetForTests()
         io.payanam.desktop.UnifiedLogger.initialize(
-            logsDirectory = java.nio.file.Files.createTempDirectory("payanam-desktop-test-logs"),
+            logsDirectory =
+                java.nio.file.Files
+                    .createTempDirectory("payanam-desktop-test-logs"),
         )
         val path = tempFolder.newFolder().toPath().resolve("payanam.db")
         val properties = Properties().apply { setProperty("key", passphrase) }
@@ -102,21 +105,43 @@ class DesktopStartupRecoveryTest {
         // test and reads exactly like a step that was never attempted.
         AppLogger.install(
             object : UnifiedLogger {
-                override fun d(source: String, message: String, data: Map<String, Any?>) = Unit
+                override fun d(
+                    source: String,
+                    message: String,
+                    data: Map<String, Any?>,
+                ) = Unit
 
-                override fun i(source: String, message: String, data: Map<String, Any?>) {
+                override fun i(
+                    source: String,
+                    message: String,
+                    data: Map<String, Any?>,
+                ) {
                     captured += "I $source :: $message"
                 }
 
-                override fun w(source: String, message: String, data: Map<String, Any?>) {
+                override fun w(
+                    source: String,
+                    message: String,
+                    data: Map<String, Any?>,
+                ) {
                     captured += "W $source :: $message"
                 }
 
-                override fun e(source: String, message: String, error: Throwable?, data: Map<String, Any?>) {
+                override fun e(
+                    source: String,
+                    message: String,
+                    error: Throwable?,
+                    data: Map<String, Any?>,
+                ) {
                     captured += "E $source :: $message :: ${error?.javaClass?.name}: ${error?.message}"
                 }
 
-                override fun eSync(source: String, message: String, error: Throwable?, data: Map<String, Any?>) {
+                override fun eSync(
+                    source: String,
+                    message: String,
+                    error: Throwable?,
+                    data: Map<String, Any?>,
+                ) {
                     captured += "E(sync) $source :: $message"
                 }
             },
@@ -313,7 +338,6 @@ class DesktopStartupRecoveryTest {
         }
 }
 
-
 /**
  * The tables the three recovery steps touch, transcribed from the schema export
  * (`core/database/schemas/io.payanam.database.PayanamDatabase/22.json`).
@@ -324,121 +348,121 @@ class DesktopStartupRecoveryTest {
 private val DDL: List<String> =
     listOf(
         """
-        CREATE TABLE life_dimensions (
-        "id" TEXT NOT NULL,
-        "key" TEXT NOT NULL,
-        "label" TEXT NOT NULL,
-        "description" TEXT,
-        "color" TEXT NOT NULL,
-        "icon" TEXT,
-        "sortOrder" INTEGER NOT NULL,
-        "isActive" INTEGER NOT NULL,
-        "weight" REAL NOT NULL,
-        "createdAt" TEXT NOT NULL,
-        "updatedAt" TEXT NOT NULL,
-        PRIMARY KEY ("id")
-    )
+            CREATE TABLE life_dimensions (
+            "id" TEXT NOT NULL,
+            "key" TEXT NOT NULL,
+            "label" TEXT NOT NULL,
+            "description" TEXT,
+            "color" TEXT NOT NULL,
+            "icon" TEXT,
+            "sortOrder" INTEGER NOT NULL,
+            "isActive" INTEGER NOT NULL,
+            "weight" REAL NOT NULL,
+            "createdAt" TEXT NOT NULL,
+            "updatedAt" TEXT NOT NULL,
+            PRIMARY KEY ("id")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE tasks (
-        "id" TEXT NOT NULL,
-        "title" TEXT NOT NULL,
-        "description" TEXT,
-        "status" TEXT NOT NULL,
-        "dueDate" TEXT,
-        "createdAt" TEXT NOT NULL,
-        "updatedAt" TEXT NOT NULL,
-        "completedAt" TEXT,
-        "archivedAt" TEXT,
-        "recurrenceEnabled" INTEGER NOT NULL,
-        "recurrenceRule" TEXT,
-        "durationMinutes" INTEGER NOT NULL,
-        "impactLevel" TEXT NOT NULL,
-        "goalAlignment" TEXT NOT NULL,
-        "energyLevel" TEXT NOT NULL,
-        "controlLevel" TEXT NOT NULL,
-        "lifeIntentionCategory" TEXT NOT NULL,
-        "dimension_id" TEXT,
-        "day_key" TEXT,
-        "explicitUrgency" REAL,
-        "focusRequired" REAL,
-        "recurrenceStrategy" TEXT,
-        "blockedReason" TEXT,
-        "completionRate" REAL,
-        "externalDependency" TEXT,
-        "notificationMode" TEXT,
-        "customNotificationMinutes" INTEGER,
-        "taskScore" REAL,
-        "lastOccurrenceDate" TEXT,
-        "dayBoundaryHour" INTEGER NOT NULL,
-        "import_source" TEXT,
-        "import_id" TEXT,
-        "imported_at" TEXT,
-        "import_batch_id" TEXT,
-        PRIMARY KEY ("id")
-    )
+            CREATE TABLE tasks (
+            "id" TEXT NOT NULL,
+            "title" TEXT NOT NULL,
+            "description" TEXT,
+            "status" TEXT NOT NULL,
+            "dueDate" TEXT,
+            "createdAt" TEXT NOT NULL,
+            "updatedAt" TEXT NOT NULL,
+            "completedAt" TEXT,
+            "archivedAt" TEXT,
+            "recurrenceEnabled" INTEGER NOT NULL,
+            "recurrenceRule" TEXT,
+            "durationMinutes" INTEGER NOT NULL,
+            "impactLevel" TEXT NOT NULL,
+            "goalAlignment" TEXT NOT NULL,
+            "energyLevel" TEXT NOT NULL,
+            "controlLevel" TEXT NOT NULL,
+            "lifeIntentionCategory" TEXT NOT NULL,
+            "dimension_id" TEXT,
+            "day_key" TEXT,
+            "explicitUrgency" REAL,
+            "focusRequired" REAL,
+            "recurrenceStrategy" TEXT,
+            "blockedReason" TEXT,
+            "completionRate" REAL,
+            "externalDependency" TEXT,
+            "notificationMode" TEXT,
+            "customNotificationMinutes" INTEGER,
+            "taskScore" REAL,
+            "lastOccurrenceDate" TEXT,
+            "dayBoundaryHour" INTEGER NOT NULL,
+            "import_source" TEXT,
+            "import_id" TEXT,
+            "imported_at" TEXT,
+            "import_batch_id" TEXT,
+            PRIMARY KEY ("id")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE task_occurrences (
-        "id" TEXT NOT NULL,
-        "taskId" TEXT NOT NULL,
-        "dueDate" TEXT NOT NULL,
-        "completedAt" TEXT,
-        "actualCompletedAt" TEXT,
-        "actualDurationMinutes" INTEGER,
-        "status" TEXT NOT NULL,
-        "statusReason" TEXT,
-        "createdAt" TEXT NOT NULL,
-        "completionRate" REAL,
-        "note" TEXT,
-        PRIMARY KEY ("id")
-    )
+            CREATE TABLE task_occurrences (
+            "id" TEXT NOT NULL,
+            "taskId" TEXT NOT NULL,
+            "dueDate" TEXT NOT NULL,
+            "completedAt" TEXT,
+            "actualCompletedAt" TEXT,
+            "actualDurationMinutes" INTEGER,
+            "status" TEXT NOT NULL,
+            "statusReason" TEXT,
+            "createdAt" TEXT NOT NULL,
+            "completionRate" REAL,
+            "note" TEXT,
+            PRIMARY KEY ("id")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE app_settings (
-        "key" TEXT NOT NULL,
-        "value" TEXT,
-        "updatedAt" TEXT NOT NULL,
-        PRIMARY KEY ("key")
-    )
+            CREATE TABLE app_settings (
+            "key" TEXT NOT NULL,
+            "value" TEXT,
+            "updatedAt" TEXT NOT NULL,
+            PRIMARY KEY ("key")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE habit_metrics (
-        "habitId" TEXT NOT NULL,
-        "dayKey" TEXT NOT NULL,
-        "score" REAL NOT NULL,
-        "runningAvg" REAL NOT NULL,
-        "progress" REAL NOT NULL,
-        "streakPos" INTEGER NOT NULL,
-        "streakNet" INTEGER NOT NULL,
-        "posContinue" INTEGER NOT NULL,
-        PRIMARY KEY ("habitId", "dayKey")
-    )
+            CREATE TABLE habit_metrics (
+            "habitId" TEXT NOT NULL,
+            "dayKey" TEXT NOT NULL,
+            "score" REAL NOT NULL,
+            "runningAvg" REAL NOT NULL,
+            "progress" REAL NOT NULL,
+            "streakPos" INTEGER NOT NULL,
+            "streakNet" INTEGER NOT NULL,
+            "posContinue" INTEGER NOT NULL,
+            PRIMARY KEY ("habitId", "dayKey")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE dimension_metrics (
-        "dimensionId" TEXT NOT NULL,
-        "dayKey" TEXT NOT NULL,
-        "score" REAL NOT NULL,
-        "runningAvg" REAL NOT NULL,
-        "progress" REAL NOT NULL,
-        "streakPos" INTEGER NOT NULL,
-        "streakNet" INTEGER NOT NULL,
-        "posContinue" INTEGER NOT NULL,
-        PRIMARY KEY ("dimensionId", "dayKey")
-    )
+            CREATE TABLE dimension_metrics (
+            "dimensionId" TEXT NOT NULL,
+            "dayKey" TEXT NOT NULL,
+            "score" REAL NOT NULL,
+            "runningAvg" REAL NOT NULL,
+            "progress" REAL NOT NULL,
+            "streakPos" INTEGER NOT NULL,
+            "streakNet" INTEGER NOT NULL,
+            "posContinue" INTEGER NOT NULL,
+            PRIMARY KEY ("dimensionId", "dayKey")
+        )
         """.trimIndent(),
         """
-        CREATE TABLE day_metrics (
-        "dayKey" TEXT NOT NULL,
-        "dayScore" REAL NOT NULL,
-        "runningAvg" REAL NOT NULL,
-        "progress" REAL NOT NULL,
-        "streakPos" INTEGER NOT NULL,
-        "streakNet" INTEGER NOT NULL,
-        "posContinue" INTEGER NOT NULL,
-        PRIMARY KEY ("dayKey")
-    )
+            CREATE TABLE day_metrics (
+            "dayKey" TEXT NOT NULL,
+            "dayScore" REAL NOT NULL,
+            "runningAvg" REAL NOT NULL,
+            "progress" REAL NOT NULL,
+            "streakPos" INTEGER NOT NULL,
+            "streakNet" INTEGER NOT NULL,
+            "posContinue" INTEGER NOT NULL,
+            PRIMARY KEY ("dayKey")
+        )
         """.trimIndent(),
         // Added for the roll-up case, and it is NOT one of the three steps' own tables. The two recurrence
         // steps reach `TaskRepositoryJvm.updateRecurrenceState`, which marks the affected day dirty via
@@ -448,19 +472,19 @@ private val DDL: List<String> =
         // test whose pass condition is "the writes never fired" is one refactor away from failing for a reason
         // that has nothing to do with the assertion.
         """
-        CREATE TABLE daily_insights (
-        "id" TEXT NOT NULL,
-        "day_key" TEXT NOT NULL,
-        "module" TEXT NOT NULL,
-        "dimension_id" TEXT,
-        "planned_minutes" INTEGER,
-        "actual_minutes" INTEGER,
-        "focused_minutes" INTEGER,
-        "completed_count" INTEGER,
-        "total_count" INTEGER,
-        "summary_json" TEXT,
-        "generated_at" TEXT NOT NULL,
-        PRIMARY KEY ("id")
-    )
+            CREATE TABLE daily_insights (
+            "id" TEXT NOT NULL,
+            "day_key" TEXT NOT NULL,
+            "module" TEXT NOT NULL,
+            "dimension_id" TEXT,
+            "planned_minutes" INTEGER,
+            "actual_minutes" INTEGER,
+            "focused_minutes" INTEGER,
+            "completed_count" INTEGER,
+            "total_count" INTEGER,
+            "summary_json" TEXT,
+            "generated_at" TEXT NOT NULL,
+            PRIMARY KEY ("id")
+        )
         """.trimIndent(),
     )

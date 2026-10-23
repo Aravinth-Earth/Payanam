@@ -96,4 +96,58 @@ class DesktopPreferenceContractsTest {
         assertThat(journalVisibility[DesktopTopLevelRoute.SETTINGS]).isTrue()
         assertThat(journalVisibility[DesktopTopLevelRoute.TASKS]).isFalse()
     }
+
+    @Test
+    fun `isRouteVisible falls back to DEFAULT_ROUTE_VISIBLE when a route is absent from the map`() {
+        val snapshot =
+            DesktopSettingsSnapshot(
+                routeVisibility = mapOf(DesktopTopLevelRoute.TASKS to true, DesktopTopLevelRoute.JOURNAL to false),
+            )
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.TASKS)).isTrue()
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.JOURNAL)).isFalse()
+        // HABITS is absent — the map lookup returns null, so the fallback must kick in
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.HABITS))
+            .isEqualTo(DesktopSettingsContracts.DEFAULT_ROUTE_VISIBLE)
+    }
+
+    @Test
+    fun `visibleRoutes only includes routes whose flag is true`() {
+        val snapshot =
+            DesktopSettingsSnapshot(
+                routeVisibility =
+                    mapOf(
+                        DesktopTopLevelRoute.TASKS to true,
+                        DesktopTopLevelRoute.HABITS to false,
+                        DesktopTopLevelRoute.JOURNAL to true,
+                        DesktopTopLevelRoute.SETTINGS to true,
+                    ),
+            )
+        // LENSES, TIME, NOTES absent → default true
+        assertThat(snapshot.visibleRoutes())
+            .containsExactlyElementsIn(
+                listOf(
+                    DesktopTopLevelRoute.TASKS,
+                    DesktopTopLevelRoute.TIME,
+                    DesktopTopLevelRoute.JOURNAL,
+                    DesktopTopLevelRoute.NOTES,
+                    DesktopTopLevelRoute.LENSES,
+                    DesktopTopLevelRoute.SETTINGS,
+                ),
+            ).inOrder()
+    }
+
+    @Test
+    fun `focus preset exposes stable name and description keys for the i18n layer`() {
+        assertThat(FocusModePreset.SIMPLE_TIME_HABITS.nameKey).isEqualTo("preset_simple_time_habits")
+        assertThat(FocusModePreset.SIMPLE_TIME_HABITS.descriptionKey)
+            .isEqualTo("preset_simple_time_habits_desc")
+        assertThat(FocusModePreset.SIMPLE_JOURNAL.nameKey).isEqualTo("preset_simple_journal")
+        assertThat(FocusModePreset.SIMPLE_JOURNAL.descriptionKey)
+            .isEqualTo("preset_simple_journal_desc")
+        assertThat(FocusModePreset.SIMPLE_TASKS.nameKey).isEqualTo("preset_simple_tasks")
+        assertThat(FocusModePreset.SIMPLE_TASKS.descriptionKey)
+            .isEqualTo("preset_simple_tasks_desc")
+        assertThat(FocusModePreset.FULL_SUITE.nameKey).isEqualTo("preset_full_suite")
+        assertThat(FocusModePreset.FULL_SUITE.descriptionKey).isEqualTo("preset_full_suite_desc")
+    }
 }

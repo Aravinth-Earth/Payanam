@@ -230,15 +230,22 @@ class DesktopEncryptionStateCheckpointTest {
      * this file cannot agree with the implementation by construction: change the tag the class logs and
      * these expectations stop matching.
      */
-    private fun sourceTag(operation: String): String =
-        "DesktopEncryptionStateCheckpoint.$operation"
+    private fun sourceTag(operation: String): String = "DesktopEncryptionStateCheckpoint.$operation"
 
     /** Keeps every WARN entry in [warnings] and drops every other level, so only refusals are asserted on. */
     private fun recordingLogger(): UnifiedLogger =
         object : UnifiedLogger {
-            override fun d(source: String, message: String, data: Map<String, Any?>) = Unit
+            override fun d(
+                source: String,
+                message: String,
+                data: Map<String, Any?>,
+            ) = Unit
 
-            override fun i(source: String, message: String, data: Map<String, Any?>) = Unit
+            override fun i(
+                source: String,
+                message: String,
+                data: Map<String, Any?>,
+            ) = Unit
 
             override fun w(
                 source: String,

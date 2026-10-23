@@ -16,27 +16,27 @@ import java.nio.file.Files
  * The desktop's backup ROTATION, on the path that actually runs.
  *
  * **Why this exists.** Rotation was implemented and fully tested in `DesktopDatabaseBackupPort`, and
- * every one of those tests passed while the running app pruned nothing — the port has no production
+ * every one of those tests passed while the running app pruned nothing - the port has no production
  * constructor, so the class that owned the policy was a class nothing called. The live scheduled path
- * (`DesktopApp.runBackup`) wrote a backup artifact into `exports/` and returned. On Android the same
- * fact is not true: `DatabaseBackupCoordinator.cleanupOldBackups` runs on *every* backup through the
- * coordinator, so a retention row there is honoured by each run. The desktop honoured it by nobody.
+ * wrote a backup artifact and returned. On Android the same fact is not true: the coordinator prunes on
+ * EVERY backup through it, so a retention row there is honoured by each run.
  *
- * A test of the port cannot see this, because the defect is precisely that the port is not on the path.
- * So the wiring is asserted against the source of the path — the same idiom
- * `DesktopRailNavigationWiringTest` and `DesktopNavHostParityTest` already use in this module for
- * behaviours no render can observe — and the retention READER is asserted behaviourally, because the
- * reader's job is to reproduce Android's own coercion rules rather than to be called.
+ * **How the wiring is asserted now (2026-10-08 shape).** The scheduled path and the Run-Backup-Now
+ * path both construct `BackupCoordinatorCore` and hand it `rotationRows = backupRows`; rotation runs
+ * inside the core, after `recordSuccess`, in the success branch only. So the wiring facts this file
+ * pins are: the desktop constructs the core with the shared reader and the real backup directory, the
+ * core reaches cleanup only after a success record (never in its failure branch), and the reader is
+ * still defined once. The retention READER stays asserted behaviourally, because the reader's job is
+ * to reproduce Android's own coercion rules rather than to be called.
  *
  * **The mutants this is built to catch:**
  *
- * 1. the rotation call is deleted from the scheduled path (the exact revert this item fixes) — the
- *    behavioural cases below keep passing, which is precisely why the wiring needs its own assertion;
- * 2. the rotation call survives but is moved OUTSIDE the `succeededForBackup()` branch, so a failed
- *    backup prunes — the slice below is bounded by the branch, which is what makes that mutation
- *    visible;
- * 3. the prune is pointed at some other directory than the one the backup writes into, so it prunes a
- *    folder the app never fills;
+ * 1. the core construction is deleted from the scheduled path (the rotation call disappears with it)
+ *    - the behavioural cases below keep passing, which is precisely why the wiring needs its own
+ *    assertion;
+ * 2. cleanup is moved out of the success path so a failed backup prunes - the position assertions on
+ *    the core source make that mutation visible;
+ * 3. the prune is pointed at some other directory than the one the backup writes into;
  * 4. the reader silently disagrees with Android: a count of `0` or a non-numeric row reaches
  *    `BackupRotationPolicy`, which rejects `keepCount < 1`, and the backup fails.
  */
@@ -44,46 +44,55 @@ class DesktopBackupRotationWiringTest {
     private val appSource =
         source("desktop/src/main/kotlin/io/payanam/desktop/DesktopApp.kt").readText()
 
+    private val coreSource =
+        source("core/backup/src/main/kotlin/io/payanam/backup/BackupCoordinatorCore.kt").readText()
+
     /**
-     * The body of the scheduled backup lambda — from its fold precondition to the closing of its
-     * success branch, so both rotation's presence and its position inside the success branch are facts
-     * this slice can see. The markers are asserted before anything is read out of it, so an empty parse
-     * fails rather than passing quietly.
+     * The body of `runScheduledDesktopBackup`, matched by BRACES from its signature so the slice is
+     * exactly the function no matter how its interior is reordered.
      */
-    private val scheduledBackupBody =
-        slice(
-            source = appSource,
-            from = "runBackup = backup@{",
-            // The success branch's log line opens the slice; rotation is asserted to sit BETWEEN this
-            // and the failing branch that follows it. A stable end marker matters here: it must be a
-            // line of CODE, not something a comment can push away, so an explanatory comment inserted
-            // inside the branch cannot silently widen the slice and hide a hoisted call.
-            to = "} else {\n                        sessionLogger.w(\"DesktopApp.scheduledBackup\", summary, data)",
-        )
+    private val hoistedBackupBody: String by lazy {
+        braceBody(appSource, "private suspend fun runScheduledDesktopBackup(")
+    }
+
+    /**
+     * The text INSIDE the `withContext(BACKUP_DISPATCHER)` hop, again by brace match - the block whose
+     * contents are asserted to be doing the file work off the caller's thread.
+     */
+    private val backupHopBlock: String by lazy {
+        braceBody(hoistedBackupBody, "withContext(BACKUP_DISPATCHER) {")
+    }
 
     @Test
     fun `the scheduled backup path prunes old artifacts after a successful run`() {
-        // The call is here at all — the exact defect: a policy that exists, is tested, and is not called.
-        assertThat(scheduledBackupBody).contains("pruneScheduledBackupRotation(")
-        // It is given the folder the backup actually writes into, resolved through the SAME function
-        // the destination is resolved through. A prune pointed anywhere else is a prune that deletes
-        // nothing and can never be noticed from a render.
-        assertThat(scheduledBackupBody).contains("DesktopAppPaths.resolveDatabaseDirectory()")
+        // The wiring: the running path CONSTRUCTS the shared coordinator core - the exact defect this
+        // file exists for was a policy that exists, is tested, and is not called by production.
+        assertThat(hoistedBackupBody).contains("BackupCoordinatorCore(")
+        // Rotation reaches the folder the backup actually writes into, resolved through the SAME
+        // function the destination is resolved through. A prune pointed anywhere else deletes nothing
+        // and can never be noticed from a render.
+        assertThat(hoistedBackupBody).contains("backupDirectory = DesktopAppPaths.resolveDatabaseDirectory()")
         // It reads retention through the shared reader the schedule reconciles from, not through a
         // second copy of the row names.
-        assertThat(scheduledBackupBody).contains("backupRows = backupRows")
+        assertThat(hoistedBackupBody).contains("rotationRows = backupRows")
+        // The Run-Backup-Now seam is the SAME lambda, so the manual path prunes through the core too.
+        assertThat(appSource).contains("runBackup = { runScheduledDesktopBackup(")
     }
 
     @Test
     fun `the rotation call sits inside the success branch and not beside it`() {
-        // The failing-branch log is the slice's end marker, so if rotation had been hoisted out of the
-        // success branch it would fall OUTSIDE this slice and this assertion would fail — a failed
-        // backup that pruned, which is the destructive direction.
-        assertThat(scheduledBackupBody).contains("pruneScheduledBackupRotation(")
+        // In the shared core: cleanup is reached only AFTER recordSuccess, inside the success path.
+        // The position is asserted on the core source, since that is where the branch lives now.
+        val recordSuccessIndex = coreSource.indexOf("recordSuccess(recordedAtMillis)")
+        val cleanupIndex = coreSource.indexOf("cleanupOldBackups(backupRootDir")
+        assertThat(recordSuccessIndex).isAtLeast(0)
+        assertThat(cleanupIndex).isGreaterThan(recordSuccessIndex)
 
-        // And it is called with the resolved folder rather than being a bare reference, so the "where"
-        // question has an answer in the source rather than only in a default argument.
-        assertThat(scheduledBackupBody).contains("backupDirectory =")
+        // The failure branch records a failure and NEVER prunes: the getOrElse block must contain no
+        // cleanup call, so a failed backup cannot prune.
+        val failureBranch = braceBody(coreSource, ".getOrElse { error ->")
+        assertThat(failureBranch).contains("recordFailure(finalMessage)")
+        assertThat(failureBranch).doesNotContain("cleanupOldBackups(")
     }
 
     @Test
@@ -95,23 +104,16 @@ class DesktopBackupRotationWiringTest {
         assertThat(seamsStart).isAtLeast(0)
         assertThat(seamsConsumption).isGreaterThan(seamsStart)
 
-        // The schedule consumes the shared reader rather than re-reading the table inline.
-        //
-        // The end marker is the seams call's LAST argument plus its own close - the closing paren and
-        // brace are what make it unique. `backupRows = backupRows,` on its own occurs TWICE (the seams
-        // argument AND the rotation call's argument), so slicing to it stops at the rotation call,
-        // hundreds of characters early, and `contains` then asserts nothing while the test still passes
-        // its own slice assertions. A slice that ends early is the failure mode this file must not have.
-        // The last argument is now the delivery hook - this anchor moved with it, which is this marker's
-        // whole job: it fails when the call's shape changes instead of quietly slicing short.
+        // The schedule consumes the shared reader rather than re-reading the table inline, and the
+        // same reader instance is what the core rotates with.
         val seams =
             slice(
                 source = appSource,
                 from = "desktopPlatformSeams(\n",
-                to = "deliverReminder = desktopFreedesktopReminderDelivery(sessionLogger),\n            )",
+                to = "\n            )",
             )
         assertThat(seams).contains("backupRows = backupRows")
-        // The rotation is reached through the same helper, so both policies read the same rows.
+        assertThat(hoistedBackupBody).contains("rotationRows = backupRows")
         assertThat(appSource).contains("backupRows = backupRows")
     }
 
@@ -153,7 +155,7 @@ class DesktopBackupRotationWiringTest {
     fun `a retention count Android would clamp is clamped rather than rejected`() =
         runBlocking {
             // `BackupRotationPolicy` REQUIRES keepCount >= 1, so a row of "0" reaching it un-clamped
-            // throws — and it throws AFTER a backup succeeded, turning a good backup into a failed one.
+            // throws - and it throws AFTER a backup succeeded, turning a good backup into a failed one.
             // Android coerces to 1..999 at the read; this asserts the desktop does the same.
             val policy =
                 io.payanam.desktop.database.rotationPolicyFromBackupRows(
@@ -209,10 +211,110 @@ class DesktopBackupRotationWiringTest {
         return source.substring(start, end)
     }
 
+    // ── The file work, off the thread the UI is drawn on ───────────────────────
+
+    @Test
+    fun `the backup's blocking file work runs on the IO dispatcher and not the caller's`() {
+        // The dispatcher is NAMED and bound to IO. Naming it is what the module idiom does - a bare
+        // `withContext(Dispatchers.IO)` inline would pass a `contains("Dispatchers.IO")` check while
+        // leaving nothing for the KDoc to point at, and nothing for a reviewer to grep.
+        assertThat(appSource).contains("private val BACKUP_DISPATCHER: CoroutineDispatcher = Dispatchers.IO")
+
+        // The dispatcher is NOT a main-thread one. `Dispatchers.Main` on Compose Desktop is the AWT
+        // event dispatch thread - the very thread being frozen - and `Unconfined`/`Default` run the
+        // caller inline or on a CPU pool that will still block the caller for the length of the copy.
+        // Comments are stripped before this scan precisely so the KDoc that NAMES these, and the
+        // explanatory comments below the hop, cannot satisfy or defeat it.
+        val code = code(appSource)
+        for (mainThread in listOf("Dispatchers.Main", "Dispatchers.Unconfined", "Dispatchers.Default")) {
+            assertThat(code).doesNotContain(mainThread)
+        }
+
+        // THE PROPERTY, not a string: every blocking step is INSIDE the hop - the temp directory
+        // creation, the core run (snapshot copy + verify + rotation), and the log.
+        assertThat(backupHopBlock).contains("Files.createTempDirectory(")
+        assertThat(backupHopBlock).contains("core.backupToAppBackupDirectory(")
+        // The backup directory is resolved inside the hop, so the destination rule's stats and
+        // directory creation are file work on the IO dispatcher too.
+        assertThat(backupHopBlock).contains("DesktopAppPaths.resolveDatabaseDirectory()")
+
+        // And the whole hop is inside the function, not merely somewhere in the file.
+        assertThat(hoistedBackupBody).contains("withContext(BACKUP_DISPATCHER)")
+    }
+
+    @Test
+    fun `the recursive delete is inside the hop without its own signature being changed`() {
+        // `pruneOldBackupDirectories` is NOT suspend and stays that way - it has direct test callers,
+        // so the delete moves off the UI thread by changing WHO CALLS it, not by changing what it is.
+        assertThat(appSource).doesNotContain("suspend fun pruneOldBackupDirectories(")
+
+        // The core call - the only path that reaches the recursive delete from the scheduled run -
+        // is inside the hop, so the delete runs on the IO dispatcher. Asserted through the core run
+        // rather than through `deleteRecursively`, because the delete lives in the core/ports files
+        // and this slice cannot see into them: the call being wrapped is what is in scope here.
+        assertThat(backupHopBlock).contains("backupToAppBackupDirectory(")
+        // Still pointed at the folder the backup writes into, still reading retention through the one
+        // shared reader - the hop moved the thread and nothing else.
+        assertThat(hoistedBackupBody).contains("backupDirectory = DesktopAppPaths.resolveDatabaseDirectory()")
+        assertThat(hoistedBackupBody).contains("rotationRows = backupRows")
+    }
+
+    @Test
+    fun `the backup artifact is what it was before the thread moved`() {
+        // The gate is about the THREAD, so the artifact must be provably untouched in its essentials:
+        // same backup directory, same shared session-folder naming rule, rotation still reached only
+        // after a success. A "fix" that wrote somewhere easier, or renamed the folder to dodge the
+        // recursive delete, fails here.
+        assertThat(hoistedBackupBody).contains("backupDirectory = DesktopAppPaths.resolveDatabaseDirectory()")
+        // The session folder name still comes from the desktop's own backup timestamp rule, so the
+        // artifact keeps its auto_bk_ identity (the session-DIR shape is the expected parity change).
+        assertThat(hoistedBackupBody).contains("\"auto_bk_\" + LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)")
+        // Rotation stays INSIDE the success branch: recordSuccess then cleanup, failure branch clean.
+        val recordSuccessIndex = coreSource.indexOf("recordSuccess(recordedAtMillis)")
+        val cleanupIndex = coreSource.indexOf("cleanupOldBackups(backupRootDir")
+        assertThat(recordSuccessIndex).isAtLeast(0)
+        assertThat(cleanupIndex).isGreaterThan(recordSuccessIndex)
+        val failureBranch = braceBody(coreSource, ".getOrElse { error ->")
+        assertThat(failureBranch).doesNotContain("cleanupOldBackups(")
+    }
+
+    /** Everything from a marker to the brace its block CLOSES on, so a slice cannot run past it. */
+    private fun braceBody(
+        source: String,
+        from: String,
+    ): String {
+        val start = source.indexOf(from)
+        assertThat(start).isAtLeast(0)
+        val open = source.indexOf("{", start)
+        assertThat(open).isGreaterThan(start)
+        var depth = 0
+        for (index in open until source.length) {
+            val character = source[index]
+            if (character == '{') depth++
+            if (character == '}') {
+                depth--
+                if (depth == 0) return source.substring(open, index + 1)
+            }
+        }
+        throw AssertionError("Unbalanced braces after $from")
+    }
+
+    /** The file with comments removed, so a scan judges CODE and not prose about the code. */
+    private fun code(source: String): String =
+        source
+            .replace(BLOCK_COMMENT, "")
+            .replace(LINE_COMMENT, "")
+
     private companion object {
+        // Comments are stripped before any dispatcher scan: this file's own KDoc NAMES
+        // `Dispatchers.Main` and `Dispatchers.Unconfined` to explain why they are banned here, and a
+        // scan that counted prose would fail on its own documentation.
+        private val BLOCK_COMMENT = Regex("/\\*.*?\\*/", RegexOption.DOT_MATCHES_ALL)
+        private val LINE_COMMENT = Regex("//[^\\n]*")
+
         /**
          * The source root the module is built from. The working directory a Gradle test runs in is the
-         * MODULE's, not the repository's, so the repository root is walked up until the path resolves —
+         * MODULE's, not the repository's, so the repository root is walked up until the path resolves -
          * a hard-coded `../..` would be a guess about where the runner was invoked from.
          */
         private fun source(relativePath: String): File {

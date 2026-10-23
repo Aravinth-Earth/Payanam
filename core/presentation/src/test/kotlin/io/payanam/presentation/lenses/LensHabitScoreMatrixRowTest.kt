@@ -23,11 +23,12 @@ class LensHabitScoreMatrixRowTest {
             key = "dim_work_livelihood",
             label = "Work & Livelihood",
             colorHex = "#4C6EF5",
-            values = mapOf(
-                ScoreMetricColumn.SCORE to (0.8 to 0.6),
-                ScoreMetricColumn.PROGRESS to (0.25 to 0.5),
-                ScoreMetricColumn.STREAK_POS to (4.0 to 2.5),
-            ),
+            values =
+                mapOf(
+                    ScoreMetricColumn.SCORE to (0.8 to 0.6),
+                    ScoreMetricColumn.PROGRESS to (0.25 to 0.5),
+                    ScoreMetricColumn.STREAK_POS to (4.0 to 2.5),
+                ),
         )
 
     @Test
