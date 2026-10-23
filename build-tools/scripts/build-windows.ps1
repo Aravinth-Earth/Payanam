@@ -1321,7 +1321,7 @@ if ($runDesktopTests)
     # `:desktop:spotlessCheck` is NOT usable: the pre-existing formatting backlog means it can never
     # pass on a clean checkout. It only ever passed because the old formatting step reformatted the
     # tree immediately beforehand - which is exactly the mutation this script must not perform.
-    $verificationRun = Invoke-GradleStreaming -GradleArgs ":desktop:detekt :desktop:test :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification $gradleProps" -StepLabel "Desktop verification"
+    $verificationRun = Invoke-GradleStreaming -GradleArgs ":desktop:detekt :desktop:test :core:ui:desktopTest :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification $gradleProps" -StepLabel "Desktop verification"
     if ($verificationRun.ExitCode -ne 0)
     {
         Write-LogWithTime "❌ Desktop verification failed!" "Red"

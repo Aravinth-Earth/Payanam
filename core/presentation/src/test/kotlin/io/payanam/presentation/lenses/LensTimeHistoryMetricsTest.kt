@@ -16,6 +16,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -118,6 +119,21 @@ class LensTimeHistoryMetricsTest {
                     ),
             )
         assertEquals(1.0 / 1.7, weighted, 0.000001)
+    }
+
+    /**
+     * Calculate bounded time module score charges the same miss asymmetrically.
+     */
+    @Test
+    fun calculateBoundedTimeModuleScore_chargesTheSameMissAsymmetrically() {
+        val tolerance = 0.000001
+        // A 36-minute miss either side of a 360-minute plan: below plan is charged against the
+        // plan itself, above plan against the remaining headroom, so the two must not score equal.
+        val shortfall = calculateBoundedTimeModuleScore(plannedMinutes = 360, actualMinutes = 324)
+        val overshoot = calculateBoundedTimeModuleScore(plannedMinutes = 360, actualMinutes = 396)
+        assertEquals(0.9, shortfall, tolerance)
+        assertEquals(1.0 - 36.0 / 1080.0, overshoot, tolerance)
+        assertNotEquals(shortfall, overshoot)
     }
 
     private fun snapshotWithSingleDimension(

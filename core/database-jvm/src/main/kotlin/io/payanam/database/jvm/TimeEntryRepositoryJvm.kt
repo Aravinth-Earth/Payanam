@@ -40,6 +40,9 @@ import java.util.UUID
  *    `time_entry_tags` (`ON DELETE CASCADE`), so porting it verbatim would port a silent data-loss bug.
  *    `INSERT_SQL` uses `ON CONFLICT(id) DO UPDATE` instead, which reaches the same end state without
  *    deleting the row. See [INSERT_SQL].
+ *  - **The delete writes one child statement the Room DAO does not.** Room turns `PRAGMA foreign_keys`
+ *    on and the declared `ON DELETE CASCADE` on `time_entry_tags` fires on its own; this connection
+ *    enforces nothing, so [deleteTimeEntry] clears the entry's tag links itself. See [deleteTimeEntry].
  *
  * @param session an already-open session owned by the caller.
  * @param pollIntervalMs how often a subscribed read re-checks; shorten it in tests.
@@ -272,12 +275,41 @@ class TimeEntryRepositoryJvm(
         }
     }
 
-    /** Hard-deletes [id] and marks its day lens-dirty. */
+    /**
+     * Hard-deletes [id], clears its tag links, and marks its day lens-dirty.
+     *
+     * **The child statement is the point of this method, and Room's DAO does not write it either** —
+     * Room issues `PRAGMA foreign_keys = ON` on every open, so the declared `ON DELETE CASCADE` from
+     * `time_entry_tags` to `time_entries` fires on its own and `deleteById` is honestly one statement. The
+     * JVM opener enables nothing, SQLite defaults `PRAGMA foreign_keys` to OFF, and the same delete
+     * therefore left every tag link pointing at an entry that no longer existed, in silence.
+     *
+     * **One transaction, child first and the parent LAST.** A failure after the child is rolled back rather
+     * than leaving an entry whose links were dropped but whose row survived. The parent goes last so the
+     * child statement is still deleting rows whose parent exists; the reverse order would delete links
+     * belonging to an entry that is already gone, which is the state this method exists to avoid.
+     *
+     * The day key is read BEFORE the transaction, and the dirty mark stays outside it, for the reason
+     * [TaskRepositoryJvm.deleteTask] documents: it is a lens invalidation rather than part of the delete,
+     * and must not be rolled back with it.
+     *
+     * **`time_entry_tags.time_entry_id` is snake_case** (see [DELETE_TIME_ENTRY_TAGS_SQL]) even though
+     * `time_entries` itself binds `taskId` in camelCase — a `timeEntryId` here is a `no such column` at
+     * prepare time, so the mistake surfaces as a failed delete rather than a quietly skipped one.
+     *
+     * Measured by `OrdinaryDeletesLeaveOrphanedRowsTest`.
+     */
     override suspend fun deleteTimeEntry(id: String) {
         JdbcFlows.onIo {
             logger.w("TimeEntryRepositoryJvm.deleteTimeEntry", "Deleting time entry", mapOf("id" to id))
+            // Read BEFORE the transaction: the parent row is gone by the time the dirty mark needs it, and a
+            // read inside the transaction would be a read of a row this method is deleting.
             val existing = readById(id)
-            JdbcQueries.write(session, DELETE_BY_ID_SQL, arrayOf(id))
+            JdbcQueries.transaction(session) {
+                // Children first, parent last. See the KDoc above for why that order.
+                JdbcQueries.write(session, DELETE_TIME_ENTRY_TAGS_SQL, arrayOf(id))
+                JdbcQueries.write(session, DELETE_BY_ID_SQL, arrayOf(id))
+            }
             markDirtyForDayKey(existing?.dayKey, "time_entry_deleted")
             logger.i("TimeEntryRepositoryJvm.deleteTimeEntry", "Time entry deleted", mapOf("id" to id))
         }
@@ -519,6 +551,21 @@ class TimeEntryRepositoryJvm(
 
         /** Verbatim from `TimeEntryDao.deleteById`. */
         const val DELETE_BY_ID_SQL = "DELETE FROM time_entries WHERE id = ?"
+
+        // ── The child statement `deleteTimeEntry` issues before that one ─────────────────────────────
+        //
+        // Re-declared here rather than read from `TagRepositoryJvm`, which holds the identical text as a
+        // `private` companion member a different file cannot see. See [deleteTimeEntry].
+
+        /**
+         * `time_entry_tags.time_entry_id`, `ON DELETE CASCADE` onto `time_entries`.
+         *
+         * Same text as `TagRepositoryJvm.CLEAR_TIME_ENTRY_TAGS_SQL`. Every column of the three tag
+         * junction tables is snake_case, so the owner column is `time_entry_id` even though the entry row
+         * it points at binds `taskId` and `lifeIntentionCategory` in camelCase.
+         */
+        const val DELETE_TIME_ENTRY_TAGS_SQL =
+            "DELETE FROM time_entry_tags WHERE time_entry_id = ?"
 
         /**
          * The 16 time-entry columns, in the order [INSERT_SQL] and [UPDATE_FULL_ROW_SQL] bind them —

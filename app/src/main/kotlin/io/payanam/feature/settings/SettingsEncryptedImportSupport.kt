@@ -14,6 +14,10 @@ import io.payanam.platform.AndroidDocumentSource
 import io.payanam.presentation.database.DatabaseImportIntegritySupport
 import io.payanam.presentation.database.DatabaseImportSupport
 import io.payanam.presentation.database.DatabaseInitWalConsolidator
+import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.ExportResult
+import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
@@ -23,10 +27,6 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
-import io.payanam.presentation.settings.BulkHabitMappingResult
-import io.payanam.presentation.settings.ExportResult
-import io.payanam.presentation.settings.ImportResult
-import io.payanam.presentation.settings.UhabitsImportResult
 
 /**
  * Extension functions for SettingsViewModel handling encrypted database imports.

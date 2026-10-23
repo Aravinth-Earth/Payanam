@@ -1,17 +1,16 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
 package io.payanam.platform
 
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister
-import io.payanam.ui.viewmodel.persistNewDatabaseDimensionSetup
 import io.payanam.presentation.database.DatabaseInitFlagReader
 import io.payanam.presentation.database.DatabaseInitFlagWriter
 import io.payanam.presentation.database.DatabaseInitWalConsolidator
 import io.payanam.shared.database.WalCheckpointRule
+import io.payanam.ui.viewmodel.persistNewDatabaseDimensionSetup
 import java.io.File
 
 /**
@@ -55,10 +54,9 @@ fun appDatabaseInitFlagReader(): DatabaseInitFlagReader = DatabaseInitFlagReader
  * `PRAGMA wal_checkpoint(TRUNCATE)` on a temp copy needs a Room handle. The shared code decides
  * WHETHER the fold may delete the production `-wal`; this only performs it.
  */
-fun appDatabaseInitWalConsolidator(logger: UnifiedLogger): DatabaseInitWalConsolidator =
-    DatabaseInitWalConsolidator { file, logTag ->
-        consolidateWalWithFramework(dbFile = file, logTag = logTag, logger = logger)
-    }
+fun appDatabaseInitWalConsolidator(logger: UnifiedLogger): DatabaseInitWalConsolidator = DatabaseInitWalConsolidator { file, logTag ->
+    consolidateWalWithFramework(dbFile = file, logTag = logTag, logger = logger)
+}
 
 /**
  * Runs `PRAGMA wal_checkpoint(TRUNCATE)` on a TEMP copy of the database and reports whether the log was
@@ -120,7 +118,6 @@ private fun consolidateWalWithFramework(
         false
     }
 
-
 /**
  * The new database's mandatory life-dimension seed writer.
  *
@@ -129,11 +126,10 @@ private fun consolidateWalWithFramework(
  * unchanged - the atomic [io.payanam.domain.repository.LifeDimensionCatalogRepository.replaceAllDimensions]
  * swap, the uniform weight, and the same log lines.
  */
-fun appDatabaseDimensionSetupPersister(): DatabaseDimensionSetupPersister =
-    DatabaseDimensionSetupPersister { lifeDimensionCatalogRepository, appSettingsRepository, dimensionInputs ->
-        persistNewDatabaseDimensionSetup(
-            lifeDimensionCatalogRepository = lifeDimensionCatalogRepository,
-            appSettingsRepository = appSettingsRepository,
-            dimensionInputs = dimensionInputs,
-        )
-    }
+fun appDatabaseDimensionSetupPersister(): DatabaseDimensionSetupPersister = DatabaseDimensionSetupPersister { lifeDimensionCatalogRepository, appSettingsRepository, dimensionInputs ->
+    persistNewDatabaseDimensionSetup(
+        lifeDimensionCatalogRepository = lifeDimensionCatalogRepository,
+        appSettingsRepository = appSettingsRepository,
+        dimensionInputs = dimensionInputs,
+    )
+}

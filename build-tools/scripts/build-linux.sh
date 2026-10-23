@@ -347,7 +347,12 @@ if $RUN_TESTS; then
     # `:desktop:spotlessCheck` is NOT usable: the pre-existing formatting backlog means it can never pass
     # on a clean checkout. It only ever passed because the old FORMATTING step reformatted the tree
     # immediately beforehand - which is exactly the mutation this script must not perform.
+    # :core:ui:desktopTest is named by no other task in this repo: the module's 154 tests (24
+    # classes, commonTest + desktopTest) would otherwise run in no gate at all, so a shared-screen
+    # regression there would ship unverified. It is the same JVM as :desktop:test and needs no
+    # Android compile.
     if ./gradlew :desktop:detekt :desktop:test \
+            :core:ui:desktopTest \
             :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification \
             $GRADLE_PROPS --no-configuration-cache --console=plain 2>&1; then
         ok "Desktop verification passed (detekt, tests, coverage)"

@@ -64,6 +64,7 @@ import io.payanam.core.ui.preferences.iconOptionForDimensionId
 import io.payanam.core.ui.preferences.labelForDimensionId
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.logging.AppLogger
 import kotlin.math.absoluteValue
 import kotlin.math.sqrt
@@ -664,7 +665,21 @@ fun DimensionIconPicker(
                                         )
                                         onSelect(option.key)
                                         showDialog = false
-                                    }.semantics { selected = isSelected },
+                                    }.semantics(mergeDescendants = true) {
+                                        // A swatch whose only child is an `Icon(contentDescription = null)` is a
+                                        // nameless button: the whole content of the control the user presses is a
+                                        // glyph, so a screen reader offered 353 identical unnamed buttons and the
+                                        // user had to guess which life-area icon they were on.
+                                        //
+                                        // The argument is this swatch's own STABLE KEY - the same string
+                                        // `testTag("dimension_icon_<key>")` already publishes and the same value
+                                        // `onSelect` reports - so the announcement, the test and the write all name
+                                        // the same option. It is the KEY rather than the icon's meaning because the
+                                        // catalog ships 353 vectors and no per-icon name; a hand-written word per
+                                        // vector would be a guess announced as fact.
+                                        contentDescription = strings.dimensionPickerIconOption.formatArgs(option.key)
+                                        selected = isSelected
+                                    },
                             contentAlignment = Alignment.Center,
                         ) {
                             Icon(

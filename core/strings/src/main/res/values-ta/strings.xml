@@ -205,6 +205,7 @@
     <string name="db_init_dimension_setup_continue_action">சரிபார்த்து தொடரவும்</string>
     <string name="db_init_dimension_setup_customize_desc">சேர், திருத்து, நீக்கு செயல்களால் பரிமாணங்களை அமைத்து, எடிட்டரில் பெயர், ஐகான், மற்றும் நிறத்தை மாற்றவும்.</string>
     <string name="db_init_dimension_setup_desc">புதிய தரவுத்தளங்களுக்கு இது கட்டாய அமைப்பு.</string>
+    <string name="db_init_dimension_setup_not_saved">உங்கள் வாழ்க்கை பரிமாணங்கள் சேமிக்கப்படவில்லை, எனவே அவற்றை மீண்டும் தேர்ந்தெடுக்க வேண்டும். வேறு எதுவும் தக்கவைக்கப்படவில்லை.</string>
     <string name="db_init_dimension_setup_disable_action">முடக்கு</string>
     <string name="db_init_dimension_setup_edit_dialog_title">வாழ்க்கை பரிமாணம் திருத்தவும்</string>
     <string name="db_init_dimension_setup_enable_action">இயக்கு</string>
@@ -291,6 +292,7 @@
     <string name="dimension_color_yellow_800">மஞ்சள் 800</string>
     <string name="dimension_picker_choose_color">நிறத்தை தேர்ந்தெடுக்கவும்</string>
     <string name="dimension_picker_choose_icon">ஐகானை தேர்ந்தெடுக்கவும்</string>
+    <string name="dimension_picker_icon_option">ஐகான் விருப்பம் %1$s</string>
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_email_value">மின்னஞ்சல்: %1$s</string>
     <string name="feedback_contact_signal">zatu.69</string>

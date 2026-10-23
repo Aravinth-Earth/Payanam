@@ -89,6 +89,23 @@ class E2eHarness(
     private val tag: String = "E2E",
 ) {
 
+    // ─────────────────────────────── labels (locale-agnostic) ──────────────────────────────────────
+
+    /**
+     * The app's own copy for the locale it is currently rendering in.
+     *
+     * Every label this class is asked to find comes from here rather than an English literal in a test
+     * file, so the tier is not a bet that the device is English. See [E2eLabels].
+     *
+     * Resolved from the TARGET app's context, not the instrumentation's: the labels must come from the
+     * same resources the Activity renders with, including any per-app locale override Android has
+     * applied.
+     */
+    private val l: E2eLabels.Labels = E2eLabels.of(InstrumentationRegistry.getInstrumentation().targetContext)
+
+    /** Convenience for call sites that take a plain `String` label. */
+    val labels: E2eLabels.Labels get() = l
+
     // ─────────────────────────────── logging (host-readable without adb) ─────────────────────────
 
     /**
@@ -217,6 +234,38 @@ class E2eHarness(
     fun waitForGone(label: String, timeoutMs: Long = 30_000) {
         rule.waitUntil(timeoutMs) { !isOnScreen(label) }
     }
+
+    /**
+     * Blocks until ANY of [labels] is on screen; returns the one that arrived.
+     *
+     * Used where the app offers more than one legal starting point for the same state and the test
+     * does not know which one it will get — e.g. a fresh install may show the onboarding tour or go
+     * straight to database init. Polling for a single one of them is the race that produced a tier
+     * which "still failed" on a provably clean install: the no-wait `isOnScreen` sampled the tree
+     * before the startup gate had composed anything.
+     */
+    fun awaitAnyOnScreen(
+        vararg labels: String,
+        timeoutMs: Long = 60_000,
+    ): String {
+        val lastSeen = StringBuilder()
+        rule.waitUntil(timeoutMs) {
+            // Record what WAS on screen, so a timeout names the screen the app is actually showing
+            // instead of only listing what was expected.
+            lastSeen.setLength(0)
+            labels.filter { isOnScreen(it) }.forEach { lastSeen.append("'$it' ") }
+            labels.any { isOnScreen(it) }
+        }
+        return labels.first { isOnScreen(it) }
+    }
+
+    /**
+     * True when ANY of [labels] is on screen right now (no waiting).
+     *
+     * The disjunction counterpart of [awaitAnyOnScreen] for the assertions that only need to know
+     * the screen offers the state at all.
+     */
+    fun isAnyOnScreen(vararg labels: String): Boolean = labels.any { isOnScreen(it) }
 
     // ─────────────────────────────── assertions ──────────────────────────────────────────────────
 
@@ -630,14 +679,14 @@ class E2eHarness(
 
     /** Opens the assistant destination from Lenses (waits out the loading spinner first). */
     fun openAssistant() {
-        goToTab("Lenses")
+        goToTab(l.lenses)
         // Lenses renders a bare spinner while it loads — no scrollable at all, so the honest
         // readiness signal is the scrollable list itself; only then can the card be searched for.
         rule.waitUntil(60_000) {
             rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty()
         }
-        scrollTo("AI Assistance")
-        assertVisible("Experimental")
-        click("Open")
+        scrollTo(l.aiAssistance)
+        assertVisible(l.experimentalChip)
+        click(l.assistantOpen)
     }
 }

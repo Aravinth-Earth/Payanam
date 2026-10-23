@@ -14,6 +14,7 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.common.util.DateTimeUtil
 import io.payanam.domain.model.Task
+import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.repository.NotificationRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.receiver.TaskReminderReceiver
@@ -21,7 +22,6 @@ import kotlinx.coroutines.flow.first
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
-import io.payanam.domain.port.TaskReminderScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -42,6 +42,7 @@ class NotificationScheduler @Inject constructor(
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
     private val zoneId = ZoneId.systemDefault()
+
     /**
      * Re-arms reminders for every currently eligible task (app start /
      * settings change).
@@ -65,11 +66,12 @@ class NotificationScheduler @Inject constructor(
             scheduleForTask(task, overrideScheduledAt = null, overrideDueAt = null, isSnoozed = false)
         }
     }
+
     /**
      * Arms (or cancels) the reminder for one task: eligibility checks, advance
      * timing from notification mode, persistence, then the alarm itself.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     override suspend fun scheduleForTask(
         task: Task,
         overrideScheduledAt: LocalDateTime?,
@@ -197,6 +199,7 @@ class NotificationScheduler @Inject constructor(
             notificationRepository.cancelNotification(notificationId)
         }
     }
+
     /**
      * Reschedules a reminder for a snoozed task (default +15 min when no
      * explicit [dueAt] is given).
@@ -211,6 +214,7 @@ class NotificationScheduler @Inject constructor(
             isSnoozed = true,
         )
     }
+
     /**
      * Cancels all pending alarms and visible notifications for [taskId].
      */

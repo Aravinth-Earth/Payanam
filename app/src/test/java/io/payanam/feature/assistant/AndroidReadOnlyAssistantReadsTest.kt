@@ -71,14 +71,12 @@ class AndroidReadOnlyAssistantReadsTest {
     }
 
     /** A session manager that hands back [database], standing in for an opened session. */
-    private fun sessionManagerReturning(database: PayanamDatabase): DatabaseSessionManager =
-        mock<DatabaseSessionManager>().also { whenever(it.requireDatabase()).thenReturn(database) }
+    private fun sessionManagerReturning(database: PayanamDatabase): DatabaseSessionManager = mock<DatabaseSessionManager>().also { whenever(it.requireDatabase()).thenReturn(database) }
 
     /** A session manager for the closed case: the throw is the contract, not an accident. */
-    private fun closedSessionManager(): DatabaseSessionManager =
-        mock<DatabaseSessionManager>().also {
-            whenever(it.requireDatabase()).thenThrow(IllegalStateException("DatabaseSessionManager: DB not open"))
-        }
+    private fun closedSessionManager(): DatabaseSessionManager = mock<DatabaseSessionManager>().also {
+        whenever(it.requireDatabase()).thenThrow(IllegalStateException("DatabaseSessionManager: DB not open"))
+    }
 
     /**
      * Puts a known row in the settings table, which is a real table in the shipped schema. [value] is

@@ -5,9 +5,11 @@ package io.payanam.desktop
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.graphics.painter.BitmapPainter
 import androidx.compose.ui.graphics.toComposeImageBitmap
 import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.min
@@ -15,13 +17,17 @@ import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseSessionController
+import io.payanam.desktop.platform.DesktopPlatformSeams
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.CrashBreadcrumbStore
 import io.payanam.shared.logging.CrashBreadcrumbTrail
 import io.payanam.shared.logging.CrashBreadcrumbs
+import kotlinx.coroutines.launch
 import org.jetbrains.skia.Image
 import java.awt.Dimension
 import java.awt.GraphicsEnvironment
@@ -143,6 +149,7 @@ fun main() {
                 icon = brandIcon,
             ) {
                 EnforceMinimumWindowSize(sessionLogger)
+                ReconcileOnWindowResume(sessionLogger)
                 desktopApp(onQuitRequested = {
                     sessionLogger.i("DesktopMain.onQuitRequested", "Quit requested from the UI")
                     flushDurableSessionState(sessionLogger, "DesktopMain.onQuitRequested")
@@ -427,6 +434,76 @@ private fun FrameWindowScope.EnforceMinimumWindowSize(sessionLogger: UnifiedLogg
 }
 
 /**
+ * Re-runs the day-boundary and schedule reconciliation every time this window comes back to the foreground.
+ *
+ * **The gap is a suspended laptop, and nothing about it looks like a bug.** Before this, the desktop ran
+ * `runStartupMaintenance` from exactly one place - the session open - so a machine that suspended across
+ * midnight woke up still showing yesterday's recurring tasks and would keep showing them until it was
+ * restarted. Android has no such window because `MainActivity.onStart` re-runs its maintenance every time
+ * the app returns to the foreground; this is that call, on the desktop's equivalent event.
+ *
+ * **A [FrameWindowScope] extension, and placed next to [EnforceMinimumWindowSize], for one reason: this is
+ * the only composition in the app that lives ABOVE `desktopApp`.** The session controller and the platform
+ * seams are both built inside `remember` blocks in `DesktopApp.kt`, so a composable under `desktopApp`
+ * could not reach either without threading two new parameters through every signature between here and
+ * there — and the collaborators object on that path is constructed FIELD BY FIELD in tests, so every one of
+ * those constructors would break. Both collaborators publish a process-wide handle instead (the session
+ * controller's own shutdown-hook registry, and `DesktopPlatformSeams.install`), which is the pattern this
+ * module already established for exactly this problem.
+ *
+ * **[LifecycleEventObserver] rather than a bare AWT listener**, because Compose Desktop already owns a
+ * `Lifecycle` for the window and drives it from the frame's own focus and iconify/deiconify events (verified
+ * in `androidx.compose.ui.scene.ComposeContainer`, whose `updateLifecycleState` is called from
+ * `windowIconified`, `windowDeiconified`, `addNotify`/`removeNotify`, focus change and dispose). Observing
+ * that lifecycle rather than adding a second listener means suspend/resume is reported the way the rest of
+ * the Compose stack already experiences it, instead of via a parallel mechanism that could disagree.
+ *
+ * **ON_RESUME, not ON_START.** `addNotify`/`removeNotify` fire once per window attach, so ON_START is
+ * effectively the launch event — and launch already reconciles through `onSessionEstablished`. ON_RESUME is
+ * the one that fires again after the frame loses and regains focus, which is what a suspend-then-resume
+ * looks like from inside AWT. `updateLifecycleState` moves the registry to RESUMED on focus and STARTED on
+ * focus loss, so ON_RESUME is precisely the "we are back" signal here.
+ *
+ * **`DisposableEffect(window, ...)`, and the observer is removed in `onDispose`**, matching the shape
+ * [EnforceMinimumWindowSize] uses for the same reason: a window replaced by a new one must not leave an
+ * observer bound to the frame that is gone, or a leaked observer would keep reconciling against a window
+ * nobody can see.
+ *
+ * **The work is launched, not awaited.** An observer callback is not a suspend context, and blocking the
+ * window's focus handler on a WAL-backed rollover would freeze the frame the user just came back to. Both
+ * collaborators are independently guarded - the session maintenance by an in-flight flag, the backup
+ * reconcile by `reconcileMutex` - so two overlapping resumes cannot double-run either one.
+ */
+@Composable
+private fun FrameWindowScope.ReconcileOnWindowResume(sessionLogger: UnifiedLogger) {
+    val lifecycleOwner = LocalLifecycleOwner.current
+    val scope = rememberCoroutineScope()
+    DisposableEffect(window, lifecycleOwner, scope) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event == Lifecycle.Event.ON_RESUME) {
+                    scope.launch {
+                        // BOTH, and both are no-ops when their collaborator does not exist yet: on a fresh
+                        // launch this observer fires on the window's first focus, which is before the user
+                        // has unlocked anything. The backup reconcile also protects the pre-unlock window
+                        // by treating an unreadable rows read as "no schedule" rather than failing.
+                        DesktopDatabaseSessionController.reconcileProcessSessionOnResume()
+                        DesktopPlatformSeams.reconcileInstalledBackupSchedule()
+                        sessionLogger.d(
+                            source = "DesktopMain.windowResume",
+                            message = "Window resumed; day-boundary maintenance and backup schedule reconciled",
+                        )
+                    }
+                }
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
+}
+
+/**
  * Classpath name of the shared window icon. Wired by `resources.srcDir(rootProject.file("assets/branding"))`
  * in `desktop/build.gradle.kts`, so this single file also feeds the packaged installer icon.
  *
@@ -525,10 +602,27 @@ class DesktopCrashBreadcrumbStore(
     /**
      * Appends one breadcrumb line and forces it to the device before returning.
      *
-     * I/O failures propagate. The swallowing lives one level up, in `CrashBreadcrumbs.record`, which is
-     * the single place that reports a storage failure to the logger — a store that swallowed its own
-     * errors would make a store that silently stopped recording indistinguishable from one that never had
-     * anything to record.
+     * I/O failures propagate out of this method, and that is a **documented deviation from
+     * [CrashBreadcrumbStore.record]**, whose KDoc says an implementation MUST NOT throw. Stated here
+     * because the port is the contract and a reader of either file is entitled to know which one this
+     * side sits on.
+     *
+     * The deviation is safe on every call path in this repository, and the reason is named rather than
+     * assumed: `record` is never called directly. Every caller — this file's `main` and its uncaught
+     * -exception handler, `DesktopDatabaseSessionController`, and the shared database and presentation
+     * modules — goes through `CrashBreadcrumbs.record`, whose own KDoc states that it swallows a
+     * storage failure and reports it to `AppLogger.current`. So the harm the port's rule exists to
+     * prevent, "a disk failure in the path of the operation the breadcrumb was recording", cannot occur
+     * through that entry point.
+     *
+     * Why the store does not swallow anyway: the entry point above is the only layer that knows the
+     * breadcrumb's own [source] and [stage], so a failure swallowed HERE would have to be re-reported
+     * with data this method no longer has. A store that swallowed its own errors would also make a store
+     * that silently stopped recording indistinguishable from one that never had anything to record.
+     *
+     * (The Android store's own choice is the other one — it swallows and reports through a private
+     * `reportFailure`. Both are defensible; this asymmetry is deliberate and unchanged, because
+     * changing it would move the reporting point and is not this method's defect.)
      */
     @Synchronized
     override fun record(
@@ -557,7 +651,7 @@ class DesktopCrashBreadcrumbStore(
         restrictToOwner(trailFile)
     }
 
-    /**
+/**
      * Reads the trail oldest-first, clears the file, and returns at most [CrashBreadcrumbTrail.MAX_LINES]
      * entries.
      *
@@ -568,29 +662,85 @@ class DesktopCrashBreadcrumbStore(
      *
      * The clear is forced for the same reason the write is: a truncate that has not reached the device
      * can be undone by a crash, and a trail that is silently replayed on every subsequent start is worse
-     * than one that is occasionally replayed once. If the truncate genuinely fails, the trail survives and
-     * is reported again next start — the honest degradation, since the alternative is losing it silently.
+     * than one that is occasionally replayed once.
+     *
+     * **A read that succeeded is never thrown away because the clear then failed.** The two are separate
+     * `runCatching` blocks, deliberately. Handing the caller an empty list when the file held a trail
+     * this process had just read would report the crash the trail exists to explain as one that left no
+     * breadcrumbs behind — the caller then blames the absence instead of investigating the trail, and the
+     * real evidence is in the file, already drained and discarded. So a failed clear is a *separate*
+     * report ([reportDrainFailure]) and never changes what the caller is handed.
+     *
+     * If the truncate genuinely fails, the trail stays in the file and is reported again next start, as
+     * the KDoc above long claimed. That is the honest degradation: replaying a trail is a nuisance,
+     * losing one silently is a defect, and the two together would be worse than either.
+     *
+     * A failed *read* does still answer with an empty list, because there is nothing to return; it is
+     * reported through the same channel rather than thrown, matching the store's [record] path. Throwing
+     * here would contradict [io.payanam.shared.logging.CrashBreadcrumbs.replayToLoggerAndClear]'s own
+     * statement that a store which cannot be read or cleared "is itself the finding" — this store's
+     * choice is to *find and report* it rather than to interrupt startup recovery.
      */
     @Synchronized
     override fun readAndClear(): List<String> {
         if (!Files.exists(trailFile)) {
             return emptyList()
         }
-        return runCatching {
-            val drained =
+        val drained =
+            runCatching {
                 CrashBreadcrumbTrail.trim(
                     CrashBreadcrumbTrail.parse(Files.readString(trailFile, StandardCharsets.UTF_8)),
                 )
+            }.getOrElse { failure ->
+                reportDrainFailure("read", failure)
+                return emptyList()
+            }
+
+        // Deliberately its own `runCatching`, and deliberately NOT able to change `drained`: a clear
+        // failure is a fact about the file, reported to the session log, while the entries this process
+        // demonstrably read are still the caller's answer. Swallowing both in one block was the defect.
+        runCatching {
             RandomAccessFile(trailFile.toFile(), "rw").use { file ->
                 file.setLength(0)
                 file.channel.force(true)
             }
-            drained
-        }.getOrElse { failure ->
-            // An unreadable or un-truncatable trail is reported, not hidden, but the caller still gets a
-            // list: returning empty would read as "no breadcrumbs" and blame the wrong thing.
-            System.err.println("DesktopCrashBreadcrumbStore: failed to drain ${trailFile.fileName}: ${failure.message}")
-            emptyList()
+        }.onFailure { failure ->
+            reportDrainFailure("clear", failure)
+        }
+        return drained
+    }
+
+    /**
+     * Reports a failed drain step to the session log, degrading rather than failing.
+     *
+     * `AppLogger.current`, not `System.err`. This store holds no logger of its own — the surrounding
+     * desktop code reports through the `AppLogger` seam (`AppLogger.current` at this file's
+     * `loadBrandIcon`, and in `DesktopSessionControllerOpenerAdapter`), and that is the channel a desktop
+     * crash investigation reads: the session log file, which survives the process and which the
+     * single-instance lease records the path of. `System.err` is the console a user might have closed, and
+     * on a desktop launched from a file manager it goes nowhere a log is ever read. The Android store
+     * reports the same class of failure through its session logger too
+     * (`SharedPreferencesBreadcrumbStore.reportFailure`), so the two halves of this port now put the
+     * failure where a crash investigation can see it.
+     *
+     * Wrapped because this runs inside a failure handler: a logger that is itself unavailable must not
+     * replace a reported drain failure with a thrown one.
+     */
+    private fun reportDrainFailure(
+        step: String,
+        failure: Throwable,
+    ) {
+        runCatching {
+            AppLogger.current.w(
+                source = LOG_SOURCE,
+                message = "Failed to $step the crash-safe breadcrumb trail",
+                data =
+                    mapOf(
+                        "step" to step,
+                        "location" to location,
+                        "error" to (failure.message ?: "unknown"),
+                    ),
+            )
         }
     }
 
@@ -609,6 +759,16 @@ class DesktopCrashBreadcrumbStore(
 
     private companion object {
         private const val LINE_TERMINATOR = "\n"
+
+        /**
+         * Log source for this store's own failure reports.
+         *
+         * A constant rather than the class name so a grep of a session log for `DesktopCrashBreadcrumbStore`
+         * finds the line the same way it finds every other entry in the file. Named for the class rather
+         * than for the method, because the drain reports both a failed read and a failed clear and an
+         * investigation should not have to know which one it is reading to know where to look.
+         */
+        private const val LOG_SOURCE = "DesktopCrashBreadcrumbStore"
 
         /**
          * Hard ceiling on the on-disk trail, in bytes.

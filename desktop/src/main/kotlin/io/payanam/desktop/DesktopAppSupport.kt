@@ -18,11 +18,13 @@ import io.payanam.presentation.data.UninstalledDataLayer
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.settings.DesktopLanguage
 import io.payanam.desktop.database.DesktopBackupStatusPort
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
+import io.payanam.desktop.database.DesktopDatabaseSessionController
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
@@ -172,12 +174,6 @@ internal data class DesktopShellCallbacks(
     /** SCAFFOLD: record the chosen data path and continue to the dimension step. */
     val onDatabaseChoiceSelected: (DesktopDatabaseChoice) -> Unit,
     /**
-     * The dimension step's rows were confirmed. NOT a success report: the write is suspend and happens
-     * outside, so this fires before any row has landed, and the user is only told the setup is done once
-     * the write has actually reported. See [buildDesktopShellCallbacks]'s `onDimensionSetupPersist`.
-     */
-    val onDimensionSetupSaved: (List<DesktopDimensionInput>) -> Unit,
-    /**
      * Security-scoped reset offered from the unavailable startup state. Clears the passphrase entry
      * and its lockout counters only - deliberately not [onForgotPassphraseReset], which also wipes
      * the database artifact, settings and bootstrap lifecycle.
@@ -279,15 +275,6 @@ private const val MAX_UNLOCK_TIMEOUT_MINUTES = 240
 
 /** The absent-row default for the desktop-scoped scoring row. */
 private const val DEFAULT_SCORING_MODEL = "balanced"
-
-/**
- * The `app_settings` row Android sets once a new database's dimension setup is done.
- *
- * `AppPreferenceKeys.KEY_DATABASE_INIT_COMPLETED` on the constant rather than a re-declared literal, for the
- * reason [DESKTOP_DIRECTORY_UNWRITABLE]'s neighbours give: a rename or a re-typed value here would have to
- * be noticed in a place nothing else mentions it, while a changed constant is a compile error.
- */
-private const val KEY_DATABASE_INIT_COMPLETED = AppPreferenceKeys.KEY_DATABASE_INIT_COMPLETED
 
 /**
  * The desktop-scoped scoring-model row, declared beside the reader that uses it (`scoringModelState`).
@@ -597,134 +584,6 @@ internal class DesktopPreferencesSource(
     }
 
     /**
-     * Writes the first-run life-dimension catalog, through the SHARED repository, and republishes the state
-     * from what was actually written.
-     *
-     * **This replaces a mock.** The onboarding dimension step used to log its rows and call it done, which
-     * is why a fresh Linux install finished with a `life_dimensions` table holding NOTHING: the app-owned
-     * seed is written by the first-run setup step (never by `PayanamDatabaseOpener.create`, whose contract
-     * is to create an empty database), and the desktop's only first-run setup step was that log line. Every
-     * dimension-aware dialog then fell back to the hardcoded canonical literal, stamping notes and time
-     * entries with an id no row resolves.
-     *
-     * The write is the SAME atomic swap Android's `persistNewDatabaseDimensionSetup` performs -
-     * `LifeDimensionCatalogRepository.replaceAllDimensions`, which deletes and re-inserts inside one
-     * transaction - rather than a hand-rolled DELETE plus a loop of INSERTs that would leave the table
-     * empty in between. The rows are built by `buildDesktopFirstRunDimensionSeed` in
-     * `DesktopStartupFlow.kt`, i.e. from the app's own canonical defaults, never from rows declared here.
-     *
-     * **An already-populated table is left exactly as it is.** This is not a shortcut: a desktop launch
-     * re-runs onboarding every time (the scaffold stage is deliberately not persisted), so seeding on every
-     * confirmation would overwrite a catalog the user has since edited, on every launch. A fresh install is
-     * the only state that writes, and "rows already there" is exactly the state that is not fresh. That is
-     * also what makes an imported Android database keep its own dimensions.
-     *
-     * The read that decides this and the write that follows it share [writeMutex] with every other read and
-     * write here, so the emptiness answer cannot be overtaken by a database swap or by a settings write
-     * landing between them. A swap that DID land first is caught by the same [generation] check every other
-     * write uses, and the write is DISCARDED rather than aimed at the new file: the swap's own re-read
-     * already carries the truth.
-     *
-     * `database_init_completed` is written only after the catalog landed, for the same reason Android
-     * writes it there - it is the flag meaning "this database's dimension setup is done", and a flag set
-     * before the rows would let a later gate skip a setup that never happened.
-     *
-     * The catch is deliberately broad, for the reason [setSetting] gives: JDBC raises checked
-     * `SQLException` and the repositories raise unchecked `IllegalStateException`, and from here both are
-     * the same event - the catalog did not land.
-     *
-     * @param seed the rows to write and which answer they are. The rows are written verbatim; no label,
-     *   id or ordering is adjusted here.
-     * @return what actually happened, so the caller can say so rather than assuming a write.
-     */
-    @Suppress("TooGenericExceptionCaught")
-    suspend fun seedFirstRunDimensions(seed: DesktopFirstRunDimensionSeed): DesktopFirstRunDimensionWriteOutcome {
-        val requestedGeneration = generation
-        return writeMutex.withLock {
-            if (requestedGeneration != generation) {
-                sessionLogger.i(
-                    source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                    message = "First-run dimension write discarded",
-                    data = mapOf("cancelled" to "layer re-install", "rows" to seed.rows.size),
-                )
-                return@withLock DesktopFirstRunDimensionWriteOutcome.Discarded
-            }
-            val existing =
-                try {
-                    LocalDataLayer.current.lifeDimensions
-                        .observeAllDimensions()
-                        .first()
-                } catch (failure: Exception) {
-                    // Logged as a WRITE failure, not treated as "empty": an unreadable catalog is not
-                    // evidence of a fresh install, and seeding over a database it could not read would
-                    // replace a user's dimensions with the defaults.
-                    sessionLogger.w(
-                        source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                        message = "Existing life dimension catalog could not be read",
-                        data = mapOf("failure" to failure.javaClass.simpleName),
-                    )
-                    return@withLock DesktopFirstRunDimensionWriteOutcome.Failed
-                }
-            if (existing.isNotEmpty()) {
-                sessionLogger.i(
-                    source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                    message = "Life dimension catalog already present; left unchanged",
-                    data = mapOf("rows" to existing.size),
-                )
-                return@withLock DesktopFirstRunDimensionWriteOutcome.AlreadyPresent
-            }
-            val written =
-                try {
-                    LocalDataLayer.current.lifeDimensions.replaceAllDimensions(seed.rows)
-                } catch (failure: Exception) {
-                    // No optimistic assign to roll back: the published state keeps the last read's rows, so
-                    // the settings screen cannot offer dimensions that are not in the table.
-                    writeFailureState.value =
-                        "life dimensions could not be saved (${failure.javaClass.simpleName})"
-                    sessionLogger.w(
-                        source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                        message = "First-run life dimension write failed",
-                        data =
-                            mapOf(
-                                "failure" to failure.javaClass.simpleName,
-                                "requested" to seed.rows.size,
-                                "source" to seed.source.name,
-                            ),
-                    )
-                    return@withLock DesktopFirstRunDimensionWriteOutcome.Failed
-                }
-            // Published from what the repository reported, not from a re-read: the write is one transaction,
-            // so a re-read could only disagree by being slower.
-            dimensions = seed.rows
-            publish(rows)
-            writeFailureState.value = null
-            try {
-                LocalDataLayer.current.appSettings.setSetting(KEY_DATABASE_INIT_COMPLETED, "true")
-            } catch (failure: Exception) {
-                // The CATALOG is what makes the ids resolve, and it landed; the flag is Android's
-                // database-init marker and the desktop does not gate on it, so a failure here is reported
-                // rather than allowed to describe a successful seed as a failure.
-                sessionLogger.w(
-                    source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                    message = "database_init_completed not marked after a successful dimension seed",
-                    data = mapOf("failure" to failure.javaClass.simpleName),
-                )
-            }
-            sessionLogger.i(
-                source = "DesktopPreferencesSource.seedFirstRunDimensions",
-                message = "First-run life dimension catalog written",
-                data =
-                    mapOf(
-                        "written" to written,
-                        "requested" to seed.rows.size,
-                        "seedSource" to seed.source.name,
-                    ),
-            )
-            DesktopFirstRunDimensionWriteOutcome.Written
-        }
-    }
-
-    /**
      * Runs [block] - the whole close, replace and re-open swap - under the write mutex, then re-reads the rows
      * from the NEW session before releasing it.
      *
@@ -827,21 +686,6 @@ internal data class DesktopRememberedState(
     /** SCAFFOLD: the dimension rows as edited during onboarding. In-memory only. */
     val dimensionInputsState: MutableState<List<DesktopDimensionInput>>,
     /**
-     * The catalog the onboarding step confirmed, waiting for a session to write it through.
-     *
-     * Held because of the ORDER the desktop starts in, which is not the order the write needs:
-     * `resolveDesktopStartupMode` puts the scaffold stages before the passphrase, session and database
-     * gates, so the user confirms their dimensions while there is still NO database - and
-     * `LocalDataLayer.current` throws on any read until a session is in force. The rows are therefore
-     * kept here from the confirmation and written the moment a session exists (see the flush in
-     * `DesktopApp.kt`), rather than the step refusing a write it could not make.
-     *
-     * In-memory, like [scaffoldOnboardingStageState] and for the same reason: a restart re-runs
-     * onboarding, which asks again and re-seeds. A row written by a session that is gone is not a fact
-     * this process can re-establish, so it is not cached beyond the one that holds it.
-     */
-    val pendingDimensionSeedState: MutableState<DesktopFirstRunDimensionSeed?>,
-    /**
      * The desktop's settings source: the shared `app_settings` rows, read and written through the installed
      * data layer. Held here (not in a store) so it lives exactly as long as the shell that owns it.
      */
@@ -860,51 +704,6 @@ internal data class DesktopRememberedState(
     /** The route captured for return-after-unlock, per Android's `resumeToRouteAfterUnlock`. */
     val resumeToRouteAfterUnlockState: MutableState<String?>,
 )
-
-/**
- * Writes the catalog the onboarding step confirmed, if one is still waiting, and clears it.
- *
- * **Called from the session-open paths, because that is the first moment a write is possible.** The desktop
- * starts at the onboarding scaffold - before the passphrase, session and database gates - so the user
- * confirms their dimensions before any database exists, and `LocalDataLayer.current` throws until one is
- * open. This is what makes the confirmation mean anything on a FRESH install: without it the rows are
- * merely held, the app opens an empty `life_dimensions` table, and every note and time entry falls back to
- * the hardcoded canonical id that resolves to nothing.
- *
- * The write goes through [DesktopPreferencesSource.seedFirstRunDimensions], so it inherits that method's
- * rules: an already-populated catalog is left alone (an imported or already-seeded database keeps its own),
- * an unreadable one is a failure rather than licence to seed, and a swap that landed first discards it.
- *
- * The pending seed is cleared only when the catalog is there - [DesktopFirstRunDimensionWriteOutcome.Written]
- * or [AlreadyPresent] - so a failed attempt is retried on the next session rather than silently dropped: a
- * session that cannot write must not lose the user's choices.
- *
- * The stage advances to [DesktopScaffoldOnboardingStage.Finished] only in that same case, which is the
- * point of the whole change: the scaffold used to advance over a save no database had ever seen.
- *
- * @return what actually happened, for the caller to log. [AlreadyPresent] when nothing was pending, which
- *   is the ordinary answer for every launch that did not re-confirm dimensions.
- */
-internal suspend fun DesktopRememberedState.flushPendingFirstRunDimensions(
-    sessionLogger: UnifiedLogger,
-): DesktopFirstRunDimensionWriteOutcome {
-    val seed = pendingDimensionSeedState.value
-        ?: return DesktopFirstRunDimensionWriteOutcome.AlreadyPresent
-    val outcome = preferencesSource.seedFirstRunDimensions(seed)
-    if (outcome == DesktopFirstRunDimensionWriteOutcome.Written ||
-        outcome == DesktopFirstRunDimensionWriteOutcome.AlreadyPresent
-    ) {
-        pendingDimensionSeedState.value = null
-        scaffoldOnboardingStageState.value = DesktopScaffoldOnboardingStage.Finished
-    } else {
-        sessionLogger.w(
-            source = "DesktopAppSupport.flushPendingFirstRunDimensions",
-            message = "Pending first-run dimensions not written; kept for the next session",
-            data = mapOf("outcome" to outcome.name, "requested" to seed.rows.size),
-        )
-    }
-    return outcome
-}
 
 internal data class DesktopAppModels(
     val selection: DataModuleSelection,
@@ -993,7 +792,6 @@ internal fun rememberDesktopMutableState(
             remember { mutableStateOf(DesktopScaffoldOnboardingStage.Intro) },
         dimensionInputsState =
             remember { mutableStateOf(desktopDefaultDimensionInputs()) },
-        pendingDimensionSeedState = remember { mutableStateOf(null) },
         preferencesSource =
             // Keyed on the logger alone: a lambda is not a stable key, and keying on it would rebuild this
             // source - and lose the rows it has published - on every recomposition. The lambda itself is
@@ -1086,6 +884,57 @@ internal fun FoundationReadiness.swatch(): Color =
             Color(0xFF9C4F4F)
         }
     }
+
+/**
+ * What the desktop does when the SESSION opens, in one place: the startup gate's session answer follows the
+ * session, and the shared preference rows are READ.
+ *
+ * HALF ONE, the gate answer, is Android's rule (`MainActivity`: `!sessionManager.isOpen.value`). The desktop
+ * gate read `DesktopRememberedState.sessionOpenState`, whose only writers were the desktop's own legacy gate
+ * callbacks, so any session opened by another path was invisible to it. Measured 2026-10-02, that is an
+ * unlock LOOP on an already-open database: the database-init gate's import opens a session, the shared unlock
+ * screen then unlocked through this same controller, the gate still answered "not open", and its silent
+ * re-auth put the unlock screen back on screen the instant `lenses` drew.
+ *
+ * HALF TWO, the row read, was missing entirely. `DesktopPreferencesSource.reload()` - the only thing that
+ * fills the row map - had NO production caller: tests called it, the app never did, and its own log line
+ * never appears in a real session. Every preference the desktop showed was therefore a DEFAULT, and the
+ * gate's `focusModeOnboardingCompleted` was permanently false. Measured symptom: a freshly imported database
+ * whose Android install had completed focus onboarding was still asked to pick a focus preset, while Android
+ * asks nothing. Android reads these rows from Room whenever the database is open; this is that read, on that
+ * event. `reload()`'s own documentation already specified it: "Called once a session is open."
+ *
+ * Never returns: the caller keeps it for the shell's lifetime.
+ */
+internal suspend fun followDesktopSessionOpenedState(
+    sessionController: DesktopDatabaseSessionController,
+    gateFlag: MutableState<Boolean>,
+    preferencesSource: DesktopPreferencesSource,
+) {
+    sessionController.sessionOpenState.collect { isOpen ->
+        gateFlag.value = isOpen
+        // Ordered after the session itself: `reload` reads through `LocalDataLayer`, which the controller
+        // installs BEFORE it flips its own state, so a read raised here always has a layer to read through.
+        //
+        // A FAILED READ MUST NOT TAKE THE FOLLOWER DOWN. Measured: a session that closes while the read is in
+        // flight fails it with `SQLException: Connection is closed` (a quit, a lock, or the database swap an
+        // import performs). Unguarded, that exception ended this collector - so the gate stopped following the
+        // session for the rest of the process, and the throw escaped into the composition. The refusal is
+        // logged with its cause, never swallowed.
+        if (isOpen) {
+            runCatching { preferencesSource.reload() }
+                .onFailure { error ->
+                    AppLogger.current.e(
+                        "DesktopSessionFollow.preferences",
+                        "Preference rows could not be read for the session that just opened; " +
+                            "the gate keeps following the session",
+                        error,
+                        emptyMap(),
+                    )
+                }
+        }
+    }
+}
 
 @Composable
 internal fun rememberDesktopAppModels(
@@ -1297,21 +1146,6 @@ internal fun buildDesktopShellCallbacks(
      */
     onFocusModePresetSelected: (FocusModePreset) -> Unit = {},
     /**
-     * Writes the first-run dimension catalog the onboarding step confirmed.
-     *
-     * The write is REAL and suspend, so the caller that owns a coroutine scope supplies it - the same rule
-     * [onFocusModePresetSelected] follows and for the same reason: this function is plain, and a function
-     * that cannot await its own write is how "the save is mocked" happened in the first place.
-     *
-     * **The caller owns the outcome, and must not advance the scaffold on a failure.** The write happens
-     * off this call, so its [DesktopFirstRunDimensionWriteOutcome] is not available here and is NOT
-     * fabricated: advancing the stage to [DesktopScaffoldOnboardingStage.Finished] is correct only after
-     * [DesktopFirstRunDimensionWriteOutcome.Written] or [AlreadyPresent], which is why the stage transition
-     * lives with the write rather than here. Defaulted to a no-op, so a caller that supplies nothing writes
-     * nothing - and a no-op that reported success is the mock this replaced.
-     */
-    onDimensionSetupPersist: (DesktopFirstRunDimensionSeed) -> Unit = {},
-    /**
      * The target file for a first-run create, supplied by the caller that owns the session controller.
      *
      * A parameter rather than a path derived here so the create lands exactly where the open and the
@@ -1390,70 +1224,6 @@ internal fun buildDesktopShellCallbacks(
             )
             rememberedState.scaffoldOnboardingStageState.value =
                 DesktopScaffoldOnboardingStage.DimensionSetup
-        },
-        onDimensionSetupSaved = { rows ->
-            // The rows are REAL and so is everything downstream of them. The seed is built by the SHARED
-            // builders in `DesktopStartupFlow.kt` - the user's confirmed rows, or the app's canonical
-            // defaults when they confirmed nothing usable - and it is the real
-            // `LifeDimensionCatalogRepository.replaceAllDimensions` swap that finally runs, not a log line.
-            //
-            // It is PARKED here rather than written, because of the desktop's start order: the scaffold
-            // stages resolve BEFORE the passphrase, session and database gates, so the user confirms their
-            // dimensions while there is still no database and `LocalDataLayer.current` throws on any read.
-            // `onDimensionSetupPersist` is the caller's chance to write it now if it ever can; holding the
-            // rows is the fallback, and the session-open path flushes whatever is still waiting.
-            val seed = buildDesktopFirstRunDimensionSeed(rows)
-            rememberedState.dimensionInputsState.value = rows
-            rememberedState.pendingDimensionSeedState.value = seed
-            sessionLogger.i(
-                source = "DesktopAppSupport.onDimensionSetupSaved",
-                message = "First-run dimension setup confirmed",
-                data =
-                    mapOf(
-                        "dimensions" to seed.rows.size,
-                        "enabled" to seed.rows.count { it.isActive },
-                        "seedSource" to seed.source.name,
-                    ),
-            )
-            // **The stage must advance here, or a FRESH install can never leave this step.**
-            //
-            // The start order puts the scaffold BEFORE the passphrase, session and database gates, so on
-            // any launch whose database is not open yet the layer is still [UninstalledDataLayer] and
-            // `seedFirstRunDimensions`' emptiness read throws. Its catch reports [Failed], the caller
-            // therefore declines to advance, and the step stays open - while the ONLY writers of
-            // [DesktopScaffoldOnboardingStage.Finished] are the two success paths, both of which need a
-            // session. A fresh install has no session to get: the passphrase gate that would open one
-            // sits BEHIND this step, so "keep the step open for the next session" is a wait for a session
-            // that can never arrive. The user clicks "Save and continue" and the same card returns, forever,
-            // with no message - and the copy above promising the write "is applied as soon as the database
-            // exists" is never given the chance to be true.
-            //
-            // "No layer installed" is decidable HERE, and it needs no write outcome: a write against an
-            // uninstalled layer cannot have landed, so parking the seed for
-            // [flushPendingFirstRunDimensions] and letting the gates take over is unconditionally correct.
-            // [resolveDesktopStartupMode] gives [DesktopScaffoldOnboardingStage.Finished] no branch of its
-            // own, so advancing here skips the scaffold and NOTHING else - the passphrase, session, database
-            // and focus gates still run, which is what makes this safe rather than a fail-open.
-            //
-            // The opposite case is left exactly as it was: with a layer installed the write can land now, so
-            // the outcome is the caller's to read and a real failure must keep the step open.
-            if (LocalDataLayer.current is DesktopBootstrapDataLayer) {
-                rememberedState.scaffoldOnboardingStageState.value =
-                    DesktopScaffoldOnboardingStage.Finished
-                sessionLogger.i(
-                    source = "DesktopAppSupport.onDimensionSetupSaved",
-                    message =
-                        "No database is open yet, so the confirmed dimensions are held for the first " +
-                            "session that opens one",
-                    data =
-                        mapOf(
-                            "dimensions" to seed.rows.size,
-                            "seedSource" to seed.source.name,
-                            "writeOutcome" to DesktopFirstRunDimensionWriteOutcome.Failed.name,
-                        ),
-                )
-            }
-            onDimensionSetupPersist(seed)
         },
         onSelectionChanged = { updatedSelection ->
             rememberedState.selectionState.value = updatedSelection

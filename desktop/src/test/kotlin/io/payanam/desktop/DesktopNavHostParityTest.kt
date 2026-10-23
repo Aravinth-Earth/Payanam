@@ -143,21 +143,30 @@ class DesktopNavHostParityTest {
     }
 
     @Test
-    fun `build-decision inputs match on both platforms - except the recorded ones`() {
+    fun `no shared decision input is a hard-coded literal on the desktop`() {
         // Presence is not enough: a parameter passed on both sides with DIFFERENT values is the same
         // divergence as one that is absent, and is the harder one to see. `minimalModeEnabled` is the case
-        // that motivated this test - the desktop passes `false` where Android passes a build constant, so
-        // the parameter is present and still wrong.
-        val android = passedArguments(androidFile)
+        // that motivated this test - the desktop passed the literal `false` where Android passed a build
+        // constant, so the parameter was present and still wrong.
+        //
+        // It is now read from the shared holder Android installs (see `PlatformFeatureFlags`), so the two
+        // sides no longer read IDENTICALLY and a textual equality check could never pass again: Android
+        // reaches the value through its own `FeatureFlags` build-config object, which has no desktop
+        // counterpart to match. Comparing the two texts would therefore fail on correct code, which is
+        // what this file already refuses to do for `tabVisibility` and `shouldShowPassphraseSetup`.
+        //
+        // What DOES hold on both platforms, and what the literal actually broke, is that neither side
+        // hard-codes the answer: a bare `true`/`false` here is a value chosen at the mount site, free to
+        // drift from the shared ViewModels that read the same flag from the holder. That is the check.
         val desktop = passedArguments(desktopFile)
 
-        val mismatched =
+        val hardCoded =
             SHARED_DECISION_INPUTS
-                .filter { it in android && it in desktop }
-                .filter { normalise(android.getValue(it)) != normalise(desktop.getValue(it)) }
+                .filter { it in desktop }
+                .filter { isLiteral(desktop.getValue(it)) }
                 .sorted()
 
-        assertThat(mismatched).isEqualTo(RECORDED_VALUE_MISMATCHES)
+        assertThat(hardCoded).isEqualTo(RECORDED_VALUE_MISMATCHES)
     }
 
     @Test
@@ -179,18 +188,19 @@ class DesktopNavHostParityTest {
         val DECLARED = Regex("""^\s{4}(\w+):""")
 
         /**
-         * The parameters where both platforms must be reading literally the SAME source.
+         * The parameters that are a build-time feature decision rather than a preference row.
          *
-         * Scoped tightly on purpose. A textual difference is only evidence of a divergence when both sides
-         * should be reading the same thing, and most of them are: `shouldShowPassphraseSetup` is
-         * `showPassphraseSetup` on Android and `gateFlags.shouldShowPassphraseSetup` on the desktop, and
-         * those are the same fact reached through a different local - asserting they read alike would fail
-         * on correct code. `tabVisibility` is `defaultPrefsState.tabVisibility` versus
+         * Scoped tightly on purpose. Most of the graph's inputs are NOT in here because a textual
+         * difference is only evidence of a divergence when both sides should be reading the same thing:
+         * `shouldShowPassphraseSetup` is `showPassphraseSetup` on Android and
+         * `gateFlags.shouldShowPassphraseSetup` on the desktop, and those are the same fact reached
+         * through a different local. `tabVisibility` is `defaultPrefsState.tabVisibility` versus
          * `state.preferences.tabVisibility` for the same reason.
          *
-         * What is left is the genuine class: a build-time feature decision, which has ONE source
-         * (`FeatureFlags`, Android-only today) that the desktop cannot consult, so it hard-codes a value
-         * that can silently disagree. `minimalModeEnabled` is the case that motivated this test.
+         * What belongs here is the genuine class: a compile-time decision that has ONE source - the shared
+         * `PlatformFeatureFlags` holder, filled from Android's `FeatureFlags` build config - which a mount
+         * site could answer locally instead and then silently disagree with the shared ViewModels. Every
+         * entry is held to that: no bare literal.
          */
         val SHARED_DECISION_INPUTS = listOf("minimalModeEnabled")
 
@@ -217,17 +227,20 @@ class DesktopNavHostParityTest {
             )
 
         /**
-         * The build-decision inputs both platforms pass with DIFFERENT values.
+         * The shared decision inputs the desktop is KNOWN to answer with a literal, and so to tolerate.
          *
-         * `minimalModeEnabled` is present on both sides and still wrong: Android reads a build constant and
-         * the desktop hard-codes `false`, because minimal mode is build-time on Android and the desktop has
-         * no such knob to read. `aiAssistantEnabled` USED to be here for the same reason - the desktop
-         * hard-coded `true` against Android's build constant - but the flag is gone as of 2026-09-26: the
-         * assistant is always available, so there is no value left to disagree about.
+         * Empty. `minimalModeEnabled` WAS here - the desktop hard-coded `false` against Android's build
+         * constant - and now reads `PlatformFeatureFlags.current.minimalModeEnabled`, the same holder
+         * `PayanamApp.onCreate` installs, so there is no literal left to record. `aiAssistantEnabled` was
+         * here before it and is gone entirely: the assistant is always available, so there is no value to
+         * disagree about.
+         *
+         * Asserted as an EXACT match, so an entry that stops being a literal fails here until it is
+         * removed, and a newly literal one fails until it is recorded. Fix and record move together.
          */
-        val RECORDED_VALUE_MISMATCHES = listOf("minimalModeEnabled")
+        val RECORDED_VALUE_MISMATCHES = emptyList<String>()
 
-        /** Collapses whitespace so a reflowed expression is not read as a different value. */
-        fun normalise(expression: String): String = expression.replace(Regex("\\s+"), " ").trim()
+        /** A value written at the mount site rather than read from a source. */
+        fun isLiteral(expression: String): Boolean = expression == "true" || expression == "false"
     }
 }

@@ -361,28 +361,50 @@ class DayPlanViewModel(
     }
 
     /**
-     * Validates (non-blank name, total ≤ 24h) and persists the draft — creating
-     * a new template or updating the selected one — then closes the editor.
+     * Validates the template draft held in [state] and applies the rejection's side effects: a blank
+     * name becomes the screen's `errorMessage`, while an over-full draft is logged and left silent,
+     * because there is nothing in the UI for the user to correct.
+     *
+     * Returns `true` when the draft must not be written.
      */
-    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
-    fun saveTemplate() {
-        val state = _uiState.value
-        val name = state.templateName.trim()
-        val totalTemplateMinutes = state.templateAllocations.values.sum()
-        if (name.isBlank()) {
+    private fun rejectUnsavableTemplateDraft(state: DayPlanUiState): Boolean {
+        if (state.templateName.isBlank()) {
             _uiState.update { it.copy(errorMessage = "Template name is required") }
-            return
+            return true
         }
+        val totalTemplateMinutes = state.templateAllocations.values.sum()
         if (totalTemplateMinutes > MAX_TEMPLATE_MINUTES_PER_DAY) {
             logger.w(
                 "DayPlanViewModel.saveTemplate",
                 "Rejected template save because total planned time exceeds one day",
                 mapOf("totalMinutes" to totalTemplateMinutes.toString()),
             )
-            return
+            return true
         }
+        return false
+    }
+
+    /**
+     * Validates (non-blank name, total ≤ 24h) and persists the draft — creating
+     * a new template or updating the selected one — then closes the editor.
+     *
+     * WHY the draft is read twice: the validation runs before anything is dispatched, on the calling
+     * thread, because both rejections have to reach the screen without waiting on [scope]. That read
+     * can only decide whether to start at all — [scope] runs the write on another dispatcher, so a
+     * copy captured here is already stale by the time the first write runs, and any edit landing in
+     * that gap (a UI `setTemplateName`/`setTemplateAllocation`, or a `startEditTemplate` still
+     * loading the template it was asked to edit) would be persisted from the older copy. So the
+     * coroutine reads the draft again and re-runs the guard on what it is about to write: what gets
+     * validated and what gets persisted are the same read.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    fun saveTemplate() {
+        if (rejectUnsavableTemplateDraft(_uiState.value)) return
 
         scope.launch {
+            val state = _uiState.value
+            if (rejectUnsavableTemplateDraft(state)) return@launch
+            val name = state.templateName.trim()
             _uiState.update { it.copy(isLoading = true, errorMessage = null) }
             try {
                 if (state.isCreatingNew) {
@@ -397,7 +419,16 @@ class DayPlanViewModel(
                         mapOf("name" to name),
                     )
                 } else {
-                    val id = state.selectedTemplate?.id ?: return@launch
+                    val id = state.selectedTemplate?.id
+                    if (id == null) {
+                        logger.w(
+                            "DayPlanViewModel.saveTemplate",
+                            "Nothing to update: no template is selected",
+                        )
+                        // Cleared here because the early return happens after isLoading was set.
+                        _uiState.update { it.copy(isLoading = false) }
+                        return@launch
+                    }
                     dayPlanRepository.updateTemplate(
                         id = id,
                         name = name,

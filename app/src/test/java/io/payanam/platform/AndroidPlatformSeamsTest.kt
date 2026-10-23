@@ -26,18 +26,17 @@ class AndroidPlatformSeamsTest {
     private val context get() = ApplicationProvider.getApplicationContext<android.content.Context>()
 
     @Test
-    fun `a non-positive backup interval is rejected rather than treated as off`(): Unit =
-        runBlocking {
-            val scheduler = AndroidBackupScheduler(context)
+    fun `a non-positive backup interval is rejected rather than treated as off`(): Unit = runBlocking {
+        val scheduler = AndroidBackupScheduler(context)
 
-            // Silently treating a bad interval as "disabled" would leave the user believing backups run.
-            val zero = runCatching { scheduler.schedule(0) }
-            val negative = runCatching { scheduler.schedule(-15) }
+        // Silently treating a bad interval as "disabled" would leave the user believing backups run.
+        val zero = runCatching { scheduler.schedule(0) }
+        val negative = runCatching { scheduler.schedule(-15) }
 
-            assertThat(zero.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
-            assertThat(negative.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
-            assertThat(scheduler.intervalMinutes).isNull()
-        }
+        assertThat(zero.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
+        assertThat(negative.exceptionOrNull()).isInstanceOf(IllegalArgumentException::class.java)
+        assertThat(scheduler.intervalMinutes).isNull()
+    }
 
     @Test
     fun `Android reports a surviving schedule, not a foreground one`() {

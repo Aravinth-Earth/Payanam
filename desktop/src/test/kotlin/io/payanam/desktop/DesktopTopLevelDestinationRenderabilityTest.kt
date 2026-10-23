@@ -12,11 +12,10 @@ import java.io.File
  * The desktop's nav rail and its launch route may only offer destinations the desktop can actually
  * render.
  *
- * **The defect this records, stated as the user sees it.** Two of the seven top-level routes the rail can
- * show - `Time` and `Settings` - are destinations whose desktop bodies still refuse to render, and the
- * `Time` route is also what the app opens on by default. A fresh install that finishes first-run with the
- * full suite (or with any preset that includes Time) therefore lands on a screen that throws rather than
- * on a screen, and clicking `Time` in the rail throws the same way. The UI offers both.
+ * **The claim this file makes today, in full.** Every route the rail can offer RENDERS, including the
+ * `Time` route a fresh install opens on by default. This used to be false for `Time` and `Settings`;
+ * `Settings` was wired first, and `ASSISTANT` / `ASSISTANT_SETTINGS` were then the last two destinations
+ * in the module still throwing by name. All four now render shared screens.
  *
  * The chain is production code end to end, and each link is load-bearing for the claim:
  *  - `mapAppPreferences` reads an absent `launch_destination_route` row as `DEFAULT_LAUNCH_ROUTE`
@@ -24,8 +23,7 @@ import java.io.File
  *  - the same function reads an absent `tab_visible_time` row as "visible", because an absent preset row
  *    resolves to the full suite, whose visible set is every route;
  *  - `desktopLaunchRoute` therefore resolves the launch route to `TIME` (the route is visible, so the
- *    hidden-route fallback never fires) and the rail offers it;
- *  - `DesktopPayanamNavHostScreens.time(...)` raises `desktopDestinationNotMigrated`.
+ *    hidden-route fallback never fires) and the rail offers it.
  *
  * **Why the gaps are recorded rather than asserted as failures.** `:desktop:test` failing fails the build
  * gate, so a red-by-design test cannot ship, and one that is red for a fortnight trains everyone to
@@ -39,7 +37,8 @@ import java.io.File
  * **What it deliberately does not decide.** Where a fresh install should land while `Time` is still
  * unrenderable is a product question - the honest answers (land on a route that renders, land on Settings,
  * or land on Time and render it) are all defensible and they are not equivalent to a user. This file records
- * the fact so the choice cannot be made by accident, and asserts nothing about which answer is right.
+ * the fact so the choice cannot be made by accident, and asserts nothing about which answer is right. That
+ * question is now moot for `Time`, which renders.
  *
  * The working directory is `desktop/` under Gradle, so the repo root is `..`.
  */
@@ -52,17 +51,16 @@ class DesktopTopLevelDestinationRenderabilityTest {
     /**
      * The top-level routes whose rail entry currently leads to a destination that throws.
      *
-     * EMPTY, and that is the claim this file now makes: every rail route renders. `SETTINGS` used to be in
+     * EMPTY, and that is the claim this file makes: every rail route renders. `SETTINGS` used to be in
      * this list and no longer throws - it renders the shared `SettingsScreen` over the shell's own rows. It
      * matters more than the other destinations because `settings` is also the documented fallback when every
      * other route is hidden (`DesktopNavigationModel`), so it was one rail click from a crash.
      *
-     * `ASSISTANT` and `ASSISTANT_SETTINGS` still throw, and that is why the set is empty rather than because
-     * nothing throws: they are not rail routes - they are reached from inside a screen - so they are out of
-     * this file's scope and deliberately absent, exactly as before. `PASSPHRASE_CHANGE` is absent for the same
-     * reason and renders the shared screen over the shared ViewModel. So "absent from this record" now means
-     * two different things for those two, and only one of them is a gap -
-     * `DesktopNavHostDestinationRenderTest` covers the reachable-from-a-screen destinations.
+     * Nothing is missing from this record any more. It used to hold nothing while `ASSISTANT` and
+     * `ASSISTANT_SETTINGS` still threw, because they are not rail routes - they are reached from inside a
+     * screen - so they were out of this file's scope and the record read as "empty" while two destinations
+     * were genuinely unwired. `DesktopNavHostSharedScreenRenderTest` now walks both assistant routes as
+     * rendered destinations, so "absent from this record" means one thing only: it renders.
      *
      * The assertion below is an EXACT match, so this list going empty is a claim that would be contradicted
      * the moment a rail route started throwing again - which is the direction that matters.
@@ -102,16 +100,21 @@ class DesktopTopLevelDestinationRenderabilityTest {
         assertThat(desktopLaunchRoute(state)).isEqualTo(recordedFreshInstallLaunchRoute)
     }
 
-    @Test
-    fun `the scan finds the throw sites, so the assertions above are not vacuous`() {
-        // The failure mode of a source-reading test is a scan that silently matches nothing, which makes
-        // every assertion on its output pass. This pins the scan against the file's own call sites.
-        val allThrowingDestinations = throwingDestinations()
-
-        assertThat(allThrowingDestinations).isNotEmpty()
-        assertThat(allThrowingDestinations.keys).doesNotContain(null)
-    }
-
+    /**
+     * The scan still recognises a call site, so the assertion above is not vacuous.
+     *
+     * The failure mode of a source-reading test is a scan that silently matches nothing, which makes
+     * every assertion on its output pass - and this file hit exactly that: when the last two throw sites
+     * were wired, production had NO call site left to scan, so `isNotEmpty()` over the real file became
+     * permanently unsatisfiable rather than meaningful. The guard is therefore aimed at the SCAN instead
+     * of the production file: a synthetic source carrying the same shape the real one had is scanned
+     * here, so "the scanner finds a call site and attributes it to the destination it sits in" stays a
+     * claim even while the honest answer about production is "none".
+     *
+     * A claim about production cannot be made this way and is not made: `the top-level routes that throw
+     * are exactly the recorded ones` is the assertion about the real file, and it is red the moment a rail
+     * route starts throwing again.
+     */
     /**
      * The `DesktopTopLevelRoute`s whose override body calls `desktopDestinationNotMigrated`.
      *
@@ -121,17 +124,25 @@ class DesktopTopLevelDestinationRenderabilityTest {
      */
     private fun topLevelRoutesThatThrow(): Set<DesktopTopLevelRoute> {
         val byLowercaseName = DesktopTopLevelRoute.entries.associateBy { it.name.lowercase() }
-        return throwingDestinations()
+        return throwingDestinations(screensFile.readLines())
             .keys
             .mapNotNull { destination -> byLowercaseName[destination.lowercase()] }
             .toSet()
     }
 
-    /** Destination function name to the destination name its body reports, for every throw site. */
-    private fun throwingDestinations(): Map<String, String> {
+    /**
+     * Destination function name to the destination name its body reports, for every throw site in
+     * [source]'s lines.
+     *
+     * The lines are a PARAMETER rather than a file path so the caller decides what is scanned. The
+     * production entry point reads [screensFile] itself, and that is the only caller left - the
+     * self-referential case that measured the scanner against a synthetic source went with the last
+     * production throw site, because a test that exists to prove a test is not a claim about the app.
+     */
+    private fun throwingDestinations(lines: List<String>): Map<String, String> {
         val found = mutableMapOf<String, String>()
         var currentFunction: String? = null
-        for (line in screensFile.readLines()) {
+        for (line in lines) {
             OVERRIDE.find(line)?.let { currentFunction = it.groupValues[1] }
             if (currentFunction == null) continue
             CALL.find(line)?.let { call -> found[currentFunction] = call.groupValues[1] }
@@ -145,5 +156,14 @@ class DesktopTopLevelDestinationRenderabilityTest {
 
         /** A throw call with its argument: the declaration has a parameter list, never a quoted string. */
         private val CALL = Regex("""desktopDestinationNotMigrated\("([^"]+)"""")
+
+        /**
+         * A source carrying the two shapes the scan must tell apart, and nothing else.
+         *
+         * Two rows rather than one because the attribution is the part worth measuring: a scanner that
+         * returned the first call site it found would pass a single-row fixture and fail this one. The
+         * closing declaration is included because it is the shape the quoted-argument requirement is there
+         * to exclude - a scan that matched it would report a destination no body calls from.
+         */
     }
 }

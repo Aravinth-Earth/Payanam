@@ -62,6 +62,7 @@ class TrackingService : Service() {
 
         private val _currentSession = MutableStateFlow<TrackingSession?>(null)
         val currentSession: StateFlow<TrackingSession?> = _currentSession.asStateFlow()
+
         /**
          * Launches the service in the foreground with a new tracking session
          * (task, dimension, start time passed as intent extras).
@@ -82,6 +83,7 @@ class TrackingService : Service() {
             }
             context.startForegroundService(intent)
         }
+
         /**
          * Sends the stop action to the running tracking service, ending the
          * active session and removing its notification.
@@ -158,7 +160,7 @@ class TrackingService : Service() {
         return START_STICKY
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun startTrackingSession(
         taskId: String?,
         taskTitle: String?,
@@ -356,6 +358,7 @@ class TrackingService : Service() {
         super.onDestroy()
     }
 }
+
 /**
  * One active tracking session: the optional linked task, display title, life
  * dimension being tracked, and when the session started.

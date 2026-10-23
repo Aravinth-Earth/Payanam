@@ -26,8 +26,6 @@ import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
-
-
 /** Display label resource for a channel (used by dropdown + status rows). */
 fun UpdateChannel.labelResId(): Int = when (this) {
     UpdateChannel.DEV -> R.string.settings_update_channel_dev
@@ -60,17 +58,15 @@ internal fun UpdateChannel.shippedApkType(): String = when (this) {
     UpdateChannel.BETA, UpdateChannel.STABLE -> ApkBuildType.RELEASE
 }
 
-
 /** Map a GitHub tag name to a channel, or null for non-channel tags. */
 private val PERSISTENT_TAG_REGEX = Regex("""^(dev|beta|stable)-v(\d+)$""")
 private val STABLE_TAG_REGEX = Regex("""^v(\d+)$""")
 
-internal fun channelFromTag(tagName: String): UpdateChannel? =
-    PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
-        UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
-    } ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
-        UpdateChannel.STABLE
-    }
+internal fun channelFromTag(tagName: String): UpdateChannel? = PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
+    UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
+} ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
+    UpdateChannel.STABLE
+}
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
@@ -131,8 +127,7 @@ internal fun selectApkAssets(assets: JSONArray?, expectedType: String): ApkAsset
  * name before a retry enqueue — legacy/untyped and other-type names fail
  * closed, and a `.sha256` sibling never passes.
  */
-internal fun artifactNameMatchesBuildType(fileName: String, buildType: String): Boolean =
-    fileName.endsWith(".apk") && fileName.contains("_${buildType}_")
+internal fun artifactNameMatchesBuildType(fileName: String, buildType: String): Boolean = fileName.endsWith(".apk") && fileName.contains("_${buildType}_")
 
 /** Fail-closed selection trace: the release has no APK for the running build
  *  type. Logged at `i` because release builds turn `d` off; guarded because the
@@ -166,7 +161,7 @@ private fun logFailClosedSelection(
  * array at all (the caller fails closed as a parse error); a valid empty
  * array returns an empty list.
  */
-@Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+@Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
 internal fun parseReleases(body: String, runningType: String): List<ChannelStatus>? {
     val releases = try {
         JSONArray(body)
@@ -246,9 +241,7 @@ private sealed interface PageFetch {
 }
 
 /** Extract the `rel="next"` URL from a GitHub `Link` header, or null. */
-internal fun nextPageUrl(linkHeader: String?): String? =
-    linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
-
+internal fun nextPageUrl(linkHeader: String?): String? = linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
 
 /**
  * Checks GitHub releases for app updates across all channels.
@@ -284,7 +277,7 @@ object UpdateChecker {
      * each release offers. Passed IN (defaulting to the real running type) so
      * tests can exercise both types explicitly.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     suspend fun check(
         currentBuildNumber: Int,
         channel: UpdateChannel = UpdateChannel.DEV,
@@ -311,6 +304,7 @@ object UpdateChecker {
                             logger.w("UpdateChecker.check", "Page fetch failed", mapOf("page" to page, "error" to fetched.error.name))
                             return@withContext failureResult(fetched.error)
                         }
+
                         is PageFetch.Ok -> {
                             val statuses = parseReleases(fetched.body, runningType)
                             if (statuses == null) {

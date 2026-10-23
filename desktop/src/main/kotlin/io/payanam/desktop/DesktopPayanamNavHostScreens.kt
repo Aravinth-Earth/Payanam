@@ -10,7 +10,12 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import io.payanam.core.ui.assistant.AssistantScreenActions
+import io.payanam.core.ui.assistant.AssistantScreenContent
+import io.payanam.core.ui.assistant.AssistantSettingsScreenActions
+import io.payanam.core.ui.assistant.AssistantSettingsScreenContent
 import io.payanam.core.ui.database.DatabaseInitScreen
 import io.payanam.core.ui.database.DatabasePassphraseChangeScreen
 import io.payanam.core.ui.database.DatabasePassphraseSetupScreen
@@ -40,6 +45,7 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.time.MAX_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.TimeScreen
+import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopPassphraseChangeCollaborators
 import io.payanam.desktop.database.DesktopPassphraseUnlockCollaborators
@@ -152,6 +158,16 @@ internal class DesktopPayanamNavHostScreens(
      * derive a second copy of.
      */
     private val settingsCollaborators: DesktopSettingsCollaborators,
+    /**
+     * The assistant destinations' collaborators, and the ONE shared ViewModel the two assistant routes
+     * read together.
+     *
+     * A parameter for the same reason as the four above - it is built in `desktopApp`, the only place that
+     * can hold the session controller for the process - and for one more: these two routes must share a
+     * single ViewModel, so the holder cannot be built per destination. See
+     * [DesktopAssistantCollaborators].
+     */
+    private val assistantCollaborators: DesktopAssistantCollaborators,
 ) : PayanamNavHostScreens {
     // The desktop's own logger, already initialized from main() before any composable runs. Same
     // construction as Android's half: both are the platform implementation of the shared contract.
@@ -288,13 +304,16 @@ internal class DesktopPayanamNavHostScreens(
         // InitializeDatabase section) is untouched. This destination now renders the SHARED screen, and
         // whether the desktop keeps that gate is a product decision, not a refactor.
         //
-        // The two slots are the platform's, and both are honestly empty rather than stubbed:
-        //  - onImportFileSelected is NOTIFICATION only. The ViewModel drives the actual pick through the
-        //    documentSource it was built with (AwtDocumentSource, already wired in DesktopApp), so a
-        //    launcher here would be a second picker competing with the one the flow actually uses.
+        // The two slots are the platform's, and both are now real rather than empty:
+        //  - onImportFileSelected is where THIS platform performs the pick. The shared screen asks the
+        //    platform to pick and reports the MIME filter; the ViewModel cannot pick for itself, because
+        //    its import entry takes the TOKEN a picker has already produced. The call is launched rather
+        //    than run inline in the tap, and the picker itself hops off this thread before opening its
+        //    blocking modal - see `AwtDocumentSource`'s DIALOG_DISPATCHER for the crash that proved why.
         //  - debugLogExport is NOT empty: the desktop supplies its own exporter, because the desktop has no
         //    SAF picker and no R class for Android's. DesktopLogExportActions renders the same two shared
         //    buttons and the same shared result line; only the destination of the export differs.
+        val pickScope = rememberCoroutineScope()
         val viewModel =
             desktopRetained(onRelease = { it.dispose() }) {
                 databaseInitViewModel(
@@ -306,7 +325,15 @@ internal class DesktopPayanamNavHostScreens(
         DatabaseInitScreen(
             onDatabaseReady = onDatabaseReady,
             viewModel = viewModel,
-            onImportFileSelected = {},
+            // The MIME filter arrives from the shared screen and is Android's; the desktop's dialog takes
+            // none, and the ViewModel's artifact matching plus its plaintext refusal are the gate on what
+            // comes back. Declining the dialog ends the flow here - the picker logs the dismissal.
+            onImportFileSelected = { _ ->
+                pickScope.launch {
+                    val token = databaseInitCollaborators.documentSource.requestSource() ?: return@launch
+                    viewModel.importDatabase(token, onSuccess = onDatabaseReady)
+                }
+            },
             language = language,
             debugLogExport = { DesktopLogExportActions() },
             // Reached only after the desktop's own startup surface already ran the intro, so the graph must not repeat it.
@@ -710,14 +737,123 @@ internal class DesktopPayanamNavHostScreens(
 
     @Composable
     override fun assistant(nav: PayanamNavActions) {
-        // The assistant screens live in :feature:assistant, which the desktop module does not depend on.
-        // Adding that dependency is the V4 decision, not a navigation one.
-        desktopDestinationNotMigrated("AI assistant", "V4")
+        // WIRED on the same terms as the destinations above: the SHARED screen over the SHARED ViewModel,
+        // built from the desktop's own collaborators. Nothing here decides what the screen looks like or
+        // which state it renders, so this is Android's arrangement with Android's callbacks - the screen
+        // itself lives in `:core:ui` and the ViewModel in `:core:presentation`, so neither this module's
+        // dependency set nor a per-screen wrapper has to change.
+        //
+        // The screen body is NOT a desktop copy. `AssistantScreenContent` is the same composable Android
+        // mounts through `:feature:assistant`, reached here over the desktop configuration store, so one
+        // screen cannot drift from the other.
+        //
+        // NOT `desktopRetained`, deliberately - see [DesktopAssistantCollaborators]: the two assistant
+        // destinations must share ONE ViewModel (Android shares a retention key for the same reason), so
+        // the holder keeps it for the shell rather than composition scope owning it.
+        //
+        // A null ViewModel renders the screen over its OWN default state, which is the state the shared
+        // ViewModel publishes before its first `refresh()` lands. That is the honest rendering for "no
+        // session is open", which is a state the desktop is in for the whole pre-unlock half of a launch -
+        // and the graph's own gates own the window for exactly that stretch, so a user cannot reach this
+        // route without one.
+        val uiState = assistantCollaborators.uiState.collectAsState().value
+        AssistantScreenContent(
+            uiState = uiState,
+            actions =
+            AssistantScreenActions(
+                // Same reason as Android: reading storage is a platform act, and the settings editor is a
+                // different destination with its own scope, so a key removed over there has to be visible
+                // on the way back. The screen asks; this platform answers.
+                onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
+                onNavigateBack = { nav.goBack() },
+                onOpenSettings = {
+                    logger.i("PayanamNavHost", "Opening assistant settings")
+                    nav.openAssistantSettings()
+                },
+                onKeyChange = { text -> assistantCollaborators.viewModelOrNull()?.updateKeyDraft(text) },
+                onLoadModels = { assistantCollaborators.viewModelOrNull()?.loadModels() },
+                onSelectModel = { model -> assistantCollaborators.viewModelOrNull()?.selectModel(model) },
+                onSaveAndStart = { assistantCollaborators.viewModelOrNull()?.saveAndStart() },
+                onSendQuestion = { question -> assistantCollaborators.viewModelOrNull()?.send(question) },
+                onDismissError = { assistantCollaborators.viewModelOrNull()?.dismissError() },
+                onAcknowledgeNotice = { assistantCollaborators.viewModelOrNull()?.acknowledgeNotice() },
+            ),
+        )
     }
 
     @Composable
     override fun assistantSettings(nav: PayanamNavActions) {
-        desktopDestinationNotMigrated("AI assistant settings", "V4")
+        // The same shared screen and the same shared ViewModel as `assistant` above, and deliberately not
+        // a second instance: the settings editor WRITES the configuration the chat surface reads, so two
+        // ViewModels would be two stores holding one configuration, and a model picked here would not be
+        // the model that surface opens with.
+        //
+        // Every field's edit leaves as its OWN callback, for the reason `AssistantScreenActions`' KDoc
+        // gives and Android's half copies: each writes a different column, so a merged "settings changed"
+        // callback could let an edit to one field persist a stale value for another.
+        val uiState = assistantCollaborators.uiState.collectAsState().value
+        AssistantSettingsScreenContent(
+            uiState = uiState,
+            actions =
+            AssistantSettingsScreenActions(
+                onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
+                onFlushRequested = { assistantCollaborators.viewModelOrNull()?.flushSettings() },
+                onNavigateBack = { nav.goBack() },
+                onChangeProviderRequested = { assistantCollaborators.viewModelOrNull()?.changeProvider() },
+                onRemoveKeyRequested = { assistantCollaborators.viewModelOrNull()?.removeProviderKey() },
+                onLengthChange = { preset ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(length = preset) }
+                },
+                onChipsEnabledChange = { value ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(chipsEnabled = value) }
+                },
+                onShowMethodChange = { value ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(showMethod = value) }
+                },
+                onMaxRowsChange = { value ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(maxRows = value) }
+                },
+                onRoundsChange = { value ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(rounds = value) }
+                },
+                onHistoryDepthChange = { value ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(historyDepth = value) }
+                },
+                onPromptAdditionsChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(promptAdditions = text) }
+                },
+                onAboutGoalsChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(goals = text))
+                    }
+                },
+                onAboutWantsChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(wants = text))
+                    }
+                },
+                onAboutNeedsChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(needs = text))
+                    }
+                },
+                onAboutStrengthsChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(strengths = text))
+                    }
+                },
+                onAboutFocusAreasChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(focusAreas = text))
+                    }
+                },
+                onAboutNoteChange = { text ->
+                    assistantCollaborators.viewModelOrNull()?.updateSettings {
+                        it.copy(aboutMe = it.aboutMe.copy(note = text))
+                    }
+                },
+            ),
+        )
     }
 }
 

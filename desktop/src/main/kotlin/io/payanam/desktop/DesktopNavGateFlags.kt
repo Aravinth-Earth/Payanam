@@ -84,7 +84,6 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
         // DesktopStartupGateSurface renders them - and Ready is the only mode that mounts the graph.
         DesktopStartupMode.OnboardingIntro,
         DesktopStartupMode.OnboardingDatabaseChoice,
-        DesktopStartupMode.OnboardingDimensionSetup,
         DesktopStartupMode.SecurityStateUnavailable,
         DesktopStartupMode.Ready,
         -> {
@@ -121,7 +120,6 @@ internal fun desktopStartupGateShownByGraph(startupMode: DesktopStartupMode): Bo
 
         DesktopStartupMode.OnboardingIntro,
         DesktopStartupMode.OnboardingDatabaseChoice,
-        DesktopStartupMode.OnboardingDimensionSetup,
         DesktopStartupMode.SecurityStateUnavailable,
         -> false
     }

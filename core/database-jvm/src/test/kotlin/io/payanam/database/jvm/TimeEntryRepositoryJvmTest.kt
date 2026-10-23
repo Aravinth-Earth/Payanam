@@ -86,6 +86,20 @@ class TimeEntryRepositoryJvmTest {
                 )
                 """.trimIndent(),
             )
+            // The junction a time-entry delete has to reach. Columns and the parent constraint are copied
+            // from the exported schema; the tag-side constraint is omitted because this fixture never creates
+            // a `tags` row, and the delete under test binds only the owning column.
+            statement.execute(
+                """
+                CREATE TABLE time_entry_tags (
+                    time_entry_id TEXT NOT NULL,
+                    tag_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(time_entry_id, tag_id),
+                    FOREIGN KEY(time_entry_id) REFERENCES time_entries(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
         }
         session = PayanamDatabaseSession(connection, 21, DatabaseOpenMode.READ_WRITE)
     }

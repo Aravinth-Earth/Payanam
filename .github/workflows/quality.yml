@@ -34,4 +34,9 @@ jobs:
         run: chmod +x ./gradlew
 
       - name: Run detekt
-        run: ./gradlew detekt --no-daemon --console=plain
+        # The bare `detekt` task does not reach the KMP modules' per-target slices - :core:ui:detekt
+        # is SKIPPED - so the per-target tasks are named explicitly. detektAndroidMain is deliberately
+        # absent: it needs :core:ui:compileAndroidMain and therefore an Android SDK on the runner,
+        # which is the same tradeoff build-tools/scripts/parity-fast.sh already documents. The
+        # androidMain slice is covered by the local full gate.
+        run: ./gradlew detekt :core:ui:detektMetadataCommonMain :core:ui:detektDesktopMain --no-daemon --console=plain

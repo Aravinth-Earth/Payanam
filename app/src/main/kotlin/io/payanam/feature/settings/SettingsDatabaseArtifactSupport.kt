@@ -22,8 +22,7 @@ import java.time.format.DateTimeFormatter
  * user-initiated delete is allowed to remove, so a family that gained or lost a member here and not
  * there is a file that survives every cleanup or is deleted while in use.
  */
-fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabaseSchema.DATABASE_NAME): Boolean =
-    DatabaseArtifacts.artifactSuffixes.any { fileName == "$dbName$it" }
+fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabaseSchema.DATABASE_NAME): Boolean = DatabaseArtifacts.artifactSuffixes.any { fileName == "$dbName$it" }
 
 private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 

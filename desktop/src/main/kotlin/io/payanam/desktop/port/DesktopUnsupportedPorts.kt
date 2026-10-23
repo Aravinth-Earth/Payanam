@@ -302,8 +302,8 @@ internal object DesktopUnsupportedPorts {
      * [refreshWidget] returns [Unit], so this logs at `debug` for the same reason [reminderScheduler]
      * logs its `cancelForTask` at `debug`: this is called from shared code on every session change, and a
      * caller that only wants the widget repainted should not be made to reason about a warning that means
-     * "this platform never had one". The absence is stated once, in this object's own documentation and in
-     * the divergence recorded in `.hermes/plans`.
+     * "this platform never had one". The absence is stated once, in this object's own documentation and
+     * not re-announced on every session change.
      */
     val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher =
         object : TimeTrackingWidgetRefresher {

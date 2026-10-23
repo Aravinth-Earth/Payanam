@@ -20,6 +20,9 @@ import org.junit.runner.RunWith
  *
  * REQUIRES A FRESH INSTALL — run with '-KeepInstalled:$false', like the full tier. See [FreshSetup]
  * for why the app's own Delete All Data cannot stand in for a wipe here.
+ *
+ * LOCALE: labels come from [E2eLabels], so this runs on a device in any language. The one title the
+ * suite types in is data, not copy, and stays a literal.
  */
 @RunWith(AndroidJUnit4::class)
 class SmokeInProcessTest {
@@ -28,6 +31,9 @@ class SmokeInProcessTest {
     val rule = createAndroidComposeRule<MainActivity>()
 
     private val h = E2eHarness(rule, tag = "E2E-SMOKE")
+
+    /** The app's own copy in the app's current language. */
+    private val l: E2eLabels.Labels get() = h.labels
 
     @Before
     fun keepScreenAwake() {
@@ -41,56 +47,56 @@ class SmokeInProcessTest {
 
         // The dimension screen is the last gate before the app itself. The smoke tier takes it
         // as-is — the editors and their validation are the full tier's business.
-        h.scrollTo("Verify and proceed")
-        h.click("Verify and proceed")
-        h.assertVisible("Per Dimension")
+        h.scrollTo(l.verifyAndProceed)
+        h.click(l.verifyAndProceed)
+        h.assertVisible(l.perDimension)
 
         // ── TASKS: one write ──
-        h.goToTab("Tasks")
-        h.assertVisible("No Tasks Due Today")
-        h.click("Add Task")
-        h.type("Task Title", QUICK_TASK)
-        h.scrollTo("Save Task")
-        h.click("Save Task")
+        h.goToTab(l.tasks)
+        h.assertVisible(l.noTasksDueToday)
+        h.click(l.addTask)
+        h.type(l.taskTitleField, QUICK_TASK)
+        h.scrollTo(l.saveTask)
+        h.click(l.saveTask)
         h.assertVisible(QUICK_TASK)
 
         // ── HABITS: renders ──
-        h.goToTab("Habits")
-        h.assertVisible("No Habits Yet")
+        h.goToTab(l.habits)
+        h.assertVisible(l.noHabitsYet)
 
         // ── TIME: start/stop cycle ──
-        h.goToTab("Time")
-        h.click("Start Tracking")
-        h.click("Start")
-        h.assertVisible("Stop Tracking")
-        h.click("Stop Tracking")
-        h.click("Cancel")
+        h.goToTab(l.time)
+        h.click(l.startTracking)
+        h.click(l.start)
+        h.assertVisible(l.stopTracking)
+        h.click(l.stopTracking)
+        h.click(l.cancel)
         // The modal dismisses asynchronously; a nav tap while the scrim is up is swallowed.
-        h.waitForGone("Cancel")
+        h.waitForGone(l.cancel)
 
         // ── JOURNAL: renders ──
-        h.goToTab("Journal")
+        h.goToTab(l.journal)
         h.capture("smoke_journal")
 
         // ── NOTES: one write ──
-        h.goToTab("Notes")
-        h.assertVisible("No Notes Yet")
-        h.click("Add Note")
-        h.type("Title", "Smoke Note")
-        h.click("Save")
+        h.goToTab(l.notes)
+        h.assertVisible(l.noNotesYet)
+        h.click(l.addNote)
+        h.type(l.noteTitleField, "Smoke Note")
+        h.click(l.save)
         h.back()
 
         // ── LENSES + SETTINGS: render ──
-        h.goToTab("Lenses")
-        h.assertVisible("Lenses")
-        h.clickNav("Settings")
-        h.assertVisible("Settings")
+        h.goToTab(l.lenses)
+        h.assertVisible(l.lenses)
+        h.clickNav(l.settings)
+        h.assertVisible(l.settings)
 
         h.log("smoke=done")
     }
 
     private companion object {
-        /** Shared with [UnlockTest], so one restart phase serves both tiers. */
+        /** Shared with [UnlockTest], so one restart phase serves both tiers. Suite-authored data. */
         const val QUICK_TASK = "Quick Task"
     }
 }

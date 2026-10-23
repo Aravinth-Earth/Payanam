@@ -2,10 +2,10 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
-import io.payanam.presentation.updates.UpdateChannel
 import io.payanam.presentation.updates.ChannelStatus
-import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.presentation.updates.UpdateChannel
 import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateCheckResult
 import io.payanam.presentation.updates.UpdateOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -74,9 +74,9 @@ class UpdateCheckerTest {
     @Test
     fun `build number extracted from apk filename`() {
         assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_debug_20260812_193754.apk"))
-        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk"))   // legacy untyped
-        assertEquals("", buildNumberFromFileName("Payanam update"))   // no build number → empty
-        assertEquals("", buildNumberFromFileName(""))                  // empty input → empty
+        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk")) // legacy untyped
+        assertEquals("", buildNumberFromFileName("Payanam update")) // no build number → empty
+        assertEquals("", buildNumberFromFileName("")) // empty input → empty
     }
 
     // ── Type-aware artifact matching (artifact-naming standard) ───────────
@@ -101,10 +101,10 @@ class UpdateCheckerTest {
     @Test
     fun `apk-for-build matcher requires build, type and apk suffix`() {
         assertTrue(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk", "1568", "debug"))
-        assertFalse(isApkForBuild("Payanam_Android_1568_20260812_193754.apk", "1568", "debug"))          // legacy: no type token
-        assertFalse(isApkForBuild("Payanam_Android_1568_release_20260812_193754.apk", "1568", "debug"))  // wrong type
+        assertFalse(isApkForBuild("Payanam_Android_1568_20260812_193754.apk", "1568", "debug")) // legacy: no type token
+        assertFalse(isApkForBuild("Payanam_Android_1568_release_20260812_193754.apk", "1568", "debug")) // wrong type
         assertFalse(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "1568", "debug")) // sha sibling must never be returned
-        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug"))    // wrong build
+        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug")) // wrong build
     }
 
     @Test
@@ -227,8 +227,8 @@ class UpdateCheckerTest {
         assertNull(channelFromTag("latest"))
         assertNull(channelFromTag(""))
         assertNull(channelFromTag("latest-nightly"))
-        assertNull(channelFromTag("latest-dev"))       // former rolling tag
-        assertNull(channelFromTag("latest-stable"))     // former rolling tag
+        assertNull(channelFromTag("latest-dev")) // former rolling tag
+        assertNull(channelFromTag("latest-stable")) // former rolling tag
     }
 
     @Test
@@ -246,10 +246,10 @@ class UpdateCheckerTest {
 
     @Test
     fun `channel from tag rejects malformed persistent tags`() {
-        assertNull(channelFromTag("dev-v"))            // no build number
-        assertNull(channelFromTag("dev-vabc"))         // non-numeric build
-        assertNull(channelFromTag("nightly-v1704"))    // unknown channel
-        assertNull(channelFromTag("dev-v1704-extra"))  // trailing content
+        assertNull(channelFromTag("dev-v")) // no build number
+        assertNull(channelFromTag("dev-vabc")) // non-numeric build
+        assertNull(channelFromTag("nightly-v1704")) // unknown channel
+        assertNull(channelFromTag("dev-v1704-extra")) // trailing content
     }
 
     @Test
@@ -264,7 +264,7 @@ class UpdateCheckerTest {
         assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(null))
         assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(""))
         assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("nightly"))
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("dev"))  // lowercase is invalid storage
+        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("dev")) // lowercase is invalid storage
     }
 
     @Test

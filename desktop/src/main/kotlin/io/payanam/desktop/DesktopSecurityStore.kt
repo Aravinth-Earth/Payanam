@@ -258,7 +258,44 @@ internal class DesktopSecurityStore(
     }
 
     /**
+     * Builds the refusal result for a setup that could not be attempted, and records why.
+     *
+     * A sibling of [verificationUnavailable] rather than a reuse of it: both log the same payload
+     * discipline — entry key and failure class only, never a path — but each names its own operation,
+     * because the `source` field is what sends a reader to the method that refused.
+     */
+    private fun configureUnavailable(
+        outcome: String,
+        failure: Throwable?,
+    ): DesktopPassphraseActionResult {
+        logEvent(
+            DesktopSecurityLogLevel.WARN,
+            "DesktopSecurityStore.configurePassphrase",
+            "Desktop security state unavailable during setup",
+            mapOf(
+                "entryKey" to STATE_ENTRY_KEY,
+                "outcome" to outcome,
+                "failure" to (failure?.javaClass?.simpleName ?: "none"),
+            ),
+        )
+        return DesktopPassphraseActionResult.Unavailable
+    }
+
+    /**
      * Validates and stores a new PBKDF2 salt/hash verifier for [passphrase].
+     *
+     * WHY THERE IS A REFUSAL HERE THAT [verifyPassphrase]'s sibling does not need to invent: this method
+     * OVERWRITES the persisted verifier, so it is the one action that can destroy state it never read.
+     * A store whose entry is present but blank or unparseable reports UNAVAILABLE, yet is perfectly
+     * writable — a configure over it would succeed, and the unreadable bytes would be replaced by a fresh
+     * verifier, silently discarding whatever was actually on disk. So the availability this store can
+     * already compute is consulted BEFORE any work: no salt is drawn, no PBKDF2 derivation is paid for,
+     * and nothing is written. Android needs no equivalent line because its preferences blob cannot
+     * present as unreadable; its manager reaches the same verdict by failing the write itself.
+     *
+     * The availability is read fresh here rather than held in a field, so a store that becomes readable
+     * again between two calls is not refused for a verdict that has since changed — and nothing is
+     * cached across a window in which the answer can move.
      */
     fun configurePassphrase(passphrase: String): DesktopPassphraseActionResult {
         val validation = SharedPassphrasePolicy.validate(passphrase)
@@ -272,6 +309,17 @@ internal class DesktopSecurityStore(
                 mapOf("outcome" to "validation_failed"),
             )
             return DesktopPassphraseActionResult.ValidationFailed(checkNotNull(validation.reasonCode))
+        }
+
+        // Before the salt is drawn and the derivation is paid for: a store that cannot say what it holds
+        // has nothing to overwrite, and a refusal reported AFTER the write would be an after-the-fact
+        // description of a verifier that has already replaced the unreadable one. `loadSnapshot` rather
+        // than `ensureSnapshot`, because this path must not CREATE the entry it is refusing to trust —
+        // `ensureSnapshot` initialises an absent entry by writing to it, and letting that run first would
+        // manufacture the very evidence the refusal is about. Read fresh on every call: this is a cheap
+        // file read, and a cached verdict would go on refusing a store that has since become readable.
+        if (loadSnapshot().availability == DesktopSecurityAvailability.UNAVAILABLE) {
+            return configureUnavailable("state_unavailable", failure = null)
         }
 
         val salt = ByteArray(PassphraseKdf.SALT_BYTES).also(secureRandom::nextBytes)

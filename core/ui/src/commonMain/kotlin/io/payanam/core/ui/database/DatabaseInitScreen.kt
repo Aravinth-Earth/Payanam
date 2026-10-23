@@ -44,6 +44,8 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -80,7 +82,9 @@ import java.util.Locale
  *    the shared screen owns none of it.
  *  - [onImportFileSelected] replaces the SAF launcher. The picker is Android's own `OpenDocument` contract
  *    and the `Uri` it returns is an Android type, so the shared screen asks the platform to pick and hands
- *    back the MIME filter to use. The desktop passes a no-op.
+ *    back the MIME filter to use. Each platform answers with its own picker: Android launches `OpenDocument`
+ *    and passes the returned `Uri` on, and the desktop drives its file dialog and passes the token back to
+ *    the ViewModel's import entry. The screen itself never picks, so an empty answer here is a dead control.
  *  - [debugLogExport] replaces the log-export actions, following the [MandatoryDimensionSetupSection]
  *    precedent: the exporter writes to Android's own storage and reads Android's Rclass, so the shared
  *    screen takes a composable slot instead of a parallel exporter.
@@ -218,19 +222,31 @@ fun DatabaseInitScreen(
                         modifier = Modifier.fillMaxSize(),
                         color = MaterialTheme.colorScheme.background,
                     ) {
-                        MandatoryDimensionSetupSection(
-                            isSaving = uiState.isCreating,
-                            onSave = { dimensionInputs ->
-                                viewModel.completeNewDatabaseDimensionSetup(
-                                    dimensionInputs = dimensionInputs,
-                                    onSuccess = onDatabaseReady,
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // WHY THIS IS HERE AND NOT ONLY IN THE STATUS CARD: this flag is set on the
+                            // NEXT launch, and the user is sent straight back to this screen by their own
+                            // need to redo the setup. A message that only appeared on the status screen
+                            // would be scrolled away by the time the re-ask is in front of them - which is
+                            // the same silent loss it exists to report.
+                            if (uiState.firstRunDimensionsNotSaved) {
+                                LostFirstRunDimensionsNotice(
+                                    message = strings.dbInitDimensionSetupNotSaved,
                                 )
-                            },
-                            // The section is shared, so the debug-log exporter comes in as a slot: it
-                            // writes to Android's own storage and reads Android's Rclass, and the desktop
-                            // passes nothing rather than a parallel exporter.
-                            debugLogExport = debugLogExport,
-                        )
+                            }
+                            MandatoryDimensionSetupSection(
+                                isSaving = uiState.isCreating,
+                                onSave = { dimensionInputs ->
+                                    viewModel.completeNewDatabaseDimensionSetup(
+                                        dimensionInputs = dimensionInputs,
+                                        onSuccess = onDatabaseReady,
+                                    )
+                                },
+                                // The section is shared, so the debug-log exporter comes in as a slot: it
+                                // writes to Android's own storage and reads Android's Rclass, and the desktop
+                                // passes nothing rather than a parallel exporter.
+                                debugLogExport = debugLogExport,
+                            )
+                        }
                     }
                 }
 
@@ -744,6 +760,45 @@ fun DatabaseInitScreen(
 
 /** The shortest passphrase [validatePassphrase] will accept, in characters. */
 private const val PASSPHRASE_MIN_LENGTH = 12
+
+/**
+ * The banner that says a previously confirmed life-dimension setup did not survive.
+ *
+ * Its own composable, and not an inline `Text`, for one reason that is about the test rather than the
+ * layout: the notice is the ONLY thing in the app that reports a lost first-run confirmation, so a
+ * test needs a stable semantics identity to assert that the message is on screen when the flag says
+ * it should be - and absent when it does not. The identity is declared here, in one place, instead of
+ * being spelled as a literal at the call site where a reformat could silently change it.
+ *
+ * The tone is deliberately neutral rather than alarming: nothing was corrupted and nothing else was
+ * kept. A red error card would imply the app had damaged something, and this is the opposite - the
+ * user's unsaved choice is simply not here any more.
+ */
+@Composable
+internal fun LostFirstRunDimensionsNotice(message: String) {
+    Card(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = LOST_FIRST_RUN_DIMENSIONS_NOTICE_ID },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+/**
+ * The semantics identity [LostFirstRunDimensionsNotice] publishes.
+ *
+ * Internal rather than private so the render test can name the same constant the composable uses;
+ * a test that retyped the literal would pass against a renamed id and fail for the wrong reason.
+ */
+internal const val LOST_FIRST_RUN_DIMENSIONS_NOTICE_ID = "First-run life dimensions were not saved"
 
 /**
  * Validates a candidate database passphrase: requires at least

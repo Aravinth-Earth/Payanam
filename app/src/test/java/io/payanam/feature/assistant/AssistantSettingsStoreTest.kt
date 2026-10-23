@@ -9,7 +9,8 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.session.DatabaseSessionManager
-import java.time.Instant
+import io.payanam.domain.assistant.AssistantSettings
+import io.payanam.domain.assistant.AssistantStoredValue
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -22,8 +23,7 @@ import org.junit.runner.RunWith
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
-import io.payanam.domain.assistant.AssistantSettings
-import io.payanam.domain.assistant.AssistantStoredValue
+import java.time.Instant
 
 /**
  * Exercises [AssistantSettingsStore] against a REAL Room database (in memory) so the

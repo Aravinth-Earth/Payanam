@@ -33,6 +33,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
@@ -215,6 +217,16 @@ fun SettingsDatabaseSecuritySection(
             Switch(
                 checked = uiState.biometricUnlockEnabled,
                 enabled = biometricCanAuthenticate,
+                // The title above is a SIBLING of this switch, not part of it, so the merged node a screen
+                // reader reaches carries the switch's on/off state and nothing else - it announced as an
+                // unlabelled toggle on the row whose whole subject is whether the database needs an identity
+                // check to open. The description is read from the copy table rather than restated, so the
+                // announcement cannot disagree with the label the user can see; there is deliberately no merge,
+                // because a merge boundary moves the switch out of the unmerged semantics tree.
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = strings.dbPassphraseUnlockBiometricTitle
+                    },
                 onCheckedChange = { enabled ->
                     logger.i(
                         "DatabaseSecurityPreferencesSection.biometric",
@@ -294,7 +306,20 @@ fun SettingsDatabaseSecuritySection(
                                         } else {
                                             Icons.Default.Visibility
                                         },
-                                    contentDescription = null,
+                                    // The SAME two keys every other reveal toggle in this module already
+                                    // announces (see `SettingsDialogs`' passphrase gate). A trailing icon
+                                    // whose whole content is an eye is otherwise an unnamed button: a screen
+                                    // reader says only "button", and the two words that tell the user this
+                                    // is the passphrase field - and which direction the press goes - exist
+                                    // nowhere in the tree. The icon CARRIES the description rather than the
+                                    // button, matching the shape the other ten call sites use, so this one
+                                    // cannot drift from them by taking a different route.
+                                    contentDescription =
+                                        if (showEnableBiometricPassphrase) {
+                                            strings.dbPassphraseHideToggle
+                                        } else {
+                                            strings.dbPassphraseShowToggle
+                                        },
                                 )
                             }
                         },

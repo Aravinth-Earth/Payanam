@@ -8,11 +8,31 @@ import io.payanam.shared.platform.DocumentEntry
 import io.payanam.shared.platform.DocumentKind
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.platform.SupportState
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.awt.FileDialog
 import java.awt.Frame
 import java.io.OutputStream
 import java.nio.file.Files
 import java.nio.file.Path
+
+/**
+ * The dispatcher the OS file dialog is driven on - deliberately NOT the caller's.
+ *
+ * Compose dispatches a click handler's coroutine inline, on the AWT event thread and INSIDE the
+ * pointer-event dispatch. A modal shown there blocks that thread while AWT pumps events, the pump
+ * re-enters Compose, and Compose resumes a continuation the coroutine machinery had already completed:
+ * `CoroutinesInternalError: ... CompletedContinuation cannot be cast to DispatchedContinuation`, followed
+ * by a `ClassCastException` out of the same resume. Measured 2026-10-02 on the desktop's first import
+ * attempt, with both stacks ending at [choose].
+ *
+ * Hopping off the caller's thread suspends the UI coroutine, hands the event thread back to AWT, and lets
+ * the dialog run its own event loop where blocking is harmless. `Dispatchers.IO` rather than a private
+ * thread because the thread is BLOCKED for as long as the dialog is open, which is exactly what that pool
+ * is for.
+ */
+private val DIALOG_DISPATCHER: CoroutineDispatcher = Dispatchers.IO
 
 /**
  * The desktop's answer to "give me the file the user picked", over a filesystem.
@@ -39,14 +59,28 @@ internal class AwtDocumentSource(
      */
     override val containerAccess: SupportState = SupportState.SUPPORTED
 
-    override suspend fun requestSource(suggestedName: String?): String? = choose(FileDialog.LOAD, suggestedName)
+    /**
+     * Both entry points hop to [DIALOG_DISPATCHER] before touching AWT: the hop is the whole reason these
+     * are `suspend`, and without it the caller's thread - the UI's own - is the one that blocks.
+     */
+    override suspend fun requestSource(suggestedName: String?): String? =
+        withContext(DIALOG_DISPATCHER) { choose(FileDialog.LOAD, suggestedName) }
 
-    override suspend fun requestDestination(suggestedName: String): String? = choose(FileDialog.SAVE, suggestedName)
+    override suspend fun requestDestination(suggestedName: String): String? =
+        withContext(DIALOG_DISPATCHER) { choose(FileDialog.SAVE, suggestedName) }
 
     private fun choose(
         mode: Int,
         suggestedFileName: String?,
     ): String? {
+        // Logged BEFORE the modal opens, with the thread it runs on: a dialog that never appears and a
+        // dialog that appears on the event thread are otherwise indistinguishable from the outside, and the
+        // second one is a crash (see [DIALOG_DISPATCHER]).
+        logger.d(
+            "AwtDocumentSource.choose",
+            "Opening the file dialog",
+            mapOf("mode" to mode, "thread" to Thread.currentThread().name),
+        )
         val dialog = FileDialog(parent(), "Payanam", mode)
         if (suggestedFileName != null) dialog.file = suggestedFileName
         dialog.isVisible = true

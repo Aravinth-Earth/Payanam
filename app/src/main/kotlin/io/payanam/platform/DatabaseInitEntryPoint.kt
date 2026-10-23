@@ -10,8 +10,8 @@ import io.payanam.domain.assistant.OpenCodeGoClient
 import io.payanam.domain.port.AssistantConfigurationStore
 import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.port.DatabaseSchemaReader
-import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.port.DatabaseSessionManager
+import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister

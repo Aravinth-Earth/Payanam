@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithContentDescription
@@ -19,6 +20,7 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
+import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -33,12 +35,18 @@ import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.platform.COPY_NOT_ATTEMPTED
+import io.payanam.shared.platform.DocumentEntry
+import io.payanam.shared.platform.DocumentKind
+import io.payanam.shared.platform.DocumentSource
+import io.payanam.shared.platform.SupportState
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.io.File
+import java.io.OutputStream
 import java.nio.file.Path
 import java.sql.Connection
 import java.sql.DriverManager
@@ -332,6 +340,30 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     /**
+     * The graph follows the platform's startup gate when the gate clears mid-session.
+     *
+     * `startDestination` is read when the graph is CREATED and never again: measured 2026-10-02 on the Linux
+     * build, the database-init gate's import completed, the startup mode advanced past it to the focus-mode
+     * step, and the screen stayed on `database_init` - the import button again, over a database that had just
+     * imported. Android dismisses the same gate by clearing its flag in `onDatabaseReady`, so this pins the
+     * graph's half of that rule: a dismissed gate must MOVE the graph, not merely change a start destination
+     * nothing re-reads.
+     */
+    @Test
+    fun `dismissing the database init gate moves the graph off its route`() {
+        val mode = mutableStateOf(DesktopStartupMode.InitializeDatabase)
+        mountGateBackedBy(mode = { mode.value })
+        composeRule.onNodeWithContentDescription(strings.settingsDatabaseTitle).assertExists()
+
+        // What the platform does when the init gate reports ready: the startup mode re-resolves.
+        mode.value = DesktopStartupMode.FocusModeSelection
+        composeRule.waitForIdle()
+
+        // The focus-mode step, i.e. the gate AFTER the init gate - not the init gate drawing again.
+        composeRule.onNodeWithText(strings.chooseYourFocus).assertIsDisplayed()
+    }
+
+    /**
      * Mounts the REAL graph with the REAL desktop screens and exactly one gate raised.
      *
      * The mode goes through the desktop's own `desktopNavGateFlags` projection rather than four booleans
@@ -341,13 +373,24 @@ class DesktopNavHostDestinationRenderTest {
      * destination - with it true the graph opens `landingRoute` and no gate body composes at all, which is
      * the mistake a reader of this fixture could most easily make.
      */
-    private fun mountGate(mode: DesktopStartupMode) {
-        val flags = desktopNavGateFlags(mode)
-        val screens = desktopNavHostScreens()
+    private fun mountGate(
+        mode: DesktopStartupMode,
+        documentSource: DocumentSource = AwtDocumentSource(),
+    ) {
+        mountGateBackedBy({ mode }, documentSource)
+    }
+
+    /** [mountGate] over a mode the caller can change, which is how a gate advancing is expressed here. */
+    private fun mountGateBackedBy(
+        mode: () -> DesktopStartupMode,
+        documentSource: DocumentSource = AwtDocumentSource(),
+    ) {
+        val screens = desktopNavHostScreens(documentSource = documentSource)
         composeRule.setContent {
             // `PayanamTheme`, unlike `DesktopShellGraphProbeTest` which can skip it: these are Material3
             // screens and that probe's bodies are `BasicText`. The production shell supplies the same theme.
             PayanamTheme(darkTheme = false) {
+                val flags = desktopNavGateFlags(mode())
                 PayanamNavHost(
                     screens = screens,
                     language = UiLanguage.ENGLISH,
@@ -375,14 +418,15 @@ class DesktopNavHostDestinationRenderTest {
      * identity. `databasePathResolver` points at an empty directory: the default would resolve the host's
      * real one.
      */
-    private fun desktopNavHostScreens(): DesktopPayanamNavHostScreens =
+    private fun desktopNavHostScreens(documentSource: DocumentSource = AwtDocumentSource()): DesktopPayanamNavHostScreens =
         DesktopPayanamNavHostScreens(
             databaseInitCollaborators =
                 DesktopDatabaseInitCollaborators(
                     sessionController = sessionController,
-                    // The real AWT source. The init body's `onImportFileSelected` is a no-op, so no dialog is
-                    // ever opened - only a picker a test could not answer would be a problem.
-                    documentSource = AwtDocumentSource(),
+                    // The real AWT source by default. The init body now OPENS a picker on a tap, so a case
+                    // that taps the import control passes a recording source instead - a real dialog is a
+                    // blocking modal no test could answer.
+                    documentSource = documentSource,
                     passphraseVault = vault,
                     databasePathResolver =
                         DesktopDatabasePathResolver(
@@ -417,5 +461,76 @@ class DesktopNavHostDestinationRenderTest {
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
                 ),
+            // Over this fixture's own controller and database file, never the host's. The controller here
+            // refuses every open, so the holder reports no store and the assistant routes - which this file
+            // does not mount - would render the shared screens over their own default state.
+            assistantCollaborators =
+                DesktopAssistantCollaborators(
+                    sessionController = sessionController,
+                    databaseFile = databaseFile.toPath(),
+                ),
         )
+
+    /**
+     * The init gate's import control reaches the platform's picker - the whole of this platform's half of
+     * the shared screen's import contract.
+     *
+     * This case exists because the control was wired to an EMPTY lambda: the tap was logged, the handler
+     * returned, and the import could not be started on this platform at all while the shared screen, the
+     * ViewModel and the document source were each complete and correct. "Renders a button" and "the button
+     * works" are different claims, and only the second one is the feature - the empty slot passed every
+     * case in this file.
+     */
+    @Test
+    fun `the database-init import control asks the platform's picker for a file`() {
+        val picker = RecordingDocumentSource()
+        mountGate(DesktopStartupMode.InitializeDatabase, documentSource = picker)
+
+        // Mounting this destination is not an import: nothing is asked for until the user taps.
+        assertThat(picker.sourceRequests).isEqualTo(0)
+
+        composeRule.onNodeWithText(strings.locImportDatabaseFile).performClick()
+        composeRule.waitForIdle()
+
+        assertThat(picker.sourceRequests).isEqualTo(1)
+    }
+}
+
+/**
+ * A [DocumentSource] that records whether a pick was asked for, and answers "the user declined".
+ *
+ * Declined rather than a token on purpose: a token would run a real import against this fixture, and what
+ * this case pins is only whether the platform's picker was reached at all. What the flow does once a file
+ * HAS been chosen belongs to the ViewModel's own import tests.
+ */
+private class RecordingDocumentSource : DocumentSource {
+    var sourceRequests: Int = 0
+        private set
+
+    override val fileAccess: SupportState = SupportState.SUPPORTED
+
+    override val containerAccess: SupportState = SupportState.SUPPORTED
+
+    override suspend fun requestSource(suggestedName: String?): String? {
+        sourceRequests++
+        return null
+    }
+
+    override suspend fun requestDestination(suggestedName: String): String? = null
+
+    override fun displayNameOf(token: String): String? = null
+
+    override fun kindOf(token: String): DocumentKind = DocumentKind.FILE
+
+    override fun copyInto(
+        token: String,
+        destination: OutputStream,
+    ): Long = COPY_NOT_ATTEMPTED
+
+    override fun readLeadingBytes(
+        token: String,
+        byteCount: Int,
+    ): ByteArray? = null
+
+    override fun childrenOf(token: String): List<DocumentEntry> = emptyList()
 }

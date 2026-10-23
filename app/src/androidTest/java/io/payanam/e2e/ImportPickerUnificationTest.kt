@@ -62,14 +62,14 @@ class ImportPickerUnificationTest {
     fun oneFilePickerOnBothEntryPoints() {
         // ═══ ONBOARDING — the file affordance is the only import control ════════════════════════
         h.awaitRoot()
-        if (h.isOnScreen(FreshSetup.TOUR_TITLE)) {
-            h.click("Skip Tour")
+        if (h.isAnyOnScreen(*FreshSetup.tourLabels(h.labels).toTypedArray())) {
+            h.click(h.labels.onboardingSkip)
         }
         // The tag is the locale-neutral anchor: the deleted "(Folder)" labels were locale-bound
         // (TA spelled them "(கோப்புறை)"), and neither folder control ever carried a tag.
         assertTrue(
-            "device is not in the fresh state (expected '${FreshSetup.DB_INIT_TITLE}') — run this class with -KeepInstalled:\$false",
-            h.isOnScreen(FreshSetup.DB_INIT_TITLE),
+            "device is not in the fresh state (expected '${h.labels.welcomeToPayanam}') — run this class with -KeepInstalled:\$false",
+            h.isOnScreen(h.labels.welcomeToPayanam),
         )
         assertTrue("the onboarding import control is missing", h.existsTag(IMPORT_DATABASE_FILE_BUTTON_TAG))
         h.log("onboarding=file-control-present")

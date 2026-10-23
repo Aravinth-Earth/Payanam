@@ -28,13 +28,17 @@ import java.util.UUID
  * semantics, the same dimension resolution, and the same lens dirty-day marking after a mutation. The
  * SQL text and the dirty-marking are the parts that would silently diverge if rewritten from intent.
  *
- * Four things worth stating because they are easy to get wrong when porting:
+ * Five things worth stating because they are easy to get wrong when porting:
  *
  *  - **The two task write statements are NOT copied from `TaskDao` — deliberately.** Room's
  *    `@Insert(onConflict = REPLACE)` is a DELETE plus an INSERT, and `tasks` is the parent of four
  *    `ON DELETE CASCADE` child tables, so porting it verbatim would port a silent data-loss bug.
  *    [writeEntity] uses `ON CONFLICT(id) DO UPDATE` instead, which reaches the same end state without
  *    deleting the row. See [writeEntity] and `TaskRepositoryJvmCascadeDeleteRegressionTest`.
+ *  - **The delete writes five child statements Room's `deleteById` does not.** Room turns
+ *    `PRAGMA foreign_keys` on and the declared `CASCADE` / `SET NULL` actions fire on their own; this
+ *    connection enforces nothing, so [deleteTask] writes the actions out by hand. It is the one method
+ *    here whose SQL is deliberately longer than the DAO it was ported from.
  *  - **A connected read is a re-query, not an invalidation.** Room re-runs a query when its table changes;
  *    JDBC has no such signal, so [JdbcFlows] re-runs the statement on an interval and emits only when the
  *    result differs. The parameters that a Room query binds once (the `now` of the overdue query, the
@@ -238,12 +242,63 @@ class TaskRepositoryJvm(
             updated.toDomain()
         }
 
-    /** Hard-deletes task [id] and marks its due day insight-dirty. */
+    /**
+     * Hard-deletes task [id], removes or clears every child row its schema declares an action for, and
+     * marks its due day insight-dirty.
+     *
+     * **The child statements are the point of this method, and they are not written in the Room DAO
+     * because Room does not write them either** — Room issues `PRAGMA foreign_keys = ON` on every open,
+     * so the declared `ON DELETE CASCADE` and `ON DELETE SET NULL` actions fire on their own and the DAO's
+     * `deleteById` is honestly one statement. The JVM opener enables nothing, SQLite defaults
+     * `PRAGMA foreign_keys` to OFF, and the same delete therefore left every child behind in silence:
+     * four `CASCADE` tables (`task_occurrences`, `task_reschedules`, `scheduled_notifications`,
+     * `task_tags`) kept rows pointing at a task that no longer existed, and `time_entries` kept a
+     * `taskId` that the schema says should have become SQL NULL.
+     *
+     * **All five are written out here, in one transaction, with the parent delete LAST.** Two properties
+     * are load-bearing:
+     *
+     *  - **One transaction**, so a failure after the first child is rolled back rather than leaving a
+     *   half-cleaned task: either the task and all five child writes land together, or none do. The
+     *   dirty-day mark stays outside it, exactly where it was before, because it is a lens invalidation
+     *   rather than part of the delete and must not be rolled back with it.
+     *  - **The parent goes last**, so each child statement is still deleting a row that has a parent to
+     *   point at. Reordering is not cosmetic: the statements are idempotent per task, but running the
+     *   parent first and a child after would make the child delete a row whose parent is already gone,
+     *   which is the state this method exists to avoid.
+     *
+     * **The four cascade targets are named here and nowhere else in this file; they cannot be shared.**
+     * `NotificationRepositoryJvm` and `TagRepositoryJvm` each hold a private constant for the same
+     * statement, and a `private` companion member cannot be read from another file, so widening those
+     * would trade one file's visibility for a second convention to keep in step. The SQL text is
+     * identical; only the ownership differs.
+     *
+     * **`task_tags` is the one snake_case owner column.** The other four children bind `taskId`; this
+     * junction table's column is `task_id`. A `taskId` here is not a silent no-op that a test would
+     * catch later — it is a `no such column` at prepare time, so the mistake surfaces as a failed
+     * delete rather than a quietly skipped one.
+     *
+     * **`time_entries` is SET NULL, not deleted** (its `taskId` is nullable): the entry itself is a real
+     * record of time the user spent, and only its link to the task goes away. Deleting it would destroy
+     * data the schema explicitly chose to keep.
+     *
+     * Measured by `OrdinaryDeletesLeaveOrphanedRowsTest`.
+     */
     override suspend fun deleteTask(id: String) {
         JdbcFlows.onIo {
             logger.w("TaskRepositoryJvm.deleteTask", "Deleting task", mapOf("id" to id))
+            // Read BEFORE the transaction: the parent row is gone by the time the dirty mark needs it,
+            // and a read inside the transaction would be a read of a row this method is deleting.
             val existing = readTaskEntity(id)
-            JdbcQueries.write(session, DELETE_BY_ID_SQL, arrayOf(id))
+            JdbcQueries.transaction(session) {
+                // Children first, parent last. See the KDoc above for why that order.
+                JdbcQueries.write(session, DELETE_NOTIFICATIONS_FOR_TASK_SQL, arrayOf(id))
+                JdbcQueries.write(session, DELETE_OCCURRENCES_FOR_TASK_SQL, arrayOf(id))
+                JdbcQueries.write(session, DELETE_RESCHEDULES_FOR_TASK_SQL, arrayOf(id))
+                JdbcQueries.write(session, DELETE_TASK_TAGS_FOR_TASK_SQL, arrayOf(id))
+                JdbcQueries.write(session, CLEAR_TIME_ENTRIES_FOR_TASK_SQL, arrayOf(id))
+                JdbcQueries.write(session, DELETE_BY_ID_SQL, arrayOf(id))
+            }
             markDirtyForTaskDay(existing?.dayKey?.let(LocalDate::parse), "task_deleted")
             logger.i("TaskRepositoryJvm.deleteTask", "Task deleted", mapOf("id" to id))
             Unit
@@ -775,6 +830,50 @@ class TaskRepositoryJvm(
 
         /** Verbatim from `TaskDao.deleteById`. */
         const val DELETE_BY_ID_SQL = "DELETE FROM tasks WHERE id = ?"
+
+        // ── The five child statements `deleteTask` issues before that one ─────────────────────────
+        //
+        // Re-declared here rather than shared with `NotificationRepositoryJvm` /
+        // `TagRepositoryJvm`, which hold the identical text as `private` companion members a
+        // different file cannot read. See [deleteTask].
+        //
+        // The four DELETE ... WHERE taskId are the schema's `ON DELETE CASCADE` actions on
+        // `tasks.id`, written out because this connection does not enforce them.
+
+        /**
+         * `scheduled_notifications.taskId`, `ON DELETE CASCADE`.
+         *
+         * Same text as `NotificationRepositoryJvm.DELETE_FOR_TASK_SQL`.
+         */
+        const val DELETE_NOTIFICATIONS_FOR_TASK_SQL =
+            "DELETE FROM scheduled_notifications WHERE taskId = ?"
+
+        /** `task_occurrences.taskId`, `ON DELETE CASCADE`. */
+        const val DELETE_OCCURRENCES_FOR_TASK_SQL =
+            "DELETE FROM task_occurrences WHERE taskId = ?"
+
+        /** `task_reschedules.taskId`, `ON DELETE CASCADE`. */
+        const val DELETE_RESCHEDULES_FOR_TASK_SQL =
+            "DELETE FROM task_reschedules WHERE taskId = ?"
+
+        /**
+         * `task_tags.task_id`, `ON DELETE CASCADE` — snake_case, and the only child here that is.
+         *
+         * Same text as `TagRepositoryJvm.CLEAR_TASK_TAGS_SQL`. Spelling the owner column `taskId` here
+         * raises `no such column` at prepare time (measured), so it fails loudly rather than deleting
+         * nothing and reporting success.
+         */
+        const val DELETE_TASK_TAGS_FOR_TASK_SQL =
+            "DELETE FROM task_tags WHERE task_id = ?"
+
+        /**
+         * `time_entries.taskId`, `ON DELETE SET NULL` — the entry survives, its link does not.
+         *
+         * The only one of the five that is not a delete. An `UPDATE`, because the schema's declared
+         * action is to keep the row and clear the foreign key.
+         */
+        const val CLEAR_TIME_ENTRIES_FOR_TASK_SQL =
+            "UPDATE time_entries SET taskId = NULL WHERE taskId = ?"
 
         /** Verbatim from `TaskDao.updateStatus`: `completedAt` may be null, which writes SQL NULL. */
         const val STATUS_UPDATE_SQL =

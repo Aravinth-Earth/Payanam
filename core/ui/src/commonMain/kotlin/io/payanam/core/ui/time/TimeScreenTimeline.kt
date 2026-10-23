@@ -36,6 +36,8 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -449,7 +451,19 @@ private fun TimeEntryBlock(
                     shape = RoundedCornerShape(8.dp),
                 )
                 .clickable { onClick() }
-                .padding(4.dp),
+                .padding(4.dp)
+                // A block whose entire content is an icon cascade and, in the compact case, ONE line of
+                // `labelSmall` text clipped to a few characters - a screen reader reads that clipped fragment
+                // or nothing at all, because the icons all pass `contentDescription = null`. So the node had
+                // no name, no range and no duration: a whole day of tracked time read as a column of
+                // unlabelled buttons. The description is built from what this block ALREADY computed for its
+                // own caption (dimension, task, range, duration, focus), so the announcement and the visible
+                // label cannot disagree - there is no second formatting path to drift.
+                //
+                // `mergeDescendants = true` is what puts the name on the CLICKABLE node rather than beside it:
+                // without it the icon cascade and the text would each keep their own node and a screen reader
+                // would still have to enter the block before learning anything.
+                .semantics(mergeDescendants = true) { contentDescription = compactLabel },
         ) {
             DimensionIconCascadeLayer(
                 iconOption = dimensionIconOption,

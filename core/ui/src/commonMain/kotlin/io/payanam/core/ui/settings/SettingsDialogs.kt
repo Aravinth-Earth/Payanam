@@ -29,6 +29,8 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -229,17 +231,19 @@ fun ImportEncryptedDbPassphraseDialog(
                     onValueChange = { passphrase = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(strings.dbPassphraseInputLabel) },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (passphrase.isNotBlank() && !isVerifying) {
-                                onConfirm(passphrase)
-                            }
-                        },
-                    ),
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                if (passphrase.isNotBlank() && !isVerifying) {
+                                    onConfirm(passphrase)
+                                }
+                            },
+                        ),
                     visualTransformation = if (showPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
                     trailingIcon = {
                         IconButton(onClick = { showPassphrase = !showPassphrase }) {
@@ -270,6 +274,17 @@ fun ImportEncryptedDbPassphraseDialog(
             Button(
                 onClick = { onConfirm(passphrase) },
                 enabled = passphrase.isNotBlank() && !isVerifying,
+                // A DISABLED button is still an interactive node: Compose publishes `onClick` for a disabled
+                // clickable and pairs it with `disabled`, so a screen reader reaches this node and reads its
+                // state. That is exactly what makes the verifying state a defect rather than an excuse - the
+                // label `Text` is replaced by the spinner there, so the node would carry no name at all while
+                // the import is in flight, which is the moment a screen-reader user most needs to know what is
+                // happening. The description is the SAME copy-table string the idle state shows in the button,
+                // so the control never changes its subject - only its state.
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = strings.dbImportPassphrasePromptAction
+                    },
             ) {
                 if (isVerifying) {
                     CircularProgressIndicator(modifier = Modifier.fillMaxWidth(0.5f), color = MaterialTheme.colorScheme.onPrimary)
@@ -338,11 +353,12 @@ fun BulkMapImportedHabitsDialog(
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Text(
-                            text = if (selectedDimensionId == dimension.id) {
-                                strings.settingsBulkMapDimensionSelected.format(label)
-                            } else {
-                                label
-                            },
+                            text =
+                                if (selectedDimensionId == dimension.id) {
+                                    strings.settingsBulkMapDimensionSelected.format(label)
+                                } else {
+                                    label
+                                },
                         )
                     }
                 }

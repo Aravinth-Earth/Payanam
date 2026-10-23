@@ -46,6 +46,9 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.settings.FocusModePreset
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 
 /**
  * The application's navigation graph, rendered identically by every platform.
@@ -181,12 +184,23 @@ fun PayanamNavHost(
                 // Returns false while the graph is not ready: callers that must not lose the
                 // request (external commands) retry instead of dropping the navigation.
                 if (navController.currentBackStackEntry != null) {
-                    navController.navigate(route) {
-                        popUpTo(navController.graph.findStartDestination().id) {
-                            saveState = true
+                    // The navigation call itself goes on `Dispatchers.Main.immediate`, which is the
+                    // framework main thread on Android and the Swing EDT on the desktop. Navigation
+                    // mutates the back stack and the lifecycle state of every entry in it, so it has
+                    // to land on the same thread that owns the composition - the same reason Android's
+                    // own navigation callbacks always run on the main looper. The probe above stays on
+                    // the calling thread so its synchronous Boolean answer still means "the graph
+                    // accepted this"; only the mutation is handed over. `immediate` keeps this a
+                    // straight-line call whenever the caller is already there, and the hop is skipped
+                    // entirely rather than deferred when it is not.
+                    CoroutineScope(Dispatchers.Main.immediate).launch {
+                        navController.navigate(route) {
+                            popUpTo(navController.graph.findStartDestination().id) {
+                                saveState = true
+                            }
+                            launchSingleTop = true
+                            restoreState = true
                         }
-                        launchSingleTop = true
-                        restoreState = true
                     }
                     true
                 } else {
@@ -197,9 +211,23 @@ fun PayanamNavHost(
     val navActions =
         remember(navController, navigateToTopLevel) {
             PayanamNavActions(
-                navigateToRoute = { route -> navController.navigate(route) },
+                navigateToRoute = { route ->
+                    // Same rule as `navigateToTopLevel`, and for the same reason: this is the entry
+                    // point Android's screens and the desktop's own screens call alike, so it is the
+                    // one that must be on the main dispatcher for both.
+                    CoroutineScope(Dispatchers.Main.immediate).launch {
+                        navController.navigate(route)
+                    }
+                },
                 navigateToTopLevelRoute = navigateToTopLevel,
-                popBackStackAction = { navController.popBackStack() },
+                popBackStackAction = {
+                    // Same main-dispatcher rule as `navigateToRoute`, for the same reason: popping
+                    // mutates back-stack lifecycle state, so it belongs on the thread that owns the
+                    // composition - the framework main thread on Android, the Swing EDT on the desktop.
+                    CoroutineScope(Dispatchers.Main.immediate).launch {
+                        navController.popBackStack()
+                    }
+                },
                 onRestartAfterDataDelete = onRestartAfterDelete,
             )
         }
@@ -340,8 +368,14 @@ fun PayanamNavHost(
                 "returnRoute" to (pendingReturnRouteAfterUnlock ?: "none"),
             ),
         )
-        navController.navigate(PayanamRoutes.PASSPHRASE_UNLOCK) {
-            launchSingleTop = true
+        // Same main-dispatcher rule as `navigateToRoute`: a `LaunchedEffect` body runs on the
+        // context its recomposer supplies, which is the main dispatcher under a normal Android
+        // activity but is whatever the desktop's or a test's recomposer hands over, so the graph
+        // cannot take that thread for granted when it mutates the back stack.
+        CoroutineScope(Dispatchers.Main.immediate).launch {
+            navController.navigate(PayanamRoutes.PASSPHRASE_UNLOCK) {
+                launchSingleTop = true
+            }
         }
     }
     DisposableEffect(navController) {
@@ -366,7 +400,12 @@ fun PayanamNavHost(
                             "Popping disabled route from back stack",
                             mapOf("route" to route),
                         )
-                        controller.popBackStack()
+                        // This listener is answered on whichever thread performed the navigation that
+                        // produced the destination, and that navigation can originate anywhere that holds
+                        // a controller, so the guard pop joins them on the main dispatcher.
+                        CoroutineScope(Dispatchers.Main.immediate).launch {
+                            controller.popBackStack()
+                        }
                     }
                 }
             }
@@ -450,6 +489,66 @@ fun PayanamNavHost(
                 isLandingReady && landingRoute.isNotEmpty() &&
                     !shouldShowPassphraseSetup && !shouldShowPassphraseUnlock &&
                     !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding
+            // The startup gates are STATE, and the graph has to follow them. `startDestination` is read when
+            // the graph is CREATED and never again - measured, not assumed: on the Linux desktop the
+            // database-init gate's import completed, the platform's startup mode advanced past that gate, and
+            // NOTHING navigated, so the screen stayed on `database_init`. The user saw the import button again
+            // over a database that had just imported. Android dismisses the same gate the same way it raises
+            // it - by clearing the flag in its own `onDatabaseReady` (`showDatabaseInit = false`) - and its
+            // composition is state-driven; this effect is the graph's half of that rule.
+            //
+            // PASSPHRASE_UNLOCK is deliberately NOT its business: the unlock gate above owns its own effect,
+            // because it carries a return route, and two navigations out of one flag change is how a screen
+            // ends up flickering between two gates.
+            LaunchedEffect(
+                shouldShowPassphraseSetup,
+                shouldShowDatabaseInit,
+                shouldShowFocusModeOnboarding,
+                currentResolvedRoute,
+                landingReady,
+            ) {
+                val route = currentResolvedRoute ?: return@LaunchedEffect
+                if (shouldShowPassphraseUnlock || route == PayanamRoutes.PASSPHRASE_UNLOCK) {
+                    return@LaunchedEffect
+                }
+                val raisedGate =
+                    when {
+                        shouldShowPassphraseSetup -> PayanamRoutes.PASSPHRASE_SETUP
+                        shouldShowDatabaseInit -> PayanamRoutes.DATABASE_INIT
+                        shouldShowFocusModeOnboarding -> PayanamRoutes.FOCUS_MODE_SELECTION
+                        else -> null
+                    }
+                val destination =
+                    when {
+                        raisedGate != null && route != raisedGate -> {
+                            raisedGate
+                        }
+
+                        // Only the init gate is answered here: the setup and focus destinations navigate from
+                        // their own success callbacks, and a second navigation out of this effect would race
+                        // the one they already perform.
+                        raisedGate == null && route == PayanamRoutes.DATABASE_INIT && landingReady -> {
+                            landingRoute
+                        }
+
+                        else -> {
+                            null
+                        }
+                    } ?: return@LaunchedEffect
+                logger.i(
+                    "PayanamNavHost",
+                    "Startup gate moved; the graph follows it",
+                    mapOf("from" to route, "to" to destination),
+                )
+                // Same main-dispatcher rule as the other back-stack mutations in this file: the gate
+                // moves the graph, and a graph is owned by the thread its composition runs on.
+                CoroutineScope(Dispatchers.Main.immediate).launch {
+                    navController.navigate(destination) {
+                        popUpTo(route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                }
+            }
             val startDestination =
                 remember(landingReady, landingRoute) {
                     if (landingReady) {
@@ -489,8 +588,13 @@ fun PayanamNavHost(
                                     else -> PayanamTab.Lenses.route
                                 }
                             logger.i("PayanamNavHost", "Passphrase configured, continuing startup flow", mapOf("nextRoute" to nextRoute))
-                            navController.navigate(nextRoute) {
-                                popUpTo(PayanamRoutes.PASSPHRASE_SETUP) { inclusive = true }
+                            // A screen's own success callback, not a composition scope: the platform's view
+                            // model answers it on the dispatcher that model runs on, so the navigation is
+                            // handed to the main dispatcher rather than assumed to be there.
+                            CoroutineScope(Dispatchers.Main.immediate).launch {
+                                navController.navigate(nextRoute) {
+                                    popUpTo(PayanamRoutes.PASSPHRASE_SETUP) { inclusive = true }
+                                }
                             }
                         },
                     )
@@ -510,14 +614,24 @@ fun PayanamNavHost(
                                 }
                             pendingReturnRouteAfterUnlock = null
                             onUnlockReturnRouteConsumed()
-                            navController.navigate(nextRoute) {
-                                popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                            // The unlock callback is answered from the database work that finished it, which
+                            // is not the composition's thread: navigating from there moved a back-stack
+                            // entry's state off the thread that owns it and the graph threw
+                            // `Method setCurrentState must be called on the main thread`.
+                            CoroutineScope(Dispatchers.Main.immediate).launch {
+                                navController.navigate(nextRoute) {
+                                    popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                                }
                             }
                         },
                         onForgotPassphraseReset = {
                             logger.w("PayanamNavHost", "Forgot-passphrase reset completed; navigating to setup")
-                            navController.navigate(PayanamRoutes.PASSPHRASE_SETUP) {
-                                popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                            // Same rule as the unlock callback above, and for the same reason: this arrives
+                            // from the reset work, not from the composition.
+                            CoroutineScope(Dispatchers.Main.immediate).launch {
+                                navController.navigate(PayanamRoutes.PASSPHRASE_SETUP) {
+                                    popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                                }
                             }
                         },
                     )
@@ -527,7 +641,14 @@ fun PayanamNavHost(
                         nav = navActions,
                         onPassphraseChanged = {
                             logger.i("PayanamNavHost", "Passphrase changed successfully")
-                            navController.popBackStack()
+                            // On the main dispatcher for the same reason `navigateToRoute` is: popping
+                            // moves a back-stack entry through its lifecycle states, and on the desktop
+                            // this callback arrives on the test's interaction thread while `Dispatchers.Main`
+                            // is the Swing EDT, so popping here would move an entry's state off the thread
+                            // that owns it. `immediate` makes it a plain call when the caller is already there.
+                            CoroutineScope(Dispatchers.Main.immediate).launch {
+                                navController.popBackStack()
+                            }
                             // The host's own outcome is unchanged and happens first; the platform's
                             // restart duty runs after it, so a desktop that must end this process gets to.
                             onRestartAfterPassphraseChange()
@@ -561,8 +682,12 @@ fun PayanamNavHost(
                                 mapOf("preset" to preset.presetId),
                             )
                             onFocusModePresetSelected(preset)
-                            navController.navigate(PayanamTab.Lenses.route) {
-                                popUpTo(PayanamRoutes.FOCUS_MODE_SELECTION) { inclusive = true }
+                            // Same main-dispatcher rule as the other screen callbacks: the preset arrives on
+                            // the dispatcher that loaded it, and popping the gate mutates back-stack state.
+                            CoroutineScope(Dispatchers.Main.immediate).launch {
+                                navController.navigate(PayanamTab.Lenses.route) {
+                                    popUpTo(PayanamRoutes.FOCUS_MODE_SELECTION) { inclusive = true }
+                                }
                             }
                         },
                     )

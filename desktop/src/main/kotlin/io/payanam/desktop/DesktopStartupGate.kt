@@ -4,27 +4,20 @@
 
 package io.payanam.desktop
 
-import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.AlertDialog
 import androidx.compose.material.Button
 import androidx.compose.material.Card
-import androidx.compose.material.Divider
 import androidx.compose.material.MaterialTheme
 import androidx.compose.material.OutlinedButton
 import androidx.compose.material.OutlinedTextField
@@ -36,9 +29,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
@@ -71,8 +62,6 @@ private data class DesktopStartupGateActions(
     val onOnboardingIntroAdvanced: () -> Unit = {},
     /** SCAFFOLD: records which data path the user chose and moves past onboarding. */
     val onDatabaseChoiceSelected: (DesktopDatabaseChoice) -> Unit = {},
-    /** Reports the edited dimension rows; the write is real, and applied once a session exists. */
-    val onDimensionSetupSaved: (List<DesktopDimensionInput>) -> Unit = {},
     /** Security-scoped reset offered from the unavailable state: clears the passphrase only. */
     val onSecurityResetRequested: () -> Unit,
     /** Leaves the app from the unavailable state, which has no forward action by design. */
@@ -190,7 +179,6 @@ internal fun desktopStartupGateSurface(
                         onForgotResetRequested = { showResetConfirmDialog = true },
                         onOnboardingIntroAdvanced = callbacks.onOnboardingIntroAdvanced,
                         onDatabaseChoiceSelected = callbacks.onDatabaseChoiceSelected,
-                        onDimensionSetupSaved = callbacks.onDimensionSetupSaved,
                         onSecurityResetRequested = callbacks.onSecurityResetRequested,
                         onQuitRequested = callbacks.onQuitRequested,
                     ),
@@ -293,13 +281,6 @@ private fun desktopStartupActionSection(
 
         DesktopStartupMode.OnboardingDatabaseChoice -> {
             desktopOnboardingDatabaseChoiceSection(actions = actions)
-        }
-
-        DesktopStartupMode.OnboardingDimensionSetup -> {
-            desktopOnboardingDimensionSetupSection(
-                inputState = inputState,
-                actions = actions,
-            )
         }
 
         DesktopStartupMode.SetupPassphrase -> {
@@ -414,203 +395,6 @@ private fun desktopOnboardingDatabaseChoiceSection(actions: DesktopStartupGateAc
             }
         }
     }
-}
-
-/**
- * SCAFFOLD stage 3 of onboarding: the life-dimension setup.
- *
- * The ROWS are real — ids, labels, colours, icon keys and order all come from
- * [io.payanam.domain.model.DimensionTaxonomyCatalog] in `core/domain`, the same catalog Android reads.
- * The SAVE is real: the rows go through the shared catalog repository on the installed data layer. An
- * install that has not created its database yet has nowhere to write, so the confirmed rows are parked
- * and applied at session-open rather than the step refusing.
- *
- * The icon is chosen by key rather than by image: the Android icon catalog maps keys to
- * `ImageVector`s from `material-icons-extended`, which this module does not depend on, and inventing
- * a parallel icon set would be a divergence. The key is the part that is real and the part a real
- * write would persist, so it is what the row shows.
- *
- * Edit state (which row is open, the draft label/colour/icon) is local `rememberSaveable` state: it is
- * transient by nature and must not survive a restart, which is exactly what this gives us.
- */
-@Composable
-private fun desktopOnboardingDimensionSetupSection(
-    inputState: DesktopStartupGateInputState,
-    actions: DesktopStartupGateActions,
-) {
-    var draftRows by remember { mutableStateOf(inputState.dimensionInputs) }
-    var editTargetId by remember { mutableStateOf<String?>(null) }
-    var draftLabel by remember { mutableStateOf("") }
-    var draftColorHex by remember { mutableStateOf(desktopDimensionColorOptions.first()) }
-    var draftIconKey by remember { mutableStateOf("") }
-
-    // Keeps the working copy in step when the inputs change from above (e.g. the gate rebuilds state).
-    LaunchedEffect(inputState.dimensionInputs) { draftRows = inputState.dimensionInputs }
-
-    Card(
-        backgroundColor = desktopSurfaceColor(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.fillMaxWidth().padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            Text(
-                text = "Dimensions",
-                style = MaterialTheme.typography.h6,
-                fontWeight = FontWeight.SemiBold,
-            )
-
-            draftRows.forEach { row ->
-                val isEditing = editTargetId == row.id
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                ) {
-                    dimensionSwatch(colorHex = row.colorHex)
-                    Column(modifier = Modifier.weight(1f)) {
-                        if (isEditing) {
-                            OutlinedTextField(
-                                value = draftLabel,
-                                onValueChange = { draftLabel = it },
-                                label = { Text("Dimension name") },
-                                singleLine = true,
-                                modifier =
-                                    Modifier
-                                        .fillMaxWidth()
-                                        .semantics {
-                                            contentDescription = "Dimension name field ${row.id}"
-                                        },
-                            )
-                        } else {
-                            Text(
-                                text = row.label,
-                                style = MaterialTheme.typography.body1,
-                                fontWeight = FontWeight.Medium,
-                            )
-                            Text(
-                                text = "icon: ${row.iconKey}",
-                                style = MaterialTheme.typography.caption,
-                                color = desktopBodyTextColor(),
-                            )
-                        }
-                    }
-                    if (isEditing) {
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-                                desktopDimensionColorOptions.take(5).forEach { hex ->
-                                    dimensionSwatch(
-                                        colorHex = hex,
-                                        isSelected = hex.equals(draftColorHex, ignoreCase = true),
-                                        onClick = { draftColorHex = hex },
-                                        contentLabel = "Colour $hex",
-                                    )
-                                }
-                            }
-                            TextButton(
-                                modifier =
-                                    Modifier.semantics {
-                                        contentDescription = "Save dimension ${row.id}"
-                                    },
-                                onClick = {
-                                    draftRows =
-                                        draftRows.map { existing ->
-                                            if (existing.id == row.id) {
-                                                existing.copy(
-                                                    label = draftLabel,
-                                                    colorHex = draftColorHex,
-                                                )
-                                            } else {
-                                                existing
-                                            }
-                                        }
-                                    editTargetId = null
-                                },
-                            ) {
-                                Text("Save")
-                            }
-                        }
-                    } else {
-                        TextButton(
-                            modifier =
-                                Modifier.semantics {
-                                    contentDescription = "Edit dimension ${row.id}"
-                                },
-                            onClick = {
-                                editTargetId = row.id
-                                draftLabel = row.label
-                                draftColorHex = row.colorHex
-                                draftIconKey = row.iconKey
-                            },
-                        ) {
-                            Text("Edit")
-                        }
-                    }
-                }
-                Divider(color = desktopMutedTextColor().copy(alpha = 0.25f))
-            }
-
-            Text(
-                text =
-                    "Your choices are stored in the database. On a fresh install the write is applied " +
-                        "as soon as the database exists: this step runs before it is created.",
-                style = MaterialTheme.typography.body2,
-                color = desktopBodyTextColor(),
-            )
-
-            Button(
-                modifier =
-                    Modifier.semantics { contentDescription = "Save dimension setup" },
-                onClick = { actions.onDimensionSetupSaved(draftRows) },
-            ) {
-                Text("Save and continue")
-            }
-        }
-    }
-}
-
-/**
- * A colour swatch for a dimension row.
- *
- * Takes the hex as a string and parses it, because the value comes from the shared catalog rather
- * than from Compose. An unparseable value falls back to the theme's surface colour instead of
- * throwing: a bad colour should not take the onboarding screen down.
- */
-@Composable
-private fun dimensionSwatch(
-    colorHex: String,
-    isSelected: Boolean = false,
-    onClick: (() -> Unit)? = null,
-    contentLabel: String? = null,
-) {
-    val parsed = parseDimensionHexColor(colorHex)
-    val border =
-        if (isSelected) {
-            BorderStroke(2.dp, MaterialTheme.colors.primary)
-        } else {
-            BorderStroke(1.dp, desktopMutedTextColor().copy(alpha = 0.25f))
-        }
-    Box(
-        modifier =
-            Modifier
-                .size(if (onClick == null) 20.dp else 28.dp)
-                .clip(CircleShape)
-                .background(parsed ?: desktopSurfaceColor())
-                .border(border, CircleShape)
-                .then(
-                    if (onClick != null) {
-                        Modifier.clickable(onClick = onClick).semantics {
-                            contentDescription = contentLabel ?: "Colour $colorHex"
-                        }
-                    } else {
-                        Modifier.semantics {
-                            contentDescription = contentLabel ?: "Dimension colour $colorHex"
-                        }
-                    },
-                ),
-    )
 }
 
 /**
@@ -1173,7 +957,6 @@ internal fun desktopStartupTitle(startupMode: DesktopStartupMode): String =
     when (startupMode) {
         DesktopStartupMode.OnboardingIntro -> "Welcome to Payanam"
         DesktopStartupMode.OnboardingDatabaseChoice -> "Where should your data come from?"
-        DesktopStartupMode.OnboardingDimensionSetup -> "Set up your life dimensions"
         DesktopStartupMode.SetupPassphrase -> "Set up local protection"
         DesktopStartupMode.UnlockPassphrase -> "Unlock local desktop session"
         DesktopStartupMode.InitializeDatabase -> "Create local data space"
@@ -1192,11 +975,6 @@ internal fun desktopStartupSummary(startupMode: DesktopStartupMode): String =
         DesktopStartupMode.OnboardingDatabaseChoice -> {
             "Start a new empty space, or bring in the encrypted database exported from the Android app. " +
                 "Both paths end in the same encrypted database."
-        }
-
-        DesktopStartupMode.OnboardingDimensionSetup -> {
-            "These are the life dimensions Payanam scores. Rename them, pick an icon and colour, or turn " +
-                "off the ones you do not want to track."
         }
 
         DesktopStartupMode.SetupPassphrase -> {

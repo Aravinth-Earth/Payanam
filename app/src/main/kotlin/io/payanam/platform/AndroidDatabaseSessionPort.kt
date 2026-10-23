@@ -22,54 +22,53 @@ import javax.inject.Singleton
  */
 @Singleton
 class AndroidDatabaseSessionPort
-    @Inject
-    constructor(
-        private val delegate: io.payanam.database.session.DatabaseSessionManager,
-    ) : io.payanam.domain.port.DatabaseSessionManager {
-        private val logger = UnifiedLogger.getInstance()
+@Inject
+constructor(
+    private val delegate: io.payanam.database.session.DatabaseSessionManager,
+) : io.payanam.domain.port.DatabaseSessionManager {
+    private val logger = UnifiedLogger.getInstance()
 
-        /**
-         * Breadcrumb first, then the wrapped manager's own open — the data keys mirror its entry log
-         * so a request through this port reads as one sequence with the manager's outcome lines.
-         */
-        override suspend fun openDatabase(passphrase: String): Result<Unit> {
-            logger.i(
-                "AndroidDatabaseSessionPort.openDatabase",
-                "DB open requested via the shared port",
-                mapOf(
-                    "alreadyOpen" to delegate.isDbOpen(),
-                    "passphraseLength" to passphrase.length,
-                ),
-            )
-            return delegate.openDatabase(passphrase)
-        }
-
-        /**
-         * Breadcrumb first, then the wrapped manager's close; `wasOpen` is read before the close so
-         * it reports what the request found, like the manager's own close log.
-         */
-        override fun closeDatabase() {
-            logger.i(
-                "AndroidDatabaseSessionPort.closeDatabase",
-                "DB close requested via the shared port",
-                mapOf("wasOpen" to delegate.isDbOpen()),
-            )
-            delegate.closeDatabase()
-        }
-
-        /**
-         * Delegates the awaitable fold to the wrapped manager, which folds through the open session or
-         * opens its own handle under [passphrase] when none is open.
-         */
-        override suspend fun flushPendingChanges(passphrase: String): FoldReport =
-            delegate.flushPendingChanges(passphrase)
-
-        /** The wrapped manager's passphrase contract — same IllegalStateException when closed. */
-        override fun requireOpenPassphrase(): String = delegate.requireOpenPassphrase()
-
-        /** True while the wrapped manager holds a Room session. */
-        override fun isSessionOpen(): Boolean = delegate.isDbOpen()
-
-        /** The wrapped manager's own flow — session-owner state, never a UI/Compose flag. */
-        override val sessionOpenState: StateFlow<Boolean> = delegate.isOpen
+    /**
+     * Breadcrumb first, then the wrapped manager's own open — the data keys mirror its entry log
+     * so a request through this port reads as one sequence with the manager's outcome lines.
+     */
+    override suspend fun openDatabase(passphrase: String): Result<Unit> {
+        logger.i(
+            "AndroidDatabaseSessionPort.openDatabase",
+            "DB open requested via the shared port",
+            mapOf(
+                "alreadyOpen" to delegate.isDbOpen(),
+                "passphraseLength" to passphrase.length,
+            ),
+        )
+        return delegate.openDatabase(passphrase)
     }
+
+    /**
+     * Breadcrumb first, then the wrapped manager's close; `wasOpen` is read before the close so
+     * it reports what the request found, like the manager's own close log.
+     */
+    override fun closeDatabase() {
+        logger.i(
+            "AndroidDatabaseSessionPort.closeDatabase",
+            "DB close requested via the shared port",
+            mapOf("wasOpen" to delegate.isDbOpen()),
+        )
+        delegate.closeDatabase()
+    }
+
+    /**
+     * Delegates the awaitable fold to the wrapped manager, which folds through the open session or
+     * opens its own handle under [passphrase] when none is open.
+     */
+    override suspend fun flushPendingChanges(passphrase: String): FoldReport = delegate.flushPendingChanges(passphrase)
+
+    /** The wrapped manager's passphrase contract — same IllegalStateException when closed. */
+    override fun requireOpenPassphrase(): String = delegate.requireOpenPassphrase()
+
+    /** True while the wrapped manager holds a Room session. */
+    override fun isSessionOpen(): Boolean = delegate.isDbOpen()
+
+    /** The wrapped manager's own flow — session-owner state, never a UI/Compose flag. */
+    override val sessionOpenState: StateFlow<Boolean> = delegate.isOpen
+}

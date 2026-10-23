@@ -15,6 +15,7 @@ import io.payanam.shared.platform.DocumentKind
 import io.payanam.shared.platform.DocumentSource
 import java.io.File
 import java.io.FileOutputStream
+import java.nio.file.Files
 
 /**
  * What one import actually copied, in terms a screen can render.
@@ -99,6 +100,15 @@ object DatabaseImportSupport {
                 "targetPath" to targetDatabaseFile.absolutePath,
             ),
         )
+        // The artifact family is written INTO the user's database directory, and nothing here may assume that
+        // directory exists. Android's platform creates its `databases/` dir; the DESKTOP does not - the init
+        // gate's import is the FIRST writer on a fresh profile, and `FileOutputStream` never creates parents.
+        // Measured 2026-10-02, the desktop's first successful pick died with
+        // `.../Payanam/database/payanam.db.enc (No such file or directory)` - an OS message naming the APP's
+        // target while the user's own file had not even been opened, which reads as "it is refusing a path I
+        // never chose". Creating the directory is idempotent, so the platforms that already have it are
+        // unaffected.
+        targetDatabaseFile.absoluteFile.parentFile?.let { Files.createDirectories(it.toPath()) }
         val copyMappings =
             mutableListOf(
                 CopyMapping(

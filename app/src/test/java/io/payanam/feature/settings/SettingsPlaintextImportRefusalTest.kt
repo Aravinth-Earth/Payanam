@@ -16,9 +16,9 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.withTimeout
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -216,11 +216,11 @@ class SettingsPlaintextImportRefusalTest {
             sessionManager = DatabaseSessionManager(context, encryptionManager),
             databaseEncryptionManager = encryptionManager,
             databaseBackupCoordinator =
-                DatabaseBackupCoordinator(
-                    context,
-                    mock(),
-                    BackupStatusStore(context),
-                ),
+            DatabaseBackupCoordinator(
+                context,
+                mock(),
+                BackupStatusStore(context),
+            ),
             taskRepository = mock(),
             timeEntryRepository = mock(),
             noteRepository = mock(),

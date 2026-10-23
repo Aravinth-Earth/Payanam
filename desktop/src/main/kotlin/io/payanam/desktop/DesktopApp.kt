@@ -48,6 +48,7 @@ import io.payanam.core.ui.preferences.ThemeModeOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseOpenerAdapter
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -66,6 +67,7 @@ import io.payanam.desktop.platform.DesktopDebugFlags
 import io.payanam.desktop.platform.desktopPlatformSeams
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.day.dayViewModel
+import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.notes.notesViewModel
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.WalCheckpointRule
@@ -173,6 +175,17 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                 logger = sessionLogger,
             )
         }
+    // The gate's session answer comes from the session itself, exactly as Android's does, and the shared
+    // preference rows are read on the same event. Without this the flag was written only by the desktop's
+    // legacy gate callbacks, and the rows were never read at all - so a session opened by the database-init
+    // gate's import was invisible to the gate AND every stored preference showed as its default.
+    LaunchedEffect(databaseSessionController) {
+        followDesktopSessionOpenedState(
+            sessionController = databaseSessionController,
+            gateFlag = rememberedState.sessionOpenState,
+            preferencesSource = rememberedState.preferencesSource,
+        )
+    }
     // Export and import of the encrypted database. The gateway moves the file; the controller owns the two
     // orderings around it (fold before copy, release before replace). Both are built here because this is
     // where the scope and the session controller live.
@@ -287,11 +300,6 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             onFirstRunDatabaseCreated = { passphrase ->
                 databaseScope.launch {
                     databaseSessionController.openAndInstall(passphrase)
-                    // The same flush as the unlock path, and for the same reason: a first-run create is the
-                    // moment a BRAND-NEW empty database comes into existence, so this is the write that gives
-                    // it its dimension rows. Skipping it here is the whole defect - an empty table on a
-                    // database the user just created.
-                    rememberedState.flushPendingFirstRunDimensions(sessionLogger)
                 }
             },
             // The open-and-install runs INSIDE the preferences swap, so the rows are re-read from the new
@@ -302,12 +310,6 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                     rememberedState.preferencesSource.runDatabaseSwap {
                         databaseSessionController.openAndInstall(passphrase)
                     }
-                    // FIRST point a dimension write is possible at all: the user confirmed their dimensions
-                    // before a database existed, so the catalog is seeded here or it is never seeded - and an
-                    // unseeded `life_dimensions` table is what makes every note and time entry carry a
-                    // dimension that resolves to nothing. Inside the same databaseScope as the open, and
-                    // AFTER it, because the layer must be installed before the repository can be reached.
-                    rememberedState.flushPendingFirstRunDimensions(sessionLogger)
                     // FIRST point the schedule can be read: the rows only exist once a session is in
                     // force, and the reconcile before this one necessarily found nothing.
                     platformSeams.reconcileBackupSchedule()
@@ -332,37 +334,9 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             onFocusModePresetSelected = { preset ->
                 databaseScope.launch { rememberedState.preferencesSource.setFocusModePreset(preset) }
             },
-            // The first-run dimension catalog, for the same reason the focus preset is: the write is REAL
-            // and suspend, so it runs on the scope this function owns rather than being logged and
-            // forgotten, which is what left a fresh Linux install with no dimension rows at all.
-            //
-            // A session is not open yet at this point in a first run - the scaffold stages resolve BEFORE
-            // the passphrase and database gates - so the write is attempted anyway and the seed is kept
-            // either way: a confirmation that lands while a database IS open (a second run, or an import
-            // that is already unlocked) writes straight through, and one that lands before any database
-            // exists stays pending for the session-open flush below. The stage advances ONLY on a write
-            // that landed or a catalog that was already there, which is what the old mock got wrong: it
-            // advanced over a save no database had ever seen.
-            onDimensionSetupPersist = { seed ->
-                databaseScope.launch {
-                    val outcome = rememberedState.preferencesSource.seedFirstRunDimensions(seed)
-                    if (outcome == DesktopFirstRunDimensionWriteOutcome.Written ||
-                        outcome == DesktopFirstRunDimensionWriteOutcome.AlreadyPresent
-                    ) {
-                        rememberedState.pendingDimensionSeedState.value = null
-                        rememberedState.scaffoldOnboardingStageState.value =
-                            DesktopScaffoldOnboardingStage.Finished
-                    } else {
-                        sessionLogger.w(
-                            source = "DesktopApp.onDimensionSetupPersist",
-                            message = "Dimension setup not written yet; kept pending for session open",
-                            data = mapOf("outcome" to outcome.name, "requested" to seed.rows.size),
-                        )
-                    }
-                }
-            },
-            // The file dialogs are blocking modals, so they run on databaseScope rather than on the
-            // Compose thread - the same rule the AWT dialog's own contract states.
+            // The pickers own their own threading: `AwtDocumentSource` hops off this coroutine's dispatcher
+            // before showing its blocking modal (see its DIALOG_DISPATCHER for the crash that proved why),
+            // so launching on the Compose scope is safe and the UI thread never waits on the dialog.
             onExportDatabase = {
                 databaseScope.launch {
                     val destination = documentSource.requestDestination("Payanam_backup.db") ?: return@launch
@@ -544,6 +518,20 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                     )
                 },
             settingsCollaborators = settingsCollaborators,
+            // The assistant routes' collaborators. Keyed on the session controller and NOT on the
+            // database file path, because the holder keeps ONE ViewModel across both routes and a key
+            // that changed on every recomposition would replace it mid-conversation.
+            assistantCollaborators =
+                remember(databaseSessionController) {
+                    DesktopAssistantCollaborators(
+                        // The shell's OWN session controller, so the store reads and writes through the
+                        // session every other desktop screen reads - not a second connection to the same file.
+                        sessionController = databaseSessionController,
+                        // The SAME file that controller opens, which is what the read-only ports open their
+                        // own verified handle against.
+                        databaseFile = desktopDatabaseFilePath(),
+                    )
+                },
         )
     } else {
         desktopStartupGateSurface(
@@ -597,6 +585,11 @@ private fun desktopShellSurface(
      * shell's database file, none of which `desktopShellSurface` can reach.
      */
     settingsCollaborators: DesktopSettingsCollaborators,
+    /**
+     * The assistant routes' collaborators, threaded for the same reason as the other four: they read and
+     * write the shell's own database rows, and the two routes must share one ViewModel.
+     */
+    assistantCollaborators: DesktopAssistantCollaborators,
 ) {
     desktopShellRootSurface(
         preferences = state.preferences,
@@ -638,6 +631,7 @@ private fun desktopShellSurface(
                     passphraseUnlockCollaborators = passphraseUnlockCollaborators,
                     passphraseChangeCollaborators = passphraseChangeCollaborators,
                     settingsCollaborators = settingsCollaborators,
+                    assistantCollaborators = assistantCollaborators,
                 )
             }
         }
@@ -898,6 +892,8 @@ private fun desktopContentPane(
     passphraseChangeCollaborators: DesktopPassphraseChangeCollaborators,
     /** The settings screen's collaborators, threaded for the same reason as the passphrase-change screen's. */
     settingsCollaborators: DesktopSettingsCollaborators,
+    /** The assistant routes' collaborators, threaded for the same reason as the settings screen's. */
+    assistantCollaborators: DesktopAssistantCollaborators,
 ) {
     // A gate that OWNS the window gets the whole of it. The pane is then a bare `fillMaxSize` box with
     // no header above the graph and no 28.dp inset around it, so the shared screen is measured against the
@@ -940,6 +936,7 @@ private fun desktopContentPane(
                 passphraseChangeCollaborators,
                 language,
                 settingsCollaborators,
+                assistantCollaborators,
             ) {
                 DesktopPayanamNavHostScreens(
                     databaseInitCollaborators = databaseInitCollaborators,
@@ -947,6 +944,7 @@ private fun desktopContentPane(
                     passphraseChangeCollaborators = passphraseChangeCollaborators,
                     language = language,
                     settingsCollaborators = settingsCollaborators,
+                    assistantCollaborators = assistantCollaborators,
                 )
             }
         PayanamNavHost(
@@ -969,12 +967,18 @@ private fun desktopContentPane(
             resumeToRouteAfterUnlock = state.resumeToRouteAfterUnlock,
             onSilentUnlockRequested = { route -> callbacks.onSilentUnlockRequested(route) },
             onUnlockReturnRouteConsumed = { callbacks.onUnlockReturnRouteConsumed() },
-            // Minimal mode is a BUILD-TIME flag on Android (BuildConfig.MINIMAL_MODE via FeatureFlags),
-            // not a preference row, and the desktop has no equivalent knob - so this is false here rather
-            // than a copy of a build constant that could drift. Tab visibility, which IS a shared row and
-            // is what focus preset actually drives, is passed below and does the same job at runtime.
-            // TODO(V5): if minimal mode is ever exposed on the desktop, read it from one shared source.
-            minimalModeEnabled = false,
+            // Minimal mode, read from the SAME named source Android installs it into:
+            // `PlatformFeatureFlags`, which `PayanamApp.onCreate` fills from `BuildConfig.MINIMAL_MODE`
+            // before any composition exists. The desktop has no build config and installs nothing, so this
+            // reads that holder's own default - `FeatureFlagsState.minimalModeEnabled = false`, the full
+            // feature set - and what the graph renders is unchanged.
+            //
+            // A READ rather than a hard-coded `false` so this mount site cannot disagree with the shared
+            // ViewModels, which already take the flag from that same holder (see `TimeViewModel`,
+            // `TasksViewModel`): hard-coding left the graph's answer independent of the state layer's,
+            // which is exactly the drift this removes. Tab visibility, which IS a shared preference row
+            // and is what focus preset actually drives, is passed below and does the same job at runtime.
+            minimalModeEnabled = PlatformFeatureFlags.current.minimalModeEnabled,
             tabVisibility = state.preferences.tabVisibility,
             // The LATCHED landing route, not the rail's selection: a start destination that keeps tracking
             // the rail would be a second, racing answer to "where is the graph" alongside the request

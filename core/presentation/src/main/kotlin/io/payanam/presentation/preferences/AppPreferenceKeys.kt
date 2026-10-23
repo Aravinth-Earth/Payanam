@@ -81,6 +81,20 @@ object AppPreferenceKeys {
     /** Whether the first-run database setup finished. */
     const val KEY_DATABASE_INIT_COMPLETED = "database_init_completed"
 
+    /**
+     * Whether life dimensions were confirmed for a first run whose catalog write had not landed yet.
+     *
+     * A FIRST-RUN INTENT row, not a record of a result: it is written when the user confirms their
+     * dimensions and cleared once the catalog write has landed, so it being present after a restart
+     * means the confirmation was made and then lost - a quit between the database create and the
+     * catalog swap. The rows themselves cannot be held here; they live in a database that does not
+     * exist yet at the moment of the confirmation.
+     *
+     * Lives in `app_settings` beside [KEY_DATABASE_INIT_COMPLETED] rather than in a file of its own,
+     * so no new storage exists for it and a first-run create writes exactly the rows it already wrote.
+     */
+    const val KEY_FIRST_RUN_DIMENSIONS_PENDING = "first_run_dimensions_pending"
+
     /** The active focus-mode preset's id. */
     const val KEY_ACTIVE_PRESET = "focus_mode_active_preset"
 

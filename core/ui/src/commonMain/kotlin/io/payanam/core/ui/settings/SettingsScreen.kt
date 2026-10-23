@@ -39,18 +39,20 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.toDimensionHexString
 import io.payanam.core.ui.focus.focusModeSettingsContent
-import io.payanam.shared.settings.FocusModePreset
-import io.payanam.presentation.tasks.TaskFilter
-import androidx.compose.ui.graphics.Color
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.tasks.TaskFilter
 import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.settings.FocusModePreset
 
 /**
  * The settings screen itself: one collapsible card per section, in the order the sections appear, with the
@@ -93,14 +95,29 @@ fun SettingsScreenContent(
     var intervalExpanded by remember { mutableStateOf(false) }
     var showDeleteConfirmDialog by remember { mutableStateOf(false) }
     var showBulkMapDialog by remember { mutableStateOf(false) }
-    var selectedBulkMapDimensionId by remember { mutableStateOf(prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()) }
+    var selectedBulkMapDimensionId by remember {
+        mutableStateOf(
+            prefsState.dimensionPreferences
+                .firstOrNull()
+                ?.id
+                .orEmpty(),
+        )
+    }
     LaunchedEffect(prefsState.dimensionPreferences, selectedBulkMapDimensionId) {
         if (selectedBulkMapDimensionId.isBlank()) {
-            selectedBulkMapDimensionId = prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()
+            selectedBulkMapDimensionId =
+                prefsState.dimensionPreferences
+                    .firstOrNull()
+                    ?.id
+                    .orEmpty()
             return@LaunchedEffect
         }
         if (prefsState.dimensionPreferences.none { it.id == selectedBulkMapDimensionId }) {
-            selectedBulkMapDimensionId = prefsState.dimensionPreferences.firstOrNull()?.id.orEmpty()
+            selectedBulkMapDimensionId =
+                prefsState.dimensionPreferences
+                    .firstOrNull()
+                    ?.id
+                    .orEmpty()
         }
     }
     Scaffold(
@@ -119,11 +136,12 @@ fun SettingsScreenContent(
         },
     ) { paddingValues ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(paddingValues)
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             SettingsCard(
@@ -208,19 +226,22 @@ fun SettingsScreenContent(
                                 hasCustomLabelOverride = it.hasCustomLabelOverride,
                             )
                         } + prefsState.dynamicDimensionOptions
-                        ).distinctBy { it.id }.forEach { preference ->
+                    ).distinctBy { it.id }.forEach { preference ->
                         DimensionPreferenceCard(
                             preference = preference,
-                            usedColorHexes = (
-                                prefsState.dimensionPreferences.map { it.color.toDimensionHexString() } +
-                                    prefsState.dynamicDimensionOptions.map { it.color.toDimensionHexString() }
-                                )
-                                .filterNot { it == preference.color.toDimensionHexString() }
-                                .map { it.uppercase() }
-                                .toSet(),
-                            usedIconKeys = (prefsState.dimensionPreferences.map { it.iconKey } + prefsState.dynamicDimensionOptions.map { it.iconKey })
-                                .filterNot { it == preference.iconKey }
-                                .toSet(),
+                            usedColorHexes =
+                                (
+                                    prefsState.dimensionPreferences.map { it.color.toDimensionHexString() } +
+                                        prefsState.dynamicDimensionOptions.map { it.color.toDimensionHexString() }
+                                ).filterNot { it == preference.color.toDimensionHexString() }
+                                    .map { it.uppercase() }
+                                    .toSet(),
+                            usedIconKeys =
+                                (
+                                    prefsState.dimensionPreferences.map { it.iconKey } +
+                                        prefsState.dynamicDimensionOptions.map { it.iconKey }
+                                ).filterNot { it == preference.iconKey }
+                                    .toSet(),
                             onLabelCommit = { label ->
                                 actions.onDimensionLabelChanged(preference.id, label.ifBlank { preference.label })
                                 logger.d(
@@ -380,17 +401,24 @@ fun SettingsScreenContent(
                                 style = MaterialTheme.typography.bodyMedium,
                             )
                             Text(
-                                text = if (prefsState.debugLoggingEnabled) {
-                                    strings.settingsDebugEnabledHint
-                                } else {
-                                    strings.settingsDebugDisabledHint
-                                },
+                                text =
+                                    if (prefsState.debugLoggingEnabled) {
+                                        strings.settingsDebugEnabledHint
+                                    } else {
+                                        strings.settingsDebugDisabledHint
+                                    },
                                 style = MaterialTheme.typography.bodySmall,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                         }
                         Switch(
                             checked = prefsState.debugLoggingEnabled,
+                            // The row's title is a SIBLING of this toggle, so it announced as an on/off state
+                            // with no subject. The description is the same visible title from the copy table.
+                            modifier =
+                                Modifier.semantics {
+                                    contentDescription = strings.settingsDebugEnable
+                                },
                             onCheckedChange = { enabled ->
                                 logger.d("SettingsScreen.debugLoggingToggled", "Debug logging toggled", mapOf("enabled" to enabled))
                                 actions.onDebugLoggingEnabledChanged(enabled)
@@ -611,6 +639,9 @@ private fun logSectionToggle(
 }
 
 /** The d-level data-action breadcrumb the export/import rows add beside the shared button's own tap line. */
-private fun logDataAction(logger: io.payanam.shared.logging.UnifiedLogger, action: String) {
+private fun logDataAction(
+    logger: io.payanam.shared.logging.UnifiedLogger,
+    action: String,
+) {
     logger.d("SettingsScreen.dataActionTapped", "Data management action tapped", mapOf("action" to action))
 }

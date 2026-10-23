@@ -11,6 +11,8 @@ import io.payanam.domain.repository.NotificationRepository
 import io.payanam.domain.repository.ScheduledNotification
 import io.payanam.domain.repository.TaskRepository
 import kotlinx.coroutines.test.runTest
+import org.junit.Assert.assertFalse
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -21,8 +23,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows.shadowOf
 import java.time.LocalDateTime
 import kotlin.math.abs
-import org.junit.Assert.assertFalse
-import org.junit.Assert.assertTrue
 
 @RunWith(RobolectricTestRunner::class)
 class NotificationSchedulerRegressionTest {

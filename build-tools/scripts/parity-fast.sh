@@ -6,7 +6,7 @@
 #
 # Why this exists: the full gate (build-all-platforms.ps1 -Profile full) costs ~10 minutes per
 # cycle, almost all of it Android - unit tests ~5m20s and static analysis ~4m35s. The parity
-# milestones (M3b-*) touch only core/ and desktop/, which are pure JVM surfaces, so Android cost
+# the parity milestones touch only core/ and desktop/, which are pure JVM surfaces, so Android cost
 # buys nothing there. Measured inner loop: ~110s, a 5-6x reduction.
 #
 # SCOPE CONTRACT - read before trusting a green run:
@@ -40,6 +40,7 @@ step "JVM tests + desktop compile + desktop detekt"
     :desktop:test \
     :desktop:detekt \
     :core:ui:compileKotlinDesktop \
+    :core:ui:desktopTest \
     :core:ui:detektMetadataCommonMain \
     :core:strings:detekt \
     --console=plain || fail=1

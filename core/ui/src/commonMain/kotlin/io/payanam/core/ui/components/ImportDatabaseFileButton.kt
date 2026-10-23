@@ -22,8 +22,14 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import io.payanam.shared.logging.AppLogger
 
-/** Test-only locator for the single-file import control (see docs/e2e/SPEC.md label & selector policy). */
-internal const val IMPORT_DATABASE_FILE_BUTTON_TAG = "import_database_file_button"
+/**
+ * Test-only locator for the single-file import control (see docs/e2e/SPEC.md label & selector policy).
+ *
+ * Public, not internal: the `:app` androidTest source set is a separate Kotlin module with no
+ * friend-path wiring to `core/ui`, so an `internal` declaration is unreachable from the tests that
+ * are the whole reason this constant exists.
+ */
+const val IMPORT_DATABASE_FILE_BUTTON_TAG = "import_database_file_button"
 
 /**
  * MIME filter passed to every launch of the single-file import picker.

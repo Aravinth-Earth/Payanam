@@ -2,14 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
-import io.payanam.core.ui.database.buildDimensionSeedRows
-import io.payanam.core.ui.database.canonicalizeDefaultSeedLabel
-import io.payanam.core.ui.database.defaultNewDatabaseDimensionInputs
-import io.payanam.core.ui.text.UiStrings
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseOpener
-import io.payanam.domain.model.ConfiguredLifeDimension
-import io.payanam.presentation.database.NewDatabaseDimensionInput
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import java.io.IOException
@@ -95,9 +89,6 @@ enum class DesktopStartupMode {
 
     /** SCAFFOLD: create a new space or import an existing encrypted database. */
     OnboardingDatabaseChoice,
-
-    /** SCAFFOLD: name and style the life dimensions the app will track. */
-    OnboardingDimensionSetup,
 
     /** Passphrase has not been configured yet; user must set it up. */
     SetupPassphrase,
@@ -480,146 +471,3 @@ private const val CORE_DETAIL_NATIVE_UNAVAILABLE = "native_unavailable"
 private const val DESKTOP_DIRECTORY_UNWRITABLE = "desktop_directory_unwritable"
 private const val DESKTOP_DIRECTORY_UNWRITABLE_MESSAGE =
     "Payanam could not write to its data folder, so no database was created."
-
-// STILL OPEN in the desktop first-run flow, deliberately NOT done here:
-// the two-card gate is still two cards and the Initialize card still has no passphrase field of its own
-// (it reuses the session's, which is the honest one), while creating the database from the UI
-// still needs a person to install the `.deb` and drive it to `Ready`. The dimension step's save is NOT mocked any more: it writes
-// the catalog through `LifeDimensionCatalogRepository.replaceAllDimensions` (see
-// [buildDesktopFirstRunDimensionSeed] and the source method the callback hands it to).
-
-/**
- * Where a first-run dimension seed's rows came from.
- *
- * Two answers, never one: a seed built from the rows the user confirmed and a seed built from the
- * app's own canonical defaults are different facts, and a log that said only "9 rows" could not tell a
- * user's choices from the app's.
- */
-internal enum class DesktopFirstRunDimensionSeedSource {
-    /** The onboarding step handed over rows: the user's own choices, labels and colours included. */
-    ConfirmedByUser,
-
-    /**
-     * Nothing usable was confirmed, so the app-owned canonical defaults were seeded instead.
-     *
-     * The defaults are NOT a fallback for a broken write; they are what a first run gets when the user
-     * confirms nothing, and they are the same rows a fresh Android install gets (see
-     * [defaultNewDatabaseDimensionInputs]).
-     */
-    CanonicalDefaults,
-}
-
-/**
- * The rows a first run will write, and which answer they are.
- *
- * Carries the rows rather than a promise about them: the write itself is a separate, later step, because
- * the desktop asks for dimensions BEFORE it has a database to write them to.
- */
-internal data class DesktopFirstRunDimensionSeed(
-    val rows: List<ConfiguredLifeDimension>,
-    val source: DesktopFirstRunDimensionSeedSource,
-)
-
-/**
- * What a first-run dimension write actually did.
- *
- * Exists because "written" and "left alone" must not read the same in a log line: [AlreadyPresent] means
- * the table already had rows, which is a healthy database, and reporting that as a seeded first run would
- * claim a write that never happened.
- */
-internal enum class DesktopFirstRunDimensionWriteOutcome {
-    /** The catalog was written; every canonical id now resolves to a row. */
-    Written,
-
-    /**
-     * The table already held rows, so nothing was written and the existing catalog was left exactly as
-     * it was. A desktop launch re-runs onboarding every time (see [DesktopScaffoldOnboardingStage]), so
-     * this is the answer for every second launch and for a database imported from Android.
-     */
-    AlreadyPresent,
-
-    /** A database swap landed first, so the write was discarded rather than aimed at a new file. */
-    Discarded,
-
-    /** The write did not happen. The dimension step stays open and the user is not told otherwise. */
-    Failed,
-}
-
-/**
- * Builds the catalog a first run writes, from the app-owned canonical defaults rather than from anything
- * declared here.
- *
- * **No id, label, colour, icon or ordering is invented in this file.** [defaultNewDatabaseDimensionInputs]
- * and [buildDimensionSeedRows] are the `:core:ui` builders Android's own first-run screen writes through
- * (`persistNewDatabaseDimensionSetup`), and the rows come back exactly as Android's would - including the
- * `dim_unassigned` fallback that [buildDimensionSeedRows] appends, so the count is the canonical set plus
- * that fallback. `dim_home_environment` in particular is one of the nine: it is reachable from
- * `DimensionTaxonomyCatalog` and therefore MUST exist as a row, which is why a mapping-only seed is not
- * good enough.
- *
- * **The confirmed rows and the canonical defaults are two different inputs, not one.** A user who
- * confirmed rows gets exactly those, through the same builder Android feeds its confirmed rows to. A
- * first run that confirms nothing usable - no rows at all, or rows whose labels are all blank, which
- * [buildDimensionSeedRows] filters out - gets the canonical defaults instead, so "the user chose nothing"
- * cannot end as a catalog of one unassigned row that resolves none of the canonical ids.
- *
- * The label is put through [canonicalizeDefaultSeedLabel] exactly as Android's writer does, so a
- * confirmed label that happens to equal one of the app's own translations is stored as the canonical
- * fallback rather than as app-owned copy the user did not pick.
- *
- * Weight is left at `ConfiguredLifeDimension`'s own 1.0 default - the same uniform weighting Android's
- * seed has always used, rather than inheriting a catalog weight that does not exist yet.
- *
- * @param confirmedInputs the rows the onboarding dimension step reported. Empty means "confirmed
- *   nothing", not "write nothing".
- * @param strings the copy table the canonical defaults are localized through; defaulted to the gate's own
- *   machine language, because this runs before any language row is readable.
- */
-internal fun buildDesktopFirstRunDimensionSeed(
-    confirmedInputs: List<DesktopDimensionInput>,
-    strings: UiStrings = UiStrings.of(desktopMachineUiLanguage()),
-): DesktopFirstRunDimensionSeed {
-    val confirmed =
-        confirmedInputs.map { input ->
-            NewDatabaseDimensionInput(
-                id = input.id,
-                label = input.label,
-                colorHex = input.colorHex,
-                isEnabled = input.isEnabled,
-                iconKey = input.iconKey,
-            )
-        }
-    // The same emptiness test the write will face, run against the CONFIRMED rows: [buildDimensionSeedRows]
-    // drops a row with no label, so a user who cleared every label would otherwise be seeded one row that
-    // resolves no canonical id at all.
-    val confirmedRows = buildDimensionSeedRows(confirmed)
-    val confirmedIsUsable = confirmedRows.any { row -> row.id != UNASSIGNED_DIMENSION_ID }
-    val seedRows =
-        if (confirmedIsUsable) {
-            confirmedRows
-        } else {
-            buildDimensionSeedRows(defaultNewDatabaseDimensionInputs(strings))
-        }
-    val rows =
-        seedRows.map { row ->
-            ConfiguredLifeDimension(
-                id = row.id,
-                key = row.key,
-                label = canonicalizeDefaultSeedLabel(dimensionId = row.id, candidateLabel = row.label),
-                description = row.description,
-                colorHex = row.color,
-                iconKey = row.icon,
-                sortOrder = row.sortOrder,
-                isActive = row.isActive,
-            )
-        }
-    return DesktopFirstRunDimensionSeed(
-        rows = rows,
-        source =
-            if (confirmedIsUsable) {
-                DesktopFirstRunDimensionSeedSource.ConfirmedByUser
-            } else {
-                DesktopFirstRunDimensionSeedSource.CanonicalDefaults
-            },
-    )
-}

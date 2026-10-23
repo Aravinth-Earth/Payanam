@@ -79,16 +79,19 @@ class DesktopNavGateFlagsTest {
     }
 
     @Test
-    fun `the desktop-only scaffold stages project to no graph gate`() {
+    fun `the desktop-only scaffold modes project to no graph gate`() {
         // These have no graph equivalent: DesktopStartupGateSurface renders them. They must not be
         // mistaken for Ready, though - that is what `showsNoGate` is for, and the mount checks the mode
         // itself rather than this flag.
+        //
+        // There is no desktop-scaffold dimension mode in this list because the mode no longer exists:
+        // the shared database-init screen runs that step, and the desktop's own card was the only thing
+        // that could render it.
         for (
         mode in
         listOf(
             DesktopStartupMode.OnboardingIntro,
             DesktopStartupMode.OnboardingDatabaseChoice,
-            DesktopStartupMode.OnboardingDimensionSetup,
             DesktopStartupMode.SecurityStateUnavailable,
         )
         ) {

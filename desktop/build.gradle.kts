@@ -47,6 +47,11 @@ dependencies {
     implementation(project(":core:ui"))
     implementation(compose.desktop.currentOs)
     implementation(libs.coroutines.core)
+    // The shared screens call repeatOnLifecycle (TimeScreen), which resolves Dispatchers.Main. On
+    // Android that comes from coroutines-android; the desktop equivalent is coroutines-swing, which
+    // maps Main onto the Swing EDT - the same thread Compose Desktop already dispatches frames on.
+    // Without it the app dies on its landing route with "Main dispatcher is missing".
+    implementation(libs.coroutines.swing)
     implementation(libs.serialization.json)
     runtimeOnly(libs.sqlite.jdbc)
 

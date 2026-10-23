@@ -16,6 +16,21 @@ import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.settings.FocusModePreset
 
 /**
+ * The auto-backup cadence, named here so every existing caller keeps compiling unchanged.
+ *
+ * This is an ALIAS, not a second type: it resolves to [io.payanam.shared.settings.BackupInterval], so
+ * a value built here and a value passed to `:core:presentation` are the same type, and the
+ * `when (this)` branches below it still exhaust over the real enum. It exists because that enum had to
+ * move out of this package to sit below `:core:ui` in the graph - see its own KDoc for why - and
+ * `:core:presentation` cannot import this package to reach it.
+ *
+ * The extension properties and `labelKey` table below stay HERE, not in the new home, on purpose: they
+ * resolve a label resource NAME, and the mapping is proven against the real resource table by
+ * `SettingsLabelKeyTest`. Moving them would drag a `:core:ui`-side contract into the leaf for no gain.
+ */
+typealias BackupInterval = io.payanam.shared.settings.BackupInterval
+
+/**
  * The timeline hour-height an unconfigured install starts from.
  *
  * Shared rather than private to each platform's preference reader: it is the default of
@@ -152,30 +167,6 @@ data class LaunchDestination(
     val route: String = "",
     val taskFilter: TaskFilter? = null,
 )
-
-/**
- * Auto-backup cadence options, persisted by [key] with [minutes] for scheduling.
- */
-enum class BackupInterval(
-    val key: String,
-    val minutes: Long,
-) {
-    FIFTEEN_MIN("15m", 15),
-    THIRTY_MIN("30m", 30),
-    SIXTY_MIN("60m", 60),
-    TWO_HOURS("2h", 120),
-    SIX_HOURS("6h", 360),
-    TWELVE_HOURS("12h", 720),
-    DAILY("24h", 1440),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): BackupInterval? = entries.find { it.key == key }
-    }
-}
 
 val ThemeModeOption.displayName: String
     get() = key

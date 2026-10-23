@@ -36,8 +36,8 @@ import io.payanam.platform.AndroidDatabasePathResolver
 import io.payanam.platform.AndroidDatabaseSessionPort
 import io.payanam.platform.AndroidDocumentSource
 import io.payanam.platform.AndroidProcessRestartPort
-import io.payanam.platform.appDatabaseInitFlagReader
 import io.payanam.platform.appDatabaseDimensionSetupPersister
+import io.payanam.platform.appDatabaseInitFlagReader
 import io.payanam.platform.appDatabaseInitFlagWriter
 import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister

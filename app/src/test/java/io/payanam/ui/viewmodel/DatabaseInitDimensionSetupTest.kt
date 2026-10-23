@@ -5,14 +5,14 @@ package io.payanam.ui.viewmodel
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.presentation.database.NewDatabaseDimensionInput
 import io.payanam.core.ui.database.buildDimensionSeedRows
 import io.payanam.core.ui.database.defaultNewDatabaseDimensionInputs
 import io.payanam.core.ui.text.uiStringsFor
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.ConfiguredLifeDimension
+import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.presentation.database.NewDatabaseDimensionInput
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -37,7 +37,6 @@ class DatabaseInitDimensionSetupTest {
     }
 
     private fun testLogger(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
-
 
     @Test
     fun `buildDimensionSeedRows keeps defaults when no custom input is provided`() {
