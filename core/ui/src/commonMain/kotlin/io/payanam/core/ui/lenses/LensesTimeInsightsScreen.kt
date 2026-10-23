@@ -705,8 +705,10 @@ private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
             value: Double,
             verticalAxisPosition: Axis.Position.Vertical?,
         ): CharSequence {
-            val index = value.toInt()
-            return labels.getOrNull(index) ?: labels.lastOrNull() ?: "\u2014"
+            if (labels.isEmpty()) return "\u2014"
+            // Clamped, not looked up with a null fallback: `getOrNull(-1)` is null, which would fall
+            // through to the LAST label and show the wrong end of the axis for a negative index.
+            return labels[value.toInt().coerceIn(0, labels.lastIndex)]
         }
     }
 }

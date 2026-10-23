@@ -681,7 +681,7 @@ fun PayanamNavHost(
                                 // Same double-transition guard as the unlock callback below: clearing the
                                 // setup gate changes `startDestination`, so the graph may already be on
                                 // `nextRoute` and a second push would pop an entry that never reached CREATED.
-                                if (navController.currentDestination?.route != nextRoute) {
+                                if (navController.currentBackStackEntry?.resolveConcreteRoute() != nextRoute) {
                                     navController.navigate(nextRoute) {
                                         popUpTo(PayanamRoutes.PASSPHRASE_SETUP) { inclusive = true }
                                     }
@@ -716,7 +716,7 @@ fun PayanamNavHost(
                                 // entry before it reaches CREATED, which the lifecycle registry rejects with
                                 // "State must be at least 'CREATED' to be moved to 'DESTROYED'" on the
                                 // `lenses` route (measured, build 2054). Whoever got there first wins.
-                                if (navController.currentDestination?.route != nextRoute) {
+                                if (navController.currentBackStackEntry?.resolveConcreteRoute() != nextRoute) {
                                     navController.navigate(nextRoute) {
                                         popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
                                     }
