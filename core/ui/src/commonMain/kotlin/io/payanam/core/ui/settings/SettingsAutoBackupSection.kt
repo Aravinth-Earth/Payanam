@@ -26,6 +26,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -137,7 +138,8 @@ fun SettingsAutoBackupSection(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                            .testTag("settings_backup_interval"),
                 )
                 DropdownMenu(
                     expanded = intervalExpanded,
@@ -237,7 +239,9 @@ fun SettingsAutoBackupSection(
                             }
                         }
                     },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .testTag("settings_backup_rotation_count"),
                     singleLine = true,
                 )
             }

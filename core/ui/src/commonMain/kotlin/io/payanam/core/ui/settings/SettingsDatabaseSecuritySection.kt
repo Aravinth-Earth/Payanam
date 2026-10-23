@@ -11,7 +11,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -33,6 +32,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -40,6 +40,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.shared.logging.AppLogger
@@ -163,7 +164,10 @@ fun SettingsDatabaseSecuritySection(
             onValueChange = {},
             readOnly = true,
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = unlockTimeoutExpanded) },
-            modifier = Modifier.fillMaxWidth().menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            modifier = Modifier
+                .fillMaxWidth()
+                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                .testTag("settings_unlock_timeout"),
         )
         DropdownMenu(
             expanded = unlockTimeoutExpanded,
@@ -266,7 +270,7 @@ fun SettingsDatabaseSecuritySection(
         }
     }
     if (showEnableBiometricDialog) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = {
                 showEnableBiometricDialog = false
                 enableBiometricPassphrase = ""

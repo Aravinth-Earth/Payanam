@@ -2,7 +2,9 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.e2e
 
+import android.app.LocaleManager
 import android.content.Context
+import android.os.Build
 import io.payanam.R
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.uiStringsFor
@@ -73,6 +75,17 @@ object E2eLabels {
      * `io.payanam.core.ui.text.UiLanguage.of`.
      */
     fun localeTag(context: Context): String {
+        // Mirror MainActivity.resolveCurrentAppLanguage: the app renders from the OS PER-APP LOCALE
+        // (LocaleManager, API 33+), which the plain application context's configuration does not
+        // always carry — its Resources can be cached from before the override was applied. Reading
+        // only the configuration therefore resolved English labels on a device whose app was
+        // rendering Tamil, and the failure looked like a missing screen ("(none)" matches) rather
+        // than a locale mismatch.
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            val appLocales = context.getSystemService(LocaleManager::class.java)?.applicationLocales
+            val appLanguage = appLocales?.takeIf { !it.isEmpty }?.get(0)?.language?.lowercase(Locale.ROOT)
+            if (appLanguage != null) return if (appLanguage == "ta") "ta" else "en"
+        }
         val locales = context.resources.configuration.locales
         // LocaleList is 0-based and non-null while it has entries, but an empty one reports size 0 —
         // ask it for the count before indexing rather than assuming a locale exists.
@@ -108,6 +121,18 @@ object E2eLabels {
 
         /** Resolves a string resource through the same locale Android applies to the app's own calls. */
         private fun res(id: Int): String = context.getString(id)
+
+        /**
+         * The whole shared string table for the locale in force right now.
+         *
+         * Every label a screen renders through `UiStrings` is reachable here, so a test that needs a
+         * label not listed as a named property above can read it directly (`l.ui.locSaveTask`) without
+         * this file growing a property per control. Resolved live, like [shared] itself.
+         */
+        val ui: UiStrings get() = shared
+
+        /** An Android-only string resource (`R.string.*`), resolved for the app's current locale. */
+        fun androidString(id: Int): String = res(id)
 
         // ── bottom navigation ──────────────────────────────────────────────────────────────────────
         val tasks: String get() = shared.settingsDatabaseTasks
@@ -223,6 +248,7 @@ object E2eLabels {
         val aiAssistance: String get() = shared.assistantTitle
         val experimentalChip: String get() = shared.assistantChipExperimental
         val assistantOpen: String get() = shared.assistantEntryCta
+        val assistantConsentProceed: String get() = shared.assistantConsentProceed
 
         // ── focus-mode onboarding gate ───────────────────────────────────────────────────────────────
         // A startup GATE, not a screen the journey navigates to: it is evaluated when the ACTIVITY starts, so a
@@ -230,5 +256,99 @@ object E2eLabels {
         // The copy comes from the shared table like every other label here, so a Tamil device resolves it too.
         val chooseYourFocus: String get() = shared.chooseYourFocus
         val skipFocusMode: String get() = shared.skipFocusMode
+
+        // ── focus mode + tab visibility (shared settings) ──────────────────────────────────────────
+        val focusMode: String get() = shared.focusModeTitle
+        val tabVisibility: String get() = shared.tabVisibility
+
+        // ── dimensions ─────────────────────────────────────────────────────────────────────────────
+        val lifeDimension: String get() = shared.locLifeDimension
+
+        // ── assistant surfaces ─────────────────────────────────────────────────────────────────────
+        val assistantSettings: String get() = shared.assistantSettingsTitle
+        val assistantSetupHeadline: String get() = shared.assistantSetupHeadline
+        val assistantApiKey: String get() = shared.assistantKeyLabel
+        val assistantLoadModels: String get() = shared.assistantKeyLoadModels
+        val assistantAdvanced: String get() = shared.assistantAdvancedEntry
+        val assistantNoModel: String get() = shared.assistantNoModel
+        val assistantChangeProvider: String get() = shared.assistantChangeProvider
+        val assistantGotIt: String get() = shared.assistantNoticeOk
+
+        /**
+         * The ERROR banner's own dismiss control.
+         *
+         * Not the notice's "Got it": the banner carries `assistant_error_dismiss` ("Dismiss" / "மூடு"),
+         * a different string. Measured 2026-10-16 — the test dismissed the banner with the notice label
+         * and the lookup found nothing while the banner was plainly on screen.
+         */
+        val assistantErrorDismiss: String get() = shared.assistantErrorDismiss
+
+        // ── update channel: ANDROID-ONLY copy ──────────────────────────────────────────────────────
+        // The in-app updater exists only on Android, so these two strings have no shared counterpart —
+        // they are resolved from this module's own resources rather than from [shared]. Reading them
+        // through [res] keeps them locale-correct on a ta-IN device all the same.
+        val updateChannelDev: String get() = res(io.payanam.R.string.settings_update_channel_dev)
+        val updateChannelBeta: String get() = res(io.payanam.R.string.settings_update_channel_beta)
+
+        // ── assistant setup + insights surfaces (shared copy) ──────────────────────────────────────
+        val assistantModelPick: String get() = shared.assistantModelPick
+        val assistantLoadingModels: String get() = shared.assistantLoadingModels
+        val assistantRemoveKey: String get() = shared.assistantRemoveKey
+        val assistantSaveStart: String get() = shared.assistantSaveStart
+        val assistantNoticeTitle: String get() = shared.assistantNoticeTitle
+        val insightsDailyScoreTrend: String get() = shared.settingsInsightsTimeDailyScoreTrendTitle
+        val insightsOverallScoreCard: String get() = shared.settingsInsightsTimeOverallScoreCardTitle
+
+        // ── surfaces the fresh-install journey classes reach (shared copy) ─────────────────────────
+        val assistantInputHint: String get() = shared.assistantInputHint
+        val assistantKeyStoredHint: String get() = shared.assistantKeyStoredHint
+        val assistantErrorKeyRejected: String get() = shared.assistantErrorKeyRejected
+        val importAction: String get() = shared.settingsActionImport
+        val exportAction: String get() = shared.settingsActionExport
+        val insightsChartsVisibility: String get() = shared.settingsInsightsChartsVisibilityTitle
+        val lensTimeAverageDaily: String get() = shared.locLensTimeAverageDailyTitle
+        val insightsScoreCards: String get() = shared.settingsInsightsTimeScoreCardsTitle
+        val insightsLineGraphs: String get() = shared.settingsInsightsTimeLineGraphsTitle
+        val lensWeekGrid: String get() = shared.locLensWeekGridTitle
+        val lensMinutePattern: String get() = shared.locLensMinutePatternTitle
+        val chartExcludeEmptyDays: String get() = shared.locSettingsChartExclEmptyDays
+
+        // ── insights row labels (shared copy; the row lists in InsightsVisibilityTest read these) ──
+        val locLensTimeAverageDailyTitle: String get() = shared.locLensTimeAverageDailyTitle
+        val locLensDimSplitTitle: String get() = shared.locLensDimSplitTitle
+        val locLensDimTrendTitle: String get() = shared.locLensDimTrendTitle
+        val locLensHeatmapTitle: String get() = shared.locLensHeatmapTitle
+        val locLensWeekGridTitle: String get() = shared.locLensWeekGridTitle
+        val locLensMinutePatternTitle: String get() = shared.locLensMinutePatternTitle
+        val settingsInsightsTimeOverallSnapshotTitle: String get() = shared.settingsInsightsTimeOverallSnapshotTitle
+        val settingsInsightsTimeExecutionDetailsTitle: String get() = shared.settingsInsightsTimeExecutionDetailsTitle
+        val locTime: String get() = shared.locTime
+        val settingsDatabaseTasks: String get() = shared.settingsDatabaseTasks
+        val locHabits: String get() = shared.locHabits
+        val locJournalNotes: String get() = shared.locJournalNotes
+        val settingsDatabaseNotes: String get() = shared.settingsDatabaseNotes
+        val settingsInsightsTimeOverallScoreCardTitle: String get() = shared.settingsInsightsTimeOverallScoreCardTitle
+        val settingsInsightsTimeDimensionScoreCardsTitle: String get() = shared.settingsInsightsTimeDimensionScoreCardsTitle
+        val settingsInsightsTimeDailyScoreTrendTitle: String get() = shared.settingsInsightsTimeDailyScoreTrendTitle
+        val settingsInsightsTimeProgressTrendTitle: String get() = shared.settingsInsightsTimeProgressTrendTitle
+        val settingsInsightsTimeHistoricalRankingTitle: String get() = shared.settingsInsightsTimeHistoricalRankingTitle
+        val settingsInsightsTimeMomentumStreakTitle: String get() = shared.settingsInsightsTimeMomentumStreakTitle
+
+        /** "Build type mismatch — no compatible update is available for this install." */
+        val updateTypeMismatch: String get() = shared.settingsUpdateTypeMismatch
+
+        /**
+         * "Dev (daily) channel ships: debug APK" — composed from the SAME resource the app formats, so the
+         * expectation follows the locale instead of asserting English copy.
+         */
+        fun updateChannelShips(channel: String, apk: String): String =
+            shared.settingsUpdateChannelShips.format(channel, apk)
+
+        /** "You are on: debug build" — composed from the app's own pattern for the same reason. */
+        fun runningBuildType(buildType: String): String =
+            shared.settingsUpdateRunningBuildType.format(buildType)
+
+
+
     }
 }

@@ -4,15 +4,15 @@ package io.payanam.desktop
 
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.test.junit4.createComposeRule
+import androidx.compose.ui.text.font.FontFamily
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.FontFamilyOption
 import io.payanam.core.ui.preferences.ThemeModeOption
+import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.theme.PayanamDarkPrimary
 import io.payanam.core.ui.theme.PayanamLightPrimary
-import io.payanam.core.ui.text.UiLanguage
 import org.junit.Rule
 import org.junit.Test
 

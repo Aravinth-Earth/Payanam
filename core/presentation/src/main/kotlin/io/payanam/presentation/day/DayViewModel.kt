@@ -12,6 +12,7 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.day.DayUiState
 import io.payanam.shared.journal.JournalReflectionContracts
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -346,6 +347,8 @@ class DayViewModel(
                     "promptKey" to promptKey,
                 ),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("DayViewModel.saveJournalResponse", "Failed to save response", e)
         }
@@ -406,6 +409,8 @@ class DayViewModel(
                         "dimensionResponses" to dimensionResponses.values.sumOf { it.size },
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DayViewModel.loadDayData", "Failed to load day journal data", e)
                 _uiState.update { it.copy(isLoading = false) }

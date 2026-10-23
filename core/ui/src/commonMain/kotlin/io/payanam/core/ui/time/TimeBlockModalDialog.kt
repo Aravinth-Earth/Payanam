@@ -317,7 +317,8 @@ fun TimeBlockModalDialog(
                                 trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dimensionExpanded) },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                    .testTag("time_entry_dimension_field"),
                             )
                             DropdownMenu(
                                 expanded = dimensionExpanded,

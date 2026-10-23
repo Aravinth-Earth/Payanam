@@ -1,6 +1,9 @@
-# Static analysis gate for Payanam.
+# Static analysis + JVM/desktop test gate for Payanam.
 # Enforces detekt (KDoc + style rules) on every PR to dev/main and on pushes to
-# dev, so contributor quality checks are enforced in CI, not just locally.
+# dev, so contributor quality checks are enforced in CI, not just locally. It
+# also runs the platform-free JVM/desktop test set on every PR, so the shared
+# core and the Compose Desktop layers are exercised on the same change that
+# touches them rather than only on a maintainer's machine.
 #
 # NOTE: this runs detekt only, NOT the full `preCommitCheck`. The repo's
 # spotless/ktlint and lint checks have pre-existing violations on `dev` that are
@@ -40,3 +43,32 @@ jobs:
         # which is the same tradeoff build-tools/scripts/parity-fast.sh already documents. The
         # androidMain slice is covered by the local full gate.
         run: ./gradlew detekt :core:ui:detektMetadataCommonMain :core:ui:detektDesktopMain --no-daemon --console=plain
+
+  jvm-desktop-tests:
+    name: JVM + desktop tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # The Compose Desktop test tier composes real scenes and captures images, which needs a display
+      # server even though it renders off-screen. `xvfb-run` is preinstalled on the GitHub runner image;
+      # this guard only covers an image that drops it, so the step never fails for a missing binary.
+      - name: Ensure a virtual display is available
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Run the JVM and desktop test set
+        # The platform-free half of the suite: the shared core modules and the Compose Desktop layers.
+        # No Android SDK is needed - the same tasks the local parity run uses - so this job is the CI
+        # counterpart of `build-tools/scripts/parity-fast.sh`'s JVM half.
+        run: xvfb-run -a ./gradlew :core:shared:test :core:domain:test :core:scoring:test :core:database-jvm:test :desktop:test :core:ui:desktopTest --no-daemon --console=plain
+

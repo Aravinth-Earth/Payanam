@@ -16,10 +16,9 @@ import org.junit.runner.RunWith
  * and a distinct mismatch message when the selected channel cannot feed it —
  * statically, with NO network check involved.
  *
- * REQUIRES A FRESH INSTALL — run with '-KeepInstalled:$false', like the full
- * tier. See [FreshSetup] for why the app's own Delete All Data cannot stand in
- * for a wipe here. The test switches the channel back to Dev before finishing
- * so a later run starts from the default state.
+ * SHARED ROUTE: it calls [FreshSetup.runIfNeeded], so it provisions on a clean install and REUSES the
+ * app an earlier class in the same invocation provisioned - one install and one setup for the whole
+ * route. Every class that creates list data deletes it, which is what makes sharing the app safe.
  */
 @RunWith(AndroidJUnit4::class)
 class UpdateChannelTypeTest {
@@ -29,6 +28,9 @@ class UpdateChannelTypeTest {
 
     private val h = E2eHarness(rule, tag = "E2E-CHANNEL-TYPE")
 
+    /** Every label below comes from [E2eLabels], so a ta-IN device resolves it too. */
+    private val l: E2eLabels.Labels get() = h.labels
+
     @Before
     fun keepScreenAwake() {
         keepScreenOn(rule.activity)
@@ -36,50 +38,39 @@ class UpdateChannelTypeTest {
 
     @Test
     fun channelTypeBlockReflectsSelectedChannel() {
-        FreshSetup(h).run()
+        FreshSetup(h).runIfNeeded()
         h.log("channel-type=setup")
 
-        h.scrollTo("Verify and proceed")
-        h.click("Verify and proceed")
-        h.assertVisible("Per Dimension")
-
         // ── Settings → About (the update block lives in the About card) ──
-        h.clickNav("Settings")
-        h.assertVisible("Settings")
-        h.scrollTo("About")
-        h.click("About")
+        h.clickNav(l.settings)
+        h.assertVisible(l.settings)
+        h.scrollTo(l.about)
+        h.click(l.about)
 
         // ── default channel = Dev: it ships debug APKs, and this run is a debug build ──
         // The Settings screen is a plain scrolling Column: its content EXISTS in the
         // tree even off-screen, so assertVisible alone can wait forever without
         // scrolling. scrollTo both scrolls AND asserts visibility (its final check).
-        h.scrollTo(DEV_SHIPS)
-        h.scrollTo(RUNNING_DEBUG)
-        h.assertNotVisible(MISMATCH)
+        h.scrollTo(l.updateChannelShips(l.updateChannelDev, "debug"))
+        h.scrollTo(l.runningBuildType("debug"))
+        h.assertNotVisible(l.updateTypeMismatch)
         h.log("channel-type=dev-block-ok")
 
         // ── switch to Beta: release-type channel vs debug install ⇒ mismatch shows ──
-        h.click("Dev (daily)")
-        h.click("Beta (weekly)")
-        h.waitFor(BETA_SHIPS)
-        h.scrollTo(BETA_SHIPS)
-        h.waitFor(MISMATCH)
-        h.scrollTo(MISMATCH)
+        h.click(l.updateChannelDev)
+        h.click(l.updateChannelBeta)
+        h.waitFor(l.updateChannelShips(l.updateChannelBeta, "release"))
+        h.scrollTo(l.updateChannelShips(l.updateChannelBeta, "release"))
+        h.waitFor(l.updateTypeMismatch)
+        h.scrollTo(l.updateTypeMismatch)
         h.log("channel-type=beta-mismatch-shown")
 
         // ── switch back to Dev: the mismatch clears (state restored for re-runs) ──
-        h.click("Beta (weekly)")
-        h.click("Dev (daily)")
-        h.waitFor(DEV_SHIPS)
-        h.waitForGone(MISMATCH)
-        h.scrollTo(DEV_SHIPS)
+        h.click(l.updateChannelBeta)
+        h.click(l.updateChannelDev)
+        h.waitFor(l.updateChannelShips(l.updateChannelDev, "debug"))
+        h.waitForGone(l.updateTypeMismatch)
+        h.scrollTo(l.updateChannelShips(l.updateChannelDev, "debug"))
         h.log("channel-type=done")
-    }
-
-    private companion object {
-        const val DEV_SHIPS = "Dev (daily) channel ships: debug APK"
-        const val BETA_SHIPS = "Beta (weekly) channel ships: release APK"
-        const val RUNNING_DEBUG = "You are on: debug build"
-        const val MISMATCH = "Build type mismatch — no compatible update is available for this install."
     }
 }

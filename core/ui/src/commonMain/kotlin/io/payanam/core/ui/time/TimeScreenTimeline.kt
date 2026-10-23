@@ -36,6 +36,7 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.TileMode
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -597,6 +598,7 @@ private fun GapBlock(
             .clip(RoundedCornerShape(8.dp))
             .background(gapColor)
             .border(0.5.dp, borderColor, RoundedCornerShape(8.dp))
+            .testTag("time_gap_block")
             .clickable { onClick() },
     ) {
         Column(modifier = Modifier.padding(6.dp)) {
@@ -702,6 +704,7 @@ private fun PlannedTaskBlock(
                 .width(laneWidth - horizontalPadding)
                 .height(height)
                 .clip(RoundedCornerShape(4.dp))
+                .testTag("time_planned_block")
                 .clickable { onClick() }
                 .background(patternBrush)
                 .then(borderStyle)

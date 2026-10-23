@@ -29,6 +29,7 @@ import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.port.ReadOnlyQueryOutcome
 import io.payanam.domain.port.ReadOnlyRefusal
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -513,6 +514,8 @@ class AssistantViewModel(
             _uiState.update { it.copy(hasKey = false) }
         } catch (io: IOException) {
             handleIoError("AssistantTurn", io)
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             // Turn-level safety net: the screen must never crash; every failure ends in a
             // user-visible error kind and the throwable is logged in full.
@@ -588,6 +591,8 @@ class AssistantViewModel(
                         closed,
                     )
                     false
+                } catch (error: CancellationException) {
+                    throw error
                 } catch (error: Exception) {
                     logger.e("AssistantViewModel.removeProviderKey", "Key removal failed", error)
                     false

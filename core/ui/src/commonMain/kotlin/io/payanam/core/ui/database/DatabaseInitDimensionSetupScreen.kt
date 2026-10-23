@@ -19,7 +19,6 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -43,17 +42,18 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import io.payanam.shared.logging.AppLogger
-import io.payanam.shared.logging.UnifiedLogger
-import io.payanam.presentation.database.NewDatabaseDimensionInput
-import io.payanam.core.ui.model.DimensionIconCatalog
 import io.payanam.core.ui.components.DimensionBadgeLabelRow
 import io.payanam.core.ui.components.DimensionColorHexOptions
 import io.payanam.core.ui.components.DimensionColorPicker
 import io.payanam.core.ui.components.DimensionIconPicker
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.colorFromHex
+import io.payanam.core.ui.model.DimensionIconCatalog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.presentation.database.NewDatabaseDimensionInput
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 import java.util.Locale
 
 @Composable
@@ -82,21 +82,21 @@ fun MandatoryDimensionSetupSection(
     var duplicateIconIds by remember { mutableStateOf<Set<String>>(emptySet()) }
     val strings = LocalUiStrings.current
     val scope = rememberCoroutineScope()
-    val editableDimensions = remember {
-        mutableStateListOf(
-            *defaultNewDatabaseDimensionInputs(strings)
-                .map { input ->
-                    DimensionSetupUiItem(
-                        id = input.id,
-                        label = input.label,
-                        colorHex = input.colorHex,
-                        isEnabled = input.isEnabled,
-                        iconKey = input.iconKey,
-                    )
-                }
-                .toTypedArray(),
-        )
-    }
+    val editableDimensions =
+        remember {
+            mutableStateListOf(
+                *defaultNewDatabaseDimensionInputs(strings)
+                    .map { input ->
+                        DimensionSetupUiItem(
+                            id = input.id,
+                            label = input.label,
+                            colorHex = input.colorHex,
+                            isEnabled = input.isEnabled,
+                            iconKey = input.iconKey,
+                        )
+                    }.toTypedArray(),
+            )
+        }
     Column(
         modifier = Modifier.fillMaxWidth(),
         horizontalAlignment = Alignment.CenterHorizontally,
@@ -152,9 +152,10 @@ fun MandatoryDimensionSetupSection(
             }
         }
         LazyColumn(
-            modifier = Modifier
-                .fillMaxWidth()
-                .weight(1f, fill = false),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .weight(1f, fill = false),
             verticalArrangement = Arrangement.spacedBy(12.dp),
             contentPadding = PaddingValues(bottom = 16.dp),
         ) {
@@ -196,15 +197,16 @@ fun MandatoryDimensionSetupSection(
         }
         Button(
             onClick = {
-                val dimensionInputs = editableDimensions.map {
-                    NewDatabaseDimensionInput(
-                        id = it.id,
-                        label = it.label.trim(),
-                        colorHex = it.colorHex,
-                        isEnabled = it.isEnabled,
-                        iconKey = it.iconKey,
-                    )
-                }
+                val dimensionInputs =
+                    editableDimensions.map {
+                        NewDatabaseDimensionInput(
+                            id = it.id,
+                            label = it.label.trim(),
+                            colorHex = it.colorHex,
+                            isEnabled = it.isEnabled,
+                            iconKey = it.iconKey,
+                        )
+                    }
                 val validationResult = validateDimensionInputs(dimensionInputs)
                 duplicateNameIds = validationResult.duplicateNameIds
                 duplicateColorIds = validationResult.duplicateColorIds
@@ -217,9 +219,10 @@ fun MandatoryDimensionSetupSection(
                 logger.i("DatabaseInitDimensionSetupScreen", "Submitting redesigned dimension setup")
                 onSave(dimensionInputs)
             },
-            modifier = Modifier
-                .fillMaxWidth()
-                .height(56.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .height(56.dp),
             enabled = !isSaving,
             shape = MaterialTheme.shapes.large,
         ) {
@@ -273,12 +276,13 @@ fun MandatoryDimensionSetupSection(
                     if (targetId != null) {
                         val index = editableDimensions.indexOfFirst { it.id == targetId }
                         if (index >= 0) {
-                            editableDimensions[index] = editableDimensions[index].copy(
-                                label = trimmed,
-                                colorHex = colorHex,
-                                isEnabled = true,
-                                iconKey = iconKey,
-                            )
+                            editableDimensions[index] =
+                                editableDimensions[index].copy(
+                                    label = trimmed,
+                                    colorHex = colorHex,
+                                    isEnabled = true,
+                                    iconKey = iconKey,
+                                )
                             validationError = null
                             duplicateNameIds = emptySet()
                             duplicateColorIds = emptySet()
@@ -307,27 +311,31 @@ private fun DimensionSetupRow(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = MaterialTheme.shapes.medium,
-        colors = CardDefaults.cardColors(
-            containerColor = if (item.isEnabled) {
-                MaterialTheme.colorScheme.surfaceVariant
-            } else {
-                MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
-            },
-        ),
+        colors =
+            CardDefaults.cardColors(
+                containerColor =
+                    if (item.isEnabled) {
+                        MaterialTheme.colorScheme.surfaceVariant
+                    } else {
+                        MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.4f)
+                    },
+            ),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
     ) {
         Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.spacedBy(16.dp),
         ) {
             Column(modifier = Modifier.weight(1f)) {
                 DimensionBadgeLabelRow(
-                    label = item.label.ifBlank {
-                        strings.dbInitDimensionSetupNamePlaceholder
-                    },
+                    label =
+                        item.label.ifBlank {
+                            strings.dbInitDimensionSetupNamePlaceholder
+                        },
                     color = colorFromHex(item.colorHex),
                     iconOption = DimensionIconCatalog.resolve(item.iconKey, item.id),
                     labelColor = if (item.isEnabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant,
@@ -370,11 +378,12 @@ private fun DimensionSetupRow(
                 IconButton(onClick = onToggleEnabled) {
                     Icon(
                         imageVector = if (item.isEnabled) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                        contentDescription = if (item.isEnabled) {
-                            strings.dbInitDimensionSetupDisableAction
-                        } else {
-                            strings.dbInitDimensionSetupEnableAction
-                        },
+                        contentDescription =
+                            if (item.isEnabled) {
+                                strings.dbInitDimensionSetupDisableAction
+                            } else {
+                                strings.dbInitDimensionSetupEnableAction
+                            },
                         tint = if (item.isEnabled) MaterialTheme.colorScheme.outline else MaterialTheme.colorScheme.error,
                     )
                 }
@@ -400,7 +409,7 @@ private fun DimensionEditDialog(
     var iconKey by remember { mutableStateOf(initialIconKey) }
     var error by remember { mutableStateOf<String?>(null) }
     val requiredNameError = strings.dbInitDimensionSetupErrorNameRequired
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -429,20 +438,22 @@ private fun DimensionEditDialog(
                     style = MaterialTheme.typography.labelLarge,
                     fontWeight = FontWeight.Bold,
                 )
-                val usedActiveColors = existingDimensions
-                    .filter { it.isEnabled }
-                    .filterNot { !isAddMode && it.id == editingDimensionId }
-                    .map { it.colorHex.trim().uppercase(Locale.ROOT) }
-                    .toSet()
+                val usedActiveColors =
+                    existingDimensions
+                        .filter { it.isEnabled }
+                        .filterNot { !isAddMode && it.id == editingDimensionId }
+                        .map { it.colorHex.trim().uppercase(Locale.ROOT) }
+                        .toSet()
                 DimensionColorPicker(
                     selectedColorHex = colorHex,
                     usedColorHexes = usedActiveColors,
                     onSelect = { colorHex = it },
                 )
-                val usedIconKeys = existingDimensions
-                    .filterNot { !isAddMode && it.id == editingDimensionId }
-                    .map { it.iconKey }
-                    .toSet()
+                val usedIconKeys =
+                    existingDimensions
+                        .filterNot { !isAddMode && it.id == editingDimensionId }
+                        .map { it.iconKey }
+                        .toSet()
                 DimensionIconPicker(
                     selectedIconKey = iconKey,
                     usedIconKeys = usedIconKeys,
@@ -514,30 +525,33 @@ private fun validateDimensionInputs(dimensionInputs: List<NewDatabaseDimensionIn
     if (activeDimensions.any { it.label.trim().isEmpty() }) {
         return DimensionSetupValidationResult(error = DimensionSetupError.NAME_REQUIRED)
     }
-    val duplicateNameIds = findDuplicateIds(
-        rows = activeDimensions,
-        keySelector = { it.label.trim().lowercase(Locale.ROOT) },
-    )
+    val duplicateNameIds =
+        findDuplicateIds(
+            rows = activeDimensions,
+            keySelector = { it.label.trim().lowercase(Locale.ROOT) },
+        )
     if (duplicateNameIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             error = DimensionSetupError.UNIQUE_NAMES,
             duplicateNameIds = duplicateNameIds,
         )
     }
-    val duplicateColorIds = findDuplicateIds(
-        rows = activeDimensions,
-        keySelector = { it.colorHex.trim().uppercase(Locale.ROOT) },
-    )
+    val duplicateColorIds =
+        findDuplicateIds(
+            rows = activeDimensions,
+            keySelector = { it.colorHex.trim().uppercase(Locale.ROOT) },
+        )
     if (duplicateColorIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             error = DimensionSetupError.UNIQUE_COLORS,
             duplicateColorIds = duplicateColorIds,
         )
     }
-    val duplicateIconIds = findDuplicateIds(
-        rows = dimensionInputs,
-        keySelector = { it.iconKey.trim().ifEmpty { DimensionIconCatalog.defaultIconKeyForDimensionId(it.id) } },
-    )
+    val duplicateIconIds =
+        findDuplicateIds(
+            rows = dimensionInputs,
+            keySelector = { it.iconKey.trim().ifEmpty { DimensionIconCatalog.defaultIconKeyForDimensionId(it.id) } },
+        )
     if (duplicateIconIds.isNotEmpty()) {
         return DimensionSetupValidationResult(
             error = DimensionSetupError.UNIQUE_ICONS,
@@ -570,11 +584,16 @@ private data class DimensionSetupUiItem(
     val iconKey: String,
 )
 
-private fun generateDimensionId(label: String, existing: List<DimensionSetupUiItem>): String {
-    val slug = label.lowercase(Locale.US)
-        .replace(Regex("[^a-z0-9]+"), "_")
-        .trim('_')
-        .ifBlank { "custom" }
+private fun generateDimensionId(
+    label: String,
+    existing: List<DimensionSetupUiItem>,
+): String {
+    val slug =
+        label
+            .lowercase(Locale.US)
+            .replace(Regex("[^a-z0-9]+"), "_")
+            .trim('_')
+            .ifBlank { "custom" }
     val base = "dim_$slug"
     if (existing.none { it.id == base }) {
         return base

@@ -14,9 +14,77 @@ real user interactions only.
 | Full suite | `FullJourneyTest` — the whole journey, one execution cycle (~110 s on SM-A176B) |
 | Smoke | `SmokeInProcessTest` — the fast inner loop (~41 s) |
 | Restart phase | `UnlockTest`, a second invocation |
-| Clean state | a fresh install (the runner uninstalls between runs) |
+| Clean state | one fresh install per ROUTE (see below), not per class |
 | How to run | `build-tools/scripts/run-inprocess-tests.ps1 -Runs N -TestClass …` |
 | Result | per-run JUnit XML + HTML report + per-test logcat; the script exits 1 when any run is red |
+
+## Routes — one install and one setup per logical start
+
+**A single instrumentation run hosts every test method in ONE app process, and the app's data survives
+across classes in that run.** The tier used to pay a full install AND a full first-run setup for every single
+class, because every feature class called `FreshSetup.run()`, which fails loudly unless the app is at
+first-run. In one invocation only the first class is at first-run, so the suite was forced to one class per
+invocation. That was a self-inflicted constraint, not a device one.
+
+The suite is now grouped into **routes**, each one a single invocation, and a class only starts from scratch
+when its SUBJECT is the fresh state:
+
+| Route | Install | Classes | Why |
+|---|---|---|---|
+| A — first-run gates | fresh (`-KeepInstalled false`) | `FullJourneyTest`, `SmokeInProcessTest`, `DimensionSetupTest`, `FocusModeTest`, `WidgetCommandTest`, `ImportPickerUnificationTest`, `ImportSeamTest` | the onboarding tour, the passphrase gate, the dimension step and the pending-command window only exist on a first run |
+| B — provisioned app | reuse (`-KeepInstalled true`) | every feature journey: tasks, habits, notes, journal, time, lenses, settings, assistant, insights, channel-type, layout/touch probes | they need a provisioned app and nothing else |
+| C — closed session | reuse, new process | `UnlockTest`, `PassphraseLifecycleTest` | the lock screen only appears once the session has closed, which needs a process restart |
+| D — reset | reuse, new process | `ResetJourneyTest` | the reset restarts the app's own process |
+
+`-TestClass` maps to `-Pandroid.testInstrumentationRunnerArguments.class=`, which takes a comma-separated
+list, so a route is just a list of classes — no runner change is needed.
+
+**Measured (SM-A176B, 2026-10-17).** Route B as one invocation of 20 classes ran in **7 m 30 s** and passed
+**16**, against a baseline of **30 m 40 s** for the whole 32-test suite with **30 failures** — 27 of them the
+`FreshSetup` wait expiring because the app was already provisioned. The app's own log confirmed every class
+reported `setup=reused`: **the reuse mechanism works.**
+
+**What route B still needs, and why it is a per-class job.** The feature journeys were written for a fresh,
+EMPTY app — a one-class-per-invocation world. Sharing one app breaks that assumption in four ways, and each
+has to be fixed in the class it belongs to:
+
+1. **Empty-state preconditions** (`assertVisible(noNotesYet)`, `assertVisible(noTasksDueToday)`) fail when an
+   earlier class left data. Fix: assert **this class's item is absent**, not that the list is empty.
+2. **Cleanup** — a class that creates list data must delete it. The CRUD journeys already did; the rest were
+   given cleanup legs.
+3. **Controls that only render with/without data** — e.g. the Time screen's day-plan control sits differently
+   once entries exist.
+4. **Settings a class leaves changed** — the language, the debug-logging switch, the insights-visibility
+   toggles. A shared run is a shared SETTINGS state, not just a shared database.
+
+Two more traps found the same way, both worth knowing before writing another class:
+
+- **`assertTextContains` cannot check a LABELLED field's value.** The field's merged node carries the label
+  as `Text` and the value as `EditableText`, and the assertion reports the label. Use
+  `E2eHarness.fieldHolds`, which reads `EditableText`. This had never surfaced because no full run had ever
+  got past setup to reach it.
+- **A focused text field does not render its placeholder**, so waiting on the placeholder waits for
+  something that is never shown. Await the field (a node with a SetText action) instead.
+
+**One class was misclassified and moved back to route A.** `TouchTargetSweepTest` states its own premise —
+"the four top-level surfaces a fresh install can reach with **no data**". In a shared run the Lenses screen
+carries an earlier class's habits, whose rows measure a few dp tall, so it fails on data rather than on a
+defect. Its subject is the data-free screen; it belongs with the first-run gates.
+
+**The two rules that make a shared route safe.**
+
+1. **A feature class calls `FreshSetup.runIfNeeded()`, never `run()`.** It provisions on a clean install and
+   REUSES the app an earlier class in the same run provisioned, and it completes the mandatory dimension step
+   when one is showing, so the call site is one line. A class whose subject IS a first-run gate keeps
+   `run()`.
+2. **A class deletes the list data it creates.** The app process is shared, so anything left behind is data
+   the NEXT class reads. The CRUD journeys already did this; the classes that did not now do.
+
+**The app's own reset is NOT a cleanup step.** It is real and it works, but it restarts the process
+("restarting process for clean Room/Hilt re-initialization") and the instrumentation runs inside that same
+process — so the test dies with it and the run reports **no result at all** rather than a failure. It can
+stand in for a reinstall BETWEEN routes, never inside one. Same for the passphrase-unlock screen's reset.
+
 
 **Maestro tier (retired 2026-09-13).** The suite began as Maestro YAML flows (full ~409 s, smoke
 ~192 s, driven by `build-android.ps1 -RunMaestro`/`-Smoke`). The in-process tier measured ~7×

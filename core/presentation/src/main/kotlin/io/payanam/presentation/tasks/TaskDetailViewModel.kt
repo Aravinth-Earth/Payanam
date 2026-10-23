@@ -15,6 +15,7 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.scoring.CompletionStats
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -123,6 +124,8 @@ class TaskDetailViewModel(
                         "recurring" to (task?.recurrenceEnabled ?: false),
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadTask", "Error loading task", e)
                 _uiState.update {
@@ -148,6 +151,8 @@ class TaskDetailViewModel(
                         "currentStreak" to stats.currentStreak,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadCompletionStats", "Error loading stats", e)
             }
@@ -174,6 +179,8 @@ class TaskDetailViewModel(
                         "count" to occurrences.size,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadOccurrenceHistory", "Error loading occurrences", e)
                 _uiState.update { it.copy(isLoadingOccurrences = false) }
@@ -269,6 +276,8 @@ class TaskDetailViewModel(
                         "occurrences" to occs.size,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadActivityWindow", "Error loading activity window", e)
                 _uiState.update { it.copy(isLoadingWindow = false) }
@@ -311,6 +320,8 @@ class TaskDetailViewModel(
                         "count" to reschedules.size,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.loadRescheduleHistory", "Error loading reschedules", e)
                 _uiState.update { it.copy(isLoadingReschedules = false) }
@@ -364,6 +375,8 @@ class TaskDetailViewModel(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
@@ -388,6 +401,8 @@ class TaskDetailViewModel(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.completeTask",
@@ -404,6 +419,8 @@ class TaskDetailViewModel(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.completeTask",
@@ -427,6 +444,8 @@ class TaskDetailViewModel(
                     ),
                 )
                 hideStatusDialog()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -455,6 +474,8 @@ class TaskDetailViewModel(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
@@ -479,6 +500,8 @@ class TaskDetailViewModel(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.skipTask",
@@ -495,6 +518,8 @@ class TaskDetailViewModel(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.skipTask",
@@ -518,6 +543,8 @@ class TaskDetailViewModel(
                     ),
                 )
                 hideStatusDialog()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -545,6 +572,8 @@ class TaskDetailViewModel(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.missTask",
@@ -568,6 +597,8 @@ class TaskDetailViewModel(
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
                             try {
                                 notificationScheduler.scheduleForTask(updatedTask)
+                            } catch (e: CancellationException) {
+                                throw e
                             } catch (e: Exception) {
                                 logger.e(
                                     "TaskDetailViewModel.missTask",
@@ -583,6 +614,8 @@ class TaskDetailViewModel(
                     } else {
                         try {
                             notificationScheduler.cancelForTask(taskId)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TaskDetailViewModel.missTask",
@@ -606,6 +639,8 @@ class TaskDetailViewModel(
                     ),
                 )
                 hideStatusDialog()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -649,6 +684,8 @@ class TaskDetailViewModel(
 
             // Reload occurrence history
             loadOccurrenceHistory(taskId)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TaskDetailViewModel.recordOccurrence", "Error recording occurrence", e)
         }
@@ -665,6 +702,8 @@ class TaskDetailViewModel(
                 taskRepository.archiveTask(taskId)
                 try {
                     notificationScheduler.cancelForTask(taskId)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.archiveTask",
@@ -676,6 +715,8 @@ class TaskDetailViewModel(
                     )
                 }
                 logger.i("TaskDetailViewModel.archiveTask", "Task archived", mapOf("taskId" to taskId))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.archiveTask", "Error archiving task", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -728,6 +769,8 @@ class TaskDetailViewModel(
 
                 try {
                     notificationScheduler.scheduleForTask(updatedTask)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.rescheduleTask",
@@ -749,6 +792,8 @@ class TaskDetailViewModel(
                         "wasOverdue" to wasOverdue,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TaskDetailViewModel.rescheduleTask",
@@ -773,6 +818,8 @@ class TaskDetailViewModel(
             try {
                 try {
                     notificationScheduler.cancelForTask(taskId)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(
                         "TaskDetailViewModel.deleteTask",
@@ -785,6 +832,8 @@ class TaskDetailViewModel(
                 }
                 taskRepository.deleteTask(taskId)
                 logger.i("TaskDetailViewModel.deleteTask", "Task deleted", mapOf("taskId" to taskId))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.deleteTask", "Error deleting task", e)
                 _uiState.update { it.copy(error = e.message) }

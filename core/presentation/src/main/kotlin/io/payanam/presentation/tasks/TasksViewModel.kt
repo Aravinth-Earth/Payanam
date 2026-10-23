@@ -24,6 +24,7 @@ import io.payanam.presentation.scoring.ScoreMetricColumn
 import io.payanam.scoring.ordinalRankToday
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -221,6 +222,8 @@ class TasksViewModel(
                         ?.equals("Due", ignoreCase = true)
                         ?.let { chips.last().value.toIntOrNull() }
                         ?: lastPublishedDueChipCount
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.loadHabitDayMetrics", "Failed to load day metrics strip", e)
                 _dayMetricsState.value = HabitDayMetricsState(isLoading = false, chips = emptyList())
@@ -353,6 +356,8 @@ class TasksViewModel(
                         dueTodayOnly = dueTodayOnly,
                     ).applyVisibilityRows()
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.loadSavedVisibilityToggles", "Failed to load visibility toggles", e)
         }
@@ -376,6 +381,8 @@ class TasksViewModel(
                     filteredTaskRows = TasksRowCacheManager.buildTaskRows(filtered.filterNot { it.recurrenceEnabled }),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.loadSavedSortOption", "Failed to load sort option", e)
         }
@@ -399,6 +406,8 @@ class TasksViewModel(
                     filteredTaskRows = TasksRowCacheManager.buildTaskRows(filtered.filterNot { it.recurrenceEnabled }),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.loadSavedFilterOption", "Failed to load filter option", e)
         }
@@ -409,6 +418,8 @@ class TasksViewModel(
             val savedHabitSortKey = appSettingsRepository.getSetting(AppPreferenceKeys.KEY_HABIT_SORT_OPTION)
             val habitSortOption = HabitSortOption.fromKey(savedHabitSortKey)
             _uiState.update { it.copy(habitSortOption = habitSortOption) }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.loadSavedHabitSortOption", "Failed to load habit sort option", e)
         }
@@ -725,6 +736,8 @@ class TasksViewModel(
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupTrigger.recalcForStatusChange(taskId, date)
                 refreshCheckmarksForTask(taskId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.toggleCheckmark",
@@ -789,6 +802,8 @@ class TasksViewModel(
                 scoreRollupTrigger.recalcForStatusChange(task.id, date)
                 habitTimeEntryRecorder(task, actualCompletedAt, actualDurationMinutes)
                 dismissCompletionDialog()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TasksViewModel.confirmCompletion",
@@ -855,6 +870,8 @@ class TasksViewModel(
                 // just-updated metrics (refresh-before-cascade showed stale).
                 scoreRollupTrigger.recalcForStatusChange(taskId, date)
                 refreshCheckmarksForTask(taskId)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.updateCheckmark", "Failed to update checkmark", e)
             }
@@ -925,6 +942,8 @@ class TasksViewModel(
                         ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.refreshCheckmarksForTask", "Failed to refresh checkmarks", e)
         }
@@ -976,6 +995,8 @@ class TasksViewModel(
                         ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("TasksViewModel.refreshRecurringTasksList", "Failed to refresh", e)
         }
@@ -991,6 +1012,8 @@ class TasksViewModel(
                 logger.d("TasksViewModel.setSortOption", "Saving sort option to DB", mapOf("key" to sortOption.key))
                 appSettingsRepository.setSetting(AppPreferenceKeys.KEY_TASK_SORT_OPTION, sortOption.key)
                 logger.i("TasksViewModel.setSortOption", "Sort option saved to DB successfully")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.setSortOption", "Failed to save sort option to DB", e)
             }
@@ -1042,6 +1065,8 @@ class TasksViewModel(
         scope.launch {
             try {
                 appSettingsRepository.setSetting(AppPreferenceKeys.KEY_TASK_FILTER_OPTION, filter.key)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.setFilter", "Failed to save filter option", e)
             }
@@ -1114,6 +1139,8 @@ class TasksViewModel(
                 logger.d("TasksViewModel.setHabitSortOption", "Saving habit sort option to DB", mapOf("key" to option.key))
                 appSettingsRepository.setSetting(AppPreferenceKeys.KEY_HABIT_SORT_OPTION, option.key)
                 logger.i("TasksViewModel.setHabitSortOption", "Habit sort option saved to DB successfully")
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.setHabitSortOption", "Failed to save habit sort option to DB", e)
             }
@@ -1202,6 +1229,8 @@ class TasksViewModel(
             try {
                 appSettingsRepository.setSetting(key, valueOf(_uiState.value).toString())
                 logger.d("TasksViewModel.persistVisibilityToggle", "Visibility toggle saved", mapOf("key" to key))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.persistVisibilityToggle", "Failed to save visibility toggle", e, mapOf("key" to key))
             }
@@ -1316,6 +1345,8 @@ class TasksViewModel(
                     if (updatedTask != null && updatedTask.recurrenceEnabled) {
                         try {
                             notificationScheduler.scheduleForTask(updatedTask)
+                        } catch (e: CancellationException) {
+                            throw e
                         } catch (e: Exception) {
                             logger.e(
                                 "TasksViewModel.completeTask",
@@ -1333,6 +1364,8 @@ class TasksViewModel(
                     notificationScheduler.cancelForTask(taskId)
                 }
                 logger.i("TasksViewModel.completeTask", "Task completed successfully", mapOf("taskId" to taskId))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.completeTask", "Failed to complete task", e, mapOf("taskId" to taskId))
                 _uiState.update { it.copy(error = e.message) }
@@ -1351,6 +1384,8 @@ class TasksViewModel(
                 taskRepository.archiveTask(taskId)
                 try {
                     notificationScheduler.cancelForTask(taskId)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(
                         "TasksViewModel.archiveTask",
@@ -1362,6 +1397,8 @@ class TasksViewModel(
                     )
                 }
                 logger.i("TasksViewModel.archiveTask", "Task archived successfully", mapOf("taskId" to taskId))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.archiveTask", "Failed to archive task", e, mapOf("taskId" to taskId))
                 _uiState.update { it.copy(error = e.message) }
@@ -1379,6 +1416,8 @@ class TasksViewModel(
             try {
                 try {
                     notificationScheduler.cancelForTask(taskId)
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.e(
                         "TasksViewModel.deleteTask",
@@ -1391,6 +1430,8 @@ class TasksViewModel(
                 }
                 taskRepository.deleteTask(taskId)
                 logger.i("TasksViewModel.deleteTask", "Task deleted successfully", mapOf("taskId" to taskId))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TasksViewModel.deleteTask", "Failed to delete task", e, mapOf("taskId" to taskId))
                 _uiState.update { it.copy(error = e.message) }

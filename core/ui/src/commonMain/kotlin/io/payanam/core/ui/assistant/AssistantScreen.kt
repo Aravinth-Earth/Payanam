@@ -33,7 +33,6 @@ import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -71,6 +70,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
@@ -174,30 +174,34 @@ fun AssistantScreenContent(
                 }
             }
 
-            !isConfigured(uiState) -> SetupContent(
-                uiState = uiState,
-                strings = strings,
-                modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-                onKeyChange = actions.onKeyChange,
-                onLoadModels = actions.onLoadModels,
-                onSelectModel = actions.onSelectModel,
-                onSaveAndStart = actions.onSaveAndStart,
-                onOpenSettings = actions.onOpenSettings,
-                onDismissError = actions.onDismissError,
-            )
+            !isConfigured(uiState) -> {
+                SetupContent(
+                    uiState = uiState,
+                    strings = strings,
+                    modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+                    onKeyChange = actions.onKeyChange,
+                    onLoadModels = actions.onLoadModels,
+                    onSelectModel = actions.onSelectModel,
+                    onSaveAndStart = actions.onSaveAndStart,
+                    onOpenSettings = actions.onOpenSettings,
+                    onDismissError = actions.onDismissError,
+                )
+            }
 
-            else -> ChatContent(
-                uiState = uiState,
-                strings = strings,
-                modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-                listState = listState,
-                onSendQuestion = actions.onSendQuestion,
-                onDismissError = actions.onDismissError,
-            )
+            else -> {
+                ChatContent(
+                    uiState = uiState,
+                    strings = strings,
+                    modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
+                    listState = listState,
+                    onSendQuestion = actions.onSendQuestion,
+                    onDismissError = actions.onDismissError,
+                )
+            }
         }
     }
     if (uiState.noticeVisible) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = {
                 // Deliberately non-dismissable: the disclosure must be acknowledged before the user can
                 // reach anything that could make a network call.
@@ -250,22 +254,22 @@ private fun SetupContent(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(strings.assistantKeyLabel) },
             placeholder =
-            if (storedKeyHint) {
-                null
-            } else {
-                { Text(strings.assistantKeyHint) }
-            },
+                if (storedKeyHint) {
+                    null
+                } else {
+                    { Text(strings.assistantKeyHint) }
+                },
             singleLine = true,
             visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
             isError = uiState.keyInvalid,
             supportingText =
-            if (uiState.keyInvalid) {
-                { Text(strings.assistantErrorKeyRejected) }
-            } else if (storedKeyHint) {
-                { Text(strings.assistantKeyStoredHint) }
-            } else {
-                null
-            },
+                if (uiState.keyInvalid) {
+                    { Text(strings.assistantErrorKeyRejected) }
+                } else if (storedKeyHint) {
+                    { Text(strings.assistantKeyStoredHint) }
+                } else {
+                    null
+                },
             trailingIcon = {
                 IconButton(onClick = { keyVisible = !keyVisible }) {
                     Icon(
@@ -326,7 +330,7 @@ private fun SetupContent(
         }
     }
     if (pickerOpen) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { pickerOpen = false },
             title = { Text(strings.assistantModelLabel) },
             text = {
@@ -444,7 +448,9 @@ private fun MessageBubble(
     strings: UiStrings,
 ) {
     when {
-        message.isError -> Unit
+        message.isError -> {
+            Unit
+        }
 
         message.role == AssistantChatMessage.ROLE_USER -> {
             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
@@ -474,11 +480,12 @@ private fun MessageBubble(
                     val receiptModel = message.model
                     if (receiptModel != null) {
                         Text(
-                            text = strings.assistantReceipt.formatArgs(
-                                receiptModel,
-                                message.queryCount,
-                                message.rowCount,
-                            ) + " · " + strings.assistantAiGenerated,
+                            text =
+                                strings.assistantReceipt.formatArgs(
+                                    receiptModel,
+                                    message.queryCount,
+                                    message.rowCount,
+                                ) + " · " + strings.assistantAiGenerated,
                             style = MaterialTheme.typography.labelSmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -495,25 +502,37 @@ private fun MarkdownText(text: String) {
     Column(verticalArrangement = Arrangement.spacedBy(3.dp)) {
         blocks.forEach { block ->
             when (block) {
-                is MdBlock.Heading -> Text(
-                    text = block.text,
-                    fontWeight = FontWeight.SemiBold,
-                    style = MaterialTheme.typography.bodyMedium,
-                )
+                is MdBlock.Heading -> {
+                    Text(
+                        text = block.text,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
 
-                is MdBlock.Bullet -> Text("• ${block.text}", style = MaterialTheme.typography.bodyMedium)
+                is MdBlock.Bullet -> {
+                    Text("• ${block.text}", style = MaterialTheme.typography.bodyMedium)
+                }
 
-                is MdBlock.Numbered -> Text(block.text, style = MaterialTheme.typography.bodyMedium)
+                is MdBlock.Numbered -> {
+                    Text(block.text, style = MaterialTheme.typography.bodyMedium)
+                }
 
-                is MdBlock.TableRow -> Text(
-                    text = block.text,
-                    fontFamily = FontFamily.Monospace,
-                    style = MaterialTheme.typography.bodySmall,
-                )
+                is MdBlock.TableRow -> {
+                    Text(
+                        text = block.text,
+                        fontFamily = FontFamily.Monospace,
+                        style = MaterialTheme.typography.bodySmall,
+                    )
+                }
 
-                is MdBlock.Plain -> InlineText(block.text)
+                is MdBlock.Plain -> {
+                    InlineText(block.text)
+                }
 
-                MdBlock.Blank -> Spacer(modifier = Modifier.height(4.dp))
+                MdBlock.Blank -> {
+                    Spacer(modifier = Modifier.height(4.dp))
+                }
             }
         }
     }
@@ -523,15 +542,16 @@ private fun MarkdownText(text: String) {
 private fun InlineText(text: String) {
     val segments = remember(text) { AssistantText.segments(text) }
     Text(
-        text = buildAnnotatedString {
-            segments.forEach { segment ->
-                if (segment.bold) {
-                    withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(segment.text) }
-                } else {
-                    append(segment.text)
+        text =
+            buildAnnotatedString {
+                segments.forEach { segment ->
+                    if (segment.bold) {
+                        withStyle(SpanStyle(fontWeight = FontWeight.SemiBold)) { append(segment.text) }
+                    } else {
+                        append(segment.text)
+                    }
                 }
-            }
-        },
+            },
         style = MaterialTheme.typography.bodyMedium,
     )
 }
@@ -550,21 +570,22 @@ private fun ChipsBlock(
     strings: UiStrings,
     onChipTap: (String) -> Unit,
 ) {
-    val chips = listOf(
-        strings.sugHabitsMissed,
-        strings.sugNeverCompleted,
-        strings.sugHabitsImproved,
-        strings.sugStreaks,
-        strings.sugPlanVsActualTime,
-        strings.sugUnassignedTime,
-        strings.sugLeastTimeGoal,
-        strings.sugReschedules,
-        strings.sugCompletedMissed,
-        strings.sugDataSays,
-        strings.sugPlanWeak,
-        strings.sugGaps,
-        strings.sugRealityCheck,
-    )
+    val chips =
+        listOf(
+            strings.sugHabitsMissed,
+            strings.sugNeverCompleted,
+            strings.sugHabitsImproved,
+            strings.sugStreaks,
+            strings.sugPlanVsActualTime,
+            strings.sugUnassignedTime,
+            strings.sugLeastTimeGoal,
+            strings.sugReschedules,
+            strings.sugCompletedMissed,
+            strings.sugDataSays,
+            strings.sugPlanWeak,
+            strings.sugGaps,
+            strings.sugRealityCheck,
+        )
     Column(modifier = Modifier.padding(horizontal = 12.dp)) {
         Text(
             text = strings.assistantEmptyHint,
@@ -588,12 +609,13 @@ private fun BusyRow(
     busy: AssistantBusy,
     strings: UiStrings,
 ) {
-    val label = when (busy) {
-        AssistantBusy.Preparing -> strings.assistantBusyPreparing
-        AssistantBusy.Thinking -> strings.assistantBusyThinking
-        AssistantBusy.Finalizing -> strings.assistantBusyFinalizing
-        is AssistantBusy.Querying -> strings.assistantBusyQuerying.formatArgs(busy.round, busy.max)
-    }
+    val label =
+        when (busy) {
+            AssistantBusy.Preparing -> strings.assistantBusyPreparing
+            AssistantBusy.Thinking -> strings.assistantBusyThinking
+            AssistantBusy.Finalizing -> strings.assistantBusyFinalizing
+            is AssistantBusy.Querying -> strings.assistantBusyQuerying.formatArgs(busy.round, busy.max)
+        }
     Row(verticalAlignment = Alignment.CenterVertically) {
         CircularProgressIndicator(modifier = Modifier.size(16.dp), strokeWidth = 2.dp)
         Spacer(modifier = Modifier.width(8.dp))
@@ -619,13 +641,14 @@ internal fun ErrorBanner(
     strings: UiStrings,
     onDismiss: () -> Unit,
 ) {
-    val canned = when (kind) {
-        AssistantErrorKind.KEY_REJECTED -> strings.assistantErrorKeyRejected
-        AssistantErrorKind.NETWORK -> strings.assistantErrorNetwork
-        AssistantErrorKind.SERVER -> strings.assistantErrorServer
-        AssistantErrorKind.DB_LOCKED -> strings.assistantErrorDbClosed
-        AssistantErrorKind.NO_MODEL -> strings.assistantErrorNoModel
-    }
+    val canned =
+        when (kind) {
+            AssistantErrorKind.KEY_REJECTED -> strings.assistantErrorKeyRejected
+            AssistantErrorKind.NETWORK -> strings.assistantErrorNetwork
+            AssistantErrorKind.SERVER -> strings.assistantErrorServer
+            AssistantErrorKind.DB_LOCKED -> strings.assistantErrorDbClosed
+            AssistantErrorKind.NO_MODEL -> strings.assistantErrorNoModel
+        }
     val message = if (kind == AssistantErrorKind.SERVER && !detail.isNullOrBlank()) detail else canned
     Card(
         modifier = Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp),

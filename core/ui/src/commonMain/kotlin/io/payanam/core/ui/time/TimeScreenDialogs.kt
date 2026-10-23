@@ -5,7 +5,6 @@ package io.payanam.core.ui.time
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.ExposedDropdownMenuAnchorType
@@ -22,14 +21,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.payanam.core.ui.text.UiStrings
-import io.payanam.core.ui.text.LocalUiStrings
-import io.payanam.core.ui.model.DimensionIconCatalog
-import io.payanam.core.ui.preferences.DimensionOption
-import io.payanam.domain.model.DimensionTaxonomyCatalog
-import io.payanam.domain.model.Task
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.model.DimensionIconCatalog
+import io.payanam.core.ui.preferences.DimensionOption
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.model.Task
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -41,22 +41,23 @@ fun StartTrackingDialog(
 ) {
     val strings = LocalUiStrings.current
     val fallbackDimensionDefinition = DimensionTaxonomyCatalog.WORK_LIVELIHOOD
-    val defaultDimension = dimensionOptions.firstOrNull()
-        ?: DimensionOption(
-            id = fallbackDimensionDefinition.id,
-            canonicalId = fallbackDimensionDefinition.id,
-            label = fallbackDimensionDefinition.fallbackLabel,
-            color = MaterialTheme.colorScheme.primary,
-            isVisible = true,
-            iconKey = fallbackDimensionDefinition.defaultIconKey,
-        )
+    val defaultDimension =
+        dimensionOptions.firstOrNull()
+            ?: DimensionOption(
+                id = fallbackDimensionDefinition.id,
+                canonicalId = fallbackDimensionDefinition.id,
+                label = fallbackDimensionDefinition.fallbackLabel,
+                color = MaterialTheme.colorScheme.primary,
+                isVisible = true,
+                iconKey = fallbackDimensionDefinition.defaultIconKey,
+            )
     var selectedDimension by remember { mutableStateOf(defaultDimension) }
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
     var dimensionExpanded by remember { mutableStateOf(false) }
     var taskExpanded by remember { mutableStateOf(false) }
     val selectedLabel = selectedDimension.label
     val filteredTasks = tasks.filter { taskMatchesDimension(it, selectedDimension) }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locStartTracking) },
         text = {
@@ -82,9 +83,10 @@ fun StartTrackingDialog(
                             )
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dimensionExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                     )
                     ExposedDropdownMenu(
                         expanded = dimensionExpanded,
@@ -119,14 +121,16 @@ fun StartTrackingDialog(
                         onExpandedChange = { taskExpanded = it },
                     ) {
                         OutlinedTextField(
-                            value = filteredTasks.find { it.id == selectedTaskId }?.title
-                                ?: strings.locNone,
+                            value =
+                                filteredTasks.find { it.id == selectedTaskId }?.title
+                                    ?: strings.locNone,
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(taskExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
                         )
                         ExposedDropdownMenu(
                             expanded = taskExpanded,
@@ -140,16 +144,19 @@ fun StartTrackingDialog(
                                 },
                             )
                             filteredTasks.forEach { task ->
-                                val taskType = if (task.recurrenceEnabled) {
-                                    strings.locHabit
-                                } else {
-                                    strings.settingsDatabaseTasks
-                                }
+                                val taskType =
+                                    if (task.recurrenceEnabled) {
+                                        strings.locHabit
+                                    } else {
+                                        strings.settingsDatabaseTasks
+                                    }
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            strings.locTaggedTitle.format(taskType,
-                                                task.title,),
+                                            strings.locTaggedTitle.format(
+                                                taskType,
+                                                task.title,
+                                            ),
                                         )
                                     },
                                     onClick = {
@@ -190,9 +197,13 @@ fun StartTrackingDialog(
  * so an unrecognised selection falls back to the exact-id and name checks instead of silently
  * matching every task.
  */
-fun taskMatchesDimension(task: Task, selectedDimension: DimensionOption): Boolean {
-    val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(selectedDimension.id)?.id
-        ?: selectedDimension.canonicalId
+fun taskMatchesDimension(
+    task: Task,
+    selectedDimension: DimensionOption,
+): Boolean {
+    val selectedCanonicalId =
+        DimensionTaxonomyCatalog.fromCanonicalId(selectedDimension.id)?.id
+            ?: selectedDimension.canonicalId
     val taskCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(task.dimensionId)?.id
     return task.dimensionId == selectedDimension.id ||
         (!selectedCanonicalId.isNullOrBlank() && taskCanonicalId == selectedCanonicalId) ||

@@ -28,6 +28,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.day.OVERALL_JOURNAL_PROMPTS
@@ -102,11 +103,12 @@ fun SummaryTabContent(
                     fontWeight = FontWeight.SemiBold,
                 )
 
-                OVERALL_JOURNAL_PROMPTS.forEach { (key, prompt) ->
+                OVERALL_JOURNAL_PROMPTS.forEachIndexed { index, (key, prompt) ->
                     JournalPromptField(
                         prompt = prompt,
                         value = uiState.overallResponses[key] ?: "",
                         onValueChange = onOverallResponseChange(key),
+                        tag = "journal_overall_prompt_$index",
                     )
                 }
             }
@@ -126,6 +128,7 @@ fun SummaryTabContent(
             Card(
                 modifier = Modifier
                     .fillMaxWidth()
+                    .testTag("journal_dimension_card")
                     .clickable {
                         expandedDimensionId = if (isExpanded) null else dimensionId
                     },
@@ -184,6 +187,7 @@ private fun JournalPromptField(
     prompt: String,
     value: String,
     onValueChange: (String) -> Unit,
+    tag: String? = null,
 ) {
     val strings = LocalUiStrings.current
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
@@ -195,7 +199,7 @@ private fun JournalPromptField(
         OutlinedTextField(
             value = value,
             onValueChange = onValueChange,
-            modifier = Modifier.fillMaxWidth(),
+            modifier = if (tag != null) Modifier.fillMaxWidth().testTag(tag) else Modifier.fillMaxWidth(),
             placeholder = { Text(strings.locYourThoughts) },
             minLines = 2,
             maxLines = 4,

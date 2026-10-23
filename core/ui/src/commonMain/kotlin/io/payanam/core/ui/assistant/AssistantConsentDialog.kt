@@ -5,7 +5,6 @@ package io.payanam.core.ui.assistant
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -13,6 +12,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 
 /**
@@ -37,7 +37,7 @@ fun AssistantConsentDialog(
     onCancel: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    AlertDialog(
+    PayanamAlertDialog(
         // Dismissal routes to Cancel, not to silence: tapping outside is a "no", never a "yes".
         onDismissRequest = onCancel,
         title = { Text(strings.assistantConsentTitle, fontWeight = FontWeight.SemiBold) },

@@ -40,6 +40,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.Path
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
@@ -270,6 +271,7 @@ private fun MatrixRow(
                     )
                     onClick()
                 }
+                .testTag("lenses_matrix_row")
                 .background(if (isDay) Color(0xFF818CF8).copy(alpha = 0.08f) else Color.Transparent)
                 .padding(horizontal = 10.dp, vertical = 6.dp),
         verticalAlignment = Alignment.CenterVertically,

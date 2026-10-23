@@ -9,6 +9,7 @@ import io.payanam.domain.repository.NoteRepository
 import io.payanam.domain.repository.TagRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -100,6 +101,13 @@ class NotesViewModel(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                // A cancelled collection is NOT a load failure. Rethrowing keeps structured
+                // concurrency intact, and stops a normal cancellation being logged as an ERROR -
+                // which is exactly what the cross-platform log-parity check caught on the desktop.
+                throw e
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("NotesViewModel.loadNotes", "Error loading notes", e)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }
@@ -176,6 +184,13 @@ class NotesViewModel(
                     tagRepository.replaceNoteTags(note.id, tags)
                 }
                 logger.i("NotesViewModel.createNote", "Note created", mapOf("tagCount" to tags.size))
+            } catch (e: CancellationException) {
+                // A cancelled collection is NOT a load failure. Rethrowing keeps structured
+                // concurrency intact, and stops a normal cancellation being logged as an ERROR -
+                // which is exactly what the cross-platform log-parity check caught on the desktop.
+                throw e
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("NotesViewModel.createNote", "Error creating note", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -214,6 +229,13 @@ class NotesViewModel(
                         "tagCount" to tags.size,
                     ),
                 )
+            } catch (e: CancellationException) {
+                // A cancelled collection is NOT a load failure. Rethrowing keeps structured
+                // concurrency intact, and stops a normal cancellation being logged as an ERROR -
+                // which is exactly what the cross-platform log-parity check caught on the desktop.
+                throw e
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("NotesViewModel.updateNote", "Error updating note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }
@@ -230,6 +252,13 @@ class NotesViewModel(
             try {
                 noteRepository.deleteNote(noteId)
                 logger.i("NotesViewModel.deleteNote", "Note deleted", mapOf("noteId" to noteId))
+            } catch (e: CancellationException) {
+                // A cancelled collection is NOT a load failure. Rethrowing keeps structured
+                // concurrency intact, and stops a normal cancellation being logged as an ERROR -
+                // which is exactly what the cross-platform log-parity check caught on the desktop.
+                throw e
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("NotesViewModel.deleteNote", "Error deleting note", e, mapOf("noteId" to noteId))
                 _uiState.update { it.copy(error = e.message) }

@@ -10,6 +10,7 @@ import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -162,6 +163,8 @@ class AddTaskViewModel(
                 if (PlatformFeatureFlags.current.remindersEnabled) {
                     try {
                         notificationScheduler.scheduleForTask(task)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.e(
                             "AddTaskViewModel.createTask",
@@ -186,6 +189,8 @@ class AddTaskViewModel(
                 )
                 logger.d("AddTaskViewModel.createTask", "Task created", mapOf("title" to title))
                 launch(resultDispatcher) { onResult(Result.success(Unit)) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("AddTaskViewModel.createTask", "Failed to create task", e)
                 launch(resultDispatcher) { onResult(Result.failure(e)) }

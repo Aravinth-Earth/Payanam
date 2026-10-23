@@ -52,6 +52,9 @@ class ImportPickerUnificationTest {
 
     private val h = E2eHarness(rule, tag = "E2E-IMPORT-PICKER")
 
+    /** Every label below comes from [E2eLabels], so a ta-IN device resolves it too. */
+    private val l: E2eLabels.Labels get() = h.labels
+
     /** The device sleeps on a short timeout mid-run; a stopped Activity has no Compose tree. */
     @Before
     fun keepScreenAwake() {
@@ -83,35 +86,32 @@ class ImportPickerUnificationTest {
         // equivalent is a no-op here — not the same step done twice. This class does NOT
         // log `setup=complete`: FreshSetup.run() already does.
         FreshSetup(h).run()
-        h.scrollTo("Verify and proceed")
-        h.click("Verify and proceed")
-        h.assertVisible("Per Dimension")
+        h.scrollTo(l.verifyAndProceed)
+        h.click(l.verifyAndProceed)
+        h.assertVisible(l.perDimension)
 
         // ═══ SETTINGS — the same control, exactly once ═══════════════════════════════════════════
-        h.clickNav("Settings")
-        h.assertVisible("Settings")
+        h.clickNav(l.settings)
+        h.assertVisible(l.settings)
         // The Data Management card defaults COLLAPSED and its body is only composed once expanded —
         // an assertion before this tap would pass vacuously.
-        h.scrollTo(DATA_MANAGEMENT)
-        h.click(DATA_MANAGEMENT)
+        h.scrollTo(l.dataManagement)
+        h.click(l.dataManagement)
         // scroll-first (assertVisible cannot scroll; the expanded row can sit off-screen) — same
         // discipline as the sibling classes.
-        h.scrollTo(EXPORT_LABEL)
+        h.scrollTo(l.exportAction)
         // waitUntil IS the check — it throws if the tag never appears, so an assertTrue on the same
         // predicate right after could only re-prove what this line just proved.
         rule.waitUntil(WIDGET_WAIT_MS) { h.existsTag(IMPORT_DATABASE_FILE_BUTTON_TAG) }
 
         // Exact-match, not substring: the same card renders "Import uHabits", so a substring count
         // would see 2 and the Export row would not be distinguishable from a second import control.
-        val importControls = rule.onAllNodes(h.labelledExactly(IMPORT_LABEL)).fetchSemanticsNodes().size
+        val importControls = rule.onAllNodes(h.labelledExactly(l.importAction)).fetchSemanticsNodes().size
         assertEquals("Settings must offer exactly one database-import control", 1, importControls)
         h.log("settings=one-file-control")
     }
 
     private companion object {
-        const val IMPORT_LABEL = "Import"
-        const val EXPORT_LABEL = "Export"
-        const val DATA_MANAGEMENT = "Data Management"
         const val WIDGET_WAIT_MS = 10_000L
     }
 }

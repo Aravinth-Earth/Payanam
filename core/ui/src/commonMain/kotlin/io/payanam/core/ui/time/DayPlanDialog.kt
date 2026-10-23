@@ -9,7 +9,6 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
@@ -24,13 +23,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.payanam.shared.logging.AppLogger
-import io.payanam.core.ui.text.UiStrings
-import io.payanam.core.ui.text.LocalUiStrings
-import io.payanam.core.ui.time.DurationMinutesPickerField
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.preferences.DimensionPreference
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.time.DurationMinutesPickerField
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.DayPlanTemplateRecord
+import io.payanam.shared.logging.AppLogger
 
 /**
  * Everything the day-plan dialog collects, validated and in save-ready form.
@@ -100,11 +100,12 @@ fun buildDayPlanDialogSavePayload(
         allocations = allocations,
         templateId = selectedTemplateId,
         isStarredDay = starredDay,
-        dayTypeTemplateByType = mapOf(
-            DayPlanRepository.DAY_TYPE_WEEKDAY to weekdayTemplateId,
-            DayPlanRepository.DAY_TYPE_WEEKEND to weekendTemplateId,
-            DayPlanRepository.DAY_TYPE_STARRED to starredTemplateId,
-        ),
+        dayTypeTemplateByType =
+            mapOf(
+                DayPlanRepository.DAY_TYPE_WEEKDAY to weekdayTemplateId,
+                DayPlanRepository.DAY_TYPE_WEEKEND to weekendTemplateId,
+                DayPlanRepository.DAY_TYPE_STARRED to starredTemplateId,
+            ),
     )
 }
 
@@ -145,14 +146,15 @@ fun DayPlanDialog(
     var starredTemplateId by remember(dayTypeTemplateByType) {
         mutableStateOf(dayTypeTemplateByType[DayPlanRepository.DAY_TYPE_STARRED])
     }
-    val allocationInputs = remember(dimensionOptions, currentAllocations) {
-        mutableStateMapOf<String, String>().apply {
-            dimensionOptions.forEach { option ->
-                this[option.id] = currentAllocations[option.id]?.toString().orEmpty()
+    val allocationInputs =
+        remember(dimensionOptions, currentAllocations) {
+            mutableStateMapOf<String, String>().apply {
+                dimensionOptions.forEach { option ->
+                    this[option.id] = currentAllocations[option.id]?.toString().orEmpty()
+                }
             }
         }
-    }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locDayPlan) },
         text = {
@@ -228,8 +230,9 @@ fun DayPlanDialog(
                     onTemplateSelected = { starredTemplateId = it },
                 )
                 if (dayMode == DayPlanRepository.MODE_AUTO) {
-                    val resolvedText = resolvedTemplateName
-                        ?: strings.locDayPlanAutoUnassigned
+                    val resolvedText =
+                        resolvedTemplateName
+                            ?: strings.locDayPlanAutoUnassigned
                     Text(
                         text = strings.locDayPlanAutoResolved.format(resolvedText),
                         style = MaterialTheme.typography.bodySmall,
@@ -291,16 +294,17 @@ fun DayPlanDialog(
             if (!isPastDay) {
                 TextButton(
                     onClick = {
-                        val savePayload = buildDayPlanDialogSavePayload(
-                            dayMode = dayMode,
-                            selectedTemplateId = selectedTemplateId,
-                            starredDay = starredDay,
-                            weekdayTemplateId = weekdayTemplateId,
-                            weekendTemplateId = weekendTemplateId,
-                            starredTemplateId = starredTemplateId,
-                            dimensionOptions = dimensionOptions,
-                            allocationInputs = allocationInputs,
-                        )
+                        val savePayload =
+                            buildDayPlanDialogSavePayload(
+                                dayMode = dayMode,
+                                selectedTemplateId = selectedTemplateId,
+                                starredDay = starredDay,
+                                weekdayTemplateId = weekdayTemplateId,
+                                weekendTemplateId = weekendTemplateId,
+                                starredTemplateId = starredTemplateId,
+                                dimensionOptions = dimensionOptions,
+                                allocationInputs = allocationInputs,
+                            )
                         onSave(
                             savePayload.mode,
                             savePayload.allocations,

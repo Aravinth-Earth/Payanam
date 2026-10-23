@@ -1720,8 +1720,50 @@ if ($runAndroidGuardrails)
 # Check 5: Unit tests (profile + optional skip)
 if ($runUnitTests)
 {
+    # ── The task list is EXPLICIT, and it must name every module that has tests ─────────────────
+    # Named explicitly rather than derived because a derived list hides what runs. The cost is that a
+    # module can be added and never named - which is how :core:presentation (1194 tests, the largest
+    # module in the repo), :core:strings (11) and :core:backup (14) came to run in NO gate at all.
+    # The ratchet below compares this list against the modules that HAVE a test source set and fails on
+    # a gap, so the list cannot silently fall behind the tree again.
+    $testTaskList = @(
+        ":app:testDebugUnitTest",
+        ":core:backup:test",
+        ":core:common:testDebugUnitTest",
+        ":core:database:testDebugUnitTest",
+        ":core:database-model:test",
+        ":core:database-jvm:test",
+        ":core:domain:test",
+        ":core:presentation:test",
+        ":core:scoring:test",
+        ":core:shared:test",
+        ":core:strings:test"
+        # :core:ui is deliberately NOT named above. It is Kotlin Multiplatform with no withHostTest {},
+        # so it has no Android host-test task (testDebugUnitTest does not exist in that project). Its
+        # commonTest suite runs in the desktop phase via :core:ui:desktopTest, and because it has no
+        # src/test directory the ratchet below does not require it to be named here.
+    )
+    $testModuleDirs = @(
+        "app", "core/backup", "core/common", "core/database", "core/database-jvm", "core/domain",
+        "core/presentation", "core/scoring", "core/shared", "core/strings"
+    )
+    $missingTestModules = @()
+    foreach ($moduleDir in $testModuleDirs)
+    {
+        if (-not (Test-Path (Join-Path $moduleDir "src/test"))) { continue }
+        $named = $false
+        foreach ($task in $testTaskList) { if ($task -like ":$($moduleDir -replace '/', ':'):*") { $named = $true; break } }
+        if (-not $named) { $missingTestModules += $moduleDir }
+    }
+    if ($missingTestModules.Count -gt 0)
+    {
+        Write-LogWithTime "  ❌ Test ratchet: these modules have a src/test but are named by no task: $($missingTestModules -join ', ')" "Red"
+        Write-LogWithTime "     Add each to `$testTaskList above - a module whose tests run in no gate ships unverified." "Red"
+        Exit-WithCleanup 1
+    }
+
     Write-LogWithTime "Running unit tests..." "Cyan"
-    $testRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest :core:common:testDebugUnitTest :core:database:testDebugUnitTest :core:domain:test :core:scoring:test :core:shared:test :core:database-model:test :core:database-jvm:test $gradleProps" -StepLabel "Unit tests"
+    $testRun = Invoke-GradleStreaming -GradleArgs "$($testTaskList -join ' ') $gradleProps" -StepLabel "Unit tests"
     if ($testRun.ExitCode -ne 0)
     {
         Write-LogWithTime "  ❌ Unit tests failed!" "Red"

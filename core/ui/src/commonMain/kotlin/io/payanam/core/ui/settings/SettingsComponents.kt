@@ -47,6 +47,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.DimensionBadgeLabelRow
@@ -170,7 +173,9 @@ fun DimensionPreferenceCard(
                         value = editLabel,
                         onValueChange = { editLabel = it },
                         singleLine = true,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .testTag("settings_dimension_name_field"),
                     )
                     IconButton(onClick = {
                         val trimmed = editLabel.trim()
@@ -232,7 +237,10 @@ fun DimensionPreferenceCard(
                         onValueChange = { editWeight = it },
                         valueRange = 0.1f..10f,
                         steps = 17,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier
+                            .weight(1f)
+                            .semantics { contentDescription = strings.settingsDimensionWeightLabel }
+                            .testTag("settings_dimension_weight_slider"),
                     )
                     Text(
                         // Hand-rounded rather than String.format("%.1f"), which is a JVM API. Locale.US

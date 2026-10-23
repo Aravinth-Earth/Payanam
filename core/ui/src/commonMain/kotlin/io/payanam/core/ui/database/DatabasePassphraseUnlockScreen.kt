@@ -26,7 +26,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Security
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -56,6 +55,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.theme.LifeDimensionColors
@@ -245,10 +245,11 @@ fun DatabasePassphraseUnlockScreen(
         color = Color(0xFF121212),
     ) {
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(24.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(24.dp),
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.spacedBy(24.dp),
         ) {
@@ -261,18 +262,20 @@ fun DatabasePassphraseUnlockScreen(
                 Box {
                     Text(
                         text = strings.appName,
-                        style = MaterialTheme.typography.headlineLarge.copy(
-                            fontWeight = FontWeight.Bold,
-                            letterSpacing = 2.sp,
-                        ),
+                        style =
+                            MaterialTheme.typography.headlineLarge.copy(
+                                fontWeight = FontWeight.Bold,
+                                letterSpacing = 2.sp,
+                            ),
                         color = Color.White,
                     )
                     // The Pink Dot from Design #2
                     Canvas(
-                        modifier = Modifier
-                            .size(4.dp)
-                            .align(Alignment.BottomEnd)
-                            .padding(bottom = 8.dp, end = 2.dp),
+                        modifier =
+                            Modifier
+                                .size(4.dp)
+                                .align(Alignment.BottomEnd)
+                                .padding(bottom = 8.dp, end = 2.dp),
                     ) {
                         drawCircle(color = LifeDimensionColors.Relationships)
                     }
@@ -287,26 +290,29 @@ fun DatabasePassphraseUnlockScreen(
             // Database Summary (Glassmorphism Card)
             if (uiState.hasLocalDatabase) {
                 Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color.White.copy(alpha = 0.05f),
-                    ),
+                    colors =
+                        CardDefaults.cardColors(
+                            containerColor = Color.White.copy(alpha = 0.05f),
+                        ),
                     shape = RoundedCornerShape(16.dp),
-                    border = androidx.compose.foundation.BorderStroke(
-                        1.dp,
-                        Color.White.copy(alpha = 0.1f),
-                    ),
+                    border =
+                        androidx.compose.foundation.BorderStroke(
+                            1.dp,
+                            Color.White.copy(alpha = 0.1f),
+                        ),
                     modifier = Modifier.fillMaxWidth(),
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp),
                         verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        val lastUpdated = if (uiState.databaseLastModifiedMs > 0L) {
-                            SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
-                                .format(Date(uiState.databaseLastModifiedMs))
-                        } else {
-                            "-"
-                        }
+                        val lastUpdated =
+                            if (uiState.databaseLastModifiedMs > 0L) {
+                                SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                                    .format(Date(uiState.databaseLastModifiedMs))
+                            } else {
+                                "-"
+                            }
                         // Shown only for a database that IS encrypted. The else arm used to label a
                         // not-yet-encrypted database "plaintext", which describes a transient state
                         // rather than the product's storage model.
@@ -338,17 +344,19 @@ fun DatabasePassphraseUnlockScreen(
                     onValueChange = { passphrase = it },
                     modifier = Modifier.fillMaxWidth(),
                     label = { Text(strings.dbPassphraseInputLabel) },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (!uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank()) {
-                                submitUnlock()
-                            }
-                        },
-                    ),
+                    keyboardOptions =
+                        KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done,
+                        ),
+                    keyboardActions =
+                        KeyboardActions(
+                            onDone = {
+                                if (!uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank()) {
+                                    submitUnlock()
+                                }
+                            },
+                        ),
                     visualTransformation = if (showPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
                     leadingIcon = {
                         Icon(
@@ -366,45 +374,34 @@ fun DatabasePassphraseUnlockScreen(
                             )
                         }
                     },
-                    colors = androidx.compose.material3.OutlinedTextFieldDefaults.colors(
-                        focusedTextColor = Color.White,
-                        unfocusedTextColor = Color.White,
-                        focusedBorderColor = LifeDimensionColors.HealthWellness,
-                        unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
-                    ),
+                    colors =
+                        androidx.compose.material3.OutlinedTextFieldDefaults.colors(
+                            focusedTextColor = Color.White,
+                            unfocusedTextColor = Color.White,
+                            focusedBorderColor = LifeDimensionColors.HealthWellness,
+                            unfocusedBorderColor = Color.White.copy(alpha = 0.2f),
+                        ),
                     shape = RoundedCornerShape(12.dp),
                 )
 
                 // Error Text Area (Soft Coral)
-                val errorText = when (localErrorReasonCode ?: uiState.errorReasonCode) {
-                    "invalid" -> strings.dbPassphraseUnlockErrorInvalid
-
-                    "locked" -> strings.dbPassphraseUnlockErrorLocked.formatArgs(uiState.lockoutSecondsRemaining)
-
-                    "key_invalidated" -> strings.dbPassphraseUnlockErrorKeyInvalidated
-
-                    "biometric_failed", "biometric_error" -> strings.dbPassphraseUnlockErrorBiometricFailed
-
-                    "biometric_unavailable" -> strings.dbPassphraseUnlockErrorBiometricUnavailable
-
-                    "biometric_lockout" -> strings.dbPassphraseUnlockErrorBiometricLockout
-
-                    "db_too_new" -> strings.dbPassphraseUnlockErrorDbTooNew
-
-                    "db_too_old" -> strings.dbPassphraseUnlockErrorDbTooOld
-
-                    "schema_invalid" -> strings.dbPassphraseUnlockErrorSchemaInvalid
-
-                    "storage_incomplete" -> strings.dbPassphraseUnlockErrorStorageIncomplete
-
-                    "migration_required" -> strings.dbPassphraseUnlockErrorMigrationRequired
-
-                    "open_failed" -> strings.dbPassphraseUnlockErrorOpenFailed
-
-                    "reset_failed" -> strings.dbPassphraseUnlockResetFailed
-
-                    else -> null
-                }
+                val errorText =
+                    when (localErrorReasonCode ?: uiState.errorReasonCode) {
+                        "invalid" -> strings.dbPassphraseUnlockErrorInvalid
+                        "locked" -> strings.dbPassphraseUnlockErrorLocked.formatArgs(uiState.lockoutSecondsRemaining)
+                        "key_invalidated" -> strings.dbPassphraseUnlockErrorKeyInvalidated
+                        "biometric_failed", "biometric_error" -> strings.dbPassphraseUnlockErrorBiometricFailed
+                        "biometric_unavailable" -> strings.dbPassphraseUnlockErrorBiometricUnavailable
+                        "biometric_lockout" -> strings.dbPassphraseUnlockErrorBiometricLockout
+                        "db_too_new" -> strings.dbPassphraseUnlockErrorDbTooNew
+                        "db_too_old" -> strings.dbPassphraseUnlockErrorDbTooOld
+                        "schema_invalid" -> strings.dbPassphraseUnlockErrorSchemaInvalid
+                        "storage_incomplete" -> strings.dbPassphraseUnlockErrorStorageIncomplete
+                        "migration_required" -> strings.dbPassphraseUnlockErrorMigrationRequired
+                        "open_failed" -> strings.dbPassphraseUnlockErrorOpenFailed
+                        "reset_failed" -> strings.dbPassphraseUnlockResetFailed
+                        else -> null
+                    }
                 if (errorText != null) {
                     Text(
                         text = errorText,
@@ -417,11 +414,12 @@ fun DatabasePassphraseUnlockScreen(
 
             // Primary Unlock Button (Gradient)
             GradientButton(
-                text = if (uiState.isUnlocking) {
-                    strings.dbPassphraseUnlocking
-                } else {
-                    strings.dbPassphraseUnlockAction
-                },
+                text =
+                    if (uiState.isUnlocking) {
+                        strings.dbPassphraseUnlocking
+                    } else {
+                        strings.dbPassphraseUnlockAction
+                    },
                 onClick = submitUnlock,
                 enabled = !uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank(),
                 modifier = Modifier.fillMaxWidth(),
@@ -449,23 +447,26 @@ fun DatabasePassphraseUnlockScreen(
 
             // Diagnostics Section (Muted)
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(top = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(top = 16.dp),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(1.dp)
-                        .background(Color.White.copy(alpha = 0.1f)),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(1.dp)
+                            .background(Color.White.copy(alpha = 0.1f)),
                 )
                 Text(
                     text = strings.dbPassphraseDiagnosticsTitle.uppercase(Locale.ROOT),
-                    style = MaterialTheme.typography.labelSmall.copy(
-                        fontWeight = FontWeight.Bold,
-                        letterSpacing = 1.sp,
-                    ),
+                    style =
+                        MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp,
+                        ),
                     color = Color.White.copy(alpha = 0.4f),
                 )
                 debugLogExport?.invoke()
@@ -512,7 +513,7 @@ fun DatabasePassphraseUnlockScreen(
         }
     }
     if (showResetConfirmDialog) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },
             title = { Text(strings.dbPassphraseUnlockResetTitle) },
             text = { Text(strings.dbPassphraseUnlockResetMessage) },
@@ -541,7 +542,10 @@ fun DatabasePassphraseUnlockScreen(
 }
 
 @Composable
-private fun SummaryRow(label: String, value: String) {
+private fun SummaryRow(
+    label: String,
+    value: String,
+) {
     Row(
         modifier = Modifier.fillMaxWidth(),
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -568,14 +572,14 @@ fun DatabasePassphraseUnlockDiagnosticButton(
     modifier: Modifier = Modifier,
 ) {
     Box(
-        modifier = modifier
-            .height(40.dp)
-            .border(
-                1.dp,
-                Color.White.copy(alpha = 0.2f),
-                RoundedCornerShape(8.dp),
-            )
-            .clickable(onClick = onClick),
+        modifier =
+            modifier
+                .height(40.dp)
+                .border(
+                    1.dp,
+                    Color.White.copy(alpha = 0.2f),
+                    RoundedCornerShape(8.dp),
+                ).clickable(onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
@@ -595,21 +599,22 @@ private fun GradientButton(
 ) {
     val alpha = if (enabled) 1f else 0.5f
     Box(
-        modifier = modifier
-            .height(56.dp)
-            .clip(RoundedCornerShape(12.dp))
-            .then(
-                if (enabled) {
-                    Modifier.background(
-                        brush = Brush.horizontalGradient(
-                            colors = listOf(LifeDimensionColors.HealthWellness, LifeDimensionColors.CareerWork),
-                        ),
-                    )
-                } else {
-                    Modifier.background(Color.White.copy(alpha = 0.1f))
-                },
-            )
-            .clickable(enabled = enabled, onClick = onClick),
+        modifier =
+            modifier
+                .height(56.dp)
+                .clip(RoundedCornerShape(12.dp))
+                .then(
+                    if (enabled) {
+                        Modifier.background(
+                            brush =
+                                Brush.horizontalGradient(
+                                    colors = listOf(LifeDimensionColors.HealthWellness, LifeDimensionColors.CareerWork),
+                                ),
+                        )
+                    } else {
+                        Modifier.background(Color.White.copy(alpha = 0.1f))
+                    },
+                ).clickable(enabled = enabled, onClick = onClick),
         contentAlignment = Alignment.Center,
     ) {
         Text(
