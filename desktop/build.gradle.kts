@@ -176,6 +176,10 @@ val buildNumber: Int = project.findProperty("buildNumber")?.toString()?.toIntOrN
 val buildPlatform: String = project.findProperty("buildPlatform")?.toString() ?: ""
 val buildTimestamp: String = project.findProperty("buildTimestamp")?.toString() ?: ""
 val buildTotalBuilds: Int = project.findProperty("buildTotalBuilds")?.toString()?.toIntOrNull() ?: 0
+// -PbuildType=debug|release, set by the build scripts, which are the only sanctioned build entry points.
+// An absent value means the module was built directly (a test run, an IDE), and that is NOT treated as a
+// debug build: the build-type default for debug logging must never switch itself on by accident.
+val buildType: String = project.findProperty("buildType")?.toString() ?: ""
 
 tasks.register("generateBuildInfo") {
     notCompatibleWithConfigurationCache("References script-level project properties")
@@ -192,6 +196,7 @@ tasks.register("generateBuildInfo") {
         }
         val displayPrefix = if (platform == "Linux") "L" else "W"
         val timestamp = buildTimestamp.ifBlank { "00000000_000000" }
+        val isDebugBuild = buildType.equals("debug", ignoreCase = true)
 
         val dir = outputDir.get().asFile.resolve("io/payanam/desktop")
         dir.mkdirs()
@@ -206,6 +211,14 @@ object DesktopBuildInfo {
     const val BUILD_TIMESTAMP = "$timestamp"
     const val VERSION_DISPLAY_NAME = "#${displayPrefix}$buildNumber ($timestamp)"
     const val BUILD_NAME = "Payanam_${platform}_${buildNumber}_$timestamp"
+    /**
+     * Whether this build was produced as a debug build (`-PbuildType=debug`).
+     *
+     * The desktop counterpart of Android's `BuildConfig.DEBUG`, and the reason it exists: the build
+     * scripts computed a debug/release value and only printed it, so the running app could not tell a
+     * debug build from a release one and debug logging had no build-type default to follow.
+     */
+    const val IS_DEBUG_BUILD = $isDebugBuild
 }
 """.trimIndent()
         )

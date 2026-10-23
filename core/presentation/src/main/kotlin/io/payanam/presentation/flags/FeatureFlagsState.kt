@@ -28,6 +28,15 @@ data class FeatureFlagsState(
 
     /** Whether the tag editor is offered. Android reads it from `BuildConfig.TAGS_ENABLED`. */
     val tagsEnabled: Boolean = true,
+
+    /**
+     * Whether the Time screen offers the day-plan affordances. Android reads it from
+     * `BuildConfig.PLANS_CTA_ENABLED`.
+     *
+     * Enabled by default for the same reason as the flags above: the desktop has no build config, and a
+     * default of false would silently hide a working surface there rather than fail loudly.
+     */
+    val plansCtaEnabled: Boolean = true,
 )
 
 /**

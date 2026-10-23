@@ -3,6 +3,7 @@
 package io.payanam.database.jvm
 
 import io.payanam.database.jvm.DatabaseTableCountReader
+import io.payanam.domain.port.DatabaseRekey
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.DatabaseRekeySequence
 import io.payanam.shared.database.EncryptedFileClassifier
@@ -20,7 +21,7 @@ import java.util.Properties
  * rekey a file it has no migration path for, so it reports what it measured and refuses the rest, rather
  * than approximating Android's conversion.
  */
-class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe {
+class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe, DatabaseRekey {
     private val logger = AppLogger.current
 
     override fun isDetectablyEncrypted(
@@ -129,7 +130,29 @@ class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe {
      * @throws IllegalStateException when the file is missing, the driver refuses to open it under
      *   [currentPassphrase], or the result fails the shared gate. The file's encryption is then UNVERIFIED.
      */
-    fun rekeyEncryptedDatabase(
+    override fun rekeyEncryptedDatabase(
+        databaseFile: File,
+        currentPassphrase: CharArray,
+        newPassphrase: CharArray,
+        logTag: String,
+    ): DatabaseRekeySequence.Outcome =
+        rekeyFile(
+            databaseFile = databaseFile,
+            // The one place a passphrase stops being erasable on this platform: the JDBC `key` property
+            // and the PRAGMA literal are both Strings, so the conversion is unavoidable and confined here.
+            currentPassphrase = currentPassphrase.concatToString(),
+            newPassphrase = newPassphrase.concatToString(),
+            logTag = logTag,
+        )
+
+    /**
+     * The rekey over this module's driver, for a caller that already holds Strings.
+     *
+     * Kept as the String form so this file's own test exercises the real statement against the real driver
+     * without a [CharArray] round trip, and so the import path's internal use does not have to pretend to be
+     * a vault caller. The port entry point above is what a passphrase change calls.
+     */
+    fun rekeyFile(
         databaseFile: File,
         currentPassphrase: String,
         newPassphrase: String,

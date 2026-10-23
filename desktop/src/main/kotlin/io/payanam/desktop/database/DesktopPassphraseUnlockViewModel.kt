@@ -5,10 +5,9 @@ package io.payanam.desktop.database
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.database.DatabasePassphraseUnlockViewModel
 import io.payanam.presentation.database.passphraseUnlockViewModel
-import io.payanam.shared.database.PayanamDatabaseOpener
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricUnlockPrompt
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -29,9 +28,9 @@ import java.io.File
  *
  * The remaining two are the desktop's own answers to a question with no platform-free answer, so constructing
  * them here IS the desktop's answer rather than a choice a caller could vary:
- *  - [databaseOpener] is [DesktopDatabaseOpenerAdapter], the same adapter `desktopApp` opens the session with
- *    and the same one the transfer gateway verifies a passphrase with, so unlock and export cannot disagree
- *    about whether a passphrase is good.
+ *  - [sessionController] is the shell's own [DesktopDatabaseSessionController], so a shared-screen unlock
+ *    installs the SAME data layer the shell reads through. A bare [DesktopDatabaseOpenerAdapter] here opened
+ *    a second session and dropped its handle, leaving the layer uninstalled and every read empty.
  *  - [databaseFile] is the SAME `File` the forgot-passphrase reset was built with, taken from
  *    `stores.databaseStore.getDatabaseFilePath()`. Two paths for one database would let the reset delete an
  *    artifact family the unlock screen never opened.
@@ -39,8 +38,8 @@ import java.io.File
 internal data class DesktopPassphraseUnlockCollaborators(
     val vault: PassphraseVault,
     val biometricPrompt: BiometricUnlockPrompt,
-    val forgottenPassphraseReset: ForgottenPassphraseReset,
-    val databaseOpener: PayanamDatabaseOpener = DesktopDatabaseOpenerAdapter(),
+    val forgottenPassphraseReset: DatabaseForgotPassphraseReset,
+    val sessionController: DesktopDatabaseSessionController,
     val databaseFile: File,
 )
 
@@ -58,7 +57,7 @@ internal data class DesktopPassphraseUnlockCollaborators(
  * | collaborator | source |
  * |---|---|
  * | `vault`, `biometricPrompt`, `forgottenPassphraseReset` | `DesktopPersistenceStores` - the same instances the desktop's own startup gate uses |
- * | `databaseOpener` | [DesktopDatabaseOpenerAdapter] over `:core:database-jvm`, the same adapter the session open and the transfer gateway use |
+ * | `sessionController` | the shell's own [DesktopDatabaseSessionController], reached through [DesktopSessionControllerOpenerAdapter] so the unlock leaves the data layer installed |
  * | `databaseFile` | `stores.databaseStore.getDatabaseFilePath()`, the same value the reset was built with |
  * | `strings` | [UiStrings.of] on the caller-supplied language, so this screen's copy cannot differ from the shell's |
  *
@@ -88,7 +87,7 @@ internal fun databasePassphraseUnlockViewModel(
         vault = collaborators.vault,
         biometricPrompt = collaborators.biometricPrompt,
         forgottenPassphraseReset = collaborators.forgottenPassphraseReset,
-        databaseOpener = collaborators.databaseOpener,
+        databaseOpener = DesktopSessionControllerOpenerAdapter(collaborators.sessionController),
         databaseFile = collaborators.databaseFile,
         strings = strings,
         scope = scope,

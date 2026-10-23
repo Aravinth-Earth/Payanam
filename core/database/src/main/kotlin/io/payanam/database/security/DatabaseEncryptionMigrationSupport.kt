@@ -221,8 +221,8 @@ object DatabaseEncryptionMigrationSupport {
         currentPassphrase: String,
         newPassphrase: String,
         logTag: String,
-    ) {
-        DatabaseRekeySequence.rekeyToNewPassphrase(
+    ): DatabaseRekeySequence.Outcome {
+        val outcome = DatabaseRekeySequence.rekeyToNewPassphrase(
             databaseFile = databaseFile,
             currentPassphrase = currentPassphrase,
             newPassphrase = newPassphrase,
@@ -248,7 +248,8 @@ object DatabaseEncryptionMigrationSupport {
             },
             canOpenWith = { file, passphrase -> canOpenWithSqlCipher(file, passphrase) },
         )
-        logger.i(logTag, "Database rekey completed")
+        logger.i(logTag, "Database rekey completed", mapOf("outcome" to outcome.name))
+        return outcome
     }
 
     /**
@@ -620,11 +621,24 @@ object DatabaseEncryptionMigrationSupport {
             false
         }
 
+    /**
+     * Removes the `-wal`/`-shm`/`-journal` companions of [databaseFile] through [DatabaseFileGuard].
+     *
+     * `File.delete()` here reported nothing at all, so a companion this call failed to remove was
+     * indistinguishable from one that was never created — and a surviving `-wal` beside a migrated
+     * main file is how a migration the app reported as done leaves the old rows readable. The guard
+     * names the caller and the intent in the log, so the failure is findable afterwards.
+     */
     private fun deleteCompanionFiles(databaseFile: File) {
         DatabaseArtifacts.sidecarFilesFor(databaseFile).forEach { file ->
-            if (file.exists()) {
-                file.delete()
+            if (!file.exists()) {
+                return@forEach
             }
+            DatabaseFileGuard.safeDelete(
+                file,
+                DatabaseFileGuard.DeleteIntent.JANITOR_CLEANUP,
+                "DatabaseEncryptionMigrationSupport.deleteCompanionFiles",
+            )
         }
     }
 

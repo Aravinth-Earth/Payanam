@@ -3,6 +3,8 @@
 package io.payanam.desktop.database
 
 import io.payanam.database.jvm.DatabaseOpenResult
+import io.payanam.shared.database.WalCheckpointRule
+import io.payanam.shared.database.WalCheckpointRule.FoldReport
 import kotlinx.coroutines.flow.StateFlow
 
 /**
@@ -39,6 +41,17 @@ internal class DesktopDatabaseSessionPort(
                 Result.failure(IllegalStateException("Desktop database not opened: " + result.issue.type.name))
             }
         }
+
+    /**
+     * The controller's fold, awaited, and its honest report either way.
+     *
+     * The controller answers `null` when nothing is open; the shared contract asks for a report that
+     * cannot read as a flushed database, so that absence is mapped to [WalCheckpointRule.NO_ROW] - which
+     * is non-empty by construction. A caller that must flush after closing therefore still gets a real
+     * fold: this port opens nothing itself and says so by reporting nothing, rather than inventing a
+     * flush it did not perform.
+     */
+    override suspend fun flushPendingChanges(passphrase: String): FoldReport = controller.checkpoint() ?: WalCheckpointRule.NO_ROW
 
     /** Closes the session; the controller owns the close-and-uninstall ordering. */
     override fun closeDatabase() = controller.closeAndUninstall()

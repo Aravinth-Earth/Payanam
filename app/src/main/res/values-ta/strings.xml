@@ -251,6 +251,7 @@
     <string name="db_passphrase_db_summary_journal">ஜர்னல் பதிவுகள்: %1$d</string>
     <string name="db_passphrase_db_summary_notes">குறிப்புகள்: %1$d</string>
     <string name="db_passphrase_storage_mode_encrypted">குறியாக்கப்பட்டது</string>
+    <string name="db_passphrase_storage_mode_label">சேமிப்பு முறை</string>
     <string name="db_passphrase_storage_mode_plaintext">எளிய உரை</string>
     <string name="db_passphrase_diagnostics_title">பிழை கண்டறிதல்</string>
     <string name="db_passphrase_diagnostics_desc">அமைப்பு/இறக்குமதி தோல்வியெனில் பதிவுகளை ஏற்றுமதி செய்து பகிரவும்.</string>

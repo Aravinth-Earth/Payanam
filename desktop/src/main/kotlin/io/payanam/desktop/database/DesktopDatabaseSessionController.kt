@@ -4,8 +4,12 @@ package io.payanam.desktop.database
 
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
+import io.payanam.desktop.DesktopDatabaseCreateOutcome
+import io.payanam.desktop.createDesktopFirstRunDatabase
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.scoring.RecurrenceManager
+import io.payanam.shared.database.DatabaseBootIssue
+import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.WalCheckpointRule
 import io.payanam.shared.database.WalCheckpointRule.FoldReport
 import io.payanam.shared.logging.CrashBreadcrumbs
@@ -16,6 +20,8 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import java.nio.file.Files
+import java.nio.file.Path
 import java.util.concurrent.atomic.AtomicBoolean
 
 /**
@@ -147,10 +153,35 @@ internal class DesktopDatabaseSessionController(
     fun checkpoint(): FoldReport? = session?.checkpoint()
 
     /**
-     * Opens the database with [passphrase] and installs the layer.
+     * Opens the database with [passphrase] and installs the layer, CREATING it when there is no file yet.
+     *
+     * **The create is the point of this method, not a fallback inside it.** The shared
+     * `DatabaseInitViewModel` has no create-vs-open intent: it calls
+     * `DatabaseSessionManager.openDatabase(passphrase)` for BOTH the "create new database" and the
+     * "unlock" branch, because Room's builder creates a missing file on Android, so that single call is
+     * how Android satisfies both. This controller was open-only, so a fresh Linux install asking to
+     * CREATE met `PayanamDatabaseOpener.preflight`'s `not_found` and the whole first run stopped one
+     * step past the init screen. The two sides of the shared contract now agree.
+     *
+     * **The create is the SAME one, not a second one.** [createDesktopFirstRunDatabase] ->
+     * `PayanamDatabaseOpener.create` is what the desktop's own first-run gate already calls, with its
+     * failure-atomic temp-sibling build, its no-`REPLACE_EXISTING` move and its read-back proof. A
+     * second create path would be a second, divergent definition of the same file - and the one that
+     * can overwrite a database is exactly the one that must not exist.
+     *
+     * **The parent directory is created FIRST.** `preflightForCreate` refuses with `parent_not_found`
+     * when the directory is absent, so creating without it would move the failure one line down
+     * rather than remove it. `<root>/database/` is created here and by
+     * `databaseDirectoryRefusal`; both use `createDirectories`, which is idempotent.
+     *
+     * **An existing file is opened, never re-created.** The existence check is the whole branch, and
+     * the create's own `already_exists` guard remains the backstop if a file appears between the two.
+     * A file this build cannot open is refused with its real detail (`not_readable`, a schema or
+     * sidecar problem) rather than silently replaced - overwriting a database its owner cannot open is
+     * the one outcome that must never happen.
      *
      * Returns the outcome so the caller decides what the user is told; this class only decides what is
-     * INSTALLED.
+     * INSTALLED. A create that refused installs nothing, exactly like a refused open.
      */
     suspend fun openAndInstall(passphrase: CharArray): DatabaseOpenResult {
         // Nothing is installed until the open has succeeded: an install followed by a refusal would leave
@@ -158,7 +189,20 @@ internal class DesktopDatabaseSessionController(
         closeAndUninstall()
 
         val path = databaseFilePath()
-        val result = open(path, passphrase)
+        val result =
+            if (Files.exists(Path.of(path))) {
+                open(path, passphrase)
+            } else {
+                logger.i(
+                    "DesktopDatabaseSessionController",
+                    "No database file at the configured path; creating it for the shared init flow",
+                    mapOf("fileName" to Path.of(path).fileName.toString()),
+                )
+                // The proof session `create` returns is closed by `createDesktopFirstRunDatabase`
+                // itself; what is installed below is a session this controller owns, opened from the
+                // file that create just proved.
+                createDatabaseFile(path, passphrase) ?: open(path, passphrase)
+            }
         // Kept even on a refusal: a fresh install has no database to open, and the import that follows needs
         // the passphrase the user just set. Nothing is installed on that path, so the layer still fails loudly.
         openPassphrase = passphrase.copyOf()
@@ -189,9 +233,90 @@ internal class DesktopDatabaseSessionController(
         return result
     }
 
+    /**
+     * Creates the database at [path] through the desktop's EXISTING first-run create, or returns the
+     * refusal that stopped it - null when it was created.
+     *
+     * **A refusal is returned rather than swallowed**, so the caller never falls through to an open and
+     * reports a second, weaker reason for a failure that already has one. An unwritable data folder is
+     * the common case and must read as "could not write to its data folder", not as `not_found` again.
+     *
+     * **The directory is created before the create, never inside it.** `preflightForCreate` refuses a
+     * missing parent with `parent_not_found`, so delegating directory creation to the create would
+     * move the failure rather than remove it.
+     *
+     * **The proof session is closed inside [createDesktopFirstRunDatabase]**, and the caller opens the
+     * file that create proved - deliberately two steps rather than keeping the handle, so this
+     * controller owns exactly one connection at a time and `closeAndUninstall` still has nothing to
+     * remember here.
+     */
+    private fun createDatabaseFile(
+        path: String,
+        passphrase: CharArray,
+    ): DatabaseOpenResult.Refused? {
+        val target = Path.of(path)
+        val parent = target.toAbsolutePath().parent
+        if (parent != null && !Files.isDirectory(parent)) {
+            runCatching { Files.createDirectories(parent) }
+                .onFailure { error ->
+                    logger.e(
+                        "DesktopDatabaseSessionController.createDatabaseFile",
+                        "Could not create the database directory, so no database was created",
+                        error,
+                        mapOf("error" to (error.message ?: "Unknown error")),
+                    )
+                    return DatabaseOpenResult.Refused(
+                        DatabaseBootIssue(
+                            DatabaseBootIssueType.OPEN_FAILED,
+                            DESKTOP_DIRECTORY_UNWRITABLE,
+                        ),
+                    )
+                }
+        }
+        return when (
+            val outcome =
+                createDesktopFirstRunDatabase(
+                    databasePath = target,
+                    passphrase = passphrase,
+                    log = { entry ->
+                        logger.i(
+                            source = "DesktopDatabaseSessionController.createDatabaseFile",
+                            message = "First-run database create reported",
+                            data = entry,
+                        )
+                    },
+                )
+        ) {
+            is DesktopDatabaseCreateOutcome.Created -> {
+                logger.i(
+                    "DesktopDatabaseSessionController.createDatabaseFile",
+                    "Created the database the shared init flow asked to open",
+                    mapOf("schemaVersion" to outcome.schemaVersion),
+                )
+                null
+            }
+
+            // The issue TYPE and its machine code only: a detail can carry a path.
+            is DesktopDatabaseCreateOutcome.Refused -> {
+                logger.w(
+                    "DesktopDatabaseSessionController.createDatabaseFile",
+                    "Creating the database was refused; the shared data layer stays uninstalled",
+                    mapOf(
+                        "issue" to outcome.issue.type.name,
+                        "detail" to (outcome.issue.detailMessage ?: "none"),
+                    ),
+                )
+                DatabaseOpenResult.Refused(outcome.issue)
+            }
+        }
+    }
+
     /** Closes the session and uninstalls the layer, so a read after shutdown fails loudly rather than late. */
     fun closeAndUninstall() {
-        LocalDataLayer.resetForTests()
+        // The pre-session layer, NOT the uninstalled default: `openAndInstall` calls this first, so
+        // between the release above and the new install below the holder must already answer the gates
+        // that compose in that window — `databaseInitViewModel` reads it while being constructed.
+        LocalDataLayer.install(DesktopBootstrapDataLayer)
         openPassphrase?.fill('\u0000')
         openPassphrase = null
         session?.close()
@@ -385,3 +510,9 @@ internal class DesktopDatabaseSessionController(
 
 /** Thread name the desktop's database shutdown hook runs under, so it is identifiable in a thread dump. */
 private const val DESKTOP_DATABASE_SHUTDOWN_HOOK_NAME = "payanam-database-shutdown"
+
+/**
+ * Detail code for a data folder this build cannot create, matching the code the first-run gate's own
+ * `databaseDirectoryRefusal` uses so one failure reads the same however it was reached.
+ */
+private const val DESKTOP_DIRECTORY_UNWRITABLE = "desktop_directory_unwritable"

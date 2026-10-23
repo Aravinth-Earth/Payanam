@@ -7,170 +7,42 @@ package io.payanam.feature.settings.ui
 import android.content.Context
 import android.content.Intent
 import android.os.Process
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.text.KeyboardActions
-import androidx.compose.foundation.text.KeyboardOptions
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.Button
-import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.res.stringResource
-import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.ImeAction
-import androidx.compose.ui.text.input.KeyboardType
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
-import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.preferences.DimensionPreference
-import io.payanam.feature.settings.BulkHabitMappingResult
-import io.payanam.feature.settings.ExportResult
-import io.payanam.feature.settings.ImportResult
-import io.payanam.feature.settings.SettingsUiState
 import io.payanam.feature.settings.SettingsViewModel
-import io.payanam.feature.settings.UhabitsImportResult
+import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.ExportResult
+import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.logging.CrashBreadcrumbs
 import kotlin.system.exitProcess
 
-@Composable
-internal fun ImportDatabaseConfirmDialog(
-    showEncryptedModeWarning: Boolean,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.settings_import_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.settings_import_dialog_warning),
-                    style = MaterialTheme.typography.bodyMedium,
-                    fontWeight = FontWeight.Bold,
-                    color = MaterialTheme.colorScheme.error,
-                )
-                Text(
-                    text = stringResource(id = R.string.settings_import_dialog_data_loss),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                Text(
-                    text = stringResource(id = R.string.settings_import_dialog_backup_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                if (showEncryptedModeWarning) {
-                    Text(
-                        text = stringResource(id = R.string.settings_import_dialog_encrypted_mode_hint),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
-            ) {
-                Text(stringResource(id = R.string.settings_action_delete_import))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.settings_action_cancel))
-            }
-        },
-    )
-}
-
-@Composable
-internal fun DeleteAllDataConfirmDialog(
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.settings_delete_dialog_title)) },
-        text = {
-            Text(
-                text = stringResource(id = R.string.settings_delete_dialog_message),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        confirmButton = {
-            Button(
-                onClick = onConfirm,
-                colors = androidx.compose.material3.ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.error,
-                ),
-            ) {
-                Text(stringResource(id = R.string.settings_action_delete_all_data))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.settings_action_cancel))
-            }
-        },
-    )
-}
-
-@Composable
-internal fun DeleteExportPromptDialog(
-    onBackUpFirst: () -> Unit,
-    onSkipAndDelete: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.settings_delete_export_prompt_title)) },
-        text = {
-            Text(
-                text = stringResource(id = R.string.settings_delete_export_prompt_body),
-                style = MaterialTheme.typography.bodyMedium,
-            )
-        },
-        confirmButton = {
-            Button(onClick = onBackUpFirst) {
-                Text(stringResource(id = R.string.settings_delete_export_prompt_yes))
-            }
-        },
-        dismissButton = {
-            TextButton(
-                onClick = onSkipAndDelete,
-            ) {
-                Text(
-                    text = stringResource(id = R.string.settings_delete_export_prompt_no),
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
-        },
-    )
-}
-
+/**
+ * The half of the settings screen's import/export feedback that is not shared: this file exists because
+ * every line of it is bound to the Android process, not because of the screen it belongs to.
+ *
+ * The dialogs themselves moved to `io.payanam.core.ui.settings.SettingsDialogs`, where the desktop can
+ * render the same confirmations over the same shared copy. What stayed here is the effect host and its
+ * restart helper, for three reasons that all come down to the same seam: it needs a `Context` to read
+ * `R.string` and to relaunch, it needs `Process.killProcess` to give the process fresh Room handles
+ * after a database import, and it takes the app's `SettingsViewModel` so it can clear each result the
+ * moment it has been shown. A shared screen would have to be handed all three as parameters, which
+ * would put an Android-only restart policy behind an interface whose only other caller is the desktop -
+ * where there is no process to kill and no launch intent to fire.
+ *
+ * FOUR EFFECTS FOR FOUR RESULT CHANNELS, and that is the whole count: export, import, uHabits import and
+ * habit mapping are four different operations, each with its own success and failure copy and its own
+ * `clear` call on the ViewModel. The two that could be merged are deliberately not - `ImportResult`
+ * alone carries `requiresAppRestart`, and the restart has to happen AFTER the restart-flavoured snackbar
+ * has been dismissed, so that case cannot be folded into the ordinary success path without reordering
+ * when the user sees what just happened.
+ */
 @Composable
 internal fun SettingsImportFeedbackEffects(
     uiState: SettingsUiState,
@@ -276,6 +148,10 @@ internal fun SettingsImportFeedbackEffects(
         uiState.bulkHabitMappingResult?.let { result ->
             when (result) {
                 is BulkHabitMappingResult.Success -> {
+                    // A bulk mapping reports the dimension the CALLER resolved by id, so the copy has to
+                    // resolve the same id back to its label - or fall back to the raw id rather than to
+                    // some other dimension's label. Snackbar copy is one of the few places a wrong label
+                    // is invisible until someone goes looking for the habits they just filed.
                     val resolvedLabel = dimensionPreferences
                         .firstOrNull { it.id == result.dimensionId || it.canonicalId == result.dimensionId }
                         ?.label
@@ -327,136 +203,4 @@ private fun restartAppAfterDatabaseImport(context: Context) {
     context.startActivity(launchIntent)
     Process.killProcess(Process.myPid())
     exitProcess(0)
-}
-
-@Composable
-internal fun ImportEncryptedDbPassphraseDialog(
-    passphraseError: String?,
-    isVerifying: Boolean,
-    onConfirm: (String) -> Unit,
-    onDismiss: () -> Unit,
-) {
-    var passphrase by remember { mutableStateOf("") }
-    var showPassphrase by remember { mutableStateOf(false) }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.db_import_passphrase_prompt_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(
-                    text = stringResource(id = R.string.db_import_passphrase_prompt_desc),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-                OutlinedTextField(
-                    value = passphrase,
-                    onValueChange = { passphrase = it },
-                    modifier = Modifier.fillMaxWidth(),
-                    label = { Text(stringResource(id = R.string.db_passphrase_input_label)) },
-                    keyboardOptions = KeyboardOptions(
-                        keyboardType = KeyboardType.Password,
-                        imeAction = ImeAction.Done,
-                    ),
-                    keyboardActions = KeyboardActions(
-                        onDone = {
-                            if (passphrase.isNotBlank() && !isVerifying) {
-                                onConfirm(passphrase)
-                            }
-                        },
-                    ),
-                    visualTransformation = if (showPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
-                    trailingIcon = {
-                        IconButton(onClick = { showPassphrase = !showPassphrase }) {
-                            Icon(
-                                imageVector = if (showPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
-                                contentDescription = stringResource(
-                                    id = if (showPassphrase) R.string.db_passphrase_hide_toggle else R.string.db_passphrase_show_toggle,
-                                ),
-                            )
-                        }
-                    },
-                    singleLine = true,
-                    enabled = !isVerifying,
-                )
-                passphraseError?.let { err ->
-                    Text(
-                        text = err,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-            }
-        },
-        confirmButton = {
-            Button(
-                onClick = { onConfirm(passphrase) },
-                enabled = passphrase.isNotBlank() && !isVerifying,
-            ) {
-                if (isVerifying) {
-                    CircularProgressIndicator(modifier = Modifier.fillMaxWidth(0.5f), color = MaterialTheme.colorScheme.onPrimary)
-                } else {
-                    Text(stringResource(id = R.string.db_import_passphrase_prompt_action))
-                }
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss, enabled = !isVerifying) {
-                Text(stringResource(id = R.string.settings_action_cancel))
-            }
-        },
-    )
-}
-
-@Composable
-internal fun BulkMapImportedHabitsDialog(
-    selectedDimensionId: String,
-    dimensionPreferences: List<DimensionPreference>,
-    onSelectedDimensionChange: (String) -> Unit,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-) {
-    val logger = remember { UnifiedLogger.getInstance() }
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(stringResource(id = R.string.settings_bulk_map_dialog_title)) },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(stringResource(id = R.string.settings_bulk_map_dialog_message))
-                dimensionPreferences.forEach { dimension ->
-                    val label = dimension.label
-                    OutlinedButton(
-                        onClick = {
-                            logger.d(
-                                "BulkMapImportedHabitsDialog",
-                                "Bulk map dimension selected",
-                                mapOf("dimensionId" to dimension.id),
-                            )
-                            onSelectedDimensionChange(dimension.id)
-                        },
-                        modifier = Modifier.fillMaxWidth(),
-                    ) {
-                        Text(
-                            text = if (selectedDimensionId == dimension.id) {
-                                stringResource(
-                                    id = R.string.settings_bulk_map_dimension_selected,
-                                    label,
-                                )
-                            } else {
-                                label
-                            },
-                        )
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            TextButton(onClick = onConfirm) {
-                Text(stringResource(id = R.string.loc_apply))
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) {
-                Text(stringResource(id = R.string.settings_action_cancel))
-            }
-        },
-    )
 }

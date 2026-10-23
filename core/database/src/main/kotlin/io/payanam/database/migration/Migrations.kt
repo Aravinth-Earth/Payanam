@@ -1320,7 +1320,7 @@ val MIGRATION_19_20 =
  * an auto "Auto-detected missed" twin — and the LIMIT-1 read could surface
  * the auto row, making the previous day appear "not done".
  *
- * Fix (mirrors the self-governance ledger rule):
+ * Fix (mirrors the self-governance rule the occurrence writer follows):
  *   1. Dedupe: for each (taskId, day) with multiple rows, keep the user row
  *      (non-auto note) and delete the auto-missed twins. If a day somehow has
  *      only auto rows, keep the newest and drop older duplicates.

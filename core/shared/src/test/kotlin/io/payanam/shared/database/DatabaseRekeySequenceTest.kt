@@ -109,9 +109,7 @@ class DatabaseRekeySequenceTest {
                     newPassphrase = targetPassphrase,
                     openForRekey = { _, _ ->
                         object : DatabaseRekeySequence.RekeyableDatabase {
-                            override fun applyRekey(statement: String) {
-                                throw IllegalStateException("driver refused")
-                            }
+                            override fun applyRekey(statement: String): Unit = throw IllegalStateException("driver refused")
 
                             override fun close() {
                                 closed = true
@@ -263,7 +261,8 @@ class DatabaseRekeySequenceTest {
         }
 
     private fun databaseFile(name: String): File =
-        Files.createTempDirectory("w0-rekey")
+        Files
+            .createTempDirectory("w0-rekey")
             .toFile()
             .resolve(name)
             .apply { writeBytes(ByteArray(8192) { 0x2A }) }

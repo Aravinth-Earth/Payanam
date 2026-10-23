@@ -50,7 +50,7 @@ interface PassphraseVault {
      * This clears the UNLOCK credential only. It must never touch the database file: a reset that also
      * destroyed data would be an unrecoverable operation hiding behind a routine-sounding name, and both
      * platforms keep their data-deleting reset on a separate, explicitly-named path —
-     * [ForgottenPassphraseReset], named for the data it destroys.
+     * [io.payanam.domain.port.DatabaseForgotPassphraseReset], named for the data it destroys.
      */
     fun clearPassphrase()
 

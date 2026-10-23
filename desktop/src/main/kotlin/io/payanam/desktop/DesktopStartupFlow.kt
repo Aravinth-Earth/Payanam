@@ -2,7 +2,6 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
-import io.payanam.presentation.database.NewDatabaseDimensionInput
 import io.payanam.core.ui.database.buildDimensionSeedRows
 import io.payanam.core.ui.database.canonicalizeDefaultSeedLabel
 import io.payanam.core.ui.database.defaultNewDatabaseDimensionInputs
@@ -10,6 +9,7 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseOpener
 import io.payanam.domain.model.ConfiguredLifeDimension
+import io.payanam.presentation.database.NewDatabaseDimensionInput
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import java.io.IOException
@@ -152,11 +152,18 @@ fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): Desktop
         }
 
         runtimeState.scaffoldOnboardingStage == DesktopScaffoldOnboardingStage.DatabaseChoice -> {
-            DesktopStartupMode.OnboardingDatabaseChoice
+            // Android asks this question, and runs the dimension step, INSIDE its own database-init screen,
+            // so the desktop renders no card of its own here: a new install meets the SHARED screen. The
+            // stage is still what the resolver reads, so the ready callback advances it when that screen
+            // finishes - without that, the mode would never move past this branch.
+            DesktopStartupMode.InitializeDatabase
         }
 
         runtimeState.scaffoldOnboardingStage == DesktopScaffoldOnboardingStage.DimensionSetup -> {
-            DesktopStartupMode.OnboardingDimensionSetup
+            // The dimension step lives inside the shared database-init screen on Android. The desktop's own
+            // pre-database copy is also the order that silently loses the choice if the app is quit before
+            // unlock, so the shared screen is the flow and this stage renders no surface of its own.
+            DesktopStartupMode.InitializeDatabase
         }
 
         // NOTE: Finished deliberately has NO branch here. It means "the scaffold has run", not
@@ -270,7 +277,7 @@ internal sealed interface DesktopDatabaseCreateOutcome {
 /**
  * Creates the encrypted database for a first run, and says honestly whether it worked.
  *
- * The smallest slice of `DB-FIRST-RUN.first-run-reuses-android`: the desktop's Initialize action can finally
+ * The smallest slice of first-run database creation: the desktop's Initialize action can finally
  * make a database, through the SAME [PayanamDatabaseOpener.create] every other platform would use, at
  * the SAME path the open and transfer paths already use. Before this, `onInitializeDatabase` re-read
  * the database snapshot and changed nothing, so a brand-new Linux install had no way forward.
@@ -474,10 +481,10 @@ private const val DESKTOP_DIRECTORY_UNWRITABLE = "desktop_directory_unwritable"
 private const val DESKTOP_DIRECTORY_UNWRITABLE_MESSAGE =
     "Payanam could not write to its data folder, so no database was created."
 
-// REMAINS in `DB-FIRST-RUN.first-run-reuses-android`, deliberately NOT done here:
+// STILL OPEN in the desktop first-run flow, deliberately NOT done here:
 // the two-card gate is still two cards and the Initialize card still has no passphrase field of its own
-// (it reuses the session's, which is the honest one), while `UX.create-database` still needs a person to
-// install the `.deb` and drive it to `Ready`. The dimension step's save is NOT mocked any more: it writes
+// (it reuses the session's, which is the honest one), while creating the database from the UI
+// still needs a person to install the `.deb` and drive it to `Ready`. The dimension step's save is NOT mocked any more: it writes
 // the catalog through `LifeDimensionCatalogRepository.replaceAllDimensions` (see
 // [buildDesktopFirstRunDimensionSeed] and the source method the callback hands it to).
 

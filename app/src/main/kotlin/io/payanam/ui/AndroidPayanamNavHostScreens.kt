@@ -44,17 +44,23 @@ import io.payanam.feature.assistant.ui.AssistantSettingsScreen
 import io.payanam.feature.settings.ui.SettingsScreen
 import io.payanam.platform.AndroidBiometricUnlockPrompt
 import io.payanam.platform.DatabaseInitEntryPoint
+import io.payanam.platform.PassphraseChangeEntryPoint
 import io.payanam.platform.PassphraseSetupEntryPoint
 import io.payanam.platform.databaseInitViewModel
 import io.payanam.platform.importDatabase
 import io.payanam.presentation.database.DatabaseInitViewModel
+import io.payanam.presentation.database.passphraseChangeViewModel
 import io.payanam.presentation.database.passphraseSetupViewModel
 import io.payanam.presentation.database.passphraseUnlockViewModel
+import io.payanam.presentation.day.dayPlanViewModel
 import io.payanam.presentation.day.dayViewModel
 import io.payanam.presentation.lenses.lensHabitScoreViewModel
 import io.payanam.presentation.lenses.lensViewModel
 import io.payanam.presentation.lenses.scoringConfigViewModel
 import io.payanam.presentation.notes.notesViewModel
+import io.payanam.presentation.time.timeTagEditorViewModel
+import io.payanam.presentation.time.timeViewModel
+import io.payanam.presentation.time.timeVisualsViewModel
 import io.payanam.presentation.tasks.ScoreDetailType
 import io.payanam.presentation.tasks.addTaskViewModel
 import io.payanam.presentation.tasks.editTaskViewModel
@@ -63,13 +69,13 @@ import io.payanam.presentation.tasks.taskDetailViewModel
 import io.payanam.presentation.tasks.tasksViewModel
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.settings.FocusModePreset
+import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.screens.AndroidBiometricUnlockScreenActions
 import io.payanam.ui.screens.DatabaseInitLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseSetupLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseUnlockLogExportActions
 import io.payanam.ui.screens.PreUnlockUpdateSection
-import io.payanam.ui.screens.TimeScreen
-import io.payanam.ui.viewmodel.DatabasePassphraseChangeViewModel
+import io.payanam.core.ui.time.TimeScreen
 import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
@@ -216,7 +222,27 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
     ) {
         // The screen itself is in :core:ui and rendered by every platform. There is deliberately no
         // Android wrapper for it: the ViewModel and the log line are wired here, at the one call site.
-        val passphraseChangeViewModel: DatabasePassphraseChangeViewModel = hiltViewModel()
+        //
+        // The ViewModel is SHARED now (`:core:presentation`), so it is built from the installed ports and
+        // retained here - the platform owns retention, the shared class owns none, and `hiltViewModel()`
+        // cannot build it because that factory only knows `@HiltViewModel` classes, which a shared module
+        // cannot carry. Same shape as the unlock gate above.
+        val context = LocalContext.current
+        val passphraseChangeViewModel =
+            retainSharedViewModel(key = "passphrase_change", onRelease = { it.dispose() }) {
+                val entryPoint =
+                    EntryPointAccessors.fromApplication(
+                        context.applicationContext as Application,
+                        PassphraseChangeEntryPoint::class.java,
+                    )
+                passphraseChangeViewModel(
+                    databasePathResolver = entryPoint.databasePathResolver(),
+                    passphraseVault = entryPoint.passphraseVault(),
+                    rekey = entryPoint.databaseRekey(),
+                    sessionManager = entryPoint.databaseSessionManager(),
+                    processRestart = entryPoint.processRestart(),
+                )
+            }
         val passphraseChangeState by passphraseChangeViewModel.uiState.collectAsState()
         DatabasePassphraseChangeScreen(
             onSubmit = { currentPassphrase, newPassphrase, confirmPassphrase ->
@@ -344,7 +370,16 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
         openStopTrackingDialogRequestId: Long?,
         onOpenStopTrackingDialogHandled: (Long) -> Unit,
     ) {
+        // Android's own preferences ViewModel, created HERE rather than inside the shared screen: it is
+        // Hilt-constructed and this platform's, so the screen takes the scale-preset write as a
+        // parameter and each platform keeps its own way of persisting the shared row.
+        val prefsViewModel: AppPreferencesViewModel = hiltViewModel()
         TimeScreen(
+            viewModel = retainSharedViewModel(key = "time", onRelease = { it.dispose() }) { timeViewModel() },
+            timeTagEditorViewModel =
+                retainSharedViewModel(key = "timeTagEditor", onRelease = { it.dispose() }) { timeTagEditorViewModel() },
+            timeVisualsViewModel = retainSharedViewModel(key = "timeVisuals", onRelease = { it.dispose() }) { timeVisualsViewModel() },
+            dayPlanViewModel = retainSharedViewModel(key = "dayPlan", onRelease = { it.dispose() }) { dayPlanViewModel() },
             openStartTrackingDialogRequestId = openStartTrackingDialogRequestId,
             onOpenStartTrackingDialogHandled = onOpenStartTrackingDialogHandled,
             openStopTrackingDialogRequestId = openStopTrackingDialogRequestId,
@@ -352,6 +387,9 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
             onNavigateToTask = { taskId ->
                 logger.i("PayanamNavHost", "Navigating to edit task from Time", mapOf("taskId" to taskId))
                 nav.openEditTask(taskId)
+            },
+            onTimeHourHeightDpChange = { hourHeightDp ->
+                prefsViewModel.setTimeHourHeightDp(hourHeightDp)
             },
         )
     }

@@ -3,6 +3,8 @@
 package io.payanam.database.jvm
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.domain.port.DatabaseRekey
+import io.payanam.shared.database.DatabaseRekeySequence
 import kotlinx.coroutines.runBlocking
 import org.junit.Rule
 import org.junit.Test
@@ -100,6 +102,51 @@ class DesktopDatabaseEncryptionProbeTest {
             assertThat(failure).isNotNull()
             assertThat(file.length()).isGreaterThan(0L)
         }
+
+    @Test
+    fun `the rekey port changes the key and the old passphrase stops working`() {
+        val file = encryptedFile("rekey-port.db")
+        val newPassphrase = "rekey-port-new-passphrase"
+        val rekey: DatabaseRekey = probe
+
+        val outcome = rekey.rekeyEncryptedDatabase(file.toFile(), passphrase.toCharArray(), newPassphrase.toCharArray(), "test")
+
+        // The gate this port exists to guarantee: the new key works AND the old one is refused. Reporting
+        // only the first would leave a user believing a passphrase changed when the file still opens with
+        // the one they just retired.
+        assertThat(outcome).isEqualTo(DatabaseRekeySequence.Outcome.REKEYED)
+        assertThat(probe.canOpen(file.toFile(), newPassphrase, "test")).isTrue()
+        assertThat(probe.canOpen(file.toFile(), passphrase, "test")).isFalse()
+    }
+
+    @Test
+    fun `a rekey to the same passphrase is reported without touching the file`() {
+        val file = encryptedFile("rekey-noop.db")
+        val before = Files.size(file)
+        val rekey: DatabaseRekey = probe
+
+        val outcome = rekey.rekeyEncryptedDatabase(file.toFile(), passphrase.toCharArray(), passphrase.toCharArray(), "test")
+
+        // Not REKEYED: nothing was issued, and a caller may only report success for REKEYED.
+        assertThat(outcome).isEqualTo(DatabaseRekeySequence.Outcome.ALREADY_ON_TARGET_PASSPHRASE)
+        assertThat(Files.size(file)).isEqualTo(before)
+        assertThat(probe.canOpen(file.toFile(), passphrase, "test")).isTrue()
+    }
+
+    @Test
+    fun `a rekey refuses rather than claiming success when the current passphrase is wrong`() {
+        val file = encryptedFile("rekey-wrong-current.db")
+        val rekey: DatabaseRekey = probe
+
+        val thrown = runCatching {
+            rekey.rekeyEncryptedDatabase(file.toFile(), "not-the-passphrase".toCharArray(), "whatever-new".toCharArray(), "test")
+        }.exceptionOrNull()
+
+        // The refusal must leave the file on its ORIGINAL key: a rekey attempted with the wrong current
+        // passphrase is the case that would otherwise lock the user out of their own database.
+        assertThat(thrown).isNotNull()
+        assertThat(probe.canOpen(file.toFile(), passphrase, "test")).isTrue()
+    }
 
     @Test
     fun `counts are read from a file the passphrase opens`() =

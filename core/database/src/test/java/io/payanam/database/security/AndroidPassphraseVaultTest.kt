@@ -4,9 +4,11 @@ package io.payanam.database.security
 
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.payanam.common.logging.UnifiedLogger
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.VaultAvailability
 import io.payanam.shared.security.VaultAvailability.AVAILABLE
+import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
@@ -20,6 +22,14 @@ import org.robolectric.RobolectricTestRunner
  */
 @RunWith(RobolectricTestRunner::class)
 class AndroidPassphraseVaultTest {
+    @Before
+    fun initializeLogger() {
+        // The manager resolves the logger singleton at construction, so this file could only pass when an
+        // earlier test in the same JVM had already initialised it. Initialising it here makes the file
+        // self-contained instead of dependent on test ordering.
+        UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
+    }
+
     private val validPassphrase = "Str0ng-Passphrase!"
 
     private fun vault() = AndroidPassphraseVault(ApplicationProvider.getApplicationContext())

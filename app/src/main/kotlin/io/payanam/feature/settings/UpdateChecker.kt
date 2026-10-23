@@ -7,6 +7,11 @@ package io.payanam.feature.settings
 import io.payanam.BuildConfig
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.presentation.updates.ChannelStatus
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.presentation.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -20,70 +25,8 @@ import java.net.SocketTimeoutException
 import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
-/**
- * Closed classification of an update check — consumers route on this enum, so
- * no branch can classify an absent result as "up to date": a verdict is either
- * positive ([UPDATE_AVAILABLE]), proven-neutral ([UP_TO_DATE]) or explicitly
- * non-success. Keeping the consumer `when`s exhaustive over this enum stops a
- * new state from being silently dropped.
- */
-enum class UpdateOutcome {
-    /** The selected channel's newest release is newer than this install. */
-    UPDATE_AVAILABLE,
 
-    /** The selected channel's newest release was FOUND and is not newer. */
-    UP_TO_DATE,
 
-    /** The channel's newest release ships no APK of this install's build type. */
-    TYPE_MISMATCH,
-
-    /** The scan completed: the selected channel has no release at all. */
-    NO_RELEASE_ON_CHANNEL,
-
-    /** The channel's newest release carries no parseable build number. */
-    RELEASE_UNREADABLE,
-
-    /** The page cap was reached before the channel was seen — cannot conclude. */
-    INDETERMINATE,
-
-    /** The check itself failed; [UpdateCheckResult.error] carries the reason. */
-    FAILED,
-}
-
-/**
- * Outcome of an update check: the exhaustive [outcome] verdict, latest
- * build/release info, per-channel statuses, and the error reason when the
- * check failed.
- */
-data class UpdateCheckResult(
-    val outcome: UpdateOutcome,
-    val latestBuildNumber: Int?,
-    val releaseUrl: String?,
-    /** Non-null iff [outcome] is [UpdateOutcome.FAILED]. */
-    val error: UpdateCheckError?,
-    /** Status of every channel parsed from the list endpoint. */
-    val channelStatuses: List<ChannelStatus> = emptyList(),
-    /** Epoch millis when this result was produced — staleness for the UI. */
-    val checkedAtMs: Long = System.currentTimeMillis(),
-)
-
-/**
- * Release channels. Persistent GitHub release tags (publish-release.ps1):
- * dev/beta use "{tagSuffix}-v{buildNumber}"; stable uses plain "v{buildNumber}"
- * (matched by [channelFromTag]'s stable regex, not via tagSuffix).
- */
-enum class UpdateChannel(val tagSuffix: String) {
-    DEV("dev"),
-    BETA("beta"),
-    STABLE("stable"),
-    ;
-
-    companion object {
-        /** Parse a stored preference value; unknown/garbage falls back to DEV. */
-        fun fromStorage(raw: String?): UpdateChannel =
-            entries.firstOrNull { it.name == raw } ?: DEV
-    }
-}
 
 /** Display label resource for a channel (used by dropdown + status rows). */
 fun UpdateChannel.labelResId(): Int = when (this) {
@@ -117,22 +60,6 @@ internal fun UpdateChannel.shippedApkType(): String = when (this) {
     UpdateChannel.BETA, UpdateChannel.STABLE -> ApkBuildType.RELEASE
 }
 
-/** Per-channel status parsed from the GitHub releases list endpoint. */
-data class ChannelStatus(
-    val channel: UpdateChannel,
-    val buildNumber: Int?,
-    val releaseUrl: String?,
-    /** Direct download URL of the APK asset (from the release's assets list). */
-    val apkDownloadUrl: String? = null,
-    /** Download URL of the selected APK's paired `.sha256` asset, when present. */
-    val apkSha256Url: String? = null,
-    /**
-     * True when this release ships no `.apk` asset for the running build type
-     * (legacy/untyped or other-type only). Selection fails closed: no URL and
-     * no update verdict for this release.
-     */
-    val typeMismatch: Boolean = false,
-)
 
 /** Map a GitHub tag name to a channel, or null for non-channel tags. */
 private val PERSISTENT_TAG_REGEX = Regex("""^(dev|beta|stable)-v(\d+)$""")
@@ -322,17 +249,6 @@ private sealed interface PageFetch {
 internal fun nextPageUrl(linkHeader: String?): String? =
     linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
 
-/**
- * Error reasons for an update check failure.
- */
-enum class UpdateCheckError {
-    NO_INTERNET,
-    TIMEOUT,
-    GITHUB_UNAVAILABLE,
-    RATE_LIMITED,
-    PARSE_ERROR,
-    UNKNOWN,
-}
 
 /**
  * Checks GitHub releases for app updates across all channels.

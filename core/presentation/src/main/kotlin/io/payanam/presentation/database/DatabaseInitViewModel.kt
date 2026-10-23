@@ -595,7 +595,7 @@ class DatabaseInitViewModel(
      * [onSuccess] runs after a successful import.
      *
      * Only an ENCRYPTED database is importable. A plaintext one is refused at the header check
-     * (`DB-IMPORT-ENCRYPTED-ONLY`): Payanam's export IS the encrypted file, so an unencrypted
+     * (the encrypted-only import rule): Payanam's export IS the encrypted file, so an unencrypted
      * database is a file no version of Payanam can produce, and accepting one would make this screen
      * the only route by which unencrypted data entered the app.
      */
@@ -675,7 +675,7 @@ class DatabaseInitViewModel(
          * The import finished successfully; [dbFile] is the finalized database and
          * [passphrase] is the session key (null in plaintext mode).
          *
-         * DEAD SINCE `DB-IMPORT-ENCRYPTED-ONLY`, AND LEFT IN PLACE DELIBERATELY. Nothing constructs
+         * DEAD SINCE THE ENCRYPTED-ONLY IMPORT RULE, AND LEFT IN PLACE DELIBERATELY. Nothing constructs
          * this any more: the only producer was the plaintext continuation in [executeImportIO], which
          * refused unencrypted databases and was removed with it. Every successful import now completes
          * through [resumeImportWithPassphrase], which does its own health check, marks the database

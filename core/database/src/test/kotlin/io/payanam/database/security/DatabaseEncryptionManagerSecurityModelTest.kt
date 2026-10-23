@@ -19,6 +19,7 @@ class DatabaseEncryptionManagerSecurityModelTest {
     private lateinit var context: Context
     private lateinit var manager: DatabaseEncryptionManager
     private lateinit var prefs: android.content.SharedPreferences
+    private lateinit var armedPreferences: FailingCommitPreferences
 
     @Before
     /**
@@ -29,9 +30,13 @@ class DatabaseEncryptionManagerSecurityModelTest {
         if (!UnifiedLogger.isInitialized()) {
             UnifiedLogger.initialize(context, "test", 0)
         }
-        manager = DatabaseEncryptionManager(context)
         prefs = context.getSharedPreferences("db_security_prefs", Context.MODE_PRIVATE)
         prefs.edit().clear().commit()
+        // The manager resolves its store from `context.applicationContext`, so the wrapper has to be
+        // the application context it sees — `armedPreferences` then counts that store's commits.
+        val store = FailingCommitContext(context, "db_security_prefs")
+        armedPreferences = store.preferences
+        manager = DatabaseEncryptionManager(store)
     }
 
     @Test
@@ -141,5 +146,70 @@ class DatabaseEncryptionManagerSecurityModelTest {
         assertThat(prefs.getBoolean("biometric_unlock_enabled", false)).isTrue()
         assertThat(prefs.getString("db_biometric_wrapped_passphrase", null)).isEqualTo("cipher_blob")
         assertThat(prefs.getString("db_biometric_wrapped_iv", null)).isEqualTo("iv_blob")
+    }
+
+    @Test
+    /**
+     * Update passphrase restores the OLD verifier when the biometric teardown fails after the new
+     * verifier is already durable.
+     *
+     * This is the half-succeeded change the flow cannot recover from: `persistVerifier` commits
+     * first, so a failure afterwards must not leave the NEW verifier in place while reporting a
+     * refusal. The failing commit is the one inside `disableBiometricUnlockInternal`, which is the
+     * only commit between the two.
+     */
+    fun updatePassphrase_whenBiometricTeardownCommitFails_restoresTheOldVerifier() {
+        manager.configurePassphrase("OldPass#123456")
+        val oldHash = prefs.getString("db_verifier_hash", null)
+        val oldSalt = prefs.getString("db_verifier_salt", null)
+        // The biometric teardown's commit is the one that writes the biometric pref, so keying the
+        // failure on that key names the step instead of counting commits.
+        armedPreferences.failFirstCommitWriting("biometric_unlock_enabled")
+
+        val updated = manager.updatePassphrase("OldPass#123456", "NewPass#654321")
+
+        assertThat(updated).isFalse()
+        assertThat(manager.verifyPassphrase("OldPass#123456")).isTrue()
+        assertThat(manager.verifyPassphrase("NewPass#654321")).isFalse()
+        assertThat(prefs.getString("db_verifier_hash", null)).isEqualTo(oldHash)
+        assertThat(prefs.getString("db_verifier_salt", null)).isEqualTo(oldSalt)
+    }
+
+    @Test
+    /**
+     * Update passphrase refuses without touching the verifier when the rollback cannot be armed,
+     * because an unarmed change may land half-applied.
+     *
+     * The failing commit is the first one — the arming commit itself — so the new verifier is
+     * never written and the old one is still the only one.
+     */
+    fun updatePassphrase_whenTheRollbackCannotBeArmed_refusesAndLeavesTheOldVerifier() {
+        manager.configurePassphrase("OldPass#123456")
+        val oldHash = prefs.getString("db_verifier_hash", null)
+        // The arming commit is the first that writes the side-car verifier keys.
+        armedPreferences.failFirstCommitWriting("_bak_db_verifier_hash")
+
+        val updated = manager.updatePassphrase("OldPass#123456", "NewPass#654321")
+
+        assertThat(updated).isFalse()
+        assertThat(manager.verifyPassphrase("OldPass#123456")).isTrue()
+        assertThat(manager.verifyPassphrase("NewPass#654321")).isFalse()
+        assertThat(prefs.getString("db_verifier_hash", null)).isEqualTo(oldHash)
+    }
+
+    @Test
+    /**
+     * A successful change consumes the side-car backup it armed, so a stale backup cannot shadow
+     * the live verifier.
+     */
+    fun updatePassphrase_whenItSucceeds_clearsTheSideCarBackupItArmed() {
+        manager.configurePassphrase("OldPass#123456")
+
+        val updated = manager.updatePassphrase("OldPass#123456", "NewPass#654321")
+
+        assertThat(updated).isTrue()
+        assertThat(manager.verifyPassphrase("NewPass#654321")).isTrue()
+        assertThat(prefs.getString("_bak_db_verifier_hash", null)).isNull()
+        assertThat(prefs.getString("_bak_db_verifier_salt", null)).isNull()
     }
 }

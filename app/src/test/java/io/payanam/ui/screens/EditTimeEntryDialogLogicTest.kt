@@ -23,19 +23,13 @@ class EditTimeEntryDialogLogicTest {
     }
 
     @Test
-    fun `end date picker opens when end time is null`() {
-        val shouldOpen = shouldOpenEditDialogEndDatePicker(null)
+    fun `end date picker always opens and takes no end time`() {
+        val shouldOpen = shouldOpenEditDialogEndDatePicker()
         logger.i(
             "EditTimeEntryDialogLogicTest",
-            "Validated end-date picker behavior for active entry",
-            mapOf("endTimeNull" to "true", "shouldOpen" to shouldOpen.toString()),
+            "Validated end-date picker behavior",
+            mapOf("shouldOpen" to shouldOpen.toString()),
         )
-        assertTrue(shouldOpen)
-    }
-
-    @Test
-    fun `end date picker opens when end time exists`() {
-        val shouldOpen = shouldOpenEditDialogEndDatePicker(LocalTime.of(12, 30))
         assertTrue(shouldOpen)
     }
 

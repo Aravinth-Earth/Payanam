@@ -1,6 +1,6 @@
 # Payanam (பயணம்)
 
-Last Updated: 2026-09-14
+Last Updated: 2026-09-30
 
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
@@ -46,7 +46,9 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
 See [INSTALL.md](INSTALL.md) for sideload and verification steps.
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and PR workflow.
-See [CHANGELOG.md](CHANGELOG.md) for what's new.
+## What's new
+
+This project does not maintain a changelog file; see the commit history and releases.
 
 ---
 
@@ -71,7 +73,7 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new.
 
 Payanam is offline by design. It has no servers, no accounts, no analytics, and no telemetry: unless you explicitly enable the one optional feature below, no data about you or your usage ever leaves your device, and the app is fully functional offline.
 
-**Local session logs.** Both the Android and desktop builds keep a session log on your device recording app errors, navigation and diagnostics — that log is what makes a bug report actionable, and it also records that a passphrase reset was attempted. It never leaves your device, it rotates automatically (the desktop keeps the 9 most recent sessions), and credentials, file paths and note/journal content are redacted before they are written. On desktop, debug-level entries are off by default and appear only when you launch with debug logging enabled (`export PAYANAM_DEBUG_LOGGING=true` on Linux/macOS; `$env:PAYANAM_DEBUG_LOGGING = "true"` in Windows PowerShell).
+**Local session logs.** Both the Android and desktop builds keep a session log on your device recording app errors, navigation and diagnostics — that log is what makes a bug report actionable, and it also records that a passphrase reset was attempted. It never leaves your device, it rotates automatically (the desktop keeps the 20 most recent sessions, Android keeps 9), and credentials, file paths and note/journal content are redacted before they are written. On desktop, debug-level entries follow the build: a debug build logs them from start-up and a release build does not, the in-app Debug logging switch changes that at runtime, and launching with the environment variable overrides the build's default for that session (`export PAYANAM_DEBUG_LOGGING=true` on Linux/macOS; `$env:PAYANAM_DEBUG_LOGGING = "true"` in Windows PowerShell).
 
 **Fail-closed security state.** If the desktop app cannot read its stored passphrase configuration, it refuses to start rather than continuing, because it cannot tell a fresh install apart from a damaged one. The recovery it offers clears only the passphrase and its lockout state — your tasks, journal, notes and settings are not touched.
 

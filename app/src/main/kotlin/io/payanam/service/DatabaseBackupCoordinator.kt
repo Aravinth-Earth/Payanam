@@ -15,6 +15,7 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.BackupExecutionResult
 import io.payanam.domain.port.BackupTrigger
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
 import kotlinx.coroutines.Dispatchers
@@ -146,7 +147,12 @@ class DatabaseBackupCoordinator @Inject constructor(
                     ),
                 )
                 checkpointIfPossible(trigger, attemptNumber, maxAttempts)
-                val walFile = File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
+                // The WAL alone, by name: the check is "did the checkpoint actually flush", and the
+                // question is asked of one specific sidecar rather than of the family — a surviving
+                // `-shm` or `-journal` beside a checkpointed database is normal and must not fail a
+                // backup. The suffix itself comes from the shared declaration, so it is the same
+                // `-wal` every other platform checks, not a second spelling.
+                val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
                 if (walFile.exists() && walFile.length() > 0L) {
                     throw IllegalStateException(
                         if (sessionManager.isDbOpen()) {

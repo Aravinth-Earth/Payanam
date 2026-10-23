@@ -69,8 +69,7 @@ class PassphraseVaultContractTest {
             return unlockLockoutSecondsRemaining()
         }
 
-        override fun unlockLockoutSecondsRemaining(): Long =
-            SharedPassphraseLockoutPolicy.delaySecondsForAttempt(failedAttempts)
+        override fun unlockLockoutSecondsRemaining(): Long = SharedPassphraseLockoutPolicy.delaySecondsForAttempt(failedAttempts)
 
         override fun resetUnlockAttempts() {
             failedAttempts = 0

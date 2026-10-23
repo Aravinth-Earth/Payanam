@@ -8,19 +8,21 @@ import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.HabitMetricRepository
 import io.payanam.domain.repository.JournalRepository
-import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.LensRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.NoteRepository
-import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.ScoreWindowRepository
+import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.TagRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
-import io.payanam.domain.repository.TaskRescheduleRepository
 import io.payanam.domain.repository.TaskRepository
+import io.payanam.domain.repository.TaskRescheduleRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.scoring.port.TaskRecurrenceHandler
@@ -56,4 +58,6 @@ class RoomPayanamDataLayer(
     override val scoreChanges: ScoreChangeStream,
     override val lenses: LensRepository,
     override val scoringConfig: ScoringConfigRepository,
+    override val timeTrackingController: TimeTrackingController,
+    override val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher,
 ) : PayanamDataLayer

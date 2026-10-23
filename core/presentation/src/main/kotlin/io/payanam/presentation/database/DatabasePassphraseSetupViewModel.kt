@@ -189,7 +189,7 @@ object DatabaseArtifactBackupSupport {
  * either encrypts it in place under a new passphrase or (destructive path)
  * wipes local data before configuring encryption.
  *
- * PROMOTED FROM `:app` (DB-VM-PROMOTION wave 1c). Every Android type this file used to name is gone rather
+ * PROMOTED FROM `:app`. Every Android type this file used to name is gone rather
  * than relocated, and each of them left through a contract that already existed:
  *  - `Context` - gone. The database's location arrives as [DatabasePathResolver], which is the ONE place a
  *    shared ViewModel is allowed to learn it; the old `context.getDatabasePath` call sites now ask that

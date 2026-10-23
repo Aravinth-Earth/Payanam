@@ -8,6 +8,7 @@ package io.payanam.database.security
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
@@ -34,7 +35,7 @@ object DatabaseArtifactJanitor {
         )
         val recovered = recoverFromRicherCorruptSnapshot(context, "$logTag.recover")
         var deleted = 0
-        val tempBackupDir = File(dbDir, "payanam_temp_backup")
+        val tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
         // Recover from temp backup if the primary DB is missing, then clean only truly orphaned temp backups.
         val restoredFromTempBackup = recoverFromTempBackupIfPrimaryMissing(context, tempBackupDir, logTag)
         val primaryDbExistsAfterRecovery = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).exists()
@@ -117,9 +118,9 @@ object DatabaseArtifactJanitor {
             dbDir.listFiles().orEmpty().filter {
                 it.isFile &&
                     it.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.corrupt") &&
-                    !it.name.endsWith("-wal") &&
-                    !it.name.endsWith("-shm") &&
-                    !it.name.endsWith("-journal")
+                    // The sidecar set is the shared declaration, not three predicates this file can
+                    // drift from: a corrupt snapshot that IS a sidecar is not a recovery candidate.
+                    DatabaseArtifacts.sidecarSuffixes.none { suffix -> it.name.endsWith(suffix) }
             }
         if (candidateBases.isEmpty()) {
             logger.d(logTag, "Skipping richer-corrupt recovery: no corrupt snapshot candidates found")
@@ -345,13 +346,20 @@ object DatabaseArtifactJanitor {
         val dbDir = dbFile.parentFile ?: return false
         return runCatching {
             backupDb.copyTo(dbFile, overwrite = true)
-            listOf("wal", "shm", "journal").forEach { suffix ->
-                val src = File(tempBackupDir, "${PayanamDatabaseSchema.DATABASE_NAME}-$suffix")
-                val dst = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-$suffix")
+            DatabaseArtifacts.sidecarFilesFor(backupDb).forEach { src ->
+                val dst = File(dbDir, src.name)
                 if (src.exists()) {
                     src.copyTo(dst, overwrite = true)
                 } else if (dst.exists()) {
-                    dst.delete()
+                    // The guard rather than `dst.delete()`: the return value was discarded here, so a
+                    // companion this failed to remove was indistinguishable from one the backup never had,
+                    // and a surviving `-wal` beside the just-recovered main file is how a recovery that
+                    // reported success hands back the pre-crash rows. The guard logs the intent either way.
+                    DatabaseFileGuard.safeDelete(
+                        dst,
+                        DatabaseFileGuard.DeleteIntent.JANITOR_CLEANUP,
+                        "DatabaseArtifactJanitor.recoverFromTempBackupIfPrimaryMissing",
+                    )
                 }
             }
             tempBackupDir.deleteRecursively()

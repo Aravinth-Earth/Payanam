@@ -8,15 +8,17 @@ import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.HabitMetricRepository
 import io.payanam.domain.repository.JournalRepository
-import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.LensRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.NoteRepository
-import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.ScoreWindowRepository
+import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.TagRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
@@ -125,6 +127,27 @@ interface PayanamDataLayer {
 
     /** The scoring model's configuration: dimension weights and the knobs the settings screen edits. */
     val scoringConfig: ScoringConfigRepository
+
+    /**
+     * Starts and stops a tracking session on the platform, completing the attached task when it had one.
+     *
+     * Paired with [timeTrackingWidgetRefresher] and carried here for the same reason as the capabilities
+     * above: starting a session also drives a foreground service and a home-screen widget, which the shared
+     * state layer cannot build for itself, so the platform has to hand the capability over through the one
+     * installed contract. A platform with no tracking session of its own refuses in its implementation rather
+     * than faking a started session - see the `notInstalled` KDoc on [lifeDimensions] for why a fake is the
+     * failure this contract exists to make loud.
+     */
+    val timeTrackingController: TimeTrackingController
+
+    /**
+     * Repaints the home-screen time-tracking widget.
+     *
+     * Its own entry rather than another member of [timeTrackingController], matching the port's own
+     * reasoning: the widget is redrawn after changes that never touch a session, so a caller that only
+     * needs a repaint is not handed a session controller.
+     */
+    val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher
 }
 
 /**
@@ -253,6 +276,14 @@ object UninstalledDataLayer : PayanamDataLayer {
     /** Fails: no data layer has been installed. */
     override val scoringConfig: ScoringConfigRepository
         get() = notInstalled("scoringConfig")
+
+    /** Fails: no data layer has been installed. */
+    override val timeTrackingController: TimeTrackingController
+        get() = notInstalled("timeTrackingController")
+
+    /** Fails: no data layer has been installed. */
+    override val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher
+        get() = notInstalled("timeTrackingWidgetRefresher")
 
     private fun notInstalled(name: String): Nothing =
         error(

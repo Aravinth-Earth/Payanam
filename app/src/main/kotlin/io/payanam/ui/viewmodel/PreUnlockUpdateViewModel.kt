@@ -17,11 +17,11 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.AutoDownloadManager
 import io.payanam.feature.settings.InstallerChecker
-import io.payanam.feature.settings.UpdateChannel
-import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.UpdateChecker
-import io.payanam.feature.settings.UpdateOutcome
 import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

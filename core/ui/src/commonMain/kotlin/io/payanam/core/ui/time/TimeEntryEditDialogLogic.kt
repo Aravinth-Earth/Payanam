@@ -12,21 +12,20 @@ const val EDIT_TIME_ENTRY_CONFIRM_BUTTON_TAG = "edit_time_entry_confirm_button"
 /**
  * Whether the edit dialog's end-date control should open the date picker.
  *
- * **Unconditionally true, for every value including null.** The end time is accepted but ignored -
- * the parameter is named with a leading underscore precisely because the compiler would otherwise
- * flag it as unused - so no value of it, present or absent, changes the answer.
+ * **Unconditionally true, and it takes no argument** - which is the honest signature for a
+ * question with no inputs. This predicate used to accept the entry's current end time and ignore
+ * it, and it carried that parameter only to make the call site read as a question about the end
+ * time. The parameter is gone: an ignored argument invites a caller to believe the answer depends
+ * on it, which is exactly the wrong belief to hand to shared UI logic.
  *
- * The point of keeping the end time in the signature despite ignoring it is that the answer is a
- * decision ABOUT the end time: a caller that reaches for this is asking whether the end date can be
- * changed, and it can be changed whether or not the entry has an end time yet. A caller must not
- * read a true here as "this entry already has an end" - the parameter carries no such information,
- * and asking that is what [canSaveEditedTimeEntry] is for.
+ * The answer is a decision ABOUT the end time rather than a question FOR it: the end date can
+ * always be changed, whether or not the entry has an end time yet. A caller must not read a true
+ * here as "this entry already has an end" - that is a different question, and [canSaveEditedTimeEntry]
+ * is what answers it.
  *
- * @param _endTime the entry's current end time, or null when the entry is still running. Accepted
- *   for the call site, not consulted.
  * @return always true. Cannot throw.
  */
-fun shouldOpenEditDialogEndDatePicker(_endTime: LocalTime?): Boolean = true
+fun shouldOpenEditDialogEndDatePicker(): Boolean = true
 
 /**
  * Whether the edited time entry holds together well enough to save.

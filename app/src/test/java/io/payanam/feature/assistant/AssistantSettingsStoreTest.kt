@@ -7,7 +7,9 @@ import androidx.room.Room
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
+import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.session.DatabaseSessionManager
+import java.time.Instant
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Assert.assertEquals
@@ -20,6 +22,8 @@ import org.junit.runner.RunWith
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
+import io.payanam.domain.assistant.AssistantSettings
+import io.payanam.domain.assistant.AssistantStoredValue
 
 /**
  * Exercises [AssistantSettingsStore] against a REAL Room database (in memory) so the
@@ -110,5 +114,64 @@ class AssistantSettingsStoreTest {
     fun `loadConfig maps a missing flag row to false`() = runBlocking {
         seedConfigured()
         assertFalse(store.loadConfig().setupRequired)
+    }
+
+    @Test
+    fun `an unreadable stored row loads the default but is LEFT IN STORAGE`() = runBlocking {
+        // The silent-wrong case: a stored value this build cannot parse must not be replaced by
+        // the default, because the stored text is the only record of what the user chose.
+        seedConfigured()
+        seedRaw("assistant.max_rows", "not-a-number")
+        val config = store.loadConfig()
+        assertEquals("the load still needs a usable value", 500, config.settings.maxRows)
+        assertEquals("but the stored row must survive the load", "not-a-number", raw("assistant.max_rows"))
+    }
+
+    @Test
+    fun `an unreadable stored row is REPORTED with its key in the log`() = runBlocking {
+        seedConfigured()
+        seedRaw("assistant.max_rows", "not-a-number")
+        store.loadConfig()
+        val warnings = waitForLog { text -> text.contains("unreadable") }
+        assertTrue("an unreadable stored row must reach the log", warnings.contains("assistant.max_rows"))
+        assertFalse(
+            "the stored VALUE must never be logged",
+            warnings.contains("not-a-number"),
+        )
+    }
+
+    @Test
+    fun `a missing stored row is NOT reported as unreadable`() = runBlocking {
+        seedConfigured()
+        store.loadConfig()
+        val warnings = waitForLog { text -> text.contains("unreadable") }
+        assertFalse(
+            "a first run is benign and must not be reported",
+            warnings.contains("unreadable"),
+        )
+    }
+
+    /**
+     * Reads the logger's session file until [predicate] holds.
+     *
+     * A WARN is only buffered until the logger's own threshold is reached, so each poll asks it to
+     * flush and then gives its coroutine a moment — without the flush a single warning never
+     * reaches the file and this would assert against an empty log for the wrong reason.
+     */
+    private fun waitForLog(predicate: (String) -> Boolean): String {
+        repeat(40) {
+            UnifiedLogger.getInstance().flush()
+            val text = UnifiedLogger.getInstance().getRecentLogs(400)
+            if (predicate(text)) return text
+            Thread.sleep(50)
+        }
+        return UnifiedLogger.getInstance().getRecentLogs(400)
+    }
+
+    /** Writes a row straight through the DAO, bypassing the sanitizing writer. */
+    private suspend fun seedRaw(key: String, value: String) {
+        db.appSettingsDao().insertSetting(
+            AppSettingEntity(key = key, value = value, updatedAt = Instant.now().toString()),
+        )
     }
 }

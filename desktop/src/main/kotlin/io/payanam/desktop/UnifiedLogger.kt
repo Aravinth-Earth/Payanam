@@ -4,24 +4,54 @@ package io.payanam.desktop
 
 import io.payanam.shared.logging.ErrorPayload
 import io.payanam.shared.logging.LogSanitizer
+import java.io.File
 import java.io.IOException
 import java.nio.charset.StandardCharsets
 import java.nio.file.Files
 import java.nio.file.Path
+import java.nio.file.StandardCopyOption
 import java.nio.file.StandardOpenOption
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.concurrent.atomic.AtomicLong
+import java.util.zip.ZipEntry
+import java.util.zip.ZipOutputStream
 
-/** Env var that enables DEBUG logging; unset or non-"true" means off. */
+/**
+ * Env var that overrides the build's debug-logging default; `true` turns DEBUG entries on, any other
+ * value (including `false`) turns them off for the session.
+ */
 private const val DEBUG_LOGGING_ENV_VAR = "PAYANAM_DEBUG_LOGGING"
+
+/** Stable name for the copy written by [UnifiedLogger.exportLatestLog]. */
+private const val LATEST_EXPORT_FILE_NAME = "payanam_desktop_latest_export.log"
 
 /**
  * Default for [UnifiedLogger.Companion.initialize]'s debug gate. Read once here rather than inside
  * the logger so the value is fixed for the session and recorded in the header.
  */
-private fun defaultDebugLogging(): Boolean = System.getenv(DEBUG_LOGGING_ENV_VAR)?.equals("true", ignoreCase = true) == true
+private fun defaultDebugLogging(): Boolean =
+    resolveDefaultDebugLogging(
+        envValue = System.getenv(DEBUG_LOGGING_ENV_VAR),
+        debugBuild = DesktopBuildInfo.IS_DEBUG_BUILD,
+    )
+
+/**
+ * Which debug gate a session starts with: the environment variable when it is set, the build type
+ * otherwise.
+ *
+ * The same shape as Android's `DebugLoggingPrefs.resolve()`, which falls back to `BuildConfig.DEBUG`
+ * when the user has never touched the toggle - a debug build logs DEBUG entries from process start, a
+ * release build does not. The environment variable wins because it is the escape hatch: debugging a
+ * release build with `PAYANAM_DEBUG_LOGGING=true`, or quietening a debug build with `=false`, must not
+ * need a rebuild. Extracted from [defaultDebugLogging] so the precedence is testable without touching
+ * the environment.
+ */
+internal fun resolveDefaultDebugLogging(
+    envValue: String?,
+    debugBuild: Boolean,
+): Boolean = envValue?.equals("true", ignoreCase = true) ?: debugBuild
 
 /**
  * Append-only desktop session logger that writes structured entries to a file
@@ -132,6 +162,60 @@ class UnifiedLogger private constructor(
     fun getLogPath(): Path = logFilePath
 
     /**
+     * Copies this session's log file to a stable sibling export path and returns it.
+     *
+     * The desktop writes plain files into a plain directory, so export is a copy - there is no SAF
+     * picker and no R class to route a content URI through. The original log is never moved or
+     * deleted, so exporting mid-session does not disturb the append-only writer.
+     *
+     * Returns null if the log file does not exist yet or the copy fails; export must never take down
+     * the caller, so every failure is swallowed.
+     */
+    suspend fun exportLatestLog(): File? {
+        val source = getLogPath()
+        return runCatching {
+            if (!Files.isRegularFile(source)) {
+                return@runCatching null
+            }
+            val target = source.resolveSibling(LATEST_EXPORT_FILE_NAME)
+            Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
+            target.toFile()
+        }.getOrNull()
+    }
+
+    /**
+     * Zips every regular file in the log directory into a timestamped sibling archive and returns it.
+     *
+     * Same desktop-side contract as [exportLatestLog]: the originals are only read, the archive is a
+     * copy, and any failure returns null instead of propagating.
+     */
+    suspend fun exportAllLogs(): File? {
+        val logsDirectory = getLogPath().parent ?: return null
+        return runCatching {
+            val stamp = fileTimestampFormatter().format(clock().atZone(ZoneId.systemDefault()))
+            val target = logsDirectory.resolve("payanam_desktop_all_logs_$stamp.zip")
+            ZipOutputStream(Files.newOutputStream(target)).use { zip ->
+                Files.list(logsDirectory).use { entries ->
+                    entries
+                        .filter { path -> Files.isRegularFile(path) }
+                        .sorted()
+                        .forEach { path ->
+                            // A previous export archive in the log directory would otherwise swallow
+                            // this one, so the zip only ever takes the plain log files.
+                            if (path.fileName.toString().endsWith(".zip")) {
+                                return@forEach
+                            }
+                            zip.putNextEntry(ZipEntry(path.fileName.toString()))
+                            Files.copy(path, zip)
+                            zip.closeEntry()
+                        }
+                }
+            }
+            target.toFile()
+        }.getOrNull()
+    }
+
+    /**
      * Writes the session-end marker and releases the singleton.
      */
     override fun close() {
@@ -233,7 +317,13 @@ class UnifiedLogger private constructor(
     companion object {
         private const val HEADER_LINE_LENGTH = 120
         private const val LOG_LEVEL_WIDTH = 5
-        private const val RETAINED_LOG_COUNT = 9
+
+        /**
+         * Session logs kept in the log directory. 20 on the desktop against Android's 9: these are plain
+         * files in a directory the user browses, ships and deletes themselves, while Android's sit inside
+         * app storage where nothing else can reach them. A deliberate difference, not a drift.
+         */
+        private const val RETAINED_LOG_COUNT = 20
 
         @Volatile
         private var instance: UnifiedLogger? = null

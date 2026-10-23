@@ -1,6 +1,5 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
 package io.payanam.feature.assistant
 
 import androidx.room.withTransaction
@@ -11,6 +10,22 @@ import java.security.MessageDigest
 import java.time.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import io.payanam.domain.assistant.AssistantAboutMe
+import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantSettings
+import io.payanam.domain.assistant.AssistantStoredValue
+import io.payanam.domain.port.AssistantConfigurationStore
+import io.payanam.domain.port.StoredAssistantConfig
+
+/**
+ * Rows one `save` writes into `app_settings`.
+ *
+ * The number is asserted against the writer against a REAL database by
+ * `AssistantSettingsWriteCountTest`, because the log line that quotes it must not be able to
+ * report rows the writer stopped writing.
+ */
+internal const val STORED_SETTING_ROWS = 14
 
 /**
  * Persists assistant configuration inside the app's **encrypted** database
@@ -31,14 +46,14 @@ class AssistantSettingsStore
     @Inject
     constructor(
         private val sessionManager: DatabaseSessionManager,
-    ) {
+    ) : AssistantConfigurationStore {
         private val logger = UnifiedLogger.getInstance()
 
         /**
          * Reads the key + settings + reconfigure flag in ONE transaction (one consistent
          * snapshot; the flag tells the caller to show the setup surface).
          */
-        suspend fun loadConfig(): StoredAssistantConfig =
+        override suspend fun loadConfig(): StoredAssistantConfig =
             sessionManager.requireDatabase().withTransaction {
                 StoredAssistantConfig(
                     apiKey = read(KEY_API_KEY) ?: "",
@@ -53,16 +68,33 @@ class AssistantSettingsStore
                 )
             }
 
-        /** Loads the non-secret settings, applying defaults for missing rows. */
+        /**
+         * Loads the non-secret settings. A MISSING row takes its default; a row that EXISTS but
+         * cannot be parsed is reported and then left in storage untouched — see
+         * [AssistantStoredValue]. This reader never writes: the old `?:` chain defaulted an
+         * unreadable stored row AND the next save wrote that default back, destroying the stored
+         * value with nothing to show for it.
+         */
         private suspend fun loadSettings(): AssistantSettings {
-            val settings = AssistantSettings(
+            val maxRows = AssistantStoredValue.int(KEY_MAX_ROWS, read(KEY_MAX_ROWS), AssistantDefaults.MAX_ROWS)
+            val rounds = AssistantStoredValue.int(KEY_ROUNDS, read(KEY_ROUNDS), AssistantDefaults.ROUNDS)
+            val history =
+                AssistantStoredValue.int(KEY_HISTORY, read(KEY_HISTORY), AssistantDefaults.HISTORY_DEPTH)
+            val showMethod =
+                AssistantStoredValue.boolean(KEY_SHOW_METHOD, read(KEY_SHOW_METHOD), fallback = true)
+            val chips =
+                AssistantStoredValue.boolean(KEY_CHIPS, read(KEY_CHIPS), fallback = true)
+            val length = AssistantStoredValue.length(KEY_LENGTH, read(KEY_LENGTH))
+            listOf(maxRows, rounds, history, showMethod, chips, length)
+                .forEach { field -> if (!field.usable) reportUnreadableStoredRow(field.key) }
+            return AssistantSettings(
                 model = read(KEY_MODEL) ?: "",
-                length = AssistantLength.fromName(read(KEY_LENGTH)),
-                maxRows = read(KEY_MAX_ROWS)?.toIntOrNull() ?: AssistantDefaults.MAX_ROWS,
-                rounds = read(KEY_ROUNDS)?.toIntOrNull() ?: AssistantDefaults.ROUNDS,
-                historyDepth = read(KEY_HISTORY)?.toIntOrNull() ?: AssistantDefaults.HISTORY_DEPTH,
-                showMethod = read(KEY_SHOW_METHOD)?.toBooleanStrictOrNull() ?: true,
-                chipsEnabled = read(KEY_CHIPS)?.toBooleanStrictOrNull() ?: true,
+                length = length.value,
+                maxRows = maxRows.value,
+                rounds = rounds.value,
+                historyDepth = history.value,
+                showMethod = showMethod.value,
+                chipsEnabled = chips.value,
                 promptAdditions = read(KEY_PROMPT_ADDITIONS) ?: "",
                 aboutMe = AssistantAboutMe(
                     goals = read(KEY_ABOUT_GOALS) ?: "",
@@ -74,14 +106,25 @@ class AssistantSettingsStore
                 ),
                 noticeShown = read(KEY_NOTICE_SHOWN)?.toBooleanStrictOrNull() ?: false,
             ).sanitized()
-            return settings
+        }
+
+        /**
+         * Says WHICH stored row could not be read. The value itself is never logged, and the row is
+         * not rewritten: the stored text is the only evidence of what the user chose.
+         */
+        private fun reportUnreadableStoredRow(key: String) {
+            logger.w(
+                "AssistantSettingsStore.loadSettings",
+                "Stored assistant setting is unreadable; using the default for this load and leaving the row unchanged",
+                mapOf("key" to key),
+            )
         }
 
         /**
          * Flags that the provider must be reconfigured: until [saveAll] (or a key removal)
          * clears it, the assistant destination resolves to the setup surface.
          */
-        suspend fun beginReconfigure() {
+        override suspend fun beginReconfigure() {
             writeSetupRequired(true)
             logger.i("AssistantSettingsStore.beginReconfigure", "Reconfigure requested; assistant disabled until Save & start")
         }
@@ -90,10 +133,10 @@ class AssistantSettingsStore
          * Stores the neutral (non-secret, non-model) setting rows in one transaction.
          * The model row is owned by [saveAll]; the flag by [beginReconfigure]/[saveAll].
          */
-        suspend fun save(settings: AssistantSettings) {
+        override suspend fun save(settings: AssistantSettings) {
             val clean = settings.sanitized()
             sessionManager.requireDatabase().withTransaction { writeAll(clean) }
-            logger.d("AssistantSettingsStore.save", "Assistant settings saved", mapOf("fields" to STORED_SETTING_ROWS))
+            logger.d("AssistantSettingsStore.save", "Assistant settings saved", mapOf("rows" to STORED_SETTING_ROWS))
         }
 
         /**
@@ -102,7 +145,7 @@ class AssistantSettingsStore
          * key behind with a stale/empty model across a restart. [apiKey] null means "keep the
          * stored key as it is".
          */
-        suspend fun saveAll(apiKey: String?, settings: AssistantSettings) {
+        override suspend fun saveAll(apiKey: String?, settings: AssistantSettings) {
             val clean = settings.sanitized()
             sessionManager.requireDatabase().withTransaction {
                 writeAll(clean)
@@ -114,7 +157,7 @@ class AssistantSettingsStore
             logger.i(
                 "AssistantSettingsStore.saveAll",
                 "Key + settings saved in one transaction",
-                mapOf("fields" to STORED_SETTING_ROWS, "keyWritten" to (apiKey != null), "setupRequired" to false),
+                mapOf("rows" to STORED_SETTING_ROWS, "keyWritten" to (apiKey != null), "setupRequired" to false),
             )
         }
 
@@ -142,7 +185,7 @@ class AssistantSettingsStore
         }
 
         /** Marks the first-run disclaimer as seen. */
-        suspend fun markNoticeShown() {
+        override suspend fun markNoticeShown() {
             write(KEY_NOTICE_SHOWN, "true")
             logger.i("AssistantSettingsStore.markNoticeShown", "First-run notice acknowledged")
         }
@@ -151,7 +194,7 @@ class AssistantSettingsStore
          * Removes the stored provider configuration — key, model and the reconfigure flag —
          * in ONE transaction (used by "Remove key" / replacing the provider).
          */
-        suspend fun clearProviderConfiguration() {
+        override suspend fun clearProviderConfiguration() {
             sessionManager.requireDatabase().withTransaction {
                 delete(KEY_API_KEY)
                 delete(KEY_SETUP_REQUIRED)
@@ -164,7 +207,7 @@ class AssistantSettingsStore
         }
 
         /** Short non-reversible fingerprint used for trace correlation. */
-        internal fun fingerprint(value: String): String {
+        override fun fingerprint(value: String): String {
             if (value.isEmpty()) return "-"
             val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
             return digest.take(FINGERPRINT_BYTES).joinToString("") { byte -> "%02x".format(byte) }
@@ -210,21 +253,5 @@ class AssistantSettingsStore
             private const val KEY_ABOUT_NOTE = "assistant.about_note"
             private const val KEY_NOTICE_SHOWN = "assistant.notice_shown"
             private const val KEY_SETUP_REQUIRED = "assistant.setup_required"
-
-            /** Rows [writeAll] persists; the model row and the flag are written separately. */
-            private const val STORED_SETTING_ROWS = 14
         }
     }
-
-/**
- * One consistent snapshot of the assistant configuration: the stored key (empty when
- * unset), the non-secret settings, and the reconfigure flag. [toString] never emits the key.
- */
-data class StoredAssistantConfig(
-    val apiKey: String,
-    val settings: AssistantSettings,
-    val setupRequired: Boolean,
-) {
-    override fun toString(): String =
-        "StoredAssistantConfig(apiKey=<redacted>, setupRequired=$setupRequired)"
-}

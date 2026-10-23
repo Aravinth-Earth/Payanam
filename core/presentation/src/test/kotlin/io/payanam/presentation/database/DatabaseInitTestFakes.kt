@@ -11,6 +11,7 @@ import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.DatabaseHealthCheck
 import io.payanam.shared.database.DatabaseHealthReport
+import io.payanam.shared.database.WalCheckpointRule
 import io.payanam.shared.platform.DocumentEntry
 import io.payanam.shared.platform.DocumentKind
 import io.payanam.shared.platform.DocumentSource
@@ -70,6 +71,9 @@ internal class FakeDatabasePathResolver(
     fun artifacts(): List<File> = listOf("", "-wal", "-shm", "-journal").map { File(directory, fileName + it) }
 }
 
+/** The one report that says the main file holds every write: the fold ran, was not blocked, left nothing. */
+private val EMPTY_FOLD = WalCheckpointRule.FoldReport(busy = 0, logFrames = 0, checkpointedFrames = 0)
+
 /** A session that reports what it was opened with, and can be told to refuse. */
 internal class FakeDatabaseSessionManager : DatabaseSessionManager {
     private val openState = MutableStateFlow(false)
@@ -95,6 +99,25 @@ internal class FakeDatabaseSessionManager : DatabaseSessionManager {
     override fun closeDatabase() {
         closeCalls++
         openState.value = false
+    }
+
+    /**
+     * The fold a passphrase change waits on, keyed on WHAT WAS WRITTEN, not on a count.
+     *
+     * [flushReport] defaults to an EMPTY log, so a test that changes nothing sees the change proceed;
+     * setting [flushReport] to a non-empty report is the arm where the main file does not hold every
+     * write and the change must not go ahead. A count would not separate those two: a fold can be
+     * asked for, answered, and still have left frames behind, which is the whole failure this exists
+     * to make visible.
+     */
+    var flushReport: WalCheckpointRule.FoldReport = EMPTY_FOLD
+    var flushCalls = 0
+    var flushedWithPassphrase: String? = null
+
+    override suspend fun flushPendingChanges(passphrase: String): WalCheckpointRule.FoldReport {
+        flushCalls++
+        flushedWithPassphrase = passphrase
+        return flushReport
     }
 
     override fun requireOpenPassphrase(): String = openedWith ?: error("no session open")

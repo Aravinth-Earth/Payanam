@@ -17,6 +17,10 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.presentation.updates.UpdatePrefKeys
 
 /**
  * Post-unlock update check: fires ONCE when the encrypted DB session

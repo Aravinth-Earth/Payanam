@@ -27,7 +27,7 @@ import java.io.OutputStream
  * and the desktop's implementation needs nothing at all. A constructor parameter is therefore the only
  * honest common shape, and the app constructs this where a `Context` already lives — the same convention
  * the settings import path already uses for its `AndroidDatabaseEncryptionProbe`. Wiring it through Hilt
- * belongs with the wave that gives the import ViewModels their whole constructor.
+ * belongs with the change that gives the import ViewModels their whole constructor.
  *
  * The tree-walk answers are depth ONE, matching [DocumentSource.childrenOf]: a recursive walk would
  * descend into nested backup folders and offer the user a database from somewhere they did not choose.

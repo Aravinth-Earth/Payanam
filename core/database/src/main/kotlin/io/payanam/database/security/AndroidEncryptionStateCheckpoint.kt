@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.security
 
+import io.payanam.common.logging.UnifiedLogger
 import io.payanam.shared.security.EncryptionCheckpointOutcome
 import io.payanam.shared.security.EncryptionStateCheckpoint
 
@@ -24,6 +25,8 @@ import io.payanam.shared.security.EncryptionStateCheckpoint
 class AndroidEncryptionStateCheckpoint(
     private val encryptionManager: DatabaseEncryptionManager,
 ) : EncryptionStateCheckpoint {
+    private val logger = UnifiedLogger.getInstance()
+
     override fun captureCheckpoint(): EncryptionCheckpointOutcome =
         encryptionManager.backupEncryptionPrefs().asOutcome()
 
@@ -31,13 +34,34 @@ class AndroidEncryptionStateCheckpoint(
         encryptionManager.restoreEncryptionPrefs().asOutcome()
 
     /**
-     * The manager's own method returns `Unit` — it commits, then logs whether the commit took, and discards the
-     * answer. That is the one operation on this platform whose result is genuinely unknowable afterwards: the
-     * write is fire-and-forget, and reporting [EncryptionCheckpointOutcome.CONFIRMED] would be claiming a
-     * verification that never happened. So the contract's own uncertainty case is returned rather than a
-     * confidence the platform does not have.
+     * Performs the manager's own delete of the `_bak_` side-car family, so the captured copy really goes away
+     * instead of being described as gone.
+     *
+     * The manager's method returns `Unit` — it commits, logs whether the commit took, and discards the answer —
+     * so on success the contract's uncertainty case is returned rather than a confidence the platform does not
+     * have.
+     *
+     * THE FAILURE CASE IS MAPPED, NOT SWALLOWED. This call is the only *commit-based* preferences writer in the
+     * manager without its own `runCatching` — the `apply()`-based setters are unprotected too, but they cannot
+     * report a result anyway. A throw from here would reach a caller's recovery path: at
+     * `DatabaseInitViewModel.resumeImportWithPassphrase` the discard sits inside a `try` whose `catch` (for any
+     * non-wrong-passphrase error) runs `restoreCheckpoint()`; a restore with nothing captured then removes the LIVE
+     * keys and reports [EncryptionCheckpointOutcome.CONFIRMED] — a lockout on a database that was just imported
+     * successfully. So the call cannot propagate: a failure reports [EncryptionCheckpointOutcome.STORE_UNAVAILABLE]
+     * (the contract's failure case, explicitly harmless for a discard) and is logged rather than silent.
      */
-    override fun discardCheckpoint(): EncryptionCheckpointOutcome = EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED
+    override fun discardCheckpoint(): EncryptionCheckpointOutcome =
+        runCatching { encryptionManager.clearEncryptionPrefsBackup() }.fold(
+            onSuccess = { EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED },
+            onFailure = { error ->
+                logger.w(
+                    "AndroidEncryptionStateCheckpoint.discardCheckpoint",
+                    "Failed to clear the encryption preference backup; backup keys may survive",
+                    mapOf("error" to (error.message ?: error::class.simpleName)),
+                )
+                EncryptionCheckpointOutcome.STORE_UNAVAILABLE
+            },
+        )
 
     override fun wipeEncryptionState(): EncryptionCheckpointOutcome =
         encryptionManager.resetEncryptionState().asOutcome()
@@ -47,8 +71,11 @@ class AndroidEncryptionStateCheckpoint(
      * [EncryptionCheckpointOutcome.CONFIRMED] or [EncryptionCheckpointOutcome.STORE_UNAVAILABLE].
      *
      * [EncryptionCheckpointOutcome.NOT_SUPPORTED] and [EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED] are
-     * unreachable through this mapping, and that is a fact about Android rather than an oversight: this platform
-     * always has at-rest encryption metadata to act on, and every call it can make reports whether it stuck.
+     * unreachable through **this boolean mapping** — but [discardCheckpoint] returns
+     * [EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED] directly, so that case is reachable from the adapter even
+     * though no boolean can produce it. The unreachability below is a fact about Android rather than an oversight:
+     * this platform always has at-rest encryption metadata to act on, and every call it can make reports whether it
+     * stuck.
      * Both cases are still handled below so that a future manager method that cannot report cannot silently
      * inherit a "confirmed" it never earned.
      */

@@ -28,10 +28,8 @@ enum class DocumentKind {
 data class DocumentEntry(
     /** The name the user sees — what the `.db` / `-wal` / `-shm` matching reads. */
     val name: String,
-
     /** The token this entry reads as, passed back to [DocumentSource] unchanged. */
     val token: String,
-
     val kind: DocumentKind,
 )
 

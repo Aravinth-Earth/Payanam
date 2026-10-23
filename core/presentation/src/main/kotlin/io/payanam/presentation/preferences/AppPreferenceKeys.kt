@@ -174,4 +174,44 @@ object AppPreferenceKeys {
 
     /** Whether empty days are excluded from the daily rhythm chart. */
     const val KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY = "chart_daily_rhythm_excl_empty"
+
+    /**
+     * Every chart-visibility row, as one set.
+     *
+     * The per-chart keys replaced a single coarse toggle, and a caller that HOLDS a key rather than
+     * naming a method - the shared insights settings section does exactly that - needs something to
+     * check it against. Without this set, a mistyped key would write a row nothing ever reads and the
+     * toggle would look like it worked forever.
+     *
+     * It is a set and not the whole table because the other keys are values with a richer shape than a
+     * boolean (a route, a count, an enum), so "is this a chart toggle" is a real question rather than a
+     * tautology. It is spelled out here rather than derived by name prefix so that renaming a key
+     * cannot silently add or drop a row.
+     */
+    val CHART_VISIBILITY_KEYS: Set<String> =
+        setOf(
+            KEY_CHART_TIME_MODULE,
+            KEY_CHART_TIME_OVERALL_SNAPSHOT,
+            KEY_CHART_TIME_EXECUTION_DETAILS,
+            KEY_CHART_TIME_SCORE_CARDS,
+            KEY_CHART_TIME_OVERALL_SCORE_CARD,
+            KEY_CHART_TIME_DIM_SCORE_CARDS,
+            KEY_CHART_TIME_LINE_GRAPHS,
+            KEY_CHART_TIME_DAILY_SCORE_TREND,
+            KEY_CHART_TIME_PROGRESS_TREND,
+            KEY_CHART_TIME_HISTORICAL_RANKING,
+            KEY_CHART_TIME_MOMENTUM_STREAK,
+            KEY_CHART_TASK_MODULE,
+            KEY_CHART_HABIT_MODULE,
+            KEY_CHART_JOURNAL_MODULE,
+            KEY_CHART_NOTE_MODULE,
+            KEY_CHART_AVERAGE_DAILY_TIME,
+            KEY_CHART_DIM_SPLIT,
+            KEY_CHART_DIM_TREND,
+            KEY_CHART_DAILY_TIMELINE,
+            KEY_CHART_WEEKLY_PATTERN,
+            KEY_CHART_DAILY_RHYTHM,
+            KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY,
+            KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY,
+        )
 }

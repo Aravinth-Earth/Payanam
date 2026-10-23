@@ -9,6 +9,8 @@ import io.payanam.domain.port.PerformanceTracer
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.scoring.CompletionStats
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
@@ -285,6 +287,31 @@ internal object DesktopUnsupportedPorts {
                     mapOf("build" to download.buildNumber),
                 )
                 return InstallHandoff.Refused(InstallRefusal.PLATFORM_NOT_APPLICABLE)
+            }
+        }
+
+    /**
+     * The home-screen widget this platform does not have.
+     *
+     * Not a launcher-widget host and not an alternative to one: on Linux the desktop shell has no
+     * equivalent of the Android app-widget the port describes, so there is nothing to redraw and no
+     * equivalent surface to redraw it on. The capability's reason for existing — a stop tapped on the
+     * widget itself — therefore does not arise, and the session state it would display is already visible
+     * in the app window the user is looking at.
+     *
+     * [refreshWidget] returns [Unit], so this logs at `debug` for the same reason [reminderScheduler]
+     * logs its `cancelForTask` at `debug`: this is called from shared code on every session change, and a
+     * caller that only wants the widget repainted should not be made to reason about a warning that means
+     * "this platform never had one". The absence is stated once, in this object's own documentation and in
+     * the divergence recorded in `.hermes/plans`.
+     */
+    val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher =
+        object : TimeTrackingWidgetRefresher {
+            override fun refreshWidget() {
+                logger.d(
+                    "DesktopUnsupportedPorts.refreshWidget",
+                    "Nothing to redraw: this platform has no home-screen time-tracking widget",
+                )
             }
         }
 

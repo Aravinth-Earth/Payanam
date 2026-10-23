@@ -1,7 +1,7 @@
 {
  "spec_version": 2,
  "name": "db-flow-boot-entry-flows",
- "last_updated": "2026-09-12",
+ "last_updated": "2026-09-29",
  "description": "DB flow boot-entry routes covering successful paths (retained data, new DB, import, migration to schema v18, auth, runtime) plus the score roll-up backfill runtime flow and its positive, negative and edge outcomes.",
  "entry_states": [
   "UPGRADE_RETAINED_DATA"
@@ -60,36 +60,6 @@
   {
    "id": "IMPORT_DB_UNUSABLE_ACTION",
    "label": "User choice after unusable import DB",
-   "type": "decision"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_DETECTED",
-   "label": "Plaintext DB detected for import",
-   "type": "screen"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_PASS_DECISION",
-   "label": "User provides new passphrase for plaintext import?",
-   "type": "decision"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_COPY_ENCRYPT",
-   "label": "Copy + encrypt plaintext DB using new passphrase",
-   "type": "process"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_RESULT",
-   "label": "Plaintext import + encrypt success?",
-   "type": "decision"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_FAILED",
-   "label": "Plaintext DB import failed",
-   "type": "screen"
-  },
-  {
-   "id": "IMPORT_PLAINTEXT_FAILED_ACTION",
-   "label": "User choice after plaintext import failure",
    "type": "decision"
   },
   {
@@ -1079,16 +1049,6 @@
    "type": "decision"
   },
   {
-   "id": "IMPORT_DB_PLAIN_SCREEN",
-   "label": "Plaintext DB detected for full replace import",
-   "type": "screen"
-  },
-  {
-   "id": "IMPORT_DB_PLAIN_PASS",
-   "label": "Valid passphrase provided for plaintext DB import?",
-   "type": "decision"
-  },
-  {
    "id": "IMPORT_DB_ENC_SCREEN",
    "label": "Encrypted DB detected for full replace import",
    "type": "screen"
@@ -1549,96 +1509,8 @@
    "from": "IMPORT_FORMAT_DETECT",
    "trigger": "resolved",
    "guard": "Plaintext detected",
-   "action": "Ask user for a new passphrase to encrypt imported DB",
-   "to": "IMPORT_PLAINTEXT_DETECTED"
-  },
-  {
-   "id": "T004F0A",
-   "from": "IMPORT_PLAINTEXT_DETECTED",
-   "trigger": "show",
-   "guard": "",
-   "action": "Prompt for new import-encryption passphrase",
-   "to": "IMPORT_PLAINTEXT_PASS_DECISION"
-  },
-  {
-   "id": "T004F0B",
-   "from": "IMPORT_PLAINTEXT_PASS_DECISION",
-   "trigger": "user",
-   "guard": "No / Cancel",
-   "action": "Return to DB init chooser",
-   "to": "DB_INIT_CHOOSER"
-  },
-  {
-   "id": "T004F0C",
-   "from": "IMPORT_PLAINTEXT_PASS_DECISION",
-   "trigger": "user",
-   "guard": "Yes / Provided valid passphrase",
-   "action": "Proceed with copy + encrypt import",
-   "to": "IMPORT_PLAINTEXT_COPY_ENCRYPT"
-  },
-  {
-   "id": "T004F0D",
-   "from": "IMPORT_PLAINTEXT_COPY_ENCRYPT",
-   "trigger": "complete",
-   "guard": "",
-   "action": "Evaluate plaintext import result",
-   "to": "IMPORT_PLAINTEXT_RESULT"
-  },
-  {
-   "id": "T004F0E",
-   "from": "IMPORT_PLAINTEXT_RESULT",
-   "trigger": "resolved",
-   "guard": "Yes",
-   "action": "Imported DB encrypted and copied successfully",
-   "to": "IMPORT_PREP_BOOT_STATE"
-  },
-  {
-   "id": "T004F0F",
-   "from": "IMPORT_PLAINTEXT_RESULT",
-   "trigger": "resolved",
-   "guard": "No",
-   "action": "Show import failure options",
-   "to": "IMPORT_PLAINTEXT_FAILED"
-  },
-  {
-   "id": "T004F0G",
-   "from": "IMPORT_PLAINTEXT_FAILED",
-   "trigger": "show",
-   "guard": "",
-   "action": "Offer retry, import different, create new, or cancel",
-   "to": "IMPORT_PLAINTEXT_FAILED_ACTION"
-  },
-  {
-   "id": "T004F0H",
-   "from": "IMPORT_PLAINTEXT_FAILED_ACTION",
-   "trigger": "user",
-   "guard": "Retry",
-   "action": "",
-   "to": "IMPORT_PLAINTEXT_DETECTED"
-  },
-  {
-   "id": "T004F0I",
-   "from": "IMPORT_PLAINTEXT_FAILED_ACTION",
-   "trigger": "user",
-   "guard": "Import Different",
-   "action": "",
-   "to": "IMPORT_PICKER"
-  },
-  {
-   "id": "T004F0J",
-   "from": "IMPORT_PLAINTEXT_FAILED_ACTION",
-   "trigger": "user",
-   "guard": "Create New",
-   "action": "",
-   "to": "CREATE_NEW_FLOW"
-  },
-  {
-   "id": "T004F0K",
-   "from": "IMPORT_PLAINTEXT_FAILED_ACTION",
-   "trigger": "user",
-   "guard": "Cancel",
-   "action": "Back to DB init chooser",
-   "to": "DB_INIT_CHOOSER"
+   "action": "Refuse an unencrypted database - it is not imported and your previous database if any is restored",
+   "to": "IMPORT_DB_UNUSABLE"
   },
   {
    "id": "T004F",
@@ -4029,8 +3901,8 @@
    "from": "IMPORT_DB_FORMAT",
    "trigger": "resolved",
    "guard": "Plaintext detected",
-   "action": "Prompt new passphrase to encrypt during import",
-   "to": "IMPORT_DB_PLAIN_SCREEN"
+   "action": "Refuse an unencrypted database - choose a different file or go back",
+   "to": "IMPORT_DB_BAD"
   },
   {
    "id": "TIMP011",
@@ -4071,30 +3943,6 @@
    "guard": "Back",
    "action": "",
    "to": "IMPORT_TYPE"
-  },
-  {
-   "id": "TIMP016",
-   "from": "IMPORT_DB_PLAIN_SCREEN",
-   "trigger": "submit",
-   "guard": "",
-   "action": "Validate new passphrase",
-   "to": "IMPORT_DB_PLAIN_PASS"
-  },
-  {
-   "id": "TIMP017",
-   "from": "IMPORT_DB_PLAIN_PASS",
-   "trigger": "resolved",
-   "guard": "No",
-   "action": "Retry passphrase setup",
-   "to": "IMPORT_DB_PLAIN_SCREEN"
-  },
-  {
-   "id": "TIMP018",
-   "from": "IMPORT_DB_PLAIN_PASS",
-   "trigger": "resolved",
-   "guard": "Yes",
-   "action": "Close Room and prepare full replace import",
-   "to": "IMPORT_DB_HANDOFF"
   },
   {
    "id": "TIMP019",

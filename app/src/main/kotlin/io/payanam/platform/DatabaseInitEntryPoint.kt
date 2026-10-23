@@ -6,7 +6,11 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.assistant.OpenCodeGoClient
+import io.payanam.domain.port.AssistantConfigurationStore
 import io.payanam.domain.port.DatabasePathResolver
+import io.payanam.domain.port.DatabaseSchemaReader
+import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.port.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
@@ -71,6 +75,58 @@ interface DatabaseInitEntryPoint {
 
     /** The generated copy table for the language in force. */
     fun uiStrings(): UiStrings
+}
+
+/**
+ * Hilt entry point for the assistant screen's collaborators.
+ *
+ * A fourth sibling for the reason the other three exist: the assistant's state is a SHARED class
+ * (`:core:presentation`) now, so it cannot be a `@HiltViewModel` and `hiltViewModel()` cannot build it. The
+ * four things it needs are the encrypted settings store, the two read-only ports, and the provider client
+ * — every one of them already bound as a singleton, so this only names them.
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface AssistantEntryPoint {
+    /** The encrypted `app_settings` store, behind the shared [AssistantConfigurationStore] contract. */
+    fun assistantSettingsStore(): AssistantConfigurationStore
+
+    /** The one statement a model-authored query may run, over Room's read-only handle. */
+    fun assistantReadOnlyQuery(): ReadOnlyDatabaseQuery
+
+    /** The live schema reader, which takes no SQL and therefore cannot be handed a model's. */
+    fun assistantSchemaReader(): DatabaseSchemaReader
+
+    /** The OpenCode Go chat client, bound to the provided transport. */
+    fun openCodeGoClient(): OpenCodeGoClient
+}
+
+/**
+ * Hilt entry point for the passphrase-CHANGE screen's collaborators.
+ *
+ * A third sibling for the reason the setup gate is one: this screen re-keys an ALREADY-ENCRYPTED database,
+ * which is neither the init screen's thirteen collaborators nor the setup gate's four. [databaseRekey] and
+ * [processRestart] are the two the other two entry points do not carry, and both are already bound as
+ * singletons (`AndroidDatabaseRekey`, `AndroidProcessRestartPort`) - this only names them so the shared
+ * ViewModel can be constructed at the one call site.
+ */
+@EntryPoint
+@InstallIn(SingletonComponent::class)
+interface PassphraseChangeEntryPoint {
+    /** The database path resolver, for the canonical file path this screen re-keys. */
+    fun databasePathResolver(): DatabasePathResolver
+
+    /** The Keystore-backed vault, the same one the unlock gate authenticates against. */
+    fun passphraseVault(): PassphraseVault
+
+    /** Android's answer to "rekey this already-encrypted file", over SQLCipher. */
+    fun databaseRekey(): io.payanam.domain.port.DatabaseRekey
+
+    /** The SHARED session contract, so the write-ahead log fold before a re-key happens here too. */
+    fun databaseSessionManager(): DatabaseSessionManager
+
+    /** The process-end sequence, so a changed passphrase is authenticated against on the next cold boot. */
+    fun processRestart(): io.payanam.domain.port.ProcessRestart
 }
 
 /**

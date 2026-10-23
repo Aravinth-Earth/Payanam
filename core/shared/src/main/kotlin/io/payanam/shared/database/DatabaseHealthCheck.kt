@@ -49,7 +49,10 @@ interface DatabaseHealthCheck {
      * Reports on the database file, which is a [File] on both platforms — the desktop already has one and
      * Android's `Context.getDatabasePath` produces the same path.
      */
-    suspend fun check(databaseFile: File, passphrase: String?): DatabaseHealthReport
+    suspend fun check(
+        databaseFile: File,
+        passphrase: String?,
+    ): DatabaseHealthReport
 
     /** Whether a database file exists at [databaseFile] at all. */
     fun hasArtifacts(databaseFile: File): Boolean

@@ -30,7 +30,7 @@ private const val HAPTIC_REJECTION_MS = 40L
  * thing that should differ between the platforms. The reminder sink is deliberately absent: Android's
  * reminders are DERIVED from a task (the scheduler works out when to fire from the task's due date and the
  * user's advance setting) rather than supplied as a time, so a generic sink cannot be a faithful wrapper for
- * it. Wiring it is part of moving the notification call sites, not of defining the seam — see the tracker.
+ * it. Wiring it is part of moving the notification call sites, not of defining the seam.
  */
 class AndroidBackupScheduler(
     private val context: Context,

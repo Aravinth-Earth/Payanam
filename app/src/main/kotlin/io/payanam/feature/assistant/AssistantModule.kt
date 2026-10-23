@@ -6,6 +6,12 @@ import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
+import io.payanam.domain.assistant.HttpTransport
+import io.payanam.domain.assistant.OpenCodeGoClient
+import io.payanam.domain.assistant.UrlConnectionTransport
+import io.payanam.domain.port.AssistantConfigurationStore
+import io.payanam.domain.port.DatabaseSchemaReader
+import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import javax.inject.Singleton
 
 /**
@@ -21,6 +27,32 @@ object AssistantModule {
     @Provides
     @Singleton
     fun provideHttpTransport(): HttpTransport = UrlConnectionTransport()
+
+    /**
+     * The encrypted settings store, behind the shared contract the shared ViewModel names.
+     *
+     * Provided as the INTERFACE rather than injected by concrete type so the shared class never learns
+     * that Android stores configuration in Room, and so a second platform binding is the same one line.
+     */
+    @Provides
+    @Singleton
+    fun provideAssistantConfigurationStore(store: AssistantSettingsStore): AssistantConfigurationStore = store
+
+    /**
+     * The assistant's read-only statement runner, answered by Room's read-only handle.
+     *
+     * Both ports come from ONE implementation because one verified read-only handle answers both, and
+     * because two classes could answer them differently on one platform — which is exactly the divergence
+     * the shared screen exists to remove.
+     */
+    @Provides
+    @Singleton
+    fun provideAssistantReadOnlyQuery(reads: AndroidReadOnlyAssistantReads): ReadOnlyDatabaseQuery = reads
+
+    /** The same implementation's schema reader. See [provideAssistantReadOnlyQuery]. */
+    @Provides
+    @Singleton
+    fun provideAssistantSchemaReader(reads: AndroidReadOnlyAssistantReads): DatabaseSchemaReader = reads
 
     /** The OpenCode Go chat client bound to the provided transport. */
     @Provides

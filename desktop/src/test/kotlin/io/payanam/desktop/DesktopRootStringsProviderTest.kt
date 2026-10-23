@@ -7,6 +7,7 @@ import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onNodeWithText
 import com.google.common.truth.Truth.assertThat
+import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.mapAppPreferences
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
@@ -62,7 +63,7 @@ class DesktopRootStringsProviderTest {
         // case replaces, the root would render Tamil copy and this assertion would fail.
         withJvmLocale(TAG_TAMIL) {
             composeRule.setContent {
-                desktopRootSurface(darkTheme = false, language = desktopUiLanguageForTag(TAG_ENGLISH)) {
+                desktopRootSurface(darkTheme = false, language = desktopUiLanguageForTag(TAG_ENGLISH), preferences = AppPreferencesState()) {
                     Text(text = LocalUiStrings.current.settingsDatabaseNotes)
                 }
             }
@@ -148,6 +149,7 @@ class DesktopRootStringsProviderTest {
             desktopRootSurface(
                 darkTheme = false,
                 language = desktopUiLanguageForTag(effectiveLanguageTag),
+                preferences = AppPreferencesState(),
             ) {
                 Text(text = LocalUiStrings.current.settingsDatabaseNotes)
             }

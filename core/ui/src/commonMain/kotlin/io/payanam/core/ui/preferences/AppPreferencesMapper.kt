@@ -188,8 +188,8 @@ fun mapAppPreferences(
  * The tab routes the visibility map is built over, in the order Android has always used.
  *
  * Written as data rather than derived from the nav model so a nav-model change cannot silently change what
- * a stored `tab_visible_*` row means; the equality of these ids with `PayanamTab`'s routes is asserted by
- * test instead.
+ * a stored `tab_visible_*` row means; the equality of these ids with `PayanamTab`'s routes and with
+ * `DesktopTopLevelRoute`'s storage keys is asserted by `TopLevelTabRouteIdsTest` instead.
  */
 internal val ALL_TAB_ROUTES = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
 

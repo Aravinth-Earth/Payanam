@@ -15,7 +15,9 @@ import androidx.compose.ui.window.FrameWindowScope
 import androidx.compose.ui.window.Window
 import androidx.compose.ui.window.application
 import androidx.compose.ui.window.rememberWindowState
+import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseSessionController
+import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.CrashBreadcrumbStore
 import io.payanam.shared.logging.CrashBreadcrumbTrail
@@ -50,6 +52,11 @@ fun main() {
     // which read AppLogger.current rather than reaching for a platform singleton. Without this their
     // diagnostics would go to the no-op default and be discarded silently in the Linux/Windows app.
     AppLogger.install(sessionLogger)
+    // The pre-session data layer, installed before the first frame. The shared graph composes the
+    // database-init screen from the scaffold stage, which resolves before any passphrase or session
+    // exists, and `databaseInitViewModel` reads this holder WHILE IT IS BEING CONSTRUCTED — so without
+    // a layer in place the first composition throws and a fresh install never reaches the init screen.
+    LocalDataLayer.install(DesktopBootstrapDataLayer)
     // Breadcrumbs next, at the same position Android uses (PayanamApp.onCreate:109 — right after the
     // logger, before anything that could fail). The trail is a file the NEXT process start replays, so a
     // breadcrumb recorded before a crash is the only record of the steps that led there; that makes the
@@ -311,7 +318,7 @@ private const val WINDOW_HEIGHT_HEADROOM_DP = 80
  *
  * The phone width doubles as the floor because that is the width the shared layouts were composed for:
  * below it they are not "small", they are broken. Whether phone-shape is the shipped design or a
- * first-run default is still an open decision (UX.window-contract); this floor is deliberately
+ * first-run default is still an open design decision; this floor is deliberately
  * compatible with both answers, because the layout is unreadable under the minimum either way.
  */
 private const val MIN_WINDOW_WIDTH_DP = 412

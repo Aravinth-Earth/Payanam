@@ -73,7 +73,9 @@ class DesktopDebugLoggingToggleTest {
     fun `the toggle moves the session logger's debug gate`() {
         val flags = DesktopDebugFlags()
 
-        assertThat(flags.debugLoggingEnabled).isFalse()
+        // The gate starts where the build type starts it; the logger below is pinned off at construction,
+        // so the first d() call is withheld whatever that starting value is.
+        assertThat(flags.debugLoggingEnabled).isEqualTo(DesktopBuildInfo.IS_DEBUG_BUILD)
         logger.d("DesktopDebugLoggingToggleTest", "before the toggle", emptyMap())
         assertThat(debugLines()).isEmpty()
 

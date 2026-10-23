@@ -59,7 +59,9 @@ sealed class InstallHandoff {
     data object Launched : InstallHandoff()
 
     /** The handoff could not start; the platform logged why. */
-    data class Refused(val reason: InstallRefusal) : InstallHandoff()
+    data class Refused(
+        val reason: InstallRefusal,
+    ) : InstallHandoff()
 }
 
 /**

@@ -47,10 +47,10 @@ class DesktopOnboardingScaffoldTest {
         val sequence =
             listOf(
                 DesktopScaffoldOnboardingStage.Intro to DesktopStartupMode.OnboardingIntro,
-                DesktopScaffoldOnboardingStage.DatabaseChoice to
-                    DesktopStartupMode.OnboardingDatabaseChoice,
-                DesktopScaffoldOnboardingStage.DimensionSetup to
-                    DesktopStartupMode.OnboardingDimensionSetup,
+                // Both of these resolve to the SHARED database-init destination: Android runs the choice and
+                // the dimension step inside that screen, so the desktop renders no card of its own for them.
+                DesktopScaffoldOnboardingStage.DatabaseChoice to DesktopStartupMode.InitializeDatabase,
+                DesktopScaffoldOnboardingStage.DimensionSetup to DesktopStartupMode.InitializeDatabase,
             )
 
         sequence.forEach { (stage, expected) ->

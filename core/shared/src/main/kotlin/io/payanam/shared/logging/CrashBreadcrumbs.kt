@@ -92,9 +92,7 @@ object CrashBreadcrumbs {
      * cannot be read or cleared is itself the finding — hiding it would produce a log with no explanation
      * of the gap. A caller that must not be interrupted wraps it.
      */
-    fun replayToLoggerAndClear(
-        source: String = "CrashBreadcrumbs.replayToLoggerAndClear",
-    ): List<String> {
+    fun replayToLoggerAndClear(source: String = "CrashBreadcrumbs.replayToLoggerAndClear"): List<String> {
         val lines = current.readAndClear()
         if (lines.isEmpty()) {
             return lines

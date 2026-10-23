@@ -13,7 +13,7 @@ import io.payanam.domain.repository.LifeDimensionCatalogRepository
 /**
  * Writes the mandatory life-dimension seed for a brand-new database.
  *
- * The types and the pure builders moved to `:core:ui` (Epic G / G-S2) because a shared screen needs them
+ * The types and the pure builders moved to `:core:ui` because a shared screen needs them
  * and they hold no platform code at all. What stayed behind is this one writer, and it no longer contains
  * SQL: it used to reach through the session to `db.openHelper.writableDatabase` and issue
  * `DELETE FROM life_dimensions` plus a loop of `INSERT`s — a delete-then-insert loop that leaves the catalog

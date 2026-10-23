@@ -25,7 +25,8 @@ package io.payanam.shared.security
  * - [restoreCheckpoint] is only safe AFTER a [captureCheckpoint] on the same platform. This is not a style
  *   preference: at least one implementation treats "no backup present" as "remove the live value", so a
  *   restore that finds nothing to restore is a wipe that reports itself as a success.
- * - No member touches the database file, and none is a substitute for [ForgottenPassphraseReset], which is
+ * - No member touches the database file, and none is a substitute for
+ *   [io.payanam.domain.port.DatabaseForgotPassphraseReset], which is
  *   named for the data it destroys. This port cannot delete a user's data.
  *
  * WHAT A CALLER MAY NOT ASSUME:

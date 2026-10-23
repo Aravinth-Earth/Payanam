@@ -2,13 +2,18 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.transfer
 
+import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.payanam.common.logging.UnifiedLogger
 import io.payanam.shared.transfer.TransferOutcome
 import io.payanam.shared.transfer.TransferRefusal
 import kotlinx.coroutines.runBlocking
+import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import java.io.ByteArrayInputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
@@ -20,10 +25,24 @@ import java.io.File
  * refusal rules without a device, a resolver or SQLCipher. The one thing that must hold on Android —
  * because a content URI cannot be verified where it lives — is that the LIVE database is untouched until
  * the staged copy has been verified, and each refusal here asserts the live bytes are unchanged.
+ *
+ * Robolectric for one reason, not for the gateway: the import swap deletes the live database through
+ * [io.payanam.database.security.DatabaseFileGuard], which resolves the logger singleton when it is
+ * touched, and an uninitialised logger is an error rather than a silent no-op. Initialising it needs an
+ * application `Context`, which a plain JUnit test has no way to obtain — so the runner supplies one. Every
+ * assertion below still runs on real files in a real temporary folder; nothing here fakes a file.
  */
+@RunWith(RobolectricTestRunner::class)
 class AndroidDatabaseTransferGatewayTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
+
+    @Before
+    fun initializeLogger() {
+        // The guard's log line is part of the behaviour under test, so the logger has to exist before the
+        // swap rather than after an earlier test happened to have created it.
+        UnifiedLogger.initialize(ApplicationProvider.getApplicationContext(), "test", 0)
+    }
 
     private lateinit var liveDirectory: File
     private lateinit var live: File

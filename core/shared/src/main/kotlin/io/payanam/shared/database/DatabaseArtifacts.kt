@@ -39,13 +39,30 @@ import java.io.File
  * that stops matching is litter that survives every reset, and a name that starts matching something
  * it did not match before deletes a file the user still needs.
  *
- * NOT RE-POINTED YET: the callers (`app/.../DatabaseInitTempBackupSupport.kt`,
- * `app/.../SettingsDatabaseArtifactSupport.kt` and `core/database`'s janitor) still spell these values
- * out, because a later wave moves that code into this module. Until it does, the values here are a
- * pinned contract rather than a live one — the tests below are what keep the two copies honest in the
- * meantime, so change one and the test names the file that has to change with it.
+ * WHO USES IT NOW: every call site that spelled the family out by hand reads these members —
+ * `core/database`'s `DatabaseArtifactJanitor` (the corrupt-candidate filter, the temp-backup restore
+ * loop and the temp-backup directory), `app`'s `SettingsDatabaseArtifactSupport` (the active-artifact
+ * predicate that decides which files a user wipe may remove, the temp-backup directory, the transient
+ * import-temp matcher), `core/presentation`'s `DatabaseInitTempBackupSupport` and
+ * `DatabaseImportSupport` (the WAL fold), plus the desktop's `DesktopForgottenPassphraseReset` and
+ * `PayanamDatabaseOpener`. **A new hand-typed copy of the family is the defect this object exists to
+ * prevent**, so the tripwire is the tests below rather than a reader remembering this paragraph.
  */
 object DatabaseArtifacts {
+    /**
+     * The three companion suffixes, named so a caller that needs ONE of them does not have to
+     * hand-type it or positionally index a list to get it.
+     *
+     * WHY THREE CONSTANTS AND NOT THE LIST ALONE: both lists below are built from these three, so
+     * this is the single place the family is spelled. A caller that copied the literal `-wal` into
+     * its own file re-opens exactly the drift this ends — the WAL fold copying a sidecar it does not
+     * know about, or a cleanup deleting one it never created. Derived, not restated: a suffix added
+     * to the family appears here once and in both lists.
+     */
+    const val WAL_SUFFIX = "-wal"
+    const val SHM_SUFFIX = "-shm"
+    const val JOURNAL_SUFFIX = "-journal"
+
     /**
      * The main database file plus its companions, in the order callers depend on: main first, then
      * `-wal`, `-shm`, `-journal`.
@@ -53,7 +70,7 @@ object DatabaseArtifacts {
      * The main file is an empty suffix by construction, so [filesFor] can build the whole family with
      * one map and cannot grow a second, subtly different builder per call site.
      */
-    val artifactSuffixes: List<String> = listOf("", "-wal", "-shm", "-journal")
+    val artifactSuffixes: List<String> = listOf("", WAL_SUFFIX, SHM_SUFFIX, JOURNAL_SUFFIX)
 
     /**
      * The companion files alone, in the same relative order as [artifactSuffixes].
@@ -61,7 +78,7 @@ object DatabaseArtifacts {
      * Exposed by name so the "sidecars only" callers say so at the call site rather than encoding the
      * omission as a hand-typed three-item list.
      */
-    val sidecarSuffixes: List<String> = listOf("-wal", "-shm", "-journal")
+    val sidecarSuffixes: List<String> = listOf(WAL_SUFFIX, SHM_SUFFIX, JOURNAL_SUFFIX)
 
     /**
      * The full artifact family for [databaseFile]: [databaseFile] itself, then its `-wal`, `-shm` and
@@ -146,12 +163,13 @@ object DatabaseArtifacts {
      * family, because the artifact set is removed by the known [filesFor] list rather than by name
      * matching — a name-based sweep could never be trusted to say "and nothing else".
      */
-    val transientImportTempSuffixes: List<String> = listOf(
-        ENCRYPTED_RENAME_TEMP_SUFFIX,
-        ENCRYPTED_RENAME_TEMP_TYPED_SUFFIX,
-        WAL_MERGE_TEMP_SUFFIX,
-        IMPORT_DECRYPT_TEMP_SUFFIX,
-    )
+    val transientImportTempSuffixes: List<String> =
+        listOf(
+            ENCRYPTED_RENAME_TEMP_SUFFIX,
+            ENCRYPTED_RENAME_TEMP_TYPED_SUFFIX,
+            WAL_MERGE_TEMP_SUFFIX,
+            IMPORT_DECRYPT_TEMP_SUFFIX,
+        )
 
     /**
      * The one EXACT name the sweep must match: `payanam.db.enc.tmp` with no trailing discriminator.

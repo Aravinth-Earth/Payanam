@@ -15,6 +15,7 @@ import io.payanam.database.security.AndroidForgottenPassphraseReset
 import io.payanam.database.security.AndroidPassphraseVault
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.repository.DayPlanRepository
@@ -22,7 +23,6 @@ import io.payanam.domain.repository.LensRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
 import javax.inject.Singleton
 
@@ -61,7 +61,8 @@ object DatabaseModule {
     @Provides
     @Singleton
     /**
-     * Exposes Android's data-deleting recovery path as [ForgottenPassphraseReset].
+     * Exposes Android's data-deleting recovery path as the shared
+     * [DatabaseForgotPassphraseReset] port.
      *
      * Over the SAME vault instance the unlock gate authenticates with, not a second one: the reset clears a
      * credential, and a credential that some other object still believes in is a reset the app half-performed.
@@ -69,7 +70,7 @@ object DatabaseModule {
     fun provideForgottenPassphraseReset(
         @ApplicationContext context: Context,
         vault: PassphraseVault,
-    ): ForgottenPassphraseReset = AndroidForgottenPassphraseReset(context, vault)
+    ): DatabaseForgotPassphraseReset = AndroidForgottenPassphraseReset(context, vault)
 
     @Provides
     @Singleton

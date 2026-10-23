@@ -49,7 +49,7 @@ import java.util.concurrent.TimeUnit
  * bytes - fold, or refuse - and `executeImportIO` IGNORES the fold's answer by design (a WAL that
  * could not be folded is kept, not reported). Both are asserted below.
  *
- * WHAT THIS FILE STOPPED ASSERTING, and why: `DB-IMPORT-ENCRYPTED-ONLY` makes a plaintext database
+ * WHAT THIS FILE STOPPED ASSERTING, and why: the encrypted-only import rule makes a plaintext database
  * REFUSEABLE, so the arms that used to prove a plaintext import succeeded - the schema gate, the
  * re-encrypt to the session key, the post-import health check, the mark-and-open, the 500ms success
  * delay - no longer have a code path to reach. The encrypted path took them over, because it is the
@@ -196,7 +196,7 @@ class DatabaseInitViewModelImportTest {
      * the health check would answer healthy with [version].
      *
      * WHAT CHANGED: this used to be named and documented as a single-file import that "gets all the
-     * way through". It no longer can. `DB-IMPORT-ENCRYPTED-ONLY` refuses a plaintext database at the
+     * way through". It no longer can. The encrypted-only import rule refuses a plaintext database at the
      * header check, so the version this seeds is now a value the import must never go on to read — and
      * most tests below assert exactly that. It is kept as the ONE way to arrange "the user picked an
      * unencrypted database", because that is the shape the rule is about, and the happy path it once
@@ -470,7 +470,7 @@ class DatabaseInitViewModelImportTest {
             // real dispatcher hop, so the second request genuinely lands while the first still owns
             // `isImporting` - the only moment a re-entry guard is observable at all. The earlier
             // version of this test used the 500ms success delay as the window, which
-            // `DB-IMPORT-ENCRYPTED-ONLY` removed along with the plaintext success path.
+            // The encrypted-only import rule removed along with the plaintext success path.
             arrangePlaintextImport()
             plantExistingDatabase()
             val copyStarted = CountDownLatch(1)
@@ -840,7 +840,7 @@ class DatabaseInitViewModelImportTest {
         runTest(testDispatcher) {
             // This test used to assert the OPPOSITE: that a plaintext backup picked while the user has
             // an encrypted session open is RE-ENCRYPTED to the same key. That conversion is what
-            // `DB-IMPORT-ENCRYPTED-ONLY` removed, because it made the import path the only route by
+            // The encrypted-only import rule removed, because it made the import path the only route by
             // which unencrypted data entered the app. The arrangement below is kept deliberately - an
             // open session is exactly when a conversion would have been most tempting - and the
             // assertion is now that the conversion does not happen.

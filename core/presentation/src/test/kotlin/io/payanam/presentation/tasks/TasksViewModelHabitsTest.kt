@@ -33,6 +33,18 @@ import java.time.LocalDateTime
 class TasksViewModelHabitsTest {
     private val testDispatcher = StandardTestDispatcher()
 
+    /**
+     * A recurrence start far enough ahead of the test day that "the window has not opened yet" holds
+     * on whichever day this suite runs.
+     *
+     * Derived from [TASKS_TEST_DAY] rather than written as a calendar date, because a literal stops
+     * being in the future the moment the real clock reaches it: `start=2026-10-01` read as "future
+     * start, so not due" up to 2026-09-30 and then made `dueTodayByTaskId["notDue"]` true on
+     * 2026-10-01, which is exactly the expiry the day-anchored fixture already documents for
+     * [TASKS_TEST_DAY] itself.
+     */
+    private val futureStart: String = TASKS_TEST_DAY.plusMonths(1).toString()
+
     private lateinit var taskRepository: FakeTaskRepository
     private lateinit var taskOccurrenceRepository: FakeTaskOccurrenceRepository
     private lateinit var notificationScheduler: FakeReminderScheduler
@@ -234,20 +246,28 @@ class TasksViewModelHabitsTest {
     fun `toggleDueTodayOnly narrows visible habits to due today`() =
         runTest(testDispatcher) {
             val dueHabit = habit("dueHabit", "1/1") // always due
-            val notDueHabit = habit("notDueHabit", "1/7!start=2026-10-01") // future start
+            // Start still ahead of the test day → its window has not opened, so it is not due.
+            val notDueHabit = habit("notDueHabit", "1/7!start=$futureStart")
             taskRepository.tasks.value = listOf(dueHabit, notDueHabit)
 
             viewModel = createViewModel()
             advanceUntilIdle()
 
-            val countBefore = viewModel.uiState.value.visibleHabitRows.size
+            // Both rows are visible before the filter is on; if the not-due habit were already
+            // hidden there would be nothing for the toggle to narrow, and the case below would
+            // pass for the wrong reason.
+            val idsBefore = viewModel.uiState.value.visibleHabitRows.map { it.id }
+            assertThat(idsBefore).containsExactly("dueHabit", "notDueHabit")
 
             viewModel.toggleDueTodayOnly()
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.dueTodayOnly).isTrue()
-            // Due-today filter narrows the list
-            assertThat(viewModel.uiState.value.visibleHabitRows.size).isAtMost(countBefore)
+            // Due-today filter keeps the due habit and drops the one whose window has not opened.
+            // Named ids, not a count: a filter can only shrink or hold the list, so `isAtMost`
+            // against the pre-toggle size holds even if the filter is not applied at all.
+            assertThat(viewModel.uiState.value.visibleHabitRows.map { it.id })
+                .containsExactly("dueHabit")
         }
 
     // ── ViewModel: toggleCheckmark ─────────────────────────────────────────
@@ -1420,7 +1440,7 @@ class TasksViewModelHabitsTest {
     fun `dueTodayByTaskId reflects computed due-ness for each habit`() =
         runTest(testDispatcher) {
             val dueHabit = habit("due", "1/1") // always due
-            val notDueHabit = habit("notDue", "1/7!start=2026-10-01") // future start → not due
+            val notDueHabit = habit("notDue", "1/7!start=$futureStart") // start still ahead → not due
             taskRepository.tasks.value = listOf(dueHabit, notDueHabit)
 
             viewModel = createViewModel()
@@ -1436,7 +1456,9 @@ class TasksViewModelHabitsTest {
     fun `visibleRecurringTasks matches visibleHabitsForDisplay result`() =
         runTest(testDispatcher) {
             val due = habit("due", "1/1")
-            val notDue = habit("notDue", "1/7!start=2026-10-01")
+            // Start still ahead of the test day, so this habit is genuinely not due today and the
+            // filter arm has something to remove on either side of the comparison below.
+            val notDue = habit("notDue", "1/7!start=$futureStart")
             taskRepository.tasks.value = listOf(due, notDue)
 
             viewModel = createViewModel()

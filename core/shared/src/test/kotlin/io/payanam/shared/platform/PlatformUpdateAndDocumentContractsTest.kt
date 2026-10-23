@@ -6,7 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * The two Epic G platform contracts' own logic, exercised without a platform.
+ * The two platform contracts' own logic, exercised without a platform.
  *
  * The interfaces themselves have no bodies to cover, but everything they HAND OUT does: the sealed
  * hierarchies a shared screen branches on, the default property that decides whether a folder route is

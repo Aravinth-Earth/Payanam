@@ -6,7 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
 /**
- * The Epic G / G-S1 copy move: the nine import strings a promoted shared ViewModel needs, promoted from
+ * The copy move: the nine import strings a promoted shared ViewModel needs, promoted from
  * `app/src/main/res/values/strings.xml` so the desktop renders the same words.
  *
  * These assert the MOVE, not the wording. The wording is Android's and is asserted byte-for-byte here so

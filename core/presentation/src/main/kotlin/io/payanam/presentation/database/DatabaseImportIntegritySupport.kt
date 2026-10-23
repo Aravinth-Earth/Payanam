@@ -12,7 +12,7 @@ import java.io.File
  * The import integrity check: the same table counts are read before and after a conversion, and a
  * difference means the conversion lost data.
  *
- * PROMOTED FROM `:app` (DB-VM-PROMOTION wave 1b). It used to call
+ * PROMOTED FROM `:app`. It used to call
  * `io.payanam.database.security.DatabaseEncryptionMigrationSupport.readTableCounts` directly, which is an
  * Android library in `:core:database` — a dependency this plain-JVM module can never take, because
  * `:core:database` already depends on THIS module for its tests, and an Android library is not consumable

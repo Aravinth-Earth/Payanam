@@ -6,20 +6,24 @@ import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseFileGuard
 import io.payanam.presentation.settings.DatabaseArtifactUiModel
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 
-private val activeSuffixes = setOf("", "-wal", "-shm", "-journal")
-
 /**
  * Returns true when [fileName] names one of the live SQLite files for [dbName]
  * — the main database plus its `-wal`, `-shm`, and `-journal` companion files.
  * Anything else (`.bak`, temp import files, orphaned companions) is stale.
+ *
+ * THE SET IS [DatabaseArtifacts.artifactSuffixes], not a copy: this predicate decides which files a
+ * user-initiated delete is allowed to remove, so a family that gained or lost a member here and not
+ * there is a file that survives every cleanup or is deleted while in use.
  */
-fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabaseSchema.DATABASE_NAME): Boolean = activeSuffixes.any { fileName == "$dbName$it" }
+fun isActiveArtifact(fileName: String, dbName: String = PayanamDatabaseSchema.DATABASE_NAME): Boolean =
+    DatabaseArtifacts.artifactSuffixes.any { fileName == "$dbName$it" }
 
 private val dbArtifactDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm")
 
@@ -149,7 +153,7 @@ fun deleteAllDatabaseArtifactFiles(context: Context): Int {
         logger.w("SettingsDatabaseArtifactSupport.deleteAllDatabaseArtifactFiles", "Delete-all blocked: DB dir unavailable")
     }
     // Wipe temp backup subfolder first (created during create-new / import flows)
-    val tempBackupDir = File(dbDir, "payanam_temp_backup")
+    val tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
     if (tempBackupDir.exists()) {
         val deletedDir = DatabaseFileGuard.safeDeleteDir(
             tempBackupDir,
@@ -212,10 +216,11 @@ fun deleteRuntimeDatabaseArtifacts(context: Context): Int {
     dbDir.listFiles()?.forEach { file ->
         if (!file.isFile) return@forEach
         val isActive = isActiveArtifact(file.name)
-        val isTransientImportTemp = file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp" ||
-            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp-") ||
-            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.wal_merge_tmp") ||
-            file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.import_decrypt.tmp")
+        val isTransientImportTemp =
+            file.name == DatabaseArtifacts.exactTransientTempName ||
+                DatabaseArtifacts.transientImportTempSuffixes.any { suffix ->
+                    file.name.startsWith(DatabaseArtifacts.transientTempNamePrefix + suffix)
+                }
         if (isActive || isTransientImportTemp) {
             val deleted = DatabaseFileGuard.safeDelete(
                 file,
@@ -254,7 +259,7 @@ fun wipeTempBackupDir(context: Context): Boolean {
     val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile ?: return false.also {
         logger.w("SettingsDatabaseArtifactSupport.wipeTempBackupDir", "Temp backup wipe skipped: DB dir unavailable")
     }
-    val dir = File(dbDir, "payanam_temp_backup")
+    val dir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
     val existedBefore = dir.exists()
     val deleted = if (existedBefore) dir.deleteRecursively() else true
     logger.i(

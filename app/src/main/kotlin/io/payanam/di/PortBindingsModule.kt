@@ -17,6 +17,7 @@ import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.AndroidDatabaseOpener
 import io.payanam.domain.port.BackupStatusStore
 import io.payanam.domain.port.DatabaseBackupCoordinator
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.port.DatabaseSessionManager
 import io.payanam.domain.port.HabitTimeEntryRecorder
@@ -25,6 +26,7 @@ import io.payanam.domain.port.ProcessRestart
 import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.notification.NotificationScheduler
@@ -53,9 +55,9 @@ import io.payanam.shared.security.BiometricRefusalReason
 import io.payanam.shared.security.BiometricUnavailableReason
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.EncryptionStateCheckpoint
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.ui.perf.PerfBaselineTelemetry
+import io.payanam.usecase.AndroidTimeTrackingWidgetRefresher
 import io.payanam.usecase.CreateTimeEntryForHabitUseCase
 import io.payanam.usecase.TimeTrackingUseCase
 import java.io.File
@@ -107,6 +109,15 @@ object PortBindingsModule {
     @Provides
     @Singleton
     fun provideTimeTrackingController(impl: TimeTrackingUseCase): TimeTrackingController = impl
+
+    /**
+     * Exposes the widget refresher as the port that repaints the home-screen time widget.
+     */
+    @Provides
+    @Singleton
+    fun provideTimeTrackingWidgetRefresher(
+        impl: AndroidTimeTrackingWidgetRefresher,
+    ): TimeTrackingWidgetRefresher = impl
 
     /**
      * Exposes the habit time-entry creator as the port the shared ViewModels record through.
@@ -261,7 +272,7 @@ interface PassphraseUnlockEntryPoint {
     fun passphraseVault(): PassphraseVault
 
     /** The data-deleting recovery path, over the same vault. */
-    fun forgottenPassphraseReset(): ForgottenPassphraseReset
+    fun forgottenPassphraseReset(): DatabaseForgotPassphraseReset
 
     /** The generated copy table for the language in force. */
     fun uiStrings(): UiStrings

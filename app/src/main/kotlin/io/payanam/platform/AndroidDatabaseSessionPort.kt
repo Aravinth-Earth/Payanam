@@ -3,6 +3,7 @@
 package io.payanam.platform
 
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.WalCheckpointRule.FoldReport
 import kotlinx.coroutines.flow.StateFlow
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -55,6 +56,13 @@ class AndroidDatabaseSessionPort
             )
             delegate.closeDatabase()
         }
+
+        /**
+         * Delegates the awaitable fold to the wrapped manager, which folds through the open session or
+         * opens its own handle under [passphrase] when none is open.
+         */
+        override suspend fun flushPendingChanges(passphrase: String): FoldReport =
+            delegate.flushPendingChanges(passphrase)
 
         /** The wrapped manager's passphrase contract — same IllegalStateException when closed. */
         override fun requireOpenPassphrase(): String = delegate.requireOpenPassphrase()

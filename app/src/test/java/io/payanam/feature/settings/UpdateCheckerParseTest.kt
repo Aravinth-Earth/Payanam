@@ -5,6 +5,11 @@ package io.payanam.feature.settings
 import android.app.DownloadManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.ChannelStatus
+import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
 import io.payanam.common.logging.UnifiedLogger
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
