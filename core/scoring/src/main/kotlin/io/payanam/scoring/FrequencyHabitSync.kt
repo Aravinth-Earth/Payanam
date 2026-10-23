@@ -24,7 +24,7 @@ private const val ISO_DATE_LENGTH = 10
 /**
  * The window bookkeeping for a FREQUENCY habit — "3 times per 7 days" rather than "every 1 day".
  *
- * Extracted from [RecurrenceManager] (Epic G / G-S6) for one reason: [RecurrenceManager] arrived in
+ * Extracted from [RecurrenceManager] for one reason: [RecurrenceManager] arrived in
  * `:core:scoring` with no tests of its own, and 709 lines in one class moved that module's coverage from
  * 0.91 to 0.59. The two halves are genuinely different concerns — a frequency habit is RESYNCED to a window
  * boundary, while a plain recurring task is ADVANCED occurrence by occurrence — and separating them lets each

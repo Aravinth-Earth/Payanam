@@ -31,6 +31,7 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
+import kotlinx.coroutines.withContext
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
 import javax.inject.Inject
@@ -233,6 +234,103 @@ class DatabaseSessionManager
                 logger.d("DatabaseSessionManager.touch", "Session touch ignored because DB is closed")
             }
         }
+
+        /**
+         * Folds the write-ahead log so the MAIN file holds every pending write, and answers whether it did.
+         *
+         * The AWAITABLE, refusing half of [checkpoint]: [checkpoint] reports and is right for a lifecycle
+         * boundary, but a caller about to re-key or copy the file must not proceed on a log that did not
+         * empty, so this one returns the fold's own report and never swallows a blocked fold into "done".
+         *
+         * When a session is open it folds through that session. When none is, it opens its own handle under
+         * [passphrase] for the fold alone - so a caller that must flush AFTER closing can still complete the
+         * flush rather than be told the session was closed.
+         *
+         * [WalCheckpointRule.NO_ROW] is the answer when the pragma never ran, and it is non-empty by
+         * construction, so an unread fold can never read as a flushed database.
+         */
+        @Suppress("TooGenericExceptionCaught")
+        suspend fun flushPendingChanges(passphrase: String): WalCheckpointRule.FoldReport {
+            val open = _db
+            if (open != null) {
+                return foldRoomHandle(open.openHelper.writableDatabase)
+            }
+            return withContext(Dispatchers.IO) {
+                val databaseFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+                if (!databaseFile.exists()) {
+                    logger.w(
+                        "DatabaseSessionManager.flushPendingChanges",
+                        "No database file to fold because no session is open",
+                    )
+                    return@withContext WalCheckpointRule.NO_ROW
+                }
+                var owned: SQLiteDatabase? = null
+                try {
+                    System.loadLibrary("sqlcipher")
+                    owned =
+                        SQLiteDatabase.openDatabase(
+                            databaseFile.absolutePath,
+                            passphrase,
+                            null,
+                            SQLiteDatabase.OPEN_READWRITE,
+                            null,
+                        )
+                    foldSqlCipherHandle(owned)
+                } catch (error: Exception) {
+                    logger.e(
+                        "DatabaseSessionManager.flushPendingChanges",
+                        "Could not fold the write-ahead log without an open session",
+                        error,
+                    )
+                    // Nothing is known about the log, so nothing may be assumed about the main file.
+                    WalCheckpointRule.NO_ROW
+                } finally {
+                    owned?.close()
+                }
+            }
+        }
+
+        /**
+         * The Room/session half of the fold, over the handle the open session already holds.
+         *
+         * A [androidx.sqlite.db.SupportSQLiteDatabase] and not the SQLCipher type: a live Room session
+         * hands out the framework-typed handle, and the fold runs on the SAME connection the writes went
+         * through — which is the only handle whose fold proves those writes landed.
+         */
+        @Suppress("TooGenericExceptionCaught")
+        private fun foldRoomHandle(handle: androidx.sqlite.db.SupportSQLiteDatabase): WalCheckpointRule.FoldReport =
+            try {
+                handle.query(WalCheckpointRule.FOLD_STATEMENT).use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        WalCheckpointRule.reportOf(
+                            intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
+                        )
+                    } else {
+                        WalCheckpointRule.NO_ROW
+                    }
+                }
+            } catch (error: Exception) {
+                logger.e("DatabaseSessionManager.flushPendingChanges", "WAL fold failed", error)
+                WalCheckpointRule.NO_ROW
+            }
+
+        /** The no-session half of the fold, over a handle this call opened and therefore owns. */
+        @Suppress("TooGenericExceptionCaught")
+        private fun foldSqlCipherHandle(handle: SQLiteDatabase): WalCheckpointRule.FoldReport =
+            try {
+                handle.rawQuery(WalCheckpointRule.FOLD_STATEMENT, null).use { cursor ->
+                    if (cursor.moveToFirst()) {
+                        WalCheckpointRule.reportOf(
+                            intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
+                        )
+                    } else {
+                        WalCheckpointRule.NO_ROW
+                    }
+                }
+            } catch (error: Exception) {
+                logger.e("DatabaseSessionManager.flushPendingChanges", "WAL fold failed", error)
+                WalCheckpointRule.NO_ROW
+            }
 
         /**
          * Flushes WAL journal to the main DB file. Call on lifecycle boundaries

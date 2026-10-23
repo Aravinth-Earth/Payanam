@@ -47,6 +47,15 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.presentation.updates.UpdatePrefKeys
+import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.settings.ExportResult
+import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.UhabitsImportResult
 
 /**
  * Settings screen ViewModel: owns database stats/artifact management, the
@@ -66,7 +75,19 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     internal val logger = UnifiedLogger.getInstance()
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-    private val _uiState = MutableStateFlow(SettingsUiState())
+    // The five values that are facts about THIS build and THIS database are supplied here rather
+    // than defaulted in the state: a default would render a settings pane reporting a version and a
+    // schema the app never read. The channel starts from the parser's own documented fallback and is
+    // corrected from the stored row in `init`, exactly as before this state became shared.
+    private val _uiState = MutableStateFlow(
+        SettingsUiState(
+            currentDatabaseSchemaVersion = DatabaseHealthChecker.CURRENT_VERSION,
+            minimumSupportedSchemaVersion = DatabaseHealthChecker.MIN_MIGRATABLE_VERSION,
+            appVersion = BuildConfig.VERSION_NAME,
+            buildNumber = BuildConfig.VERSION_CODE,
+            updateChannel = UpdateChannel.fromStorage(null),
+        ),
+    )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
     /** Whether the app was installed from F-Droid (disables in-app update UI). */

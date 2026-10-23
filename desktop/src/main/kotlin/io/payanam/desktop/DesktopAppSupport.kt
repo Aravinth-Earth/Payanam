@@ -19,15 +19,16 @@ import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.security.BiometricUnlockPrompt
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.settings.DesktopLanguage
 import io.payanam.desktop.database.DesktopBackupStatusPort
+import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.domain.port.BackupStatusSnapshot
 import io.payanam.domain.port.BackupStatusStore
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.shared.settings.DesktopSettingsContracts
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopThemeMode
@@ -145,7 +146,18 @@ internal fun runResetStep(
 }
 
 internal data class DesktopShellCallbacks(
+    /**
+     * The shared graph's database-init screen reporting that the database is ready.
+     *
+     * It has to ride this class rather than a local in `desktopApp`: the graph is mounted inside
+     * `desktopContentPane`, which cannot see the shell's remembered state. Without it the app would
+     * report "ready" and never leave the shared screen, because the startup mode is derived from the
+     * scaffold stage and the database snapshot - both of which the desktop's own surface used to advance.
+     */
+    val onGraphDatabaseReady: () -> Unit,
     val onRouteSelected: (DesktopTopLevelRoute) -> Unit,
+    /** The desktop rail asking the graph to navigate; the host owns where it actually goes. */
+    val onRailRouteRequested: (String) -> Unit,
     /**
      * Writes ONE `app_settings` row through the shared preferences source - the settings route's only write
      * path. Separate from [onSettingsChanged], which is the onboarding scaffold's in-memory snapshot.
@@ -227,7 +239,7 @@ internal data class DesktopPersistenceStores(
      * It takes the database file because a forgotten passphrase means the data is unrecoverable without it;
      * the path comes from the store that already resolves it, never from a second guess.
      */
-    val forgottenPassphraseReset: ForgottenPassphraseReset =
+    val forgottenPassphraseReset: DatabaseForgotPassphraseReset =
         DesktopForgottenPassphraseReset(passphraseVault, databaseStore.getDatabaseFilePath())
 
     /**
@@ -257,8 +269,9 @@ internal data class DesktopPersistenceStores(
  *   SHARED logger interface rather than this module's file-backed class, so a test can drive the source
  *   without a real log file.
  * @param systemLanguageTag the system language, used only when the stored language choice is SYSTEM.
- * @param defaultDebugLoggingEnabled the absent-row default for `debug_logging_enabled`; a released desktop
- *   build defaults to false, where Android's default is `BuildConfig.DEBUG`.
+ * @param defaultDebugLoggingEnabled the absent-row default for `debug_logging_enabled`, the same shape
+ *   Android's mapper takes from `BuildConfig.DEBUG`: a debug build logs DEBUG entries when the user has
+ *   never touched the toggle, a release build does not.
  */
 /** Android's clamp for the unlock timeout, mirrored from `databaseEncryptionManager`. */
 private const val MIN_UNLOCK_TIMEOUT_MINUTES = 1
@@ -275,6 +288,15 @@ private const val DEFAULT_SCORING_MODEL = "balanced"
  * be noticed in a place nothing else mentions it, while a changed constant is a compile error.
  */
 private const val KEY_DATABASE_INIT_COMPLETED = AppPreferenceKeys.KEY_DATABASE_INIT_COMPLETED
+
+/**
+ * The desktop-scoped scoring-model row, declared beside the reader that uses it (`scoringModelState`).
+ *
+ * Declared, not shared: Android has no named scoring model - its `ScoringConfig` row holds weights - so this
+ * value is the desktop's own. It used to be declared in `DesktopSettingsRoute.kt`, a file with no caller since
+ * the settings destination was replaced, so the constant was outliving the code that named it.
+ */
+internal const val DESKTOP_SCORING_MODEL_KEY = "scoring_model"
 
 /**
  * The refusal code for a first-run create with no open session to take the passphrase from.
@@ -298,7 +320,7 @@ private const val DESKTOP_NO_OPEN_SESSION_MESSAGE =
 internal class DesktopPreferencesSource(
     private val sessionLogger: io.payanam.shared.logging.UnifiedLogger,
     private val systemLanguageTag: String?,
-    private val defaultDebugLoggingEnabled: Boolean = false,
+    private val defaultDebugLoggingEnabled: Boolean = DesktopBuildInfo.IS_DEBUG_BUILD,
     /**
      * The shared backup-status port, so the SHARED mapper can derive the failure banner's two fields.
      *
@@ -1240,6 +1262,8 @@ internal fun buildDesktopShellCallbacks(
     sessionLogger: UnifiedLogger,
     onQuitRequested: () -> Unit,
     onRouteSelected: (DesktopTopLevelRoute) -> Unit,
+    /** The rail's request, published as a route storage KEY (the rail carries no payload). */
+    onRailRouteRequested: (String) -> Unit,
     /**
      * The last first-run create outcome, held so the gate can ask for it AFTER the click.
      *
@@ -1314,6 +1338,38 @@ internal fun buildDesktopShellCallbacks(
 ): DesktopShellCallbacks =
     DesktopShellCallbacks(
         onRouteSelected = onRouteSelected,
+        onGraphDatabaseReady = {
+            // The shared database-init screen finished. Advance exactly what the startup mode is derived
+            // from, in the order the desktop's own gate did it.
+            //
+            // The SECURITY snapshot is re-read here too, and that re-read is the fix for a real first-run
+            // defect: `DatabaseInitViewModel.completeNewDatabaseDimensionSetup` writes the passphrase
+            // verifier through the vault, but only this callback was advancing the startup mode afterwards.
+            // It refreshed the DATABASE snapshot and left SECURITY holding the value read at launch - a
+            // stale `hasPassphraseConfigured = false` - so `resolveDesktopStartupMode` fell through to
+            // `SetupPassphrase` and the gate re-rendered the SHARED `DatabaseInitScreen` whose action is
+            // "create new database". The user's first passphrase was then treated as a SECOND create,
+            // which found the database it had just written and raised a wipe confirm nobody saw.
+            //
+            // `loadSnapshot()` (not a cached copy) is load-bearing: the verifier write is a file write by
+            // another owner, so only a live read can see it. Both snapshots are assigned BEFORE the log
+            // line so the line reports the post-state the gate is about to resolve against.
+            rememberedState.scaffoldOnboardingStageState.value = DesktopScaffoldOnboardingStage.Finished
+            val databaseSnapshot = stores.databaseStore.ensureInitialized()
+            val securitySnapshot = stores.securityStore.loadSnapshot()
+            rememberedState.databaseSnapshotState.value = databaseSnapshot
+            rememberedState.securitySnapshotState.value = securitySnapshot
+            sessionLogger.i(
+                source = "DesktopAppSupport.onGraphDatabaseReady",
+                message = "Shared database-init gate reported ready; scaffold advanced and snapshots re-read",
+                data =
+                    mapOf(
+                        "hasPassphraseConfigured" to securitySnapshot.hasPassphraseConfigured,
+                        "databaseHasArtifacts" to databaseSnapshot.hasArtifacts,
+                    ),
+            )
+        },
+        onRailRouteRequested = onRailRouteRequested,
         onSettingChanged = onSettingChanged,
         onOnboardingIntroAdvanced = {
             sessionLogger.i(
@@ -1381,7 +1437,7 @@ internal fun buildDesktopShellCallbacks(
             //
             // The opposite case is left exactly as it was: with a layer installed the write can land now, so
             // the outcome is the caller's to read and a real failure must keep the step open.
-            if (LocalDataLayer.current === UninstalledDataLayer) {
+            if (LocalDataLayer.current is DesktopBootstrapDataLayer) {
                 rememberedState.scaffoldOnboardingStageState.value =
                     DesktopScaffoldOnboardingStage.Finished
                 sessionLogger.i(

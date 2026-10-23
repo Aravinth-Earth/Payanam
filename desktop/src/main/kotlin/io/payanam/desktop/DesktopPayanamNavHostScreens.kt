@@ -6,8 +6,14 @@ package io.payanam.desktop
 
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import io.payanam.core.ui.database.DatabaseInitScreen
+import io.payanam.core.ui.database.DatabasePassphraseChangeScreen
+import io.payanam.core.ui.database.DatabasePassphraseSetupScreen
 import io.payanam.core.ui.database.DatabasePassphraseUnlockScreen
 import io.payanam.core.ui.day.DayScreen
 import io.payanam.core.ui.day.DayScreenMode
@@ -17,6 +23,12 @@ import io.payanam.core.ui.lenses.ScoringConfigScreen
 import io.payanam.core.ui.navigation.PayanamNavActions
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
 import io.payanam.core.ui.notes.NotesScreen
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.colorToStoredHex
+import io.payanam.core.ui.preferences.knownAppOwnedCatalogLabels
+import io.payanam.core.ui.preferences.localizedCatalogLabel
+import io.payanam.core.ui.settings.SettingsScreen
+import io.payanam.core.ui.settings.SettingsScreenActions
 import io.payanam.core.ui.tasks.AddTaskScreen
 import io.payanam.core.ui.tasks.EditTaskScreen
 import io.payanam.core.ui.tasks.ScoreDetailScreen
@@ -25,24 +37,50 @@ import io.payanam.core.ui.tasks.TasksScreen
 import io.payanam.core.ui.tasks.TasksScreenMode
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.time.MAX_TIME_HOUR_HEIGHT_DP
+import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
+import io.payanam.core.ui.time.TimeScreen
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
+import io.payanam.desktop.database.DesktopPassphraseChangeCollaborators
 import io.payanam.desktop.database.DesktopPassphraseUnlockCollaborators
+import io.payanam.desktop.database.DesktopSettingsCollaborators
 import io.payanam.desktop.database.databaseInitViewModel
+import io.payanam.desktop.database.databasePassphraseChangeViewModel
+import io.payanam.desktop.database.databasePassphraseSetupViewModel
 import io.payanam.desktop.database.databasePassphraseUnlockViewModel
+import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.day.dayPlanViewModel
 import io.payanam.presentation.day.dayViewModel
 import io.payanam.presentation.lenses.lensHabitScoreViewModel
 import io.payanam.presentation.lenses.lensViewModel
 import io.payanam.presentation.lenses.scoringConfigViewModel
 import io.payanam.presentation.notes.notesViewModel
+import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.presentation.preferences.AppPreferencesWriter
+import io.payanam.presentation.preferences.DimensionLabelNormalizer
+import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.presentation.tasks.ScoreDetailType
 import io.payanam.presentation.tasks.addTaskViewModel
 import io.payanam.presentation.tasks.editTaskViewModel
 import io.payanam.presentation.tasks.scoreDetailViewModel
 import io.payanam.presentation.tasks.taskDetailViewModel
 import io.payanam.presentation.tasks.tasksViewModel
+import io.payanam.presentation.time.timeTagEditorViewModel
+import io.payanam.presentation.time.timeViewModel
+import io.payanam.presentation.time.timeVisualsViewModel
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.settings.FocusModePreset
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.io.File
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 /**
  * The desktop's implementation of the shared navigation graph's destinations.
@@ -60,8 +98,8 @@ import java.time.LocalDate
  *
  * **Scope, honestly stated.** This file wires the destinations whose shared screen takes only a
  * ViewModel and navigation callbacks - tasks, habits, notes, journal, lenses, scoring config, database init,
- * the passphrase unlock gate, and the four task-detail routes. The remaining destinations are startup gates
- * and screens the desktop cannot reach yet, and each one below says so with a `TODO` and the reason. Nothing
+ * the passphrase setup, unlock and change gates, and the four task-detail routes. The remaining destinations are
+ * screens the desktop cannot reach yet, and each one below says so with the reason. Nothing
  * here is stubbed to look finished: a destination the desktop cannot render yet throws a clear, named error
  * rather than silently showing an empty pane, because a blank pane is indistinguishable from a bug.
  */
@@ -82,10 +120,17 @@ internal class DesktopPayanamNavHostScreens(
      * file rather than a second set of them.
      *
      * Supplied per instance for the same reason. The three that need shell-held state are fields of
-     * `DesktopPersistenceStores`, which is built in `desktopApp` and lives for the process; the opener and
-     * the path are the desktop's own answers and default to them.
+     * `DesktopPersistenceStores`, which is built in `desktopApp` and lives for the process, and the
+     * session controller is built there too, so the unlock and the shell cannot install two layers.
      */
     private val passphraseUnlockCollaborators: DesktopPassphraseUnlockCollaborators,
+    /**
+     * The passphrase-change screen's collaborators, supplied for the same reason and by the same wiring as
+     * [passphraseUnlockCollaborators]: this screen MUTATES the vault and closes and re-opens the session, so
+     * it has to run against the shell's own instances. A vault built here would write the new passphrase
+     * into a second security store that the unlock gate never reads.
+     */
+    private val passphraseChangeCollaborators: DesktopPassphraseChangeCollaborators,
     /**
      * The ONE language the shell root derived, for the shared screen's onboarding pager.
      *
@@ -94,6 +139,19 @@ internal class DesktopPayanamNavHostScreens(
      * so a second derivation here could give this one destination a different language than the root.
      */
     private val language: UiLanguage,
+    /**
+     * The settings screen's collaborators, supplied for the same reason and by the same wiring as
+     * [passphraseChangeCollaborators]: this destination reads and writes the shell's OWN rows, so it has
+     * to run against the shell's own preferences source rather than opening a second one.
+     *
+     * The state is a PARAMETER rather than a read of the ambient `LocalAppPreferences` on purpose.
+     * `AppPreferencesState.isLoading` defaults to true and two of the shared sections - appearance and
+     * default landing - early-return on it, so a default-constructed state renders those two sections
+     * permanently and silently empty. The shell already publishes the mapped state from the rows it read
+     * under the swap lock, so the parameter carries that one and there is nothing for the shared screen to
+     * derive a second copy of.
+     */
+    private val settingsCollaborators: DesktopSettingsCollaborators,
 ) : PayanamNavHostScreens {
     // The desktop's own logger, already initialized from main() before any composable runs. Same
     // construction as Android's half: both are the platform implementation of the shared contract.
@@ -104,13 +162,33 @@ internal class DesktopPayanamNavHostScreens(
         nav: PayanamNavActions,
         onConfigured: () -> Unit,
     ) {
-        // The desktop's startup gate owns the decision about WHICH gate is showing and renders it as a
-        // whole surface, so there is no destination body to supply here yet: mounting the graph without
-        // moving that decision would produce two competing gates. Tracked in the parity doc as V5.
+        // WIRED on the same terms as the two siblings below: the shared screen and its shared ViewModel are
+        // built from this module's own collaborators. The desktop's own startup gate still owns WHICH gate is
+        // showing, so nothing above this was rerouted, and whether it keeps that surface is a product decision
+        // rather than a refactor.
         //
-        // The sibling below is already wired even though its gate is also still mounted, because its screen
-        // needed nothing the desktop cannot build. The asymmetry is deliberate and is recorded there too.
-        desktopDestinationNotMigrated("passphrase setup", "V5")
+        // debugLogExport is NOT empty: the desktop supplies its own exporter, because the desktop has no
+        // SAF picker and no R class for Android's. DesktopLogExportActions renders the same two shared
+        // buttons and the same shared result line; only the destination of the export differs. The
+        // argument this slot takes is IGNORED, and that is a real difference from Android rather than a
+        // shortcut: Android's exporter disables its two buttons while a save is in flight, and
+        // DesktopLogExportActions declares no isSaving parameter, so the desktop supplies it unchanged
+        // and IGNORES the flag this slot passes (hence `{ _ -> ... }` below). No saving state is
+        // fabricated to cover it - the flag arrives from the shared screen's own uiState.isSaving, and
+        // the desktop has no exporter that consumes it.
+        val viewModel =
+            desktopRetained(onRelease = { it.dispose() }) {
+                databasePassphraseSetupViewModel(
+                    // The vault the unlock gate was built over, so the passphrase this gate writes is the one
+                    // that gate later verifies. A vault built here would hold a credential no gate can check.
+                    passphraseUnlockCollaborators = passphraseUnlockCollaborators,
+                )
+            }
+        DatabasePassphraseSetupScreen(
+            onPassphraseConfigured = onConfigured,
+            viewModel = viewModel,
+            debugLogExport = { _ -> DesktopLogExportActions() },
+        )
     }
 
     @Composable
@@ -133,7 +211,11 @@ internal class DesktopPayanamNavHostScreens(
         //    which is a complete way in.
         //  - preUnlockUpdate is null because the flow it wraps is Android's own APK install. It is an
         //    explicitly named no-op slot in the shared screen, not a missing feature.
-        //  - debugLogExport is null because the exporter behind it is Android's own storage and R class.
+        //
+        // debugLogExport is NOT empty: the desktop supplies its own exporter, for the same reason as on
+        // the setup and database-init gates - no SAF picker, no R class for Android's, and the two
+        // shared buttons plus the shared result line render identically. This slot takes no argument,
+        // so nothing has to be supplied or ignored here.
         //
         // isImportMode stays at its default false: the graph has one unlock destination and this platform
         // never reaches it to import (the desktop imports through its own transfer controller, which verifies
@@ -153,7 +235,7 @@ internal class DesktopPayanamNavHostScreens(
             viewModel = viewModel,
             biometricActions = null,
             preUnlockUpdate = null,
-            debugLogExport = null,
+            debugLogExport = { DesktopLogExportActions() },
         )
     }
 
@@ -162,10 +244,39 @@ internal class DesktopPayanamNavHostScreens(
         nav: PayanamNavActions,
         onPassphraseChanged: () -> Unit,
     ) {
-        // The shared screen exists, but the desktop has no `DatabasePassphraseChangeViewModel` - Android
-        // builds it through Hilt, and nothing constructs it from the data layer yet. Rendering the screen
-        // with a permanently-false "not saving / no error" state would look functional and be inert.
-        desktopDestinationNotMigrated("passphrase change", "V5")
+        // WIRED on the same terms as its three siblings above: the shared screen, built here from this
+        // module's own collaborators over the SHARED ViewModel. Nothing is defaulted and nothing is stubbed -
+        // the values the screen reads (`isSaving`, `errorReasonCode`, `isSuccess`) all come from the real
+        // ViewModel's own state, so the desktop cannot render a form whose button does nothing.
+        //
+        // The ViewModel is retained with `desktopRetained` rather than `rememberSaveable`, because its
+        // `scope` is a SupervisorJob that must be cancelled on the way out; the shared screen keeps its three
+        // passphrase fields and their visibility toggles in `rememberSaveable` internally, exactly as on
+        // Android, so a desktop recompose does not clear what the user typed.
+        val viewModel =
+            desktopRetained(onRelease = { it.dispose() }) {
+                databasePassphraseChangeViewModel(
+                    collaborators = passphraseChangeCollaborators,
+                )
+            }
+        val passphraseChangeState by viewModel.uiState.collectAsState()
+        DatabasePassphraseChangeScreen(
+            onSubmit = { currentPassphrase, newPassphrase, confirmPassphrase ->
+                logger.i("DatabasePassphraseChangeScreen", "Submitting passphrase change")
+                viewModel.submit(
+                    currentPassphrase = currentPassphrase,
+                    newPassphrase = newPassphrase,
+                    confirmPassphrase = confirmPassphrase,
+                )
+            },
+            // The shared screen fires this itself when `isSuccess` flips, which on this flow is immediately
+            // before the process restart - so the graph's own back navigation is what runs here, the same
+            // callback Android's half passes through.
+            onPassphraseChanged = onPassphraseChanged,
+            isSaving = passphraseChangeState.isSaving,
+            errorReasonCode = passphraseChangeState.errorReasonCode,
+            isSuccess = passphraseChangeState.isSuccess,
+        )
     }
 
     @Composable
@@ -181,7 +292,9 @@ internal class DesktopPayanamNavHostScreens(
         //  - onImportFileSelected is NOTIFICATION only. The ViewModel drives the actual pick through the
         //    documentSource it was built with (AwtDocumentSource, already wired in DesktopApp), so a
         //    launcher here would be a second picker competing with the one the flow actually uses.
-        //  - debugLogExport is null because the desktop has no Android R class and no log exporter.
+        //  - debugLogExport is NOT empty: the desktop supplies its own exporter, because the desktop has no
+        //    SAF picker and no R class for Android's. DesktopLogExportActions renders the same two shared
+        //    buttons and the same shared result line; only the destination of the export differs.
         val viewModel =
             desktopRetained(onRelease = { it.dispose() }) {
                 databaseInitViewModel(
@@ -195,7 +308,9 @@ internal class DesktopPayanamNavHostScreens(
             viewModel = viewModel,
             onImportFileSelected = {},
             language = language,
-            debugLogExport = null,
+            debugLogExport = { DesktopLogExportActions() },
+            // Reached only after the desktop's own startup surface already ran the intro, so the graph must not repeat it.
+            onboardingIntroAlreadyCompleted = true,
         )
     }
 
@@ -259,9 +374,27 @@ internal class DesktopPayanamNavHostScreens(
         openStopTrackingDialogRequestId: Long?,
         onOpenStopTrackingDialogHandled: (Long) -> Unit,
     ) {
-        // The shared Time screen is still in `:app` (io.payanam.ui.screens.TimeScreen), not in :core:ui,
-        // so the desktop module cannot reach it. V3 moves it; until then this destination cannot render.
-        desktopDestinationNotMigrated("time", "V3")
+        // Complete: the screen and all four ViewModels are shared, so this is the same screen Android
+        // renders. The writes go through the SAME `app_settings` row Android writes - the desktop holds
+        // the identical table behind `LocalDataLayer`, so a scale preset chosen here is the one the
+        // Android app reads back.
+        TimeScreen(
+            viewModel = desktopRetained(onRelease = { it.dispose() }) { timeViewModel() },
+            timeTagEditorViewModel = desktopRetained(onRelease = { it.dispose() }) { timeTagEditorViewModel() },
+            timeVisualsViewModel = desktopRetained(onRelease = { it.dispose() }) { timeVisualsViewModel() },
+            dayPlanViewModel = desktopRetained(onRelease = { it.dispose() }) { dayPlanViewModel() },
+            openStartTrackingDialogRequestId = openStartTrackingDialogRequestId,
+            onOpenStartTrackingDialogHandled = onOpenStartTrackingDialogHandled,
+            openStopTrackingDialogRequestId = openStopTrackingDialogRequestId,
+            onOpenStopTrackingDialogHandled = onOpenStopTrackingDialogHandled,
+            onNavigateToTask = { taskId ->
+                logger.i("PayanamNavHost", "Navigating to edit task from Time", mapOf("taskId" to taskId))
+                nav.openEditTask(taskId)
+            },
+            onTimeHourHeightDpChange = { hourHeightDp ->
+                desktopPersistTimeHourHeightDp(hourHeightDp)
+            },
+        )
     }
 
     @Composable
@@ -299,13 +432,220 @@ internal class DesktopPayanamNavHostScreens(
 
     @Composable
     override fun settings(nav: PayanamNavActions) {
-        // The desktop's own settings route already reads and writes the shared `app_settings` rows, so the
-        // DATA is shared and only the UI is the desktop's. It takes ten parameters of app state that this
-        // file is not given, so it cannot be called from here yet - supplying that state is the mount's
-        // job, and doing it as a guessed default would render a settings pane that silently discards
-        // writes. Tracked as V5.
-        desktopDestinationNotMigrated("settings", "V5")
+        // Complete: the screen, its state data class and its write path are all shared, so this is the same
+        // screen Android renders. There is no shared ViewModel to retain here - `SettingsViewModel` is
+        // Hilt-constructed and app-only - so the state data class is BUILT from the shell's own
+        // collaborators, exactly the way `passphraseChange` builds the shared ViewModel rather than
+        // resolving one.
+        //
+        // prefsState is the shell's own `preferences`, PASSED, not read from `LocalAppPreferences`. That is
+        // the one arrangement that renders the appearance and default-landing sections: `isLoading` defaults
+        // to true and both sections early-return on it, so a state that arrives default-constructed makes
+        // those two sections permanently and silently empty. Nothing here recomposes on its own - the state
+        // is read once per composition and the shell's recomposition is what re-renders it, which is the
+        // same lifetime the ambient provider would have given.
+        //
+        // snackbarHostState is `remember`ed and this destination collects the write outcome onto it. A
+        // no-op `scope.launch { }` would compile and render, so it is here for the reason the other bodies
+        // carry their collaborators: the desktop has no Hilt ViewModel to own this scope, and the shared
+        // screen takes a `SnackbarHostState` rather than a flow to report through.
+        val settingsState = settingsCollaborators.preferences
+        // `produceState` over the collaborators' own suspending read, because the state this screen renders
+        // is a MEASUREMENT rather than a field: three repository counts and a filesystem listing, which are
+        // exactly the reads Android's `SettingsViewModel` does off its own scope. `produceState` is the
+        // desktop's stand-in for that ViewModel's `viewModelScope` - it launches the read once per
+        // composition, cancels it on the way out, and starts with the REAL schema floor and version rather
+        // than a fabricated placeholder, so the first frame cannot report a database the app never opened.
+        val uiState by produceState<SettingsUiState?>(initialValue = null, settingsCollaborators) {
+            value = settingsCollaborators.uiState()
+        }
+        SettingsScreen(
+            prefsState = settingsState,
+            uiState = uiState ?: return,
+            debugLogExport = { DesktopLogExportActions() },
+            // The desktop's own rows, so a theme chosen here is the one the shell reads on its next
+            // recomposition - the SAME `app_settings` rows Android writes, read back through the shared
+            // mapper rather than through a desktop-private store.
+            actions =
+                SettingsScreenActions(
+                    onAppLanguageChange = { option ->
+                        write { settingsCollaborators.writer().setAppLanguage(option.key) }
+                    },
+                    onThemeModeChange = { option ->
+                        write { settingsCollaborators.writer().setThemeMode(option.key) }
+                    },
+                    onFontFamilyChange = { option ->
+                        write { settingsCollaborators.writer().setFontFamily(option.key) }
+                    },
+                    onTimeFormatChange = { option ->
+                        write { settingsCollaborators.writer().setTimeFormat(option.key) }
+                    },
+                    onLaunchDestinationRouteChange = { route ->
+                        write { settingsCollaborators.writer().setLaunchDestination(route) }
+                    },
+                    // ABSENT on purpose: `onLaunchDestinationTimeChange` is the one default-landing row with
+                    // its own writer method, and it also CLEARS the task-filter row. The shared screen calls
+                    // it beside `onLaunchDestinationRouteChange` for the same route string, so wiring it
+                    // would write `launch_destination_route` twice per tap - once from each - and the second
+                    // write's clear is a second transaction for one gesture. The route write above is the
+                    // complete answer for that row: the shared section reports the Time option through it.
+                    onLaunchDestinationTasksChange = { filter ->
+                        write { settingsCollaborators.writer().setLaunchDestinationTasks(filter?.key) }
+                    },
+                    // The desktop has no focus-mode build flag, and the card's own rule is a preference: the
+                    // shell owns the preset and the rail already renders from `preferences.tabVisibility`, so
+                    // the section that edits those rows has to be offered.
+                    focusModeSettingsEnabled = true,
+                    // `false` is the same answer the graph itself is handed at this mount
+                    // (`DesktopApp.kt`, `minimalModeEnabled = false`): minimal mode is an Android build-time
+                    // constant the desktop has no knob for, and it selects a card with no file rows - so
+                    // reporting it true would hide the export and import rows the desktop does support.
+                    minimalModeEnabled = false,
+                    onSetActivePreset = { preset ->
+                        // The shared writer's own nine-row write, which is the desktop source's rule verbatim
+                        // - including the completion row, so a preset chosen here ends onboarding the same
+                        // way Android's `setActivePreset` + `markFocusModeOnboardingCompleted` pair does.
+                        write { settingsCollaborators.writer().setActivePreset(preset) }
+                    },
+                    onSetTabVisibility = { tabRoute, visible ->
+                        write { settingsCollaborators.writer().setTabVisibility(tabRoute, visible) }
+                    },
+                    onDimensionLabelChanged = { id, label ->
+                        write {
+                            settingsCollaborators.writer().setDimensionLabel(
+                                dimensionId = id,
+                                candidateLabel = label,
+                                effectiveLanguageTag = settingsState.effectiveLanguageTag,
+                            )
+                        }
+                    },
+                    onDimensionLabelReset = { id ->
+                        write { settingsCollaborators.writer().resetDimensionLabel(id) }
+                    },
+                    onDimensionColorChanged = { id, color ->
+                        // `colorToStoredHex` is the shared converter `AppPreferencesViewModel` uses, so the
+                        // stored form is the same eight-digit hex the catalog column holds.
+                        write { settingsCollaborators.writer().setDimensionColor(id, colorToStoredHex(color)) }
+                    },
+                    onDimensionIconChanged = { id, iconKey ->
+                        write { settingsCollaborators.writer().setDimensionIcon(id, iconKey) }
+                    },
+                    onDimensionWeightChanged = { id, weight ->
+                        write { settingsCollaborators.writer().setDimensionWeight(id, weight) }
+                    },
+                    onDimensionVisibilityChanged = { id, visible ->
+                        write { settingsCollaborators.writer().setDimensionVisibility(id, visible) }
+                    },
+                    onAutoTrackHabitTimeGlobalChanged = { enabled ->
+                        write { settingsCollaborators.writer().setAutoTrackHabitTimeGlobal(enabled) }
+                    },
+                    onAutoTrackDimensionPreferenceChanged = { id, enabled ->
+                        write { settingsCollaborators.writer().setAutoTrackDimensionPreference(id, enabled) }
+                    },
+                    onChartVisibilityChanged = { key, enabled ->
+                        // The shared writer validates the key against `CHART_VISIBILITY_KEYS` and throws on
+                        // one it does not recognise, so a typo fails loudly here instead of creating a row
+                        // nothing reads.
+                        write { settingsCollaborators.writer().setChartVisibility(key, enabled) }
+                    },
+                    onAutoBackupEnabledChanged = { enabled ->
+                        write { settingsCollaborators.writer().setAutoBackupEnabled(enabled) }
+                    },
+                    onAutoBackupIntervalChanged = { interval ->
+                        write { settingsCollaborators.writer().setAutoBackupInterval(interval.key) }
+                    },
+                    // ABSENT, and the omission is the point: the shell's own `onSettingChanged` reconciles
+                    // the in-process schedule for exactly these two keys (`DesktopApp.kt`), so scheduling
+                    // here would be a SECOND timer for one gesture. The shared screen reports both the
+                    // enable-state and the interval it was left on, which is what makes that reconciliation
+                    // correct rather than accidental.
+                    onManualBackupRequested = settingsCollaborators.onManualBackupRequested,
+                    onBackupRotationEnabledChanged = { enabled ->
+                        write { settingsCollaborators.writer().setBackupRotationEnabled(enabled) }
+                    },
+                    onBackupRotationCountChanged = { count ->
+                        write { settingsCollaborators.writer().setBackupRotationCount(count) }
+                    },
+                    // The banner is the SHELL's, drawn above the graph from
+                    // `preferences.autoBackupLastErrorMessage`, so this dismisses the same thing the graph's
+                    // own banner row dismisses rather than clearing a desktop-private flag the banner never
+                    // reads. The shell's `onDismissBackupFailure` clears the status port the banner is
+                    // derived from, and that is the one answer here.
+                    onAutoBackupFailureDismissed = settingsCollaborators.onDismissBackupFailure,
+                    // A REAL answer, not a skip: the desktop's backup is synchronous within one click, so
+                    // the busy flag is false on every frame the screen can show. Fabricating `true` would
+                    // disable the row permanently.
+                    manualBackupInProgress = false,
+                    // `true`, because the scoring screen IS reachable here - `nav.openScoringConfig()` is a
+                    // shared graph route and `scoringConfig` is wired below - so offering the row and the
+                    // button is honest. Left at its `false` default the section would be hidden and the
+                    // desktop's one configured scoring model would be unreachable from settings.
+                    scoreSettingsEnabled = true,
+                    onNavigateToScoringConfig = { nav.openScoringConfig() },
+                    onDebugLoggingEnabledChanged = { enabled ->
+                        write { settingsCollaborators.writer().setDebugLoggingEnabled(enabled) }
+                    },
+                    // The row is written directly and the shell's own `DesktopPreferencesSource.publish`
+                    // re-derives and re-clamps it on every write, so what the field shows afterwards is the
+                    // shell's rule rather than the number tapped.
+                    // The row goes through the shell's single-row writer, which also re-derives and re-clamps
+                    // it: `DesktopPreferencesSource.publish` recomputes the timeout from the rows on every
+                    // write, so what this field shows afterwards is the shell's rule, not the number tapped.
+                    onUnlockTimeoutChanged = { minutes ->
+                        write { settingsCollaborators.setSetting(AppPreferenceKeys.KEY_SESSION_TIMEOUT_MINUTES, minutes.toString()) }
+                    },
+                    // ABSENT with the biometric slot empty below: this platform has no OS identity check, so
+                    // there is no row to write and no prompt to offer. `DesktopBiometricUnlockPrompt`
+                    // REFUSES by construction, and a no-op here would report a capability the desktop
+                    // cannot honour.
+                    onDeleteArtifact = { fileName -> settingsCollaborators.deleteStaleArtifact(fileName) },
+                    onCleanStaleArtifacts = { settingsCollaborators.cleanStaleArtifacts() },
+                    // Android names this per-export; the desktop writes one file the user chooses, so the
+                    // shell's own export dialog default is the name offered here rather than a constant.
+                    exportFileName = PayanamDatabaseSchema.DATABASE_NAME,
+                    onExportDestinationRequested = { settingsCollaborators.onExportDatabase() },
+                    // The three pickers report an intent and the platform holds the handle. The desktop has
+                    // ONE real picker - `AwtDocumentSource` - already wired in `DesktopApp`, so all three
+                    // report to it and only the MIME filter differs; a picker built here would be a second
+                    // modal competing with the one the export and import rows already use.
+                    onImportSourceRequested = { settingsCollaborators.onImportDatabase() },
+                    // ABSENT, and correct: the desktop has no uHabits importer, so a chosen file would have
+                    // no flow to hand it to. The shared row is still rendered, and the count it reports is
+                    // zero, which disables the map row on the section's own rule - an absent flow is better
+                    // than a button that accepts a document and reports success.
+                    onImportConfirmed = { settingsCollaborators.onImportDatabase() },
+                    onImportDismissed = {},
+                    onDeleteExportPromptDismissed = {},
+                    // ABSENT: the desktop has no delete-all-data flow, and the confirm dialog this opens
+                    // would report a deletion that never happens. The row is rendered and inert.
+                    onNavigateToPassphraseChange = { nav.openPassphraseChange() },
+                ),
+        )
     }
+
+    /**
+     * Runs one settings write through the SHELL's scope, rather than this destination's.
+     *
+     * `launchWrite` is a `suspend` function type that fires and forgets on a scope the shell owns for the
+     * process, which is what makes the write survive this destination leaving the composition - a write
+     * owned by a composition scope is abandoned mid-flight the moment the user navigates away, which for a
+     * settings write is the gesture most likely to be followed immediately by a tap on another rail card.
+     */
+    private fun write(block: suspend () -> Unit) {
+        logger.i("DesktopPayanamNavHostScreens.settings", "Settings write requested")
+        settingsWriteScope.launch { settingsCollaborators.launchWrite { block() } }
+    }
+
+    /**
+     * The scope every settings write is launched on.
+     *
+     * Held as a field rather than `rememberCoroutineScope()` at the call site because a settings write has to
+     * survive this destination leaving the composition: a composition scope is cancelled with it, and the
+     * ordinary case after a settings write is a tap on the next rail card. A `remember`-free field also means
+     * a write never needs a composition to have happened, which is what lets `write` be called from a plain
+     * callback in the first place.
+     */
+    private val settingsWriteScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     @Composable
     override fun addTask(nav: PayanamNavActions) {
@@ -420,4 +760,35 @@ private fun desktopDestinationNotMigrated(
         "Desktop destination '$destination' is not migrated yet - it is owned by $phase. " +
             "Rendering nothing here would look like a broken screen.",
     )
+}
+
+/**
+ * Writes the timeline hour height into the same `app_settings` row Android writes.
+ *
+ * The desktop has no `AppPreferencesViewModel` - that ViewModel is Hilt-constructed and Android-only -
+ * but the row, its key and its clamped format are shared, so this reaches the same storage through the
+ * same shared contract ([io.payanam.presentation.data.PayanamDataLayer]) the desktop's own settings
+ * screen already uses. A default would silently drop the write, which is the one outcome a scale preset
+ * must never have: the slider would move and the row would not.
+ */
+private fun desktopPersistTimeHourHeightDp(hourHeightDp: Float) {
+    val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
+    val normalized = String.format(Locale.US, "%.2f", clamped)
+    CoroutineScope(Dispatchers.IO).launch {
+        runCatching {
+            LocalDataLayer.current.appSettings.setSetting(AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP, normalized)
+            AppLogger.current.d(
+                "DesktopPayanamNavHostScreens.setTimeHourHeightDp",
+                "Setting updated",
+                mapOf("key" to AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP, "value" to normalized),
+            )
+        }.onFailure { error ->
+            AppLogger.current.e(
+                "DesktopPayanamNavHostScreens.setTimeHourHeightDp",
+                "Failed to update setting",
+                error,
+                mapOf("key" to AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP),
+            )
+        }
+    }
 }

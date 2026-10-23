@@ -8,13 +8,13 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.feature.assistant.AssistantSettings
 import io.payanam.feature.assistant.AssistantSettingsStore
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
 import java.io.File
 import java.time.Instant
+import io.payanam.domain.assistant.AssistantSettings
 
 /** SQLite companion-file suffixes that ride next to the canonical database file. */
 private val COMPANION_SUFFIXES = listOf("-wal", "-shm", "-journal")

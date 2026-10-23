@@ -245,6 +245,26 @@ class DatabaseEncryptionManager(
      * Changes the passphrase: verifies [currentPassphrase] first, then persists
      * a fresh verifier and drops biometric wrapping (must be re-enrolled).
      * Returns false if the current passphrase does not verify.
+     *
+     * **The change is atomic in the metadata store, because the old verifier is unrecoverable
+     * once the new one is committed.** [persistVerifier] commits the new salt and hash, and the
+     * biometric teardown that follows can still fail, so a bare `false` would report a refusal
+     * while the NEW verifier was already durable and the OLD one gone — a state no file restore
+     * can repair, and one that locks the user out of their own database. So the verifier keys are
+     * armed into the `_bak_` side-car keys first ([backupEncryptionPrefs]), the mutation runs, and
+     * any failure restores them ([restoreEncryptionPrefs]).
+     *
+     * Two consequences, both deliberate:
+     * - **The change is refused when the rollback cannot be armed.** An unarmed change may land
+     *   half-applied, so [backupEncryptionPrefs] failing returns `false` rather than proceeding.
+     * - **A successful change consumes the side-car backup it armed** ([clearEncryptionPrefsBackup]),
+     *   so stale backups cannot shadow the live verifier. Do not call this inside a window where a
+     *   caller has already armed the backup and still needs it: the import flows do
+     *   (`SettingsEncryptedImportSupport`) and they do not change a passphrase.
+     *
+     * A rollback restores the metadata keys only. The teardown's Keystore aliases cannot be
+     * restored, but no path that reaches a rollback has deleted one: the only throw site in
+     * [disableBiometricUnlockInternal] is the prefs commit check, which precedes both deletions.
      */
     fun updatePassphrase(
         currentPassphrase: String,
@@ -262,18 +282,37 @@ class DatabaseEncryptionManager(
             logger.w("DatabaseEncryptionManager.updatePassphrase", "Current passphrase verification failed")
             return false
         }
-        return runCatching {
-            persistVerifier(newPassphrase)
-            disableBiometricUnlockInternal()
-            logger.i(
+        if (!backupEncryptionPrefs()) {
+            logger.e(
                 "DatabaseEncryptionManager.updatePassphrase",
-                "Database passphrase metadata updated; biometric unlock disabled for re-enrollment",
+                "Refusing to change the passphrase: the verifier rollback could not be armed",
             )
-            true
-        }.getOrElse { error ->
-            logger.e("DatabaseEncryptionManager.updatePassphrase", "Failed to update passphrase metadata", error)
-            false
+            return false
         }
+        val changed =
+            runCatching {
+                persistVerifier(newPassphrase)
+                disableBiometricUnlockInternal()
+                logger.i(
+                    "DatabaseEncryptionManager.updatePassphrase",
+                    "Database passphrase metadata updated; biometric unlock disabled for re-enrollment",
+                )
+                true
+            }.getOrElse { error ->
+                logger.e("DatabaseEncryptionManager.updatePassphrase", "Failed to update passphrase metadata", error)
+                val restored = restoreEncryptionPrefs()
+                logger.e(
+                    "DatabaseEncryptionManager.updatePassphrase",
+                    "Rolled back the passphrase verifier after a failed change",
+                    null,
+                    mapOf("verifierRestored" to restored),
+                )
+                false
+            }
+        if (changed) {
+            clearEncryptionPrefsBackup()
+        }
+        return changed
     }
     /**
      * Wipes all encryption state: clears the security prefs and deletes both
@@ -391,8 +430,29 @@ class DatabaseEncryptionManager(
      * Validates [passphrase] by re-deriving the PBKDF2 verifier from the stored
      * salt and comparing it against the stored hash with a constant-time
      * [MessageDigest.isEqual] to avoid timing leaks.
+     *
+     * ENFORCES THE UNLOCK LOCKOUT, and counts a wrong passphrase itself. Both halves belong here for the
+     * same reason the desktop store does them: the lockout is a property of the credential, so the thing
+     * that compares a passphrase has to consult the active lockout before it can compare one, and has to
+     * persist the failure before it can answer - otherwise a correct passphrase is accepted while the
+     * owner is locked out, and an attempt that is refused by the lockout costs nothing, which is the
+     * schedule the shared policy promises (attempt 3 costs 30s) nobody was enforcing here before.
+     *
+     * A verifier that is absent or corrupt is a CONFIGURATION fault, not a wrong passphrase, so it is
+     * refused without counting - the same distinction the desktop store draws.
      */
     fun verifyPassphrase(passphrase: String): Boolean {
+        val now = System.currentTimeMillis()
+        val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)
+        if (lockoutUntil > now) {
+            val remainingSeconds = ((lockoutUntil - now) + 999L) / 1000L
+            logger.w(
+                "DatabaseEncryptionManager.verifyPassphrase",
+                "Passphrase verification blocked: unlock lockout active",
+                mapOf("lockoutSecondsRemaining" to remainingSeconds),
+            )
+            return false
+        }
         val salt = decodeOrNull(prefs.getString(KEY_VERIFIER_SALT, null))
         if (salt == null) {
             logger.w("DatabaseEncryptionManager.verifyPassphrase", "Passphrase verification blocked: missing verifier salt")
@@ -405,6 +465,17 @@ class DatabaseEncryptionManager(
         }
         val actual = deriveVerifier(passphrase, salt)
         val valid = MessageDigest.isEqual(expected, actual)
+        if (valid) {
+            // Re-arm the policy so the next failure is counted from one. Clearing on success is what the
+            // shared contract means by "the counter is cleared after a successful unlock", and it is why
+            // a locked-out owner who finds their passphrase is not punished for the earlier attempts.
+            resetUnlockAttempts()
+        } else {
+            // Counted here rather than left to the caller, for the same reason the lockout is consulted
+            // above: both stores count inside their verification, so a shared caller that records again
+            // would escalate the schedule twice as fast and lock the owner out on attempt 2.
+            recordFailedUnlockAttempt()
+        }
         logger.i(
             "DatabaseEncryptionManager.verifyPassphrase",
             "Passphrase verification completed",

@@ -15,7 +15,7 @@ import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricRefusalReason
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
-import io.payanam.shared.security.ForgottenPassphraseReset
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
@@ -314,7 +314,7 @@ class DatabasePassphraseUnlockViewModelTest {
     fun `a successful reset clears the busy flag and calls back`() =
         runTest(testDispatcher) {
             val viewModel = viewModel()
-            reset.report = Report(artifactsDeleted = 3, credentialCleared = true)
+            reset.report = Report(artifactsDeleted = 3, artifactsAttempted = 3, credentialCleared = true)
             var resetDone = false
 
             viewModel.forgotPassphraseReset { resetDone = true }
@@ -333,7 +333,8 @@ class DatabasePassphraseUnlockViewModelTest {
     fun `a reset that did not clear the credential is reported and does NOT call back`() =
         runTest(testDispatcher) {
             val viewModel = viewModel()
-            reset.report = Report(artifactsDeleted = 0, credentialCleared = false)
+            reset.report =
+                Report(artifactsDeleted = 0, artifactsAttempted = 3, credentialCleared = false)
             var resetDone = false
 
             viewModel.forgotPassphraseReset { resetDone = true }
@@ -345,6 +346,47 @@ class DatabasePassphraseUnlockViewModelTest {
             assertThat(resetDone).isFalse()
             assertThat(viewModel.uiState.value.errorReasonCode).isEqualTo("reset_failed")
             assertThat(viewModel.uiState.value.isUnlocking).isFalse()
+            viewModel.dispose()
+        }
+
+    @Test
+    fun `a PARTIAL wipe with a cleared credential does NOT report success`() =
+        runTest(testDispatcher) {
+            // THE ARM THE PORT'S RESULT TYPE EXISTS TO PROVE. Both halves are individually fine: the
+            // credential cleared, and most of the artifact family went. What did not happen is the whole
+            // family going, and a user told their data was destroyed while a `-wal` of their own database
+            // is still beside the wiped main file is the one lie this path must not tell. So the answer the
+            // gate walks past on has to be `succeeded`, and only `succeeded` unlocks the next gate.
+            val viewModel = viewModel()
+            reset.report = Report(artifactsDeleted = 3, artifactsAttempted = 4, credentialCleared = true)
+            var resetDone = false
+
+            viewModel.forgotPassphraseReset { resetDone = true }
+            advanceUntilIdle()
+
+            assertThat(resetDone).isFalse()
+            assertThat(viewModel.uiState.value.errorReasonCode).isEqualTo("reset_failed")
+            // The credential half is still true, and it is reported as such rather than folded away: a
+            // caller that wants to tell the user "we cleared your lock but a file survived" needs the two
+            // halves separately, which is why the report is a data class and not a boolean.
+            assertThat(reset.report.credentialCleared).isTrue()
+            assertThat(viewModel.uiState.value.isUnlocking).isFalse()
+            viewModel.dispose()
+        }
+
+    @Test
+    fun `one request reaches the port exactly once`() =
+        runTest(testDispatcher) {
+            val viewModel = viewModel()
+            var resetDone = false
+
+            viewModel.forgotPassphraseReset { resetDone = true }
+            advanceUntilIdle()
+
+            assertThat(resetDone).isTrue()
+            // A second ask would be a second deletion of a user's data for one tap, and the callback shape
+            // this port replaced made a double answer something a platform could cause by resuming twice.
+            assertThat(reset.resetCalls).isEqualTo(1)
             viewModel.dispose()
         }
 
@@ -434,9 +476,16 @@ class DatabasePassphraseUnlockViewModelTest {
         override fun close() = Unit
     }
 
-    private class FakeForgottenPassphraseReset : ForgottenPassphraseReset {
-        var report = Report(artifactsDeleted = 3, credentialCleared = true)
+    private class FakeForgottenPassphraseReset : DatabaseForgotPassphraseReset {
+        var report = Report(artifactsDeleted = 3, artifactsAttempted = 3, credentialCleared = true)
 
-        override fun reset(report: (Report) -> Unit) = report(this.report)
+        /** How many times the port was asked; a second ask would be a second reset of a user's data. */
+        var resetCalls = 0
+            private set
+
+        override fun reset(): Report {
+            resetCalls++
+            return report
+        }
     }
 }

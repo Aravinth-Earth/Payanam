@@ -1028,8 +1028,18 @@ function Test-DbAuthFlowSecurityContract
     }
 
     $transitions = @($spec.transitions)
-    $nodes = @($spec.nodes)
+    # The canonical spec's state collection is `states`. There is no `nodes` key, and reading one was a
+    # silent no-op: this script sets no Set-StrictMode, and @($null) is a ONE-element array, so a
+    # missing key never produced an empty set. Filter the $null out so "absent" really means empty --
+    # otherwise every node-level rule below (including the reviving BIOSEC check) covers nothing while
+    # reporting green.
+    $states = @(@($spec.states) | Where-Object { $null -ne $_ })
+    $stateIds = @($states | ForEach-Object { [string]$_.id })
     $violations = @()
+
+    if ($stateIds.Count -eq 0) {
+        $violations += "DB flow spec exposes no states: the 'states' collection is missing, renamed or empty, so every node-level rule in this contract would silently cover nothing"
+    }
 
     $transitionById = @{}
     foreach ($t in $transitions)
@@ -1100,10 +1110,104 @@ function Test-DbAuthFlowSecurityContract
         $violations += "Legacy disable verification route BIOSEC_DISABLE_FLOW -> BIOSEC_DISABLE_VERIFY must not exist"
     }
 
-    $legacyDisableNode = $nodes | Where-Object { [string]$_.id -eq "BIOSEC_DISABLE_VERIFY" }
+    $legacyDisableNode = $states | Where-Object { [string]$_.id -eq "BIOSEC_DISABLE_VERIFY" }
     if ($legacyDisableNode.Count -gt 0)
     {
         $violations += "Legacy node BIOSEC_DISABLE_VERIFY must not exist in canonical flow"
+    }
+
+    # ---- The import door admits only the encrypted Payanam database -------------------------------
+    # An unencrypted database is a file no Payanam version can produce, so accepting one on import would
+    # make import the only route by which unencrypted data can enter the app. Both import paths refuse it
+    # at runtime; these rules stop the canonical spec -- which is the flow's source of truth -- from
+    # re-growing the path, and stop a check that covers nothing from reporting green.
+    # One token set for all three rules. 'plain' is the load-bearing token: it covers both the PLAIN and the
+    # PLAINTEXT spellings, and an earlier narrower set ('plaintext|...') silently missed state ids like
+    # IMPORT_DB_PLAIN_SCREEN -- caught by build-tools/scripts/db-flow-guard-falsify.ps1, not by review.
+    $plaintextTokens = 'plain|unencrypt|cleartext'
+    $refusalStates = @('IMPORT_DB_UNUSABLE', 'IMPORT_DB_BAD')
+    $encryptedVerifiedStates = @('IMPORT_ENCRYPTED_DETECTED', 'IMPORT_DB_ENC_SCREEN')
+    # DECLARED, not merely matched. A relay state that merely looks like a door (IMPORT_DB_DETECT is a
+    # process whose only outbound IS the next door) must not be treated as one, or the rules below are
+    # unsatisfiable on the real spec.
+    $doorIds = @('IMPORT_FORMAT_DETECT', 'IMPORT_DB_FORMAT')
+
+    foreach ($door in $doorIds) {
+        if (-not ($stateIds -contains $door)) {
+            $violations += "Import door $door is missing from the DB flow spec; the classification step cannot be checked without it"
+        }
+    }
+    foreach ($s in @($states | Where-Object { [string]$_.id -match '^IMPORT_.*(DETECT|FORMAT)$' -and [string]$_.type -eq 'decision' -and ($doorIds -notcontains [string]$_.id) })) {
+        $violations += "State $([string]$s.id) looks like an import classification door but is not declared in this contract; declare it with its refusal branch, or rename it"
+    }
+
+    # Rule P -- no state named for a plaintext/cleartext import.
+    foreach ($s in @($states | Where-Object { [string]$_.id -match '^IMPORT_' -and [string]$_.id -match $plaintextTokens })) {
+        $violations += "State $([string]$s.id) is a plaintext import state; the import path accepts only the encrypted Payanam database"
+    }
+
+    # Rule G -- nothing lands on an import state on the strength of a plaintext guard, except a refusal.
+    foreach ($t in @($transitions | Where-Object { [string]$_.to -match '^IMPORT_' -and [string]$_.guard -match $plaintextTokens })) {
+        if ($refusalStates -notcontains [string]$t.to) {
+            $violations += "Transition $([string]$t.id) routes a plaintext-guarded import step to $([string]$t.to); it must refuse -- allowed destinations: $($refusalStates -join ', ')"
+        }
+    }
+
+    # Rule T -- a declared door may branch only to an encrypted-verified state or a refusal, and it must
+    # keep a plaintext refusal branch. Without the second half, deleting the refusal leaves every rule green.
+    foreach ($door in $doorIds) {
+        if (-not ($stateIds -contains $door)) { continue }
+        $doorOuts = @($transitions | Where-Object { [string]$_.from -eq $door })
+        foreach ($t in $doorOuts) {
+            if (($encryptedVerifiedStates -notcontains [string]$t.to) -and ($refusalStates -notcontains [string]$t.to)) {
+                $violations += "Import door $door branches to $([string]$t.to) via $([string]$t.id); a door may branch only to an encrypted-verified state ($($encryptedVerifiedStates -join ', ')) or a refusal ($($refusalStates -join ', '))"
+            }
+        }
+        $refusalOuts = @($doorOuts | Where-Object { [string]$_.guard -match $plaintextTokens -and ($refusalStates -contains [string]$_.to) })
+        if ($refusalOuts.Count -eq 0) {
+            $violations += "Import door $door has no plaintext refusal branch; the refusal was removed or re-worded, so the flow no longer states that an unencrypted database is refused"
+        }
+    }
+
+    # Rule H -- the copy-side sinks exist, and only their encrypted-verified step reaches them. An
+    # 'every inbound comes from X' loop over ZERO inbound covers nothing, hence the existence clause.
+    $sinkPredecessors = @(
+        [PSCustomObject]@{ Sink = 'IMPORT_DB_HANDOFF'; From = 'IMPORT_DB_ENC_PASS' }
+        [PSCustomObject]@{ Sink = 'IMPORT_PREP_BOOT_STATE'; From = 'IMPORT_COPY_ENCRYPTED_RESULT' }
+        [PSCustomObject]@{ Sink = 'IMPORT_DB_ENC_PASS'; From = 'IMPORT_DB_ENC_SCREEN' }
+    )
+    foreach ($pair in $sinkPredecessors) {
+        $inbound = @($transitions | Where-Object { [string]$_.to -eq $pair.Sink })
+        if ($inbound.Count -eq 0) {
+            $violations += "Import sink $($pair.Sink) has no inbound transition at all; the reachability rule for it would cover nothing"
+            continue
+        }
+        foreach ($t in $inbound) {
+            if ([string]$t.from -ne $pair.From) {
+                $violations += "Import sink $($pair.Sink) is reachable from $([string]$t.from) via $([string]$t.id); only $($pair.From) may reach it"
+            }
+        }
+    }
+
+    # Rule I -- every transition endpoint exists. The renderer prints dangling references as summary
+    # text and throws only on invalid decisions and duplicate signatures, and no build script runs the
+    # renderer, so this is the only place a transition pointing at a deleted state is caught.
+    foreach ($t in $transitions) {
+        foreach ($endpoint in @([string]$t.from, [string]$t.to)) {
+            if (-not ($stateIds -contains $endpoint)) {
+                $violations += "Transition $([string]$t.id) references state '$endpoint', which does not exist in the spec"
+            }
+        }
+    }
+
+    # Rule R -- a refusal must be escapable. A refusal with no outbound edge is a dead end the spec would
+    # bless; the renderer's own dead-end check is only a summary line and is not run by any build script.
+    foreach ($refusal in $refusalStates) {
+        if (-not ($stateIds -contains $refusal)) { continue }
+        $refusalOuts = @($transitions | Where-Object { [string]$_.from -eq $refusal })
+        if ($refusalOuts.Count -eq 0) {
+            $violations += "Refusal state $refusal has no outbound transition; a user refused here could not leave the screen"
+        }
     }
 
     if ($violations.Count -gt 0)
@@ -1577,6 +1681,21 @@ if ($runAndroidGuardrails)
         Exit-WithCleanup 1
     }
     Write-LogWithTime "  ✅ DB auth flow security contract passed" "Green"
+
+    if ($runUnitTests)
+    {
+        # The contract above is only worth having if its rules can FAIL. A guard that has never failed is an
+        # untested assertion, and this repository has already shipped two checks that reported green while
+        # covering nothing. Gated with the test tier: it is verification, not iteration.
+        Write-LogWithTime "Falsifying DB auth flow security contract (every rule must be able to fail)..." "Cyan"
+        & pwsh -NoProfile -File (Join-Path $PSScriptRoot "db-flow-guard-falsify.ps1") -SpecPath (Join-Path $projectRoot "docs/db/db-flow-boot-entry-flows.json")
+        if ($LASTEXITCODE -ne 0)
+        {
+            Write-LogWithTime "  ❌ DB auth flow security contract is not falsifiable - a rule that cannot fail proves nothing" "Red"
+            Exit-WithCleanup 1
+        }
+        Write-LogWithTime "  ✅ DB auth flow security contract falsification passed" "Green"
+    }
 
     Write-LogWithTime "Checking critical logging coverage contract..." "Cyan"
     if (-not (Test-CriticalLoggingCoverageContract))

@@ -72,6 +72,40 @@ class AppPreferenceKeysTest {
             "KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY" to AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY,
         )
 
+    /**
+     * The maps above are hand-written, and this is the only assertion that catches a constant being ADDED to
+     * [AppPreferenceKeys] without a matching entry: a key no test lists is a stored key nothing pins, so the
+     * next rename of it silently reverts a user's setting to its default with nothing in the log — the failure
+     * this class exists for. Deleting a listed constant is not this test's job; that is a compile error.
+     *
+     * Reading the constants off the object rather than trusting the lists is what makes the check independent
+     * of whoever edited them last. [stored] covers the stored keys and [prefixes] the two composed shapes, and
+     * the pair is asserted together, so a third constant has to be classified into one of them deliberately.
+     *
+     * WHAT THIS DOES NOT PIN: the literal a constant resolves to. A renamed VALUE is caught only for the
+     * fourteen constants whose literal is asserted somewhere in this file; the rest are unpinned — stated
+     * here rather than implied covered.
+     *
+     * The oracle is exact only while the constants stay on this object. One moved to a top-level `const val`
+     * or a companion would leave `declaredFields` and make this fail loudly (a smaller count against the
+     * lists) rather than silently — except for a PARTIALLY relocated constant, which would be quietly
+     * unpinned.
+     */
+    @Test
+    fun `the inventories together cover every key the object declares`() {
+        val declared =
+            AppPreferenceKeys::class.java.declaredFields
+                .filter { it.name.startsWith("KEY_") }
+                .onEach { it.isAccessible = true }
+                .associate { it.name to it.get(null) as String }
+
+        // Names AND values together. A key-set comparison alone passes a wrong mapping, where an entry points
+        // at another constant's value: the key set is unchanged and every value stays distinct, so neither
+        // `every stored key is unique` nor a name-only check can see it.
+        assertThat(stored + prefixes).isEqualTo(declared)
+        assertThat(declared.values).doesNotContain("")
+    }
+
     @Test
     fun `every stored key is unique`() {
         assertThat(stored.values).containsNoDuplicates()

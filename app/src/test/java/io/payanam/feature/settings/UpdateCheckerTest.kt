@@ -2,6 +2,11 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.ChannelStatus
+import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

@@ -205,14 +205,13 @@ class DesktopNavHostParityTest {
          * Seven were closed on 2026-09-26 - the backup-failure banner, return-route-after-unlock, and the
          * whole `aiAssistantEnabled` build flag, which is DELETED rather than wired: AI Assistance is a
          * permanent capability in both apps, so the desktop no longer hard-codes a value that can disagree.
-         * That leaves four, all of them features that silently do not work on the desktop: no external
+         * That leaves three, all of them features that silently do not work on the desktop: no external
          * navigation, no post-unlock initialisation, no post-import reinitialisation, and the
          * consumed-callback that has to land with the first.
          */
         val RECORDED_MISSING_ON_DESKTOP =
             listOf(
                 "externalCommand",
-                "onDatabaseReady",
                 "onExternalCommandConsumed",
                 "onPassphraseUnlocked",
             )

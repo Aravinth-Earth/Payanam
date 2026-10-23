@@ -55,6 +55,7 @@
     <string name="db_passphrase_setup_saving">சேமிக்கிறது...</string>
     <string name="db_passphrase_setup_title">தரவுத்தளத்தை பாதுகாக்கவும்</string>
     <string name="db_passphrase_storage_mode_encrypted">குறியாக்கப்பட்டது</string>
+    <string name="db_passphrase_storage_mode_label">சேமிப்பு முறை</string>
     <string name="db_passphrase_storage_mode_plaintext">எளிய உரை</string>
     <string name="db_passphrase_unlock_action">திற</string>
     <string name="db_passphrase_unlock_biometric_action">உயிர்முறை மூலம் திற</string>
@@ -86,6 +87,22 @@
     <string name="settings_action_export_all_logs">அனைத்து பதிவுகளும் ஏற்றுமதி</string>
     <string name="settings_action_export_latest_log">தற்போதைய அமர்வு பதிவு ஏற்றுமதி</string>
     <string name="settings_database_size_value">%1$d KB</string>
+    <string name="settings_option_backup_12_hours">ஒவ்வொரு 12 மணித்தியாலத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_15_min">ஒவ்வொரு 15 நிமிடத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_1_hour">ஒவ்வொரு 1 மணித்தியாலத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_2_hours">ஒவ்வொரு 2 மணித்தியாலத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_30_min">ஒவ்வொரு 30 நிமிடத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_6_hours">ஒவ்வொரு 6 மணித்தியாலத்துக்கும் காப்புப்பிரதி</string>
+    <string name="settings_option_backup_daily">தினசரி காப்புப்பிரதி</string>
+    <string name="settings_option_font_cursive">எழுத்துரு: கர்சிவ்</string>
+    <string name="settings_option_font_monospace">எழுத்துரு: மோனோஸ்பேஸ்</string>
+    <string name="settings_option_font_sans_serif">எழுத்துரு: சான்ஸ் செரிப்</string>
+    <string name="settings_option_font_serif">எழுத்துரு: செரிப்</string>
+    <string name="settings_option_theme_dark">இருள் தீம்</string>
+    <string name="settings_option_theme_light">ஒளிர் தீம்</string>
+    <string name="settings_option_theme_system">சிஸ்டம் தீம்</string>
+    <string name="settings_option_time_format_12h">12-மணி கடிகாரம்</string>
+    <string name="settings_option_time_format_24h">24-மணி கடிகாரம்</string>
     <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_all_logs_exported">அனைத்து பதிவுகளும் ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
     <string name="settings_snackbar_latest_log_export_failed">தற்போதைய அமர்வு பதிவு ஏற்றுமதி தோல்வி</string>
@@ -991,7 +1008,7 @@
     <string name="loc_edit_time_entry">நேர உள்ளீட்டைத் திருத்தவும்</string>
     <string name="loc_assign_time">நேரத்தை ஒதுக்குங்கள்</string>
 
-    <!-- Epic G / G-S1: promoted from app/src/main/res/values-ta/strings.xml verbatim, EN and TA together,
+    <!-- Promoted from app/src/main/res/values-ta/strings.xml verbatim, EN and TA together,
          so the generator's compile-time parity check holds. See the EN note above. -->
     <string name="db_import_passphrase_wrong">இறக்குமதி தரவுத்தளத்திற்கான கடவுச்சொல் தவறானது. மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_import_error_empty_db">தேர்ந்தெடுக்கப்பட்ட தரவுத்தள கோப்பு காலியாக உள்ளது.</string>

@@ -96,6 +96,11 @@ fun DatabaseInitScreen(
     onImportFileSelected: (Array<String>) -> Unit,
     language: UiLanguage,
     debugLogExport: (@Composable () -> Unit)? = null,
+    /**
+     * True when the host already showed the shared intro in this run - the desktop renders it from its own
+     * startup surface first, so the graph must not show it a second time.
+     */
+    onboardingIntroAlreadyCompleted: Boolean = false,
 ) {
     val strings = LocalUiStrings.current
     val logger = AppLogger.current
@@ -110,7 +115,10 @@ fun DatabaseInitScreen(
     var showCreatePassphrase by rememberSaveable { mutableStateOf(false) }
     var showCreatePassphraseConfirm by rememberSaveable { mutableStateOf(false) }
     var showImportPassphrase by rememberSaveable { mutableStateOf(false) }
-    var hasFinishedOnboarding by rememberSaveable { mutableStateOf(false) }
+    // Seeded from the host, not hardcoded false: the desktop renders this same intro from its own startup
+    // surface first and passes true, and that seed is what stops the second copy here. Android only has
+    // this one, so it keeps the false default.
+    var hasFinishedOnboarding by rememberSaveable { mutableStateOf(onboardingIntroAlreadyCompleted) }
     if (uiState.showCreateNewWipeConfirm) {
         AlertDialog(
             onDismissRequest = { viewModel.cancelCreateNewWipe() },

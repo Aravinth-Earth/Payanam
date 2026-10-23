@@ -5,6 +5,7 @@
 package io.payanam.presentation.database
 
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.DatabaseOpenOutcome
@@ -15,9 +16,7 @@ import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricRefusalReason
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
-import io.payanam.shared.security.Report
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -97,7 +96,7 @@ fun classifyDatabaseOpenOutcome(outcome: DatabaseOpenOutcome): String =
 class DatabasePassphraseUnlockViewModel(
     private val vault: PassphraseVault,
     private val biometricPrompt: BiometricUnlockPrompt,
-    private val forgottenPassphraseReset: ForgottenPassphraseReset,
+    private val forgottenPassphraseReset: DatabaseForgotPassphraseReset,
     private val databaseOpener: PayanamDatabaseOpener,
     private val databaseFile: File,
     private val strings: UiStrings,
@@ -328,7 +327,11 @@ class DatabasePassphraseUnlockViewModel(
         logger.w("DatabasePassphraseUnlockViewModel.forgotPassphraseReset", "Forgot-passphrase reset requested")
         scope.launch {
             _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-            val report = withContext(ioDispatcher) { awaitReset() }
+            // Asked for as an ordinary blocking call rather than through a callback, because the port
+            // RETURNS the report. Nothing here can now be left unsignalled: a platform that answered a
+            // reset with nothing would hold the user on a busy flag forever, on the one screen they
+            // cannot leave.
+            val report = withContext(ioDispatcher) { forgottenPassphraseReset.reset() }
             logger.w(
                 "DatabasePassphraseUnlockViewModel.forgotPassphraseReset",
                 "Forgot-passphrase reset executed",
@@ -428,15 +431,6 @@ class DatabasePassphraseUnlockViewModel(
             BiometricUnavailableReason.KEY_UNAVAILABLE -> "key_invalidated"
         }
 
-    private suspend fun awaitReset(): Report =
-        kotlinx.coroutines.suspendCancellableCoroutine { continuation ->
-            forgottenPassphraseReset.reset { report ->
-                if (continuation.isActive) {
-                    continuation.resumeWith(Result.success(report))
-                }
-            }
-        }
-
     private fun startLockoutTicker() {
         logger.i("DatabasePassphraseUnlockViewModel.startLockoutTicker", "Starting lockout ticker")
         scope.launch {
@@ -531,7 +525,7 @@ class DatabasePassphraseUnlockViewModel(
 fun passphraseUnlockViewModel(
     vault: PassphraseVault,
     biometricPrompt: BiometricUnlockPrompt,
-    forgottenPassphraseReset: ForgottenPassphraseReset,
+    forgottenPassphraseReset: DatabaseForgotPassphraseReset,
     databaseOpener: PayanamDatabaseOpener,
     databaseFile: File,
     strings: UiStrings,

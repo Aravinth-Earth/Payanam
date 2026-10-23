@@ -46,6 +46,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.onboarding.OnboardingIntroScreen
+import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.shared.settings.FocusModePreset
 import io.payanam.shared.startup.DesktopStartupSnapshot
 
@@ -134,7 +135,7 @@ internal fun desktopStartupGateSurface(
         // Derived once so the root provider and this screen cannot disagree; the shell root reads the
         // shared rows instead, once the gate is gone.
         val machineLanguage = desktopMachineUiLanguage()
-        desktopRootSurface(darkTheme = true, language = machineLanguage) {
+        desktopRootSurface(darkTheme = true, language = machineLanguage, preferences = AppPreferencesState(isLoading = false)) {
             OnboardingIntroScreen(language = machineLanguage, onFinished = callbacks.onOnboardingIntroAdvanced)
         }
         return
@@ -145,7 +146,7 @@ internal fun desktopStartupGateSurface(
     // locale for the same reason it is above: the gate uses it in every mode, and although
     // `InitializeDatabase` and `FocusModeSelection` reach this surface with the session open and the rows
     // readable, the chrome around them is hardcoded English today, so nothing renders the difference.
-    desktopRootSurface(darkTheme = true, language = desktopMachineUiLanguage()) {
+    desktopRootSurface(darkTheme = true, language = desktopMachineUiLanguage(), preferences = AppPreferencesState(isLoading = false)) {
         Column(
             modifier =
                 Modifier

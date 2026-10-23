@@ -269,6 +269,8 @@ class DesktopStartupGateUiTest {
         onInitializeDatabase: () -> Unit = {},
     ) = DesktopShellCallbacks(
         onRouteSelected = {},
+        onGraphDatabaseReady = {},
+        onRailRouteRequested = {},
         onSettingChanged = { _, _ -> },
         onSelectionChanged = {},
         onConfigurePassphrase = onConfigurePassphrase,

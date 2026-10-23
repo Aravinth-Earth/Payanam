@@ -96,3 +96,32 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
             )
         }
     }
+
+/**
+ * Whether the shared graph renders [startupMode]'s gate, rather than the desktop's own surface.
+ *
+ * Total by construction, like the projection it sits beside: every value names a case, so adding a mode
+ * without deciding where its gate comes from is a compile error rather than a silent "shows no gate".
+ *
+ * The four modes that answer `false` are the ones with no graph destination at all. Mounting the shell for
+ * them would put the app's tabs on screen with NOTHING in front of them - an unreadable security store
+ * would open the app - so they keep the desktop's own surface until their destinations exist.
+ *
+ * This is deliberately NOT expressed as `!showsNoGate`: `Ready` also reports no gate, and reading the
+ * projection would therefore send a ready app back to the desktop's surface.
+ */
+internal fun desktopStartupGateShownByGraph(startupMode: DesktopStartupMode): Boolean =
+    when (startupMode) {
+        DesktopStartupMode.SetupPassphrase,
+        DesktopStartupMode.UnlockPassphrase,
+        DesktopStartupMode.InitializeDatabase,
+        DesktopStartupMode.FocusModeSelection,
+        DesktopStartupMode.Ready,
+        -> true
+
+        DesktopStartupMode.OnboardingIntro,
+        DesktopStartupMode.OnboardingDatabaseChoice,
+        DesktopStartupMode.OnboardingDimensionSetup,
+        DesktopStartupMode.SecurityStateUnavailable,
+        -> false
+    }

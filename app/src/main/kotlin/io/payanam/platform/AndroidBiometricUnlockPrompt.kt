@@ -25,7 +25,7 @@ import kotlin.coroutines.resume
  * WHY IT LIVES IN `:app` AND NOT IN `:core:database`, WHERE `AndroidPassphraseVault` LIVES: the vault's
  * platform type is `DatabaseEncryptionManager`, which is in `:core:database` and needs nothing outside it.
  * The biometric types are not that. `androidx.biometric` and `androidx.fragment` are declared ONLY in the
- * app module's build file, and a wave that puts this class in `:core:database` has to add them to that
+ * app module's build file, and a move that puts this class in `:core:database` has to add them to that
  * module first. Until a build-file change is allowed, the class that needs them sits in the one module that
  * has them — which is still the correct dependency direction, since the contract it implements lives in
  * `:core:shared` and the app is downstream of everything. Moving it later is a file move and a package

@@ -5,14 +5,18 @@ package io.payanam.desktop.database
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.database.jvm.DatabaseOpenResult
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.desktop.DesktopSecurityStore
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.presentation.database.DatabasePassphraseUnlockViewModel
+import io.payanam.shared.database.DatabaseBootIssue
+import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricUnavailableReason
-import io.payanam.shared.security.ForgottenPassphraseReset
 import io.payanam.shared.security.PassphraseVault
 import org.junit.Test
 import java.nio.file.Files
@@ -104,6 +108,19 @@ class DesktopPassphraseUnlockViewModelTest {
                 vault = vault,
                 biometricPrompt = DesktopBiometricUnlockPrompt,
                 forgottenPassphraseReset = reset,
+                // The desktop's own session controller, which is what leaves the shared data layer installed
+                // when this gate succeeds. Injected here rather than defaulted, because a second controller
+                // would be a second shutdown target and a second possible installation.
+                sessionController =
+                    DesktopDatabaseSessionController(
+                        databaseFilePath = { databaseFile.toAbsolutePath().toString() },
+                        open = { _, _ ->
+                            DatabaseOpenResult.Refused(
+                                DatabaseBootIssue(type = DatabaseBootIssueType.OPEN_FAILED),
+                            )
+                        },
+                        logger = AppLogger.current,
+                    ),
                 databaseFile = databaseFile.toFile(),
             )
         return Harness(collaborators = collaborators, vault = vault, reset = reset)
@@ -116,6 +133,6 @@ class DesktopPassphraseUnlockViewModelTest {
     private data class Harness(
         val collaborators: DesktopPassphraseUnlockCollaborators,
         val vault: PassphraseVault,
-        val reset: ForgottenPassphraseReset,
+        val reset: DatabaseForgotPassphraseReset,
     )
 }

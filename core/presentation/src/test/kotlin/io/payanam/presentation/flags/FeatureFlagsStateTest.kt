@@ -35,6 +35,8 @@ class FeatureFlagsStateTest {
         assertTrue(state.recurringTasksEnabled)
         assertTrue(state.scoringEnabled)
         assertTrue(state.remindersEnabled)
+        assertTrue(state.tagsEnabled)
+        assertTrue(state.plansCtaEnabled)
     }
 
     @Test
@@ -50,6 +52,7 @@ class FeatureFlagsStateTest {
                 recurringTasksEnabled = false,
                 scoringEnabled = false,
                 remindersEnabled = false,
+                plansCtaEnabled = false,
             )
 
         PlatformFeatureFlags.install(installed)
@@ -58,6 +61,7 @@ class FeatureFlagsStateTest {
         assertTrue(PlatformFeatureFlags.current.minimalModeEnabled)
         assertFalse(PlatformFeatureFlags.current.scoringEnabled)
         assertFalse(PlatformFeatureFlags.current.remindersEnabled)
+        assertFalse(PlatformFeatureFlags.current.plansCtaEnabled)
     }
 
     @Test
@@ -79,5 +83,34 @@ class FeatureFlagsStateTest {
         assertFalse(flipped.remindersEnabled)
         assertTrue(flipped.scoringEnabled)
         assertTrue(base.remindersEnabled)
+    }
+
+    @Test
+    fun `turning the day-plan affordance off leaves every other flag alone`() {
+        // The Time screen reads this flag to decide whether to draw the day-plan affordances, so a copy
+        // that turned it off must not also disturb the flags the other Time branches are gated on.
+        val base = FeatureFlagsState()
+
+        val flipped = base.copy(plansCtaEnabled = false)
+
+        assertFalse(flipped.plansCtaEnabled)
+        assertTrue(flipped.minimalModeEnabled.not())
+        assertTrue(flipped.recurringTasksEnabled)
+        assertTrue(flipped.scoringEnabled)
+        assertTrue(base.plansCtaEnabled)
+    }
+
+    @Test
+    fun `install carries the day-plan affordance, so a build that compiles it off is respected`() {
+        // Android compiles PLANS_CTA_ENABLED from build config, so the holder has to carry a false
+        // through rather than force the default - otherwise a minimal build would still draw the
+        // affordances it was compiled without.
+        PlatformFeatureFlags.install(FeatureFlagsState(plansCtaEnabled = false))
+
+        assertFalse(PlatformFeatureFlags.current.plansCtaEnabled)
+
+        PlatformFeatureFlags.resetForTests()
+
+        assertTrue(PlatformFeatureFlags.current.plansCtaEnabled)
     }
 }

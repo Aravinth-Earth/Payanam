@@ -17,6 +17,7 @@ import io.payanam.database.jvm.TaskOccurrenceRepositoryJvm
 import io.payanam.database.jvm.TaskRepositoryJvm
 import io.payanam.database.jvm.TaskRescheduleRepositoryJvm
 import io.payanam.database.jvm.TimeEntryRepositoryJvm
+import io.payanam.desktop.port.DesktopTimeTrackingController
 import io.payanam.desktop.port.DesktopUnsupportedPorts
 import io.payanam.domain.port.HabitTimeEntryRecorder
 import io.payanam.domain.port.PerformanceTracer
@@ -24,6 +25,8 @@ import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.HabitMetricRepository
@@ -116,6 +119,28 @@ class DesktopPayanamDataLayer(
     override val tracer: PerformanceTracer = DesktopUnsupportedPorts.tracer
 
     override val scoreChanges: ScoreChangeStream = DesktopUnsupportedPorts.scoreChanges
+
+    /**
+     * The tracking-session port, over THIS layer's repositories and this platform's recurrence answer.
+     *
+     * Reachable through the shared seam rather than only through this class: the ViewModel that needs it is
+     * still in `:app`, but carrying the port on [PayanamDataLayer] is what lets a shared ViewModel reach the
+     * desktop's real implementation once it moves, instead of finding no implementation at all.
+     *
+     * The two repositories and the recurrence handler are read rather than reconstructed, for the reason
+     * [lenses] gives: one connection and one recurrence owner, not a second copy of each.
+     */
+    override val timeTrackingController: TimeTrackingController =
+        DesktopTimeTrackingController(
+            timeEntries = timeEntries,
+            tasks = tasks,
+            taskOccurrences = taskOccurrences,
+            recurrenceHandler = recurrenceHandler,
+        )
+
+    /** The home-screen widget port: no launcher widget host exists on this platform, so it says so. */
+    override val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher =
+        DesktopUnsupportedPorts.timeTrackingWidgetRefresher
 
     // Declared last on purpose: the JDBC lens repository reads the sibling repositories above, and a property
     // initialiser may only read properties declared before it.

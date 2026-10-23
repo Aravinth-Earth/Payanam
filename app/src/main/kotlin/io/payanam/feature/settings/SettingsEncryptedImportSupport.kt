@@ -23,6 +23,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
 import java.io.File
+import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.ExportResult
+import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.UhabitsImportResult
 
 /**
  * Extension functions for SettingsViewModel handling encrypted database imports.
@@ -58,7 +62,7 @@ private val SettingsViewModel.importEncryptionProbe: DatabaseEncryptionProbe
  * `SettingsViewModel` predates the shared [io.payanam.core.ui.text.UiStrings] constructor parameter that
  * `DatabaseInitViewModel` already takes, so the language is resolved here through the same
  * [uiStringsFor] the Hilt module uses - one resolution rule, not two. Injecting it properly is a
- * constructor change to a ViewModel this wave does not own; reading it here keeps the promoted code's
+ * constructor change to a ViewModel this change does not own; reading it here keeps the promoted code's
  * signature honest without editing the ViewModel's public API.
  */
 private val SettingsViewModel.importStrings: io.payanam.core.ui.text.UiStrings
@@ -112,7 +116,7 @@ private fun consolidateWalOnTempCopy(
  * swaps in the imported file, and if the imported file is encrypted it pauses and surfaces
  * [awaitingImportPassphrase], resuming via [resumeImportWithPassphrase].
  *
- * A PLAINTEXT database is REFUSED, not converted (`DB-IMPORT-ENCRYPTED-ONLY`): Payanam's export IS
+ * A PLAINTEXT database is REFUSED, not converted (the encrypted-only import rule): Payanam's export IS
  * the encrypted file, so an unencrypted database is not a weaker export to accept but a file no
  * version of Payanam can produce. On any failure - including that refusal - the pre-import backup is
  * restored, so the user's own database survives byte-for-byte.

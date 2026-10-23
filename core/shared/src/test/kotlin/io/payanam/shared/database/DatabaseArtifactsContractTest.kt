@@ -178,13 +178,12 @@ class DatabaseArtifactsContractTest {
     }
 
     @Test
-    fun `the on-disk names the call sites still spell out are the shared values`() {
-        // The callers are NOT re-pointed yet — a later wave moves them into this module — so these
-        // are the literal strings still written in `DatabaseInitTempBackupSupport.kt`,
-        // `SettingsDatabaseArtifactSupport.kt` and `DatabaseArtifactJanitor.kt`. This is the assertion
-        // that would have caught the drift: rename a constant in one place and this test names the
-        // files whose hand-typed copies are now wrong, instead of a user's in-flight backup being
-        // written where the reset path cannot find it. Update them together or not at all.
+    fun `the on-disk names are the shared values, not a copy the call sites made`() {
+        // These are the literals that used to be hand-typed in `DatabaseInitTempBackupSupport.kt`,
+        // `SettingsDatabaseArtifactSupport.kt` and `DatabaseArtifactJanitor.kt`. They stay here as the
+        // tripwire, because the values are FILE NAMES ON DISK: rename a constant and the test names
+        // the file that was written where the reset path cannot find it, instead of a user's in-flight
+        // backup being silently orphaned.
         assertThat("payanam.db.enc.tmp")
             .isEqualTo(DatabaseArtifacts.exactTransientTempName)
         assertThat("payanam.db.enc.tmp-")
@@ -194,5 +193,46 @@ class DatabaseArtifactsContractTest {
         assertThat("payanam.db.import_decrypt.tmp")
             .isEqualTo(DatabaseArtifacts.transientTempNamePrefix + "import_decrypt.tmp")
         assertThat("payanam_temp_backup").isEqualTo(DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
+    }
+
+    @Test
+    fun `both suffix lists are built from the three named constants`() {
+        // THE ANTI-DRIFT ASSERTION for the families. If a suffix is added to one list and not the
+        // other — a fourth sidecar, a renamed `-shm` — this fails here rather than at a call site that
+        // quietly copies the wrong family into a temp fold or a delete list.
+        assertThat(DatabaseArtifacts.artifactSuffixes)
+            .containsExactly(
+                "",
+                DatabaseArtifacts.WAL_SUFFIX,
+                DatabaseArtifacts.SHM_SUFFIX,
+                DatabaseArtifacts.JOURNAL_SUFFIX,
+            )
+        assertThat(DatabaseArtifacts.sidecarSuffixes)
+            .containsExactly(
+                DatabaseArtifacts.WAL_SUFFIX,
+                DatabaseArtifacts.SHM_SUFFIX,
+                DatabaseArtifacts.JOURNAL_SUFFIX,
+            )
+        // Main-file-EMPTY plus the three named suffixes IS the sidecar set plus the main file, so
+        // the two lists cannot drift apart without this equality failing.
+        assertThat(DatabaseArtifacts.artifactSuffixes)
+            .isEqualTo(listOf("") + DatabaseArtifacts.sidecarSuffixes)
+    }
+
+    @Test
+    fun `a sidecar predicate built from the shared list matches what the callers now write`() {
+        // `DatabaseArtifactJanitor` filters corrupt-snapshot candidates with
+        // `sidecarSuffixes.none { name.endsWith(it) }`. The hand-typed form it replaced was three
+        // `endsWith` predicates; this pins the equivalence so the one-line rewrite cannot have changed
+        // which candidates are considered — the filter decides what a corrupt database may be
+        // recovered FROM, so a silent difference here is data loss rather than a wrong label.
+        val name = "payanam.db.corrupt"
+        val handTyped =
+            !name.endsWith("-wal") && !name.endsWith("-shm") && !name.endsWith("-journal")
+        assertThat(DatabaseArtifacts.sidecarSuffixes.none { name.endsWith(it) }).isEqualTo(handTyped)
+
+        listOf("payanam.db-wal", "payanam.db-shm", "payanam.db-journal").forEach { sidecar ->
+            assertThat(DatabaseArtifacts.sidecarSuffixes.any { sidecar.endsWith(it) }).isTrue()
+        }
     }
 }

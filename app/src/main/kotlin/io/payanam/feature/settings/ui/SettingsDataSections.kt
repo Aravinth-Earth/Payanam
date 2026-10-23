@@ -17,10 +17,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.CloudDownload
 import androidx.compose.material.icons.filled.CloudUpload
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
@@ -52,183 +50,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.settings.StatRow
 import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.core.ui.components.ImportButtonStyle
-import io.payanam.core.ui.components.ImportDatabaseFileButton
-import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.feature.settings.ApkBuildType
-import io.payanam.feature.settings.SettingsUiState
-import io.payanam.feature.settings.UpdateChannel
-import io.payanam.feature.settings.UpdateCheckError
-import io.payanam.feature.settings.UpdateOutcome
 import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
 import io.payanam.feature.settings.shippedApkType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
-
-@Composable
-internal fun DataManagementSettingsSection(
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
-    uiState: SettingsUiState,
-    onExportClick: () -> Unit,
-    onImportClick: () -> Unit,
-    onImportUhabitsClick: () -> Unit,
-    onMapImportedHabitsClick: () -> Unit,
-    onChangePassphraseClick: () -> Unit,
-    onDeleteAllDataClick: () -> Unit,
-) {
-    val strings = LocalUiStrings.current
-    SettingsCard(
-        title = stringResource(id = R.string.settings_data_management_title),
-        icon = Icons.Default.CloudUpload,
-        expanded = expanded,
-        onToggleExpanded = onToggleExpanded,
-    ) {
-        Text(
-            text = stringResource(id = R.string.settings_data_management_help),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedButton(
-                onClick = onExportClick,
-                enabled = !uiState.isExporting && !uiState.isImporting,
-                modifier = Modifier.weight(1f),
-            ) {
-                if (uiState.isExporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CloudUpload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(id = R.string.settings_action_export))
-            }
-            ImportDatabaseFileButton(
-                modifier = Modifier.weight(1f),
-                height = null,
-                style = ImportButtonStyle.OUTLINED,
-                icon = Icons.Default.CloudDownload,
-                label = strings.settingsActionImport,
-                logSource = "SettingsDataManagement.importFileClicked",
-                logContext = "settings data management",
-                // Every busy flag, not just isImporting: while the encrypted-import passphrase
-                // prompt is open the import is staged, so the button must not accept a second tap.
-                enabled = !uiState.isExporting &&
-                    !uiState.isImporting &&
-                    !uiState.awaitingImportPassphrase,
-                showProgress = uiState.isImporting || uiState.awaitingImportPassphrase,
-                iconSize = 18.dp,
-                onClick = onImportClick,
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedButton(
-                onClick = onImportUhabitsClick,
-                enabled = !uiState.isExporting && !uiState.isImporting && !uiState.isUhabitsImporting,
-                modifier = Modifier.weight(1f),
-            ) {
-                if (uiState.isUhabitsImporting) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.CloudDownload,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(id = R.string.settings_action_import_uhabits))
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            OutlinedButton(
-                onClick = onMapImportedHabitsClick,
-                enabled = uiState.importedUhabitsHabitCount > 0 &&
-                    !uiState.isUhabitsImporting &&
-                    !uiState.isBulkMappingImportedHabits,
-                modifier = Modifier.weight(1f),
-            ) {
-                if (uiState.isBulkMappingImportedHabits) {
-                    CircularProgressIndicator(
-                        modifier = Modifier.size(16.dp),
-                        strokeWidth = 2.dp,
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                } else {
-                    Icon(
-                        imageVector = Icons.Default.Link,
-                        contentDescription = null,
-                        modifier = Modifier.size(18.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                }
-                Text(stringResource(id = R.string.settings_action_map_imported_habits))
-            }
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(
-                id = R.string.settings_imported_habits_count,
-                uiState.importedUhabitsHabitCount,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onChangePassphraseClick,
-            enabled = !uiState.isExporting && !uiState.isImporting,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(id = R.string.settings_action_change_passphrase))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onDeleteAllDataClick,
-            enabled = !uiState.isExporting && !uiState.isImporting,
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
-        ) {
-            Text(stringResource(id = R.string.settings_action_delete_all_data))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        Text(
-            text = stringResource(id = R.string.settings_imported_habits_count, uiState.importedUhabitsHabitCount),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-    }
-}
 
 @Composable
 internal fun DebugLogExportActions(
@@ -335,47 +170,19 @@ internal fun DebugLogExportActions(
     }
 }
 
-@Composable
-internal fun MinimalDataManagementSection(
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
-    onChangePassphraseClick: () -> Unit,
-    onDeleteAllDataClick: () -> Unit,
-    isExporting: Boolean,
-    isImporting: Boolean,
-) {
-    SettingsCard(
-        title = stringResource(id = R.string.settings_data_management_title),
-        icon = Icons.Default.CloudUpload,
-        expanded = expanded,
-        onToggleExpanded = onToggleExpanded,
-    ) {
-        OutlinedButton(
-            onClick = onChangePassphraseClick,
-            enabled = !isExporting && !isImporting,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Text(stringResource(id = R.string.settings_action_change_passphrase))
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onDeleteAllDataClick,
-            enabled = !isExporting && !isImporting,
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
-        ) {
-            Text(stringResource(id = R.string.settings_action_delete_all_data))
-        }
-    }
-}
-
 @OptIn(ExperimentalMaterial3Api::class)
+/**
+ * The about card's CONTENT, without the card.
+ *
+ * WHY THE CARD IS NOT HERE ANY MORE: the shared screen owns the card list now, so the about section
+ * arrives as a composable slot it fills and frames itself - the same arrangement the debug-log exporter
+ * already used. A second card nested inside the shared one would have given the section two collapsible
+ * headers fighting over one body.
+ *
+ * `expanded` and `onToggleExpanded` are gone for the same reason: nothing in here reads them.
+ */
 @Composable
-internal fun AboutSettingsSection(
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
+internal fun AboutSettingsContent(
     uiState: SettingsUiState,
     logger: UnifiedLogger,
     onViewGithub: () -> Unit,
@@ -392,12 +199,7 @@ internal fun AboutSettingsSection(
     isFDroidBuild: Boolean = false,
 ) {
     val context = androidx.compose.ui.platform.LocalContext.current
-    SettingsCard(
-        title = stringResource(id = R.string.settings_about_title),
-        icon = Icons.Default.Info,
-        expanded = expanded,
-        onToggleExpanded = onToggleExpanded,
-    ) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         StatRow(
             label = stringResource(id = R.string.settings_about_version_label),
             value = stringResource(
@@ -964,43 +766,4 @@ private fun pausedMessageRes(key: String): Int = when (key) {
     "download_paused_wifi" -> R.string.settings_update_paused_wifi
     "download_paused_retry" -> R.string.settings_update_paused_retry
     else -> R.string.settings_update_paused
-}
-
-@Composable
-internal fun DatabaseStatsSettingsSection(
-    expanded: Boolean,
-    onToggleExpanded: () -> Unit,
-    uiState: SettingsUiState,
-    onDeleteArtifact: (String) -> Unit,
-    onCleanStaleArtifacts: () -> Unit = {},
-) {
-    SettingsCard(
-        title = stringResource(id = R.string.settings_database_title),
-        icon = Icons.Default.Storage,
-        expanded = expanded,
-        onToggleExpanded = onToggleExpanded,
-    ) {
-        StatRow(label = stringResource(id = R.string.settings_database_tasks), value = uiState.taskCount.toString())
-        StatRow(label = stringResource(id = R.string.settings_database_time_entries), value = uiState.timeEntryCount.toString())
-        StatRow(label = stringResource(id = R.string.settings_database_notes), value = uiState.noteCount.toString())
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        StatRow(
-            label = stringResource(id = R.string.settings_database_size),
-            value = stringResource(id = R.string.settings_database_size_value, uiState.databaseSizeKb),
-        )
-        StatRow(
-            label = stringResource(id = R.string.settings_database_current_schema),
-            value = uiState.currentDatabaseSchemaVersion.toString(),
-        )
-        StatRow(
-            label = stringResource(id = R.string.settings_database_min_supported_schema),
-            value = uiState.minimumSupportedSchemaVersion.toString(),
-        )
-        HorizontalDivider(modifier = Modifier.padding(vertical = 8.dp))
-        DatabaseArtifactsSection(
-            artifacts = uiState.databaseArtifacts,
-            onDeleteArtifact = onDeleteArtifact,
-            onCleanStaleArtifacts = onCleanStaleArtifacts,
-        )
-    }
 }

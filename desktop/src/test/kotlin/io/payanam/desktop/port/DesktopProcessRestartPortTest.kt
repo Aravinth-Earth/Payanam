@@ -217,7 +217,9 @@ class DesktopProcessRestartPortTest {
      * The spawn seam deliberately does not start anything: this fixture is the reason the suite needs no
      * child process at all.
      */
-    private inner class Fixture(command: String) {
+    private inner class Fixture(
+        command: String,
+    ) {
         private val runtimeDirectory: Path = Files.createTempDirectory("desktop-restart")
         val markerPath: Path = runtimeDirectory.resolve("desktop-restart-marker.txt")
         var spawnCount = 0

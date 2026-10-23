@@ -3,6 +3,7 @@
 package io.payanam.desktop.platform
 
 import io.payanam.core.ui.preferences.BackupInterval
+import io.payanam.desktop.DesktopBuildInfo
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.logging.UnifiedLogger
 import io.payanam.shared.platform.BackupBackgroundCapability
@@ -112,7 +113,7 @@ internal class DesktopReminderSink(
  * [ReminderCapability.SUPPORTED] and make the desktop claim a delivery channel it does not have, which is
  * the exact lie `NOT_SURFACED` exists to prevent. The reminder is logged instead, so a scheduled reminder
  * is legible in the session log even while no window exists to show it, and when a real delivery lands
- * (NOTIFICATIONS.linux-delivery-built) this is the single function it replaces.
+ * this is the single function a real delivery replaces.
  */
 internal fun desktopLogOnlyReminderDelivery(logger: UnifiedLogger): (ReminderRequest) -> Boolean =
     { request ->
@@ -175,11 +176,39 @@ internal class DesktopBackupScheduler(
         job = null
         intervalMinutes = null
     }
+
+    /**
+     * Runs ONE backup now, on this platform's OWN gate - the same `runBackup` the scheduled loop calls.
+     *
+     * Added for the settings screen's "back up now" row, which needs a real answer on this platform rather
+     * than a request to a scheduler: the desktop's backup is an in-process run over the export gateway, so
+     * "now" is one invocation of it and nothing else. It goes through the same lock and the same failure
+     * handling as the scheduled call, so a manual run cannot report a success the loop would have refused.
+     *
+     * Not part of the shared [BackupScheduler] port because scheduling an immediate run is not a portable
+     * concept: Android's manual backup goes through a different mechanism entirely, and a port member only
+     * one platform can honour would be a method that exists to be ignored.
+     */
+    suspend fun runNow() {
+        runCatching { runBackup() }
+            .onFailure { error ->
+                // The class of failure is logged, never the message: it can carry a path.
+                logger.w(
+                    "DesktopBackupScheduler",
+                    "Manual backup failed",
+                    mapOf("failure" to error.javaClass.simpleName),
+                )
+            }
+    }
 }
 
-/** The desktop's debug-logging switch, defaulting to off: unlike Android there is no build flag to follow. */
+/**
+ * The desktop's debug-logging switch, defaulting to the build type's value: a debug build starts with
+ * debug logging on, the way Android's `BuildConfig.DEBUG` default behaves, and an unconfigured direct
+ * build is off.
+ */
 internal class DesktopDebugFlags(
-    initial: Boolean = false,
+    initial: Boolean = DesktopBuildInfo.IS_DEBUG_BUILD,
 ) : DebugFlags {
     override var debugLoggingEnabled: Boolean = initial
         private set

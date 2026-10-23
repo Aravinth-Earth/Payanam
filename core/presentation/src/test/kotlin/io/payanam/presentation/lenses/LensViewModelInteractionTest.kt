@@ -216,8 +216,13 @@ class LensViewModelInteractionTest {
             assertEquals("the initial stage stops at 14 days", INITIAL_STAGE_DAYS, initialDays)
             val calculationsBefore = repository.calculateCalls
 
-            // The cooldown is real time (it reads the process monotonic clock), so wait it out.
-            Thread.sleep(1_300)
+            // The cooldown is real time (it reads the process monotonic clock), so it cannot be wound
+            // back by the test dispatcher. It does not need to be: this fixture is already PAST it.
+            // `loadLensData` seeds `lastHistoryPrefetchAtMs` to zero and the initial 14-day stage is
+            // SCHEDULED rather than REQUESTED, so nothing has opened the window yet - `elapsedMillis()`
+            // reads process uptime, which has been longer than the 1,200 ms cooldown since the ViewModel
+            // was constructed. Sleeping here bought a guarantee the arrival state already provided, and
+            // cost 1.3 s of wall clock the case did not need.
             model.requestNextTimeHistoryStage()
             settle { (model.uiState.value.timeModuleHistorySummary?.totalDays ?: 0) > (initialDays ?: 0) }
 
@@ -237,14 +242,34 @@ class LensViewModelInteractionTest {
      * RETURN 4 - the cooldown. The prefetch is throttled against the process MONOTONIC clock
      * (`elapsedMillis()`), so the window is real time, not virtual: a second request inside the
      * 1,200 ms cooldown is swallowed and the summary does not move.
+     *
+     * The fixture has to OPEN the cooldown before it can test anything inside it. Loading the lens does
+     * not: `loadLensData` seeds `lastHistoryPrefetchAtMs` to zero and the initial 14-day stage is
+     * SCHEDULED rather than REQUESTED, so the first `requestNextTimeHistoryStage()` on a fresh ViewModel
+     * is legitimately honoured and widens 14 -> 30. A test that issued only one request was therefore not
+     * inside a cooldown at all - it raced the widen it had just triggered, and read 30 whenever the
+     * background stage beat the assertion, which is why this case failed intermittently and passed when
+     * run alone.
+     *
+     * So: request once (that request opens the window), settle on the widened summary, then request again
+     * and assert nothing moved. The assertion below names NEXT_STAGE_DAYS because the DECLINED request
+     * would have widened one stage further - its absence is what the cooldown guarantees.
      */
     @Test
     fun `a second history stage inside the cooldown is declined`() =
         runTest(dispatcher) {
             val model = backfillingViewModel()
-            val afterFirst = model.uiState.value.timeModuleHistorySummary
 
-            // The first request started the cooldown; an immediate second one must be swallowed.
+            // The first request is honoured, and it is what starts the cooldown.
+            model.requestNextTimeHistoryStage()
+            settle { model.uiState.value.timeModuleHistorySummary?.totalDays == NEXT_STAGE_DAYS }
+            val afterFirst = model.uiState.value.timeModuleHistorySummary
+            assertEquals(
+                "the first request widened the history one stage",
+                NEXT_STAGE_DAYS,
+                afterFirst?.totalDays,
+            )
+
             model.requestNextTimeHistoryStage()
             settle { !model.uiState.value.isLoading }
 
@@ -254,7 +279,7 @@ class LensViewModelInteractionTest {
                 model.uiState.value.timeModuleHistorySummary,
             )
             // A widening is what the declined request would have produced, so its absence is the assertion.
-            assertEquals(INITIAL_STAGE_DAYS, model.uiState.value.timeModuleHistorySummary?.totalDays)
+            assertEquals(NEXT_STAGE_DAYS, model.uiState.value.timeModuleHistorySummary?.totalDays)
         }
 
     /**

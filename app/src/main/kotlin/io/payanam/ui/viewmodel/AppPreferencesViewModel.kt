@@ -33,13 +33,14 @@ import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
 import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.port.BackupStatusSnapshot
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.presentation.preferences.AppPreferencesWriter
+import io.payanam.presentation.preferences.DimensionLabelNormalizer
 import io.payanam.presentation.tasks.TaskFilter
 import io.payanam.service.AutoBackupWorker
 import io.payanam.service.BackupStatusStore
@@ -58,62 +59,19 @@ import kotlinx.coroutines.flow.filter
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import java.time.LocalDate
-import java.util.Locale
 import javax.inject.Inject
 
-private data class BackupSettingsBundle(
-    val settings: Map<String, String?>,
-    val dimensions: List<ConfiguredLifeDimension>,
-    val systemLanguageTag: String?,
-    val backupStatus: BackupStatusSnapshot,
-)
-
 /**
- * Android's half: the platform's own resource table.
+ * Android's remaining half: the backup-interval label as a resource id.
  *
- * A `when` rather than a runtime lookup by name, because `getIdentifier` is not compile-checked and is
- * unreliable once resources are shrunk. A platform mapping is legitimate - a per-platform COPY of the state
- * would not be.
+ * The other four mappings left with their sections - their copy now comes from the shared `UiStrings`
+ * through `UiStrings.backupIntervalLabel` and friends, so this table no longer needs an entry for them.
+ * This one remains only because the auto-backup section is still an Android file; it goes when that
+ * section is promoted, and `SettingsLabelKeyTest` proves in the meantime that this key is still covered.
  */
-@get:StringRes
-val ThemeModeOption.labelResId: Int
-    get() = settingsLabelResId(labelKey)
-
-@get:StringRes
-val FontFamilyOption.labelResId: Int
-    get() = settingsLabelResId(labelKey)
-
-@get:StringRes
-val TimeFormatOption.labelResId: Int
-    get() = settingsLabelResId(labelKey)
-
 @get:StringRes
 val BackupInterval.labelResId: Int
-    get() = settingsLabelResId(labelKey)
-
-@get:StringRes
-val AppLanguageOption.labelResId: Int
-    get() = settingsLabelResId(labelKey)
-
-/**
- * Resolves a label key to its string resource.
- *
- * Every key the four enums can produce is listed here, and [SettingsLabelKeyTest] asserts that: a missing
- * entry would otherwise render as an empty label at runtime.
- */
-@StringRes
-internal fun settingsLabelResId(key: String): Int =
-    when (key) {
-        "settings_option_theme_system" -> R.string.settings_option_theme_system
-        "settings_option_theme_light" -> R.string.settings_option_theme_light
-        "settings_option_theme_dark" -> R.string.settings_option_theme_dark
-        "settings_option_font_sans_serif" -> R.string.settings_option_font_sans_serif
-        "settings_option_font_monospace" -> R.string.settings_option_font_monospace
-        "settings_option_font_serif" -> R.string.settings_option_font_serif
-        "settings_option_font_cursive" -> R.string.settings_option_font_cursive
-        "settings_option_time_format_24h" -> R.string.settings_option_time_format_24h
-        "settings_option_time_format_12h" -> R.string.settings_option_time_format_12h
+    get() = when (labelKey) {
         "settings_option_backup_15_min" -> R.string.settings_option_backup_15_min
         "settings_option_backup_30_min" -> R.string.settings_option_backup_30_min
         "settings_option_backup_1_hour" -> R.string.settings_option_backup_1_hour
@@ -121,13 +79,15 @@ internal fun settingsLabelResId(key: String): Int =
         "settings_option_backup_6_hours" -> R.string.settings_option_backup_6_hours
         "settings_option_backup_12_hours" -> R.string.settings_option_backup_12_hours
         "settings_option_backup_daily" -> R.string.settings_option_backup_daily
-        "settings_language_option_system" -> R.string.settings_language_option_system
-        "settings_language_option_english" -> R.string.settings_language_option_english
-        "settings_language_option_tamil" -> R.string.settings_language_option_tamil
-        // Fails loudly rather than silently rendering nothing: an unmapped key is a programming error, and a
-        // blank label is the hardest kind of bug to notice.
-        else -> error("No string resource mapped for label key: $key")
+        else -> error("No string resource mapped for label key: $labelKey")
     }
+
+private data class BackupSettingsBundle(
+    val settings: Map<String, String?>,
+    val dimensions: List<ConfiguredLifeDimension>,
+    val systemLanguageTag: String?,
+    val backupStatus: BackupStatusSnapshot,
+)
 
 @HiltViewModel
 /**
@@ -154,6 +114,26 @@ class AppPreferencesViewModel @Inject constructor(
     val habitScoreDiagnosticsMessage: SharedFlow<String> = _habitScoreDiagnosticsMessage.asSharedFlow()
     private val _habitScoreDiagnosticsInProgress = MutableStateFlow(false)
     val habitScoreDiagnosticsInProgress: StateFlow<Boolean> = _habitScoreDiagnosticsInProgress.asStateFlow()
+
+    /**
+     * The shared write path, reached instead of re-deriving keys and clamps here.
+     *
+     * The rows, keys and clamp ranges are the same on both platforms, so they are written once, in
+     * `:core:presentation`, and this class keeps only what is genuinely Android: the flow, the plain-prefs
+     * mirror, and the platform-only capabilities below. The `ScoreRollupTrigger` it needs is
+     * [ScoreRollupCascadeService] itself, which already implements the port, so moving the weight write
+     * added no dependency.
+     */
+    private val writer = AppPreferencesWriter(
+        appSettings = appSettingsRepository,
+        lifeDimensions = lifeDimensionCatalogRepository,
+        scoreRollupTrigger = scoreRollupCascadeService,
+        labelNormalizer =
+            DimensionLabelNormalizer { canonicalId, candidateLabel, effectiveLanguageTag ->
+                localizedCatalogLabel(canonicalId, effectiveLanguageTag) == candidateLabel ||
+                    candidateLabel in knownAppOwnedCatalogLabels(canonicalId)
+            },
+    )
     init {
         UnifiedLogger.setDebugLoggingEnabled(DebugLoggingPrefs.resolve(context))
         observeSettings()
@@ -260,13 +240,13 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the chosen UI theme mode.
      */
     fun setThemeMode(mode: ThemeModeOption) {
-        saveSetting(KEY_THEME_MODE, mode.key)
+        launchWrite { writer.setThemeMode(mode.key) }
     }
     /**
      * Persists the chosen app language.
      */
     fun setAppLanguage(language: AppLanguageOption) {
-        saveSetting(AppPreferenceKeys.KEY_APP_LANGUAGE, language.key)
+        launchWrite { writer.setAppLanguage(language.key) }
     }
     /**
      * Normalizes [languageTag] to a supported tag and updates the runtime system language.
@@ -287,21 +267,20 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the chosen font family.
      */
     fun setFontFamily(fontFamily: FontFamilyOption) {
-        saveSetting(KEY_FONT_FAMILY, fontFamily.key)
+        launchWrite { writer.setFontFamily(fontFamily.key) }
     }
     /**
      * Persists the chosen clock format.
      */
     fun setTimeFormat(timeFormat: TimeFormatOption) {
-        saveSetting(KEY_TIME_FORMAT, timeFormat.key)
+        launchWrite { writer.setTimeFormat(timeFormat.key) }
     }
     /**
      * Persists the timeline hour-height (clamped to the supported DP range).
      */
     fun setTimeHourHeightDp(hourHeightDp: Float) {
         val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
-        val normalized = String.format(Locale.US, "%.2f", clamped)
-        saveSetting(KEY_TIME_HOUR_HEIGHT_DP, normalized)
+        launchWrite { writer.setTimeHourHeightDp(clamped) }
     }
     /**
      * Persists a user-edited display label for [dimension] (resolves to its id).
@@ -312,29 +291,13 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists a user-edited display label for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionLabel(dimensionId: String, label: String) {
-        viewModelScope.launch {
-            val normalizedLabel = normalizeDimensionLabelForStorage(
+        launchWrite {
+            writer.setDimensionLabel(
                 dimensionId = dimensionId,
                 candidateLabel = label,
                 effectiveLanguageTag = _uiState.value.effectiveLanguageTag,
             )
-            try {
-                lifeDimensionCatalogRepository.updateDimensionLabel(dimensionId, normalizedLabel)
-                logger.i(
-                    "AppPreferencesViewModel.setDimensionLabel",
-                    "Dimension label updated in DB-backed catalog",
-                    mapOf("dimensionId" to dimensionId),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.setDimensionLabel",
-                    "Failed to update dimension label in DB-backed catalog",
-                    e,
-                    mapOf("dimensionId" to dimensionId),
-                )
-            }
         }
     }
     /**
@@ -349,28 +312,8 @@ class AppPreferencesViewModel @Inject constructor(
      * the NEXT day-score recalc; this edit triggers an immediate L3-only
      * recalc (self-gov `dim_weight_change` path — L1/L2 untouched).
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionWeight(dimensionId: String, weight: Double) {
-        val clamped = weight.coerceIn(0.1, 10.0)
-        viewModelScope.launch {
-            try {
-                lifeDimensionCatalogRepository.updateDimensionWeight(dimensionId, clamped)
-                logger.i(
-                    "AppPreferencesViewModel.setDimensionWeight",
-                    "Dimension weight updated",
-                    mapOf("dimensionId" to dimensionId, "weight" to clamped),
-                )
-                // L3-only recalc: day scores re-aggregate with new weights.
-                scoreRollupCascadeService.recalcDayOnly(LocalDate.now())
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.setDimensionWeight",
-                    "Failed to update dimension weight / recalc day layer",
-                    e,
-                    mapOf("dimensionId" to dimensionId, "weight" to clamped),
-                )
-            }
-        }
+        launchWrite { writer.setDimensionWeight(dimensionId, weight) }
     }
     /**
      * Persists a user-edited color for [dimension] (resolves to its id).
@@ -381,74 +324,20 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists a user-edited color for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionColor(dimensionId: String, color: Color) {
-        viewModelScope.launch {
-            try {
-                lifeDimensionCatalogRepository.updateDimensionColor(dimensionId, colorToStoredHex(color))
-                logger.i(
-                    "AppPreferencesViewModel.setDimensionColor",
-                    "Dimension color updated in DB-backed catalog",
-                    mapOf("dimensionId" to dimensionId),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.setDimensionColor",
-                    "Failed to update dimension color in DB-backed catalog",
-                    e,
-                    mapOf("dimensionId" to dimensionId),
-                )
-            }
-        }
+        launchWrite { writer.setDimensionColor(dimensionId, colorToStoredHex(color)) }
     }
     /**
      * Clears the user-overridden label for a dimension, reverting to the canonical label.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun resetDimensionLabel(dimensionId: String) {
-        viewModelScope.launch {
-            try {
-                lifeDimensionCatalogRepository.updateDimensionLabel(
-                    dimensionId = dimensionId,
-                    label = defaultStoredLabelForDimension(dimensionId),
-                )
-                logger.i(
-                    "AppPreferencesViewModel.resetDimensionLabel",
-                    "Dimension label reset to app default in DB-backed catalog",
-                    mapOf("dimensionId" to dimensionId),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.resetDimensionLabel",
-                    "Failed to reset dimension label in DB-backed catalog",
-                    e,
-                    mapOf("dimensionId" to dimensionId),
-                )
-            }
-        }
+        launchWrite { writer.resetDimensionLabel(dimensionId) }
     }
     /**
      * Persists the chosen icon for a dimension and refreshes UI.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
-        viewModelScope.launch {
-            try {
-                lifeDimensionCatalogRepository.updateDimensionIcon(dimensionId, iconKey)
-                logger.i(
-                    "AppPreferencesViewModel.setDimensionIcon",
-                    "Dimension icon updated in DB-backed catalog",
-                    mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.setDimensionIcon",
-                    "Failed to update dimension icon in DB-backed catalog",
-                    e,
-                    mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
-                )
-            }
-        }
+        launchWrite { writer.setDimensionIcon(dimensionId, iconKey) }
     }
     /**
      * Persists the visible/hidden toggle for [dimension] (resolves to its id).
@@ -459,58 +348,43 @@ class AppPreferencesViewModel @Inject constructor(
     /**
      * Persists the visible/hidden toggle for a dimension by [dimensionId].
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
-        viewModelScope.launch {
-            try {
-                lifeDimensionCatalogRepository.updateDimensionActiveState(dimensionId, isVisible)
-                logger.i(
-                    "AppPreferencesViewModel.setDimensionVisibility",
-                    "Dimension visibility updated in DB-backed catalog",
-                    mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.setDimensionVisibility",
-                    "Failed to update dimension visibility in DB-backed catalog",
-                    e,
-                    mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
-                )
-            }
-        }
+        launchWrite { writer.setDimensionVisibility(dimensionId, isVisible) }
     }
     /**
      * Persists the auto-backup on/off toggle.
      */
     fun setAutoBackupEnabled(enabled: Boolean) {
-        saveSetting(KEY_AUTO_BACKUP_ENABLED, enabled.toString())
+        launchWrite { writer.setAutoBackupEnabled(enabled) }
     }
     /**
      * Persists the auto-backup cadence.
      */
     fun setAutoBackupInterval(interval: BackupInterval) {
-        saveSetting(KEY_AUTO_BACKUP_INTERVAL, interval.key)
+        launchWrite { writer.setAutoBackupInterval(interval.key) }
     }
     /**
      * Records the last successful auto-backup timestamp.
      */
     fun setAutoBackupLastRun(timestamp: String) {
-        saveSetting(KEY_AUTO_BACKUP_LAST_RUN, timestamp)
+        launchWrite { writer.setAutoBackupLastRun(timestamp) }
     }
     /**
      * Persists backup rotation on/off and syncs to shared prefs.
      */
     fun setBackupRotationEnabled(enabled: Boolean) {
-        saveSetting(KEY_BACKUP_ROTATION_ENABLED, enabled.toString())
+        launchWrite { writer.setBackupRotationEnabled(enabled) }
         syncBackupRotationToSharedPrefs(enabled, _uiState.value.backupRotationCount)
     }
     /**
      * Persists the retained-backup count (1-999) and syncs to shared prefs.
      */
     fun setBackupRotationCount(count: Int) {
-        val clamped = count.coerceIn(1, 999)
-        saveSetting(KEY_BACKUP_ROTATION_COUNT, clamped.toString())
-        syncBackupRotationToSharedPrefs(_uiState.value.backupRotationEnabled, clamped)
+        launchWrite { writer.setBackupRotationCount(count) }
+        syncBackupRotationToSharedPrefs(
+            _uiState.value.backupRotationEnabled,
+            count.coerceIn(AppPreferencesWriter.MIN_BACKUP_ROTATION_COUNT, AppPreferencesWriter.MAX_BACKUP_ROTATION_COUNT),
+        )
     }
     private fun syncBackupRotationToSharedPrefs(enabled: Boolean, count: Int) {
         context.getSharedPreferences("payanam_backup_meta", Context.MODE_PRIVATE)
@@ -559,6 +433,25 @@ class AppPreferencesViewModel @Inject constructor(
     }
     /**
      * Kicks off a manual backup to the app backup directory and refreshes status.
+     */
+    /**
+     * Runs one shared write on this ViewModel's scope.
+     *
+     * The writes are `suspend` because the shared writer is a plain class with no lifecycle, and the
+     * screen's handlers stay non-suspending by launching here - so a settings screen can bind a click
+     * straight to a writer method on either platform.
+     */
+    private fun launchWrite(block: suspend () -> Unit) {
+        viewModelScope.launch { block() }
+    }
+
+    /**
+     * Runs a manual backup on this ViewModel's scope and publishes the outcome on the manual-backup
+     * result flow, so a tap on the backup button always ends in a state the screen can render.
+     *
+     * The catch below it is deliberately broad: the backup + restore pipeline this drives fails in
+     * several unrelated ways, and every one of them has to become a message rather than a crash out of a
+     * button tap.
      */
     @Suppress("TooGenericExceptionCaught")  // Intentional: backup + restore pipeline; multiple failure modes
     fun triggerManualBackupNow() {
@@ -830,14 +723,13 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the day-boundary hour (0-5) used for daily rollups.
      */
     fun setDayBoundaryHour(hour: Int) {
-        val clampedHour = hour.coerceIn(0, 5)
-        saveSetting(AppPreferenceKeys.KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
+        launchWrite { writer.setDayBoundaryHour(hour) }
     }
     /**
      * Persists the debug-logging toggle and applies it live.
      */
     fun setDebugLoggingEnabled(enabled: Boolean) {
-        saveSetting(KEY_DEBUG_LOGGING_ENABLED, enabled.toString())
+        launchWrite { writer.setDebugLoggingEnabled(enabled) }
         UnifiedLogger.setDebugLoggingEnabled(enabled)
         // Mirror for the process-start path: the DB preference is unreadable before unlock.
         DebugLoggingPrefs.write(context, enabled)
@@ -846,14 +738,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the global auto-track-habit-time toggle.
      */
     fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
-        saveSetting(AppPreferenceKeys.KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
-        logger.i(
-            "AppPreferencesViewModel.setAutoTrackHabitTimeGlobal",
-            "Auto-tracking global setting updated",
-            mapOf(
-                "enabled" to enabled,
-            ),
-        )
+        launchWrite { writer.setAutoTrackHabitTimeGlobal(enabled) }
     }
     /**
      * Persists auto-track toggle for the dimension (id or [dimension]).
@@ -865,15 +750,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists auto-track toggle for the dimension (id or [dimension]).
      */
     fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
-        saveSetting("$AppPreferenceKeys.KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
-        logger.i(
-            "AppPreferencesViewModel.setAutoTrackDimensionPreference",
-            "Auto-tracking dimension setting updated",
-            mapOf(
-                "dimensionId" to dimensionId,
-                "enabled" to enabled,
-            ),
-        )
+        launchWrite { writer.setAutoTrackDimensionPreference(dimensionId, enabled) }
     }
 
     /**
@@ -881,333 +758,188 @@ class AppPreferencesViewModel @Inject constructor(
      * Settings tab is always kept visible regardless of preset.
      */
     fun setActivePreset(preset: FocusModePreset) {
-        saveSetting(KEY_ACTIVE_PRESET, preset.presetId)
-        // Update individual tab visibility based on preset
-        // Settings tab is always visible
-        val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
-        allTabs.forEach { tabRoute ->
-            val isVisible = tabRoute == "settings" || preset.visibleTabs.contains(tabRoute)
-            saveSetting("$KEY_TAB_VISIBLE_PREFIX$tabRoute", isVisible.toString())
-        }
-        logger.i(
-            "AppPreferencesViewModel.setActivePreset",
-            "Focus mode preset changed",
-            mapOf(
-                "preset" to preset.presetId,
-                "visibleTabs" to preset.visibleTabs.joinToString(", "),
-            ),
-        )
+        launchWrite { writer.setActivePreset(preset) }
     }
 
     /**
      * Toggle visibility of individual tab. settings tab cannot be hidden.
      */
     fun setTabVisibility(tabRoute: String, visible: Boolean) {
-        if (tabRoute == "settings") {
-            logger.w("AppPreferencesViewModel.setTabVisibility", "Attempted to hide Settings tab, ignoring")
-            return
-        }
-        saveSetting("$KEY_TAB_VISIBLE_PREFIX$tabRoute", visible.toString())
-        logger.i(
-            "AppPreferencesViewModel.setTabVisibility",
-            "Tab visibility changed",
-            mapOf(
-                "tabRoute" to tabRoute,
-                "visible" to visible,
-            ),
-        )
+        launchWrite { writer.setTabVisibility(tabRoute, visible) }
     }
 
     /**
      * Mark focus mode onboarding as completed. this is a one-time flag.
      */
     fun markFocusModeOnboardingCompleted() {
-        saveSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED, "true")
-        logger.i("AppPreferencesViewModel.markFocusModeOnboardingCompleted", "Focus mode onboarding marked as completed")
+        launchWrite { writer.markFocusModeOnboardingCompleted() }
     }
     /**
      * Makes the Time screen the default launch destination.
      */
     fun setLaunchDestinationTime() {
-        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "time")
-        clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
-        logger.i(
-            "AppPreferencesViewModel.setLaunchDestinationTime",
-            "Default launch destination saved",
-            mapOf("route" to "time"),
-        )
+        launchWrite { writer.setLaunchDestinationTime() }
     }
     /**
      * Makes the Tasks screen the default launch destination, with an optional [taskFilter].
      */
     fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
-        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
-        saveSettingNullable(KEY_LAUNCH_DESTINATION_TASK_FILTER, taskFilter?.key)
-        if (taskFilter != null) {
-            saveSetting(AppPreferenceKeys.KEY_TASK_FILTER_OPTION, taskFilter.key)
-        }
-        logger.i(
-            "AppPreferencesViewModel.setLaunchDestinationTasks",
-            "Default launch destination updated",
-            mapOf("route" to "tasks", "taskFilter" to (taskFilter?.key ?: "none")),
-        )
+        launchWrite { writer.setLaunchDestinationTasks(taskFilter?.key) }
     }
     /**
      * Persists the default launch-destination route.
      */
     fun setLaunchDestination(route: String) {
-        saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, route)
-        clearSetting(KEY_LAUNCH_DESTINATION_TASK_FILTER)
-        logger.i(
-            "AppPreferencesViewModel.setLaunchDestination",
-            "Default launch destination saved",
-            mapOf("route" to route),
-        )
+        launchWrite { writer.setLaunchDestination(route) }
     }
     /**
      * Toggles the Time insights module on the dashboard.
      */
     fun setChartTimeModuleEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_MODULE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeModuleEnabled", "Time insights module toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeModuleEnabled(enabled) }
     }
     /**
      * Toggles the Time overall-snapshot card.
      */
     fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_OVERALL_SNAPSHOT, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeOverallSnapshotEnabled", "Time overall snapshot card toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeOverallSnapshotEnabled(enabled) }
     }
     /**
      * Toggles the Time execution-details card.
      */
     fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_EXECUTION_DETAILS, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeExecutionDetailsEnabled", "Time execution details toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeExecutionDetailsEnabled(enabled) }
     }
     /**
      * Toggles the Time score-cards section.
      */
     fun setChartTimeScoreCardsEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_SCORE_CARDS, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeScoreCardsEnabled", "Time score cards section toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeScoreCardsEnabled(enabled) }
     }
     /**
      * Toggles the Time overall score card.
      */
     fun setChartTimeOverallScoreCardEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_OVERALL_SCORE_CARD, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeOverallScoreCardEnabled", "Time overall score card toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeOverallScoreCardEnabled(enabled) }
     }
     /**
      * Toggles the per-dimension Time score cards.
      */
     fun setChartTimeDimensionScoreCardsEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_DIM_SCORE_CARDS, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeDimensionScoreCardsEnabled", "Time dimension score cards toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeDimensionScoreCardsEnabled(enabled) }
     }
     /**
      * Toggles the Time line-graphs section.
      */
     fun setChartTimeLineGraphsEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_LINE_GRAPHS, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeLineGraphsEnabled", "Time line graphs section toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeLineGraphsEnabled(enabled) }
     }
     /**
      * Toggles the daily score-trend chart.
      */
     fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_DAILY_SCORE_TREND, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeDailyScoreTrendEnabled", "Time daily score trend toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeDailyScoreTrendEnabled(enabled) }
     }
     /**
      * Toggles the progress-trend chart.
      */
     fun setChartTimeProgressTrendEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_PROGRESS_TREND, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeProgressTrendEnabled", "Time progress trend toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeProgressTrendEnabled(enabled) }
     }
     /**
      * Toggles the historical-ranking chart.
      */
     fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_HISTORICAL_RANKING, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeHistoricalRankingEnabled", "Time historical ranking toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeHistoricalRankingEnabled(enabled) }
     }
     /**
      * Toggles the momentum-streak chart.
      */
     fun setChartTimeMomentumStreakEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TIME_MOMENTUM_STREAK, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTimeMomentumStreakEnabled", "Time momentum streak toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTimeMomentumStreakEnabled(enabled) }
     }
     /**
      * Toggles the Task insights module.
      */
     fun setChartTaskModuleEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_TASK_MODULE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartTaskModuleEnabled", "Task insights module toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartTaskModuleEnabled(enabled) }
     }
     /**
      * Toggles the Habit insights module.
      */
     fun setChartHabitModuleEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_HABIT_MODULE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartHabitModuleEnabled", "Habit insights module toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartHabitModuleEnabled(enabled) }
     }
     /**
      * Toggles the Journal insights module.
      */
     fun setChartJournalModuleEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_JOURNAL_MODULE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartJournalModuleEnabled", "Journal insights module toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartJournalModuleEnabled(enabled) }
     }
     /**
      * Toggles the Note insights module.
      */
     fun setChartNoteModuleEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_NOTE_MODULE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartNoteModuleEnabled", "Note insights module toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartNoteModuleEnabled(enabled) }
     }
     /**
      * Toggles the average-daily-time chart.
      */
     fun setChartAverageDailyTimeEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_AVERAGE_DAILY_TIME, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartAverageDailyTimeEnabled", "Average daily time chart toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartAverageDailyTimeEnabled(enabled) }
     }
-
-    /**
-     * Check if focus mode onboarding has been completed.
-     */
-    suspend fun hasFocusModeOnboardingCompleted(): Boolean = appSettingsRepository.getSetting(KEY_FOCUS_MODE_ONBOARDING_COMPLETED) == "true"
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    private fun saveSetting(key: String, value: String) {
-        viewModelScope.launch {
-            try {
-                appSettingsRepository.setSetting(key, value)
-                logger.d(
-                    "AppPreferencesViewModel.saveSetting",
-                    "Setting updated",
-                    mapOf(
-                        "key" to key,
-                        "value" to value,
-                    ),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.saveSetting",
-                    "Failed to update setting",
-                    e,
-                    mapOf(
-                        "key" to key,
-                    ),
-                )
-            }
-        }
-    }
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    private fun clearSetting(key: String) {
-        viewModelScope.launch {
-            try {
-                appSettingsRepository.setSetting(key, null)
-                logger.d(
-                    "AppPreferencesViewModel.saveSetting",
-                    "Setting cleared",
-                    mapOf(
-                        "key" to key,
-                    ),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "AppPreferencesViewModel.saveSetting",
-                    "Failed to clear setting",
-                    e,
-                    mapOf(
-                        "key" to key,
-                    ),
-                )
-            }
-        }
-    }
-    private fun saveSettingNullable(key: String, value: String?) {
-        if (value == null) {
-            clearSetting(key)
-        } else {
-            saveSetting(key, value)
-        }
-    }
-    private fun normalizeDimensionLabelForStorage(
-        dimensionId: String,
-        candidateLabel: String,
-        effectiveLanguageTag: String,
-    ): String {
-        val trimmedLabel = candidateLabel.trim()
-        if (trimmedLabel.isBlank()) {
-            return defaultStoredLabelForDimension(dimensionId)
-        }
-        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.id ?: return trimmedLabel
-        val localizedLabel = localizedCatalogLabel(canonicalId, effectiveLanguageTag)
-        return if (
-            trimmedLabel == localizedLabel ||
-            trimmedLabel in knownAppOwnedCatalogLabels(canonicalId)
-        ) {
-            defaultStoredLabelForDimension(dimensionId)
-        } else {
-            trimmedLabel
-        }
-    }
-
-    private fun defaultStoredLabelForDimension(dimensionId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
-
     /**
      * Toggles the dimension-split chart.
      */
     fun setChartDimSplitEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_DIM_SPLIT, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartDimSplitEnabled", "Chart dim split toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartDimSplitEnabled(enabled) }
     }
     /**
      * Toggles the dimension-trend chart.
      */
     fun setChartDimTrendEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_DIM_TREND, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartDimTrendEnabled", "Chart dim trend toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartDimTrendEnabled(enabled) }
     }
     /**
      * Toggles the daily-timeline chart.
      */
     fun setChartDailyTimelineEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_DAILY_TIMELINE, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartDailyTimelineEnabled", "Chart daily timeline toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartDailyTimelineEnabled(enabled) }
     }
     /**
      * Toggles the weekly-pattern chart.
      */
     fun setChartWeeklyPatternEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_WEEKLY_PATTERN, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartWeeklyPatternEnabled", "Chart weekly pattern toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartWeeklyPatternEnabled(enabled) }
     }
     /**
      * Toggles the daily-rhythm chart.
      */
     fun setChartDailyRhythmEnabled(enabled: Boolean) {
-        saveSetting(KEY_CHART_DAILY_RHYTHM, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartDailyRhythmEnabled", "Chart daily rhythm toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartDailyRhythmEnabled(enabled) }
     }
     /**
      * Toggles excluding empty days from the weekly-pattern chart.
      */
     fun setChartWeeklyPatternExclEmpty(enabled: Boolean) {
-        saveSetting(KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartWeeklyPatternExclEmpty", "Chart weekly pattern excl-empty toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartWeeklyPatternExclEmpty(enabled) }
     }
     /**
      * Toggles excluding empty days from the daily-rhythm chart.
      */
     fun setChartDailyRhythmExclEmpty(enabled: Boolean) {
-        saveSetting(KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY, enabled.toString())
-        logger.i("AppPreferencesViewModel.setChartDailyRhythmExclEmpty", "Chart daily rhythm excl-empty toggled", mapOf("enabled" to enabled))
+        launchWrite { writer.setChartDailyRhythmExclEmpty(enabled) }
+    }
+
+    /**
+     * Toggles the chart-visibility row named by [key].
+     *
+     * The one keyed entry point the shared insights section binds to: it holds a row's key rather than
+     * naming a setter per row, so this is the seam that lets a shared section write a per-chart
+     * preference without an Android type in the shared file.
+     */
+    fun setChartVisibility(key: String, enabled: Boolean) {
+        launchWrite { writer.setChartVisibility(key, enabled) }
     }
 
     private fun resolveSystemLanguageTag(): String = normalizeSupportedLanguageTag(

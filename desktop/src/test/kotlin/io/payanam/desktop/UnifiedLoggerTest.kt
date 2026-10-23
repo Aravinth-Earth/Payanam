@@ -8,6 +8,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import java.nio.file.Files
+import java.nio.file.attribute.FileTime
 import java.time.Instant
 
 /**
@@ -244,5 +245,51 @@ class UnifiedLoggerTest {
         assertThat(logContents).contains("verbose debug detail")
         assertThat(logContents).contains("DEBUG")
         assertThat(logContents).contains("Debug logging: on")
+    }
+
+    @Test
+    fun `startup keeps the newest twenty session logs and leaves archives alone`() {
+        val logsDirectory = temporaryFolder.newFolder("logs-retention").toPath()
+        val base = Instant.parse("2026-03-01T00:00:00Z")
+        // One more session log than the retention count, so exactly the oldest must be pruned.
+        repeat(21) { index ->
+            val file = logsDirectory.resolve("old_$index.log")
+            Files.writeString(file, "session $index\n")
+            Files.setLastModifiedTime(file, FileTime.from(base.plusSeconds(index.toLong())))
+        }
+        // An exported archive is not a session log, so the prune must leave it alone.
+        val archive = logsDirectory.resolve("payanam_desktop_all_logs_20260301-000000.zip")
+        Files.writeString(archive, "archive")
+
+        val logger =
+            UnifiedLogger.initialize(
+                logsDirectory = logsDirectory,
+                clock = { base.plusSeconds(1_000) },
+            )
+        logger.close()
+
+        // The 21st-newest file goes; the 20 newest stay, plus this session's own log.
+        assertThat(Files.exists(logsDirectory.resolve("old_0.log"))).isFalse()
+        assertThat(Files.exists(logsDirectory.resolve("old_1.log"))).isTrue()
+        assertThat(Files.exists(archive)).isTrue()
+        val retainedOldLogs =
+            Files.list(logsDirectory).use { entries ->
+                entries.filter { path -> path.fileName.toString().startsWith("old_") }.count()
+            }
+        assertThat(retainedOldLogs).isEqualTo(20L)
+    }
+
+    @Test
+    fun `the debug gate starts from the build type unless the environment overrides it`() {
+        // Unset: the build type decides, which is how Android falls back to BuildConfig.DEBUG.
+        assertThat(resolveDefaultDebugLogging(envValue = null, debugBuild = true)).isTrue()
+        assertThat(resolveDefaultDebugLogging(envValue = null, debugBuild = false)).isFalse()
+
+        // Set: the environment wins, so a release build can be debugged and a debug build quietened
+        // without a rebuild. An explicit non-"true" value is an explicit OFF, not "fall through".
+        assertThat(resolveDefaultDebugLogging(envValue = "true", debugBuild = false)).isTrue()
+        assertThat(resolveDefaultDebugLogging(envValue = "TRUE", debugBuild = false)).isTrue()
+        assertThat(resolveDefaultDebugLogging(envValue = "false", debugBuild = true)).isFalse()
+        assertThat(resolveDefaultDebugLogging(envValue = "", debugBuild = true)).isFalse()
     }
 }

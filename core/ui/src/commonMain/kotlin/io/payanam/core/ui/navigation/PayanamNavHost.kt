@@ -102,7 +102,38 @@ fun PayanamNavHost(
     onPassphraseUnlocked: () -> Unit = {},
     onDatabaseReady: () -> Unit = {},
     onRestartAfterDelete: () -> Unit = {},
+    /**
+     * The restart duty after a successful passphrase change: the platform's own exit path.
+     *
+     * WHY IT IS A PARAMETER RATHER THAN MORE HOST LOGIC. The host decided the whole outcome on its own -
+     * it logged the success and popped back - and that was every platform got. A platform that has to end
+     * its own process on success therefore could not act at all, and the desktop is exactly that platform:
+     * its restart port STARTS a replacement process and RETURNS, so the process that asked for the
+     * restart still holds the single-instance lease the replacement needs to take. [ProcessRestart]'s
+     * contract puts ending that process on whoever asked for the restart; with no seam here the desktop's
+     * success ended in a pop and the replacement instance lost the lease race.
+     *
+     * WHAT IT DOES NOT CHANGE. The host still pops the back stack, and still pops BEFORE calling this, so
+     * a platform that supplies nothing behaves exactly as it did. That is the Android case and it is not
+     * an oversight: there the change has already ended the process by the time success is reported, so
+     * there is nothing left for the platform to do.
+     */
+    onRestartAfterPassphraseChange: () -> Unit = {},
     onExternalCommandConsumed: () -> Unit = {},
+    /**
+     * A top-level (tab) navigation requested from outside the graph - the desktop's navigation rail.
+     *
+     * Deliberately narrower than [externalCommand]: a rail tap names one of the top-level routes and nothing
+     * else, so there is no payload slot here. A command that must carry one (`OpenTimeScreen` carries a
+     * quick-start flag and a request id) keeps using that shape; this is not a generalisation of it.
+     *
+     * The caller STORES this value and never invokes anything from composition. The host navigates when it
+     * can: while a startup gate is showing the request waits, and a request the route policy refuses is
+     * dropped and consumed rather than left pending, so it cannot fire later when the policy changes.
+     */
+    topLevelNavigationRequest: String? = null,
+    /** Called once the request has been honoured or refused; the caller clears its stored value. */
+    onTopLevelNavigationRequestConsumed: () -> Unit = {},
     onUnlockReturnRouteConsumed: () -> Unit = {},
     onSilentUnlockRequested: (route: String) -> Unit = {},
 ) {
@@ -172,6 +203,44 @@ fun PayanamNavHost(
                 onRestartAfterDataDelete = onRestartAfterDelete,
             )
         }
+    // A top-level navigation requested from outside the graph (the desktop rail). Same guards as the
+    // external-command effect below, and for the same reasons: a request must not navigate over a startup
+    // gate, and it must answer to the SAME route policy the bottom bar answers to, or one intent would have
+    // two outcomes in one file.
+    LaunchedEffect(
+        topLevelNavigationRequest,
+        currentRoute,
+        minimalModeEnabled,
+        shouldShowPassphraseUnlock,
+        shouldShowPassphraseSetup,
+        shouldShowDatabaseInit,
+        shouldShowFocusModeOnboarding,
+    ) {
+        val request = topLevelNavigationRequest ?: return@LaunchedEffect
+        if (shouldShowPassphraseUnlock || currentRoute == PayanamRoutes.PASSPHRASE_UNLOCK ||
+            shouldShowPassphraseSetup || currentRoute == PayanamRoutes.PASSPHRASE_SETUP ||
+            currentRoute == PayanamRoutes.PASSPHRASE_CHANGE ||
+            shouldShowDatabaseInit || currentRoute == PayanamRoutes.DATABASE_INIT ||
+            shouldShowFocusModeOnboarding || currentRoute == PayanamRoutes.FOCUS_MODE_SELECTION
+        ) {
+            // Wait rather than drop: the gate is showing, and the key list re-runs this effect when it stops.
+            return@LaunchedEffect
+        }
+        if (isRouteAllowed(request)) {
+            if (navigateToTopLevel(request)) {
+                onTopLevelNavigationRequestConsumed()
+            }
+        } else {
+            logger.w(
+                "PayanamNavHost.topLevelNavigationRequest",
+                "Top-level navigation request refused by route policy",
+                mapOf("route" to request),
+            )
+            // Consumed even though it was refused: leaving it non-null would re-run on every
+            // `currentRoute` change and could fire later, when the policy has moved.
+            onTopLevelNavigationRequestConsumed()
+        }
+    }
     LaunchedEffect(
         externalCommand,
         currentRoute,
@@ -459,6 +528,9 @@ fun PayanamNavHost(
                         onPassphraseChanged = {
                             logger.i("PayanamNavHost", "Passphrase changed successfully")
                             navController.popBackStack()
+                            // The host's own outcome is unchanged and happens first; the platform's
+                            // restart duty runs after it, so a desktop that must end this process gets to.
+                            onRestartAfterPassphraseChange()
                         },
                     )
                 }

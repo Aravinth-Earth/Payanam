@@ -59,6 +59,7 @@ import io.payanam.notification.NotificationScheduler
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.service.AutoBackupWorker
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.DatabaseHealthReport
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.logging.CrashBreadcrumbs
@@ -175,8 +176,8 @@ class MainActivity : FragmentActivity() {
             "DB artifact presence at startup",
             mapOf(
                 "db" to dbFile.exists(),
-                "wal" to java.io.File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").exists(),
-                "shm" to java.io.File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-shm").exists(),
+                "wal" to File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX).exists(),
+                "shm" to File(dbFile.parent, dbFile.name + DatabaseArtifacts.SHM_SUFFIX).exists(),
                 "sizeKB" to if (dbFile.exists()) dbFile.length() / 1024 else 0L,
             ),
         )
@@ -336,6 +337,7 @@ class MainActivity : FragmentActivity() {
                                 recurringTasksEnabled = FeatureFlags.recurringTasksEnabled,
                                 scoringEnabled = FeatureFlags.scoringEnabled,
                                 remindersEnabled = FeatureFlags.remindersEnabled,
+                                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
                             ),
                     ) {
                         Surface(
@@ -445,6 +447,7 @@ class MainActivity : FragmentActivity() {
                                 recurringTasksEnabled = FeatureFlags.recurringTasksEnabled,
                                 scoringEnabled = FeatureFlags.scoringEnabled,
                                 remindersEnabled = FeatureFlags.remindersEnabled,
+                                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
                             ),
                     ) {
                         Surface(
@@ -737,8 +740,8 @@ class MainActivity : FragmentActivity() {
     private fun captureDbArtifactSnapshot(): DbArtifactSnapshot {
         val dbFile = getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         val dbDir = dbFile.parentFile
-        val walFile = File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
-        val shmFile = File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-shm")
+        val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
+        val shmFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.SHM_SUFFIX)
         val dirListing = dbDir?.listFiles()
             ?.filter { it.isFile }
             ?.sortedBy { it.name }

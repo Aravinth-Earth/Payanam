@@ -296,7 +296,7 @@ if [[ "$OVERALL_BUILD_NUMBER" -ne "$EXPECTED_TOTAL" ]]; then
 fi
 
 # Gradle properties for build info generation (matches Android's BuildConfig pattern)
-GRADLE_PROPS="-PbuildNumber=${PLATFORM_BUILD_NUMBER} -PbuildPlatform=Linux -PbuildTimestamp=${DATE_TIME_STAMP} -PbuildTotalBuilds=${OVERALL_BUILD_NUMBER}"
+GRADLE_PROPS="-PbuildNumber=${PLATFORM_BUILD_NUMBER} -PbuildPlatform=Linux -PbuildTimestamp=${DATE_TIME_STAMP} -PbuildTotalBuilds=${OVERALL_BUILD_NUMBER} -PbuildType=${BUILD_TYPE}"
 BUILD_NAME="Payanam_Linux_${PLATFORM_BUILD_NUMBER}_${DATE_TIME_STAMP}"
 
 info "Linux Build #$PLATFORM_BUILD_NUMBER (Total: $OVERALL_BUILD_NUMBER)"

@@ -252,6 +252,7 @@
     <string name="db_passphrase_db_summary_journal">Journal entries: %1$d</string>
     <string name="db_passphrase_db_summary_notes">Notes: %1$d</string>
     <string name="db_passphrase_storage_mode_encrypted">Encrypted</string>
+    <string name="db_passphrase_storage_mode_label">Storage mode</string>
     <string name="db_passphrase_storage_mode_plaintext">Plaintext</string>
     <string name="db_passphrase_diagnostics_title">Diagnostics</string>
     <string name="db_passphrase_diagnostics_desc">If setup/import fails, export logs and share the exported file.</string>

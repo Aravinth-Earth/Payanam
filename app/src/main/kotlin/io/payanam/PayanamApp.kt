@@ -26,12 +26,14 @@ import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.HabitMetricRepository
 import io.payanam.domain.repository.JournalRepository
-import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.LensRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.domain.repository.NoteRepository
 import io.payanam.domain.repository.ScoreWindowRepository
 import io.payanam.domain.repository.ScoringConfigRepository
@@ -93,6 +95,7 @@ class PayanamApp : Application() {
                 scoringEnabled = FeatureFlags.scoringEnabled,
                 remindersEnabled = FeatureFlags.remindersEnabled,
                 tagsEnabled = FeatureFlags.tagsEnabled,
+                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
             ),
         )
         // Debug-level logging follows the user's stored toggle via a plain-prefs mirror (the
@@ -175,6 +178,11 @@ class PayanamApp : Application() {
                     scoreCalculator = dataLayerEntryPoint.scoreCalculator(),
                     tracer = dataLayerEntryPoint.tracer(),
                     scoreChanges = dataLayerEntryPoint.scoreChanges(),
+                    // Both ports are already bound in `PortBindingsModule`; naming them here is what makes
+                    // the shared seam carry Android's real objects rather than leaving the entries to be
+                    // filled by a platform that has none.
+                    timeTrackingController = dataLayerEntryPoint.timeTrackingController(),
+                    timeTrackingWidgetRefresher = dataLayerEntryPoint.timeTrackingWidgetRefresher(),
                 ),
             )
         } catch (e: Exception) {
@@ -248,6 +256,12 @@ class PayanamApp : Application() {
 
         /** Arms and cancels task reminders. */
         fun reminderScheduler(): TaskReminderScheduler
+
+        /** Starts and stops a tracking session on this platform. */
+        fun timeTrackingController(): TimeTrackingController
+
+        /** Repaints the home-screen time-tracking widget. */
+        fun timeTrackingWidgetRefresher(): TimeTrackingWidgetRefresher
 
         /** Recomputes the score roll-ups. */
         fun scoreRollupTrigger(): ScoreRollupTrigger

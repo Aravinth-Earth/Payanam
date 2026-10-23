@@ -106,6 +106,9 @@ kotlin {
             dependencies {
                 implementation(kotlin("test"))
                 implementation(libs.junit)
+                // Truth for the settings-label table's completeness proof, which moved here from `:app`
+                // with the table it guards; the app module had it and `:core:ui` did not.
+                implementation(libs.truth)
                 implementation(compose.desktop.uiTestJUnit4)
                 // Skiko's host-native payload: the test harness renders through Skia, and without this the
                 // first `Surface` initialisation throws (the desktop module gets it via `compose.desktop.currentOs`).

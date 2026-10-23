@@ -10,6 +10,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.presentation.settings.ImportResult
 import io.payanam.service.BackupStatusStore
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
@@ -27,7 +28,7 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 /**
- * The settings half of `DB-IMPORT-ENCRYPTED-ONLY.refuses-plaintext`: a plaintext SQLite database
+ * The settings half of the encrypted-only import rule: a plaintext SQLite database
  * offered to [SettingsViewModel.importDatabase] is REFUSED, and the database the user already had is
  * left byte-identical.
  *

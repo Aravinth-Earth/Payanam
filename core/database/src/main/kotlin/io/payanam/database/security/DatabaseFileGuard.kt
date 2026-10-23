@@ -28,6 +28,15 @@ object DatabaseFileGuard {
 
         /** Janitor cleanup of stale/temp artifacts (never the primary DB). */
         JANITOR_CLEANUP,
+
+        /**
+         * The unlock gate's "I forgot my passphrase" reset, which removes the whole artifact family.
+         *
+         * Its own value rather than [USER_DELETE_ALL] because the two are not the same event: the user
+         * asked the app to forget a credential, and this is what the app did about it. A log that called
+         * this a user delete-all would misattribute a recovery the user did not choose to a wipe they did.
+         */
+        FORGOT_PASSPHRASE_RESET,
     }
 
     private fun primaryDbNames(): Set<String> {

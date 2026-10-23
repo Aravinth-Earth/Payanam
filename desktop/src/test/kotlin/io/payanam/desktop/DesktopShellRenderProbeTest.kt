@@ -52,11 +52,14 @@ import java.io.File
  * 1. [the shared Scaffold screen lays out inside the content pane's modifier chain] renders a real shared
  *    screen through the pane's exact modifier chain and asserts its copy reached the tree - the
  *    observable the crash destroyed.
- * 2. [the content pane does not make its own content unbounded] reads the production `Column` and fails if
- *    any `verticalScroll` reappears below `fillMaxSize()` on it. This is the source-reading idiom
- *    `DesktopNavHostParityTest` already uses in this module for wiring nothing else records: a modifier
- *    chain is not observable from a render, because the crash depends on the measure policy of an
- *    ancestor, so a test that only renders the screen would keep passing against a re-broken pane.
+ * 2. [the content pane does not make its own content unbounded] reads the production pane and asserts the
+ *    PROPERTY - the pane's body contains `fillMaxSize` and no scroll modifier - rather than an offset into
+ *    a `Column(...)` window. This is the source-reading idiom `DesktopNavHostParityTest` already uses in
+ *    this module for wiring nothing else records, and it has to be a source read because a render cannot
+ *    observe the measure policy of an ancestor: the crash depended on a modifier the fixture supplies for
+ *    itself, so a test that only renders the screen keeps passing against a re-broken pane. The assertion
+ *    covers the whole brace-matched pane body, so hoisting the modifier chain into a val - or any other
+ *    reformatting - cannot break a correct pane, while a scroll modifier anywhere in it still fails.
  *
  * The screen is held in its LOADING branch on purpose. Once loaded, `ScoringConfigScreen`'s body is a
  * `Column` with its own `.verticalScroll(...)`, which is a different constraint problem; the repository
@@ -95,19 +98,61 @@ class DesktopShellRenderProbeTest {
 
     @Test
     fun `the content pane does not make its own content unbounded`() {
-        val source = appFile.readText()
-        val paneStart = source.indexOf("private fun desktopContentPane(")
-        assertThat(paneStart).isGreaterThan(0)
+        val paneBody = desktopContentPaneBody(appFile.readText())
 
-        // The pane's own `Column` block: from the declaration to the line that opens the graph mount.
-        val columnStart = source.indexOf("Column(", paneStart)
-        val columnEnd = source.indexOf("PayanamNavHost(", columnStart)
-        assertThat(columnStart).isGreaterThan(paneStart)
-        assertThat(columnEnd).isGreaterThan(columnStart)
+        // The pane BINDS its content to the constraints it was given, rather than widening them: whatever
+        // else the pane does, the chain starts by claiming the whole incoming box. `fillMaxSize` is read
+        // without its argument so this holds whether it is written `fillMaxSize()` or passed with arguments.
+        assertThat(paneBody).contains("fillMaxSize")
 
-        val columnBlock = source.substring(columnStart, columnEnd)
-        assertThat(columnBlock).doesNotContain("verticalScroll")
-        assertThat(columnBlock).contains("fillMaxSize()")
+        // The pane NEVER hands its child an unbounded axis. This is the whole defect: a scrolling parent
+        // measures its child with `Constraints.Infinity` on that axis, and the shared Material3 `Scaffold`
+        // lays its body out against the incoming max height, so it threw
+        // `IllegalStateException: Size(968 x 2147483647) is out of range` and every shared screen was
+        // unrenderable. Horizontal is included for the same reason on the other axis.
+        //
+        // Why this reads source rather than rendering: a render cannot observe an ANCESTOR's measure policy,
+        // and the pane's modifier chain is not reachable from a fixture - `desktopContentPane` is private and
+        // takes the database session controller, the vault and the document source, so mounting it means
+        // mounting the whole graph. So this asserts the PROPERTY over the pane's entire body rather than an
+        // offset into it: hoisting the chain into a `paneModifier` val, reordering the branches, or adding a
+        // header no longer moves the assertion, and any scroll modifier anywhere in the pane still fails it.
+        assertThat(paneBody).doesNotContain("verticalScroll")
+        assertThat(paneBody).doesNotContain("horizontalScroll")
+    }
+
+    /**
+     * The whole source of `desktopContentPane`, brace-matched from its declaration.
+     *
+     * Deliberately wider than the `Column(...)` window an earlier version sliced: that window ended at
+     * `PayanamNavHost(` and therefore only saw modifiers written INLINE on the `Column`, so hoisting the
+     * chain into a local val made a correct pane fail for a formatting reason. Brace matching follows the
+     * function wherever its modifiers are written. The two guards fail loudly if the scan ever goes wrong,
+     * so a matcher bug cannot make this test pass vacuously.
+     */
+    private fun desktopContentPaneBody(source: String): String {
+        val declaration = source.indexOf(PANE_DECLARATION)
+        assertThat(declaration).isGreaterThan(0)
+
+        val bodyStart = source.indexOf('{', declaration)
+        assertThat(bodyStart).isGreaterThan(declaration)
+
+        var depth = 0
+        var index = bodyStart
+        while (index < source.length) {
+            when (source[index]) {
+                '{' -> {
+                    depth++
+                }
+
+                '}' -> {
+                    depth--
+                    if (depth == 0) return source.substring(bodyStart, index + 1)
+                }
+            }
+            index++
+        }
+        error("${PANE_DECLARATION.trim()} has no closing brace: the brace match never balanced")
     }
 
     /**
@@ -134,6 +179,9 @@ class DesktopShellRenderProbeTest {
 
     private companion object {
         const val CONTENT_PANE_DESCRIPTION = "Desktop content pane for Settings"
+
+        /** The declaration the pane's body is brace-matched from; see [desktopContentPaneBody]. */
+        const val PANE_DECLARATION = "private fun desktopContentPane("
     }
 }
 

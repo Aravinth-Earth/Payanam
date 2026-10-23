@@ -6,6 +6,7 @@ package io.payanam.desktop.database
 
 import io.payanam.database.jvm.DesktopDatabaseEncryptionProbe
 import io.payanam.database.jvm.DesktopDatabaseHealthCheck
+import io.payanam.domain.port.DatabaseRekey
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.DatabaseHealthCheck
@@ -94,7 +95,21 @@ internal object DesktopDatabaseInitPorts {
      * the init screen and the export path cannot disagree about what a file is. Its `ensureEncrypted` refuses
      * a plaintext-to-SQLCipher conversion, which is a measured driver limit rather than a gap in this file.
      */
-    val encryptionProbe: DatabaseEncryptionProbe = DesktopDatabaseEncryptionProbe()
+    // Built once and exposed through both ports, so the two answers are the same object and cannot disagree.
+    private val desktopEncryptionProbe = DesktopDatabaseEncryptionProbe()
+
+    val encryptionProbe: DatabaseEncryptionProbe = desktopEncryptionProbe
+
+    /**
+     * The rekey port, answered by the same [DesktopDatabaseEncryptionProbe] object rather than a second one.
+     *
+     * The passphrase-change flow needs a rekey and nothing else in this flow does, and the desktop already
+     * had the measured JDBC implementation — it simply had no port to be reached through. It is a real
+     * capability on this platform: `PRAGMA rekey` against an ALREADY-ENCRYPTED file is measured to work
+     * here, so the honest answer is a working rekey rather than a refusal. (The plaintext conversion this
+     * same class refuses is a different operation.)
+     */
+    val rekey: DatabaseRekey = desktopEncryptionProbe
 
     /**
      * Reads one `app_settings` value out of [databaseFile], read-only, with no passphrase.

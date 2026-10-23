@@ -10,8 +10,10 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.uiStringsFor
+import io.payanam.domain.port.DatabaseRekey
 import io.payanam.platform.AndroidDatabaseEncryptionProbe
 import io.payanam.platform.AndroidDatabaseHealthCheck
+import io.payanam.platform.AndroidDatabaseRekey
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.DatabaseHealthCheck
 import javax.inject.Singleton
@@ -65,4 +67,15 @@ object DatabaseProbeModule {
     @Provides
     @Singleton
     fun provideDatabaseEncryptionProbe(@ApplicationContext context: Context): DatabaseEncryptionProbe = AndroidDatabaseEncryptionProbe(context)
+
+    /**
+     * The rekey port, over SQLCipher.
+     *
+     * A separate provider rather than a capability on the probe, so a caller that only has to ask whether a
+     * file is encrypted is not handed the ability to change its key. Both providers build over the same
+     * [DatabaseEncryptionMigrationSupport], so the two answers cannot disagree.
+     */
+    @Provides
+    @Singleton
+    fun provideDatabaseRekey(@ApplicationContext context: Context): DatabaseRekey = AndroidDatabaseRekey(context)
 }

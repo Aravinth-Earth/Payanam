@@ -137,7 +137,7 @@ fun DimensionSplitSection(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowLeft,
-                    contentDescription = null,
+                    contentDescription = strings.activityDetailEarlier,
                     tint = if (state.canShiftLeft) {
                         MaterialTheme.colorScheme.onSurface
                     } else {
@@ -170,7 +170,7 @@ fun DimensionSplitSection(
             ) {
                 Icon(
                     imageVector = Icons.AutoMirrored.Filled.KeyboardArrowRight,
-                    contentDescription = null,
+                    contentDescription = strings.activityDetailLater,
                     tint = if (state.canShiftRight) {
                         MaterialTheme.colorScheme.onSurface
                     } else {

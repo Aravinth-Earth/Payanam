@@ -9,6 +9,7 @@ import android.content.Context
 import android.database.SQLException
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import java.io.File
 import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
@@ -48,12 +49,15 @@ object DatabaseHealthChecker {
      * directory, so re-deriving the path from a `Context` would answer a question nobody asked.
      * Sidecars follow the file they belong to, which is why the name is taken from the file itself.
      */
-    fun hasDatabaseArtifacts(databaseFile: File): Boolean {
-        val walFile = File(databaseFile.parent, "${databaseFile.name}-wal")
-        val shmFile = File(databaseFile.parent, "${databaseFile.name}-shm")
-        val journalFile = File(databaseFile.parent, "${databaseFile.name}-journal")
-        return databaseFile.exists() || walFile.exists() || shmFile.exists() || journalFile.exists()
-    }
+    fun hasDatabaseArtifacts(databaseFile: File): Boolean =
+        // The FULL family, not the sidecars alone: the caller immediately below tells "no artifacts
+        // at all" (a first install, so a fresh database is correct) apart from "sidecars survived but
+        // the main file did not" (rows exist in the `-wal`, so the answer must be repair, never a
+        // fresh database). [DatabaseArtifacts.filesFor] is the declaration of that family, main file
+        // first, and it is the whole answer to "is there anything here worth recovering" — so the
+        // question is asked of the family rather than of a spelling of it. Members that do not exist
+        // are still listed, which is what an existence check here needs.
+        DatabaseArtifacts.filesFor(databaseFile).any { it.exists() }
     /**
      * Opens the database read-only (plain SQLite or SQLCipher when
      * [sqlCipherPassphrase] is given) and validates version, presence of

@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.transfer
 
+import io.payanam.database.security.DatabaseFileGuard
 import io.payanam.shared.transfer.DatabaseTransferGateway
 import io.payanam.shared.transfer.TransferOutcome
 import io.payanam.shared.transfer.TransferRefusal
@@ -100,7 +101,16 @@ class AndroidDatabaseTransferGateway(
         // Both files are in app storage, so the swap is a rename on one filesystem.
         return try {
             val bytes = incoming.length()
-            live.delete()
+            // The guard rather than `live.delete()`, for the reason every other artifact delete gives: the
+            // main file is the user's entire database, and discarding the boolean made a removal that FAILED
+            // indistinguishable from a file that was never there. The swap then reported REPLACE_FAILED with
+            // nothing in the log saying which of the two had happened. Refusing on the guard's answer keeps
+            // the replace traceable under one named intent, and fails closed rather than renaming over a file
+            // the app could not remove.
+            if (!DatabaseFileGuard.safeDelete(live, DatabaseFileGuard.DeleteIntent.IMPORT_REPLACE, CALLER)) {
+                cleanup(incoming)
+                return refuse(TransferRefusal.REPLACE_FAILED)
+            }
             if (incoming.renameTo(live)) {
                 TransferOutcome.Succeeded(bytes)
             } else {
@@ -123,4 +133,9 @@ class AndroidDatabaseTransferGateway(
     }
 
     private fun refuse(reason: TransferRefusal) = TransferOutcome.Refused(reason)
+
+    private companion object {
+        /** Names this class in the guard's log, so a replaced database is attributable to the swap. */
+        const val CALLER = "AndroidDatabaseTransferGateway.importFrom"
+    }
 }

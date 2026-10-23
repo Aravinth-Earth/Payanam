@@ -28,6 +28,9 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.dropWhile
+import kotlinx.coroutines.flow.flatMapConcat
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import java.time.LocalDate
@@ -157,13 +160,48 @@ internal fun habitL1(
 internal class FakeTaskRepository : TaskRepository {
     val tasks = MutableStateFlow<List<Task>>(emptyList())
 
-    override fun getAllTasks(): Flow<List<Task>> = tasks.map { list -> list.sortedBy { it.title } }
+    /**
+     * Failure switches, each defaulting to off so an existing test's behaviour is unchanged.
+     *
+     * A test that cannot make a write FAIL cannot reach the caller's error path, and an error path that
+     * no test reaches is the one most likely to be wrong.
+     */
+    var failGetAllTasks = false
+    var failTodaysTasks = false
+    var failTasksDueOn = false
+    var failGetById = false
+    var failUpdate = false
+    var failComplete = false
+    var failSkip = false
+    var failMiss = false
+    var failArchive = false
+    var failDelete = false
+
+    /** When set, every read-back of this task reports the given recurrence flag instead of its own. */
+    var recurrenceOnRead: Boolean? = null
+
+    /** When true, the second and later `getTaskById` calls return null - as a deleted row would. */
+    var dropOnSecondRead = false
+    private var readCount = 0
+
+    override fun getAllTasks(): Flow<List<Task>> =
+        if (failGetAllTasks) flow { throw IllegalStateException("tasks unavailable") }
+        else tasks.map { list -> list.sortedBy { it.title } }
 
     override fun getTasksByStatus(status: String): Flow<List<Task>> = tasks.map { list -> list.filter { it.status == status } }
 
-    override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> = tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == date } }
+    override fun getTasksDueOn(date: LocalDate): Flow<List<Task>> =
+        if (failTasksDueOn) flow { throw IllegalStateException("due unavailable") }
+        else tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == date } }
 
-    override suspend fun getTaskById(id: String): Task? = tasks.value.firstOrNull { it.id == id }
+    override suspend fun getTaskById(id: String): Task? {
+        if (failGetById) throw IllegalStateException("task unavailable")
+        readCount++
+        if (dropOnSecondRead && readCount > 1) return null
+        val found = tasks.value.firstOrNull { it.id == id } ?: return null
+        val recurrence = recurrenceOnRead ?: return found
+        return found.copy(recurrenceEnabled = recurrence)
+    }
 
     /** Every input a test asserts on is carried into the stored row - a lossy fake fails the wrong test. */
     override suspend fun createTask(input: TaskInput): Task {
@@ -176,6 +214,7 @@ internal class FakeTaskRepository : TaskRepository {
         id: String,
         input: TaskInput,
     ): Task {
+        if (failUpdate) throw IllegalStateException("update failed")
         val updated = applyTo(requireNotNull(tasks.value.firstOrNull { it.id == id }), input)
         tasks.value = tasks.value.map { if (it.id == id) updated else it }
         return updated
@@ -189,25 +228,38 @@ internal class FakeTaskRepository : TaskRepository {
     }
 
     override suspend fun deleteTask(id: String) {
+        if (failDelete) throw IllegalStateException("delete failed")
         tasks.value = tasks.value.filterNot { it.id == id }
     }
 
     override suspend fun completeTask(
         id: String,
         note: String?,
-    ): Task = setStatus(id, "completed")
+    ): Task = failOr("complete failed") { setStatus(id, "completed") }
 
     override suspend fun skipTask(
         id: String,
         note: String?,
-    ): Task = setStatus(id, "skipped")
+    ): Task = failOr("skip failed") { setStatus(id, "skipped") }
 
     override suspend fun missTask(
         id: String,
         note: String?,
-    ): Task = setStatus(id, "missed")
+    ): Task = failOr("miss failed") { setStatus(id, "missed") }
 
-    override suspend fun archiveTask(id: String): Task = setStatus(id, "archived")
+    override suspend fun archiveTask(id: String): Task = failOr("archive failed") { setStatus(id, "archived") }
+
+    /** Throws [message] when the matching switch is on, so a test drives the caller's error path. */
+    private inline fun failOr(
+        message: String,
+        block: () -> Task,
+    ): Task {
+        if (message.startsWith("complete") && failComplete) throw IllegalStateException(message)
+        if (message.startsWith("skip") && failSkip) throw IllegalStateException(message)
+        if (message.startsWith("miss") && failMiss) throw IllegalStateException(message)
+        if (message.startsWith("archive") && failArchive) throw IllegalStateException(message)
+        return block()
+    }
 
     override fun getOverdueTasks(): Flow<List<Task>> =
         tasks.map { list ->
@@ -217,7 +269,9 @@ internal class FakeTaskRepository : TaskRepository {
             }
         }
 
-    override fun getTodaysTasks(): Flow<List<Task>> = tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == TASKS_TEST_DAY } }
+    override fun getTodaysTasks(): Flow<List<Task>> =
+        if (failTodaysTasks) flow { throw IllegalStateException("planned unavailable") }
+        else tasks.map { list -> list.filter { it.dueDate?.toLocalDate() == TASKS_TEST_DAY } }
 
     override suspend fun getRecurringTasks(): List<Task> = tasks.value.filter { it.recurrenceEnabled }
 
@@ -284,6 +338,21 @@ internal class FakeTaskRepository : TaskRepository {
 internal class FakeTaskOccurrenceRepository : TaskOccurrenceRepository {
     val occurrences = MutableStateFlow<List<TaskOccurrence>>(emptyList())
 
+    /** When on, a date read waits for [releaseOccurrences] instead of emitting - as a slow store would. */
+    var holdOccurrences = false
+    private val released = MutableStateFlow(false)
+
+    /** Every date this fake was asked about, so a test can assert a store was NEVER read. */
+    val dateQueries = mutableListOf<LocalDate>()
+
+    /** When on, a date read fails instead of emitting. */
+    var failForDate = false
+
+    /** Lets a held read emit. */
+    fun releaseOccurrences() {
+        released.value = true
+    }
+
     override suspend fun getOccurrencesByTaskId(taskId: String): List<TaskOccurrence> = occurrences.value.filter { it.taskId == taskId }
 
     override fun getOccurrencesForTask(taskId: String): Flow<List<TaskOccurrence>> =
@@ -337,12 +406,19 @@ internal class FakeTaskOccurrenceRepository : TaskOccurrenceRepository {
         return row
     }
 
-    override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> =
-        occurrences.map { list ->
-            list.filter {
-                it.occurrenceDate.startsWith(date.toString())
+    override fun getOccurrencesForDate(date: LocalDate): Flow<List<TaskOccurrence>> {
+        dateQueries += date
+        if (failForDate) return flow { throw IllegalStateException("occurrences unavailable") }
+        if (holdOccurrences && !released.value) {
+            // Gate on the release flag rather than emitting an empty list: a section that emits at all
+            // has ARRIVED, and an empty emission would mark the date ready - the opposite of what
+            // "held" means here.
+            return released.dropWhile { !it }.flatMapConcat {
+                occurrences.map { list -> list.filter { it.occurrenceDate.startsWith(date.toString()) } }
             }
         }
+        return occurrences.map { list -> list.filter { it.occurrenceDate.startsWith(date.toString()) } }
+    }
 
     override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
         occurrences.value = occurrences.value.filterNot { it.id == occurrence.id } + occurrence
@@ -558,17 +634,23 @@ internal class FakeReminderScheduler : TaskReminderScheduler {
     val cancelled = mutableListOf<String>()
     var lastSnoozed: Boolean? = null
 
+    /** Failure switches, default off: a reminder that cannot fire is reachable only by asking for one. */
+    var failSchedule = false
+    var failCancel = false
+
     override suspend fun scheduleForTask(
         task: Task,
         overrideScheduledAt: LocalDateTime?,
         overrideDueAt: LocalDateTime?,
         isSnoozed: Boolean,
     ) {
+        if (failSchedule) throw IllegalStateException("schedule failed")
         scheduled += task.id
         lastSnoozed = isSnoozed
     }
 
     override suspend fun cancelForTask(taskId: String) {
+        if (failCancel) throw IllegalStateException("cancel failed")
         cancelled += taskId
     }
 }

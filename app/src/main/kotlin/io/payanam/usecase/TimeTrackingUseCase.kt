@@ -3,6 +3,8 @@
 @file:Suppress("TooGenericExceptionCaught", "SwallowedException")
 package io.payanam.usecase
 
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
@@ -12,6 +14,8 @@ import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.scoring.RecurrenceManager
+import io.payanam.service.TrackingService
+import io.payanam.widget.TimeTrackingWidgetProvider
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.util.UUID
@@ -23,12 +27,54 @@ import javax.inject.Singleton
  */
 @Singleton
 class TimeTrackingUseCase @Inject constructor(
+    @ApplicationContext private val context: Context,
     private val timeEntryRepository: TimeEntryRepository,
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
     private val recurrenceManager: RecurrenceManager,
 ) : TimeTrackingController {
     private val logger = UnifiedLogger.getInstance()
+
+    /**
+     * Start a platform tracking session: launch the foreground service, then refresh the
+     * home-screen widget so it reflects the new session.
+     */
+    override suspend fun startTracking(
+        taskId: String?,
+        taskTitle: String?,
+        dimension: String,
+        startTime: LocalDateTime,
+    ) {
+        logger.i(
+            "TimeTrackingUseCase.startTracking",
+            "Starting platform tracking session",
+            mapOf(
+                "taskId" to (taskId ?: "none"),
+                "dimension" to dimension,
+                "startTime" to startTime.toString(),
+            ),
+        )
+        TrackingService.startTracking(
+            context = context,
+            taskId = taskId,
+            taskTitle = taskTitle,
+            dimension = dimension,
+            startTime = startTime.toString(),
+        )
+        TimeTrackingWidgetProvider.requestUpdate(context)
+    }
+
+    /**
+     * Stop the platform tracking session: send the stop action so the foreground service ends the
+     * session and removes its notification.
+     */
+    override fun stopTracking() {
+        logger.i(
+            "TimeTrackingUseCase.stopTracking",
+            "Stopping platform tracking session",
+        )
+        TrackingService.stopTracking(context)
+    }
 
     /**
      * Stop the active time entry and complete the associated task if any.

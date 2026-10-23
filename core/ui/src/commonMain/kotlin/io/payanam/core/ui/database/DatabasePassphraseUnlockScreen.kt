@@ -308,7 +308,7 @@ fun DatabasePassphraseUnlockScreen(
                             "-"
                         }
                         SummaryRow(
-                            label = strings.dbPassphraseDbSummaryStorageMode,
+                            label = strings.dbPassphraseStorageModeLabel,
                             value = if (uiState.storageModeLabelKey == "encrypted") {
                                 strings.dbPassphraseStorageModeEncrypted
                             } else {

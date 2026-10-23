@@ -28,8 +28,14 @@ import io.payanam.shared.security.VaultAvailability
  * the thing that stores the count. The thresholds come from
  * [io.payanam.shared.security.SharedPassphraseLockoutPolicy] — the SAME object the desktop store uses — so
  * the two platforms cannot disagree about what attempt 3 costs. Android's manager has a private
- * `PassphraseLockoutPolicy` copy of that table; [AndroidVaultLockoutParityTest] is what keeps the two from
+ * `PassphraseLockoutPolicy` copy of that table; [AndroidVaultLockoutParity] is what keeps the two from
  * drifting, since deleting the copy is a change to a class this fence does not cover.
+ *
+ * AND WHY [verifyPassphrase] COUNTS ITS OWN FAILURES: the desktop store counts inside its verification,
+ * because it must consult the lockout before it can compare a passphrase. The manager now does the same,
+ * which is what makes [recordFailedUnlockAttempt] a re-read here rather than an increment — the asymmetry
+ * this class previously carried meant the shared policy's schedule was enforced on one platform and not
+ * the other.
  */
 class AndroidPassphraseVault(
     context: Context,
@@ -92,13 +98,16 @@ class AndroidPassphraseVault(
     override fun unlockLockoutSecondsRemaining(): Long = encryptionManager.getUnlockRemainingSeconds()
 
     /**
-     * Bumps the persisted attempt counter and returns the delay the shared policy assigns to it.
+     * Re-reads the lockout the manager already recorded during [verifyPassphrase], rather than
+     * incrementing a second time.
      *
-     * The manager's own table is authoritative here rather than re-derived: it is the one that wrote the
-     * timestamp this method's sibling reads back, and a caller that recomputed the delay could disagree with
-     * the countdown already on screen.
+     * Symmetric with the desktop vault, and for the same reason: [verifyPassphrase] counts a wrong
+     * passphrase itself, so a caller that follows the contract - verify, and only then record a failure
+     * it observed - would otherwise count every wrong passphrase twice and lock the owner out on attempt
+     * 2 instead of the attempt 3 the shared policy documents. The contract's rule that a failure MUST be
+     * recorded is still satisfied here, because it already was, inside the verification.
      */
-    override fun recordFailedUnlockAttempt(): Long = encryptionManager.recordFailedUnlockAttempt()
+    override fun recordFailedUnlockAttempt(): Long = unlockLockoutSecondsRemaining()
 
     override fun resetUnlockAttempts() = encryptionManager.resetUnlockAttempts()
 

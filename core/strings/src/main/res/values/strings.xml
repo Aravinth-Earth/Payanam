@@ -55,6 +55,7 @@
     <string name="db_passphrase_setup_saving">Saving...</string>
     <string name="db_passphrase_setup_title">Secure your database</string>
     <string name="db_passphrase_storage_mode_encrypted">Encrypted</string>
+    <string name="db_passphrase_storage_mode_label">Storage mode</string>
     <string name="db_passphrase_storage_mode_plaintext">Plaintext</string>
     <string name="db_passphrase_unlock_action">Unlock</string>
     <string name="db_passphrase_unlock_biometric_action">Unlock with biometric</string>
@@ -86,6 +87,22 @@
     <string name="settings_action_export_all_logs">Export All Logs</string>
     <string name="settings_action_export_latest_log">Export Current Session Log</string>
     <string name="settings_database_size_value">%1$d KB</string>
+    <string name="settings_option_backup_12_hours">Backup every 12 hours</string>
+    <string name="settings_option_backup_15_min">Backup every 15 min</string>
+    <string name="settings_option_backup_1_hour">Backup every 1 hour</string>
+    <string name="settings_option_backup_2_hours">Backup every 2 hours</string>
+    <string name="settings_option_backup_30_min">Backup every 30 min</string>
+    <string name="settings_option_backup_6_hours">Backup every 6 hours</string>
+    <string name="settings_option_backup_daily">Backup daily</string>
+    <string name="settings_option_font_cursive">Font: Cursive</string>
+    <string name="settings_option_font_monospace">Font: Monospace</string>
+    <string name="settings_option_font_sans_serif">Font: Sans Serif</string>
+    <string name="settings_option_font_serif">Font: Serif</string>
+    <string name="settings_option_theme_dark">Dark Theme</string>
+    <string name="settings_option_theme_light">Light Theme</string>
+    <string name="settings_option_theme_system">System Theme</string>
+    <string name="settings_option_time_format_12h">12-hour clock</string>
+    <string name="settings_option_time_format_24h">24-hour clock</string>
     <string name="settings_snackbar_all_logs_export_failed">Failed to export all logs</string>
     <string name="settings_snackbar_all_logs_exported">All logs exported to: %1$s</string>
     <string name="settings_snackbar_latest_log_export_failed">Failed to export current session log</string>
@@ -991,11 +1008,11 @@
     <string name="loc_edit_time_entry">Edit Time Entry</string>
     <string name="loc_assign_time">Assign Time</string>
 
-    <!-- Epic G / G-S1: promoted from app/src/main/res/values/strings.xml verbatim so the shared copy
-         cannot drift from Android's. 9 of the 10 import strings a promoted shared ViewModel needs;
+    <!-- Promoted from app/src/main/res/values/strings.xml verbatim so the shared copy cannot
+         drift from Android's. 9 of the 10 import strings a promoted shared ViewModel needs;
          settings_import_error_unreadable_db is deliberately NOT here - its wording is wrong (it tells
          users to export a plaintext backup, which Payanam cannot produce) and is reworded with the
-         encrypted-only import rule, tracked in the private ops tracker. -->
+         encrypted-only import rule. -->
     <string name="db_import_passphrase_wrong">Wrong passphrase for the imported database. Please try again.</string>
     <string name="settings_import_error_empty_db">Selected database file is empty.</string>
     <string name="settings_import_error_encryption_convert_failed">Imported database could not be converted to encrypted format. Export logs and retry. If it still fails, use reset local data and re-import.</string>

@@ -310,6 +310,8 @@ class ImportSeamTest {
 
         override fun closeDatabase() = delegate.closeDatabase()
 
+        override suspend fun flushPendingChanges(passphrase: String) = delegate.flushPendingChanges(passphrase)
+
         override fun requireOpenPassphrase(): String = delegate.requireOpenPassphrase()
 
         override fun isSessionOpen(): Boolean = delegate.isDbOpen()

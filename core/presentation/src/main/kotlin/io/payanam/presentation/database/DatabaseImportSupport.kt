@@ -527,6 +527,12 @@ object DatabaseImportSupport {
     )
 
     private const val DB_EXTENSION = ".db"
-    private const val WAL_SUFFIX = "-wal"
-    private const val SHM_SUFFIX = "-shm"
+
+    /**
+     * The `-wal` and `-shm` names are [DatabaseArtifacts.sidecarSuffixes], not constants restated here.
+     * A sidecar this file does not know about would be copied into the temp fold, left behind after a
+     * successful checkpoint, or never deleted — and each of those loses a committed write silently.
+     */
+    private val WAL_SUFFIX: String = DatabaseArtifacts.WAL_SUFFIX
+    private val SHM_SUFFIX: String = DatabaseArtifacts.SHM_SUFFIX
 }

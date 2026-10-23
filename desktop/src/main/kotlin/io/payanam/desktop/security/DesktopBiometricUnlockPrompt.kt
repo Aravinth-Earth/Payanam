@@ -8,8 +8,8 @@ import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricAuthentication
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricRefusalReason
-import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
+import io.payanam.shared.security.BiometricUnlockPrompt
 
 /**
  * The desktop's [BiometricUnlockPrompt]: a logged refusal that reports itself unavailable.

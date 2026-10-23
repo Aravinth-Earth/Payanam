@@ -1256,7 +1256,7 @@ $versionDisplayName = "#W${platformBuildNumber} (${dateTimeStamp})"
 # Windows carries the build number as its BUILD component with the leading parts pinned to 0.
 # Used below to locate jpackage's output: Payanam-0.0.<build>.exe / .msi.
 $packageVersion = "0.0.$platformBuildNumber"
-$gradleProps = "-PbuildNumber=$platformBuildNumber -PbuildPlatform=Windows -PbuildTimestamp=$dateTimeStamp -PbuildTotalBuilds=$overallBuildNumber"
+$gradleProps = "-PbuildNumber=$platformBuildNumber -PbuildPlatform=Windows -PbuildTimestamp=$dateTimeStamp -PbuildTotalBuilds=$overallBuildNumber -PbuildType=$buildType"
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== BUILD COUNTER ===" "Magenta"

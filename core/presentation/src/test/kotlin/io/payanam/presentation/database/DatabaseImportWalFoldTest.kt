@@ -42,7 +42,7 @@ import java.io.File
  *
  * WHAT THIS FILE NO LONGER COVERS, stated so the gap is not mistaken for an oversight: the plaintext
  * schema gate (`validateSupportedPlaintextImportSchema`) that used to be tested here is gone.
- * `DB-IMPORT-ENCRYPTED-ONLY` refuses a plaintext database at the header check, before any version is
+ * The encrypted-only import rule refuses a plaintext database at the header check, before any version is
  * read, so there is no import left for a schema gate to validate. The two import paths' own refusals
  * are asserted in `DatabaseInitViewModelImportTest` and, on the settings side, in
  * `SettingsPlaintextImportRefusalTest`.
@@ -252,7 +252,7 @@ class DatabaseImportWalFoldTest {
      *
      * WHAT CHANGED AND WHY THIS SURVIVES: this section used to drive
      * `DatabaseImportSupport.validateSupportedPlaintextImportSchema`, the schema gate that ran on an
-     * imported PLAINTEXT database. `DB-IMPORT-ENCRYPTED-ONLY` removed that gate, because a plaintext
+     * The encrypted-only import rule removed that gate, because a plaintext
      * database is now refused at the header check before any version is read — so there is no import
      * left for the range to gate. The object itself is kept and pinned here instead of deleted
      * silently: the two numbers are still the ones every "this file is too old / too new" message on
