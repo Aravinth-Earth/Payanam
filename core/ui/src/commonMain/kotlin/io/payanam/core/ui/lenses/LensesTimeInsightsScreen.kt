@@ -692,25 +692,33 @@ private fun roundToLensScorePrecision(value: Double): Double = round(value * LEN
 
 private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
     return object : CartesianValueFormatter {
-        /**
-         * Maps a chart x-index to its day label.
-         *
-         * Never returns a blank string: Vico throws `IllegalStateException` when an axis formatter
-         * returns one, and the item placer does ask for indices past the data once the chart is
-         * scrolled or zoomed past its ends. Falling back to the nearest real label keeps the axis
-         * labelled instead of crashing the screen.
-         */
+        /** Delegates to [axisLabelAt]; see there for why it never returns blank. */
         override fun format(
             context: CartesianMeasuringContext,
             value: Double,
             verticalAxisPosition: Axis.Position.Vertical?,
-        ): CharSequence {
-            if (labels.isEmpty()) return "\u2014"
-            // Clamped, not looked up with a null fallback: `getOrNull(-1)` is null, which would fall
-            // through to the LAST label and show the wrong end of the axis for a negative index.
-            return labels[value.toInt().coerceIn(0, labels.lastIndex)]
-        }
+        ): CharSequence = axisLabelAt(labels, value)
     }
+}
+
+/**
+ * The label for a chart x-axis value.
+ *
+ * Never blank: the charting library throws when an axis formatter returns a blank string, and the item
+ * placer does ask for indices past the data once the chart is scrolled or zoomed past its ends.
+ *
+ * The index is CLAMPED rather than looked up with a null fallback, because `getOrNull(-1)` is null and the
+ * fallback then produced the LAST label - the wrong end of the axis for a negative index.
+ *
+ * `internal` rather than private so the mapping can be tested: it is the only behaviour in this chart that
+ * can be wrong without producing a visible crash.
+ */
+internal fun axisLabelAt(
+    labels: List<String>,
+    value: Double,
+): CharSequence {
+    if (labels.isEmpty()) return "\u2014"
+    return labels[value.toInt().coerceIn(0, labels.lastIndex)]
 }
 
 private fun scorePercentFormatter(): CartesianValueFormatter = CartesianValueFormatter { _, value, _ ->
