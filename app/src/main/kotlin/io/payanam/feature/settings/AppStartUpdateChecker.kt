@@ -6,13 +6,14 @@ package io.payanam.feature.settings
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.presentation.updates.UpdatePrefKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -70,7 +71,7 @@ class AppStartUpdateChecker @Inject constructor(
                 }
                 val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
                 val channel = UpdateChannel.fromStorage(channelRaw)
-                val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
+                val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel, ApkBuildType.running())
                 when (result.outcome) {
                     UpdateOutcome.UPDATE_AVAILABLE -> Unit
 

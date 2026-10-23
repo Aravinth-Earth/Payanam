@@ -16,6 +16,7 @@ import io.payanam.database.security.AndroidPassphraseVault
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.DatabaseForgotPassphraseReset
+import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.domain.port.ScoreChangeStream
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.repository.DayPlanRepository
@@ -56,7 +57,8 @@ object DatabaseModule {
     fun providePassphraseVault(
         @ApplicationContext context: Context,
         encryptionManager: DatabaseEncryptionManager,
-    ): PassphraseVault = AndroidPassphraseVault(context, encryptionManager)
+        encryptionProbe: DatabaseEncryptionProbe,
+    ): PassphraseVault = AndroidPassphraseVault(context, encryptionManager, encryptionProbe)
 
     @Provides
     @Singleton

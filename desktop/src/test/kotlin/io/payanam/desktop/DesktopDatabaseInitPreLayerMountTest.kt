@@ -93,9 +93,8 @@ class DesktopDatabaseInitPreLayerMountTest {
     fun setUp() {
         // `DesktopPayanamNavHostScreens` reads `UnifiedLogger.getInstance()` in a FIELD INITIALIZER,
         // so the screens cannot even be constructed before the logger exists - and that failure would
-        // name logging rather than the data layer. Reset first, as `DesktopStartupGateUiTest` does, so
-        // a logger leaked by an earlier class in this shared JVM cannot point here at its own deleted
-        // TemporaryFolder.
+        // name logging rather than the data layer. Reset first, so a logger leaked by an earlier class in this
+        // shared JVM cannot point here at its own deleted TemporaryFolder.
         UnifiedLogger.resetForTests()
         sessionLogger =
             UnifiedLogger.initialize(

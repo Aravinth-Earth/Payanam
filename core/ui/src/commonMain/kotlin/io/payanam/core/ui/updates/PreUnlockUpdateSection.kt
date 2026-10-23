@@ -1,6 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-package io.payanam.ui.screens
+@file:Suppress("ktlint:standard:function-naming")
+
+package io.payanam.core.ui.updates
 
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
@@ -21,43 +23,92 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.payanam.R
-import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.theme.LifeDimensionColors
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.platform.SupportState
 
 /**
  * Pre-unlock update hatch — manual check → download → install, shown on the
  * DB-locked screen (Diagnostics zone). Deliberately muted/secondary so the
  * unlock flow stays primary. All actions are manual taps; nothing automatic.
+ *
+ * WHY IT CANNOT STILL TAKE ITS VIEWMODEL: the old signature took exactly one parameter,
+ * `viewModel: PreUnlockUpdateViewModel`, and that ViewModel is an `:app` Hilt class - it holds an
+ * `@ApplicationContext Context` and reaches into `AutoDownloadManager` and `FileProvider`. `:app`
+ * depends on `:core:ui`, so this module can never import it, and the section could not move while its
+ * only parameter named a type from the layer above. [PreUnlockUpdateUiState] names the five values
+ * this draws and [PreUnlockUpdateActions] names the three things a user can do here, so both platforms
+ * supply them and this file reaches neither the ViewModel nor an Android string resource.
+ *
+ * NOT A REDESIGN: rows, order, copy, colours and every `when` branch are byte-for-byte what `:app`
+ * drew. Copy comes from [LocalUiStrings] - all 15 keys this section read already ship in
+ * `:core:strings` with EN+TA parity, so no string was added and the two keyed ones go through
+ * [formatArgs], which reproduces Android's `%1$d` substitution.
+ *
+ * `DownloadUiState.Paused` is still not matched below, exactly as before: it falls through to the
+ * check branch rather than growing a branch of its own.
  */
 @Composable
-fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
-    // F-Droid manages updates for its installs: the hatch cannot act there, so
-    // it is replaced by a static note — never rendered as a dead button.
-    if (viewModel.isFDroidBuild) {
-        Text(
-            text = stringResource(id = R.string.settings_update_fdroid_managed),
-            style = MaterialTheme.typography.labelSmall,
-            color = Color.White.copy(alpha = 0.4f),
-        )
-        return
+fun PreUnlockUpdateSection(
+    uiState: PreUnlockUpdateUiState,
+    actions: PreUnlockUpdateActions,
+    modifier: Modifier = Modifier,
+) {
+    val strings = LocalUiStrings.current
+    val logger = remember { AppLogger.current }
+
+    // What this platform can do about its own updates decides whether there is a button at all, so it
+    // is matched FIRST and returns before any action can be dispatched. `DECLINES` is Android under
+    // F-Droid, which manages updates for its installs; `NOT_APPLICABLE` is a platform with no in-app
+    // updater to act through. Both replace the hatch with a static note — never a dead button.
+    when (uiState.platformSupport) {
+        SupportState.SUPPORTED -> Unit
+        SupportState.DECLINES -> {
+            Text(
+                text = strings.settingsUpdateFdroidManaged,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.4f),
+            )
+            return
+        }
+
+        SupportState.NOT_APPLICABLE -> {
+            Text(
+                text = strings.settingsUpdateNotSupportedHere,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.4f),
+            )
+            return
+        }
+
+        // Neither is produced by any platform today, and both are listed rather than folded into an
+        // `else` so that a state added to [SupportState] later is a compile error HERE instead of a
+        // silently unrendered answer. Both mean this platform cannot hand an update to the user now, so
+        // both render the same note as `NOT_APPLICABLE` - and neither claims an installer it cannot know.
+        SupportState.NOT_SURFACED, SupportState.IN_PROCESS_ONLY -> {
+            Text(
+                text = strings.settingsUpdateNotSupportedHere,
+                style = MaterialTheme.typography.labelSmall,
+                color = Color.White.copy(alpha = 0.4f),
+            )
+            return
+        }
     }
-    val logger = UnifiedLogger.getInstance()
-    val downloadState by viewModel.downloadState.collectAsState()
-    val checking by viewModel.checking.collectAsState()
-    val resultMessage by viewModel.checkResultMessage.collectAsState()
+
+    val downloadState = uiState.downloadState
+    val checking = uiState.isChecking
+    val resultMessage = uiState.checkResultMessage
 
     // State-driven single button (same pattern as Settings update section).
     val buttonLabel: String
@@ -67,7 +118,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
 
     when {
         checking -> {
-            buttonLabel = stringResource(id = R.string.settings_update_checking)
+            buttonLabel = strings.settingsUpdateChecking
             buttonEnabled = false
             buttonAction = {}
             showProgress = false
@@ -75,59 +126,56 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
 
         downloadState is DownloadUiState.Downloading -> {
             val d = downloadState as DownloadUiState.Downloading
-            buttonLabel = stringResource(
-                id = R.string.pre_unlock_update_downloading,
-                d.progressPercent,
-            )
+            buttonLabel = strings.preUnlockUpdateDownloading.formatArgs(d.progressPercent)
             buttonEnabled = false
             buttonAction = {}
             showProgress = true
         }
 
         downloadState is DownloadUiState.Downloaded -> {
-            buttonLabel = stringResource(id = R.string.settings_update_install_now_button)
+            buttonLabel = strings.settingsUpdateInstallNowButton
             buttonEnabled = true
-            buttonAction = { viewModel.install() }
+            buttonAction = { actions.onInstallRequested() }
             showProgress = false
         }
 
         downloadState is DownloadUiState.Failed -> {
-            buttonLabel = stringResource(id = R.string.settings_update_retry_button)
+            buttonLabel = strings.settingsUpdateRetryButton
             buttonEnabled = true
-            buttonAction = { viewModel.download() }
+            buttonAction = { actions.onDownloadRequested() }
             showProgress = false
         }
 
         resultMessage?.startsWith("update_available") == true -> {
-            buttonLabel = stringResource(id = R.string.pre_unlock_update_download_install)
+            buttonLabel = strings.preUnlockUpdateDownloadInstall
             buttonEnabled = true
-            buttonAction = { viewModel.download() }
+            buttonAction = { actions.onDownloadRequested() }
             showProgress = false
         }
 
         else -> {
-            buttonLabel = stringResource(id = R.string.settings_update_check_button)
+            buttonLabel = strings.settingsUpdateCheckButton
             buttonEnabled = !checking
             buttonAction = {
                 logger.i(
                     "PreUnlockUpdateSection.checkTapped",
                     "Check for update tapped (pre-unlock hatch)",
                 )
-                viewModel.checkForUpdate()
+                actions.onCheckRequested()
             }
             showProgress = false
         }
     }
     val message = when {
-        resultMessage == "up_to_date" -> stringResource(id = R.string.pre_unlock_update_up_to_date)
-        resultMessage == "type_mismatch" -> stringResource(id = R.string.settings_update_type_mismatch)
-        resultMessage == "no_release" -> stringResource(id = R.string.settings_update_no_releases)
-        resultMessage?.startsWith("check_failed") == true -> stringResource(id = R.string.pre_unlock_update_check_failed)
-        downloadState is DownloadUiState.Failed -> stringResource(id = R.string.pre_unlock_update_download_failed)
+        resultMessage == "up_to_date" -> strings.preUnlockUpdateUpToDate
+        resultMessage == "type_mismatch" -> strings.settingsUpdateTypeMismatch
+        resultMessage == "no_release" -> strings.settingsUpdateNoReleases
+        resultMessage?.startsWith("check_failed") == true -> strings.preUnlockUpdateCheckFailed
+        downloadState is DownloadUiState.Failed -> strings.preUnlockUpdateDownloadFailed
         else -> null
     }
     Column(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         Row(
@@ -136,7 +184,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = stringResource(id = R.string.settings_about_version_label),
+                text = strings.settingsAboutVersionLabel,
                 style = MaterialTheme.typography.labelSmall.copy(
                     fontWeight = FontWeight.Bold,
                     letterSpacing = 1.sp,
@@ -144,10 +192,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 color = Color.White.copy(alpha = 0.4f),
             )
             Text(
-                text = stringResource(
-                    id = R.string.pre_unlock_update_build_value,
-                    viewModel.currentBuildNumber,
-                ),
+                text = strings.preUnlockUpdateBuildValue.formatArgs(uiState.buildNumber),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.85f),
                 fontWeight = FontWeight.SemiBold,
@@ -165,8 +210,8 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             ) {
                 // Hatch button — bordered 40dp, gradient when emphasized (mirrors
                 // the screen's DiagnosticButton visual language).
-                val isEmphasized = buttonLabel == stringResource(id = R.string.settings_update_install_now_button) ||
-                    buttonLabel == stringResource(id = R.string.pre_unlock_update_download_install)
+                val isEmphasized = buttonLabel == strings.settingsUpdateInstallNowButton ||
+                    buttonLabel == strings.preUnlockUpdateDownloadInstall
                 Box(
                     modifier = Modifier
                         .fillMaxWidth()
@@ -175,7 +220,11 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                             if (isEmphasized) {
                                 Modifier.background(
                                     brush = Brush.horizontalGradient(
-                                        colors = listOf(LifeDimensionColors.HealthWellness, LifeDimensionColors.CareerWork),
+                                        colors =
+                                            listOf(
+                                                LifeDimensionColors.HealthWellness,
+                                                LifeDimensionColors.CareerWork,
+                                            ),
                                     ),
                                 )
                             } else {
@@ -198,7 +247,12 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                 ) {
                     Text(
                         text = buttonLabel,
-                        color = if (isEmphasized) Color.White else Color.White.copy(alpha = if (buttonEnabled) 0.6f else 0.3f),
+                        color =
+                            if (isEmphasized) {
+                                Color.White
+                            } else {
+                                Color.White.copy(alpha = if (buttonEnabled) 0.6f else 0.3f)
+                            },
                         style = MaterialTheme.typography.labelMedium,
                         fontWeight = if (isEmphasized) FontWeight.Bold else FontWeight.Normal,
                     )
@@ -218,7 +272,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
                     )
                 }
                 Text(
-                    text = stringResource(id = R.string.pre_unlock_update_hint),
+                    text = strings.preUnlockUpdateHint,
                     style = MaterialTheme.typography.labelSmall,
                     color = Color.White.copy(alpha = 0.35f),
                 )

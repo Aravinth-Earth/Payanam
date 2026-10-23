@@ -87,20 +87,14 @@ class DesktopNavGateFlagsTest {
         // There is no desktop-scaffold dimension mode in this list because the mode no longer exists:
         // the shared database-init screen runs that step, and the desktop's own card was the only thing
         // that could render it.
-        for (
-        mode in
-        listOf(
-            DesktopStartupMode.OnboardingIntro,
-            DesktopStartupMode.OnboardingDatabaseChoice,
-            DesktopStartupMode.SecurityStateUnavailable,
-        )
-        ) {
-            assertThat(desktopNavGateFlags(mode).showsNoGate).isTrue()
-        }
+        // The tour and the refusal were the last two, and they are graph gates themselves now - the
+        // graph renders the shared tour screen and the shared refusal screen. Ready is the only mode
+        // left with no gate, which is what it means: the shell is up and nothing is in front of it.
+        assertThat(desktopNavGateFlags(DesktopStartupMode.Ready).showsNoGate).isTrue()
     }
 
     @Test
-    fun `the four gated modes are exactly the modes the startup chain gates on`() {
+    fun `the six gated modes are exactly the modes the startup chain gates on`() {
         // Pins the projection against the enum rather than against itself: if a mode is added to
         // DesktopStartupMode and lands in the "no gate" group, this fails. That is the day the compiler
         // stops helping - a `when` with an `else` would compile silently and show no gate for a mode that
@@ -114,6 +108,8 @@ class DesktopNavGateFlagsTest {
                 DesktopStartupMode.UnlockPassphrase,
                 DesktopStartupMode.InitializeDatabase,
                 DesktopStartupMode.FocusModeSelection,
+                DesktopStartupMode.OnboardingIntro,
+                DesktopStartupMode.SecurityStateUnavailable,
             ),
         )
     }

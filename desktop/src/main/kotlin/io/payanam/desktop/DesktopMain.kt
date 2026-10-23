@@ -23,6 +23,8 @@ import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseSessionController
 import io.payanam.desktop.platform.DesktopPlatformSeams
 import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.flags.FeatureFlagsState
+import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.CrashBreadcrumbStore
 import io.payanam.shared.logging.CrashBreadcrumbTrail
@@ -58,11 +60,73 @@ fun main() {
     // which read AppLogger.current rather than reaching for a platform singleton. Without this their
     // diagnostics would go to the no-op default and be discarded silently in the Linux/Windows app.
     AppLogger.install(sessionLogger)
+    // The one-time storage-root migration, run before anything resolves paths or opens the database.
+    // An existing install's data lives in the legacy layout (~/.local/share/Payanam with a database/
+    // child); the resolver now returns the new layout (~/Documents/Payanam with db/, logs/, ...).
+    // Without this the app resolves the new location, finds no database, and behaves as a fresh
+    // install — the user's data is still on disk but the app no longer looks at it. Idempotent:
+    // isMigrationNeeded returns false once the new parent exists, so a second run is a no-op.
+    val legacyStorageRoot = DesktopAppPaths.resolveLegacyRootDirectory()
+    val newStorageRoot = DesktopAppPaths.resolveRootDirectory()
+    if (DesktopStorageRootMigration.isMigrationNeeded(legacyStorageRoot, newStorageRoot)) {
+        val migrationReport = DesktopStorageRootMigration.performMigration(
+            legacyRoot = legacyStorageRoot,
+            newParent = newStorageRoot,
+            report = { line -> sessionLogger.i(source = "DesktopMain.storageMigration", message = line) },
+        )
+        sessionLogger.i(
+            source = "DesktopMain.storageMigration",
+            message = "Storage root migration completed",
+            data = mapOf(
+                "legacyRoot" to legacyStorageRoot.toString(),
+                "newParent" to newStorageRoot.toString(),
+                "moved" to migrationReport.moved.size,
+                "skipped" to migrationReport.skipped.size,
+                "complete" to migrationReport.isComplete,
+            ),
+        )
+        // Report any refused children honestly — a non-empty target means something already wrote there.
+        migrationReport.skipped.forEach { child ->
+            sessionLogger.w(
+                source = "DesktopMain.storageMigration",
+                message = "Migration child skipped: ${child.legacyChildName} → ${child.newChildName} (${child.status})",
+                data = mapOf(
+                    "legacyChildName" to child.legacyChildName,
+                    "newChildName" to child.newChildName,
+                    "status" to child.status.name,
+                    "detail" to (child.detail ?: ""),
+                ),
+            )
+        }
+    }
     // The pre-session data layer, installed before the first frame. The shared graph composes the
     // database-init screen from the scaffold stage, which resolves before any passphrase or session
     // exists, and `databaseInitViewModel` reads this holder WHILE IT IS BEING CONSTRUCTED — so without
     // a layer in place the first composition throws and a fresh install never reaches the init screen.
     LocalDataLayer.install(DesktopBootstrapDataLayer)
+    // The shared feature flags, installed before the window is composed. Android fills the same holder in
+    // PayanamApp.onCreate from its build config, so this is the desktop's declared counterpart rather than a
+    // second mechanism: without an install the graph and the shared ViewModels (Time, Tasks) read the
+    // dataclass default for every flag, which is a value no build chose. The desktop is a full-feature
+    // build and takes no build-time capability flag - a capability flag is a compile-time constant on
+    // Android and an installed value on every installed platform - so minimal mode is declared here as the
+    // false it always resolves to, stated at the one place that installs the holder rather than generated
+    // into the build. The rest keep the full-feature-set default, which is what this platform renders.
+    PlatformFeatureFlags.install(
+        FeatureFlagsState(
+            minimalModeEnabled = false,
+            // On, because the delivery surface now exists end-to-end: `DesktopPlatformSeams` constructs the
+            // sink with `desktopFreedesktopReminderDelivery` behind it, and the data layer binds
+            // `DesktopTaskReminderScheduler` as the producer that hands it reminders - so the shared code
+            // that guards scheduling on this flag proceeds with a channel that can actually deliver.
+            remindersEnabled = true,
+            // Both settings-section decisions below are declared rather than left to the dataclass default,
+            // because a mount site reading a holder that nothing filled is the failure this whole install
+            // exists to prevent. The values match Android's own build config, which carries both as true.
+            focusModeSettingsEnabled = true,
+            scoreSettingsEnabled = true,
+        ),
+    )
     // Breadcrumbs next, at the same position Android uses (PayanamApp.onCreate:109 — right after the
     // logger, before anything that could fail). The trail is a file the NEXT process start replays, so a
     // breadcrumb recorded before a crash is the only record of the steps that led there; that makes the
@@ -213,34 +277,68 @@ private fun flushDurableSessionState(
  * Installs the desktop process's uncaught-exception handler.
  *
  * Mirrors `PayanamApp.installGlobalCrashLogging` (app/.../PayanamApp.kt:271-314) step for step:
- * capture the previous handler, `eSync` the throwable with thread and build context, then run the
- * previous handler so the process still dies the way the JVM would have. The crash is NOT swallowed —
- * swallowing it would leave a corrupt or half-dead AWT event thread and turn a crash into a hang.
- *
- * What differs, and why each difference is forced rather than chosen:
- *
- * - **The breadcrumb.** Android has no `CrashBreadcrumbs`; the desktop does, and the whole point of a
- *   file-forced store is that a line recorded here is still on the device when the process dies and is
- *   replayed by the NEXT start (`CrashBreadcrumbs.replayToLoggerAndClear`, already wired in this
- *   `main`). Recorded BEFORE the log write, so a failing log write cannot cost the breadcrumb.
- * - **Type and message only, never the stack.** The trail is a bounded 80-line ring
- *   (`CrashBreadcrumbTrail.MAX_LINES`) whose values are cut to 180 characters
- *   (`MAX_VALUE_LENGTH`); a full stack would be truncated into uselessness and would dominate the ring
- *   the previous entries occupy. `LogSanitizer` then redacts it on the way in. The full stack belongs
- *   in the log, where it is capped at `ErrorPayload.MAX_CRASH_STACK_FRAMES` and kept as a real record.
- * - **No `exportAllLogs` on a separate thread.** Android needs it because a crash loop leaves the app
- *   unable to start and the ZIP must land in a user-visible directory. On the desktop the session log
- *   is already a plain file at a known path (`getLogPath()`, and the lease records it), and the
- *   synchronous `eSync` above has already written it — the crash line and the breadcrumb are both
- *   durable before the handler returns, which is the guarantee the export was proxying for.
- * - **The fold is deliberately NOT called here.** A JVM shutdown hook fires for this death anyway, and
- *   `checkpointAndCloseForShutdown` is once-only, so calling it here would only arbitrate two calls in
- *   an order the JVM does not guarantee — and the losing one would be a silent no-op that makes the log
- *   read as though no fold happened. The hook is the single place the fold is owned.
+ * capture the previous handler, hand both it and the session logger to
+ * [desktopUncaughtExceptionHandler], and install what comes back. The crash policy itself — what gets
+ * recorded, in what order, and what the process does next — lives in that factory and is documented
+ * there; this function owns only the capture-and-install, including the one log line reporting whether a
+ * previous handler existed at all.
  */
 private fun installDesktopUncaughtExceptionHandler(sessionLogger: UnifiedLogger) {
     val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
-    Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
+    Thread.setDefaultUncaughtExceptionHandler(desktopUncaughtExceptionHandler(previousHandler, sessionLogger))
+    sessionLogger.i(
+        source = "DesktopMain.installDesktopUncaughtExceptionHandler",
+        message = "Installed default uncaught exception handler",
+        data = mapOf("hasPreviousHandler" to (previousHandler != null)),
+    )
+}
+
+/**
+ * Builds the handler that [installDesktopUncaughtExceptionHandler] installs, holding the crash policy
+ * itself rather than burying it inside the installer.
+ *
+ * ## WHY IT IS `internal` RATHER THAN PRIVATE, AND WHY IT IS SEPARATE AT ALL
+ *
+ * The two halves of this handler's promise are only ever visible together — a breadcrumb the NEXT
+ * process replays, and a process that still dies — and neither is observable from outside the JVM once
+ * the real default handler has run, because the thing under test would be the test JVM dying with it. So
+ * the handler is a value a test can be HANDED, built over a fake [previous] handler that records the call
+ * instead of printing a stack and exiting, with the breadcrumb half observed through an in-memory
+ * [CrashBreadcrumbStore] installed via [CrashBreadcrumbs.install]. That is the same seam style as
+ * [io.payanam.desktop.port.DesktopProcessRestartPort]'s injected `commandOf` / `spawn` / `checkpointAndClose`
+ * constructor parameters: the decision and its ordering are what is under test, and the environment that
+ * would otherwise end the test JVM is injected rather than invoked.
+ *
+ * `internal` and not `public`: nothing outside the `:desktop` module has any business building the
+ * desktop's crash handler, and the visibility is widened only as far as the test source set needs.
+ *
+ * ## WHAT IT DOES, IN ORDER, AND WHY THE ORDER IS THE CONTRACT
+ *
+ * 1. **The breadcrumb, FIRST** — [CrashBreadcrumbs.record] with the throwable's *type and message*, never
+ *    its stack. Recorded before the log write on purpose: the trail is forced to the storage device and is
+ *    the one record that survives, so a log write that fails must not cost it. A full stack would be
+ *    truncated to uselessness by the bounded ring (`CrashBreadcrumbTrail.MAX_LINES`, `MAX_VALUE_LENGTH`) and
+ *    would evict the entries that led up to it; `LogSanitizer` redacts what does go in. The full stack
+ *    belongs in the log, where it is a real record.
+ * 2. **The synchronous crash line**, guarded so a logger that cannot write reports to stderr instead of
+ *    replacing the crash with its own failure — the crash is the finding.
+ * 3. **[previous] last, unguarded**, so the process still dies the way the JVM would have: the default
+ *    handler prints the stack to stderr and exits. Nullable, because a host JVM with no handler at all is
+ *    a real case and the installer logs which of the two it found (`hasPreviousHandler`).
+ *
+ * Deliberately NOT called from here: the database fold. A JVM shutdown hook fires for this death anyway and
+ * `checkpointAndCloseForShutdown` is once-only, so folding here would only arbitrate two calls in an order
+ * the JVM does not guarantee, and the losing one would be a silent no-op that makes the log read as though
+ * no fold happened.
+ *
+ * @param previous the handler to re-dispatch to, or null when the process had none.
+ * @param sessionLogger the process's session logger; tests pass a capturing [UnifiedLogger].
+ */
+internal fun desktopUncaughtExceptionHandler(
+    previous: Thread.UncaughtExceptionHandler?,
+    sessionLogger: UnifiedLogger,
+): Thread.UncaughtExceptionHandler =
+    Thread.UncaughtExceptionHandler { thread, throwable ->
         // FIRST, and the throwable's own type rather than a stack: this is the one line that has to
         // survive to the next process start, so it must not depend on the logger working.
         CrashBreadcrumbs.record(
@@ -277,14 +375,8 @@ private fun installDesktopUncaughtExceptionHandler(sessionLogger: UnifiedLogger)
         // handler prints the stack to stderr and exits, and a host that installed a handler of its own
         // gets it. Deliberately last, and deliberately unguarded — anything that swallowed this would
         // be the "swallow the crash" bug this exists to close.
-        previousHandler?.uncaughtException(thread, throwable)
+        previous?.uncaughtException(thread, throwable)
     }
-    sessionLogger.i(
-        source = "DesktopMain.installDesktopUncaughtExceptionHandler",
-        message = "Installed default uncaught exception handler",
-        data = mapOf("hasPreviousHandler" to (previousHandler != null)),
-    )
-}
 
 /**
  * The desktop window is sized to a real phone's LOGICAL resolution, not to a fraction of the monitor.
@@ -302,7 +394,7 @@ private fun installDesktopUncaughtExceptionHandler(sessionLogger: UnifiedLogger)
  * 412x915 dp is Android Studio's "Medium Phone" (1080x2400 at 420dpi) and 411x891 is the M51 the Android
  * app is actually tested on, so this is a standard target rather than an invented one.
  */
-private const val PHONE_WINDOW_WIDTH_DP = 412
+internal const val PHONE_WINDOW_WIDTH_DP = 412
 private const val PHONE_WINDOW_HEIGHT_DP = 915
 
 /**

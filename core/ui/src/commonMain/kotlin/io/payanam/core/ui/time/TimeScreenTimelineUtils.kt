@@ -9,6 +9,7 @@ import androidx.compose.ui.graphics.lerp
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
+import io.payanam.presentation.time.TimeVisualsCalculator
 import io.payanam.shared.logging.AppLogger
 import java.time.Duration
 import java.time.LocalDate
@@ -90,15 +91,7 @@ fun computeTimeGaps(
     now: LocalDateTime,
 ): List<TimeGap> {
     val dayStart = LocalDateTime.of(selectedDate, LocalTime.MIDNIGHT)
-    val dayEnd =
-        if (selectedDate == now.toLocalDate()) {
-            now
-        } else {
-            LocalDateTime.of(
-                selectedDate,
-                LocalTime.of(23, 59, 59),
-            )
-        }
+    val dayEnd = TimeVisualsCalculator.effectiveDayEnd(selectedDate, now)
     val allEntries = entries.toMutableList()
     if (activeEntry != null && allEntries.none { it.id == activeEntry.id }) {
         allEntries.add(activeEntry)
@@ -295,15 +288,7 @@ private fun buildDayBoundIntervals(
     now: LocalDateTime,
 ): List<Pair<LocalDateTime, LocalDateTime>> {
     val dayStart = LocalDateTime.of(selectedDate, LocalTime.MIDNIGHT)
-    val dayEnd =
-        if (selectedDate == now.toLocalDate()) {
-            now
-        } else {
-            LocalDateTime.of(
-                selectedDate,
-                LocalTime.of(23, 59, 59),
-            )
-        }
+    val dayEnd = TimeVisualsCalculator.effectiveDayEnd(selectedDate, now)
     val allEntries = entries.toMutableList()
     if (activeEntry != null && allEntries.none { it.id == activeEntry.id }) {
         allEntries.add(activeEntry)

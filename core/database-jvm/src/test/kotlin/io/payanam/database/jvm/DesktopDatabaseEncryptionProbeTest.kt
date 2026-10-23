@@ -100,6 +100,13 @@ class DesktopDatabaseEncryptionProbeTest {
             // The dangerous outcome would be a silent no-op: the caller would then compare counts across a
             // conversion that never happened and report success on a plaintext file.
             assertThat(failure).isNotNull()
+            // And the refusal must say WHY in the driver's own terms, not merely that something failed: the
+            // message quotes the driver's measured refusal, so a user reading it learns the operation this
+            // platform does not have rather than guessing. Asserting the type and the quoted text is what
+            // makes this test fail if the driver's wording ever changes under it.
+            assertThat(failure).isInstanceOf(UnsupportedOperationException::class.java)
+            assertThat(failure!!.message).contains("PRAGMA rekey can only be run on an existing encrypted database")
+            assertThat(failure.message).contains("Import an encrypted database instead")
             assertThat(file.length()).isGreaterThan(0L)
         }
 

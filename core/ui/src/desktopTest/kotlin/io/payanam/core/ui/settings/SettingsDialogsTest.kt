@@ -69,7 +69,6 @@ class SettingsDialogsTest {
     fun `the import confirm names every hazard and drops none of them`() {
         render {
             ImportDatabaseConfirmDialog(
-                showEncryptedModeWarning = false,
                 onConfirm = {},
                 onDismiss = {},
             )
@@ -84,31 +83,20 @@ class SettingsDialogsTest {
     }
 
     @Test
-    fun `the encrypted-mode hint appears only when the caller says encryption is on`() {
+    fun `the rule hint is shown unconditionally`() {
         render {
             ImportDatabaseConfirmDialog(
-                showEncryptedModeWarning = true,
                 onConfirm = {},
                 onDismiss = {},
             )
         }
 
+        // The dialog has no flag left to pass, and that is the point: the copy states the RULE ("only
+        // encrypted databases can be imported"), which is true whatever the local database's mode is.
+        // The two tests that used to live here asserted the opposite - that the hint appeared only when
+        // the caller said encryption was on - and they could not survive the copy's rewording, because
+        // with the rule stated there is no mode for the clause to be conditional on.
         composeRule.onNodeWithText(strings.settingsImportDialogEncryptedModeHint).assertIsDisplayed()
-    }
-
-    @Test
-    fun `the encrypted-mode hint is absent when encryption is off`() {
-        render {
-            ImportDatabaseConfirmDialog(
-                showEncryptedModeWarning = false,
-                onConfirm = {},
-                onDismiss = {},
-            )
-        }
-
-        // Zero, not "at least one": a hint shown while plain databases are importable would tell the
-        // user a falsehood, and it would still be a plausible-looking dialog.
-        composeRule.onAllNodesWithText(strings.settingsImportDialogEncryptedModeHint).assertCountEquals(0)
     }
 
     @Test
@@ -117,7 +105,6 @@ class SettingsDialogsTest {
         var dismissed = false
         render {
             ImportDatabaseConfirmDialog(
-                showEncryptedModeWarning = false,
                 onConfirm = { confirmed.add("confirm") },
                 onDismiss = { dismissed = true },
             )

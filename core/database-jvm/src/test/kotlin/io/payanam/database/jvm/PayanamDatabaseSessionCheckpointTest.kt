@@ -96,11 +96,11 @@ class PayanamDatabaseSessionCheckpointTest {
 
         val result = session.checkpoint()
 
-        assertThat(result.busy).isEqualTo(0)
+        // Measured: a completed fold reports the tuple (0, 0, 0) - not blocked, no frames left in the log,
+        // none left to fold - and TRUNCATE leaves the log at ZERO bytes rather than deleting it. The sidecar
+        // disappears when the session closes, which is what the next test pins.
+        assertThat(result).isEqualTo(FoldReport(busy = 0, logFrames = 0, checkpointedFrames = 0))
         assertThat(result.walIsEmpty).isTrue()
-        // Measured: TRUNCATE leaves the log at ZERO bytes rather than deleting it, and the frame counts
-        // it answers describe the log AFTER the fold.
-        assertThat(result.logFrames).isEqualTo(0)
         assertThat(Files.size(walPath())).isEqualTo(0L)
     }
 

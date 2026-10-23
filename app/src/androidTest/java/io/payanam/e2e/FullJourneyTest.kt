@@ -227,7 +227,10 @@ class FullJourneyTest {
     private fun habits() {
         h.goToTab(l.habits)
         h.assertVisible(l.noHabitsYet)
-        h.capture("tasks_screen")
+        // Named for the screen it is taken on. This frame used to be called "tasks_screen" while the Habits
+        // tab was active, so the journey's Tasks evidence was a photograph of Habits and the Tasks screen was
+        // never captured at all.
+        h.capture("habits_screen")
 
         h.click(l.addTask)
         h.type(l.taskTitleField, "Daily Meditation")
@@ -273,6 +276,9 @@ class FullJourneyTest {
     private fun tasks() {
         h.goToTab(l.tasks)
         h.assertVisible(l.noTasksDueToday)
+        // The frame this journey promises for Tasks, taken where it says it is. Before this, the only
+        // capture carrying the Tasks name was taken on the Habits tab and the Tasks screen had no frame.
+        h.capture("tasks_screen")
 
         // ── create 1: title only ──
         h.click(l.addTask)

@@ -118,6 +118,29 @@ class TimeVisualsDayBoundaryTest {
         assertEquals(0, summary.gapCount)
     }
 
+    /**
+     * A day that has not arrived yet is credited nothing, however busy its entries look.
+     *
+     * A future date used to fall through to the successor-start rule, so a 09:00-10:30 entry on it was
+     * measured against a window that began before the day and ended after it - the day reported 90 tracked
+     * minutes on a date the clock has not reached. The assertion is 0, and it is 0 for the reason the
+     * branch exists: a future day owns no time at all, so every interval on it clips to nothing.
+     *
+     * The red this case is for: delete the `selectedDate.isAfter(now.toLocalDate())` branch from
+     * `effectiveDayEnd` and this reads 90 - which is the defect the item describes, and the only assertion
+     * in this file that looks forward rather than back.
+     */
+    @Test
+    fun future_day_is_credited_no_tracked_minutes() {
+        logger.d("TimeVisualsDayBoundaryTest", "Running future-day-is-empty case")
+        val day = LocalDate.of(2026, 2, 16)
+        val entries = listOf(entry("e1", day.atTime(9, 0), day.atTime(10, 30), 1.0))
+
+        val summary = TimeVisualsCalculator.computeDayOverall(day, entries, now = day.minusDays(1).atTime(9, 0))
+
+        assertEquals(0L, summary.trackedMinutes)
+    }
+
     private fun entry(
         id: String,
         start: LocalDateTime,

@@ -2,11 +2,15 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
-import io.payanam.presentation.updates.ChannelStatus
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateCheckResult
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.presentation.updates.nextPageUrl
+import io.payanam.presentation.updates.artifactNameMatchesBuildType
+import io.payanam.presentation.updates.channelFromTag
+import io.payanam.shared.updates.ChannelStatus
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.resolveUpdateResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull

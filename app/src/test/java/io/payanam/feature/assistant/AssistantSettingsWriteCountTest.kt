@@ -4,6 +4,7 @@ package io.payanam.feature.assistant
 
 import android.content.Context
 import androidx.room.Room
+import androidx.room.withTransaction
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
@@ -16,7 +17,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.wheneverBlocking
 import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 
@@ -42,6 +45,10 @@ class AssistantSettingsWriteCountTest {
                 .build()
         val sessionManager = mock<DatabaseSessionManager>()
         whenever(sessionManager.requireDatabase()).thenReturn(db)
+        wheneverBlocking { sessionManager.inTransaction<Any?>(any<suspend () -> Any?>()) }.thenAnswer { invocation ->
+            val block = invocation.getArgument<suspend () -> Any?>(0)
+            runBlocking { db.withTransaction { block() } }
+        }
         store = AssistantSettingsStore(sessionManager)
     }
 

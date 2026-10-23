@@ -55,28 +55,5 @@ internal fun desktopDefaultDimensionInputs(
             )
         }
 
-/**
- * The colour choices offered when editing a dimension.
- *
- * Hard-coded rather than read from Android's `DimensionColorOptions`, which lives in the Android-only
- * `app/` module and resolves each entry through a string resource. These are the same Material 500
- * values; the labels are rendered from the hex by the screen, so no resource lookup is needed.
- *
- * When the visuals are promoted to a shared module this list is replaced, not extended.
- */
-internal val desktopDimensionColorOptions: List<String> =
-    listOf(
-        "#3F51B5", // indigo 500
-        "#4CAF50", // green 500
-        "#E91E63", // pink 500
-        "#009688", // teal 500
-        "#FF9800", // orange 500
-        "#9C27B0", // purple 500
-        "#2196F3", // blue 500
-        "#F44336", // red 500
-        "#795548", // brown 500
-        "#607D8B", // blue grey 500
-    )
-
 /** The canonical unassigned fallback, which is seeded separately and not user-editable. */
 internal const val UNASSIGNED_DIMENSION_ID = "dim_unassigned"

@@ -78,6 +78,14 @@ class DesktopDatabaseSessionControllerTest {
 
     @Before
     fun setUp() {
+        // The desktop logger is process-wide, and this class constructs collaborators that reach for it:
+        // initialize it HERE (fully qualified, because several siblings import the SHARED UnifiedLogger under
+        // the same name) rather than relying on a sibling class's leak - the shared-JVM class order is not a
+        // contract, and a solo run of this class must work. The directory outlives the class on purpose.
+        io.payanam.desktop.UnifiedLogger.resetForTests()
+        io.payanam.desktop.UnifiedLogger.initialize(
+            logsDirectory = java.nio.file.Files.createTempDirectory("payanam-desktop-test-logs"),
+        )
         val path = tempFolder.newFolder().toPath().resolve("payanam.db")
         val properties = Properties().apply { setProperty("key", passphrase) }
         connection = DriverManager.getConnection("jdbc:sqlcipher:${path.toAbsolutePath()}", properties)
@@ -213,5 +221,42 @@ class DesktopDatabaseSessionControllerTest {
             assertThat(controller.sessionOpenState.value).isFalse()
             assertThat(session.isClosed).isTrue()
             assertThat(readingNotesFails()).isTrue()
+        }
+
+    /**
+     * The shutdown fold runs once per controller, and the guard is per-INSTANCE state.
+     *
+     * A second call must be a no-op, and the observable proof is the two reports the method makes: the
+     * fold line and the closed line are each emitted exactly once, and the early-return loser emits
+     * neither. Counting the report is not the fold itself - but the fold line is the first statement
+     * after the guard, so a second fold could not run without a second line.
+     *
+     * The release ORDER this item also asks about is NOT covered here, and deliberately: the session
+     * logger and the single-instance lease are released as bare statements in `DesktopMain.main`'s
+     * `finally` block, and no test seam reaches them without changing production code.
+     */
+    @Test
+    fun `the shutdown fold runs once, so a second call neither folds nor closes again`(): Unit =
+        runBlocking {
+            val foldMessage = "Folding the open session's log before the process exits"
+            val closedMessage = "Database session closed for process exit"
+            val controller = controller { _, _ -> DatabaseOpenResult.Opened(session) }
+            controller.openAndInstall(passphrase.toCharArray())
+            records.clear()
+
+            controller.checkpointAndCloseForShutdown()
+
+            assertThat(records.count { it.second == foldMessage }).isEqualTo(1)
+            assertThat(records.count { it.second == closedMessage }).isEqualTo(1)
+            assertThat(controller.isOpen).isFalse()
+            assertThat(session.isClosed).isTrue()
+
+            controller.checkpointAndCloseForShutdown()
+
+            // One fold and one close across the whole sequence: the second call returned at the guard.
+            assertThat(records.count { it.second == foldMessage }).isEqualTo(1)
+            assertThat(records.count { it.second == closedMessage }).isEqualTo(1)
+            assertThat(controller.isOpen).isFalse()
+            assertThat(session.isClosed).isTrue()
         }
 }

@@ -9,6 +9,7 @@ import io.payanam.domain.port.DatabaseSchemaResult
 import io.payanam.domain.port.DatabaseTableSchema
 import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.port.ReadOnlyQueryOutcome
+import io.payanam.domain.port.ReadOnlyQueryRules
 import io.payanam.domain.port.ReadOnlyRefusal
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -90,7 +91,7 @@ constructor(
     override fun readSchema(): DatabaseSchemaResult {
         val database = sessionManager.requireDatabase()
         return try {
-            database.openHelper.readableDatabase.query(SCHEMA_QUERY).use { rows ->
+            database.openHelper.readableDatabase.query(ReadOnlyQueryRules.SCHEMA_QUERY).use { rows ->
                 val tables = mutableListOf<DatabaseTableSchema>()
                 while (rows.moveToNext()) {
                     val name = rows.getString(0) ?: continue
@@ -108,19 +109,5 @@ constructor(
                 "${error.javaClass.simpleName}: ${error.message}",
             )
         }
-    }
-
-    private companion object {
-        /**
-         * Reads the live schema, excluding implementation-owned tables and the settings table that
-         * holds the provider key.
-         *
-         * The exclusion is here rather than in the shared screen so a model can never be shown the
-         * `app_settings` DDL and reason about the key's column by name, on either platform.
-         */
-        private const val SCHEMA_QUERY =
-            "SELECT name, sql FROM sqlite_master WHERE type='table' " +
-                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'room_%' " +
-                "AND name != 'app_settings' ORDER BY name"
     }
 }

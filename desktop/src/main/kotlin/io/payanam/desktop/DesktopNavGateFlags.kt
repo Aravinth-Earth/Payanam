@@ -16,16 +16,18 @@ package io.payanam.desktop
  * So this file only *reads* [startupMode] and projects it. It contains no `if` on security, session,
  * database or onboarding state, and it never consults [DesktopStartupRuntimeState]. The rule lives once.
  *
- * The three onboarding stages are the case that proves it. The graph has no parameters for them - they
- * are desktop-only scaffold - so they project to "no graph gate", and [desktopStartupGateSurface]
- * continues to render them until V5 replaces the scaffold. `Ready` is the only value that yields no
- * gate at all, and the graph is mounted only then.
+ * The onboarding stages were the case that proved it: they had no graph parameters of their own, so
+ * they projected to "no graph gate" while the desktop's own surface rendered them. That surface is gone
+ * now - the tour and the refusal are graph destinations like every other gate - and `Ready` remains the
+ * one value that yields no gate at all, which is what it means.
  */
 internal data class DesktopNavGateFlags(
     val shouldShowPassphraseSetup: Boolean,
     val shouldShowPassphraseUnlock: Boolean,
     val shouldShowDatabaseInit: Boolean,
     val shouldShowFocusModeOnboarding: Boolean,
+    val shouldShowSecurityStateUnavailable: Boolean,
+    val shouldShowOnboardingIntro: Boolean,
 ) {
     /** True when the shared graph may be mounted: no gate is outstanding. */
     val showsNoGate: Boolean
@@ -33,7 +35,9 @@ internal data class DesktopNavGateFlags(
             !shouldShowPassphraseSetup &&
                 !shouldShowPassphraseUnlock &&
                 !shouldShowDatabaseInit &&
-                !shouldShowFocusModeOnboarding
+                !shouldShowFocusModeOnboarding &&
+                !shouldShowSecurityStateUnavailable &&
+                !shouldShowOnboardingIntro
 }
 
 /**
@@ -50,6 +54,8 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
                 shouldShowPassphraseUnlock = false,
                 shouldShowDatabaseInit = false,
                 shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = false,
             )
         }
 
@@ -59,6 +65,8 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
                 shouldShowPassphraseUnlock = true,
                 shouldShowDatabaseInit = false,
                 shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = false,
             )
         }
 
@@ -68,6 +76,8 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
                 shouldShowPassphraseUnlock = false,
                 shouldShowDatabaseInit = true,
                 shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = false,
             )
         }
 
@@ -77,14 +87,39 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
                 shouldShowPassphraseUnlock = false,
                 shouldShowDatabaseInit = false,
                 shouldShowFocusModeOnboarding = true,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = false,
             )
         }
 
-        // The desktop-only onboarding scaffold and Ready. The scaffold stages have no graph equivalent -
-        // DesktopStartupGateSurface renders them - and Ready is the only mode that mounts the graph.
-        DesktopStartupMode.OnboardingIntro,
-        DesktopStartupMode.OnboardingDatabaseChoice,
+        // The refusal is a gate the graph owns now: it renders the shared refusal screen, so the desktop
+        // mounts the shell and the graph navigates to it.
         DesktopStartupMode.SecurityStateUnavailable,
+        -> {
+            DesktopNavGateFlags(
+                shouldShowPassphraseSetup = false,
+                shouldShowPassphraseUnlock = false,
+                shouldShowDatabaseInit = false,
+                shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = true,
+                shouldShowOnboardingIntro = false,
+            )
+        }
+
+        // The first-run tour is a graph destination now.
+        DesktopStartupMode.OnboardingIntro,
+        -> {
+            DesktopNavGateFlags(
+                shouldShowPassphraseSetup = false,
+                shouldShowPassphraseUnlock = false,
+                shouldShowDatabaseInit = false,
+                shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = true,
+            )
+        }
+
+        // Ready: the graph is mounted and no gate is outstanding.
         DesktopStartupMode.Ready,
         -> {
             DesktopNavGateFlags(
@@ -92,6 +127,8 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
                 shouldShowPassphraseUnlock = false,
                 shouldShowDatabaseInit = false,
                 shouldShowFocusModeOnboarding = false,
+                shouldShowSecurityStateUnavailable = false,
+                shouldShowOnboardingIntro = false,
             )
         }
     }
@@ -102,9 +139,10 @@ internal fun desktopNavGateFlags(startupMode: DesktopStartupMode): DesktopNavGat
  * Total by construction, like the projection it sits beside: every value names a case, so adding a mode
  * without deciding where its gate comes from is a compile error rather than a silent "shows no gate".
  *
- * The four modes that answer `false` are the ones with no graph destination at all. Mounting the shell for
- * them would put the app's tabs on screen with NOTHING in front of them - an unreadable security store
- * would open the app - so they keep the desktop's own surface until their destinations exist.
+ * Every mode answers `true` now: the last two that did not - the tour and the refusal - are graph
+ * destinations themselves. The function stays total and explicit because the next mode added must still
+ * decide, and because a silent `true` for a mode whose gate nobody renders would open the app with
+ * nothing in front of it.
  *
  * This is deliberately NOT expressed as `!showsNoGate`: `Ready` also reports no gate, and reading the
  * projection would therefore send a ready app back to the desktop's surface.
@@ -115,11 +153,8 @@ internal fun desktopStartupGateShownByGraph(startupMode: DesktopStartupMode): Bo
         DesktopStartupMode.UnlockPassphrase,
         DesktopStartupMode.InitializeDatabase,
         DesktopStartupMode.FocusModeSelection,
+        DesktopStartupMode.SecurityStateUnavailable,
+        DesktopStartupMode.OnboardingIntro,
         DesktopStartupMode.Ready,
         -> true
-
-        DesktopStartupMode.OnboardingIntro,
-        DesktopStartupMode.OnboardingDatabaseChoice,
-        DesktopStartupMode.SecurityStateUnavailable,
-        -> false
     }

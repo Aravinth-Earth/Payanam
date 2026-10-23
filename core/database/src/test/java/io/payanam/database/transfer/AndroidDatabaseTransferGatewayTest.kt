@@ -169,6 +169,26 @@ class AndroidDatabaseTransferGatewayTest {
         }
 
     @Test
+    fun `a plaintext database offered as the source is refused with the live database untouched`(): Unit =
+        runBlocking {
+            setUpLive("live-bytes")
+
+            // The real header of an unencrypted SQLite database, offered to the path a transferred file
+            // arrives on. The refusal must leave the live database byte-identical and stage nothing: the
+            // difference between a refusal and a refusal that already half-imported.
+            val outcome =
+                gateway(
+                    sourceBytes = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1) + ByteArray(4080),
+                    verify = { _, _ -> false },
+                ).importFrom("content://plaintext", "any".toCharArray())
+
+            assertThat((outcome as TransferOutcome.Refused).reason)
+                .isEqualTo(TransferRefusal.PASSPHRASE_REJECTED)
+            assertThat(liveBytes()).isEqualTo("live-bytes")
+            assertThat(stagingLeftover()).isEmpty()
+        }
+
+    @Test
     fun `an unreadable source is refused without staging or verifying`(): Unit =
         runBlocking {
             setUpLive("live-bytes")

@@ -396,10 +396,21 @@ class JournalRepositoryJvm(
             AND promptKey = ?
         """
 
-        /** `JournalDao.insertEntry` is `@Insert(REPLACE)`. */
+        /**
+         * `JournalDao.insertEntry` is `@Insert(REPLACE)` — WITHOUT the REPLACE.
+         *
+         * `day_journal_entries` is the parent of `day_journal_responses` (`ON DELETE CASCADE`), so a
+         * REPLACE that collided on id deleted the entry's responses — silently, since SQLite defaults
+         * `PRAGMA foreign_keys` to OFF. `ON CONFLICT(id) DO UPDATE` writes the same row without
+         * deleting it, so the responses survive. See `TaskRepositoryJvm` for the same fix.
+         */
         const val INSERT_ENTRY_SQL = """
-            INSERT OR REPLACE INTO day_journal_entries (id, entryDate, createdAt, updatedAt)
+            INSERT INTO day_journal_entries (id, entryDate, createdAt, updatedAt)
             VALUES (?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                entryDate = excluded.entryDate,
+                createdAt = excluded.createdAt,
+                updatedAt = excluded.updatedAt
         """
 
         /** `JournalDao.insertResponse` is `@Insert(REPLACE)`. */

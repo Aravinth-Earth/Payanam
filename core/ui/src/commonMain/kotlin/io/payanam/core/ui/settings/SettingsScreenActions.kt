@@ -5,6 +5,7 @@
 package io.payanam.core.ui.settings
 
 import androidx.compose.ui.graphics.Color
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.settings.FocusModePreset
 import io.payanam.core.ui.preferences.AppLanguageOption
 import io.payanam.core.ui.preferences.BackupInterval
@@ -48,6 +49,12 @@ class SettingsScreenActions @JvmOverloads constructor(
     val focusModeSettingsEnabled: Boolean = true,
     /** Selects the minimal data-management card, which carries no file rows. */
     val minimalModeEnabled: Boolean = false,
+    /**
+     * Whether the delete-all row is offered at all. A platform with no wipe flow passes false, so the
+     * screen does not draw an enabled button whose confirm dialog would report a deletion that never
+     * happens - the row's absence is the honest state until a real wipe flow exists.
+     */
+    val deleteAllDataEnabled: Boolean = true,
     val onSetActivePreset: (FocusModePreset) -> Unit = {},
     val onSetTabVisibility: (String, Boolean) -> Unit = { _, _ -> },
     // Dimensions
@@ -59,6 +66,7 @@ class SettingsScreenActions @JvmOverloads constructor(
     val onDimensionVisibilityChanged: (String, Boolean) -> Unit = { _, _ -> },
     // Auto tracking
     val onAutoTrackHabitTimeGlobalChanged: (Boolean) -> Unit = {},
+    val onDayBoundaryHourChanged: (Int) -> Unit = {},
     val onAutoTrackDimensionPreferenceChanged: (String, Boolean) -> Unit = { _, _ -> },
     // Time insights
     val onChartVisibilityChanged: (String, Boolean) -> Unit = { _, _ -> },
@@ -92,7 +100,7 @@ class SettingsScreenActions @JvmOverloads constructor(
     val onDeleteArtifact: (String) -> Unit = {},
     val onCleanStaleArtifacts: () -> Unit = {},
     // Data management - files
-    val exportFileName: String = "payanam.db",
+    val exportFileName: String = PayanamDatabaseSchema.DATABASE_NAME,
     val onExportDestinationRequested: (String) -> Unit = {},
     /** Takes [io.payanam.core.ui.components.IMPORT_PICKER_MIME], as the database-init import row does. */
     val onImportSourceRequested: (Array<String>) -> Unit = {},
@@ -105,7 +113,6 @@ class SettingsScreenActions @JvmOverloads constructor(
     val onImportPassphraseSubmitted: (String) -> Unit = {},
     val onImportPassphraseDismissed: () -> Unit = {},
     val onBulkMapImportedHabitsConfirmed: (String, String) -> Unit = { _, _ -> },
-    val encryptionEnabled: Boolean = false,
     // Navigation
     val onNavigateToPassphraseChange: () -> Unit = {},
 )

@@ -12,6 +12,7 @@ import android.security.keystore.KeyProperties
 import android.util.Base64
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.security.PassphraseKdf
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
@@ -26,8 +27,8 @@ import javax.crypto.spec.GCMParameterSpec
 @Suppress("TooManyFunctions")
 /**
  * Owns the at-rest encryption metadata for the local database: the PBKDF2
- * passphrase verifier, the plaintext-vs-encrypted mode flag, biometric
- * Keystore wrapping, the session timeout, and the unlock lockout counter.
+ * passphrase verifier, biometric Keystore wrapping, the session timeout,
+ * and the unlock lockout counter.
  * All state is persisted in a private SharedPreferences store and every
  * mutating step is breadcrumbed for crash-safety.
  */
@@ -43,7 +44,7 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.init",
             "Initializing encryption manager",
             mapOf(
-                "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "hasPassphraseConfigured" to hasPassphraseConfigured(),
                 "hasVerifierHash" to !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank(),
                 "hasVerifierSalt" to !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank(),
                 "biometricPrefEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
@@ -57,14 +58,22 @@ class DatabaseEncryptionManager(
      * salt are present — i.e. a usable passphrase was configured.
      */
     fun hasPassphraseConfigured(): Boolean =
-        prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED &&
-            !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
+        !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
             !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank()
     /**
-     * True when the database is stored in encrypted mode (the mode flag says
-     * so); does not itself prove a passphrase verifier exists.
+     * True when the database file is detectably encrypted — answered by the FILE.
+     *
+     * The answer comes from the same probe every other file question on this platform uses, so the
+     * two platforms cannot disagree about what "encrypted" means, and a file that is not detectably
+     * encrypted still reads `false`.
+     *
+     * A missing database file (fresh install) returns false — the honest answer, and the same one a
+     * plaintext file gets.
      */
-    fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
+    fun isEncryptionEnabled(): Boolean {
+        val file = appContext.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME) ?: return false
+        return DatabaseEncryptionMigrationSupport.isDetectablyEncrypted(appContext, file, "DatabaseEncryptionManager.isEncryptionEnabled")
+    }
     /**
      * The configured auto-lock duration in minutes, clamped to the
      * [MIN_SESSION_TIMEOUT_MINUTES]..[MAX_SESSION_TIMEOUT_MINUTES] range.
@@ -177,8 +186,8 @@ class DatabaseEncryptionManager(
     }
     /**
      * First-time passphrase setup. Derives and persists the PBKDF2 verifier,
-     * clears any prior biometric material, flips the mode to encrypted, and
-     * records each step via breadcrumbs. Returns true on success.
+     * clears any prior biometric material, and records each step via
+     * breadcrumbs. Returns true on success.
      */
     fun configurePassphrase(passphrase: String): Boolean {
         logger.i(
@@ -186,7 +195,7 @@ class DatabaseEncryptionManager(
             "Configuring database passphrase",
             mapOf(
                 "passphraseLength" to passphrase.length,
-                "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "hadPassphraseConfigured" to hasPassphraseConfigured(),
             ),
         )
         CrashBreadcrumbs.record(
@@ -195,7 +204,7 @@ class DatabaseEncryptionManager(
             data =
                 mapOf(
                     "passphraseLength" to passphrase.length,
-                    "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                    "hadPassphraseConfigured" to hasPassphraseConfigured(),
                 ),
         )
         return runCatching {
@@ -212,19 +221,18 @@ class DatabaseEncryptionManager(
             check(
                 prefs
                     .edit()
-                    .putString(KEY_MODE, MODE_ENCRYPTED)
                     .putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
                     .commit(),
-            ) { "Failed to persist encryption mode" }
+            ) { "Failed to persist encryption state" }
             CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
-                stage = "mode_persisted",
+                stage = "encryption_state_persisted",
             )
 
             logger.i(
                 "DatabaseEncryptionManager.configurePassphrase",
                 "Database passphrase configured",
-                mapOf("mode" to MODE_ENCRYPTED),
+                mapOf("passphraseConfigured" to true),
             )
             true
         }.getOrElse { error ->
@@ -770,7 +778,7 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.sanitizeLegacySecurityState",
             "Security state sanitized",
             mapOf(
-                "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "hasPassphraseConfigured" to hasPassphraseConfigured(),
                 "biometricEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
@@ -817,7 +825,6 @@ class DatabaseEncryptionManager(
 
     private companion object {
         private const val PREFS_NAME = "db_security_prefs"
-        private const val KEY_MODE = "db_mode"
         private const val KEY_UNLOCK_FAILED_ATTEMPTS = "unlock_failed_attempts"
         private const val KEY_UNLOCK_LOCKOUT_UNTIL_MS = "unlock_lockout_until_ms"
         private const val KEY_SESSION_TIMEOUT_MINUTES = "session_timeout_minutes"
@@ -828,9 +835,6 @@ class DatabaseEncryptionManager(
         private const val KEY_BIOMETRIC_WRAPPED_IV = "db_biometric_wrapped_iv"
         private const val KEY_WRAPPED_PASSPHRASE_LEGACY = "db_wrapped_passphrase"
         private const val KEY_WRAPPED_IV_LEGACY = "db_wrapped_iv"
-        private const val MODE_PLAINTEXT = "plaintext"
-        private const val MODE_ENCRYPTED = "encrypted"
-
         private const val BIOMETRIC_KEY_ALIAS = "payanam_db_biometric_passphrase_key"
         private const val LEGACY_WRAP_KEY_ALIAS = "payanam_db_passphrase_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
@@ -840,7 +844,6 @@ class DatabaseEncryptionManager(
         private const val BACKUP_PREFIX = "_bak_"
         private val BACKUP_STRING_KEYS =
             arrayOf(
-                KEY_MODE,
                 KEY_VERIFIER_HASH,
                 KEY_VERIFIER_SALT,
                 KEY_BIOMETRIC_WRAPPED_PASSPHRASE,

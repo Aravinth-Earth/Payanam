@@ -3,6 +3,7 @@
 package io.payanam.database.jvm
 
 import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 import java.nio.file.Files
 import java.nio.file.Path
 import java.sql.Connection
@@ -23,7 +24,11 @@ import java.util.Properties
  * must see the file on disk, not the live session, or it would be comparing a file against itself.
  */
 object DatabaseTableCountReader {
-    private val logger = AppLogger.current
+    // Read on each use rather than captured at class load: the logger is a process-wide singleton whose
+    // order of installation is not a contract, so a captured reference would pin whichever logger happened
+    // to be current when this object first loaded - and a test that installs a recorder would then assert
+    // against a different logger than the one the reader writes to.
+    private val logger: UnifiedLogger get() = AppLogger.current
 
     /**
      * Returns each requested table's row count, with 0 for any table that cannot be read.

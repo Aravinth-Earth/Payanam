@@ -17,6 +17,7 @@ import io.payanam.database.jvm.TaskOccurrenceRepositoryJvm
 import io.payanam.database.jvm.TaskRepositoryJvm
 import io.payanam.database.jvm.TaskRescheduleRepositoryJvm
 import io.payanam.database.jvm.TimeEntryRepositoryJvm
+import io.payanam.desktop.port.DesktopTaskReminderScheduler
 import io.payanam.desktop.port.DesktopTimeTrackingController
 import io.payanam.desktop.port.DesktopUnsupportedPorts
 import io.payanam.domain.port.HabitTimeEntryRecorder
@@ -59,7 +60,11 @@ import io.payanam.scoring.port.TaskRecurrenceHandler
  * desktop does not implement this yet" into a compile error rather than an empty screen.
  */
 class DesktopPayanamDataLayer(
-    private val session: PayanamDatabaseSession,
+    // Internal rather than private so startup maintenance can hand the session to the JDBC port that runs the
+    // score-rollup backfill step. The controller deliberately does not publish its own session - a caller could
+    // keep a reference across a close - but this layer already exposes sixteen repositories over the same session,
+    // and the reference passed on is scoped to one call rather than cached.
+    internal val session: PayanamDatabaseSession,
     private val pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS,
 ) : PayanamDataLayer {
     override val notes: NoteRepository = NoteRepositoryJvm(session, pollIntervalMs)
@@ -107,7 +112,7 @@ class DesktopPayanamDataLayer(
     // platform's own no-ops, and each one says so in the log - see [DesktopUnsupportedPorts].
     override val scoreCalculator: ScoreCalculator = ElegantTaskScoring
 
-    override val reminderScheduler: TaskReminderScheduler = DesktopUnsupportedPorts.reminderScheduler
+    override val reminderScheduler: TaskReminderScheduler = DesktopTaskReminderScheduler()
 
     override val scoreRollupTrigger: ScoreRollupTrigger = DesktopUnsupportedPorts.scoreRollupTrigger
 

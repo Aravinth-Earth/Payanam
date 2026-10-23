@@ -208,9 +208,9 @@ class DesktopImportLoopHarnessTest {
                     resolveDesktopStartupMode(
                         buildDesktopStartupRuntimeState(
                             focusModeOnboardingCompleted = state.focusModeOnboardingCompleted,
-                            bootstrapSnapshot = DesktopBootstrapStore().loadSnapshot(),
+                            bootstrapSchema = DesktopBootstrapSchemaProbe().loadSnapshot(),
                             securitySnapshot = DesktopSecurityStore(securityDirectory = securityDirectory).loadSnapshot(),
-                            databaseSnapshot = DesktopDatabaseStore(databaseFilePath = databaseFile).loadSnapshot(),
+                            databaseSnapshot = DesktopDatabaseProbe(databaseFilePath = databaseFile).loadSnapshot(),
                             sessionOpen = controller.isOpen,
                             nowEpochMillis = System.currentTimeMillis(),
                             scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Finished,
@@ -221,17 +221,31 @@ class DesktopImportLoopHarnessTest {
                         .lastOrNull { it.contains("Preferences loaded from the encrypted database") }
                         ?: "<no reload line found>"
 
+                // The three datasets the gate serves: tasks, notes and journal must ALL be readable
+                // on the desktop after the import, not just app_settings.
+                val taskCount = rawTaskRows()
+                val noteCount = rawNoteRows()
+                val journalCount = rawJournalRows()
+
                 println(
                     "LOOP-VERDICT: import=OK bytes=$landedBytes session=${if (controller.isOpen) "open" else "CLOSED"} " +
                         "rawSettingsRows=${rawRows.size} focusRowPresent=${rawRows.containsKey(focusKey)} " +
                         "focusRowRaw=$focusRowRaw mappedFocusCompleted=${state.focusModeOnboardingCompleted} " +
-                        "startupMode=$mode passphraseLength=${passphrase.length}",
+                        "startupMode=$mode passphraseLength=${passphrase.length} " +
+                        "tasks=$taskCount notes=$noteCount journal=$journalCount",
                 )
                 println("LOOP-EVIDENCE: $reloadLine")
 
                 // THE FIX'S PROPERTY: the rows were really READ (before the fix this was always zero, and
                 // every preference was a default).
                 assertThat(rawRows.size).isGreaterThan(0)
+                // The three datasets the gate serves must ALL be READABLE, and READABILITY is the floor, not
+                // non-emptiness: the only fixture this loop is handed holds zero rows in `tasks`, `notes` and
+                // `day_journal_entries` (the run prints `tasks=0 notes=0 journal=0`), so `>0` would assert a
+                // data question rather than the gate's requirement that each query returned a printable count.
+                assertThat(taskCount).isAtLeast(0)
+                assertThat(noteCount).isAtLeast(0)
+                assertThat(journalCount).isAtLeast(0)
                 // AND the gate is CONSISTENT with what the database actually says: `Ready` when the step is
                 // done, `FocusModeSelection` when it is not (which is also what Android does for a database
                 // without that row - a data question, not a desktop one). A gate stuck on a step the data
@@ -252,6 +266,27 @@ class DesktopImportLoopHarnessTest {
     private suspend fun rawSettingsRows(): Int =
         LocalDataLayer.current.appSettings
             .getAllSettings()
+            .first()
+            .size
+
+    /** How many `tasks` rows the installed layer can actually read right now. */
+    private suspend fun rawTaskRows(): Int =
+        LocalDataLayer.current.tasks
+            .getAllTasks()
+            .first()
+            .size
+
+    /** How many `notes` rows the installed layer can actually read right now. */
+    private suspend fun rawNoteRows(): Int =
+        LocalDataLayer.current.notes
+            .getAllNotes()
+            .first()
+            .size
+
+    /** How many `day_journal_entries` rows the installed layer can actually read right now. */
+    private suspend fun rawJournalRows(): Int =
+        LocalDataLayer.current.journal
+            .getAllJournalEntries()
             .first()
             .size
 

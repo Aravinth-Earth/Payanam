@@ -32,6 +32,7 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
+import java.util.concurrent.atomic.AtomicReference
 /**
  * ViewModel for the Time-tracking screen: loads the selected day's entries,
  * planned tasks, and past occurrences, and drives start/stop/edit/continue
@@ -55,9 +56,11 @@ class TimeViewModel(
     private var plannedTasksJob: Job? = null
     private var occurrencesJob: Job? = null
     private var selectedDateLoadRequestId: Long = 0L
-    private var selectedDateLoadState = TimeScreenDateLoadState(
-        requestId = selectedDateLoadRequestId,
-        needsOccurrences = !PlatformFeatureFlags.current.minimalModeEnabled,
+    private val selectedDateLoadState = TimeScreenDateLoadStateHolder(
+        TimeScreenDateLoadState(
+            requestId = selectedDateLoadRequestId,
+            needsOccurrences = !PlatformFeatureFlags.current.minimalModeEnabled,
+        ),
     )
     init {
         logger.i("TimeViewModel.init", "ViewModel initialized")
@@ -118,9 +121,11 @@ class TimeViewModel(
                 "activeEntryPresent" to (_uiState.value.activeEntry != null).toString(),
             ),
         )
-        selectedDateLoadState = TimeScreenDateLoadState(
-            requestId = requestId,
-            needsOccurrences = needsOccurrences,
+        selectedDateLoadState.replace(
+            TimeScreenDateLoadState(
+                requestId = requestId,
+                needsOccurrences = needsOccurrences,
+            ),
         )
         _uiState.update {
             it.copy(
@@ -139,30 +144,30 @@ class TimeViewModel(
     }
 
     private fun markSelectedDateSectionLoaded(requestId: Long, section: TimeScreenDateSection) {
-        if (selectedDateLoadState.requestId != requestId) {
+        val merged = selectedDateLoadState.markSectionLoaded(requestId, section)
+        if (merged == null) {
             logger.d(
                 "TimeViewModel.markSelectedDateSectionLoaded",
                 "Ignoring stale selected-date load update",
                 mapOf(
                     "requestId" to requestId.toString(),
-                    "activeRequestId" to selectedDateLoadState.requestId.toString(),
+                    "activeRequestId" to selectedDateLoadState.current().requestId.toString(),
                     "section" to section.name,
                 ),
             )
             return
         }
-        selectedDateLoadState = selectedDateLoadState.markSectionLoaded(section)
-        if (!selectedDateLoadState.isReady()) {
+        if (!merged.isReady()) {
             logger.d(
                 "TimeViewModel.markSelectedDateSectionLoaded",
                 "Selected-date load still waiting on other sections",
                 mapOf(
                     "requestId" to requestId.toString(),
                     "section" to section.name,
-                    "entriesLoaded" to selectedDateLoadState.entriesLoaded.toString(),
-                    "plannedTasksLoaded" to selectedDateLoadState.plannedTasksLoaded.toString(),
-                    "occurrencesLoaded" to selectedDateLoadState.occurrencesLoaded.toString(),
-                    "needsOccurrences" to selectedDateLoadState.needsOccurrences.toString(),
+                    "entriesLoaded" to merged.entriesLoaded.toString(),
+                    "plannedTasksLoaded" to merged.plannedTasksLoaded.toString(),
+                    "occurrencesLoaded" to merged.occurrencesLoaded.toString(),
+                    "needsOccurrences" to merged.needsOccurrences.toString(),
                 ),
             )
             return

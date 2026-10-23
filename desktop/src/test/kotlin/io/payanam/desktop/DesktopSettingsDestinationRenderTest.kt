@@ -2,10 +2,12 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.isToggleable
 import androidx.compose.ui.test.junit4.createComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
+import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
@@ -32,6 +34,7 @@ import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.PayanamDatabaseSchema
@@ -353,7 +356,10 @@ class DesktopSettingsDestinationRenderTest {
         // that section's wiring while this case's name claimed the debug one. The screen is one long
         // `verticalScroll` column, so the switch is below the fold until it is scrolled to, which is why the
         // label it sits beside is the anchor rather than the card header.
-        composeRule.onNodeWithText(strings.settingsDebugTitle).performClick()
+        // Scrolled first, for the same reason the switch below is: the column is longer than the viewport,
+        // and a card added above this one moves the debug header below the fold - a click on an off-screen
+        // node lands nowhere and the switch it was meant to expand is then never composed.
+        composeRule.onNodeWithText(strings.settingsDebugTitle).performScrollTo().performClick()
         composeRule.waitForIdle()
         composeRule.onNodeWithText(strings.settingsDebugEnable).performScrollTo().performClick()
         composeRule.waitForIdle()
@@ -392,6 +398,65 @@ class DesktopSettingsDestinationRenderTest {
         // writer, and only the session-timeout row - which has no writer method on either platform - goes
         // through the shell's callback.
         assertThat(writtenRows.map { (key, _) -> key }).doesNotContain("debug_logging_enabled")
+    }
+
+    /**
+     * The auto-backup toggle writes through the shell's single-row path - the same callback the
+     * session-timeout row uses - rather than straight to the repository.
+     *
+     * WHY THIS IS THE OBSERVABLE THE FIX CHANGED: the write must arrive at
+     * `settingsCollaborators.setSetting`, because that is the only callback the shell wires to
+     * `reconcileBackupSchedule` - a toggle written around it would persist a row whose schedule never
+     * followed until the next window resume. [writtenRows] is exactly that boundary.
+     *
+     * The switch is found by its own content description - the shared section labels the control with the
+     * same string its row shows - so the click and the claim are about ONE control, not an index a
+     * section reorder would silently move.
+     */
+    @Test
+    fun `the auto-backup toggle writes through the shell's single-row path`() {
+        mountSettings()
+
+        // The card is collapsed until its header is clicked - the section's content does not exist in the
+        // semantics tree before that, which is why the header is the first move (the debug case's own
+        // pattern).
+        composeRule.onNodeWithText(strings.settingsAutoBackupTitle).performScrollTo().performClick()
+        composeRule.waitForIdle()
+        composeRule
+            .onNodeWithContentDescription(strings.settingsAutoBackupEnable)
+            .performScrollTo()
+            .performClick()
+        composeRule.waitForIdle()
+
+        composeRule.waitUntil(timeoutMillis = 10_000) {
+            writtenRows.any { (key, _) -> key == AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED }
+        }
+        val write = writtenRows.first { (key, _) -> key == AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED }
+        // The value as well as the key, so a write that landed with a wrong payload fails separately
+        // from one that never arrives - different defects.
+        assertThat(write.second).isEqualTo("true")
+    }
+
+    /**
+     * The desktop does not render the delete-all row it has no handler for.
+     *
+     * WHY ABSENCE, NOT INERTNESS: the shared section draws an ENABLED button by default, and the desktop
+     * supplied no handler - so the shipped state was a button that swallowed taps, logged `delete_all` and
+     * did nothing. The flag under test removes the row entirely; this case pins both halves: the control is
+     * absent, and the section it would have sat in is genuinely open (the passphrase row it shares the card
+     * with is rendered), so the absence is the flag's doing and not a collapsed card.
+     */
+    @Test
+    fun `the desktop does not render the delete-all row it has no handler for`() {
+        mountSettings()
+
+        composeRule.onNodeWithText(strings.settingsDataManagementTitle).performScrollTo().performClick()
+        composeRule.waitForIdle()
+
+        // The positive control: the card is OPEN - its passphrase row is rendered beside where the delete
+        // row would be. Without this, the absence below could be a collapsed card.
+        composeRule.onNodeWithText(strings.settingsActionChangePassphrase).assertExists()
+        composeRule.onAllNodesWithText(strings.settingsActionDeleteAllData).assertCountEquals(0)
     }
 
     /** The stored value of one `app_settings` row in this fixture's database, or null when absent. */

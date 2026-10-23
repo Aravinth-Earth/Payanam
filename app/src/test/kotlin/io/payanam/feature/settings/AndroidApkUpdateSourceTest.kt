@@ -7,11 +7,11 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.presentation.updates.ChannelStatus
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateCheckResult
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.ChannelStatus
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.InstallHandoff
 import io.payanam.shared.platform.InstallRefusal

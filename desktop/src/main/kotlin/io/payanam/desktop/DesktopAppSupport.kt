@@ -24,13 +24,17 @@ import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.settings.DesktopLanguage
 import io.payanam.desktop.database.DesktopBackupStatusPort
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
+import io.payanam.desktop.database.DesktopDatabaseInitPorts
 import io.payanam.desktop.database.DesktopDatabaseSessionController
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
+import io.payanam.desktop.port.DesktopProcessRestartPort
 import io.payanam.domain.port.BackupStatusSnapshot
 import io.payanam.domain.port.BackupStatusStore
 import io.payanam.domain.port.DatabaseForgotPassphraseReset
+import io.payanam.domain.port.ProcessRestart
+import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.shared.settings.DesktopSettingsContracts
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopThemeMode
@@ -57,7 +61,7 @@ import java.nio.file.Paths
 import java.util.Locale
 
 internal data class DesktopLifecycleState(
-    val bootstrapSnapshot: DesktopBootstrapSnapshot,
+    val bootstrapSchema: DesktopBootstrapSchema,
     /**
      * Whether the real database file exists, and its size. Derived from the file, never a stored flag -
      * the settings screen used to print an "Initialized" line read from a bootstrap flag that could not
@@ -207,7 +211,7 @@ internal data class DesktopShellCallbacks(
 )
 
 internal data class DesktopPersistenceStores(
-    val bootstrapStore: DesktopBootstrapStore,
+    val bootstrapSchemaProbe: DesktopBootstrapSchemaProbe,
     /**
      * The shared backup-status port, the desktop's implementation of the contract Android's
      * `BackupStatusStore` satisfies.
@@ -218,7 +222,7 @@ internal data class DesktopPersistenceStores(
      */
     val backupStatusStore: DesktopBackupStatusPort = DesktopBackupStatusPort(),
     val securityStore: DesktopSecurityStore,
-    val databaseStore: DesktopDatabaseStore,
+    val databaseProbe: DesktopDatabaseProbe,
 ) {
     /**
      * The desktop's passphrase vault, over the same [securityStore] the lockout and the credential live in.
@@ -227,7 +231,14 @@ internal data class DesktopPersistenceStores(
      * reset and the unlock gate must all be talking about ONE store: a second vault over a second store would
      * report a lockout the other does not apply.
      */
-    val passphraseVault: PassphraseVault = DesktopPassphraseVault(securityStore)
+    val passphraseVault: PassphraseVault =
+        DesktopPassphraseVault(
+            securityStore,
+            // The SAME probe and the SAME resolved path every other file question on this platform uses, so
+            // the vault's encryption answer cannot disagree with the init gate's about one file.
+            encryptionProbe = DesktopDatabaseInitPorts.encryptionProbe,
+            databaseFile = { databaseProbe.getDatabaseFilePath().toFile() },
+        )
 
     /**
      * The reset path, over the SAME vault, so a reset cannot clear a credential the vault still holds.
@@ -236,7 +247,7 @@ internal data class DesktopPersistenceStores(
      * the path comes from the store that already resolves it, never from a second guess.
      */
     val forgottenPassphraseReset: DatabaseForgotPassphraseReset =
-        DesktopForgottenPassphraseReset(passphraseVault, databaseStore.getDatabaseFilePath())
+        DesktopForgottenPassphraseReset(passphraseVault, databaseProbe.getDatabaseFilePath())
 
     /**
      * The desktop biometric seam: an object that refuses out loud rather than reporting a success it cannot
@@ -690,7 +701,7 @@ internal data class DesktopRememberedState(
      * data layer. Held here (not in a store) so it lives exactly as long as the shell that owns it.
      */
     val preferencesSource: DesktopPreferencesSource,
-    val bootstrapSnapshotState: MutableState<DesktopBootstrapSnapshot>,
+    val bootstrapSchemaState: MutableState<DesktopBootstrapSchema>,
     val securitySnapshotState: MutableState<DesktopSecuritySnapshot>,
     val databaseSnapshotState: MutableState<DesktopDatabaseSnapshot>,
     val sessionOpenState: MutableState<Boolean>,
@@ -737,8 +748,8 @@ internal data class DesktopShellRenderInputs(
 internal fun rememberDesktopPersistenceStores(sessionLogger: UnifiedLogger): DesktopPersistenceStores =
     remember(sessionLogger) {
         DesktopPersistenceStores(
-            bootstrapStore =
-                DesktopBootstrapStore(
+            bootstrapSchemaProbe =
+                DesktopBootstrapSchemaProbe(
                     logEvent = { source, message, data ->
                         sessionLogger.i(source = source, message = message, data = data)
                     },
@@ -757,8 +768,8 @@ internal fun rememberDesktopPersistenceStores(sessionLogger: UnifiedLogger): Des
                         }
                     },
                 ),
-            databaseStore =
-                DesktopDatabaseStore(
+            databaseProbe =
+                DesktopDatabaseProbe(
                     logEvent = { source, message, data ->
                         sessionLogger.i(source = source, message = message, data = data)
                     },
@@ -766,6 +777,7 @@ internal fun rememberDesktopPersistenceStores(sessionLogger: UnifiedLogger): Des
         )
     }
 
+@Suppress("TooGenericExceptionCaught")
 @Composable
 internal fun rememberDesktopMutableState(
     stores: DesktopPersistenceStores,
@@ -807,22 +819,32 @@ internal fun rememberDesktopMutableState(
                     dimensionRows = dimensionRows,
                 )
             },
-        bootstrapSnapshotState =
+        bootstrapSchemaState =
             remember {
                 mutableStateOf(
-                    readStoreOrFallback("bootstrap", sessionLogger, read = { stores.bootstrapStore.ensureSnapshot() }) {
-                        DesktopBootstrapSnapshot()
+                    try {
+                        stores.bootstrapSchemaProbe.ensureSnapshot()
+                    } catch (failure: Exception) {
+                        sessionLogger.w(
+                            source = "DesktopStartupRead",
+                            message = "Desktop store unreadable; continuing with an empty snapshot",
+                            data = mapOf("store" to "bootstrap", "failure" to failure.javaClass.simpleName),
+                        )
+                        DesktopBootstrapSchema()
                     },
                 )
             },
         securitySnapshotState =
             remember {
                 mutableStateOf(
-                    readStoreOrFallback(
-                        "security",
-                        sessionLogger,
-                        read = { stores.securityStore.ensureSnapshot() },
-                    ) {
+                    try {
+                        stores.securityStore.ensureSnapshot()
+                    } catch (failure: Exception) {
+                        sessionLogger.w(
+                            source = "DesktopStartupRead",
+                            message = "Desktop store unreadable; continuing with an empty snapshot",
+                            data = mapOf("store" to "security", "failure" to failure.javaClass.simpleName),
+                        )
                         // Unreachable while the store's reads are non-throwing, and fail-closed if
                         // that ever regresses: a default snapshot here would report "no passphrase
                         // configured" and offer setup on an install that may already have one.
@@ -835,9 +857,16 @@ internal fun rememberDesktopMutableState(
         databaseSnapshotState =
             remember {
                 mutableStateOf(
-                    readStoreOrFallback("database", sessionLogger, read = { stores.databaseStore.loadSnapshot() }) {
+                    try {
+                        stores.databaseProbe.loadSnapshot()
+                    } catch (failure: Exception) {
+                        sessionLogger.w(
+                            source = "DesktopStartupRead",
+                            message = "Desktop store unreadable; continuing with an empty snapshot",
+                            data = mapOf("store" to "database", "failure" to failure.javaClass.simpleName),
+                        )
                         DesktopDatabaseSnapshot(
-                            databaseFilePath = stores.databaseStore.getDatabaseFilePath().toString(),
+                            databaseFilePath = stores.databaseProbe.getDatabaseFilePath().toString(),
                             hasArtifacts = false,
                             initCompleted = false,
                             databaseSizeKb = 0L,
@@ -912,6 +941,10 @@ internal suspend fun followDesktopSessionOpenedState(
     preferencesSource: DesktopPreferencesSource,
 ) {
     sessionController.sessionOpenState.collect { isOpen ->
+        // A close that the passphrase port itself requested is not a gate event: the change flow
+        // closes before the rekey and reopens (or restarts) right after, and letting the gate arm
+        // here reset the graph mid-submit and cancelled the change. See closeInFlightForRekey.
+        if (!isOpen && sessionController.closeInFlightForRekey) return@collect
         gateFlag.value = isOpen
         // Ordered after the session itself: `reload` reads through `LocalDataLayer`, which the controller
         // installs BEFORE it flips its own state, so a read raised here always has a layer to read through.
@@ -947,7 +980,7 @@ internal fun rememberDesktopAppModels(
     val unlockTimeoutMinutes by rememberedState.preferencesSource.unlockTimeoutMinutes.collectAsState()
     val scoringModel by rememberedState.preferencesSource.scoringModel.collectAsState()
     val writeFailure by rememberedState.preferencesSource.writeFailure.collectAsState()
-    val bootstrapSnapshot = rememberedState.bootstrapSnapshotState.value
+    val bootstrapSchema = rememberedState.bootstrapSchemaState.value
     val securitySnapshot = rememberedState.securitySnapshotState.value
     val databaseSnapshot = rememberedState.databaseSnapshotState.value
     val sessionOpen = rememberedState.sessionOpenState.value
@@ -960,7 +993,7 @@ internal fun rememberDesktopAppModels(
             // not consulted: it is the copy this work is retiring, and a gate that read it would keep
             // asking for a preset the user already chose.
             focusModeOnboardingCompleted = preferences.focusModeOnboardingCompleted,
-            bootstrapSnapshot = bootstrapSnapshot,
+            bootstrapSchema = bootstrapSchema,
             securitySnapshot = securitySnapshot,
             databaseSnapshot = databaseSnapshot,
             sessionOpen = sessionOpen,
@@ -974,7 +1007,7 @@ internal fun rememberDesktopAppModels(
         )
     val startupMode = remember(startupRuntimeState) { resolveDesktopStartupMode(startupRuntimeState) }
     val desktopLifecycleState =
-        rememberDesktopLifecycleState(stores = stores, bootstrapSnapshot = bootstrapSnapshot)
+        rememberDesktopLifecycleState(stores = stores, bootstrapSchema = bootstrapSchema)
     val shellRenderInputs =
         DesktopShellRenderInputs(
             startupSnapshot = startupSnapshot,
@@ -1012,7 +1045,7 @@ private fun rememberDesktopStartupRuntimeState(
     stores: DesktopPersistenceStores,
     scaffoldOnboardingStage: DesktopScaffoldOnboardingStage,
     focusModeOnboardingCompleted: Boolean,
-    bootstrapSnapshot: DesktopBootstrapSnapshot,
+    bootstrapSchema: DesktopBootstrapSchema,
     securitySnapshot: DesktopSecuritySnapshot,
     databaseSnapshot: DesktopDatabaseSnapshot,
     sessionOpen: Boolean,
@@ -1021,17 +1054,17 @@ private fun rememberDesktopStartupRuntimeState(
         // The shared value, not the desktop snapshot's copy: the gate and the settings screen must answer
         // this from the SAME source, or the user is shown the preset picker again after having chosen.
         focusModeOnboardingCompleted,
-        bootstrapSnapshot,
+        bootstrapSchema,
         securitySnapshot,
         databaseSnapshot,
         sessionOpen,
         scaffoldOnboardingStage,
         stores.securityStore,
-        stores.databaseStore,
+        stores.databaseProbe,
     ) {
         buildDesktopStartupRuntimeState(
             focusModeOnboardingCompleted = focusModeOnboardingCompleted,
-            bootstrapSnapshot = bootstrapSnapshot,
+            bootstrapSchema = bootstrapSchema,
             securitySnapshot = securitySnapshot,
             databaseSnapshot = databaseSnapshot,
             sessionOpen = sessionOpen,
@@ -1039,7 +1072,7 @@ private fun rememberDesktopStartupRuntimeState(
             scaffoldOnboardingStage = scaffoldOnboardingStage,
         ).copy(
             securityFilePath = stores.securityStore.getSecurityFilePath().toString(),
-            databaseFilePath = stores.databaseStore.getDatabaseFilePath().toString(),
+            databaseFilePath = stores.databaseProbe.getDatabaseFilePath().toString(),
         )
     }
 
@@ -1049,11 +1082,11 @@ private fun rememberDesktopStartupSnapshot(
     launchRoute: DesktopTopLevelRoute,
     startupRuntimeState: DesktopStartupRuntimeState,
 ): io.payanam.shared.startup.DesktopStartupSnapshot =
-    remember(launchRoute, stores.bootstrapStore, stores.securityStore, startupRuntimeState) {
+    remember(launchRoute, stores.bootstrapSchemaProbe, stores.securityStore, startupRuntimeState) {
         desktopStartupSnapshot(
             launchRoute = launchRoute,
             appDataRoot = DesktopAppPaths.resolveRootDirectory().toString(),
-            bootstrapFilePath = stores.bootstrapStore.getBootstrapFilePath().toString(),
+            bootstrapFilePath = stores.bootstrapSchemaProbe.getBootstrapFilePath().toString(),
             securityFilePath = stores.securityStore.getSecurityFilePath().toString(),
             databaseFilePath = startupRuntimeState.databaseFilePath,
             runtimeState = startupRuntimeState,
@@ -1063,16 +1096,16 @@ private fun rememberDesktopStartupSnapshot(
 @Composable
 private fun rememberDesktopLifecycleState(
     stores: DesktopPersistenceStores,
-    bootstrapSnapshot: DesktopBootstrapSnapshot,
+    bootstrapSchema: DesktopBootstrapSchema,
 ): DesktopLifecycleState =
-    remember(bootstrapSnapshot, stores.bootstrapStore, stores.databaseStore) {
+    remember(bootstrapSchema, stores.bootstrapSchemaProbe, stores.databaseProbe) {
         DesktopLifecycleState(
-            bootstrapSnapshot = bootstrapSnapshot,
-            databaseExists = Files.exists(stores.databaseStore.getDatabaseFilePath()),
-            databaseSizeKb = stores.databaseStore.loadSnapshot().databaseSizeKb,
-            bootstrapFilePath = stores.bootstrapStore.getBootstrapFilePath().toString(),
+            bootstrapSchema = bootstrapSchema,
+            databaseExists = Files.exists(stores.databaseProbe.getDatabaseFilePath()),
+            databaseSizeKb = stores.databaseProbe.loadSnapshot().databaseSizeKb,
+            bootstrapFilePath = stores.bootstrapSchemaProbe.getBootstrapFilePath().toString(),
             securityFilePath = stores.securityStore.getSecurityFilePath().toString(),
-            databaseFilePath = stores.databaseStore.getDatabaseFilePath().toString(),
+            databaseFilePath = stores.databaseProbe.getDatabaseFilePath().toString(),
             exportDirectoryPath = DesktopAppPaths.resolveExportDirectory().toString(),
         )
     }
@@ -1169,6 +1202,28 @@ internal fun buildDesktopShellCallbacks(
      * "database ready" with the shared data layer UNINSTALLED and every read would throw.
      */
     onFirstRunDatabaseCreated: (CharArray) -> Unit = {},
+    /**
+     * Whether this process holds an open database session, read at the moment the import gate reports.
+     *
+     * A LAMBDA, not a new surface: `onGraphDatabaseReady` reaches the session state only through its
+     * caller, and `DesktopApp.kt` already owns the one controller that answers it. The read is the
+     * shared contract's `DatabaseSessionManager.isSessionOpen()` - answered by `controller.isOpen` -
+     * so the desktop asks the SAME question Android asks with `isDbOpen()`, and the two platforms'
+     * restart decisions are comparable in one export. Defaulted to "nothing open", which is the honest
+     * answer for a process holding no session and therefore the one that needs the restart.
+     */
+    sessionOpen: () -> Boolean = { false },
+    /**
+     * The desktop's real relaunch-or-refuse port, defaulted to [DesktopProcessRestartPort].
+     *
+     * A defaulted parameter rather than a constructed field, mirroring
+     * `desktopPassphraseChangeViewModel`'s own `processRestart`: the port holds no per-process state a
+     * second instance would corrupt, and a parameter lets this handler be driven against a refusal or a
+     * spy without spawning a process. The production default is the REAL port, never a no-op - a restart
+     * that silently did nothing would leave the user over a process still holding the imported
+     * database's key material in memory.
+     */
+    processRestart: ProcessRestart = DesktopProcessRestartPort(),
 ): DesktopShellCallbacks =
     DesktopShellCallbacks(
         onRouteSelected = onRouteSelected,
@@ -1189,7 +1244,7 @@ internal fun buildDesktopShellCallbacks(
             // another owner, so only a live read can see it. Both snapshots are assigned BEFORE the log
             // line so the line reports the post-state the gate is about to resolve against.
             rememberedState.scaffoldOnboardingStageState.value = DesktopScaffoldOnboardingStage.Finished
-            val databaseSnapshot = stores.databaseStore.ensureInitialized()
+            val databaseSnapshot = stores.databaseProbe.ensureInitialized()
             val securitySnapshot = stores.securityStore.loadSnapshot()
             rememberedState.databaseSnapshotState.value = databaseSnapshot
             rememberedState.securitySnapshotState.value = securitySnapshot
@@ -1202,6 +1257,71 @@ internal fun buildDesktopShellCallbacks(
                         "databaseHasArtifacts" to databaseSnapshot.hasArtifacts,
                     ),
             )
+            // THE DESKTOP'S HALF OF THE IMPORT ORDER, and the half Android already had. `MainActivity`
+            // reads `sessionManager.isDbOpen()` here and restarts when the answer is NO, because an
+            // import closes the session it replaced and leaves this process holding caches, a Room/Hilt
+            // graph and repositories that still describe the OLD file. The desktop had no such read, so
+            // an import left the app running over the file it had just replaced and every later write
+            // went to state the user never sees again.
+            //
+            // The read is a CALL, evaluated here rather than captured at construction: the gate is what
+            // closes the session, so a value captured earlier would answer the pre-import question.
+            val sessionIsOpen = sessionOpen()
+            // Level `i`, never `d`: this is the one line that proves the order from a RELEASE export,
+            // where the debug gate is closed. It is logged BEFORE the request so a run that dies inside
+            // the port still shows the check happened.
+            sessionLogger.i(
+                source = "DesktopAppSupport.onGraphDatabaseReady",
+                message = "Import completion: database session checked before the restart request",
+                data =
+                    mapOf(
+                        "sessionOpen" to sessionIsOpen,
+                        "restartRequired" to !sessionIsOpen,
+                    ),
+            )
+            if (sessionIsOpen) {
+                // The create-new branch, and Android's first arm: the session is already the imported
+                // one, so a relaunch would replace a working process with nothing and log no reason.
+                sessionLogger.i(
+                    source = "DesktopAppSupport.onGraphDatabaseReady",
+                    message = "Import completion: session is open on the imported database; no restart requested",
+                    data = mapOf("sessionOpen" to true),
+                )
+            } else {
+                val restartOutcome = processRestart.restartProcess()
+                // `when`, not `if (is Launched)`: the outcome is a SEALED type with exactly two arms,
+                // so a third refusal reason added later is a compile error here rather than a silent
+                // fall-through that logs nothing.
+                when (restartOutcome) {
+                    ProcessRestartOutcome.Launched -> {
+                        sessionLogger.i(
+                            source = "DesktopAppSupport.onGraphDatabaseReady",
+                            message = "Import completion: restart launched a replacement; this process ends through its own exit path",
+                            data = emptyMap<String, Any?>(),
+                        )
+                        // ONLY on a confirmed relaunch. `onQuitRequested` is what releases the
+                        // single-instance lease the new process has to take, so calling it after a
+                        // REFUSAL would quit a still-correct process over a restart that never started.
+                        onQuitRequested()
+                    }
+
+                    is ProcessRestartOutcome.Refused -> {
+                        // `w`, with the reason and detail carried: a refusal under a Gradle-launched JVM
+                        // is the EXPECTED observable (see DesktopProcessRestartPort's
+                        // LAUNCH_COMMAND_IS_A_JVM), and a user who sees nothing has no way to tell that
+                        // from a broken import.
+                        sessionLogger.w(
+                            source = "DesktopAppSupport.onGraphDatabaseReady",
+                            message = "Import completion: restart refused; this process is still running over the imported database",
+                            data =
+                                mapOf(
+                                    "reason" to restartOutcome.reason.name,
+                                    "detail" to (restartOutcome.detail ?: "none"),
+                                ),
+                        )
+                    }
+                }
+            }
         },
         onRailRouteRequested = onRailRouteRequested,
         onSettingChanged = onSettingChanged,
@@ -1255,7 +1375,7 @@ internal fun buildDesktopShellCallbacks(
             // the log names where the sequence stopped. The request itself is already logged by the
             // startup gate, so nothing here duplicates it.
             runResetStep(ResetStep.RESET_DATABASE_ARTIFACT, sessionLogger) {
-                rememberedState.databaseSnapshotState.value = stores.databaseStore.resetDatabaseArtifact()
+                rememberedState.databaseSnapshotState.value = stores.databaseProbe.resetDatabaseArtifact()
             }
             runResetStep(ResetStep.RESET_SECURITY_STATE, sessionLogger) {
                 stores.securityStore.resetSecurityState()
@@ -1263,14 +1383,14 @@ internal fun buildDesktopShellCallbacks(
             // No lifecycle flag to clear: readiness is derived from the file, so re-reading it is the
             // reset. The step name stays so the log still says what the reset sequence does.
             runResetStep(ResetStep.UPDATE_DATABASE_LIFECYCLE, sessionLogger) {
-                rememberedState.databaseSnapshotState.value = stores.databaseStore.loadSnapshot()
+                rememberedState.databaseSnapshotState.value = stores.databaseProbe.loadSnapshot()
             }
             rememberedState.sessionOpenState.value = false
             runResetStep(ResetStep.RELOAD_SECURITY_SNAPSHOT, sessionLogger) {
                 rememberedState.securitySnapshotState.value = stores.securityStore.loadSnapshot()
             }
             runResetStep(ResetStep.RELOAD_BOOTSTRAP_SNAPSHOT, sessionLogger) {
-                rememberedState.bootstrapSnapshotState.value = stores.bootstrapStore.loadSnapshot()
+                rememberedState.bootstrapSchemaState.value = stores.bootstrapSchemaProbe.loadSnapshot()
             }
         },
         onSecurityResetRequested = {
@@ -1329,7 +1449,7 @@ internal fun buildDesktopShellCallbacks(
             )
             // Re-read the facts, which is what moves the gate: `initCompleted` is derived from this very
             // file, so there is still exactly one way past it.
-            rememberedState.databaseSnapshotState.value = stores.databaseStore.ensureInitialized()
+            rememberedState.databaseSnapshotState.value = stores.databaseProbe.ensureInitialized()
             // Only a real success re-opens the app's session - and it must, or the gate advances with the
             // data layer uninstalled and every read throws. A refusal leaves the state exactly as it was.
             if (outcome is DesktopDatabaseCreateOutcome.Created) {

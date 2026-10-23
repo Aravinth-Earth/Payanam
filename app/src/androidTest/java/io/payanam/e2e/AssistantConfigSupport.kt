@@ -10,14 +10,13 @@ import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.feature.assistant.AssistantSettingsStore
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.rules.ExternalResource
 import java.io.File
 import java.time.Instant
 
-/** SQLite companion-file suffixes that ride next to the canonical database file. */
-private val COMPANION_SUFFIXES = listOf("-wal", "-shm", "-journal")
 
 /**
  * Deletes the canonical database file and its SQLite companion files.
@@ -25,7 +24,7 @@ private val COMPANION_SUFFIXES = listOf("-wal", "-shm", "-journal")
  */
 fun deleteCanonicalDatabaseArtifacts(context: Context) {
     val basePath = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath
-    COMPANION_SUFFIXES.forEach { suffix -> File(basePath + suffix).delete() }
+    DatabaseArtifacts.sidecarSuffixes.forEach { suffix -> File(basePath + suffix).delete() }
     File(basePath).delete()
 }
 

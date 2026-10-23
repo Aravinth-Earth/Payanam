@@ -3,11 +3,16 @@
 package io.payanam.desktop.database
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.desktop.DesktopKeyValueEntry
 import io.payanam.desktop.desktopScheduledBackupDestination
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.shared.logging.NoOpUnifiedLogger
 import kotlinx.coroutines.runBlocking
+import org.junit.Rule
 import org.junit.Test
+import org.junit.rules.TemporaryFolder
+import java.io.StringWriter
+import java.util.Properties
 
 /**
  * Tests for the desktop's backup ports.
@@ -17,9 +22,23 @@ import org.junit.Test
  * that forgot to record, or a failure that recorded nothing, must fail these tests.
  */
 class DesktopBackupPortsTest {
+    @get:Rule
+    val tempFolder = TemporaryFolder()
+
+    /**
+     * A status store over a fresh temporary directory.
+     *
+     * The port resolves its directory from the platform, so a no-argument construction would read and
+     * write the DEVELOPER'S real preferences file - a test that passed or failed depending on what was
+     * already on the machine, and that left state behind. Every case here goes through a temp folder.
+     */
+    private fun statusStore() = DesktopBackupStatusPort(tempFolder.newFolder().toPath())
+
+    private fun statusStoreIn(directory: java.nio.file.Path) = DesktopBackupStatusPort(directory)
+
     @Test
     fun `a recorded success sets the display timestamp and clears any failure`() {
-        val store = DesktopBackupStatusPort()
+        val store = statusStore()
         store.recordFailure("previous failure")
 
         store.recordSuccess(1_700_000_000_000L)
@@ -32,7 +51,7 @@ class DesktopBackupPortsTest {
 
     @Test
     fun `a recorded failure keeps the last success and truncates long messages`() {
-        val store = DesktopBackupStatusPort()
+        val store = statusStore()
         store.recordSuccess(1_700_000_000_000L)
 
         store.recordFailure("x".repeat(500))
@@ -44,7 +63,7 @@ class DesktopBackupPortsTest {
 
     @Test
     fun `dismissing the failure clears only the failure`() {
-        val store = DesktopBackupStatusPort()
+        val store = statusStore()
         store.recordSuccess(1_700_000_000_000L)
         store.recordFailure("boom")
 
@@ -58,7 +77,7 @@ class DesktopBackupPortsTest {
     @Test
     fun `a successful backup reports the destination and records the success`() =
         runBlocking {
-            val store = DesktopBackupStatusPort()
+            val store = statusStore()
             val port =
                 DesktopDatabaseBackupPort(
                     statusStore = store,
@@ -77,7 +96,7 @@ class DesktopBackupPortsTest {
     @Test
     fun `a failed backup records the failure and throws with the reason`() =
         runBlocking {
-            val store = DesktopBackupStatusPort()
+            val store = statusStore()
             val port =
                 DesktopDatabaseBackupPort(
                     statusStore = store,
@@ -209,7 +228,7 @@ class DesktopBackupPortsTest {
                 .createTempDirectory("payanam-rotation-port")
                 .toFile()
         val stale = backupDir(root, "${BACKUP_ARTIFACT_PREFIX}stale", 1_000L)
-        val store = DesktopBackupStatusPort()
+        val store = statusStore()
         val port =
             DesktopDatabaseBackupPort(
                 statusStore = store,
@@ -238,7 +257,7 @@ class DesktopBackupPortsTest {
         val stale = backupDir(root, "${BACKUP_ARTIFACT_PREFIX}stale", 1_000L)
         val port =
             DesktopDatabaseBackupPort(
-                statusStore = DesktopBackupStatusPort(),
+                statusStore = statusStore(),
                 performBackup = { throw IllegalStateException("disk full") },
                 logger = NoOpUnifiedLogger,
                 rotationPolicy = { BackupRotationPolicy(enabled = true, keepCount = 1) },
@@ -340,5 +359,76 @@ class DesktopBackupPortsTest {
         assertThat(
             runCatching { BackupRotationPolicy(enabled = true, keepCount = 0) }.exceptionOrNull(),
         ).isInstanceOf(IllegalArgumentException::class.java)
+    }
+
+    // ------------------------------------------------------------------ persistence across a restart
+    // Every case builds a SECOND store over the SAME directory, because that is the shape of a restart.
+    // A store that persisted nothing would pass a suite where each case used its own directory.
+
+    @Test
+    fun `a recorded success is still reported after a restart`() {
+        val directory = tempFolder.newFolder().toPath()
+
+        statusStoreIn(directory).recordSuccess(1_700_000_000_000L)
+
+        val afterRestart = statusStoreIn(directory).status.value
+        assertThat(afterRestart.lastSuccessAtMillis).isEqualTo(1_700_000_000_000L)
+        assertThat(afterRestart.lastSuccessDisplay).isNotNull()
+    }
+
+    @Test
+    fun `a recorded failure is still reported after a restart and keeps the last success`() {
+        val directory = tempFolder.newFolder().toPath()
+        statusStoreIn(directory).recordSuccess(1_700_000_000_000L)
+
+        statusStoreIn(directory).recordFailure("boom")
+
+        val afterRestart = statusStoreIn(directory).status.value
+        assertThat(afterRestart.latestFailure?.message).isEqualTo("boom")
+        assertThat(afterRestart.lastSuccessAtMillis).isEqualTo(1_700_000_000_000L)
+    }
+
+    @Test
+    fun `a dismissed failure is still dismissed after a restart`() {
+        val directory = tempFolder.newFolder().toPath()
+        statusStoreIn(directory).recordFailure("boom")
+
+        statusStoreIn(directory).dismissLatestFailure()
+
+        val afterRestart = statusStoreIn(directory).status.value
+        assertThat(afterRestart.latestFailure).isNull()
+    }
+
+    @Test
+    fun `a blank persisted failure message loads as no failure`() {
+        val directory = tempFolder.newFolder().toPath()
+        val properties =
+            Properties().apply {
+                setProperty("last_backup_success_at_millis", "1700000000000")
+                setProperty("last_backup_failure_at_millis", "1700000000001")
+                setProperty("last_backup_failure_display", "yesterday")
+                setProperty("last_backup_failure_message", "   ")
+            }
+        val payload =
+            StringWriter().use { writer ->
+                properties.store(writer, "Payanam Backup Status")
+                writer.toString()
+            }
+        DesktopKeyValueEntry(DesktopBackupStatusPort.backupStatusFileIn(directory)).writeEntry(payload)
+
+        val snapshot = statusStoreIn(directory).status.value
+        assertThat(snapshot.latestFailure).isNull()
+        assertThat(snapshot.lastSuccessAtMillis).isEqualTo(1_700_000_000_000L)
+    }
+
+    @Test
+    fun `an absent status file loads as the empty snapshot rather than throwing`() {
+        val directory = tempFolder.newFolder().toPath()
+
+        val snapshot = statusStoreIn(directory).status.value
+
+        assertThat(snapshot.lastSuccessAtMillis).isEqualTo(0L)
+        assertThat(snapshot.lastSuccessDisplay).isNull()
+        assertThat(snapshot.latestFailure).isNull()
     }
 }

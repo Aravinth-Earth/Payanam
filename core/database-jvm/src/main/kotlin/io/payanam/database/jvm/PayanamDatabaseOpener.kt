@@ -26,6 +26,13 @@ import java.util.Properties
  * - `Connection.setReadOnly(true)` **throws** `SQLFeatureNotSupportedException`, as does
  *   `getTransactionIsolation()`. `PRAGMA query_only = ON` is the only enforced read-only mechanism, and
  *   it is read back and required to be `1`.
+ * - `PRAGMA foreign_keys` is **OFF on every new connection** and is never stored in the file, so a
+ *   raw driver open enforces nothing: every declared `ON DELETE CASCADE` / `SET NULL` is inert and a
+ *   delete leaves its children behind in silence. Android never meets this, because Room's generated
+ *   open callback issues `PRAGMA foreign_keys = ON` for it; the JDBC driver does not, so the same file
+ *   behaves differently on the two platforms. [enforceForeignKeys] issues it on every [open] and
+ *   requires it to read back as `1`, which is what makes a delete cascade exactly as it does on
+ *   Android — parity with Room's delegate, not a product choice.
  * - `Connection.autoCommit` is `true` on open, so a caller need not commit explicitly after a write.
  * - `PRAGMA user_version` **can** be written through this driver, but only on a path this driver does
  *   not execute: `execute`, `executeUpdate` and a trailing semicolon all persist `0` (it stores
@@ -116,6 +123,17 @@ object PayanamDatabaseOpener {
 
         try {
             applyBusyTimeout(connection)
+
+            // Before anything reads or writes a row: a declared CASCADE is inert until this is on, and
+            // this is the same invariant Android gets from Room's open callback. Refused rather than
+            // logged, because an open that silently enforces nothing looks identical to one that does.
+            if (!enforceForeignKeys(connection)) {
+                connection.close()
+                return refuse(
+                    DatabaseBootIssueType.OPEN_FAILED,
+                    RefusalDetail.FOREIGN_KEYS_NOT_ENFORCED,
+                )
+            }
 
             val version = readUserVersion(connection)
             classifySchemaVersion(version)?.let { problem ->
@@ -427,6 +445,27 @@ object PayanamDatabaseOpener {
         connection.createStatement().use { it.execute("PRAGMA query_only = ON") }
         return connection.createStatement().use { statement ->
             statement.executeQuery("PRAGMA query_only").use { rows ->
+                if (rows.next()) rows.getInt(1) == 1 else false
+            }
+        }
+    }
+
+    /**
+     * Sets `PRAGMA foreign_keys = ON` and returns whether it read back as enforced.
+     *
+     * The default is OFF and the setting is per-connection, never stored in the file — so this is not
+     * an optimisation or a preference, it is the difference between a declared `ON DELETE CASCADE`
+     * firing and not firing at all. Room issues this for Android; nothing issues it for a raw JDBC
+     * connection, which is why the same database behaved differently on the two platforms.
+     *
+     * Read back rather than assumed, like [enforceReadOnly]: a driver that reported success while
+     * leaving the pragma at `0` would make the guarantee false in exactly the silent way this guards
+     * against, so a failure to enforce is a refusal rather than a logged warning.
+     */
+    private fun enforceForeignKeys(connection: Connection): Boolean {
+        connection.createStatement().use { it.execute("PRAGMA foreign_keys = ON") }
+        return connection.createStatement().use { statement ->
+            statement.executeQuery("PRAGMA foreign_keys").use { rows ->
                 if (rows.next()) rows.getInt(1) == 1 else false
             }
         }

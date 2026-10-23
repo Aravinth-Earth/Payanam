@@ -18,7 +18,7 @@ import org.junit.Test
  */
 class DesktopStartupGateShownByGraphTest {
     @Test
-    fun `the shell is mounted for exactly the five modes that have a graph gate or are ready`() {
+    fun `the shell is mounted for every mode, gates included, now that the graph owns them all`() {
         val shellModes = DesktopStartupMode.entries.filter(::desktopStartupGateShownByGraph).toSet()
 
         assertThat(shellModes)
@@ -28,24 +28,27 @@ class DesktopStartupGateShownByGraphTest {
                 DesktopStartupMode.InitializeDatabase,
                 DesktopStartupMode.FocusModeSelection,
                 DesktopStartupMode.Ready,
+                DesktopStartupMode.OnboardingIntro,
+                DesktopStartupMode.SecurityStateUnavailable,
             )
     }
 
     @Test
-    fun `the three modes with no graph destination keep the desktop's own surface`() {
+    fun `every mode is graph-owned now, so the desktop's own surface has no mode to render`() {
         val twinModes = DesktopStartupMode.entries.filterNot(::desktopStartupGateShownByGraph).toSet()
 
         // `OnboardingDimensionSetup` was the fourth, and the mode itself is gone: the desktop's own
         // dimension card was its only renderer, and nothing ever resolved to that mode - the resolver
         // sends `DatabaseChoice` and `DimensionSetup` to the SHARED `InitializeDatabase` destination, so
-        // the first-run dimension step is the shared screen. What is left here is the intro (its own
-        // screen), the database choice (its own card) and the fail-closed security refusal.
-        assertThat(twinModes)
-            .containsExactly(
-                DesktopStartupMode.OnboardingIntro,
-                DesktopStartupMode.OnboardingDatabaseChoice,
-                DesktopStartupMode.SecurityStateUnavailable,
-            )
+        // the first-run dimension step is the shared screen. The database-choice MODE is gone the same way:
+        // the resolver sends the DatabaseChoice STAGE to the shared InitializeDatabase destination, so
+        // nothing ever resolved to that mode either. What is left here is the intro (its own screen) and
+        // the fail-closed security refusal.
+        // The tour and the refusal were the last two, and both are graph destinations now: the graph
+        // renders the shared tour screen and the shared refusal screen, so the desktop's own surface is
+        // gone and this set is empty. The assertion is kept as an emptiness check rather than deleted:
+        // it is the thing that fails the day a new mode is added without a destination.
+        assertThat(twinModes).isEmpty()
     }
 
     @Test
@@ -53,6 +56,6 @@ class DesktopStartupGateShownByGraphTest {
         // The two cases above list the mode sets in full; this pins WHY that is safe - `entries` is every
         // mode and the predicate answers for each, so adding a mode without deciding fails the first case
         // rather than silently mounting nothing.
-        assertThat(DesktopStartupMode.entries.size).isEqualTo(8)
+        assertThat(DesktopStartupMode.entries.size).isEqualTo(7)
     }
 }

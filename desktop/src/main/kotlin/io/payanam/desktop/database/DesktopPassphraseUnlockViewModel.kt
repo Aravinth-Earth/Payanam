@@ -32,7 +32,7 @@ import java.io.File
  *    installs the SAME data layer the shell reads through. A bare [DesktopDatabaseOpenerAdapter] here opened
  *    a second session and dropped its handle, leaving the layer uninstalled and every read empty.
  *  - [databaseFile] is the SAME `File` the forgot-passphrase reset was built with, taken from
- *    `stores.databaseStore.getDatabaseFilePath()`. Two paths for one database would let the reset delete an
+ *    `stores.databaseProbe.getDatabaseFilePath()`. Two paths for one database would let the reset delete an
  *    artifact family the unlock screen never opened.
  */
 internal data class DesktopPassphraseUnlockCollaborators(
@@ -58,7 +58,7 @@ internal data class DesktopPassphraseUnlockCollaborators(
  * |---|---|
  * | `vault`, `biometricPrompt`, `forgottenPassphraseReset` | `DesktopPersistenceStores` - the same instances the desktop's own startup gate uses |
  * | `sessionController` | the shell's own [DesktopDatabaseSessionController], reached through [DesktopSessionControllerOpenerAdapter] so the unlock leaves the data layer installed |
- * | `databaseFile` | `stores.databaseStore.getDatabaseFilePath()`, the same value the reset was built with |
+ * | `databaseFile` | `stores.databaseProbe.getDatabaseFilePath()`, the same value the reset was built with |
  * | `strings` | [UiStrings.of] on the caller-supplied language, so this screen's copy cannot differ from the shell's |
  *
  * ## WHY THIS RUNS NO BIOMETRIC CODE EVEN THOUGH THE PLATFORM HAS A BIOMETRIC SEAM

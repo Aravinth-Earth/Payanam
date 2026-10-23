@@ -959,11 +959,25 @@ class DayPlanRepositoryJvm(
         const val ACTIVE_TEMPLATE_COUNT_SQL =
             "SELECT COUNT(*) FROM day_plan_templates WHERE is_active = 1"
 
-        /** `DayPlanDao.insertTemplate` is `@Insert(REPLACE)`. */
+        /**
+         * `DayPlanDao.insertTemplate` is `@Insert(REPLACE)` — WITHOUT the REPLACE.
+         *
+         * `day_plan_templates` is the parent of `day_plan_template_allocations` (`ON DELETE CASCADE`),
+         * so a REPLACE that collided on id deleted the template's allocations — silently, since SQLite
+         * defaults `PRAGMA foreign_keys` to OFF. `ON CONFLICT(id) DO UPDATE` writes the same row
+         * without deleting it, so the allocations survive. See `TaskRepositoryJvm` for the same fix.
+         */
         const val INSERT_TEMPLATE_SQL = """
-            INSERT OR REPLACE INTO day_plan_templates
+            INSERT INTO day_plan_templates
             (id, name, description, is_active, sort_order, created_at, updated_at)
             VALUES (?, ?, ?, ?, ?, ?, ?)
+            ON CONFLICT(id) DO UPDATE SET
+                name = excluded.name,
+                description = excluded.description,
+                is_active = excluded.is_active,
+                sort_order = excluded.sort_order,
+                created_at = excluded.created_at,
+                updated_at = excluded.updated_at
         """
 
         /** Verbatim from `DayPlanDao.softDeleteTemplate` — inactive, not deleted. */

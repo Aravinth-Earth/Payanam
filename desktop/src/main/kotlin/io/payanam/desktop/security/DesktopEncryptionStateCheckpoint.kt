@@ -10,10 +10,11 @@ import io.payanam.shared.security.EncryptionStateCheckpoint
  * The desktop's [EncryptionStateCheckpoint]: every member refuses, and says why.
  *
  * THIS IS AN HONEST ABSENCE RATHER THAN A MISSING IMPLEMENTATION, and the difference is the whole point of the
- * contract's [EncryptionCheckpointOutcome.NOT_SUPPORTED] case. The desktop opens an unencrypted JDBC file
- * ([DesktopPassphraseVault] already answers `isEncryptionEnabled() = false` for exactly this reason), so it has
- * no at-rest encryption metadata: there is no mode flag, no passphrase verifier on the file, and no biometric
- * wrapping. A checkpoint of nothing is not a checkpoint, so each member reports
+ * contract's [EncryptionCheckpointOutcome.NOT_SUPPORTED] case. The desktop has no at-rest encryption
+ * METADATA: no mode flag, no passphrase verifier on the file, and no biometric wrapping. (Whether the file's
+ * bytes are encrypted is a different question, and [DesktopPassphraseVault] answers it about the FILE, through
+ * the same probe every other file reader uses - this checkpoint is about the metadata around the file, not
+ * about the bytes.) A checkpoint of nothing is not a checkpoint, so each member reports
  * [EncryptionCheckpointOutcome.NOT_SUPPORTED] instead of returning a success that would let a shared import
  * flow tell a user their plaintext database "can be rolled back".
  *

@@ -9,6 +9,7 @@ import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
 import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.EncryptedFileClassifier
 import io.payanam.shared.database.PayanamDatabaseSchema
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
@@ -96,11 +97,31 @@ object DatabaseArtifactJanitor {
             return false
         }
         val dbDir = dbFile.parentFile ?: return false
-        val encryptionManager = DatabaseEncryptionManager(context)
-        if (encryptionManager.isEncryptionEnabled()) {
+        // The FILE's own header decides, not the stored mode - the same shared rule the platform probes
+        // apply, so the two platforms cannot disagree about what "encrypted" means. Header-only on
+        // purpose: this runs at cold boot, before the framework is ready, which is what this branch's log
+        // line has always said about not probing by open. The verdict's reason rides the log so a
+        // non-encrypted answer is attributable instead of silent.
+        val header =
+            runCatching {
+                dbFile.inputStream().use { stream ->
+                    val buffer = ByteArray(EncryptedFileClassifier.MINIMUM_PROBE_BYTES)
+                    val read = stream.read(buffer)
+                    if (read <= 0) null else buffer.copyOf(read)
+                }
+            }.getOrNull()
+        val verdict =
+            EncryptedFileClassifier.classify(
+                header = header,
+                totalLength = dbFile.length(),
+                readSucceeded = header != null,
+            )
+        if (verdict.isEncrypted) {
             logger.i(
                 logTag,
-                "Skipping richer-corrupt recovery for encrypted mode at cold boot (no framework-open probes allowed)",
+                "Skipping richer-corrupt recovery for a detectably encrypted file at cold boot " +
+                    "(header check only; no framework-open probes allowed)",
+                mapOf("reason" to verdict.reason.name),
             )
             return false
         }
@@ -146,7 +167,7 @@ object DatabaseArtifactJanitor {
         val timestamp = System.currentTimeMillis()
         val backups = mutableListOf<Pair<File, File>>()
         try {
-            listOf(dbFile, sidecarFor(dbFile, "wal"), sidecarFor(dbFile, "shm"), sidecarFor(dbFile, "journal"))
+            DatabaseArtifacts.filesFor(dbFile)
                 .filter { it.exists() }
                 .forEach { file ->
                     val backup = File(dbDir, "${file.name}.janitor_backup_$timestamp.bak")
@@ -155,9 +176,13 @@ object DatabaseArtifactJanitor {
                 }
 
             candidateBase.copyTo(dbFile, overwrite = true)
-            replaceFromCandidateSidecar(candidateBase, dbFile, "wal")
-            replaceFromCandidateSidecar(candidateBase, dbFile, "shm")
-            replaceFromCandidateSidecar(candidateBase, dbFile, "journal")
+            // Driven by the shared family rather than three hand-typed names: this loop copies (or
+            // removes) every companion of the snapshot, so a sidecar added to the family is replaced
+            // here without anyone adding a fourth line — and one missed line would leave a stale
+            // companion beside a recovered main file, which reads as the pre-crash rows.
+            DatabaseArtifacts.sidecarSuffixes.forEach { suffix ->
+                replaceFromCandidateSidecar(candidateBase, dbFile, suffix)
+            }
             val restoredTotal = readTotalCount(context, dbFile, passphrase)
             check(restoredTotal > primaryTotal) {
                 "Recovered database did not improve table counts."
@@ -235,27 +260,43 @@ object DatabaseArtifactJanitor {
         }
     }
 
+    /**
+     * The sidecar of [baseFile] for one [DatabaseArtifacts.sidecarSuffixes] entry.
+     *
+     * CONTRACT: [suffix] is a member of the shared list verbatim — `-wal`, not `wal`. The separator
+     * belongs to that suffix, so this only concatenates. The bare-name form this replaced spelled the
+     * dash itself, which meant a caller could not hand it a shared suffix without producing
+     * `payanam.db--wal` — a file nothing else in the app names and so nothing would ever delete.
+     */
     private fun sidecarFor(
         baseFile: File,
         suffix: String,
-    ): File = File(baseFile.parentFile, "${baseFile.name}-$suffix")
+    ): File = File(baseFile.parentFile, baseFile.name + suffix)
 
-    private fun deleteCorruptFamily(candidateBase: File) {
-        listOf(
-            candidateBase,
-            sidecarFor(candidateBase, "wal"),
-            sidecarFor(candidateBase, "shm"),
-            sidecarFor(candidateBase, "journal"),
-        ).forEach { file ->
-            if (file.exists()) {
-                val deleted = file.delete()
-                logger.d(
-                    "DatabaseArtifactJanitor.deleteCorruptFamily",
-                    "Corrupt snapshot family cleanup entry",
-                    mapOf("file" to file.name, "deleted" to deleted),
-                )
+    /**
+     * Removes a corrupt snapshot's whole family, driven by the SHARED suffix list.
+     *
+     * INTERNAL RATHER THAN PRIVATE so a test can call it directly: the function is the one place that
+     * deletes a family, and its only caller sits behind a recovery flow that needs two real readable
+     * databases to reach. The defect this signature exists for was exactly a family-deletion miss, so the
+     * pin belongs on this function, not three layers up.
+     */
+    internal fun deleteCorruptFamily(candidateBase: File) {
+        // The family comes from the SHARED list, and every entry is handed to sidecarFor verbatim - the
+        // separator belongs to the suffix. This call site used to hand it bare names ("wal"), which under
+        // the concatenating contract above produced `<candidate>wal` and matched nothing: the snapshot's
+        // real -wal/-shm/-journal survived the cleanup and were later counted as snapshots themselves.
+        (listOf(candidateBase) + DatabaseArtifacts.sidecarSuffixes.map { sidecarFor(candidateBase, it) })
+            .forEach { file ->
+                if (file.exists()) {
+                    val deleted = file.delete()
+                    logger.d(
+                        "DatabaseArtifactJanitor.deleteCorruptFamily",
+                        "Corrupt snapshot family cleanup entry",
+                        mapOf("file" to file.name, "deleted" to deleted),
+                    )
+                }
             }
-        }
     }
 
     private fun deleteMatching(

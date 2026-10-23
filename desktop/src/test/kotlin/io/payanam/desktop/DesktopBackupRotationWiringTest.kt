@@ -68,7 +68,7 @@ class DesktopBackupRotationWiringTest {
         // It is given the folder the backup actually writes into, resolved through the SAME function
         // the destination is resolved through. A prune pointed anywhere else is a prune that deletes
         // nothing and can never be noticed from a render.
-        assertThat(scheduledBackupBody).contains("DesktopAppPaths.resolveExportDirectory()")
+        assertThat(scheduledBackupBody).contains("DesktopAppPaths.resolveDatabaseDirectory()")
         // It reads retention through the shared reader the schedule reconciles from, not through a
         // second copy of the row names.
         assertThat(scheduledBackupBody).contains("backupRows = backupRows")
@@ -83,7 +83,7 @@ class DesktopBackupRotationWiringTest {
 
         // And it is called with the resolved folder rather than being a bare reference, so the "where"
         // question has an answer in the source rather than only in a default argument.
-        assertThat(scheduledBackupBody).contains("exportDirectory =")
+        assertThat(scheduledBackupBody).contains("backupDirectory =")
     }
 
     @Test
@@ -102,11 +102,13 @@ class DesktopBackupRotationWiringTest {
         // argument AND the rotation call's argument), so slicing to it stops at the rotation call,
         // hundreds of characters early, and `contains` then asserts nothing while the test still passes
         // its own slice assertions. A slice that ends early is the failure mode this file must not have.
+        // The last argument is now the delivery hook - this anchor moved with it, which is this marker's
+        // whole job: it fails when the call's shape changes instead of quietly slicing short.
         val seams =
             slice(
                 source = appSource,
                 from = "desktopPlatformSeams(\n",
-                to = "backupRows = backupRows,\n            )",
+                to = "deliverReminder = desktopFreedesktopReminderDelivery(sessionLogger),\n            )",
             )
         assertThat(seams).contains("backupRows = backupRows")
         // The rotation is reached through the same helper, so both policies read the same rows.
@@ -130,7 +132,7 @@ class DesktopBackupRotationWiringTest {
 
             val deleted =
                 pruneScheduledBackupRotation(
-                    exportDirectory = root,
+                    backupDirectory = root,
                     backupRows = {
                         mapOf(
                             AppPreferenceKeys.KEY_BACKUP_ROTATION_ENABLED to "true",
@@ -187,7 +189,7 @@ class DesktopBackupRotationWiringTest {
             val artifact = File(root, "auto_bk_19700101-000000.db").apply { writeText("a backup") }
             val deleted =
                 pruneScheduledBackupRotation(
-                    exportDirectory = root,
+                    backupDirectory = root,
                     backupRows = { error("the session is not open") },
                     logger = NoOpUnifiedLogger,
                 )

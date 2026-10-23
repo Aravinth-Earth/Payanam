@@ -33,6 +33,7 @@ dependencies {
     // types (Task, ScoringConfig, RecurrenceConfig), so consumers must see :core:domain on their
     // compile classpath. :core:shared is re-exported through :core:domain's own `api`.
     api(project(":core:domain"))
+    api(project(":core:database-model"))
     implementation(libs.coroutines.core)
 
     testImplementation(libs.junit)

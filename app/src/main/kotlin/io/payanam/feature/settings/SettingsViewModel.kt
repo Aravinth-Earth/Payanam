@@ -12,34 +12,31 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
-import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.updates.artifactNameMatchesBuildType
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.domain.repository.AppSettingsRepository
-import io.payanam.domain.repository.NoteRepository
-import io.payanam.domain.repository.TaskRepository
-import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.BulkHabitMappingResult
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.presentation.settings.UhabitsImportResult
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.settings.BackupInterval
 import io.payanam.ui.viewmodel.UhabitsImporter
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,24 +52,27 @@ import timber.log.Timber
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-import javax.inject.Inject
 
 /**
  * Settings screen ViewModel: owns database stats/artifact management, the
  * import/export and uHabits-import flows, the encryption passphrase, biometric
  * unlock lifecycle, and the self-update channel/auto-download state machine.
  */
-@HiltViewModel
-class SettingsViewModel @Inject constructor(
-    @ApplicationContext internal val context: Context,
+class SettingsViewModel(
+    internal val context: Context,
     internal val sessionManager: DatabaseSessionManager,
     internal val databaseEncryptionManager: DatabaseEncryptionManager,
     private val databaseBackupCoordinator: DatabaseBackupCoordinator,
-    private val taskRepository: TaskRepository,
-    private val timeEntryRepository: TimeEntryRepository,
-    private val noteRepository: NoteRepository,
-    private val appSettingsRepository: AppSettingsRepository,
-) : ViewModel() {
+    // Internal, not private: Kotlin's `private` is FILE-scoped, and this ViewModel's import machinery
+    // lives in SettingsEncryptedImportSupport.kt as extensions, which could not reach a private member.
+    // The repo's TasksViewModel keeps `private val scope` safely only because its own extensions sit in
+    // the same file.
+    internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+) {
+    private val taskRepository = LocalDataLayer.current.tasks
+    private val timeEntryRepository = LocalDataLayer.current.timeEntries
+    private val noteRepository = LocalDataLayer.current.notes
+    private val appSettingsRepository = LocalDataLayer.current.appSettings
     internal val logger = UnifiedLogger.getInstance()
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
 
@@ -142,7 +142,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Load the persisted update channel (defaults to DEV). */
     private fun loadUpdateChannel() {
-        viewModelScope.launch {
+        scope.launch {
             val raw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
             val channel = UpdateChannel.fromStorage(raw)
             logger.d("SettingsViewModel.loadUpdateChannel", "Loaded channel", mapOf("channel" to channel.name, "raw" to (raw ?: "null")))
@@ -152,7 +152,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Persist the user's channel selection; resets the check cooldown so a fresh check is allowed. */
     internal fun onUpdateChannelSelected(channel: UpdateChannel) {
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.UPDATE_CHANNEL, channel.name)
             logger.i("SettingsViewModel.onUpdateChannelSelected", "Channel saved", mapOf("channel" to channel.name))
             lastCheckTimestampMs = 0L
@@ -163,7 +163,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Load the persisted auto-download toggle (defaults to OFF). */
     private fun loadAutoDownload() {
-        viewModelScope.launch {
+        scope.launch {
             val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadAutoDownload", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
@@ -176,7 +176,7 @@ class SettingsViewModel @Inject constructor(
     /** User tapped Cancel while a download is in flight — cancel + clean persisted state. */
     internal fun onCancelDownload() {
         val id = activeDownloadId ?: return
-        viewModelScope.launch {
+        scope.launch {
             AutoDownloadManager.cancel(context, id)
             activeDownloadId = null
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
@@ -189,7 +189,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Toggle auto-download on/off; toggling off cancels any in-flight download. */
     internal fun onAutoDownloadToggled(enabled: Boolean) {
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_DOWNLOAD, enabled.toString())
             logger.i("SettingsViewModel.onAutoDownloadToggled", "Toggle saved", mapOf("enabled" to enabled))
             if (!enabled && activeDownloadId != null) {
@@ -203,7 +203,7 @@ class SettingsViewModel @Inject constructor(
 
     /** If a download ID was persisted, resume polling its status on app start. */
     private fun restoreDownloadState() {
-        viewModelScope.launch {
+        scope.launch {
             val storedId = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID)?.toLongOrNull()
             if (storedId != null) {
                 activeDownloadId = storedId
@@ -220,7 +220,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Offer a previously completed download from disk instead of re-downloading. */
     private fun restoreCompletedDownload() {
-        viewModelScope.launch {
+        scope.launch {
             val build = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD)
             val fileName = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE)
             val atMs = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT)?.toLongOrNull()
@@ -249,7 +249,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Load the persisted prompt-install toggle (defaults to OFF). */
     private fun loadPromptInstall() {
-        viewModelScope.launch {
+        scope.launch {
             val raw = appSettingsRepository.getSetting(UpdatePrefKeys.PROMPT_INSTALL)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadPromptInstall", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
@@ -259,7 +259,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Toggle prompt-install on/off (only meaningful when auto-download is ON). */
     internal fun onPromptInstallToggled(enabled: Boolean) {
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.PROMPT_INSTALL, enabled.toString())
             logger.i("SettingsViewModel.onPromptInstallToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(promptInstallEnabled = enabled) }
@@ -268,7 +268,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Load the persisted WiFi-only toggle (defaults to OFF). */
     private fun loadWifiOnly() {
-        viewModelScope.launch {
+        scope.launch {
             val raw = appSettingsRepository.getSetting(UpdatePrefKeys.WIFI_ONLY)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadWifiOnly", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
@@ -278,7 +278,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Toggle WiFi-only downloads on/off. */
     internal fun onWifiOnlyToggled(enabled: Boolean) {
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.WIFI_ONLY, enabled.toString())
             logger.i("SettingsViewModel.onWifiOnlyToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(wifiOnlyEnabled = enabled) }
@@ -287,7 +287,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Load the persisted auto-check-on-start setting (defaults OFF — opt-in). */
     private fun loadAutoCheck() {
-        viewModelScope.launch {
+        scope.launch {
             val raw = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_CHECK)
             val enabled = raw == "true"
             logger.d("SettingsViewModel.loadAutoCheck", "Loaded toggle", mapOf("enabled" to enabled, "raw" to (raw ?: "null")))
@@ -297,7 +297,7 @@ class SettingsViewModel @Inject constructor(
 
     /** Toggle the post-unlock auto update check on/off. */
     internal fun onAutoCheckToggled(enabled: Boolean) {
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.AUTO_CHECK, enabled.toString())
             logger.i("SettingsViewModel.onAutoCheckToggled", "Toggle saved", mapOf("enabled" to enabled))
             _uiState.update { it.copy(autoCheckEnabled = enabled) }
@@ -345,7 +345,7 @@ class SettingsViewModel @Inject constructor(
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun loadDatabaseStats() {
         logger.d("SettingsViewModel.loadDatabaseStats", "Loading database stats")
-        viewModelScope.launch {
+        scope.launch {
             try {
                 // Count entities
                 val tasks = taskRepository.getAllTasks().first()
@@ -434,7 +434,7 @@ class SettingsViewModel @Inject constructor(
     fun exportDatabase(
         destinationUri: Uri,
     ) {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update { it.copy(isExporting = true, exportResult = null) }
             try {
                 val bytesCopied = databaseBackupCoordinator.exportSnapshotToUri(destinationUri)
@@ -475,7 +475,7 @@ class SettingsViewModel @Inject constructor(
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun importUhabitsData(sourceUri: Uri) {
         logger.i("SettingsViewModel.importUhabitsData", "uHabits import started", mapOf("sourceUri" to sourceUri.toString()))
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update {
                 it.copy(
                     isUhabitsImporting = true,
@@ -517,7 +517,7 @@ class SettingsViewModel @Inject constructor(
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun bulkMapImportedHabitsToDimension(targetDimensionId: String, targetDimensionLabel: String) {
-        viewModelScope.launch {
+        scope.launch {
             _uiState.update {
                 it.copy(
                     isBulkMappingImportedHabits = true,
@@ -596,7 +596,7 @@ class SettingsViewModel @Inject constructor(
     fun deleteDatabase() {
         logger.i("SettingsViewModel.deleteDatabase", "Delete database confirmed — wiping all artifacts")
         _uiState.update { it.copy(showDeleteExportPrompt = false) }
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val deletedCount = withContext(Dispatchers.IO) {
                     deleteAllDatabaseArtifactFiles(context)
@@ -636,7 +636,7 @@ class SettingsViewModel @Inject constructor(
             "Delete database artifact requested",
             mapOf("fileName" to fileName),
         )
-        viewModelScope.launch {
+        scope.launch {
             try {
                 withContext(Dispatchers.IO) {
                     deleteDatabaseArtifactFile(context, fileName)
@@ -660,7 +660,7 @@ class SettingsViewModel @Inject constructor(
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun cleanStaleArtifacts() {
         logger.i("SettingsViewModel.cleanStaleArtifacts", "Stale artifact cleanup requested")
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val deleted = withContext(Dispatchers.IO) {
                     deleteStaleArtifactFiles(context)
@@ -703,7 +703,7 @@ class SettingsViewModel @Inject constructor(
 
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     private fun syncTimeoutFromDb() {
-        viewModelScope.launch {
+        scope.launch {
             try {
                 val dbValue = appSettingsRepository.getSetting("session_timeout_minutes")
                 if (dbValue != null) {
@@ -742,7 +742,7 @@ class SettingsViewModel @Inject constructor(
         databaseEncryptionManager.setSessionTimeoutMinutes(minutes)
         val effectiveMinutes = databaseEncryptionManager.getSessionTimeoutMinutes()
         _uiState.update { it.copy(unlockSessionTimeoutMinutes = effectiveMinutes) }
-        viewModelScope.launch {
+        scope.launch {
             try {
                 appSettingsRepository.setSetting("session_timeout_minutes", effectiveMinutes.toString())
             } catch (e: Exception) {
@@ -798,7 +798,7 @@ class SettingsViewModel @Inject constructor(
             onComplete(false)
             return
         }
-        viewModelScope.launch {
+        scope.launch {
             val passphraseValid = withContext(Dispatchers.IO) {
                 databaseEncryptionManager.verifyPassphrase(passphrase)
             }
@@ -854,7 +854,7 @@ class SettingsViewModel @Inject constructor(
                         onComplete(false)
                         return
                     }
-                    viewModelScope.launch {
+                    scope.launch {
                         val stored = withContext(Dispatchers.IO) {
                             databaseEncryptionManager.storeBiometricWrappedPassphraseWithCipher(
                                 cipher = authenticatedCipher,
@@ -951,8 +951,8 @@ class SettingsViewModel @Inject constructor(
 
         logger.i("SettingsViewModel.checkForUpdate", "Checking for update", mapOf("buildNumber" to _uiState.value.buildNumber, "channel" to _uiState.value.updateChannel.name))
         _uiState.update { it.copy(isCheckingForUpdate = true, updateCheckResult = null) }
-        viewModelScope.launch {
-            val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel)
+        scope.launch {
+            val result = UpdateChecker.check(_uiState.value.buildNumber, _uiState.value.updateChannel, ApkBuildType.running())
             logger.i(
                 "SettingsViewModel.checkForUpdate",
                 "Update check complete",
@@ -981,7 +981,7 @@ class SettingsViewModel @Inject constructor(
         if (existingPath != null) {
             val fileName = File(existingPath).name
             logger.d("SettingsViewModel.startAutoDownload", "APK already downloaded; offering install", mapOf("build" to buildNumber, "file" to fileName))
-            viewModelScope.launch {
+            scope.launch {
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumber.toString())
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, fileName)
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
@@ -1011,7 +1011,7 @@ class SettingsViewModel @Inject constructor(
             return
         }
         activeDownloadId = id
-        viewModelScope.launch {
+        scope.launch {
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
             // Persist the URL so a Retry survives app restarts.
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, downloadUrl)
@@ -1026,7 +1026,7 @@ class SettingsViewModel @Inject constructor(
         val state = _uiState.value.downloadState
         // Retry: reuse the last known URL if the check result is gone.
         if (state is DownloadUiState.Failed) {
-            viewModelScope.launch {
+            scope.launch {
                 val storedUrl = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL)
                 if (storedUrl.isNullOrEmpty()) return@launch
                 val fileName = storedUrl.substringAfterLast('/')
@@ -1081,9 +1081,9 @@ class SettingsViewModel @Inject constructor(
             // release so we always download what is latest NOW, never a
             // superseded build. The retry path above uses the persisted URL
             // because a restart may have no cached result at all.
-            viewModelScope.launch {
+            scope.launch {
                 val channel = _uiState.value.updateChannel
-                val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
+                val fresh = UpdateChecker.check(BuildConfig.VERSION_CODE, channel, ApkBuildType.running())
                 if (fresh.outcome == UpdateOutcome.FAILED) {
                     _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
                     return@launch
@@ -1116,7 +1116,7 @@ class SettingsViewModel @Inject constructor(
     /** Poll DownloadManager progress and surface state; stops on terminal state. */
     private fun pollDownloadProgress() {
         val id = activeDownloadId ?: return
-        viewModelScope.launch {
+        scope.launch {
             var terminal = false
             var polls = 0
             // E4: bounded polling — stop after 10 minutes even if the system

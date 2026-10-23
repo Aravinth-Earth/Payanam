@@ -11,7 +11,7 @@ import io.payanam.presentation.preferences.AppPreferencesWriter
 import io.payanam.presentation.preferences.DimensionLabelNormalizer
 import io.payanam.presentation.settings.DatabaseArtifactUiModel
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.flow.first

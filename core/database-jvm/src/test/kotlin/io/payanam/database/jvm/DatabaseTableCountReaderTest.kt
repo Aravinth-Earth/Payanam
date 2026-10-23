@@ -3,6 +3,8 @@
 package io.payanam.database.jvm
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 import org.junit.Rule
 import org.junit.Test
 import org.junit.rules.TemporaryFolder
@@ -89,6 +91,38 @@ class DatabaseTableCountReaderTest {
     }
 
     @Test
+    fun `every zero-reporting path logs why it could not read`() {
+        // The reader's own contract says every path that yields zeros logs why - a silent 0 would read as
+        // "the conversion destroyed your data" to the integrity check. This asserts that contract at the
+        // only place it can be observed: the logger the reader actually writes through.
+        val recorder = RecordingLogger()
+        AppLogger.install(recorder)
+        try {
+            DatabaseTableCountReader.readTableCounts(path("absent.db"), passphrase, tables)
+            DatabaseTableCountReader.readTableCounts(
+                path("wrong-key.db").also { createFile(it, mapOf("tasks" to 4), passphrase) },
+                "not-the-passphrase",
+                tables,
+            )
+        } finally {
+            AppLogger.resetForTests()
+        }
+
+        val warnings = recorder.warnings.filter { it.source.startsWith("DatabaseTableCountReader") }
+        // Two distinct zero-reporting paths, asserted by their own words: the absent file, and the
+        // wrong-passphrase read - whose file DOES open (SQLCipher accepts the handle) but yields no
+        // readable table, so its warning comes once per requested table from the counting path.
+        assertThat(warnings.map { it.message }.toSet())
+            .containsExactly(
+                "No database file to count; reporting zeros",
+                "Could not count a table; reporting zero for it",
+            )
+        assertThat(warnings.filter { it.message.contains("No database file") }).hasSize(1)
+        assertThat(warnings.filter { it.message.contains("Could not count a table") })
+            .hasSize(tables.size)
+    }
+
+    @Test
     fun `reading never modifies the file`() {
         // The check runs while a conversion may be about to rewrite this exact file, so a read that touched
         // it — even by creating a sidecar or bumping the size — would be a real defect. This is also the
@@ -121,4 +155,63 @@ class DatabaseTableCountReaderTest {
 
         assertThat(file.toFile().length()).isEqualTo(sizeBefore)
     }
+
+    /** Captures log entries so the reader's zero-reporting paths can be asserted rather than assumed. */
+    private class RecordingLogger : UnifiedLogger {
+        data class Entry(
+            val level: String,
+            val source: String,
+            val message: String,
+            val data: Map<String, Any?>,
+        )
+
+        private val entries = mutableListOf<Entry>()
+
+        val warnings: List<Entry> get() = entries.filter { it.level == "W" }
+
+        val all: List<Entry> get() = entries
+
+        override fun d(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += Entry("D", source, message, data)
+        }
+
+        override fun i(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += Entry("I", source, message, data)
+        }
+
+        override fun w(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += Entry("W", source, message, data)
+        }
+
+        override fun e(
+            source: String,
+            message: String,
+            error: Throwable?,
+            data: Map<String, Any?>,
+        ) {
+            entries += Entry("E", source, message, data)
+        }
+
+        override fun eSync(
+            source: String,
+            message: String,
+            error: Throwable?,
+            data: Map<String, Any?>,
+        ) {
+            entries += Entry("E", source, message, data)
+        }
+    }
+
 }

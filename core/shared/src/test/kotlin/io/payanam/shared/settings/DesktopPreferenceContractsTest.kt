@@ -27,7 +27,6 @@ class DesktopPreferenceContractsTest {
         assertThat(snapshot.unlockTimeout).isEqualTo(120)
         // Scope B: genuinely missing desktop settings
         assertThat(snapshot.timeFormat).isEqualTo("24h")
-        assertThat(snapshot.launchTaskFilter).isEqualTo(DesktopLaunchTaskFilter.NONE)
         assertThat(snapshot.backupRotationEnabled).isFalse()
         assertThat(snapshot.backupRotationCount).isEqualTo(50)
     }

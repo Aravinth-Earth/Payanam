@@ -1,7 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
-package io.payanam.presentation.updates
+package io.payanam.shared.updates
 
 /**
  * Closed classification of an update check — consumers route on this enum, so no branch can classify

@@ -7,9 +7,9 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.OutlinedButton
-import androidx.compose.material.Text
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,8 +27,8 @@ import kotlinx.coroutines.launch
  *
  * Mirrors Android's `DatabaseInitLogExportActions`: the same two outlined buttons, the same shared
  * strings, the same result line. The widgets are this module's own Material widgets because
- * `:desktop` compiles against Compose Material 2 (as `DesktopStartupGate` and `DesktopSettingsRoute`
- * already do) rather than Material 3 - the labels, order and behaviour are unchanged.
+ * `:desktop` compiles against Compose Material 2 (as the module's own shell chrome already does)
+ * rather than Material 3 - the labels, order and behaviour are unchanged.
  *
  * Only the exporter behind the buttons differs: the desktop has no SAF picker and no R class, so
  * [UnifiedLogger.exportLatestLog] and [UnifiedLogger.exportAllLogs] copy the plain files this module
@@ -125,8 +125,8 @@ internal fun DesktopLogExportActions() {
         Text(
             // Read into a local first: the delegated property cannot be smart-cast across calls.
             text = debugExportMessage.orEmpty(),
-            style = MaterialTheme.typography.caption,
-            color = MaterialTheme.colors.onSurface,
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.onSurface,
         )
     }
 }

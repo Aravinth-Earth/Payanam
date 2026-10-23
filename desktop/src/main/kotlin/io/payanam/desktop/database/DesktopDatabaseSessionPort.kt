@@ -34,6 +34,7 @@ internal class DesktopDatabaseSessionPort(
     override suspend fun openDatabase(passphrase: String): Result<Unit> =
         when (val result = controller.openAndInstall(passphrase.toCharArray())) {
             is DatabaseOpenResult.Opened -> {
+                controller.closeInFlightForRekey = false
                 Result.success(Unit)
             }
 
@@ -54,7 +55,12 @@ internal class DesktopDatabaseSessionPort(
     override suspend fun flushPendingChanges(passphrase: String): FoldReport = controller.checkpoint() ?: WalCheckpointRule.NO_ROW
 
     /** Closes the session; the controller owns the close-and-uninstall ordering. */
-    override fun closeDatabase() = controller.closeAndUninstall()
+    override fun closeDatabase() {
+        // The shared change flow closes before its rekey and reopens (or restarts) right after; the
+        // gate follower must not arm from this close or it will yank the change screen mid-submit.
+        controller.closeInFlightForRekey = true
+        controller.closeAndUninstall()
+    }
 
     /**
      * The passphrase the open session was established with, as a String for the shared contract.

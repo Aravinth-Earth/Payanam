@@ -9,9 +9,9 @@ import java.time.LocalDateTime
  * Arming and cancelling a task's reminder.
  *
  * A port rather than a repository: what the shared ViewModels need from the reminder channel is exactly these
- * two calls. Android implements it with alarms and the notification manager; the desktop has no reminder
- * channel yet and supplies a no-op, which is an honest platform difference rather than a second
- * implementation of the same behaviour.
+ * two calls. Android implements it with alarms and the notification manager; the desktop implements it by
+ * handing a `ReminderRequest` to its installed sink, which delivers a freedesktop notification. Both are
+ * real producers over their own platform's delivery mechanism, which is what this port exists to separate.
  */
 interface TaskReminderScheduler {
     /**

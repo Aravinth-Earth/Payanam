@@ -16,7 +16,9 @@ object SharedPassphrasePolicy {
 
     /**
      * Validates a passphrase against length + character-class rules; returns the
-     * failure [reasonCode] when invalid.
+     * failure [reasonCode] when invalid. Rules are checked in a fixed order and only
+     * the first failing rule is returned, so a passphrase too short to carry a
+     * character class reports `min_length` rather than that missing class.
      */
     fun validate(passphrase: String): SharedPassphraseValidation {
         if (passphrase.length < MIN_LENGTH) {

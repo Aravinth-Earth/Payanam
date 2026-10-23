@@ -5,12 +5,13 @@ package io.payanam.feature.settings
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckResult
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.InstallHandoff
 import io.payanam.shared.platform.InstallRefusal
@@ -83,7 +84,7 @@ class AndroidApkUpdateSource(
     private val channel: UpdateChannel = UpdateChannel.DEV,
     private val isStoreManaged: Boolean = InstallerChecker.isFDroidBuild(context),
     private val checkForUpdates: suspend (currentBuildNumber: Int, channel: UpdateChannel) -> UpdateCheckResult =
-        { currentBuildNumber, requested -> UpdateChecker.check(currentBuildNumber, requested) },
+        { currentBuildNumber, requested -> UpdateChecker.check(currentBuildNumber, requested, ApkBuildType.running()) },
 ) : ApkUpdateSource {
     private val logger = UnifiedLogger.getInstance()
 

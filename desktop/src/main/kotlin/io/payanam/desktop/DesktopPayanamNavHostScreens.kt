@@ -4,6 +4,9 @@
 
 package io.payanam.desktop
 
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
@@ -12,6 +15,7 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.Text
 import io.payanam.core.ui.assistant.AssistantScreenActions
 import io.payanam.core.ui.assistant.AssistantScreenContent
 import io.payanam.core.ui.assistant.AssistantSettingsScreenActions
@@ -26,6 +30,9 @@ import io.payanam.core.ui.focus.FocusModeSelectionScreen
 import io.payanam.core.ui.lenses.LensesScreen
 import io.payanam.core.ui.lenses.ScoringConfigScreen
 import io.payanam.core.ui.navigation.PayanamNavActions
+import io.payanam.core.ui.updates.PreUnlockUpdateActions
+import io.payanam.core.ui.updates.PreUnlockUpdateSection
+import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
 import io.payanam.core.ui.notes.NotesScreen
 import io.payanam.core.ui.preferences.AppPreferencesState
@@ -42,6 +49,9 @@ import io.payanam.core.ui.tasks.TasksScreen
 import io.payanam.core.ui.tasks.TasksScreenMode
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.onboarding.OnboardingIntroScreen
+import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.time.MAX_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.TimeScreen
@@ -54,9 +64,10 @@ import io.payanam.desktop.database.databaseInitViewModel
 import io.payanam.desktop.database.databasePassphraseChangeViewModel
 import io.payanam.desktop.database.databasePassphraseSetupViewModel
 import io.payanam.desktop.database.databasePassphraseUnlockViewModel
-import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.desktop.port.NoOpPreUnlockUpdateActions
 import io.payanam.presentation.day.dayPlanViewModel
 import io.payanam.presentation.day.dayViewModel
+import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.lenses.lensHabitScoreViewModel
 import io.payanam.presentation.lenses.lensViewModel
 import io.payanam.presentation.lenses.scoringConfigViewModel
@@ -76,7 +87,7 @@ import io.payanam.presentation.time.timeViewModel
 import io.payanam.presentation.time.timeVisualsViewModel
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
-import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.platform.SupportState
 import io.payanam.shared.settings.FocusModePreset
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -86,7 +97,6 @@ import java.io.File
 import java.time.LocalDate
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
-import java.util.Locale
 
 /**
  * The desktop's implementation of the shared navigation graph's destinations.
@@ -225,8 +235,11 @@ internal class DesktopPayanamNavHostScreens(
         //    block that appeared to authenticate would be the one thing this project forbids outright, and a
         //    platform that omits the slot is the honest answer: the screen falls back to the typed passphrase,
         //    which is a complete way in.
-        //  - preUnlockUpdate is null because the flow it wraps is Android's own APK install. It is an
-        //    explicitly named no-op slot in the shared screen, not a missing feature.
+        //  - preUnlockUpdate is NOT null: the flow it wraps is Android's own APK install, which this
+        //    platform does not have - and an omitted slot is silence, not an answer. This platform renders
+        //    the SHARED section and tells it the truth: support is NOT_APPLICABLE here, so the section
+        //    states that updates are installed by the package manager and offers no in-app action. The
+        //    Diagnostics zone says why it has nothing to offer instead of quietly showing nothing.
         //
         // debugLogExport is NOT empty: the desktop supplies its own exporter, for the same reason as on
         // the setup and database-init gates - no SAF picker, no R class for Android's, and the two
@@ -250,7 +263,20 @@ internal class DesktopPayanamNavHostScreens(
             onForgotPassphraseReset = onForgotPassphraseReset,
             viewModel = viewModel,
             biometricActions = null,
-            preUnlockUpdate = null,
+            preUnlockUpdate = {
+                // The shared section, told the truth: this platform installs its app through its own
+                // package manager, so there is no in-app update action to offer.
+                PreUnlockUpdateSection(
+                    uiState = PreUnlockUpdateUiState(
+                        buildNumber = DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+                        platformSupport = SupportState.NOT_APPLICABLE,
+                    ),
+                    // Lives in the port package, not here: this file's own render guard scans it for
+                    // `override fun` lines and reads each one as a destination, so an interface
+                    // implementation declared here is indistinguishable from an unwired screen.
+                    actions = NoOpPreUnlockUpdateActions,
+                )
+            },
             debugLogExport = { DesktopLogExportActions() },
         )
     }
@@ -300,9 +326,9 @@ internal class DesktopPayanamNavHostScreens(
         nav: PayanamNavActions,
         onDatabaseReady: () -> Unit,
     ) {
-        // ADDITIVE, and deliberately: the desktop's own stricter first-run gate (DesktopStartupGate's
-        // InitializeDatabase section) is untouched. This destination now renders the SHARED screen, and
-        // whether the desktop keeps that gate is a product decision, not a refactor.
+        // ADDITIVE, and deliberately: this destination renders the SHARED screen, and the desktop's own
+        // stricter first-run gate that used to stand beside it is deleted now. Whether the desktop keeps
+        // any stricter behaviour is a product decision, not a refactor.
         //
         // The two slots are the platform's, and both are now real rather than empty:
         //  - onImportFileSelected is where THIS platform performs the pick. The shared screen asks the
@@ -339,6 +365,51 @@ internal class DesktopPayanamNavHostScreens(
             // Reached only after the desktop's own startup surface already ran the intro, so the graph must not repeat it.
             onboardingIntroAlreadyCompleted = true,
         )
+    }
+
+    @Composable
+    override fun onboardingIntro(onFinished: () -> Unit) {
+        // The tour is a shared screen; the desktop's own root surface used to wrap it, and the shell's
+        // root now supplies that role, so this is the screen with no wrapper - the same shape Android uses.
+        OnboardingIntroScreen(language = language, onFinished = onFinished)
+    }
+
+    @Composable
+    override fun securityStateUnavailable(
+        onSecurityResetRequested: () -> Unit,
+        onQuitRequested: () -> Unit,
+    ) {
+        // The refusal surface is shared; the one thing the desktop adds is the confirmation dialog, because
+        // resetting destroys a store only this platform can rebuild. The copy is the same table the shared
+        // screen reads, so the dialog and the surface speak the same language.
+        val strings = LocalUiStrings.current
+        var showResetConfirmDialog by remember { mutableStateOf(false) }
+        SecurityStateUnavailableScreen(
+            onSecurityResetRequested = { showResetConfirmDialog = true },
+            onQuitRequested = onQuitRequested,
+        )
+        if (showResetConfirmDialog) {
+            AlertDialog(
+                onDismissRequest = { showResetConfirmDialog = false },
+                title = { Text(strings.startupResetDialogTitle) },
+                text = { Text(strings.startupResetDialogBody) },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            onSecurityResetRequested()
+                            showResetConfirmDialog = false
+                        },
+                    ) {
+                        Text(strings.startupResetAction)
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showResetConfirmDialog = false }) {
+                        Text(strings.startupCancelAction)
+                    }
+                },
+            )
+        }
     }
 
     @Composable
@@ -419,7 +490,15 @@ internal class DesktopPayanamNavHostScreens(
                 nav.openEditTask(taskId)
             },
             onTimeHourHeightDpChange = { hourHeightDp ->
-                desktopPersistTimeHourHeightDp(hourHeightDp)
+                desktopPersistTimeHourHeightDp(
+                    hourHeightDp = hourHeightDp,
+                    // The SHELL's single-row callback, taken from the same collaborators the settings
+                    // destination writes through - so this row lands under the write mutex and republishes
+                    // the state `TimeScreen` reads, rather than on a scope of this file's own that nothing
+                    // cancels.
+                    launchWrite = ::write,
+                    setSetting = settingsCollaborators.setSetting,
+                )
             },
         )
     }
@@ -519,15 +598,20 @@ internal class DesktopPayanamNavHostScreens(
                     onLaunchDestinationTasksChange = { filter ->
                         write { settingsCollaborators.writer().setLaunchDestinationTasks(filter?.key) }
                     },
-                    // The desktop has no focus-mode build flag, and the card's own rule is a preference: the
-                    // shell owns the preset and the rail already renders from `preferences.tabVisibility`, so
-                    // the section that edits those rows has to be offered.
-                    focusModeSettingsEnabled = true,
-                    // `false` is the same answer the graph itself is handed at this mount
-                    // (`DesktopApp.kt`, `minimalModeEnabled = false`): minimal mode is an Android build-time
-                    // constant the desktop has no knob for, and it selects a card with no file rows - so
-                    // reporting it true would hide the export and import rows the desktop does support.
-                    minimalModeEnabled = false,
+                    // Both build-time settings decisions come from the shared holder, the same source the graph
+                    // and the shared ViewModels read, which `DesktopMain.main` fills from this platform's own
+                    // declared values. They were bare literals here, one of which (`scoreSettingsEnabled`)
+                    // disagreed with the shared actions object's own default.
+                    focusModeSettingsEnabled = PlatformFeatureFlags.current.focusModeSettingsEnabled,
+                    // Minimal mode comes from the shared holder, the same one the graph mount site and the
+                    // shared ViewModels read, which `DesktopMain.main` fills from this platform's own declared
+                    // values. The desktop takes no build-time capability flag (it is a full-feature build), so
+                    // what it installs is an explicit `false` rather than a generated constant counterpart to
+                    // Android's `BuildConfig.MINIMAL_MODE`.
+                    // It selects a card with no file rows, so answering it true would hide the export and
+                    // import rows this platform does support - which is why it must be the installed answer and
+                    // not this site's.
+                    minimalModeEnabled = PlatformFeatureFlags.current.minimalModeEnabled,
                     onSetActivePreset = { preset ->
                         // The shared writer's own nine-row write, which is the desktop source's rule verbatim
                         // - including the completion row, so a preset chosen here ends onboarding the same
@@ -566,6 +650,9 @@ internal class DesktopPayanamNavHostScreens(
                     onAutoTrackHabitTimeGlobalChanged = { enabled ->
                         write { settingsCollaborators.writer().setAutoTrackHabitTimeGlobal(enabled) }
                     },
+                    onDayBoundaryHourChanged = { hour ->
+                        write { settingsCollaborators.writer().setDayBoundaryHour(hour) }
+                    },
                     onAutoTrackDimensionPreferenceChanged = { id, enabled ->
                         write { settingsCollaborators.writer().setAutoTrackDimensionPreference(id, enabled) }
                     },
@@ -575,17 +662,26 @@ internal class DesktopPayanamNavHostScreens(
                         // nothing reads.
                         write { settingsCollaborators.writer().setChartVisibility(key, enabled) }
                     },
+                    // Both rows go through the shell's single-row path, NOT `writer()`, for the same reason
+                    // the timeout row below does: `AppPreferencesWriter` ends at the repository and asks
+                    // nothing of the platform, so a toggle written there persisted without ever reaching
+                    // `DesktopApp`'s `onSettingChanged` - the only caller of `reconcileBackupSchedule` - and
+                    // the in-process timer stayed on its previous schedule until the next window resume.
+                    // Writing the same row here through the guarded path is what makes that reconcile run on
+                    // the gesture, and it is the SAME path rather than a second one because there is already
+                    // one convention for a row whose desktop effect is more than the row.
                     onAutoBackupEnabledChanged = { enabled ->
-                        write { settingsCollaborators.writer().setAutoBackupEnabled(enabled) }
+                        write { settingsCollaborators.setSetting(AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED, enabled.toString()) }
                     },
                     onAutoBackupIntervalChanged = { interval ->
-                        write { settingsCollaborators.writer().setAutoBackupInterval(interval.key) }
+                        write { settingsCollaborators.setSetting(AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL, interval.key) }
                     },
                     // ABSENT, and the omission is the point: the shell's own `onSettingChanged` reconciles
                     // the in-process schedule for exactly these two keys (`DesktopApp.kt`), so scheduling
                     // here would be a SECOND timer for one gesture. The shared screen reports both the
                     // enable-state and the interval it was left on, which is what makes that reconciliation
-                    // correct rather than accidental.
+                    // correct rather than accidental - and which is why the two rows above reach that
+                    // callback instead of the writer.
                     onManualBackupRequested = settingsCollaborators.onManualBackupRequested,
                     onBackupRotationEnabledChanged = { enabled ->
                         write { settingsCollaborators.writer().setBackupRotationEnabled(enabled) }
@@ -603,11 +699,13 @@ internal class DesktopPayanamNavHostScreens(
                     // the busy flag is false on every frame the screen can show. Fabricating `true` would
                     // disable the row permanently.
                     manualBackupInProgress = false,
-                    // `true`, because the scoring screen IS reachable here - `nav.openScoringConfig()` is a
-                    // shared graph route and `scoringConfig` is wired below - so offering the row and the
-                    // button is honest. Left at its `false` default the section would be hidden and the
-                    // desktop's one configured scoring model would be unreachable from settings.
-                    scoreSettingsEnabled = true,
+                    // The value comes from the shared holder; the reasoning is why this platform declares it
+                    // enabled rather than taking the actions object's `false` default: the scoring screen IS
+                    // reachable here — `nav.openScoringConfig()` is a shared graph route and `scoringConfig` is
+                    // wired below — so offering the row and the button is honest, and it matches the value
+                    // Android's own build config carries. Left at the default the section would be hidden and
+                    // the desktop's configured scoring model would be unreachable from settings.
+                    scoreSettingsEnabled = PlatformFeatureFlags.current.scoreSettingsEnabled,
                     onNavigateToScoringConfig = { nav.openScoringConfig() },
                     onDebugLoggingEnabledChanged = { enabled ->
                         write { settingsCollaborators.writer().setDebugLoggingEnabled(enabled) }
@@ -643,8 +741,11 @@ internal class DesktopPayanamNavHostScreens(
                     onImportConfirmed = { settingsCollaborators.onImportDatabase() },
                     onImportDismissed = {},
                     onDeleteExportPromptDismissed = {},
-                    // ABSENT: the desktop has no delete-all-data flow, and the confirm dialog this opens
-                    // would report a deletion that never happens. The row is rendered and inert.
+                    // ABSENT: the desktop has no delete-all-data flow, so the row is NOT RENDERED - an
+                    // enabled button whose confirm dialog would report a deletion that never happens is
+                    // worse than no button, and this flag is what removes it (the shared section's own
+                    // rule). The handler defaults stay empty; nothing taps through to them.
+                    deleteAllDataEnabled = false,
                     onNavigateToPassphraseChange = { nav.openPassphraseChange() },
                 ),
         )
@@ -760,24 +861,24 @@ internal class DesktopPayanamNavHostScreens(
         AssistantScreenContent(
             uiState = uiState,
             actions =
-            AssistantScreenActions(
-                // Same reason as Android: reading storage is a platform act, and the settings editor is a
-                // different destination with its own scope, so a key removed over there has to be visible
-                // on the way back. The screen asks; this platform answers.
-                onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
-                onNavigateBack = { nav.goBack() },
-                onOpenSettings = {
-                    logger.i("PayanamNavHost", "Opening assistant settings")
-                    nav.openAssistantSettings()
-                },
-                onKeyChange = { text -> assistantCollaborators.viewModelOrNull()?.updateKeyDraft(text) },
-                onLoadModels = { assistantCollaborators.viewModelOrNull()?.loadModels() },
-                onSelectModel = { model -> assistantCollaborators.viewModelOrNull()?.selectModel(model) },
-                onSaveAndStart = { assistantCollaborators.viewModelOrNull()?.saveAndStart() },
-                onSendQuestion = { question -> assistantCollaborators.viewModelOrNull()?.send(question) },
-                onDismissError = { assistantCollaborators.viewModelOrNull()?.dismissError() },
-                onAcknowledgeNotice = { assistantCollaborators.viewModelOrNull()?.acknowledgeNotice() },
-            ),
+                AssistantScreenActions(
+                    // Same reason as Android: reading storage is a platform act, and the settings editor is a
+                    // different destination with its own scope, so a key removed over there has to be visible
+                    // on the way back. The screen asks; this platform answers.
+                    onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
+                    onNavigateBack = { nav.goBack() },
+                    onOpenSettings = {
+                        logger.i("PayanamNavHost", "Opening assistant settings")
+                        nav.openAssistantSettings()
+                    },
+                    onKeyChange = { text -> assistantCollaborators.viewModelOrNull()?.updateKeyDraft(text) },
+                    onLoadModels = { assistantCollaborators.viewModelOrNull()?.loadModels() },
+                    onSelectModel = { model -> assistantCollaborators.viewModelOrNull()?.selectModel(model) },
+                    onSaveAndStart = { assistantCollaborators.viewModelOrNull()?.saveAndStart() },
+                    onSendQuestion = { question -> assistantCollaborators.viewModelOrNull()?.send(question) },
+                    onDismissError = { assistantCollaborators.viewModelOrNull()?.dismissError() },
+                    onAcknowledgeNotice = { assistantCollaborators.viewModelOrNull()?.acknowledgeNotice() },
+                ),
         )
     }
 
@@ -795,64 +896,64 @@ internal class DesktopPayanamNavHostScreens(
         AssistantSettingsScreenContent(
             uiState = uiState,
             actions =
-            AssistantSettingsScreenActions(
-                onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
-                onFlushRequested = { assistantCollaborators.viewModelOrNull()?.flushSettings() },
-                onNavigateBack = { nav.goBack() },
-                onChangeProviderRequested = { assistantCollaborators.viewModelOrNull()?.changeProvider() },
-                onRemoveKeyRequested = { assistantCollaborators.viewModelOrNull()?.removeProviderKey() },
-                onLengthChange = { preset ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(length = preset) }
-                },
-                onChipsEnabledChange = { value ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(chipsEnabled = value) }
-                },
-                onShowMethodChange = { value ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(showMethod = value) }
-                },
-                onMaxRowsChange = { value ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(maxRows = value) }
-                },
-                onRoundsChange = { value ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(rounds = value) }
-                },
-                onHistoryDepthChange = { value ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(historyDepth = value) }
-                },
-                onPromptAdditionsChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(promptAdditions = text) }
-                },
-                onAboutGoalsChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(goals = text))
-                    }
-                },
-                onAboutWantsChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(wants = text))
-                    }
-                },
-                onAboutNeedsChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(needs = text))
-                    }
-                },
-                onAboutStrengthsChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(strengths = text))
-                    }
-                },
-                onAboutFocusAreasChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(focusAreas = text))
-                    }
-                },
-                onAboutNoteChange = { text ->
-                    assistantCollaborators.viewModelOrNull()?.updateSettings {
-                        it.copy(aboutMe = it.aboutMe.copy(note = text))
-                    }
-                },
-            ),
+                AssistantSettingsScreenActions(
+                    onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
+                    onFlushRequested = { assistantCollaborators.viewModelOrNull()?.flushSettings() },
+                    onNavigateBack = { nav.goBack() },
+                    onChangeProviderRequested = { assistantCollaborators.viewModelOrNull()?.changeProvider() },
+                    onRemoveKeyRequested = { assistantCollaborators.viewModelOrNull()?.removeProviderKey() },
+                    onLengthChange = { preset ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(length = preset) }
+                    },
+                    onChipsEnabledChange = { value ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(chipsEnabled = value) }
+                    },
+                    onShowMethodChange = { value ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(showMethod = value) }
+                    },
+                    onMaxRowsChange = { value ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(maxRows = value) }
+                    },
+                    onRoundsChange = { value ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(rounds = value) }
+                    },
+                    onHistoryDepthChange = { value ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(historyDepth = value) }
+                    },
+                    onPromptAdditionsChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(promptAdditions = text) }
+                    },
+                    onAboutGoalsChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(goals = text))
+                        }
+                    },
+                    onAboutWantsChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(wants = text))
+                        }
+                    },
+                    onAboutNeedsChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(needs = text))
+                        }
+                    },
+                    onAboutStrengthsChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(strengths = text))
+                        }
+                    },
+                    onAboutFocusAreasChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(focusAreas = text))
+                        }
+                    },
+                    onAboutNoteChange = { text ->
+                        assistantCollaborators.viewModelOrNull()?.updateSettings {
+                            it.copy(aboutMe = it.aboutMe.copy(note = text))
+                        }
+                    },
+                ),
         )
     }
 }
@@ -880,51 +981,38 @@ private fun <T> desktopRetained(
 }
 
 /**
- * A destination the desktop cannot render yet, said out loud.
+ * Persists the timeline hour height into the same `app_settings` row Android writes, through the SHELL's
+ * single-row path rather than straight to the repository.
  *
- * Throwing rather than rendering an empty pane is deliberate: the panes these replace currently show a
- * readiness card, and silently returning nothing would make a not-yet-migrated destination look like a
- * crash in the screen rather than a known gap in the port. The message names the phase that owns it, so
- * the failure points at the owner instead of costing an afternoon.
+ * The desktop has no `AppPreferencesViewModel` - that ViewModel is Hilt-constructed and Android-only - so
+ * the value goes where every other settings write goes: `DesktopShellCallbacks.onSettingChanged`
+ * (`DesktopApp.kt`) launches it on the shell's scope and calls `DesktopPreferencesSource.setSetting`, which
+ * writes the row under its write mutex, drops a write that raced a database swap, and republishes the
+ * mapped state.
+ *
+ * WHY THIS MATTERS, since both routes end at the same row: the write this replaces called
+ * `LocalDataLayer.current.appSettings.setSetting` itself, on a throwaway `CoroutineScope(Dispatchers.IO)`
+ * nobody cancels. That skipped three things the guarded path owns - the write mutex a concurrent
+ * `reload()` takes, the generation guard that discards a write made against a database that has since been
+ * replaced, and the republish - and `TimeScreen` reads `LocalAppPreferences` (`TimeScreen.kt:106`), which is
+ * fed only by that republish. So the bypass is why a scale preset could persist and still leave the screen
+ * showing the previous height until something else repainted it.
+ *
+ * The format is the SHARED formatter ([AppPreferencesWriter.formatHourHeightDp]), not a second
+ * `String.format` here: it is the same one the writer's own `setTimeHourHeightDp` uses, so a caller that
+ * formatted differently could store a row [io.payanam.core.ui.preferences.AppPreferencesMapper] parses as a
+ * different height. The clamp bound comes from `:core:ui` because that is where it is declared.
  */
-@Composable
-private fun desktopDestinationNotMigrated(
-    destination: String,
-    phase: String,
+private fun desktopPersistTimeHourHeightDp(
+    hourHeightDp: Float,
+    launchWrite: (suspend () -> Unit) -> Unit,
+    setSetting: (String, String?) -> Unit,
 ) {
-    error(
-        "Desktop destination '$destination' is not migrated yet - it is owned by $phase. " +
-            "Rendering nothing here would look like a broken screen.",
-    )
-}
-
-/**
- * Writes the timeline hour height into the same `app_settings` row Android writes.
- *
- * The desktop has no `AppPreferencesViewModel` - that ViewModel is Hilt-constructed and Android-only -
- * but the row, its key and its clamped format are shared, so this reaches the same storage through the
- * same shared contract ([io.payanam.presentation.data.PayanamDataLayer]) the desktop's own settings
- * screen already uses. A default would silently drop the write, which is the one outcome a scale preset
- * must never have: the slider would move and the row would not.
- */
-private fun desktopPersistTimeHourHeightDp(hourHeightDp: Float) {
     val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
-    val normalized = String.format(Locale.US, "%.2f", clamped)
-    CoroutineScope(Dispatchers.IO).launch {
-        runCatching {
-            LocalDataLayer.current.appSettings.setSetting(AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP, normalized)
-            AppLogger.current.d(
-                "DesktopPayanamNavHostScreens.setTimeHourHeightDp",
-                "Setting updated",
-                mapOf("key" to AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP, "value" to normalized),
-            )
-        }.onFailure { error ->
-            AppLogger.current.e(
-                "DesktopPayanamNavHostScreens.setTimeHourHeightDp",
-                "Failed to update setting",
-                error,
-                mapOf("key" to AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP),
-            )
-        }
+    launchWrite {
+        setSetting(
+            AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP,
+            AppPreferencesWriter.formatHourHeightDp(clamped),
+        )
     }
 }

@@ -5,23 +5,23 @@
 package io.payanam.feature.settings.ui
 
 import android.content.Context
-import android.content.Intent
-import android.os.Process
 import androidx.compose.material3.SnackbarDuration
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
+import dagger.hilt.android.EntryPointAccessors
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.preferences.DimensionPreference
+import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.feature.settings.SettingsViewModel
+import io.payanam.platform.SettingsEntryPoint
 import io.payanam.presentation.settings.BulkHabitMappingResult
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.logging.CrashBreadcrumbs
-import kotlin.system.exitProcess
 
 /**
  * The half of the settings screen's import/export feedback that is not shared: this file exists because
@@ -29,12 +29,12 @@ import kotlin.system.exitProcess
  *
  * The dialogs themselves moved to `io.payanam.core.ui.settings.SettingsDialogs`, where the desktop can
  * render the same confirmations over the same shared copy. What stayed here is the effect host and its
- * restart helper, for three reasons that all come down to the same seam: it needs a `Context` to read
- * `R.string` and to relaunch, it needs `Process.killProcess` to give the process fresh Room handles
- * after a database import, and it takes the app's `SettingsViewModel` so it can clear each result the
- * moment it has been shown. A shared screen would have to be handed all three as parameters, which
- * would put an Android-only restart policy behind an interface whose only other caller is the desktop -
- * where there is no process to kill and no launch intent to fire.
+ * restart helper, for two reasons that both come down to the same seam: it needs a `Context` to read
+ * `R.string`, and it takes the app's `SettingsViewModel` so it can clear each result the moment it has
+ * been shown. The restart itself is deliberately NOT one of those reasons any more: it goes through the
+ * shared `ProcessRestart` port, whose own contract covers relaunch-and-kill on both platforms, so the
+ * Android-only restart policy that used to live here is now a port detail and a shared screen does not
+ * have to be handed it as a parameter.
  *
  * FOUR EFFECTS FOR FOUR RESULT CHANNELS, and that is the whole count: export, import, uHabits import and
  * habit mapping are four different operations, each with its own success and failure copy and its own
@@ -182,14 +182,6 @@ internal fun SettingsImportFeedbackEffects(
 
 private fun restartAppAfterDatabaseImport(context: Context) {
     val logger = UnifiedLogger.getInstance()
-    val launchIntent = context.packageManager.getLaunchIntentForPackage(context.packageName)
-    if (launchIntent == null) {
-        logger.e(
-            "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
-            "Failed to relaunch app after DB import: launch intent unavailable",
-        )
-        return
-    }
     logger.i(
         "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
         "Restarting app to reopen imported database with fresh Room handles",
@@ -199,8 +191,24 @@ private fun restartAppAfterDatabaseImport(context: Context) {
         stage = "kill_process_for_restart",
     )
     logger.flush()
-    launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-    context.startActivity(launchIntent)
-    Process.killProcess(Process.myPid())
-    exitProcess(0)
+    // The relaunch-and-kill sequence itself is the shared port's job, not this file's, for the reason
+    // given at the top of this file: an Android-only restart policy behind an interface whose other
+    // implementation is the desktop has no shared module that can name it. The log line and the
+    // breadcrumb stay HERE because they are this screen's own diagnostics - the breadcrumb stage
+    // names the database import that triggered this restart, which is not what the port's own
+    // passphrase-change breadcrumb says, and a stage string is a key the next launch's trail is read
+    // with. Nothing durable happens after the call below: on Android the port ends this process
+    // inside it, so the line after it is the only line that can run, and it runs only to say why.
+    val processRestart =
+        EntryPointAccessors
+            .fromApplication(context, SettingsEntryPoint::class.java)
+            .processRestart()
+    val outcome = processRestart.restartProcess()
+    if (outcome is ProcessRestartOutcome.Refused) {
+        logger.w(
+            "SettingsImportFeedbackEffects.restartAppAfterDatabaseImport",
+            "Process restart refused: ${outcome.reason}",
+            mapOf("reason" to outcome.reason.name, "detail" to (outcome.detail ?: "")),
+        )
+    }
 }

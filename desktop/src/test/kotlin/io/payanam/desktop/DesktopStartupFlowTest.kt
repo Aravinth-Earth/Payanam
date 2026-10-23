@@ -103,7 +103,7 @@ class DesktopStartupFlowTest {
         fun stateFor(filePresent: Boolean) =
             buildDesktopStartupRuntimeState(
                 focusModeOnboardingCompleted = true,
-                bootstrapSnapshot = DesktopBootstrapSnapshot(),
+                bootstrapSchema = DesktopBootstrapSchema(),
                 securitySnapshot = DesktopSecuritySnapshot(hasPassphraseConfigured = true),
                 databaseSnapshot =
                     DesktopDatabaseSnapshot(
@@ -125,6 +125,49 @@ class DesktopStartupFlowTest {
         assertThat(ready.focusModeOnboardingCompleted).isTrue()
         assertThat(ready.lockoutSecondsRemaining).isEqualTo(0L)
         assertThat(ready.hasDatabaseArtifacts).isTrue()
+    }
+
+    @Test
+    fun `a launch with nothing on disk still opens the tour`() {
+        val mode =
+            resolveDesktopStartupMode(
+                DesktopStartupRuntimeState(
+                    hasPassphraseConfigured = false,
+                    hasDatabaseArtifacts = false,
+                    databaseLifecycleReady = false,
+                    sessionOpen = false,
+                    focusModeOnboardingCompleted = false,
+                    securityFilePath = "security",
+                    databaseFilePath = "database",
+                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
+                ),
+            )
+
+        assertThat(mode).isEqualTo(DesktopStartupMode.OnboardingIntro)
+    }
+
+    @Test
+    fun `a launch that has database artifacts does not reopen the tour`() {
+        val mode =
+            resolveDesktopStartupMode(
+                DesktopStartupRuntimeState(
+                    hasPassphraseConfigured = true,
+                    hasDatabaseArtifacts = true,
+                    databaseLifecycleReady = true,
+                    sessionOpen = false,
+                    focusModeOnboardingCompleted = true,
+                    securityFilePath = "security",
+                    databaseFilePath = "database",
+                    // The transient stage resets to Intro at every launch, so this is exactly the state a
+                    // returning user arrives in. The artifacts are the only fact that can tell that user
+                    // apart from a first-timer; before the clause under test, a fully configured install
+                    // was sent back through the tour on every start.
+                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
+                ),
+            )
+
+        assertThat(mode).isEqualTo(DesktopStartupMode.UnlockPassphrase)
+        assertThat(mode).isNotEqualTo(DesktopStartupMode.OnboardingIntro)
     }
 
     @Test
@@ -182,7 +225,7 @@ class DesktopStartupFlowTest {
         val state =
             buildDesktopStartupRuntimeState(
                 focusModeOnboardingCompleted = false,
-                bootstrapSnapshot = DesktopBootstrapSnapshot(),
+                bootstrapSchema = DesktopBootstrapSchema(),
                 securitySnapshot =
                     DesktopSecuritySnapshot(
                         availability = DesktopSecurityAvailability.UNAVAILABLE,

@@ -100,57 +100,57 @@ class LifeDimensionCatalogRepositoryJvm(
      * commit/rollback makes the delete and the inserts one unit of work, so a failure leaves the previous
      * catalog exactly as it was.
      */
-    override suspend fun replaceAllDimensions(dimensions: List<ConfiguredLifeDimension>): Int {
-        val timestamp = now()
-        val entities = dimensions.map { it.toLifeDimensionEntity(timestamp) }
-        val connection = session.requireConnection()
-        val previousAutoCommit = connection.autoCommit
-        connection.autoCommit = false
-        try {
-            connection.createStatement().use { statement ->
-                statement.executeUpdate(DELETE_ALL_SQL)
-                if (entities.isNotEmpty()) {
-                    connection.prepareStatement(INSERT_ALL_SQL).use { prepared ->
-                        entities.forEach { entity ->
-                            bindInsert(prepared, entity)
-                            prepared.addBatch()
+    override suspend fun replaceAllDimensions(dimensions: List<ConfiguredLifeDimension>): Int =
+        session.withSerializedAccess { connection ->
+            val timestamp = now()
+            val entities = dimensions.map { it.toLifeDimensionEntity(timestamp) }
+            val previousAutoCommit = connection.autoCommit
+            connection.autoCommit = false
+            try {
+                connection.createStatement().use { statement ->
+                    statement.executeUpdate(DELETE_ALL_SQL)
+                    if (entities.isNotEmpty()) {
+                        connection.prepareStatement(INSERT_ALL_SQL).use { prepared ->
+                            entities.forEach { entity ->
+                                bindInsert(prepared, entity)
+                                prepared.addBatch()
+                            }
+                            prepared.executeBatch()
                         }
-                        prepared.executeBatch()
                     }
                 }
+                connection.commit()
+            } catch (error: SQLException) {
+                // Narrow on purpose: every statement in this block is JDBC, so SQLException is the whole
+                // surface. A broad catch here would also swallow a cancellation and commit a half-written
+                // catalog on the way out.
+                // Rolled back explicitly, because autoCommit is still false: committing here would persist a
+                // half-written catalog, which is the exact state this method exists to prevent.
+                runCatching { connection.rollback() }
+                    .onFailure { rollbackError ->
+                        logger.e(
+                            "LifeDimensionCatalogRepositoryJvm.replaceAllDimensions",
+                            "Rollback failed after a failed catalog replace",
+                            rollbackError,
+                            mapOf("rollbackError" to (rollbackError.message ?: "Unknown error")),
+                        )
+                    }
+                logger.e(
+                    "LifeDimensionCatalogRepositoryJvm.replaceAllDimensions",
+                    "Replacing the life dimension catalog failed; the previous catalog is unchanged",
+                    error,
+                    mapOf("error" to (error.message ?: "Unknown error")),
+                )
+                throw error
+            } finally {
+                runCatching { connection.autoCommit = previousAutoCommit }
             }
-            connection.commit()
-        } catch (error: SQLException) {
-            // Narrow on purpose: every statement in this block is JDBC, so SQLException is the whole
-            // surface. A broad catch here would also swallow a cancellation and commit a half-written
-            // catalog on the way out.
-            // Rolled back explicitly, because autoCommit is still false: committing here would persist a
-            // half-written catalog, which is the exact state this method exists to prevent.
-            runCatching { connection.rollback() }
-                .onFailure { rollbackError ->
-                    logger.e(
-                        "LifeDimensionCatalogRepositoryJvm.replaceAllDimensions",
-                        "Rollback failed after a failed catalog replace",
-                        rollbackError,
-                        mapOf("rollbackError" to (rollbackError.message ?: "Unknown error")),
-                    )
-                }
-            logger.e(
+            logger.i(
                 "LifeDimensionCatalogRepositoryJvm.replaceAllDimensions",
-                "Replacing the life dimension catalog failed; the previous catalog is unchanged",
-                error,
-                mapOf("error" to (error.message ?: "Unknown error")),
+                "Replaced the life dimension catalog",
+                mapOf("requested" to entities.size, "written" to entities.size),
             )
-            throw error
-        } finally {
-            runCatching { connection.autoCommit = previousAutoCommit }
-        }
-        logger.i(
-            "LifeDimensionCatalogRepositoryJvm.replaceAllDimensions",
-            "Replaced the life dimension catalog",
-            mapOf("requested" to entities.size, "written" to entities.size),
-        )
-        return entities.size
+            return@withSerializedAccess entities.size
     }
 
     private fun bindInsert(

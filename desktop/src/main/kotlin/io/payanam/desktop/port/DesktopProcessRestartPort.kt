@@ -70,7 +70,26 @@ import java.util.concurrent.atomic.AtomicBoolean
 internal class DesktopProcessRestartPort(
     private val runtimeDirectory: Path = DesktopAppPaths.resolveRuntimeDirectory(),
     private val commandOf: () -> String = { currentLaunchCommand() },
-    private val spawn: (String) -> Unit = { command -> ProcessBuilder(command).start() },
+    private val spawn: (String) -> Unit = { command ->
+        // The replacement is launched the way every VERIFIED-working relaunch of this binary was:
+        // through a plain `sh`, a beat after the caller (so the single-instance lease this process
+        // holds is released by its own exit before the replacement asks for it), with the
+        // environment the launcher cannot misuse. Measured 2026-10-05 against a direct
+        // `ProcessBuilder(command).start()` from this JVM, which degenerated: the child ran as a
+        // main-class-less java, printed the usage and exited, while the same binary spawned from a
+        // shell (any shell, any cwd, JDK 17 or 25 parent) always started normally. The
+        // `_JPACKAGE_LAUNCHER` marker this process carries is its launcher's own re-exec bookkeeping
+        // - dropping it makes the child see the same clean environment the first launch saw. stdio
+        // is inherited so a refusal or crash in the replacement's first seconds lands where this
+        // process's output already goes, not in an unread pipe.
+        ProcessBuilder("/bin/sh", "-c", "sleep 1; exec \"$1\"", "sh", command)
+            .apply {
+                environment().remove("_JPACKAGE_LAUNCHER")
+            }
+            .redirectErrorStream(true)
+            .inheritIO()
+            .start()
+    },
     private val checkpointAndClose: () -> Unit = { DesktopDatabaseSessionController.checkpointAndCloseProcessSession() },
     private val clock: () -> Instant = { Instant.now() },
 ) : ProcessRestart {

@@ -2,10 +2,10 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.test.junit4.createComposeRule
 import com.google.common.truth.Truth.assertThat
@@ -34,13 +34,15 @@ class DesktopThemeModeTest {
     }
 
     @Test
-    fun `the card colour follows the mode rather than being fixed`() {
+    fun `the shared theme answers a different surface for DARK and LIGHT`() {
         var dark by mutableStateOf(false)
         val drawn = mutableListOf<Color>()
         // ONE setContent: a Compose rule allows a single one per test, so the mode is flipped inside it.
+        // The subject is the SHARED theme now - it is the only one the desktop installs, so "does the
+        // setting change what is drawn" is a question about its token set, not about a local palette.
         composeRule.setContent {
-            CompositionLocalProvider(LocalDesktopDarkTheme provides dark) {
-                drawn.add(desktopCardColor())
+            io.payanam.core.ui.theme.PayanamTheme(darkTheme = dark) {
+                drawn.add(MaterialTheme.colorScheme.surface)
             }
         }
         composeRule.waitForIdle()

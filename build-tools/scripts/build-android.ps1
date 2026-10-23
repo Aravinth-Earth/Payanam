@@ -901,7 +901,9 @@ function Test-StringParity
     #
     #  RULE B - where the two tables hold the same key, they must agree. A key in both ships TWICE:
     #  once from the shared table the promoted ViewModels read, and once from the platform table the
-    #  Android UI actually resolves. Measured 2026-09-29: 972 keys are held by both, in each language.
+    #  Android UI actually resolves. Measured 2026-09-29: 972 keys are held by both, in each language;
+    #  re-measured 2026-10-04: 990 keys are held by both, still with 0 value differences. Treat the
+    #  count as a dated snapshot - what the rule asserts is zero DIFFERENCES, not a particular count.
     #
     #  RULE B is the one that has actually failed in the field. settings_import_error_unreadable_db was
     #  reworded in the shared table while the app table kept "Export a plaintext backup from the source

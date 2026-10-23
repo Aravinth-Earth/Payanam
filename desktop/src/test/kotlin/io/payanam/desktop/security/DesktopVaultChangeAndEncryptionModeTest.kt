@@ -41,6 +41,14 @@ class DesktopVaultChangeAndEncryptionModeTest {
             DesktopSecurityStore(securityDirectory = tempFolder.newFolder().toPath()),
         )
 
+    /** A vault that answers the encryption question about [file], through the REAL probe - the production shape. */
+    private fun vaultOver(file: java.io.File): DesktopPassphraseVault =
+        DesktopPassphraseVault(
+            DesktopSecurityStore(securityDirectory = tempFolder.newFolder().toPath()),
+            encryptionProbe = io.payanam.desktop.database.DesktopDatabaseInitPorts.encryptionProbe,
+            databaseFile = { file },
+        )
+
     @Test
     fun `a change proved with the current passphrase replaces it`() {
         val vault = vault()
@@ -103,18 +111,32 @@ class DesktopVaultChangeAndEncryptionModeTest {
     }
 
     @Test
-    fun `the desktop reports its database as unencrypted while a passphrase is configured`() {
-        val vault = vault()
+    fun `the desktop answers the encryption question from the FILE - plaintext reads false`() {
+        val plaintext = tempFolder.newFile("plaintext.db")
+        Files.write(plaintext.toPath(), "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1) + ByteArray(4080))
+        val vault = vaultOver(plaintext)
         vault.configurePassphrase(currentPassphrase.toCharArray())
 
         // The never-enabled-without-material rule has to hold on BOTH platforms, and it cannot be the same
-        // assertion on both. On Android configuring a passphrase turns the mode ON because the database
-        // really is SQLCipher. Here the database is a plain unencrypted JDBC file, so claiming otherwise
-        // would be a settings screen promising protection the platform cannot deliver — which this class's
-        // KDoc names as the worse outcome of the two. `false` while a passphrase exists is the honest
-        // answer, and it is asserted with the passphrase PRESENT so the case cannot pass by accident.
+        // assertion on both. This case used to pass because the vault hardcoded `false` under a KDoc claiming
+        // "the desktop opens an unencrypted JDBC file" - a premise the tree falsifies, since the desktop opens
+        // with a key. The answer now comes from the file itself through the same probe every other file
+        // question uses, and a plaintext file still reads `false`: that is the honest answer a settings screen
+        // must see, asserted with the passphrase PRESENT so the case cannot pass by accident.
         assertThat(vault.isEncryptionEnabled()).isFalse()
         assertThat(vault.hasPassphraseConfigured()).isTrue()
+    }
+
+    @Test
+    fun `the desktop answers the encryption question from the FILE - an encrypted file reads true`() {
+        // The case the hardcoded `false` could never pass: a file that is NOT plaintext SQLite. Before this
+        // change the vault would have reported `false` about it no matter what it held - the wrong answer
+        // about a file the platform opened with a key, which is the defect this reader's rewrite ends.
+        val encrypted = tempFolder.newFile("encrypted.db")
+        Files.write(encrypted.toPath(), ByteArray(4096) { index -> (index * 31 + 7).toByte() })
+        val vault = vaultOver(encrypted)
+
+        assertThat(vault.isEncryptionEnabled()).isTrue()
     }
 
     @Test

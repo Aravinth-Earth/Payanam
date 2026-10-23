@@ -4,6 +4,8 @@ package io.payanam.desktop.platform
 
 import com.google.common.truth.Truth.assertThat
 import io.payanam.desktop.DesktopBuildInfo
+import io.payanam.desktop.reconcileAfterSettingChange
+import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.logging.NoOpUnifiedLogger
 import io.payanam.shared.platform.BackupBackgroundCapability
 import io.payanam.shared.platform.ReminderCapability
@@ -281,6 +283,40 @@ class DesktopPlatformSeamsTest {
             scheduler.schedule(15)
 
             assertThat(scheduler.intervalMinutes).isEqualTo(15)
+        }
+
+    @Test
+    fun `a write of either backup key reconciles the schedule and any other key does not`(): Unit =
+        runBlocking {
+            val rows =
+                mutableMapOf<String, String?>(
+                    AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED to "true",
+                    // A key `BackupInterval.fromKey` actually resolves - "2h" is the enum's own spelling,
+                    // and a row key the enum does not know falls back to SIXTY_MIN rather than failing.
+                    AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL to "2h",
+                )
+            val seams =
+                DesktopPlatformSeams(
+                    scope,
+                    NoOpUnifiedLogger,
+                    runBackup = {},
+                    backupRows = { rows },
+                )
+
+            // The negative control FIRST: a non-backup key must leave the schedule alone, or the cases
+            // below would pass on a reconcile that fires for every row.
+            reconcileAfterSettingChange(seams, AppPreferenceKeys.KEY_SESSION_TIMEOUT_MINUTES)
+            assertThat(seams.backupIntervalMinutes.value).isNull()
+
+            // Either of the two keys the schedule is derived from reconciles it - the interval rung
+            // first, so both keys are exercised rather than one standing in for the other.
+            reconcileAfterSettingChange(seams, AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL)
+            assertThat(seams.backupIntervalMinutes.value).isEqualTo(120)
+
+            // And the toggle itself, in the off direction, so both arms of the rows are covered.
+            rows[AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED] = "false"
+            reconcileAfterSettingChange(seams, AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED)
+            assertThat(seams.backupIntervalMinutes.value).isNull()
         }
 
     // ---- capabilities and debug flags ----

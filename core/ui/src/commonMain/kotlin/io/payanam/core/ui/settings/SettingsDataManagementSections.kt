@@ -67,6 +67,7 @@ fun DataManagementSettingsSection(
     onMapImportedHabitsClick: () -> Unit,
     onChangePassphraseClick: () -> Unit,
     onDeleteAllDataClick: () -> Unit,
+    deleteAllDataEnabled: Boolean = true,
 ) {
     val strings = LocalUiStrings.current
     Column {
@@ -190,17 +191,19 @@ fun DataManagementSettingsSection(
             Text(strings.settingsActionChangePassphrase)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onDeleteAllDataClick,
-            enabled = !uiState.isExporting && !uiState.isImporting,
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
-        ) {
-            Text(strings.settingsActionDeleteAllData)
+        if (deleteAllDataEnabled) {
+            OutlinedButton(
+                onClick = onDeleteAllDataClick,
+                enabled = !uiState.isExporting && !uiState.isImporting,
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Text(strings.settingsActionDeleteAllData)
+            }
+            Spacer(modifier = Modifier.height(8.dp))
         }
-        Spacer(modifier = Modifier.height(8.dp))
         Text(
             text = strings.settingsImportedHabitsCount.formatArgs(uiState.importedUhabitsHabitCount),
             style = MaterialTheme.typography.bodySmall,
@@ -222,6 +225,7 @@ fun MinimalDataManagementSection(
     onDeleteAllDataClick: () -> Unit,
     isExporting: Boolean,
     isImporting: Boolean,
+    deleteAllDataEnabled: Boolean = true,
 ) {
     val strings = LocalUiStrings.current
     Column {
@@ -233,15 +237,17 @@ fun MinimalDataManagementSection(
             Text(strings.settingsActionChangePassphrase)
         }
         Spacer(modifier = Modifier.height(8.dp))
-        OutlinedButton(
-            onClick = onDeleteAllDataClick,
-            enabled = !isExporting && !isImporting,
-            modifier = Modifier.fillMaxWidth(),
-            colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
-                contentColor = MaterialTheme.colorScheme.error,
-            ),
-        ) {
-            Text(strings.settingsActionDeleteAllData)
+        if (deleteAllDataEnabled) {
+            OutlinedButton(
+                onClick = onDeleteAllDataClick,
+                enabled = !isExporting && !isImporting,
+                modifier = Modifier.fillMaxWidth(),
+                colors = androidx.compose.material3.ButtonDefaults.outlinedButtonColors(
+                    contentColor = MaterialTheme.colorScheme.error,
+                ),
+            ) {
+                Text(strings.settingsActionDeleteAllData)
+            }
         }
     }
 }

@@ -29,6 +29,7 @@ import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
+import io.payanam.feature.settings.AndroidApkUpdateSource
 import io.payanam.notification.NotificationScheduler
 import io.payanam.platform.AndroidBackupStatusPort
 import io.payanam.platform.AndroidDatabaseBackupPort
@@ -48,6 +49,7 @@ import io.payanam.scoring.ElegantTaskScoring
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.database.PayanamDatabaseOpener
+import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.security.BiometricAuthentication
 import io.payanam.shared.security.BiometricAvailability
@@ -203,6 +205,30 @@ object PortBindingsModule {
     @Provides
     @Singleton
     fun provideDocumentSource(@ApplicationContext context: Context): DocumentSource = AndroidDocumentSource(context)
+
+    /**
+     * Exposes Android's real self-install update source as the shared [ApkUpdateSource] port.
+     *
+     * A `@Provides` for the same reason as [provideDocumentSource] above: the adapter is constructed
+     * here so shared code can name the port without naming - or importing - an `:app` class.
+     *
+     * WHY IT IS BOUND NOW AND THE ADAPTER WAS UNTIL NOW NEVER CONSTRUCTED: the port was written, and
+     * its Android answer was written and tested next to it, but no provider built one, so the whole
+     * capability was reachable only from its own unit test. The desktop has always supplied its half of
+     * the same contract (`DesktopUnsupportedPorts.apkUpdateSource`), so the seam existed on both sides
+     * and only the Android side was unwired. Binding it is what makes the port a real dependency
+     * rather than an interface nothing resolves.
+     *
+     * WHY NO CHANNEL IS NAMED HERE: the adapter defaults to the DEV release channel and documents that
+     * default as the rescue channel this app's pre-unlock hatch already uses, so naming it again here
+     * would be a second answer to "which channel does this app ask about". One source decides.
+     *
+     * Singleton-scoped because the adapter retains the channel read its own fetch resolves an artifact
+     * from; a per-injection adapter would let a fetch ask a download of a check nobody can see.
+     */
+    @Provides
+    @Singleton
+    fun provideApkUpdateSource(@ApplicationContext context: Context): ApkUpdateSource = AndroidApkUpdateSource(context)
 
     /**
      * Exposes Android's database-init flag writer as the shared [DatabaseInitFlagWriter] port.

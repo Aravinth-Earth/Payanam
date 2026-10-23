@@ -33,15 +33,23 @@ PASSPHRASE="${LOOP_PASSPHRASE:-LoopDrive#Pass9}"
 
 shot 01-tour-page-1
 
-# The tour: three "Next" taps. A page transition is an animation, so the settle is a full 2s, and the
-# last one is longer because the last page is the slowest to hand over to the gate.
+# The tour: ONE "Next" tap, measured 2026-10-06, not the three this comment used to claim.
+#
+# HOW IT WAS MEASURED, because the number matters and two runs disagreed with it: shot 01 is taken
+# BEFORE any click, so shot 01 and shot 00 are the same screen (the tour). OCR of shot 02 - the frame
+# AFTER exactly one click - reads "Welcome To Payanam / Create New Empty Database / Import Database File
+# (.db)". The tour is therefore over after ONE tap, and every subsequent tap at this point lands on a
+# screen that does not have a Next button, which is why the loop refused it with "the click left the
+# screen byte-identical". A tap that misses is exactly what this harness exists to refuse, so the count
+# here is load-bearing: re-adding taps does not make the run more thorough, it makes it fail.
 click 254 739 2
-shot 02-tour-page-2
+shot 02-after-tour-next
 
-click 254 739 2
-shot 03-tour-page-3
-
-click 254 739 4
+# MEASURED 2026-10-06: the tour is TWO pages, not three. A third click here left the screen
+# BYTE-IDENTICAL (the loop refused it: "the click left the screen byte-identical"), and OCR of the
+# frame that shot 02 captured reads "Welcome To Payanam / Create New Empty Database / Import Database
+# File (.db)" - i.e. the tour was already over and shot 02's name is what was stale, not the app.
+# Do NOT re-add a third tap: the frames either side of this point are identical when it is present.
 shot 04-after-tour
 
 # The database-init gate needs a moment to compose and to run its health check before it is tappable -
@@ -51,7 +59,13 @@ shot 05-setup-gate
 
 # Create the empty database. This is the step that makes the NEXT launch resolve to the unlock gate
 # instead of re-asking to create one.
-click 256 517 3
+# LOCATED BY ITS WORDS, not by a stored coordinate - measured 2026-10-06. The hardcoded point this
+# used to click, (256,517), left the screen byte-identical: the real control sits at (270,487), off by
+# (14,30) after some earlier layout change, and a stale pixel fails SILENTLY in the sense that it looks
+# like a slow app rather than a wrong number. The loop's text finder removes that whole class of drift.
+CREATE_CENTRE="$(find_text_centre --text 'Create New Empty Database' --scale 2)" ||
+    die "could not find the create-database control by its words - the gate screen has changed again"
+click $CREATE_CENTRE 3
 shot 06-after-create
 
 # Let the created database finish writing, and let the screen that asks for a passphrase compose.

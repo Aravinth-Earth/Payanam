@@ -2,7 +2,6 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.assistant
 
-import androidx.room.withTransaction
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.session.DatabaseSessionManager
@@ -25,7 +24,7 @@ import javax.inject.Singleton
  * `AssistantSettingsWriteCountTest`, because the log line that quotes it must not be able to
  * report rows the writer stopped writing.
  */
-internal const val STORED_SETTING_ROWS = 14
+internal const val STORED_SETTING_ROWS = 13
 
 /**
  * Persists assistant configuration inside the app's **encrypted** database
@@ -53,11 +52,16 @@ constructor(
      * Reads the key + settings + reconfigure flag in ONE transaction (one consistent
      * snapshot; the flag tells the caller to show the setup surface).
      */
-    override suspend fun loadConfig(): StoredAssistantConfig = sessionManager.requireDatabase().withTransaction {
+    override suspend fun loadConfig(): StoredAssistantConfig = sessionManager.inTransaction {
+        val setupRequiredField =
+            AssistantStoredValue.boolean(KEY_SETUP_REQUIRED, read(KEY_SETUP_REQUIRED), fallback = false)
+        // Fail-closed: an unreadable row loads as true (into the setup surface), not false.
+        val setupRequired = if (setupRequiredField.usable) setupRequiredField.value else true
+        if (!setupRequiredField.usable) reportUnreadableStoredRow(KEY_SETUP_REQUIRED)
         StoredAssistantConfig(
             apiKey = read(KEY_API_KEY) ?: "",
             settings = loadSettings(),
-            setupRequired = read(KEY_SETUP_REQUIRED)?.toBooleanStrictOrNull() ?: false,
+            setupRequired = setupRequired,
         )
     }.also { config ->
         logger.d(
@@ -134,7 +138,7 @@ constructor(
      */
     override suspend fun save(settings: AssistantSettings) {
         val clean = settings.sanitized()
-        sessionManager.requireDatabase().withTransaction { writeAll(clean) }
+        sessionManager.inTransaction { writeAll(clean) }
         logger.d("AssistantSettingsStore.save", "Assistant settings saved", mapOf("rows" to STORED_SETTING_ROWS))
     }
 
@@ -146,7 +150,7 @@ constructor(
      */
     override suspend fun saveAll(apiKey: String?, settings: AssistantSettings) {
         val clean = settings.sanitized()
-        sessionManager.requireDatabase().withTransaction {
+        sessionManager.inTransaction {
             writeAll(clean)
             write(KEY_MODEL, clean.model)
             if (apiKey != null) write(KEY_API_KEY, apiKey)
@@ -180,7 +184,6 @@ constructor(
         write(KEY_ABOUT_STRENGTHS, clean.aboutMe.strengths)
         write(KEY_ABOUT_FOCUS, clean.aboutMe.focusAreas)
         write(KEY_ABOUT_NOTE, clean.aboutMe.note)
-        write(KEY_NOTICE_SHOWN, clean.noticeShown.toString())
     }
 
     /** Marks the first-run disclaimer as seen. */
@@ -194,7 +197,7 @@ constructor(
      * in ONE transaction (used by "Remove key" / replacing the provider).
      */
     override suspend fun clearProviderConfiguration() {
-        sessionManager.requireDatabase().withTransaction {
+        sessionManager.inTransaction {
             delete(KEY_API_KEY)
             delete(KEY_SETUP_REQUIRED)
             delete(KEY_MODEL)
@@ -234,22 +237,22 @@ constructor(
 
     private companion object {
         private const val FINGERPRINT_BYTES = 4
-        private const val KEY_API_KEY = "assistant.api_key"
-        private const val KEY_MODEL = "assistant.model"
-        private const val KEY_LENGTH = "assistant.length"
-        private const val KEY_MAX_ROWS = "assistant.max_rows"
-        private const val KEY_ROUNDS = "assistant.rounds"
-        private const val KEY_HISTORY = "assistant.history_depth"
-        private const val KEY_SHOW_METHOD = "assistant.show_method"
-        private const val KEY_CHIPS = "assistant.chips"
-        private const val KEY_PROMPT_ADDITIONS = "assistant.prompt_additions"
-        private const val KEY_ABOUT_GOALS = "assistant.about_goals"
-        private const val KEY_ABOUT_WANTS = "assistant.about_wants"
-        private const val KEY_ABOUT_NEEDS = "assistant.about_needs"
-        private const val KEY_ABOUT_STRENGTHS = "assistant.about_strengths"
-        private const val KEY_ABOUT_FOCUS = "assistant.about_focus"
-        private const val KEY_ABOUT_NOTE = "assistant.about_note"
-        private const val KEY_NOTICE_SHOWN = "assistant.notice_shown"
-        private const val KEY_SETUP_REQUIRED = "assistant.setup_required"
+        private const val KEY_API_KEY = AssistantConfigurationStore.KEY_API_KEY
+        private const val KEY_MODEL = AssistantConfigurationStore.KEY_MODEL
+        private const val KEY_LENGTH = AssistantConfigurationStore.KEY_LENGTH
+        private const val KEY_MAX_ROWS = AssistantConfigurationStore.KEY_MAX_ROWS
+        private const val KEY_ROUNDS = AssistantConfigurationStore.KEY_ROUNDS
+        private const val KEY_HISTORY = AssistantConfigurationStore.KEY_HISTORY
+        private const val KEY_SHOW_METHOD = AssistantConfigurationStore.KEY_SHOW_METHOD
+        private const val KEY_CHIPS = AssistantConfigurationStore.KEY_CHIPS
+        private const val KEY_PROMPT_ADDITIONS = AssistantConfigurationStore.KEY_PROMPT_ADDITIONS
+        private const val KEY_ABOUT_GOALS = AssistantConfigurationStore.KEY_ABOUT_GOALS
+        private const val KEY_ABOUT_WANTS = AssistantConfigurationStore.KEY_ABOUT_WANTS
+        private const val KEY_ABOUT_NEEDS = AssistantConfigurationStore.KEY_ABOUT_NEEDS
+        private const val KEY_ABOUT_STRENGTHS = AssistantConfigurationStore.KEY_ABOUT_STRENGTHS
+        private const val KEY_ABOUT_FOCUS = AssistantConfigurationStore.KEY_ABOUT_FOCUS
+        private const val KEY_ABOUT_NOTE = AssistantConfigurationStore.KEY_ABOUT_NOTE
+        private const val KEY_NOTICE_SHOWN = AssistantConfigurationStore.KEY_NOTICE_SHOWN
+        private const val KEY_SETUP_REQUIRED = AssistantConfigurationStore.KEY_SETUP_REQUIRED
     }
 }
