@@ -80,6 +80,7 @@ class AndroidBiometricUnlockPrompt(
         logger.i("AndroidBiometricUnlockPrompt.availability", "Biometric capability checked", mapOf("canAuthenticateResult" to result))
         return when (result) {
             BiometricManager.BIOMETRIC_SUCCESS -> BiometricAvailability.Available
+
             BiometricManager.BIOMETRIC_ERROR_NO_HARDWARE ->
                 BiometricAvailability.Unavailable(BiometricUnavailableReason.NO_HARDWARE)
 
@@ -135,13 +136,12 @@ class AndroidBiometricUnlockPrompt(
         }
     }
 
-    private fun promptInfo(): BiometricPrompt.PromptInfo =
-        BiometricPrompt.PromptInfo.Builder()
-            .setTitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_title))
-            .setSubtitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_subtitle))
-            .setNegativeButtonText(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_negative))
-            .setAllowedAuthenticators(BIOMETRIC_STRONG)
-            .build()
+    private fun promptInfo(): BiometricPrompt.PromptInfo = BiometricPrompt.PromptInfo.Builder()
+        .setTitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_title))
+        .setSubtitle(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_subtitle))
+        .setNegativeButtonText(context.getString(io.payanam.R.string.db_passphrase_unlock_biometric_negative))
+        .setAllowedAuthenticators(BIOMETRIC_STRONG)
+        .build()
 
     /**
      * Resolves the continuation exactly once.

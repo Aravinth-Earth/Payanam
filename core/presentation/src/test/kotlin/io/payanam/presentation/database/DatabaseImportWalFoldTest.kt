@@ -306,6 +306,35 @@ class DatabaseImportWalFoldTest {
     }
 
     /**
+     * The copy CREATES the database directory when nothing has yet.
+     *
+     * The desktop's first import runs on a profile with no database at all, so no earlier step has made the
+     * directory the artifact family lives in, and `FileOutputStream` does not create parents: the very first
+     * real pick failed with `.../database/payanam.db.enc (No such file or directory)` - an OS message about
+     * the APP's path rather than the user's file. A target whose parents are missing must be created, never
+     * reported back as the user's mistake. Android hid this for years because its platform creates the
+     * directory; the desktop is the platform that proved the shared copy was assuming it.
+     */
+    @Test
+    fun `the copy creates the database directory the artifact family is written into`() {
+        val target = File(temporaryFolder.root, "absent/deep/payanam.db")
+        assertFalse("The precondition is a directory that does not exist yet", target.parentFile.exists())
+        val source = SingleFileDocumentSource(name = "from-a-fresh-profile.db")
+
+        val result =
+            DatabaseImportSupport.copyDatabaseArtifacts(
+                documentSource = source,
+                sourceToken = SingleFileDocumentSource.TOKEN,
+                targetDatabaseFile = target,
+                strings = strings,
+            )
+
+        assertTrue("The directory the import writes into must exist afterwards", target.parentFile.isDirectory)
+        assertThat(target.readBytes()).isEqualTo(source.bytes)
+        assertEquals(source.byteCount, result.bytesCopied)
+    }
+
+    /**
      * A picked companion is REFUSED, and nothing is written to the target.
      *
      * This is the desktop counterpart of the `-journal` rule the folder test pins: a user who taps

@@ -140,7 +140,25 @@ internal fun pruneOldBackupDirectories(
             ?.toList()
             .orEmpty()
     if (backupDirs.size <= policy.keepCount) return emptyList()
-    val doomed = backupDirs.sortedByDescending { it.lastModified() }.drop(policy.keepCount)
+    // TWO keys, and the second one is the fix. `sortedByDescending` is a STABLE sort, so artifacts
+    // sharing an mtime keep the order `listFiles` returned them in - and java.io.File specifies no
+    // order for that. `drop(keepCount)` then deletes the TAIL, so with tied mtimes the head it keeps
+    // is an arbitrary artifact and the newest can be deleted: measured on ntfs3 (this repo's own
+    // volume), where listFiles returns directory entries in creation order, restoring a batch of
+    // backups written oldest-name-last deletes the newest one under keepCount = 1; on tmpfs the same
+    // fixture happens to keep it, so the defect is invisible on one filesystem and real on another.
+    //
+    // The name breaks the tie because the artifact name IS the stamp: `scheduledBackupArtifactName`
+    // builds `auto_bk_<yyyyMMdd-HHmmss>.db`, zero-padded and fixed-width, so descending name order is
+    // descending chronological order among the artifacts this app writes. mtime stays the primary key,
+    // so this can never promote an artifact over a genuinely newer one - it only makes the order of
+    // two artifacts the filesystem cannot order TOTAL.
+    val doomed =
+        backupDirs
+            .sortedWith(
+                compareByDescending<java.io.File> { it.lastModified() }
+                    .thenByDescending { it.name },
+            ).drop(policy.keepCount)
     val deleted = mutableListOf<java.io.File>()
     doomed.forEach { candidate ->
         // A directory that cannot be removed is reported and skipped: one locked folder must not

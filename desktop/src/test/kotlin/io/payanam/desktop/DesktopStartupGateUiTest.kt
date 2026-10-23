@@ -278,7 +278,6 @@ class DesktopStartupGateUiTest {
         onForgotPassphraseReset = onForgotPassphraseReset,
         onOnboardingIntroAdvanced = {},
         onDatabaseChoiceSelected = {},
-        onDimensionSetupSaved = {},
         onInitializeDatabase = onInitializeDatabase,
         onCompleteFocusModeOnboarding = {},
         onExportDatabase = {},

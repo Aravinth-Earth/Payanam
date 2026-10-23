@@ -19,6 +19,7 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
+import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -457,6 +458,14 @@ class DesktopSettingsDestinationRenderTest {
                         // The observable the write case reads.
                         launchWrite = { block -> block() },
                         setSetting = { key, value -> writtenRows += key to value },
+                    ),
+                // Over this fixture's own controller and file, never the host's. The controller REFUSES
+                // every open, so the holder reports no store - and this file mounts no assistant route,
+                // which `DesktopNavHostSharedScreenRenderTest` walks instead.
+                assistantCollaborators =
+                    DesktopAssistantCollaborators(
+                        sessionController = sessionController,
+                        databaseFile = databaseDirectory.resolve(PayanamDatabaseSchema.DATABASE_NAME),
                     ),
             )
         composeRule.setContent {

@@ -4,9 +4,9 @@ package io.payanam.ui.screens
 
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.core.ui.lenses.averageDailyTimeColumnTotals
-import io.payanam.core.ui.lenses.averageDailyTimeCellShare
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.lenses.averageDailyTimeCellShare
+import io.payanam.core.ui.lenses.averageDailyTimeColumnTotals
 import io.payanam.domain.repository.AverageDailyTimeRow
 import io.payanam.domain.repository.AverageDailyTimeRowType
 import io.payanam.domain.repository.AverageDailyTimeTableData
@@ -66,10 +66,10 @@ class LensesTimeAverageDailySectionTest {
         assertEquals(750.0, totals[AverageDailyTimeWindow.ALL_DAYS] ?: 0.0, 0.0)
     }
 
-    @Test
     /**
      * Average daily time cell share returns ratio with clamp and safe zero.
      */
+    @Test
     fun averageDailyTimeCellShare_returns_ratio_with_clamp_and_safe_zero() {
         assertEquals(0.5, averageDailyTimeCellShare(minutes = 30.0, columnTotalMinutes = 60.0), 0.0)
         assertEquals(1.0, averageDailyTimeCellShare(minutes = 90.0, columnTotalMinutes = 60.0), 0.0)

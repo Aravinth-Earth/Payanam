@@ -178,7 +178,10 @@ class InsightsVisibilityTest {
 
         /** Only composed once "Line graphs" is on (it defaults to off). */
         val LINE_GRAPH_ROWS = listOf(
-            "Daily score trend", "Progress trend", "Historical ranking by day", "Momentum streak trend",
+            "Daily score trend",
+            "Progress trend",
+            "Historical ranking by day",
+            "Momentum streak trend",
         )
     }
 }

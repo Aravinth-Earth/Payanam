@@ -51,11 +51,16 @@ fun interface DimensionLabelNormalizer {
  * container for this, and the desktop gets the identical rows without a second implementation.
  *
  * WHY THE PARAMETERS ARE PRIMITIVES: this module sits BELOW `:core:ui`, which is where `ThemeModeOption`,
- * `FontFamilyOption`, `BackupInterval` and Compose's `Color` live. Passing those types would make this
- * class uncompilable here, and passing them by `.key` string from the caller is what lets the shared
- * screen stay the single owner of what each control MEANS: this class owns what gets STORED, the caller
- * owns what the choice was. A `Boolean` toggle and a `Color` both arrive here as the string the row
- * holds.
+ * `FontFamilyOption` and Compose's `Color` live. Passing those types would make this class uncompilable
+ * here, and passing them by `.key` string from the caller is what lets the shared screen stay the single
+ * owner of what each control MEANS: this class owns what gets STORED, the caller owns what the choice was.
+ * A `Boolean` toggle and a `Color` both arrive here as the string the row holds.
+ *
+ * `BackupInterval` is deliberately still passed by key even though it no longer has to be: it moved to
+ * `:core:shared` to escape the `:core:ui` -> `:core:presentation` dependency cycle, which makes it
+ * readable from here. Narrowing the signature to the enum would churn every call site to buy a type
+ * safety this layer's callers already lose the moment they read a `String?` off a settings row, and the
+ * caller still owns what the choice MEANS either way.
  *
  * Every write goes through [AppSettingsRepository.setSetting], and every write is logged through
  * [AppLogger] - the same logger contract the rest of this layer uses, so a settings write is visible from

@@ -32,14 +32,18 @@ class DesktopStartupGateShownByGraphTest {
     }
 
     @Test
-    fun `the four modes with no graph destination keep the desktop's own surface`() {
+    fun `the three modes with no graph destination keep the desktop's own surface`() {
         val twinModes = DesktopStartupMode.entries.filterNot(::desktopStartupGateShownByGraph).toSet()
 
+        // `OnboardingDimensionSetup` was the fourth, and the mode itself is gone: the desktop's own
+        // dimension card was its only renderer, and nothing ever resolved to that mode - the resolver
+        // sends `DatabaseChoice` and `DimensionSetup` to the SHARED `InitializeDatabase` destination, so
+        // the first-run dimension step is the shared screen. What is left here is the intro (its own
+        // screen), the database choice (its own card) and the fail-closed security refusal.
         assertThat(twinModes)
             .containsExactly(
                 DesktopStartupMode.OnboardingIntro,
                 DesktopStartupMode.OnboardingDatabaseChoice,
-                DesktopStartupMode.OnboardingDimensionSetup,
                 DesktopStartupMode.SecurityStateUnavailable,
             )
     }
@@ -49,6 +53,6 @@ class DesktopStartupGateShownByGraphTest {
         // The two cases above list the mode sets in full; this pins WHY that is safe - `entries` is every
         // mode and the predicate answers for each, so adding a mode without deciding fails the first case
         // rather than silently mounting nothing.
-        assertThat(DesktopStartupMode.entries.size).isEqualTo(9)
+        assertThat(DesktopStartupMode.entries.size).isEqualTo(8)
     }
 }

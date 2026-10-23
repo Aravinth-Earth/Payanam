@@ -17,6 +17,7 @@ interface BackupWorkerEntryPoint {
      * The singleton backup executor (snapshot + rotation).
      */
     fun databaseBackupCoordinator(): DatabaseBackupCoordinator
+
     /**
      * The persisted last-success/last-failure store shown in Settings.
      */

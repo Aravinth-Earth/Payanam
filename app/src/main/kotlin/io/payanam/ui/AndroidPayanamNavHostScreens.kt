@@ -37,6 +37,7 @@ import io.payanam.core.ui.tasks.TaskDetailScreen
 import io.payanam.core.ui.tasks.TasksScreen
 import io.payanam.core.ui.tasks.TasksScreenMode
 import io.payanam.core.ui.text.rememberUiLanguage
+import io.payanam.core.ui.time.TimeScreen
 import io.payanam.di.PassphraseUnlockEntryPoint
 import io.payanam.di.UnavailableBiometricUnlockPrompt
 import io.payanam.feature.assistant.ui.AssistantScreen
@@ -58,24 +59,23 @@ import io.payanam.presentation.lenses.lensHabitScoreViewModel
 import io.payanam.presentation.lenses.lensViewModel
 import io.payanam.presentation.lenses.scoringConfigViewModel
 import io.payanam.presentation.notes.notesViewModel
-import io.payanam.presentation.time.timeTagEditorViewModel
-import io.payanam.presentation.time.timeViewModel
-import io.payanam.presentation.time.timeVisualsViewModel
 import io.payanam.presentation.tasks.ScoreDetailType
 import io.payanam.presentation.tasks.addTaskViewModel
 import io.payanam.presentation.tasks.editTaskViewModel
 import io.payanam.presentation.tasks.scoreDetailViewModel
 import io.payanam.presentation.tasks.taskDetailViewModel
 import io.payanam.presentation.tasks.tasksViewModel
+import io.payanam.presentation.time.timeTagEditorViewModel
+import io.payanam.presentation.time.timeViewModel
+import io.payanam.presentation.time.timeVisualsViewModel
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.settings.FocusModePreset
-import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.screens.AndroidBiometricUnlockScreenActions
 import io.payanam.ui.screens.DatabaseInitLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseSetupLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseUnlockLogExportActions
 import io.payanam.ui.screens.PreUnlockUpdateSection
-import io.payanam.core.ui.time.TimeScreen
+import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 import kotlinx.coroutines.Dispatchers
 import java.time.LocalDate
@@ -377,7 +377,7 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
         TimeScreen(
             viewModel = retainSharedViewModel(key = "time", onRelease = { it.dispose() }) { timeViewModel() },
             timeTagEditorViewModel =
-                retainSharedViewModel(key = "timeTagEditor", onRelease = { it.dispose() }) { timeTagEditorViewModel() },
+            retainSharedViewModel(key = "timeTagEditor", onRelease = { it.dispose() }) { timeTagEditorViewModel() },
             timeVisualsViewModel = retainSharedViewModel(key = "timeVisuals", onRelease = { it.dispose() }) { timeVisualsViewModel() },
             dayPlanViewModel = retainSharedViewModel(key = "dayPlan", onRelease = { it.dispose() }) { dayPlanViewModel() },
             openStartTrackingDialogRequestId = openStartTrackingDialogRequestId,

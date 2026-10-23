@@ -4,10 +4,10 @@
 
 package io.payanam.ui.perf
 
-import io.payanam.domain.port.PerformanceTracer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.domain.port.PerformanceTracer
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.atomic.AtomicInteger
 
@@ -18,6 +18,7 @@ object PerfBaselineTelemetry : PerformanceTracer {
     private val onceEvents = ConcurrentHashMap.newKeySet<String>()
     private val queryCounters = ConcurrentHashMap<String, AtomicInteger>()
     private val recompositionCounters = ConcurrentHashMap<String, AtomicInteger>()
+
     /**
      * Clears all once-keys and counters (used between measurement runs).
      */
@@ -27,6 +28,7 @@ object PerfBaselineTelemetry : PerformanceTracer {
         recompositionCounters.clear()
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT screen=perf event=telemetry_reset tMs=${android.os.SystemClock.elapsedRealtime()}")
     }
+
     /**
      * Logs a structured PERF_BASELINE_EVENT line with screen/event/timing data.
      */
@@ -42,6 +44,7 @@ object PerfBaselineTelemetry : PerformanceTracer {
         val messageData = payload.entries.joinToString(" ") { (key, value) -> "$key=$value" }
         logger.i(PERF_SOURCE, "PERF_BASELINE_EVENT $messageData", payload)
     }
+
     /**
      * Like [markEvent] but fires only the first time [key] is seen per run.
      */
@@ -54,6 +57,7 @@ object PerfBaselineTelemetry : PerformanceTracer {
         if (!onceEvents.add(key)) return
         markEvent(screen = screen, event = event, data = data)
     }
+
     /**
      * Adds [amount] to a per-screen query counter and logs the running total.
      */
@@ -76,6 +80,7 @@ object PerfBaselineTelemetry : PerformanceTracer {
         )
         return total
     }
+
     /**
      * Counts a recomposition per screen section; logs the first few and then
      * every 25th to keep log volume bounded.

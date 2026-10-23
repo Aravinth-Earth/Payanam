@@ -22,6 +22,7 @@ import io.payanam.presentation.database.dbInitGetArtifactFiles
 import io.payanam.presentation.database.dbInitMarkInitCompletedDirect
 import io.payanam.presentation.database.dbInitReadInitCompletedFlag
 import io.payanam.presentation.database.dbInitRestoreFromTempBackup
+import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.DatabaseHealthCheck
@@ -85,6 +86,26 @@ data class DatabaseInitUiState(
     val awaitingImportPassphrase: Boolean = false,
     val importPassphraseError: String? = null,
     val awaitingDimensionSetup: Boolean = false,
+    /**
+     * True when a previous run got as far as confirming life dimensions and was quit before the
+     * confirmation reached a database.
+     *
+     * EXISTS because the confirmation is NOT durable before the write, and losing it silently is the
+     * one outcome the user cannot recover from: the screen reopens with the defaults and no hint that
+     * the rows they had just chosen are gone. A quit between [completeNewDatabaseDimensionSetup]'s
+     * `openDatabase` and its `dimensionSetupPersister.persist` - the dangerous point, because the file
+     * exists by then but the catalog does not - leaves the vault configured and the catalog empty, and
+     * nothing on the next launch could distinguish that from a run that never got there.
+     *
+     * The mark is written through [AppSettingsRepository] as a FIRST-RUN intent row, which is the same
+     * durable place this flow already records `database_init_completed`, so no new storage exists for
+     * it. It is set when the dimensions are confirmed and cleared only once the catalog write landed,
+     * so "still set" after a restart means exactly one thing: the confirmation was made and lost.
+     *
+     * NOT the same fact as `databaseExists`. That is the file's presence, which is true for an imported
+     * database and for a wiped placeholder alike; this is "this install was mid-first-run".
+     */
+    val firstRunDimensionsNotSaved: Boolean = false,
 )
 
 /**
@@ -345,6 +366,12 @@ class DatabaseInitViewModel(
                 }
                 val dbFile = File(databasePathResolver.databaseFilePath())
                 val exists = healthCheck.hasArtifacts(File(databasePathResolver.databaseFilePath()))
+                // Read on EVERY launch, before any branch: this is the one place that runs whether or not
+                // a database was found, and it is where a lost first-run confirmation can be told from a
+                // first launch that never got that far. A no-session read throws, so the answer is
+                // `false` - "nothing to report" - rather than a guess that the user is told a
+                // confirmation was lost when none was made.
+                val firstRunDimensionsNotSaved = readFirstRunDimensionsPending()
                 if (exists) {
                     val sizeKB = dbFile.length() / 1024
                     val lastModified = dbFile.lastModified()
@@ -384,6 +411,7 @@ class DatabaseInitViewModel(
                             // build expects, which is a shared fact.
                             databaseSchemaVersion = PayanamDatabaseSchema.VERSION,
                             errorMessage = null,
+                            firstRunDimensionsNotSaved = firstRunDimensionsNotSaved,
                         )
                     }
                 } else {
@@ -394,6 +422,7 @@ class DatabaseInitViewModel(
                             databaseCorrupted = false,
                             bootIssue = null,
                             corruptionMessage = null,
+                            firstRunDimensionsNotSaved = firstRunDimensionsNotSaved,
                         )
                     }
                 }
@@ -486,6 +515,73 @@ class DatabaseInitViewModel(
     }
 
     /**
+     * Records that the user CONFIRMED dimensions whose catalog write has not landed yet.
+     *
+     * The write is the whole point: [completeNewDatabaseDimensionSetup] creates the database and seeds
+     * the catalog in one coroutine, so a quit between `openDatabase` and `dimensionSetupPersister.persist`
+     * leaves a database that exists and a catalog that is empty. The rows are gone and cannot be
+     * recovered - there was no place to have kept them - but this mark CAN be kept, and its presence on
+     * the next launch is what turns a silent loss into a sentence the user reads.
+     *
+     * Written through [AppSettingsRepository] on the SAME repository the catalog write uses, and
+     * cleared in [completeNewDatabaseDimensionSetup] only after that write landed. A failure to write it
+     * is logged and swallowed rather than thrown: refusing to create a database because a warning row
+     * could not be stored would trade a lost confirmation for a lost install, and the confirmation is
+     * the smaller loss.
+     *
+     * Best-effort by construction, and that is the honest limit of this slice: it makes the loss
+     * VISIBLE, it does not prevent it. Making it impossible needs a durable home for the rows before a
+     * database exists, and the pre-session data layer has none by design - it refuses every write
+     * rather than pretend one landed.
+     */
+    private suspend fun markFirstRunDimensionsPending() {
+        runCatching {
+            appSettingsRepository.setSetting(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING, "true")
+        }.onFailure { failure ->
+            logger.w(
+                "DatabaseInitViewModel.markFirstRunDimensionsPending",
+                "Could not record that first-run dimensions are unconfirmed; a quit now would lose them silently",
+                mapOf("failure" to failure.javaClass.simpleName),
+            )
+        }
+    }
+
+    /** Clears the pending mark, once the catalog the user confirmed is actually in the database. */
+    private suspend fun clearFirstRunDimensionsPending() {
+        runCatching {
+            appSettingsRepository.setSetting(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING, "false")
+        }.onFailure { failure ->
+            logger.w(
+                "DatabaseInitViewModel.clearFirstRunDimensionsPending",
+                "Catalog written but the pending mark could not be cleared; the next launch will say the confirmation was lost",
+                mapOf("failure" to failure.javaClass.simpleName),
+            )
+        }
+    }
+
+    /**
+     * Whether a previous run confirmed dimensions and lost them, read from the pending mark.
+     *
+     * Asked during the status check, which is the one place that runs on EVERY launch including one
+     * with no session - so it can use [appSettingsRepository] only because that repository is
+     * session-backed and pre-session throws. That is not a problem here: a thrown read answers
+     * "unknown", and the honest answer to unknown is to NOT claim the confirmation was lost, so the
+     * failure path is `false` and only an actual stored mark produces the message.
+     */
+    private suspend fun readFirstRunDimensionsPending(): Boolean =
+        runCatching {
+            appSettingsRepository.getSetting(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING)
+                ?.toBoolean() ?: false
+        }.getOrElse { failure ->
+            logger.i(
+                "DatabaseInitViewModel.readFirstRunDimensionsPending",
+                "Pending first-run dimension mark could not be read before a session existed",
+                mapOf("failure" to failure.javaClass.simpleName),
+            )
+            false
+        }
+
+    /**
      * Finalizes a new database: configures the passphrase, optionally wipes the
      * old artifacts (with a safety backup), opens the session, and persists the
      * mandatory life-dimension setup; on failure restores from the backup.
@@ -506,6 +602,10 @@ class DatabaseInitViewModel(
         )
         scope.launch {
             _uiState.update { it.copy(isCreating = true, errorMessage = null) }
+            // BEFORE the create, so the window the mark exists to cover is closed as early as it can be:
+            // from here until the catalog write lands, a quit loses the confirmed rows, and this is what
+            // makes the next launch say so instead of re-asking in silence.
+            markFirstRunDimensionsPending()
             var tempBackupDir: File? = null
             try {
                 withContext(ioDispatcher) {
@@ -535,6 +635,10 @@ class DatabaseInitViewModel(
                         appSettingsRepository = appSettingsRepository,
                         dimensionInputs = dimensionInputs,
                     )
+                    // AFTER the catalog write and only then: the mark exists to cover the window where a
+                    // confirmation is held but unlanded, and clearing it before the write would leave a
+                    // real loss looking like a clean run.
+                    clearFirstRunDimensionsPending()
                     tempBackupDir?.let { deleteTempBackup(it) }
                     clearPendingCreate()
                 }

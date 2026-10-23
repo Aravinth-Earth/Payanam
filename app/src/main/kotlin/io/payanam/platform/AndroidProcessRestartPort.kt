@@ -58,45 +58,45 @@ import javax.inject.Singleton
  */
 @Singleton
 class AndroidProcessRestartPort
-    @Inject
-    constructor(
-        @ApplicationContext private val context: Context,
-    ) : ProcessRestart {
-        private val logger = UnifiedLogger.getInstance()
+@Inject
+constructor(
+    @ApplicationContext private val context: Context,
+) : ProcessRestart {
+    private val logger = UnifiedLogger.getInstance()
+
+    /**
+     * The four calls above, in that order, returning only if the process survived the kill.
+     */
+    override fun restartProcess(): ProcessRestartOutcome {
+        CrashBreadcrumbs.record(
+            source = SOURCE,
+            stage = RESTART_STAGE,
+        )
+        logger.flush()
+        context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { intent ->
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
+            context.startActivity(intent)
+        }
+        Process.killProcess(Process.myPid())
+        logger.w(
+            source = SOURCE,
+            message = "The process survived a killProcess call; reporting the restart as unconfirmed",
+        )
+        return ProcessRestartOutcome.Refused(
+            reason = ProcessRestartRefusal.PROCESS_DID_NOT_END,
+            detail = "killProcess returned without ending the process",
+        )
+    }
+
+    private companion object {
+        private const val SOURCE = "AndroidProcessRestartPort.restartProcess"
 
         /**
-         * The four calls above, in that order, returning only if the process survived the kill.
+         * The breadcrumb stage name, kept byte-for-byte as the inline code spelled it.
+         *
+         * A stage string is a key the next launch's trail is read with, so changing it would orphan
+         * every breadcrumb a currently-installed build wrote.
          */
-        override fun restartProcess(): ProcessRestartOutcome {
-            CrashBreadcrumbs.record(
-                source = SOURCE,
-                stage = RESTART_STAGE,
-            )
-            logger.flush()
-            context.packageManager.getLaunchIntentForPackage(context.packageName)?.let { intent ->
-                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-                context.startActivity(intent)
-            }
-            Process.killProcess(Process.myPid())
-            logger.w(
-                source = SOURCE,
-                message = "The process survived a killProcess call; reporting the restart as unconfirmed",
-            )
-            return ProcessRestartOutcome.Refused(
-                reason = ProcessRestartRefusal.PROCESS_DID_NOT_END,
-                detail = "killProcess returned without ending the process",
-            )
-        }
-
-        private companion object {
-            private const val SOURCE = "AndroidProcessRestartPort.restartProcess"
-
-            /**
-             * The breadcrumb stage name, kept byte-for-byte as the inline code spelled it.
-             *
-             * A stage string is a key the next launch's trail is read with, so changing it would orphan
-             * every breadcrumb a currently-installed build wrote.
-             */
-            private const val RESTART_STAGE = "kill_process_for_passphrase_change"
-        }
+        private const val RESTART_STAGE = "kill_process_for_passphrase_change"
     }
+}

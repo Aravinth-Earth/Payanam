@@ -10,6 +10,10 @@ import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.presentation.updates.UpdatePrefKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -17,10 +21,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import javax.inject.Singleton
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
-import io.payanam.presentation.updates.UpdatePrefKeys
 
 /**
  * Post-unlock update check: fires ONCE when the encrypted DB session
@@ -46,7 +46,7 @@ class AppStartUpdateChecker @Inject constructor(
      * Checks for app updates after the DB session unlocks. Safety net: catches
      * all exceptions so a failed check never crashes the app.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: app-level defensive catch
+    @Suppress("TooGenericExceptionCaught") // Intentional: app-level defensive catch
     fun onAppStart() {
         scope.launch {
             try {
@@ -72,11 +72,14 @@ class AppStartUpdateChecker @Inject constructor(
                 val channel = UpdateChannel.fromStorage(channelRaw)
                 val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel)
                 when (result.outcome) {
-                    UpdateOutcome.UPDATE_AVAILABLE -> Unit // handled below
+                    UpdateOutcome.UPDATE_AVAILABLE -> Unit
+
+                    // handled below
                     UpdateOutcome.FAILED -> {
                         logger.d("AppStartUpdateChecker.onAppStart", "Start check failed, will retry next start", mapOf("error" to (result.error?.name ?: UpdateCheckError.UNKNOWN.name)))
                         return@launch
                     }
+
                     UpdateOutcome.TYPE_MISMATCH -> {
                         // Fail-closed mismatch: the channel's newest release has
                         // no APK for this install's build type. Logged at `i`
@@ -89,10 +92,12 @@ class AppStartUpdateChecker @Inject constructor(
                         )
                         return@launch
                     }
+
                     UpdateOutcome.NO_RELEASE_ON_CHANNEL, UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
                         logger.d("AppStartUpdateChecker.onAppStart", "No comparable release on start check", mapOf("outcome" to result.outcome.name))
                         return@launch
                     }
+
                     UpdateOutcome.UP_TO_DATE -> {
                         logger.d("AppStartUpdateChecker.onAppStart", "No update on start check")
                         return@launch

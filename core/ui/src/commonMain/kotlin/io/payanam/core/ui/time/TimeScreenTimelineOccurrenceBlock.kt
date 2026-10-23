@@ -31,6 +31,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.model.DimensionIconOption
@@ -113,7 +115,19 @@ fun PastOccurrenceBlock(
                     logger.d("TimeScreenTimelineOccurrenceBlock.PastOccurrenceBlock", "Opening past occurrence block", mapOf("occurrenceId" to occurrence.id))
                     onClick()
                 }
-                .padding(horizontal = 6.dp, vertical = 2.dp),
+                .padding(horizontal = 6.dp, vertical = 2.dp)
+                // The block that shrinks to a bare icon cascade - too short for the compact row, too narrow
+                // for the stacked one - is the one with NO text at all, and an icon with a null description
+                // contributes no name, so this node was reachable and completely anonymous. It is also the
+                // block whose click is least guessable: a user cannot see that a 20-minute slot is an
+                // occurrence to open. The description is [compactLabel], which the block already computed for
+                // its own caption in the roomier case, so a short block is named from the same segments a tall
+                // one is - including the task or `locUnknownTask` when the task has gone.
+                //
+                // `mergeDescendants = true` keeps the name and the click together: the status and recurrence
+                // icons inside carry their own descriptions, and merged they read as one block rather than
+                // as three targets.
+                .semantics(mergeDescendants = true) { contentDescription = compactLabel },
         ) {
             DimensionIconCascadeLayer(
                 iconOption = dimensionIconOption,

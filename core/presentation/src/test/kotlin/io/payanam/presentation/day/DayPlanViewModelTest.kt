@@ -726,9 +726,10 @@ class DayPlanViewModelTest {
             val vm = viewModel()
             advanceUntilIdle()
             vm.startEditTemplate("t1")
-            // `startEditTemplate` loads the template on the ViewModel's scope, and `saveTemplate` snapshots
-            // its state on entry. Without this the snapshot is taken before the edit coroutine ran, so
-            // `selectedTemplate` was still null and the save took the early-return path.
+            // `startEditTemplate` loads the template on the ViewModel's scope. Draining here lets that
+            // load land before the save is requested; the case where the save is requested WITHOUT this
+            // drain — and so reads its state before the selection exists — is `carries an update whose
+            // selected template loads after it was called` above.
             advanceUntilIdle()
             vm.setTemplateName("Updated Name")
             vm.saveTemplate()
@@ -818,6 +819,145 @@ class DayPlanViewModelTest {
             val state = vm.uiState.value
             assertEquals("Failed to save template", state.errorMessage)
             assertFalse(state.isLoading)
+        }
+
+    // ── saveTemplate: the draft is read inside the coroutine that writes it ──
+
+    /**
+     * Locks the ordering [DayPlanViewModel.saveTemplate] promises: the draft it persists is the one
+     * its OWN coroutine read, not the copy its caller happened to hold when the method was invoked.
+     *
+     * SEAM: the [CoroutineScope] the ViewModel is given. [StandardTestDispatcher] holds every
+     * coroutine it is handed until the test advances the scheduler, so the window between
+     * `saveTemplate()` returning and the write coroutine's first statement is made WIDE and
+     * deterministic — the edits below are guaranteed to land inside it, on every run, with no thread
+     * timing and no sleeps. [DayPlanViewModel.saveTemplate] takes its state from `_uiState.value`
+     * before `scope.launch`, and the write it performs reads that captured copy, so with the
+     * pre-fix ordering the assertions below see the stale values and fail.
+     *
+     * The line that must change for each assertion to go red — `saveTemplate`'s first statement,
+     * `val state = _uiState.value`, hoisted out of `scope.launch` and back to the method body. It is
+     * the ONLY read of the draft, so it captures the caller's copy and every write below goes out
+     * stale:
+     *  - "carries a rename" and "carries the allocation and description edits" go red on
+     *    [DayPlanViewModel.saveTemplate] persisting the pre-launch name/description/allocations.
+     *  - "carries an update whose selected template loads after it was called" goes red on
+     *    [DayPlanViewModel.saveTemplate] reading `isCreatingNew`/`selectedTemplate` from the
+     *    pre-launch copy: `selectedTemplate` is still null there, so the update takes the
+     *    `return@launch` early exit and NOTHING is written.
+     *  - The two unchanged-state cases stay GREEN under that revert, by construction: with nothing
+     *    changing in the window, the pre-launch read and the in-coroutine read are the same value.
+     *    They are here to stop the fix passing by discarding the draft and writing a constant, and
+     *    they carry the payload assertions (name/description/allocations) that do so.
+     */
+    @Test
+    fun `saveTemplate carries a rename made after it was called but before its coroutine ran`() =
+        runTest {
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            vm.startNewTemplate()
+            vm.setTemplateAllocation("career_work", 120)
+            vm.setTemplateName("Stale Draft Name")
+            vm.saveTemplate()
+            // Queued on the ViewModel's StandardTestDispatcher scope, so this edit provably lands
+            // after saveTemplate's read and before its write.
+            vm.setTemplateName("Renamed After Save Was Requested")
+            advanceUntilIdle()
+
+            assertEquals("Renamed After Save Was Requested", repository.lastCreatedTemplateName)
+            assertEquals(1, repository.templateWriteCount)
+        }
+
+    @Test
+    fun `saveTemplate carries allocation and description edits made after it was called`() =
+        runTest {
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            vm.startNewTemplate()
+            vm.setTemplateName("Draft")
+            vm.setTemplateAllocation("career_work", 60)
+            vm.setTemplateDescription("First description")
+            vm.saveTemplate()
+            vm.setTemplateAllocation("health", 30)
+            vm.setTemplateAllocation("career_work", null)
+            vm.setTemplateDescription("Second description")
+            advanceUntilIdle()
+
+            assertEquals("Second description", repository.lastCreatedTemplateDescription)
+            assertEquals(mapOf("health" to 30), repository.lastCreatedTemplateAllocations)
+        }
+
+    @Test
+    fun `saveTemplate carries an update whose selected template loads after it was called`() =
+        runTest {
+            val t =
+                template(
+                    "t1",
+                    "Old Name",
+                    allocations =
+                        listOf(
+                            TemplateAllocationRecord("a1", "t1", "career_work", 60),
+                        ),
+                )
+            repository.templatesFlow.value = listOf(t)
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            // `startEditTemplate` loads the template on the ViewModel's scope, and that coroutine is
+            // queued ahead of the save. So the selection the save needs has not landed when saveTemplate
+            // is called, and `templateName` is still whatever startEditTemplate writes when it finally
+            // runs — which is the point: the write has to follow the state its own coroutine saw.
+            vm.startEditTemplate("t1")
+            vm.setTemplateName("Edited Name")
+            vm.saveTemplate()
+            advanceUntilIdle()
+
+            assertEquals("t1", repository.lastUpdatedTemplateId)
+            assertEquals("Old Name", repository.lastUpdatedTemplateName)
+            assertEquals(mapOf("career_work" to 60), repository.lastUpdatedTemplateAllocations)
+            assertEquals(1, repository.templateWriteCount)
+        }
+
+    @Test
+    fun `saveTemplate writes the draft it was handed when nothing changes in the meantime`() =
+        runTest {
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            vm.startNewTemplate()
+            vm.setTemplateName("  Steady Draft  ")
+            vm.setTemplateDescription("Kept description")
+            vm.setTemplateAllocation("career_work", 90)
+            vm.saveTemplate()
+            advanceUntilIdle()
+
+            // Not a constant: the persisted payload has to be this draft, so the fix cannot pass by
+            // ignoring what the ViewModel holds and writing something fixed instead.
+            assertEquals("Steady Draft", repository.lastCreatedTemplateName)
+            assertEquals("Kept description", repository.lastCreatedTemplateDescription)
+            assertEquals(mapOf("career_work" to 90), repository.lastCreatedTemplateAllocations)
+            assertEquals(1, repository.templateWriteCount)
+        }
+
+    @Test
+    fun `saveTemplate writes an existing template unchanged when no edit intervenes`() =
+        runTest {
+            val t = template("t1", "Old Name")
+            repository.templatesFlow.value = listOf(t)
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            vm.startEditTemplate("t1")
+            advanceUntilIdle()
+            vm.saveTemplate()
+            advanceUntilIdle()
+
+            assertEquals("t1", repository.lastUpdatedTemplateId)
+            assertEquals("Old Name", repository.lastUpdatedTemplateName)
+            assertEquals(1, repository.templateWriteCount)
+            assertFalse(vm.uiState.value.isEditingTemplate)
         }
 
     // ── deleteTemplate ────────────────────────────────────────────────────
@@ -1067,7 +1207,13 @@ class DayPlanViewModelTest {
         var failTemplateWrites = false
         var failWriteGeneric = false
         var lastCreatedTemplateName: String? = null
+        var lastCreatedTemplateDescription: String? = null
+        var lastCreatedTemplateAllocations: Map<String, Int>? = null
         var lastUpdatedTemplateId: String? = null
+        var lastUpdatedTemplateName: String? = null
+        var lastUpdatedTemplateDescription: String? = null
+        var lastUpdatedTemplateAllocations: Map<String, Int>? = null
+        var templateWriteCount = 0
         val deletedTemplateIds = mutableListOf<String>()
 
         override fun observeAllocationsForDay(dayKey: String): Flow<List<DayPlanAllocationRecord>> =
@@ -1180,7 +1326,10 @@ class DayPlanViewModelTest {
         ): String {
             if (failTemplateWrites) throw IllegalStateException("template limit reached")
             if (failWriteGeneric) throw IOException("write failed")
+            templateWriteCount += 1
             lastCreatedTemplateName = name
+            lastCreatedTemplateDescription = description
+            lastCreatedTemplateAllocations = allocations
             return "template-id"
         }
 
@@ -1192,7 +1341,11 @@ class DayPlanViewModelTest {
         ) {
             if (failTemplateWrites) throw IllegalStateException("template limit reached")
             if (failWriteGeneric) throw IOException("write failed")
+            templateWriteCount += 1
             lastUpdatedTemplateId = id
+            lastUpdatedTemplateName = name
+            lastUpdatedTemplateDescription = description
+            lastUpdatedTemplateAllocations = allocations
         }
 
         override suspend fun deleteTemplate(id: String) {

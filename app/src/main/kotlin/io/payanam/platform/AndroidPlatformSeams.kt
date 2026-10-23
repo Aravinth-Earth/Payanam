@@ -108,13 +108,12 @@ class AndroidHapticSink(
         }
     }
 
-    private fun durationFor(feedback: HapticFeedback): Long =
-        when (feedback) {
-            HapticFeedback.TAP -> HAPTIC_TAP_MS
-            HapticFeedback.SELECTION -> HAPTIC_SELECTION_MS
-            HapticFeedback.CONFIRMATION -> HAPTIC_CONFIRMATION_MS
-            HapticFeedback.REJECTION -> HAPTIC_REJECTION_MS
-        }
+    private fun durationFor(feedback: HapticFeedback): Long = when (feedback) {
+        HapticFeedback.TAP -> HAPTIC_TAP_MS
+        HapticFeedback.SELECTION -> HAPTIC_SELECTION_MS
+        HapticFeedback.CONFIRMATION -> HAPTIC_CONFIRMATION_MS
+        HapticFeedback.REJECTION -> HAPTIC_REJECTION_MS
+    }
 }
 
 /** What this Android device can do. Read once at startup and handed to the shared UI. */
@@ -123,7 +122,7 @@ fun androidCapabilities(context: Context): PlatformCapabilities {
     return PlatformCapabilities(
         // The sensor is a device question; the state says whether offering biometrics is meaningful here.
         biometrics =
-            if (hasBiometricHardware(context)) SupportState.SUPPORTED else SupportState.NOT_APPLICABLE,
+        if (hasBiometricHardware(context)) SupportState.SUPPORTED else SupportState.NOT_APPLICABLE,
         supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
         supportsHaptics = haptics.isActive,
         // Android runs the notification channel and the reminder scheduler; delivery is a device+user
@@ -134,6 +133,5 @@ fun androidCapabilities(context: Context): PlatformCapabilities {
     )
 }
 
-private fun hasBiometricHardware(context: Context): Boolean =
-    context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FINGERPRINT) ||
-        context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FACE)
+private fun hasBiometricHardware(context: Context): Boolean = context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FINGERPRINT) ||
+    context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FACE)

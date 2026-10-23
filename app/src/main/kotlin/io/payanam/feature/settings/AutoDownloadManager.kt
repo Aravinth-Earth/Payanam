@@ -12,10 +12,9 @@ import android.content.IntentFilter
 import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
-import io.payanam.presentation.download.DownloadUiState
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.presentation.download.DownloadUiState
 import java.io.File
-
 
 /**
  * Wraps DownloadManager for Payanam APK downloads into the app-private
@@ -33,7 +32,7 @@ object AutoDownloadManager {
      * pauses/resumes automatically when network changes).
      * Returns the download ID, or null if enqueue failed.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun enqueue(
         context: Context,
         url: String,
@@ -60,7 +59,7 @@ object AutoDownloadManager {
     }
 
     /** Query progress for a download ID; returns null if the row is gone. */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun queryProgress(context: Context, downloadId: Long): DownloadUiState {
         val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
         val query = DownloadManager.Query().setFilterById(downloadId)
@@ -81,15 +80,18 @@ object AutoDownloadManager {
                             localPath = uri?.removePrefix("file://"),
                         )
                     }
+
                     DownloadManager.STATUS_FAILED -> {
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         logger.w("AutoDownloadManager.queryProgress", "Download failed", mapOf("reason" to reason))
                         DownloadUiState.Failed(failureMessage(reason))
                     }
+
                     DownloadManager.STATUS_PAUSED -> {
                         val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
                         DownloadUiState.Paused(pausedMessage(reason))
                     }
+
                     else -> DownloadUiState.Downloading(
                         fileName = cursor.getString(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_TITLE)),
                         bytesDownloaded = bytes,
@@ -108,7 +110,7 @@ object AutoDownloadManager {
     }
 
     /** Cancel a download and remove its partial file. */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun cancel(context: Context, downloadId: Long) {
         try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
@@ -124,7 +126,7 @@ object AutoDownloadManager {
      * ones. Skips files that don't exist or are not .apk. Best-effort; failures
      * are logged, not thrown.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     fun cleanupOldApks(context: Context, keepCount: Int = 2) {
         logDownloadsDirState(context, "cleanup_before")
         try {
@@ -151,7 +153,7 @@ object AutoDownloadManager {
      * total bytes, count) under a caller-supplied tag. No behavior change —
      * diagnostics for the re-download/accumulation investigation.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     internal fun logDownloadsDirState(context: Context, tag: String) {
         try {
             val dir = context.getExternalFilesDir(null)?.let { File(it, SUBDIR) } ?: return
@@ -205,8 +207,7 @@ object AutoDownloadManager {
 }
 
 /** Build-number extraction (pure, unit-testable on plain JVM). */
-internal fun buildNumberFromFileName(fileName: String): String =
-    Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1).orEmpty()
+internal fun buildNumberFromFileName(fileName: String): String = Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1).orEmpty()
 
 /**
  * Resolve the absolute path of a previously downloaded APK inside the
@@ -224,8 +225,7 @@ internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: S
  * suffix). Legacy untyped names never match (no fallback), and the matching
  * `.sha256` sibling carries both tokens but is excluded by the suffix guard.
  */
-internal fun isApkForBuild(fileName: String, buildNumber: String, buildType: String): Boolean =
-    fileName.endsWith(".apk") && fileName.contains("_${buildNumber}_${buildType}_")
+internal fun isApkForBuild(fileName: String, buildNumber: String, buildType: String): Boolean = fileName.endsWith(".apk") && fileName.contains("_${buildNumber}_${buildType}_")
 
 /**
  * Scan the app-private downloads dir for an already-downloaded APK of the

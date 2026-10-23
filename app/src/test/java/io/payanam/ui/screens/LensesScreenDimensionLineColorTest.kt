@@ -4,8 +4,8 @@ package io.payanam.ui.screens
 
 import androidx.compose.ui.graphics.Color
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.core.ui.lenses.taggedDimensionLine
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.lenses.taggedDimensionLine
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -43,10 +43,10 @@ class LensesScreenDimensionLineColorTest {
         )
     }
 
-    @Test
     /**
      * Tagged dimension line returns unstyled text when label missing.
      */
+    @Test
     fun taggedDimensionLine_returnsUnstyledTextWhenLabelMissing() {
         val line = "Unassigned: 30m"
         val result = taggedDimensionLine(

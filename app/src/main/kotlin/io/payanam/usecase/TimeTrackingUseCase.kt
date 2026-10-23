@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 @file:Suppress("TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.usecase
 
 import android.content.Context
@@ -80,7 +81,7 @@ class TimeTrackingUseCase @Inject constructor(
      * Stop the active time entry and complete the associated task if any.
      * Returns the stopped time entry.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     override suspend fun stopTrackingAndCompleteTask(
         focusRating: Double,
         focusNote: String?,

@@ -107,6 +107,65 @@ class TaskRepositoryJvmTest {
                 )
                 """.trimIndent(),
             )
+            // The five child tables a task delete has to reach: the four the schema cascades and the one it
+            // clears. The four cascade tables carry their real column set and constraint text, copied from the
+            // Room export - a hand-invented column would hide the very mismatch this guards. `time_entries`
+            // carries only the two columns these statements touch, because nothing in this fixture reads a
+            // time entry; the delete's full-fidelity assertions live with the orphan-row test.
+            statement.execute(
+                """
+                CREATE TABLE task_occurrences (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    taskId TEXT NOT NULL,
+                    dueDate TEXT NOT NULL,
+                    status TEXT NOT NULL,
+                    createdAt TEXT NOT NULL,
+                    FOREIGN KEY(taskId) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                CREATE TABLE task_reschedules (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    taskId TEXT NOT NULL,
+                    rescheduledTo TEXT NOT NULL,
+                    createdAt TEXT NOT NULL,
+                    FOREIGN KEY(taskId) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                CREATE TABLE scheduled_notifications (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    taskId TEXT NOT NULL,
+                    fireAt TEXT NOT NULL,
+                    createdAt TEXT NOT NULL,
+                    FOREIGN KEY(taskId) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                CREATE TABLE task_tags (
+                    task_id TEXT NOT NULL,
+                    tag_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(task_id, tag_id),
+                    FOREIGN KEY(task_id) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                CREATE TABLE time_entries (
+                    id TEXT PRIMARY KEY NOT NULL,
+                    taskId TEXT,
+                    FOREIGN KEY(taskId) REFERENCES tasks(id) ON UPDATE NO ACTION ON DELETE SET NULL
+                )
+                """.trimIndent(),
+            )
         }
         session = PayanamDatabaseSession(connection, 21, DatabaseOpenMode.READ_WRITE)
     }

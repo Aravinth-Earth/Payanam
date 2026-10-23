@@ -18,7 +18,6 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.core.ui.preferences.BackupInterval
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
@@ -27,8 +26,18 @@ import io.payanam.domain.repository.NoteRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.settings.BulkHabitMappingResult
+import io.payanam.presentation.settings.ExportResult
+import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.presentation.settings.UhabitsImportResult
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.settings.BackupInterval
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -47,15 +56,6 @@ import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import javax.inject.Inject
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
-import io.payanam.presentation.updates.UpdatePrefKeys
-import io.payanam.presentation.settings.BulkHabitMappingResult
-import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.settings.ExportResult
-import io.payanam.presentation.settings.ImportResult
-import io.payanam.presentation.settings.UhabitsImportResult
 
 /**
  * Settings screen ViewModel: owns database stats/artifact management, the
@@ -75,6 +75,7 @@ class SettingsViewModel @Inject constructor(
 ) : ViewModel() {
     internal val logger = UnifiedLogger.getInstance()
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+
     // The five values that are facts about THIS build and THIS database are supplied here rather
     // than defaulted in the state: a default would render a settings pane reporting a version and a
     // schema the app never read. The channel starts from the parser's own documented fallback and is

@@ -1,0 +1,199 @@
+#!/usr/bin/env bash
+#  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+#  SPDX-License-Identifier: AGPL-3.0-or-later
+#
+# Desktop import loop: build -> launch -> import a database -> confirm, in one command.
+#
+# WHY THIS SHAPE. A headed run cannot be VERIFIED on a Wayland session: the app is an XWayland client and
+# xdotool can enumerate its windows, but every X11 screen grab comes back uniform, so a click cannot be
+# aimed. The one step that needs eyes is the FILE PICKER. Everything after it - the copy, the validation,
+# the passphrase, the session, the preference read, the startup gate - is plain Kotlin behind the
+# `DocumentSource` port, and that is what this loop exercises:
+#
+#   step 1  build the .deb with the full profile (the test-bearing profile; the un-flagged default can
+#           resolve `quick`, which skips every test tier while still printing a tick)
+#   step 2  launch the SHIPPED binary from an unpacked copy of that .deb, with an isolated XDG_DATA_HOME,
+#           and read ITS OWN log to confirm the surface it chose (this is the launch half, headed but blind)
+#   step 3  drive the real import through the real shared ViewModel with a real database, stopping only at
+#           the picker seam, and assert the four facts the startup gate consumes
+#   step 4  print one verdict block
+#
+# The passphrase is passed as a FILE PATH and read inside the harness. It is never printed, never echoed,
+# never an argument value. Report its length only.
+#
+# Usage:
+#   build-tools/scripts/desktop-import-loop.sh --db <encrypted.db> --pwd <passphrase-file> [options]
+#
+# Options:
+#   --db <path>          the encrypted database to import          (required)
+#   --pwd <path>         the file holding its passphrase          (required; last non-empty line is the secret)
+#   --data-root <path>   where the run's app data goes            (default: a fresh scratch dir)
+#   --build <profile>    quick|normal|full                        (default: full)
+#   --skip-build         reuse the newest .deb already in output/debs
+#   --skip-launch        do not launch the app; only run the import harness
+#
+# Exit: 0 only when the build, the launch and the harness all pass.
+
+set -euo pipefail
+
+REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+cd "$REPO_ROOT"
+
+SCRATCH="${PAYANAM_IMPORT_SCRATCH:-${TMPDIR:-${HOME}/.cache}/payanam-import-loop}"
+LOGS_DIR="$REPO_ROOT/build-logs"
+mkdir -p "$SCRATCH" "$LOGS_DIR"
+
+DB=""
+PWD_FILE=""
+DATA_ROOT=""
+BUILD_PROFILE="full"
+SKIP_BUILD=0
+SKIP_LAUNCH=0
+
+while [[ $# -gt 0 ]]; do
+    case "$1" in
+    --db) DB="${2:-}"; shift 2 ;;
+    --pwd) PWD_FILE="${2:-}"; shift 2 ;;
+    --data-root) DATA_ROOT="${2:-}"; shift 2 ;;
+    --build) BUILD_PROFILE="${2:-}"; shift 2 ;;
+    --skip-build) SKIP_BUILD=1; shift ;;
+    --skip-launch) SKIP_LAUNCH=1; shift ;;
+    -h | --help) sed -n '3,40p' "$0"; exit 0 ;;
+    *) echo "unknown argument: $1" >&2; exit 2 ;;
+    esac
+done
+
+[[ -n "$DB" ]] || { echo "ERROR: --db is required" >&2; exit 2; }
+[[ -n "$PWD_FILE" ]] || { echo "ERROR: --pwd is required" >&2; exit 2; }
+[[ -f "$DB" ]] || { echo "ERROR: database not found: $DB" >&2; exit 2; }
+[[ -f "$PWD_FILE" ]] || { echo "ERROR: passphrase file not found: $PWD_FILE" >&2; exit 2; }
+
+STAMP="$(date +%Y%m%d_%H%M%S)"
+[[ -n "$DATA_ROOT" ]] || DATA_ROOT="$SCRATCH/data-root-$STAMP"
+VERDICT_LOG="$LOGS_DIR/desktop-import-loop-$STAMP.log"
+
+step() { printf '\n=== %s ===\n' "$1" | tee -a "$VERDICT_LOG"; }
+verdict() { printf '%s\n' "$1" | tee -a "$VERDICT_LOG"; }
+
+# ---------------------------------------------------------------- step 1: build
+if [[ "$SKIP_BUILD" -eq 1 ]]; then
+    step "1/4 build: SKIPPED (--skip-build)"
+else
+    step "1/4 build: bash build-tools/scripts/build-linux.sh --profile $BUILD_PROFILE"
+    if ! bash build-tools/scripts/build-linux.sh --profile "$BUILD_PROFILE" >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
+        verdict "LOOP-FAILED: the build failed - see $LOGS_DIR/desktop-import-loop-build-$STAMP.log"
+        exit 1
+    fi
+    grep -aE "Build Profile|Desktop verification passed|Published DEB" "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" |
+        tail -3 | tee -a "$VERDICT_LOG"
+fi
+
+# ---------------------------------------------------------------- step 2: launch
+LAUNCH_OK="skipped"
+if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
+    step "2/4 launch: the shipped binary, isolated data root, its own log as the witness"
+    if pgrep -x Payanam >/dev/null 2>&1; then
+        # Never kill a process this loop did not start. The app's instance lock is machine-wide, so a
+        # pre-existing instance would answer instead of ours and the run would be a false one.
+        LAUNCH_OK="blocked: another Payanam instance is already running (close it, then re-run)"
+        verdict "LOOP-NOTE: $LAUNCH_OK"
+    else
+        IMAGE="$SCRATCH/image-$STAMP"
+        DEB="$(ls -t "$REPO_ROOT"/output/debs/Payanam_Linux_*.deb 2>/dev/null | head -1 || true)"
+        if [[ -z "$DEB" ]]; then
+            LAUNCH_OK="blocked: no .deb in output/debs"
+            verdict "LOOP-NOTE: $LAUNCH_OK"
+        else
+            mkdir -p "$IMAGE"
+            dpkg -x "$DEB" "$IMAGE"
+            LAUNCHER="$(find "$IMAGE" -type f -path '*/bin/Payanam' | head -1 || true)"
+            if [[ -z "$LAUNCHER" ]]; then
+                LAUNCH_OK="blocked: no launcher inside $DEB"
+                verdict "LOOP-NOTE: $LAUNCH_OK"
+            else
+                rm -rf "$DATA_ROOT"
+                mkdir -p "$DATA_ROOT"
+                XDG_DATA_HOME="$DATA_ROOT" nohup "$LAUNCHER" >"$SCRATCH/app-stdout-$STAMP.log" 2>&1 &
+                APP_PID=$!
+                sleep 20
+                APP_LOG="$(find "$DATA_ROOT" -name 'payanam_desktop_*.log' -type f 2>/dev/null | head -1 || true)"
+                if [[ -n "$APP_LOG" ]]; then
+                    SURFACE="$(grep -a 'surfaceMounted' "$APP_LOG" | tail -1 | sed 's/ *$//' | cut -c1-160 || true)"
+                    LAUNCH_OK="up (pid $APP_PID), it chose: ${SURFACE:-<no surfaceMounted line yet>}"
+                else
+                    LAUNCH_OK="up (pid $APP_PID) but wrote no log under $DATA_ROOT"
+                fi
+                verdict "LOOP-LAUNCH: $LAUNCH_OK"
+                kill "$APP_PID" 2>/dev/null || true
+                wait "$APP_PID" 2>/dev/null || true
+            fi
+        fi
+    fi
+else
+    step "2/4 launch: SKIPPED (--skip-launch)"
+fi
+
+# ---------------------------------------------------------------- step 3: import
+step "3/4 import: the real shared ViewModel, stopping at the picker seam"
+# The build's test task does not forward CLI -D properties into the test JVM, and loop-only configuration
+# does not belong in the product's build file, so it is injected with an init script instead.
+INIT="$SCRATCH/loop-init-$STAMP.gradle"
+cat >"$INIT" <<'GRADLE'
+allprojects {
+    tasks.withType(Test).configureEach {
+        ['payanam.loop.db', 'payanam.loop.pwd', 'payanam.loop.dataRoot'].each { key ->
+            if (System.getProperty(key) != null) systemProperty(key, System.getProperty(key))
+        }
+    }
+}
+GRADLE
+
+HARNESS_LOG="$LOGS_DIR/desktop-import-loop-harness-$STAMP.log"
+set +e
+./gradlew -I "$INIT" :desktop:test --console=plain \
+    -Dpayanam.loop.db="$(realpath "$DB")" \
+    -Dpayanam.loop.pwd="$(realpath "$PWD_FILE")" \
+    -Dpayanam.loop.dataRoot="$DATA_ROOT" >"$HARNESS_LOG" 2>&1
+HARNESS_EXIT=$?
+set -e
+
+# Gradle hides test stdout, so the verdict is read from the result XML.
+HARNESS_VERDICT="$(python3 - "$REPO_ROOT" <<'PY'
+import glob, html, re, sys
+repo = sys.argv[1]
+for path in glob.glob(f"{repo}/desktop/build/test-results/test/TEST-*.xml"):
+    if "DesktopImportLoopHarnessTest" not in path:
+        continue
+    text = open(path).read()
+    out = re.search(r"<system-out>(.*?)</system-out>", text, re.S)
+    if out:
+        # Gradle wraps the captured stdout in CDATA; strip the markers so the verdict prints as one line.
+        body = html.unescape(out.group(1)).replace("<![CDATA[", "").replace("]]>", "")
+        for line in body.splitlines():
+            if "LOOP-VERDICT" in line or "LOOP-EVIDENCE" in line:
+                print(line.strip())
+PY
+)"
+COUNTS="$(python3 - "$REPO_ROOT" <<'PY'
+import glob, re, sys
+tot = fail = skip = 0
+for path in glob.glob(f"{sys.argv[1]}/desktop/build/test-results/test/TEST-*.xml"):
+    m = re.search(r'tests="(\d+)"[^>]*skipped="(\d+)"[^>]*failures="(\d+)"', open(path).read())
+    if m:
+        tot += int(m.group(1)); skip += int(m.group(2)); fail += int(m.group(3))
+print(f"desktop tests={tot} failures={fail} skipped={skip}")
+PY
+)"
+
+# ---------------------------------------------------------------- step 4: verdict
+step "4/4 verdict"
+[[ -n "$HARNESS_VERDICT" ]] && verdict "$HARNESS_VERDICT" || verdict "LOOP-FAILED: the harness produced no verdict (0 tests matched? see $HARNESS_LOG)"
+verdict "LOOP-COUNTS: $COUNTS"
+verdict "LOOP-LAUNCH: $LAUNCH_OK"
+verdict "LOOP-DATA-ROOT: $DATA_ROOT"
+
+if [[ "$HARNESS_EXIT" -ne 0 || -z "$HARNESS_VERDICT" ]]; then
+    verdict "LOOP-RESULT: RED - the import flow did not verify (harness exit $HARNESS_EXIT)"
+    exit 1
+fi
+verdict "LOOP-RESULT: GREEN - the database imported, the session opened, the rows were read"

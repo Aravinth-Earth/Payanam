@@ -22,9 +22,8 @@ object DebugLoggingPrefs {
     private const val KEY_ENABLED = "debug_logging_enabled"
 
     /** The user's stored choice, or the build-type default when never set. */
-    fun resolve(context: Context): Boolean =
-        context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
-            .getBoolean(KEY_ENABLED, BuildConfig.DEBUG)
+    fun resolve(context: Context): Boolean = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+        .getBoolean(KEY_ENABLED, BuildConfig.DEBUG)
 
     /** Mirrors the toggle value; called whenever the stored preference changes. */
     fun write(context: Context, enabled: Boolean) {

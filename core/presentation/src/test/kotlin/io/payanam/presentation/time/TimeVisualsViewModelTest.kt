@@ -638,13 +638,11 @@ class TimeVisualsViewModelTest {
         viewModel.loadForDate(date)
         advanceUntilIdle()
 
-        // The day's end is 23:59:59 (`TimeVisualsCalculator`), so the clipped interval is
-        // 23:00:00 - 23:59:59 = 59m59s, and `Duration.toMinutes()` floors it to 59. Pinned at the real
-        // arithmetic rather than the round hour this first assumed: the 23:59:59 boundary is deliberate
-        // (it is "the last moment of the day", not next-midnight) and untested elsewhere, and changing
-        // production semantics is not this migration's job. The sub-minute loss on a midnight-crossing
-        // entry is recorded as a finding in the parity doc.
-        assertEquals(59L, viewModel.uiState.value.dayOverall.trackedMinutes)
+        // The day's end is its successor's start (`TimeVisualsCalculator.effectiveDayEnd`), so the clipped
+        // interval is 23:00:00 - 00:00:00 = exactly 60 minutes. The end used to be the wall-clock second
+        // 23:59:59, which floored this to 59 and dropped the last minute of every entry reaching midnight;
+        // `TimeVisualsDayBoundaryTest` in this module pins that boundary directly.
+        assertEquals(60L, viewModel.uiState.value.dayOverall.trackedMinutes)
     }
 
     @Test

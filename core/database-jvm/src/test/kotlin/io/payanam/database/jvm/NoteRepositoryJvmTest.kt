@@ -68,6 +68,20 @@ class NoteRepositoryJvmTest {
                 )
                 """.trimIndent(),
             )
+            // The junction a note delete has to reach. Columns and the parent constraint are copied from
+            // the exported schema; the tag-side constraint is omitted because this fixture never creates a
+            // `tags` row, and the delete under test binds only the owning column.
+            statement.execute(
+                """
+                CREATE TABLE note_tags (
+                    note_id TEXT NOT NULL,
+                    tag_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(note_id, tag_id),
+                    FOREIGN KEY(note_id) REFERENCES notes(id) ON UPDATE NO ACTION ON DELETE CASCADE
+                )
+                """.trimIndent(),
+            )
         }
         session = PayanamDatabaseSession(connection, 21, DatabaseOpenMode.READ_WRITE)
     }

@@ -51,13 +51,12 @@ class AssistantSettingsWriteCountTest {
     }
 
     @Test
-    fun `the logged row count equals the rows a save actually writes`() =
-        runBlocking {
-            store.save(AssistantSettings())
-            assertEquals(
-                "the save log quotes STORED_SETTING_ROWS; it must equal the rows a save writes",
-                STORED_SETTING_ROWS,
-                db.appSettingsDao().getAllSettings().first().size,
-            )
-        }
+    fun `the logged row count equals the rows a save actually writes`() = runBlocking {
+        store.save(AssistantSettings())
+        assertEquals(
+            "the save log quotes STORED_SETTING_ROWS; it must equal the rows a save writes",
+            STORED_SETTING_ROWS,
+            db.appSettingsDao().getAllSettings().first().size,
+        )
+    }
 }

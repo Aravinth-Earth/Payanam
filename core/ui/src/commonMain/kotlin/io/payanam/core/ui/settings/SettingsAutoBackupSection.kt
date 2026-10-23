@@ -26,6 +26,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.BackupInterval
@@ -85,17 +87,27 @@ fun SettingsAutoBackupSection(
                     style = MaterialTheme.typography.bodyMedium,
                 )
                 Text(
-                    text = if (prefsState.autoBackupEnabled) {
-                        strings.settingsAutoBackupEnabledHint
-                    } else {
-                        strings.settingsDisabled
-                    },
+                    text =
+                        if (prefsState.autoBackupEnabled) {
+                            strings.settingsAutoBackupEnabledHint
+                        } else {
+                            strings.settingsDisabled
+                        },
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
             Switch(
                 checked = prefsState.autoBackupEnabled,
+                // The row's title is a SIBLING Text, so without this the toggle announces as its state and
+                // nothing else. The description is that same visible title from the copy table, so the
+                // announcement cannot disagree with the label the user can see. Deliberately no merge: a merge
+                // boundary moves the toggle's own node out of the unmerged semantics tree, and this screen's
+                // rendering test walks that tree by geometry.
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = strings.settingsAutoBackupEnable
+                    },
                 onCheckedChange = { enabled ->
                     onAutoBackupEnabledChange(enabled)
                     logger.d("SettingsScreen.autoBackup", "Auto-backup toggled", mapOf("enabled" to enabled))
@@ -122,9 +134,10 @@ fun SettingsAutoBackupSection(
                     onValueChange = {},
                     readOnly = true,
                     trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = intervalExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                 )
                 DropdownMenu(
                     expanded = intervalExpanded,
@@ -180,17 +193,24 @@ fun SettingsAutoBackupSection(
                         style = MaterialTheme.typography.bodyMedium,
                     )
                     Text(
-                        text = if (prefsState.backupRotationEnabled) {
-                            strings.settingsBackupRotationEnabledHint.formatArgs(prefsState.backupRotationCount)
-                        } else {
-                            strings.settingsBackupRotationDisabledHint
-                        },
+                        text =
+                            if (prefsState.backupRotationEnabled) {
+                                strings.settingsBackupRotationEnabledHint.formatArgs(prefsState.backupRotationCount)
+                            } else {
+                                strings.settingsBackupRotationDisabledHint
+                            },
                         style = MaterialTheme.typography.bodySmall,
                         color = MaterialTheme.colorScheme.onSurfaceVariant,
                     )
                 }
                 Switch(
                     checked = prefsState.backupRotationEnabled,
+                    // Same sibling-label shape as the toggle above, and the same fix: the visible title
+                    // becomes the control's own description rather than a string typed a second time here.
+                    modifier =
+                        Modifier.semantics {
+                            contentDescription = strings.settingsBackupRotationEnable
+                        },
                     onCheckedChange = { enabled ->
                         onBackupRotationEnabledChange(enabled)
                         logger.d("SettingsScreen.backupRotation", "Backup rotation toggled", mapOf("enabled" to enabled))

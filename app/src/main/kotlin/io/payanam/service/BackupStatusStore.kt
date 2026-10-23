@@ -32,6 +32,7 @@ class BackupStatusStore @Inject constructor(
     private val prefs = context.getSharedPreferences(BACKUP_META_PREFS, Context.MODE_PRIVATE)
     private val _status = MutableStateFlow(loadSnapshot())
     override val status: StateFlow<BackupStatusSnapshot> = _status.asStateFlow()
+
     /**
      * Persists a successful backup (clearing any recorded failure).
      */
@@ -52,6 +53,7 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp),
         )
     }
+
     /**
      * Records a failed backup attempt with its (truncated) error message.
      */
@@ -70,6 +72,7 @@ class BackupStatusStore @Inject constructor(
             mapOf("recordedAt" to displayTimestamp, "message" to message.take(200)),
         )
     }
+
     /**
      * Clears the persisted failure so it stops showing on the settings screen.
      */
@@ -82,6 +85,7 @@ class BackupStatusStore @Inject constructor(
         _status.value = loadSnapshot()
         logger.i("BackupStatusStore.dismissLatestFailure", "Dismissed persisted backup failure message")
     }
+
     /**
      * Re-reads the snapshot from preferences into state (after external changes).
      */
@@ -120,6 +124,7 @@ class BackupStatusStore @Inject constructor(
         const val KEY_LAST_BACKUP_FAILURE_AT_MILLIS = "last_backup_failure_at_millis"
         const val KEY_LAST_BACKUP_FAILURE_DISPLAY = "last_backup_failure_display"
         const val KEY_LAST_BACKUP_FAILURE_MESSAGE = "last_backup_failure_message"
+
         /**
          * Formats an epoch-millis timestamp for display ("yyyy-MM-dd HH:mm").
          */

@@ -205,6 +205,7 @@
     <string name="db_init_dimension_setup_continue_action">Verify and proceed</string>
     <string name="db_init_dimension_setup_customize_desc">Use Add, Edit, and Delete to configure your dimensions, then set name, icon, and color in the editor.</string>
     <string name="db_init_dimension_setup_desc">This is a required setup for all new databases.</string>
+    <string name="db_init_dimension_setup_not_saved">Your life dimensions were not saved last time, so you will be asked to choose them again. Nothing else was kept.</string>
     <string name="db_init_dimension_setup_disable_action">Disable</string>
     <string name="db_init_dimension_setup_edit_dialog_title">Edit life dimension</string>
     <string name="db_init_dimension_setup_enable_action">Enable</string>
@@ -291,6 +292,7 @@
     <string name="dimension_color_yellow_800">Yellow 800</string>
     <string name="dimension_picker_choose_color">Choose color</string>
     <string name="dimension_picker_choose_icon">Choose icon</string>
+    <string name="dimension_picker_icon_option">Icon option %1$s</string>
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_email_value">Email: %1$s</string>
     <string name="feedback_contact_signal">zatu.69</string>

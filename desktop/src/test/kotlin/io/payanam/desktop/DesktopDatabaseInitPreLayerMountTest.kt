@@ -11,6 +11,7 @@ import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
+import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -226,6 +227,14 @@ class DesktopDatabaseInitPreLayerMountTest {
                     preferences = AppPreferencesState(),
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
+                ),
+            // Over this fixture's own controller and file, never the host's. The controller REFUSES every
+            // open - the premise of this file - so the holder reports no store and the assistant routes,
+            // which it does not mount, would render the shared screens over their own default state.
+            assistantCollaborators =
+                DesktopAssistantCollaborators(
+                    sessionController = sessionController,
+                    databaseFile = databaseFile.toPath(),
                 ),
         )
 

@@ -392,6 +392,58 @@ internal class DesktopPlatformSeams(
             }
         }
     }
+
+    internal companion object {
+        /**
+         * The seams built for the running app, so the WINDOW can reconcile them on resume.
+         *
+         * Exists for the same structural reason as the session controller's own registry: the seams are
+         * constructed inside a `remember` in `DesktopApp.kt`, while the resume trigger belongs to the window
+         * content in `DesktopMain.kt`. Threading the seams through `desktopApp`'s signature would mean adding
+         * a parameter to a file whose collaborators object is built FIELD BY FIELD in tests — every one of
+         * those constructors breaks. A registry is the smaller change and matches a pattern this module
+         * already established.
+         *
+         * `@Volatile` and a single slot, not a list, because `DesktopApp.kt` builds the seams once per shell,
+         * and there is one window per process.
+         */
+        @Volatile
+        private var installed: DesktopPlatformSeams? = null
+
+        /**
+         * Records [seams] as this process's seams so [reconcileInstalledBackupSchedule] can reach them.
+         *
+         * Called from the factory below, which is the only place the app constructs them — so registration
+         * cannot be forgotten at a new call site, which is exactly the defect class this module keeps
+         * hitting (a contract implemented, tested, and reached from nowhere).
+         */
+        @Synchronized
+        fun install(seams: DesktopPlatformSeams) {
+            installed = seams
+        }
+
+        /**
+         * Reconciles the installed seams' backup schedule, or does nothing when none were ever built.
+         *
+         * The window-resume counterpart to [reconcileBackupSchedule]. Android reconciles
+         * `AutoBackupWorker`'s schedule on every `onStart`; the desktop reconciled it only at session
+         * establishment and on a settings write, so a `auto_backup_enabled` row changed on the OTHER
+         * platform — or a laptop that suspended past a scheduled backup — left the desktop's in-process
+         * timer on a cadence the shared rows no longer describe.
+         *
+         * Absent seams is a normal state, not a failure: the window's observer fires on the window's first
+         * focus, which on a fresh launch is before `desktopApp` has composed anything that builds them.
+         *
+         * Suspend because the reconcile is suspend and already mutex-guarded internally
+         * ([reconcileMutex]), so an observer firing twice cannot run two overlapping reconciles even though
+         * nothing here serializes calls.
+         */
+        suspend fun reconcileInstalledBackupSchedule(): Boolean {
+            val seams = installed ?: return false
+            seams.reconcileBackupSchedule()
+            return true
+        }
+    }
 }
 
 /**
@@ -421,7 +473,12 @@ internal fun desktopPlatformSeams(
         runBackup = runBackup,
         backupRows = backupRows,
         deliverReminder = deliverReminder,
-    )
+    ).also { seams ->
+        // Registration HERE, not at the app's call site: this factory is the only place the desktop builds
+        // its seams, so registering inside it makes "the window can reach them" true by construction rather
+        // than by remembering to say so at a call site.
+        DesktopPlatformSeams.install(seams)
+    }
 
 /** What the desktop can do, stated in the shared vocabulary — every capability it lacks included. */
 internal fun desktopCapabilities(

@@ -3,12 +3,12 @@
 package io.payanam.ui.viewmodel
 
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.presentation.database.NewDatabaseDimensionInput
 import io.payanam.core.ui.database.buildDimensionSeedRows
 import io.payanam.core.ui.database.canonicalizeDefaultSeedLabel
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.presentation.database.NewDatabaseDimensionInput
 
 /**
  * Writes the mandatory life-dimension seed for a brand-new database.
@@ -40,10 +40,10 @@ internal suspend fun persistNewDatabaseDimensionSetup(
                     id = row.id,
                     key = row.key,
                     label =
-                        canonicalizeDefaultSeedLabel(
-                            dimensionId = row.id,
-                            candidateLabel = row.label,
-                        ),
+                    canonicalizeDefaultSeedLabel(
+                        dimensionId = row.id,
+                        candidateLabel = row.label,
+                    ),
                     description = row.description,
                     colorHex = row.color,
                     iconKey = row.icon,

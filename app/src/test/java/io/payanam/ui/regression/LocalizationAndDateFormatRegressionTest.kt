@@ -27,10 +27,10 @@ class LocalizationAndDateFormatRegressionTest {
         assertFalse(source.contains("taskFilterLabel(filter)} (${ '$' }count)"))
     }
 
-    @Test
     /**
      * Bulk map dialog uses dimension preferences not raw display name.
      */
+    @Test
     fun bulk_map_dialog_uses_dimension_preferences_not_raw_display_name() {
         val source = readSource("app/src/main/kotlin/io/payanam/feature/settings/ui/SettingsDialogs.kt")
         assertFalse(source.contains("settings_bulk_map_dimension_selected,\n                                    dimension.displayName"))
@@ -38,10 +38,10 @@ class LocalizationAndDateFormatRegressionTest {
         assertTrue(source.contains("dimensionPreferences"))
     }
 
-    @Test
     /**
      * Date time formatting avoids hardcoded patterns in primary screens.
      */
+    @Test
     fun date_time_formatting_avoids_hardcoded_patterns_in_primary_screens() {
         val notes = readSource("app/src/main/kotlin/io/payanam/ui/screens/NotesScreen.kt")
         val lenses = readSource("app/src/main/kotlin/io/payanam/ui/screens/LensesScreen.kt")
@@ -89,12 +89,11 @@ class LocalizationAndDateFormatRegressionTest {
                 override fun preVisitDirectory(
                     dir: Path,
                     attrs: BasicFileAttributes,
-                ): FileVisitResult =
-                    if (dir.fileName?.toString() == "build") {
-                        FileVisitResult.SKIP_SUBTREE
-                    } else {
-                        FileVisitResult.CONTINUE
-                    }
+                ): FileVisitResult = if (dir.fileName?.toString() == "build") {
+                    FileVisitResult.SKIP_SUBTREE
+                } else {
+                    FileVisitResult.CONTINUE
+                }
 
                 override fun visitFile(
                     file: Path,

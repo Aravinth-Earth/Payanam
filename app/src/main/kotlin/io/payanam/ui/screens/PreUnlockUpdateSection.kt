@@ -31,10 +31,10 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
-import io.payanam.presentation.download.DownloadUiState
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.theme.LifeDimensionColors
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 
 /**
@@ -72,6 +72,7 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             buttonAction = {}
             showProgress = false
         }
+
         downloadState is DownloadUiState.Downloading -> {
             val d = downloadState as DownloadUiState.Downloading
             buttonLabel = stringResource(
@@ -82,24 +83,28 @@ fun PreUnlockUpdateSection(viewModel: PreUnlockUpdateViewModel) {
             buttonAction = {}
             showProgress = true
         }
+
         downloadState is DownloadUiState.Downloaded -> {
             buttonLabel = stringResource(id = R.string.settings_update_install_now_button)
             buttonEnabled = true
             buttonAction = { viewModel.install() }
             showProgress = false
         }
+
         downloadState is DownloadUiState.Failed -> {
             buttonLabel = stringResource(id = R.string.settings_update_retry_button)
             buttonEnabled = true
             buttonAction = { viewModel.download() }
             showProgress = false
         }
+
         resultMessage?.startsWith("update_available") == true -> {
             buttonLabel = stringResource(id = R.string.pre_unlock_update_download_install)
             buttonEnabled = true
             buttonAction = { viewModel.download() }
             showProgress = false
         }
+
         else -> {
             buttonLabel = stringResource(id = R.string.settings_update_check_button)
             buttonEnabled = !checking

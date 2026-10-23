@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop.database
 
+import io.payanam.database.jvm.AssistantConfigurationStoreJvm
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.desktop.DesktopDatabaseCreateOutcome
@@ -43,6 +44,20 @@ internal class DesktopDatabaseSessionController(
     /** The open, injected: tests drive both the accepted and the refused path without a real driver. */
     private val open: suspend (String, CharArray) -> DatabaseOpenResult,
     private val logger: UnifiedLogger,
+    /**
+     * This platform's day-boundary maintenance, injected so the concurrency guard around it can be proven
+     * without a recurring habit in the database.
+     *
+     * Defaults to the REAL steps - [runDesktopRecurrenceMaintenance] - so production is unchanged and the
+     * injection cannot become a second implementation of the maintenance itself. The reason it exists at
+     * all is that "does not run twice concurrently" is a claim about a function body, and the only way to
+     * assert a call count on that body is to substitute it; asserting it through the real
+     * `RecurrenceManager` would mean asserting on which rows a WAL-backed JDBC layer happens to write,
+     * which is a weaker statement about a different thing.
+     */
+    private val maintenance: suspend (DesktopPayanamDataLayer) -> Unit = { layer ->
+        runDesktopRecurrenceMaintenance(layer, logger)
+    },
 ) {
     private var session: PayanamDatabaseSession? = null
 
@@ -54,6 +69,31 @@ internal class DesktopDatabaseSessionController(
      * and a non-atomic check-then-set would let both fold the same session.
      */
     private val shutdownRun = AtomicBoolean(false)
+
+    /**
+     * The layer this controller installed, or null when no session is open.
+     *
+     * Held so the resume path runs maintenance over the SAME layer every repository reads through,
+     * rather than reaching for [LocalDataLayer.current] and re-deriving one. `openAndInstall` builds the
+     * layer and installs it in one step, so the reference it keeps is the only one guaranteed to be the
+     * layer in force - reading the process-wide holder would work today and break the moment a second
+     * controller existed, which is exactly the assumption the session's single-owner design forbids.
+     *
+     * Cleared with the session in [closeAndUninstall], so "no session" and "no layer" cannot disagree.
+     */
+    private var installedLayer: DesktopPayanamDataLayer? = null
+
+    /**
+     * Whether a maintenance run started by this controller is still in flight.
+     *
+     * An [AtomicBoolean], matching [shutdownRun] above, and for the same reason: the two callers are
+     * different threads - the open path and the window's resume observer - and a plain `Boolean` would let
+     * both enter the same run. This is a check-then-act guard, not a lock, because the required behaviour is
+     * to SKIP the second caller rather than queue behind the first: a laptop resumed twice in quick
+     * succession must roll its recurring tasks forward once per resume, not once per resume plus once for
+     * the duplicate that queued behind it.
+     */
+    private val maintenanceInFlight = AtomicBoolean(false)
 
     init {
         // Self-registration, deliberately: the controller is built inside a Composable in
@@ -72,43 +112,134 @@ internal class DesktopDatabaseSessionController(
      * [RecurrenceManager], not a desktop reimplementation.
      *
      * This was genuinely MISSING, not merely a missing callback: a repo-wide grep of `desktop/src/main`
-     * found zero references to `repairStuckRecurringTasks`, `autoAdvanceRecurringTasks`, or
-     * `ScoreRollupBackfillService.runIfNeeded`. The consequence was invisible and real — on the desktop a
-     * recurring habit did not roll over at midnight, a stuck occurrence was never repaired, and historical
-     * scores were never backfilled. The app looked fine and quietly kept yesterday's state.
+     * found zero references to `repairStuckRecurringTasks` or `autoAdvanceRecurringTasks`. The
+     * consequence was invisible and real — on the desktop a recurring habit did not roll over at
+     * midnight and a stuck occurrence was never repaired. The app looked fine and quietly kept
+     * yesterday's state.
+     *
+     * **TWO of Android's THREE steps, not three.** `MainActivity.runStartupMaintenance` also calls
+     * `ScoreRollupBackfillService.runIfNeeded` (`:573`), and this method does not — deliberately, and
+     * not because it was missed twice. The backfill and the cascade that drives it
+     * (`ScoreRollupCascadeService`) live in `core/database`, an Android library
+     * (`core/database/build.gradle.kts:8`) that this module does not depend on
+     * (`desktop/build.gradle.kts:36-47`). `:core:scoring` holds no metric roll-up compute, the shared
+     * `:core:domain` ports declare no backfill or maintenance port at all, and `:core:database-jvm`
+     * ships only READERS of `habit_metrics` / `dimension_metrics` / `day_metrics` — no writer anywhere.
+     * The third step therefore needs promoting and porting; wiring alone cannot reach it.
+     *
+     * The desktop's refusal of the LIVE cascade is a separate, declared position: this platform does not
+     * recompute roll-ups (see `DesktopUnsupportedPorts.scoreRollupTrigger`), on the stated premise that
+     * Android computes them into the same database the desktop reads back. Backfilling historical scores
+     * here would make this platform a second roll-up writer against that premise, so it is a product
+     * decision rather than a wiring fix — and until it is made, historical scores stay whatever Android
+     * last wrote.
      *
      * Called from the one place a session comes into existence, so it runs on every open exactly as
      * Android's runs on every `onStart` past the gates. It is fire-and-forget: startup must not be delayed
      * or failed by maintenance, and every step logs its own outcome.
+     *
+     * `internal`, not `private`, so the RESUME path reaches the SAME steps rather than a second
+     * implementation of them - see [runMaintenanceAfterResume], which is the reason this function is
+     * reachable from outside. Both callers go through [runMaintenanceGuarded], so an open and a resume
+     * cannot run the steps over the same layer at the same time.
      */
-    private fun runStartupMaintenance(layer: DesktopPayanamDataLayer) {
-        val recurrenceManager = RecurrenceManager(layer.tasks, layer.taskOccurrences)
+    internal fun runStartupMaintenance(layer: DesktopPayanamDataLayer) {
         CoroutineScope(Dispatchers.Default).launch {
-            runCatching {
-                val repaired = recurrenceManager.repairStuckRecurringTasks()
-                if (repaired > 0) {
-                    logger.i(
-                        "DesktopDatabaseSessionController.runStartupMaintenance",
-                        "Repaired stuck recurring tasks",
-                        mapOf("repairedCount" to repaired),
-                    )
-                }
-                recurrenceManager.autoAdvanceRecurringTasks()
-                logger.i(
-                    "DesktopDatabaseSessionController.runStartupMaintenance",
-                    "Auto-advanced recurring tasks",
-                )
-            }.onFailure { error ->
-                // Never silent: a habit that does not roll over is exactly the kind of failure that would
-                // otherwise be invisible on this platform.
-                logger.e(
-                    "DesktopDatabaseSessionController.runStartupMaintenance",
-                    "Startup maintenance failed; recurring tasks may not have advanced",
-                    error,
-                    mapOf("error" to (error.message ?: "Unknown error")),
-                )
-            }
+            runMaintenanceGuarded(layer, "DesktopDatabaseSessionController.runStartupMaintenance")
         }
+    }
+
+    /**
+     * The day-boundary work, for a window that has just come BACK - the desktop's counterpart to
+     * `MainActivity.onStart` re-running maintenance every time the app returns to the foreground.
+     *
+     * **The gap this closes is a laptop, not a desktop.** `runStartupMaintenance` ran from exactly one
+     * call site - `openAndInstall` - so a machine that suspended across midnight never advanced
+     * yesterday's recurring tasks. Nothing failed and nothing looked wrong: the app showed yesterday's
+     * state exactly as it had at suspend time, indefinitely, until it was restarted. Android has no such
+     * window because its maintenance runs on every `onStart`.
+     *
+     * Suspend rather than fire-and-forget, unlike [runStartupMaintenance], for two reasons that both
+     * matter: a resume is a user-visible moment where the caller may want to know the work finished, and
+     * awaiting it is what makes the duplicate-concurrency behaviour observable rather than merely
+     * intended. The window's observer launches it on the composition scope.
+     *
+     * **Returns immediately when no session is open.** Not "runs anyway" and not an error: before the
+     * user unlocks there is no layer, so there is nothing to repair or advance, and the pre-unlock half of
+     * every launch would otherwise log a failure for a normal state. The window's observer fires on the
+     * window's very first focus, which is long before any passphrase is typed.
+     *
+     * **A duplicate is skipped, not queued.** [maintenanceInFlight] is the gate, matching the shape of
+     * Android's `startupMaintenanceJob?.isActive == true` check but with the mechanism this file already
+     * uses ([shutdownRun] above). Skipping rather than queueing is the deliberate choice: the steps are
+     * idempotent day-boundary repairs, so a second pass adds nothing, while a queued pass would run the
+     * whole repair set again for a resume that arrived while the first was still going.
+     *
+     * **The score roll-up backfill is deliberately NOT here, and neither are any other step that does not
+     * exist on this platform.** See [runStartupMaintenance]'s own KDoc: there is no desktop writer for
+     * `habit_metrics` / `dimension_metrics` / `day_metrics` anywhere in the reachable modules, so there is
+     * nothing to call here that would not be a second roll-up writer against a premise this platform has
+     * declared it does not hold. Android's third step (`scheduleAllPendingTasks`) has no desktop
+     * equivalent either, for the same shape of reason: reminders are not surfaced on this platform
+     * `[DesktopPlatformSeams.reminderSink]` reports `NOT_SURFACED` and logs that nothing was shown).
+     * What runs here is exactly what runs at open, and nothing more - inventing steps this platform cannot
+     * perform would make the log claim a reconciliation that did not happen.
+     */
+    internal suspend fun runMaintenanceAfterResume() {
+        val layer = installedLayer
+        if (layer == null) {
+            logger.d(
+                source = "DesktopDatabaseSessionController.runMaintenanceAfterResume",
+                message = "No session is open, so there is nothing to reconcile on resume",
+            )
+            return
+        }
+        runMaintenanceGuarded(layer, "DesktopDatabaseSessionController.runMaintenanceAfterResume")
+    }
+
+    /**
+     * Runs this platform's maintenance steps for [layer] at most once at a time, across EVERY caller.
+     *
+     * Returns whether THIS caller ran the work, so a skipped duplicate is distinguishable from a run that
+     * found nothing to do - the distinction the log line below reports and the resume test asserts.
+     *
+     * The flag is released in a `finally` so a throwing step cannot wedge the guard and silently disable
+     * maintenance for the rest of the process: the failure is logged by the steps themselves and the next
+     * resume must still be able to try.
+     */
+    private suspend fun runMaintenanceGuarded(
+        layer: DesktopPayanamDataLayer,
+        source: String,
+    ): Boolean {
+        if (!maintenanceInFlight.compareAndSet(false, true)) {
+            logger.d(
+                source = source,
+                message = "Maintenance is already running for this session; skipping the duplicate",
+            )
+            return false
+        }
+        return try {
+            runMaintenance(layer)
+            true
+        } finally {
+            maintenanceInFlight.set(false)
+        }
+    }
+
+    /**
+     * The steps this platform can actually perform, in Android's order, over [layer].
+     *
+     * A delegation rather than the body itself, so [maintenance] — the single seam both callers go through
+     * — is what actually runs. Keeping the production steps in a top-level function rather than inline here
+     * is what lets that seam default to the real thing without the default referring back to an instance
+     * that does not exist yet during construction.
+     *
+     * Never lets an exception escape: every step reports its own outcome, and a failure must not propagate
+     * into a resume that has nothing better to do than fail. The exception is handled one level down, inside
+     * [runDesktopRecurrenceMaintenance], so this function cannot be the reason a launch fails.
+     */
+    private suspend fun runMaintenance(layer: DesktopPayanamDataLayer) {
+        maintenance(layer)
     }
 
     /**
@@ -151,6 +282,34 @@ internal class DesktopDatabaseSessionController(
      * reads through, and handing it out would invite a caller to keep a reference across a close.
      */
     fun checkpoint(): FoldReport? = session?.checkpoint()
+
+    /**
+     * The assistant's stored configuration, over THIS session, or null when nothing is open.
+     *
+     * A session-BOUND store handed out by the one owner of the session, rather than the session itself.
+     * [AssistantConfigurationStoreJvm] needs a `PayanamDatabaseSession` and there is exactly one in this
+     * process, so this is the only place the store can be built from the connection the shell already
+     * has open: a store built anywhere else would hold a SECOND writable connection to the same file,
+     * contending with every repository poll, and its writes would land outside the session the import
+     * path has to fold before it can replace the file.
+     *
+     * Null rather than an error because "no session yet" is a normal state on this platform - it is the
+     * pre-unlock half of every launch - and the assistant's own screen reports it as its `DB_LOCKED`
+     * state. A caller that needs the store before a session exists has to say what it will do instead,
+     * which is exactly the decision this return type forces.
+     */
+    fun assistantConfigurationStore(): AssistantConfigurationStoreJvm? =
+        session
+            ?.takeIf { it.isOpen }
+            ?.let { AssistantConfigurationStoreJvm(it) }
+            .also { store ->
+                if (store == null) {
+                    logger.d(
+                        source = "DesktopDatabaseSessionController.assistantConfigurationStore",
+                        message = "No open session, so there is no assistant configuration store yet",
+                    )
+                }
+            }
 
     /**
      * Opens the database with [passphrase] and installs the layer, CREATING it when there is no file yet.
@@ -208,11 +367,23 @@ internal class DesktopDatabaseSessionController(
         openPassphrase = passphrase.copyOf()
         when (result) {
             is DatabaseOpenResult.Opened -> {
-                session = result.session
-                // Flipped only now, when a session actually exists — the same instant isOpen turns.
-                _sessionOpenState.value = true
                 val layer = DesktopPayanamDataLayer(result.session)
                 LocalDataLayer.install(layer)
+                // `session` is published only AFTER the layer exists: `isOpen` is DERIVED from it, so assigning
+                // it earlier announces an open session whose consumers would still read the PREVIOUS
+                // (bootstrap) layer - the same ordering rule as the flag below, one layer down. Found by the
+                // publish-before-install sweep, which read this very function.
+                session = result.session
+                // The layer kept for the resume path, published at the same instant as the session it
+                // reads through: `runMaintenanceAfterResume` returns early when this is null, so a
+                // mismatch here would either skip the rollover or run it against a released connection.
+                installedLayer = layer
+                // Flipped only AFTER the layer is installed. This state is what consumers wait on, so a
+                // consumer that waited for it must never find the PREVIOUS (bootstrap) layer still installed.
+                // Measured 2026-10-02 by the import loop harness: with the flip first, the preference read
+                // that this state triggers read the bootstrap layer and got ZERO rows from a database that
+                // holds them.
+                _sessionOpenState.value = true
                 logger.i(
                     "DesktopDatabaseSessionController",
                     "Database opened and the shared data layer installed",
@@ -321,6 +492,9 @@ internal class DesktopDatabaseSessionController(
         openPassphrase = null
         session?.close()
         session = null
+        // With the session gone, so is the layer that read through it: a resume arriving after this must
+        // take the early return rather than run the recurrence steps against a closed connection.
+        installedLayer = null
         // With the session gone, the state that describes it is false — the same instant isOpen is.
         _sessionOpenState.value = false
     }
@@ -505,6 +679,86 @@ internal class DesktopDatabaseSessionController(
                 }
             target.checkpointAndCloseForShutdown()
         }
+
+        /**
+         * Runs this process's day-boundary maintenance for a window that has just come back, if a
+         * controller was ever registered.
+         *
+         * A companion function for the same structural reason as [checkpointAndCloseProcessSession]: the
+         * window content in `DesktopMain` is composed BEFORE `desktopApp` builds the controller, and the
+         * controller itself lives inside a `remember` in `DesktopApp.kt`. So the window's resume observer
+         * cannot hold a controller reference, and the only handle available from `DesktopMain` is the one
+         * registered here at construction.
+         *
+         * Reusing [hookTarget] rather than adding a second registry is deliberate: there is exactly one
+         * controller per process, and two independent "who is the current controller" fields would be two
+         * answers that could disagree.
+         *
+         * Suspend because the work is suspend, and because the observer that calls it launches on the
+         * composition scope. Returns whether a controller was reachable at all - NOT whether the steps ran:
+         * a reachable controller with no session open, or one whose maintenance was already in flight, both
+         * take an early return inside [runMaintenanceAfterResume] and leave that distinction in the log,
+         * which is where a resume's outcome is read from anyway.
+         */
+        suspend fun reconcileProcessSessionOnResume(): Boolean {
+            val target =
+                hookTarget ?: run {
+                    // No controller was ever built, so no session exists. The window's observer fires on
+                    // the window's first focus, which on a fresh launch is before any controller exists -
+                    // a normal state, not a failure to report.
+                    return false
+                }
+            target.runMaintenanceAfterResume()
+            return true
+        }
+    }
+}
+
+/**
+ * The desktop's day-boundary maintenance: Android's two recurrence steps, over this platform's layer.
+ *
+ * **TWO steps, and neither is a desktop reimplementation.** `repairStuckRecurringTasks` then
+ * `autoAdvanceRecurringTasks`, both on the SAME shared `RecurrenceManager` Android uses. A second rollover
+ * rule would be a second answer to "which days is this habit due", and the desktop already reads that
+ * answer through the shared repositories — so the rule has to stay shared even when the layer is not.
+ *
+ * Android's third step, the score roll-up backfill, is deliberately ABSENT and not missed: there is no
+ * desktop writer for `habit_metrics` / `dimension_metrics` / `day_metrics` anywhere in the reachable
+ * modules, so calling anything here would make this platform a second roll-up writer against a premise it
+ * has declared it does not hold. See the KDoc on `DesktopDatabaseSessionController.runStartupMaintenance`.
+ *
+ * Top-level rather than a method, so the controller's `maintenance` parameter can default to it: a default
+ * argument cannot reference an instance member of the object being constructed.
+ *
+ * Never throws. A habit that does not roll over is exactly the kind of failure that would otherwise be
+ * invisible on this platform, so the failure is LOGGED at `e` (never level-gated) rather than swallowed.
+ */
+internal suspend fun runDesktopRecurrenceMaintenance(
+    layer: DesktopPayanamDataLayer,
+    logger: UnifiedLogger,
+) {
+    val recurrenceManager = RecurrenceManager(layer.tasks, layer.taskOccurrences)
+    runCatching {
+        val repaired = recurrenceManager.repairStuckRecurringTasks()
+        if (repaired > 0) {
+            logger.i(
+                "DesktopDatabaseSessionController.runMaintenance",
+                "Repaired stuck recurring tasks",
+                mapOf("repairedCount" to repaired),
+            )
+        }
+        recurrenceManager.autoAdvanceRecurringTasks()
+        logger.i(
+            "DesktopDatabaseSessionController.runMaintenance",
+            "Auto-advanced recurring tasks",
+        )
+    }.onFailure { error ->
+        logger.e(
+            "DesktopDatabaseSessionController.runMaintenance",
+            "Startup maintenance failed; recurring tasks may not have advanced",
+            error,
+            mapOf("error" to (error.message ?: "Unknown error")),
+        )
     }
 }
 

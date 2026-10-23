@@ -5,12 +5,12 @@ package io.payanam.feature.settings
 import android.app.DownloadManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.ChannelStatus
-import io.payanam.presentation.updates.UpdateCheckResult
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.presentation.updates.ChannelStatus
+import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.presentation.updates.UpdateCheckError
+import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.presentation.updates.UpdateOutcome
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -245,7 +245,7 @@ class UpdateCheckerParseTest {
         assertEquals("download_error_space", downloadFailureMessage(DownloadManager.ERROR_INSUFFICIENT_SPACE))
         assertEquals("download_error_http", downloadFailureMessage(DownloadManager.ERROR_UNHANDLED_HTTP_CODE))
         assertEquals("download_failed", downloadFailureMessage(DownloadManager.ERROR_UNKNOWN))
-        assertEquals("download_failed", downloadFailureMessage(99999))      // unknown
+        assertEquals("download_failed", downloadFailureMessage(99999)) // unknown
     }
 
     @Test

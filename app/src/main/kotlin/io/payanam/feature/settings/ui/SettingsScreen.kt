@@ -18,10 +18,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.payanam.FeatureFlags
 import io.payanam.core.ui.settings.SettingsScreenActions
 import io.payanam.core.ui.settings.SettingsScreenContent
 import io.payanam.core.ui.settings.UHABITS_IMPORT_MIME_TYPES
-import io.payanam.FeatureFlags
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.cancelImportPassphrase
 import io.payanam.feature.settings.resumeImportWithPassphrase
@@ -219,10 +219,9 @@ fun SettingsScreen(
 private fun biometricActionsHolder(
     context: android.content.Context,
     onEnableBiometricRequested: (androidx.fragment.app.FragmentActivity, String, (Boolean) -> Unit) -> Unit,
-): AndroidDatabaseSecurityBiometricActions =
-    remember(context, onEnableBiometricRequested) {
-        AndroidDatabaseSecurityBiometricActions(
-            context = context,
-            onEnableBiometricRequested = onEnableBiometricRequested,
-        )
-    }
+): AndroidDatabaseSecurityBiometricActions = remember(context, onEnableBiometricRequested) {
+    AndroidDatabaseSecurityBiometricActions(
+        context = context,
+        onEnableBiometricRequested = onEnableBiometricRequested,
+    )
+}

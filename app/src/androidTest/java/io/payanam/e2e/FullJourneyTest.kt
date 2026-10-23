@@ -23,6 +23,10 @@ import org.junit.runner.RunWith
  * Phase 9 (unlock after a process restart) cannot live here — an instrumentation run hosts every
  * test method in one app process, so the session never closes. It lives in [UnlockTest], which the
  * runner starts as a second invocation.
+ *
+ * LOCALE: every label is read from [E2eLabels] rather than written here as English copy, so the whole
+ * journey runs on a device in whatever language the app is in. Task titles the suite types in
+ * ("Quick Task", "Full Detail Task") are data, not copy, and stay literals — see [TASK_DATA].
  */
 @RunWith(AndroidJUnit4::class)
 class FullJourneyTest {
@@ -31,6 +35,9 @@ class FullJourneyTest {
     val rule = createAndroidComposeRule<MainActivity>()
 
     private val h = E2eHarness(rule, tag = "E2E")
+
+    /** The app's own copy in the app's current language. */
+    private val l: E2eLabels.Labels get() = h.labels
 
     /** The device sleeps on a short timeout mid-build; a stopped Activity has no Compose tree. */
     @Before
@@ -47,7 +54,7 @@ class FullJourneyTest {
         dimensionSetup()
 
         // ═══ MAIN SCREEN REACHED ══════════════════════════════════════════════════════════════════
-        h.assertVisible("Per Dimension")
+        h.assertVisible(l.perDimension)
         h.log("phase0=done")
 
         // ═══ PHASE 1 — TASKS ══════════════════════════════════════════════════════════════════════
@@ -63,7 +70,7 @@ class FullJourneyTest {
         h.log("phase3=done")
 
         // ═══ PHASE 4 — JOURNAL ════════════════════════════════════════════════════════════════════
-        h.goToTab("Journal")
+        h.goToTab(l.journal)
         h.capture("journal_screen")
         h.log("phase4=done")
 
@@ -72,8 +79,8 @@ class FullJourneyTest {
         h.log("phase5=done")
 
         // ═══ PHASE 6 — LENSES ═════════════════════════════════════════════════════════════════════
-        h.goToTab("Lenses")
-        h.assertVisible("Lenses")
+        h.goToTab(l.lenses)
+        h.assertVisible(l.lenses)
         h.capture("lenses_main")
         h.log("phase6=done")
 
@@ -87,22 +94,22 @@ class FullJourneyTest {
 
         // ═══ PHASE 10 — DATA PERSISTENCE ══════════════════════════════════════════════════════════
         // Everything created earlier in this run must still be there after all the navigating.
-        h.clickNav("Tasks")
-        h.assertVisible("Quick Task")
-        h.assertVisible("Full Detail Task")
-        h.clickNav("Lenses")
-        h.assertVisible("Lenses")
+        h.clickNav(l.tasks)
+        h.assertVisible(TASK_DATA.quickTask)
+        h.assertVisible(TASK_DATA.fullDetailTask)
+        h.clickNav(l.lenses)
+        h.assertVisible(l.lenses)
         h.log("phase10=done")
 
         // ═══ PHASE 11 — FINAL LOG EXPORT ══════════════════════════════════════════════════════════
         // Exported a second time because the app's session log is per process: the export in phase 7
         // and this one are different files, and together they cover the whole run.
-        h.clickNav("Settings")
-        h.assertVisible("Settings")
-        h.scrollTo("Debug")
-        h.click("Debug")
-        h.scrollTo("Export Current Session Log")
-        h.click("Export Current Session Log")
+        h.clickNav(l.settings)
+        h.assertVisible(l.settings)
+        h.scrollTo(l.debug)
+        h.click(l.debug)
+        h.scrollTo(l.exportCurrentSessionLog)
+        h.click(l.exportCurrentSessionLog)
         h.log("phase11=done")
     }
 
@@ -113,11 +120,11 @@ class FullJourneyTest {
      * one [UnlockTest] unlocks with. Coverage is "the dialog opens from Data Management".
      */
     private fun passphraseChange() {
-        h.clickNav("Settings")
-        h.scrollTo("Data Management")
-        h.click("Data Management")
-        h.scrollTo("Update Passphrase")
-        h.click("Update Passphrase")
+        h.clickNav(l.settings)
+        h.scrollTo(l.dataManagement)
+        h.click(l.dataManagement)
+        h.scrollTo(l.updatePassphrase)
+        h.click(l.updatePassphrase)
         h.capture("passphrase_change")
         h.back()
     }
@@ -131,70 +138,75 @@ class FullJourneyTest {
      * option is absent, instead of silently skipping the feature.
      */
     private fun settings() {
-        h.clickNav("Settings")
-        h.assertVisible("Settings")
+        h.clickNav(l.settings)
+        h.assertVisible(l.settings)
 
         // ── appearance: theme mode → dark → back to system ──
-        h.scrollTo("Appearance")
-        h.click("Appearance")
-        h.scrollTo("Theme Mode")
-        h.click("Theme Mode")
-        pick("Dark Theme")
-        h.click("Theme Mode")
-        pick("System Theme")
+        h.scrollTo(l.appearance)
+        h.click(l.appearance)
+        h.scrollTo(l.themeMode)
+        h.click(l.themeMode)
+        pick(l.themeDark)
+        h.click(l.themeMode)
+        pick(l.themeSystem)
 
-        // ── font: the spinner VALUE is the control, not the "Font Family" label ──
-        h.click("Font: Sans Serif")
-        h.click("Font: Monospace")
-        h.assertVisible("Font: Monospace")
-        h.click("Font: Monospace")
-        h.click("Font: Sans Serif")
-        h.assertVisible("Font: Sans Serif")
+        // ── font: the spinner VALUE is the control, not the font-family row label ──
+        h.click(l.fontSansSerif)
+        h.click(l.fontMonospace)
+        h.assertVisible(l.fontMonospace)
+        h.click(l.fontMonospace)
+        h.click(l.fontSansSerif)
+        h.assertVisible(l.fontSansSerif)
 
         // ── time format: 12 → 24 → 24h confirmed ──
-        h.click("Time Format")
-        pick("24-hour clock")
-        h.click("Time Format")
-        pick("12-hour clock")
-        h.click("Time Format")
-        pick("24-hour clock")
+        h.click(l.timeFormat)
+        pick(l.timeFormat24h)
+        h.click(l.timeFormat)
+        pick(l.timeFormat12h)
+        h.click(l.timeFormat)
+        pick(l.timeFormat24h)
 
         // ── language ──
-        h.scrollTo("App Language")
-        h.click("App Language")
-        pick("English")
+        // NOTE: this selects the ENGLISH option. On a device already rendering English that is a
+        // no-op; on a Tamil device it switches the app's own copy to English for the rest of the run.
+        // That is the pre-existing coverage (phase 7 exercises the language picker) and it is left
+        // intact — but it means everything after this line is asserted against English labels, which
+        // the labels above handle by re-resolving. See the language note in [E2eLabels].
+        h.scrollTo(l.appLanguage)
+        h.click(l.appLanguage)
+        pick(l.languageEnglish)
 
         // ── default landing screen, then straight back to Settings ──
-        h.scrollTo("Default landing screen")
-        h.click("Default landing screen")
-        h.clickNav("Settings")
+        h.scrollTo(l.defaultLandingScreen)
+        h.click(l.defaultLandingScreen)
+        h.clickNav(l.settings)
 
         // ── life dimensions (read-only visit) ──
-        h.scrollTo("Life Dimensions")
-        h.click("Life Dimensions")
+        h.scrollTo(l.lifeDimensions)
+        h.click(l.lifeDimensions)
         h.back()
-        h.clickNav("Settings")
+        h.clickNav(l.settings)
 
         // ── scoring configuration ──
-        h.scrollTo("Scoring Configuration")
-        h.click("Scoring Configuration")
-        h.click("Configure Scoring Weights")
-        h.assertVisible("Scoring Configuration")
+        h.scrollTo(l.scoringConfiguration)
+        h.click(l.scoringConfiguration)
+        h.click(l.configureScoringWeights)
+        h.assertVisible(l.scoringConfiguration)
         h.back()
 
         // ── data management (Export opens the system file picker — deliberately out of reach) ──
-        h.scrollTo("Data Management")
-        h.click("Data Management")
+        h.scrollTo(l.dataManagement)
+        h.click(l.dataManagement)
 
         // ── debug: the app's own session-log export ──
-        h.scrollTo("Debug")
-        h.click("Debug")
-        h.scrollTo("Export Current Session Log")
-        h.click("Export Current Session Log")
+        h.scrollTo(l.debug)
+        h.click(l.debug)
+        h.scrollTo(l.exportCurrentSessionLog)
+        h.click(l.exportCurrentSessionLog)
 
         // ── about ──
-        h.scrollTo("About")
-        h.click("About")
+        h.scrollTo(l.about)
+        h.click(l.about)
         h.capture("settings_about")
     }
 
@@ -213,43 +225,43 @@ class FullJourneyTest {
      * a recurrence type, so the phase asserts nothing after Save — the port keeps the same reach.
      */
     private fun habits() {
-        h.goToTab("Habits")
-        h.assertVisible("No Habits Yet")
+        h.goToTab(l.habits)
+        h.assertVisible(l.noHabitsYet)
         h.capture("tasks_screen")
 
-        h.click("Add Task")
-        h.type(TASK_TITLE_FIELD, "Daily Meditation")
-        h.scrollTo("Save Task")
-        h.click("Save Task")
+        h.click(l.addTask)
+        h.type(l.taskTitleField, "Daily Meditation")
+        h.scrollTo(l.saveTask)
+        h.click(l.saveTask)
     }
 
     /** Port of Phase 3: start the timer, confirm it runs, stop it, dismiss the edit dialog. */
     private fun timeTracking() {
-        h.goToTab("Time")
+        h.goToTab(l.time)
 
-        h.click("Start Tracking")
-        h.click("Start")
-        h.assertVisible("Stop Tracking")
+        h.click(l.startTracking)
+        h.click(l.start)
+        h.assertVisible(l.stopTracking)
 
-        h.click("Stop Tracking")
-        h.click("Cancel")
+        h.click(l.stopTracking)
+        h.click(l.cancel)
         // The modal dismisses asynchronously. Tapping the bottom nav while its scrim is still up
         // swallows the tap and leaves the app on this screen, so wait for the dialog to actually
         // leave before moving on. Maestro's implicit settle did this for free; in-process it has to
         // be explicit. (A condition wait on the app's own state — not a sleep.)
-        h.waitForGone("Cancel")
+        h.waitForGone(l.cancel)
     }
 
     /** Port of Phase 5: the empty state, then a note with a title. */
     private fun notes() {
-        h.goToTab("Notes")
-        h.assertVisible("No Notes Yet")
+        h.goToTab(l.notes)
+        h.assertVisible(l.noNotesYet)
         h.capture("notes_screen")
 
-        h.click("Add Note")
+        h.click(l.addNote)
         h.capture("add_note_dialog")
-        h.type("Title", "Test Note")
-        h.click("Save")
+        h.type(l.noteTitleField, "Test Note")
+        h.click(l.save)
         // The dialog may stay open (the flow's own guard); Back is harmless either way.
         h.back()
     }
@@ -259,28 +271,28 @@ class FullJourneyTest {
      * detail screen. The two shapes matter — the second exercises the optional-field path.
      */
     private fun tasks() {
-        h.goToTab("Tasks")
-        h.assertVisible(NO_TASKS)
+        h.goToTab(l.tasks)
+        h.assertVisible(l.noTasksDueToday)
 
         // ── create 1: title only ──
-        h.click("Add Task")
-        h.assertVisible(TASK_TITLE_FIELD)
-        h.type(TASK_TITLE_FIELD, "Quick Task")
-        h.scrollTo("Save Task")
-        h.click("Save Task")
-        h.assertVisible("Quick Task")
+        h.click(l.addTask)
+        h.assertVisible(l.taskTitleField)
+        h.type(l.taskTitleField, TASK_DATA.quickTask)
+        h.scrollTo(l.saveTask)
+        h.click(l.saveTask)
+        h.assertVisible(TASK_DATA.quickTask)
 
         // ── create 2: title + description ──
-        h.click("Add Task")
-        h.type(TASK_TITLE_FIELD, "Full Detail Task")
-        h.type("Description (optional)", "Important task")
-        h.scrollTo("Save Task")
-        h.click("Save Task")
-        h.assertVisible("Full Detail Task")
+        h.click(l.addTask)
+        h.type(l.taskTitleField, TASK_DATA.fullDetailTask)
+        h.type(l.descriptionOptional, "Important task")
+        h.scrollTo(l.saveTask)
+        h.click(l.saveTask)
+        h.assertVisible(TASK_DATA.fullDetailTask)
 
         // ── detail screen ──
-        h.click("Full Detail Task")
-        h.assertVisible("Task Details")
+        h.click(TASK_DATA.fullDetailTask)
+        h.assertVisible(l.taskDetails)
         h.back()
     }
 
@@ -290,52 +302,61 @@ class FullJourneyTest {
      */
     private fun dimensionSetup() {
         // The list is taller than the screen; the flow asserts both ends of it.
-        h.assertVisible("Physical Health")
+        h.assertVisible(l.physicalHealth)
         // Visual evidence for the header layout (description row + Add New row) — the running
         // font scale at capture time is whatever the device is set to (large-scale sweeps use this).
         h.capture("dimension_setup_header")
 
-        h.scrollTo("Work & Livelihood")
-        h.assertVisible("Work & Livelihood")
+        h.scrollTo(l.workLivelihood)
+        h.assertVisible(l.workLivelihood)
 
         // ── edit dialog opens ──
-        h.click("Edit")
-        h.assertVisible(EDIT_DIALOG)
+        h.click(l.edit)
+        h.assertVisible(l.editDimensionDialog)
 
         // ── colour picker (localized swatch labels) ──
         // "Deep Purple 500" is free (no default dimension uses it) and unique.
         // testTag note: the icon picker below uses a testTag, the colour palette uses
         // contentDescription — which is exactly why the harness matches both.
-        h.click("Choose color")
-        h.assertVisible("Deep Purple 500")
-        h.click("Deep Purple 500")
-        h.assertVisible(EDIT_DIALOG)
+        h.click(l.chooseColor)
+        h.assertVisible(l.deepPurple500)
+        h.click(l.deepPurple500)
+        h.assertVisible(l.editDimensionDialog)
 
-        // ── icon picker (testTag surfaced as resource-id in Maestro) ──
-        h.click("Choose icon")
-        h.clickTag("dimension_icon_favorite")
-        h.assertVisible(EDIT_DIALOG)
+        // ── icon picker (testTag — the 352-icon set is too large to localize, per SPEC.md) ──
+        h.click(l.chooseIcon)
+        h.clickTag(DIMENSION_FAVORITE_ICON_TAG)
+        h.assertVisible(l.editDimensionDialog)
 
         // Discard — keep the default colours/icons intact for the later phases.
-        h.click("Cancel")
-        h.assertNotVisible(EDIT_DIALOG)
+        h.click(l.cancel)
+        h.assertNotVisible(l.editDimensionDialog)
 
         // ── validation: an active dimension must have a name ──
-        h.scrollTo("Add New")
-        h.click("Add New")
-        h.assertVisible(ADD_DIALOG)
-        h.click("Save")
-        h.assertVisible("Every active dimension must have a name.")
-        h.click("Cancel")
+        h.scrollTo(l.addNew)
+        h.click(l.addNew)
+        h.assertVisible(l.addDimensionDialog)
+        h.click(l.save)
+        h.assertVisible(l.dimensionNameRequired)
+        h.click(l.cancel)
 
         // ── proceed to the main app ──
-        h.click("Verify and proceed")
+        h.click(l.verifyAndProceed)
     }
 
     private companion object {
-        const val EDIT_DIALOG = "Edit life dimension"
-        const val ADD_DIALOG = "Add life dimension"
-        const val NO_TASKS = "No Tasks Due Today"
-        const val TASK_TITLE_FIELD = "Task Title"
+        /**
+         * The app's own testTag on the favourite icon in the 352-icon picker.
+         *
+         * A testTag rather than a label: SPEC.md reserves testTags for element sets too large to
+         * localize, and this is one. It is not localized and must not be.
+         */
+        const val DIMENSION_FAVORITE_ICON_TAG = "dimension_icon_favorite"
+
+        /** Titles this suite types into the app, so it can find them again. Data, not localized copy. */
+        object TASK_DATA {
+            const val quickTask = "Quick Task"
+            const val fullDetailTask = "Full Detail Task"
+        }
     }
 }

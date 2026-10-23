@@ -30,12 +30,11 @@ class AndroidDatabaseRekey(
         currentPassphrase: CharArray,
         newPassphrase: CharArray,
         logTag: String,
-    ): DatabaseRekeySequence.Outcome =
-        DatabaseEncryptionMigrationSupport.rekeyEncryptedDatabase(
-            context = context,
-            databaseFile = databaseFile,
-            currentPassphrase = currentPassphrase.concatToString(),
-            newPassphrase = newPassphrase.concatToString(),
-            logTag = logTag,
-        )
+    ): DatabaseRekeySequence.Outcome = DatabaseEncryptionMigrationSupport.rekeyEncryptedDatabase(
+        context = context,
+        databaseFile = databaseFile,
+        currentPassphrase = currentPassphrase.concatToString(),
+        newPassphrase = newPassphrase.concatToString(),
+        logTag = logTag,
+    )
 }

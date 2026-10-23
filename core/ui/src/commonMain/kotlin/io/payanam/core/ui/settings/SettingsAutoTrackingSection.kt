@@ -22,6 +22,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.autoTrackEnabledForDimensionId
@@ -77,6 +79,14 @@ fun SettingsAutoTrackingSection(
             }
             Switch(
                 checked = prefsState.autoTrackHabitTimeGlobal,
+                // The global title is a SIBLING of this toggle, so the merged node carried the on/off state
+                // with nothing naming what it governed. The description is that same visible title from the
+                // copy table, and there is deliberately no merge: a merge boundary moves the toggle out of
+                // the unmerged semantics tree this screen is tested through.
+                modifier =
+                    Modifier.semantics {
+                        contentDescription = strings.settingsAutoTrackHabitTimeGlobal
+                    },
                 onCheckedChange = { enabled ->
                     onAutoTrackHabitTimeGlobalChange(enabled)
                     logger.d(
@@ -135,6 +145,16 @@ fun SettingsAutoTrackingSection(
                     }
                     Switch(
                         checked = prefsState.autoTrackEnabledForDimensionId(dimension.id),
+                        // The per-dimension name beside this toggle is the only thing that tells a screen
+                        // reader WHICH life area it governs - two rows in this section differ by exactly that
+                        // label and nothing else. The description is that same visible label, read from the
+                        // preference the row is already drawn from, so the two cannot disagree. It is data
+                        // rather than a copy-table key by nature: the dimension's name is the user's own, not
+                        // a phrase this module ships.
+                        modifier =
+                            Modifier.semantics {
+                                contentDescription = dimension.label
+                            },
                         onCheckedChange = { enabled ->
                             onAutoTrackDimensionChange(dimension.id, enabled)
                             logger.d(

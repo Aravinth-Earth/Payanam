@@ -68,8 +68,7 @@ object InteractionLog {
         emit(action = action, element = element, detail = detail)
     }
 
-    private fun isEnabled(): Boolean =
-        UnifiedLogger.isInitialized() && UnifiedLogger.isDebugLoggingEnabled()
+    private fun isEnabled(): Boolean = UnifiedLogger.isInitialized() && UnifiedLogger.isDebugLoggingEnabled()
 
     private fun emit(action: String, element: String, detail: String) {
         runCatching {

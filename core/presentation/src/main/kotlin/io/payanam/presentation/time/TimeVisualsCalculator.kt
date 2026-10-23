@@ -12,7 +12,6 @@ import io.payanam.shared.logging.AppLogger
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
-import java.time.LocalTime
 
 object TimeVisualsCalculator {
     private val logger = AppLogger.current
@@ -143,7 +142,7 @@ object TimeVisualsCalculator {
         now: LocalDateTime,
     ): List<Triple<LocalDateTime, LocalDateTime, Double>> {
         val dayStart = selectedDate.atStartOfDay()
-        val dayEnd = if (selectedDate == now.toLocalDate()) now else LocalDateTime.of(selectedDate, LocalTime.of(23, 59, 59))
+        val dayEnd = effectiveDayEnd(selectedDate, now)
         return entries
             .mapNotNull { entry ->
                 val start = maxOf(entry.startedAt, dayStart)
@@ -151,6 +150,25 @@ object TimeVisualsCalculator {
                 if (end.isAfter(start)) Triple(start, end, (entry.focusRating ?: 0.0).coerceIn(0.0, 1.0)) else null
             }.sortedBy { it.first }
     }
+
+    /**
+     * The instant [selectedDate] stops owning time, so every interval on it is bounded by the same value.
+     *
+     * A day that is not today ends where its successor begins, not one second before that: the boundary is
+     * exclusive, so an entry running past midnight is clipped to midnight and keeps the minute it was
+     * tracking (23:30 to 00:30 is 30 minutes on this day, not 29 after the flooring in
+     * [computeDayOverall]). A wall-clock "last moment" of 23:59:59 is neither the day's end nor a point on
+     * the day grid - a day runs to 24:00 - so it silently drops the last second of every entry that
+     * reaches the edge.
+     *
+     * Today is bounded by [now] instead, which is what makes a running entry - the one with no
+     * [TimeEntry.endedAt] - stop where the clock stopped rather than at a day's worth of optimism.
+     */
+    private fun effectiveDayEnd(
+        selectedDate: LocalDate,
+        now: LocalDateTime,
+    ): LocalDateTime =
+        if (selectedDate == now.toLocalDate()) now else selectedDate.plusDays(1).atStartOfDay()
 
     private fun countOverlaps(intervals: List<Triple<LocalDateTime, LocalDateTime, Double>>): Int {
         if (intervals.size < 2) return 0
@@ -170,7 +188,7 @@ object TimeVisualsCalculator {
     ): Int {
         if (intervals.isEmpty()) return 0
         val dayStart = selectedDate.atStartOfDay()
-        val dayEnd = if (selectedDate == now.toLocalDate()) now else LocalDateTime.of(selectedDate, LocalTime.of(23, 59, 59))
+        val dayEnd = effectiveDayEnd(selectedDate, now)
         var gaps = 0
         var cursor = dayStart
         intervals.forEach { (start, end, _) ->

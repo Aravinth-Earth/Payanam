@@ -21,13 +21,17 @@ import java.util.UUID
  * JDBC implementation of [NoteRepository] over the encrypted database — the desktop's half of the notes
  * feature, on the same interface the Android Room implementation satisfies.
  *
- * Three things here are deliberate and each is a place the two platforms could have drifted:
+ * Four things here are deliberate and each is a place the two platforms could have drifted:
  *
  *  - **The SQL is the Android `@Query` text, verbatim.** If the desktop selected different columns or a
  *    different order, the same database would produce two different screens.
  *  - **Writes touch BOTH tables, in one transaction**, exactly as `NoteRepositoryImpl` does: the note
  *    itself in `journal_notes`, and its shadow row in `notes`. The shadow is not decorative — the tag
  *    junction table's foreign key points at `notes`, so a note written without it can never carry a tag.
+ *  - **The delete writes one child statement the Room DAO does not.** Room turns `PRAGMA foreign_keys`
+ *    on and the declared `ON DELETE CASCADE` on `note_tags` fires on its own; this connection enforces
+ *    nothing, so [deleteNote] clears the note's tag links itself. It is the one method here whose SQL
+ *    is deliberately longer than the DAO it was ported from. See [deleteNote].
  *  - **Dimension resolution is the shared [NoteDimensionResolution]**, not a copy of it. The Android
  *    implementation used to hold these rules privately; a second copy would let the two platforms persist
  *    different dimension ids for the same user action.
@@ -163,11 +167,39 @@ class NoteRepositoryJvm(
             updated.toDomain()
         }
 
-    /** Deletes note [id] from both the journal table and its legacy shadow, in one transaction. */
+    /**
+     * Hard-deletes note [id] from both the journal table and its legacy shadow, and clears the note's tag
+     * links, in one transaction.
+     *
+     * **The child statement is the point of this method, and Room's DAO does not write it either** —
+     * Room issues `PRAGMA foreign_keys = ON` on every open, so the declared `ON DELETE CASCADE` from
+     * `note_tags` to `notes` fires on its own and `deleteById` is honestly one statement per table. The JVM
+     * opener enables nothing, SQLite defaults `PRAGMA foreign_keys` to OFF, and the same delete therefore
+     * left every tag link pointing at a note that no longer existed, in silence.
+     *
+     * **`note_tags` is the child, and `notes` is the parent — not `journal_notes`.** The junction table's
+     * foreign key names `notes`, which is why the shadow table exists at all and why this delete clears the
+     * links before BOTH parent rows go. Putting the child statement after the shadow delete would make it
+     * delete links belonging to a note that is already gone, which is the state this method exists to
+     * avoid.
+     *
+     * **One transaction, children before parents.** A failure after the first parent delete is rolled back
+     * rather than leaving a note whose links were dropped but whose row survived — or, without the
+     * transaction, the reverse.
+     *
+     * **`note_tags.note_id` is snake_case** (see [DELETE_NOTE_TAGS_SQL]). Spelling it `noteId` is a
+     * `no such column` at prepare time, so the mistake surfaces as a failed delete rather than as a
+     * quietly skipped one.
+     *
+     * Measured by `OrdinaryDeletesLeaveOrphanedRowsTest`.
+     */
     override suspend fun deleteNote(id: String) {
         JdbcFlows.onIo {
             logger.i(SOURCE, "Deleting note", mapOf("id" to id))
             JdbcQueries.transaction(session) {
+                // The tag links first: both parent rows are removed after this one, so this is the last
+                // statement that can still delete a link belonging to a note that exists. See the KDoc above.
+                JdbcQueries.write(session, DELETE_NOTE_TAGS_SQL, arrayOf(id))
                 JdbcQueries.write(session, DELETE_JOURNAL_NOTE_SQL, arrayOf(id))
                 JdbcQueries.write(session, DELETE_SHADOW_NOTE_SQL, arrayOf(id))
             }
@@ -304,5 +336,19 @@ class NoteRepositoryJvm(
 
         /** Verbatim from `NoteDao.deleteById`. */
         const val DELETE_SHADOW_NOTE_SQL = "DELETE FROM notes WHERE id = ?"
+
+        // ── The child statement `deleteNote` issues before those two ────────────────────────────────
+        //
+        // Re-declared here rather than read from `TagRepositoryJvm`, which holds the identical text as a
+        // `private` companion member a different file cannot see. See [deleteNote].
+
+        /**
+         * `note_tags.note_id`, `ON DELETE CASCADE` onto `notes`.
+         *
+         * Same text as `TagRepositoryJvm.CLEAR_NOTE_TAGS_SQL`. The owner column is `note_id` — snake_case
+         * like every other junction column — while the note tables themselves bind `id`, so a `noteId` here
+         * raises `no such column` at prepare time rather than deleting nothing quietly.
+         */
+        const val DELETE_NOTE_TAGS_SQL = "DELETE FROM note_tags WHERE note_id = ?"
     }
 }

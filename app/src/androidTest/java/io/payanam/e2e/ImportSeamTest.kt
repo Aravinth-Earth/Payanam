@@ -19,9 +19,11 @@ import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseDimensionSetupPersister
 import io.payanam.platform.appDatabaseInitFlagReader
 import io.payanam.platform.appDatabaseInitFlagWriter
 import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.platform.importDatabase
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister
 import io.payanam.presentation.database.DatabaseInitViewModel
 import io.payanam.shared.database.DatabaseEncryptionProbe

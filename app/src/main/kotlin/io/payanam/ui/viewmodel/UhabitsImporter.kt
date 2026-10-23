@@ -36,6 +36,7 @@ internal class UhabitsImporter(
     private val logger = UnifiedLogger.getInstance()
     private val dateFormatter = DateTimeFormatter.ISO_LOCAL_DATE
     private val dateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+
     /**
      * Imports habits + repetitions from a uHabits (Loop) SQLite backup at
      * [sourceUri]: upserts tasks/occurrences by import-ref, marks affected
@@ -262,6 +263,7 @@ internal class UhabitsImporter(
         }
         return false
     }
+
     /**
      * Upsert counts reported to the caller after a completed import.
      */
