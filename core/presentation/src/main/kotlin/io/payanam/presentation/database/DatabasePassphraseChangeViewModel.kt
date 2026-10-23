@@ -82,7 +82,6 @@ class DatabasePassphraseChangeViewModel(
     /** Dispatcher for the blocking work - the file copies and the re-encryption. */
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) {
-
     private val logger = AppLogger.current
     private val _uiState = MutableStateFlow(DatabasePassphraseChangeUiState())
     val uiState: StateFlow<DatabasePassphraseChangeUiState> = _uiState.asStateFlow()
@@ -96,7 +95,11 @@ class DatabasePassphraseChangeViewModel(
      * The flush is the gate, not a warning: if the main file does not hold every pending write when the
      * change starts, the change does not start, and the old passphrase keeps working.
      */
-    fun submit(currentPassphrase: String, newPassphrase: String, confirmPassphrase: String) {
+    fun submit(
+        currentPassphrase: String,
+        newPassphrase: String,
+        confirmPassphrase: String,
+    ) {
         val validation = SharedPassphrasePolicy.validate(newPassphrase)
         if (!validation.isValid) {
             _uiState.update { it.copy(errorReasonCode = validation.reasonCode ?: "generic") }
@@ -133,7 +136,10 @@ class DatabasePassphraseChangeViewModel(
      * as that port returns; the only copy that outlives this call is the immutable `String` the platform's
      * own session port already takes.
      */
-    private suspend fun changePassphraseWithRollback(currentPassphrase: String, newPassphrase: String): String? {
+    private suspend fun changePassphraseWithRollback(
+        currentPassphrase: String,
+        newPassphrase: String,
+    ): String? {
         val dbFile = File(databasePathResolver.databaseFilePath())
         if (!dbFile.exists()) {
             logger.w("DatabasePassphraseChangeViewModel.submit", "Database file missing for passphrase update")
@@ -152,15 +158,16 @@ class DatabasePassphraseChangeViewModel(
         }
         val backups = withContext(ioDispatcher) { backupDatabaseArtifacts(dbFile) }
         // The change WAITS for the write-ahead log to empty, and only then proceeds.
-        val flushed = runCatching { sessionManager.flushPendingChanges(currentPassphrase) }
-            .getOrElse { error ->
-                logger.e(
-                    "DatabasePassphraseChangeViewModel.submit",
-                    "Refusing the passphrase change because the pending changes could not be flushed",
-                    error,
-                )
-                WalCheckpointRule.NO_ROW
-            }
+        val flushed =
+            runCatching { sessionManager.flushPendingChanges(currentPassphrase) }
+                .getOrElse { error ->
+                    logger.e(
+                        "DatabasePassphraseChangeViewModel.submit",
+                        "Refusing the passphrase change because the pending changes could not be flushed",
+                        error,
+                    )
+                    WalCheckpointRule.NO_ROW
+                }
         if (!WalCheckpointRule.walIsEmpty(flushed)) {
             logger.w(
                 "DatabasePassphraseChangeViewModel.submit",
@@ -202,16 +209,17 @@ class DatabasePassphraseChangeViewModel(
                 // verification above, which is a reason to restore rather than to trust: the contract says
                 // the original passphrase must still verify after every other outcome, and a restore is
                 // what this path guarantees.
-                val outcome = withContext(ioDispatcher) {
-                    val currentChars = currentPassphrase.toCharArray()
-                    val newChars = newPassphrase.toCharArray()
-                    try {
-                        passphraseVault.updatePassphrase(current = currentChars, new = newChars)
-                    } finally {
-                        currentChars.fill('\u0000')
-                        newChars.fill('\u0000')
+                val outcome =
+                    withContext(ioDispatcher) {
+                        val currentChars = currentPassphrase.toCharArray()
+                        val newChars = newPassphrase.toCharArray()
+                        try {
+                            passphraseVault.updatePassphrase(current = currentChars, new = newChars)
+                        } finally {
+                            currentChars.fill('\u0000')
+                            newChars.fill('\u0000')
+                        }
                     }
-                }
                 if (outcome != PassphraseUpdateOutcome.UPDATED) {
                     throw IllegalStateException("Failed to persist new passphrase metadata: $outcome")
                 }
@@ -219,7 +227,9 @@ class DatabasePassphraseChangeViewModel(
             }
             logger.i("DatabasePassphraseChangeViewModel.submit", "Passphrase changed successfully")
             null
-        } catch (@Suppress("TooGenericExceptionCaught") error: Exception) {
+        } catch (
+            @Suppress("TooGenericExceptionCaught") error: Exception,
+        ) {
             logger.e("DatabasePassphraseChangeViewModel.submit", "Passphrase change failed, restoring backup", error)
             withContext(ioDispatcher) {
                 DatabaseArtifactBackupSupport.restore(backups)

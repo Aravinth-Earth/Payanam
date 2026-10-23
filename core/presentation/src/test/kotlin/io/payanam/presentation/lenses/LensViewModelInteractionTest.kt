@@ -112,7 +112,12 @@ class LensViewModelInteractionTest {
         repository.firstTrackedDate = LocalDate.now().minusDays(30)
         val model = loadedViewModel()
         model.enableTimeHistoryCharts()
-        settle { (model.uiState.value.timeModuleHistorySummary?.totalDays ?: 0) >= INITIAL_STAGE_DAYS }
+        settle {
+            (
+                model.uiState.value.timeModuleHistorySummary
+                    ?.totalDays ?: 0
+            ) >= INITIAL_STAGE_DAYS
+        }
         return model
     }
 
@@ -211,7 +216,9 @@ class LensViewModelInteractionTest {
     fun `a history stage past the cooldown widens the time history`() =
         runTest(dispatcher) {
             val model = backfillingViewModel()
-            val initialDays = model.uiState.value.timeModuleHistorySummary?.totalDays
+            val initialDays =
+                model.uiState.value.timeModuleHistorySummary
+                    ?.totalDays
             assertNotNull("the initial stage was applied", initialDays)
             assertEquals("the initial stage stops at 14 days", INITIAL_STAGE_DAYS, initialDays)
             val calculationsBefore = repository.calculateCalls
@@ -224,12 +231,18 @@ class LensViewModelInteractionTest {
             // was constructed. Sleeping here bought a guarantee the arrival state already provided, and
             // cost 1.3 s of wall clock the case did not need.
             model.requestNextTimeHistoryStage()
-            settle { (model.uiState.value.timeModuleHistorySummary?.totalDays ?: 0) > (initialDays ?: 0) }
+            settle {
+                (
+                    model.uiState.value.timeModuleHistorySummary
+                        ?.totalDays ?: 0
+                ) > (initialDays ?: 0)
+            }
 
             assertEquals(
                 "the request widened the history one stage",
                 NEXT_STAGE_DAYS,
-                model.uiState.value.timeModuleHistorySummary?.totalDays,
+                model.uiState.value.timeModuleHistorySummary
+                    ?.totalDays,
             )
             // Widening forced reads for the days the first stage never covered.
             assertTrue(
@@ -262,7 +275,10 @@ class LensViewModelInteractionTest {
 
             // The first request is honoured, and it is what starts the cooldown.
             model.requestNextTimeHistoryStage()
-            settle { model.uiState.value.timeModuleHistorySummary?.totalDays == NEXT_STAGE_DAYS }
+            settle {
+                model.uiState.value.timeModuleHistorySummary
+                    ?.totalDays == NEXT_STAGE_DAYS
+            }
             val afterFirst = model.uiState.value.timeModuleHistorySummary
             assertEquals(
                 "the first request widened the history one stage",
@@ -279,7 +295,11 @@ class LensViewModelInteractionTest {
                 model.uiState.value.timeModuleHistorySummary,
             )
             // A widening is what the declined request would have produced, so its absence is the assertion.
-            assertEquals(NEXT_STAGE_DAYS, model.uiState.value.timeModuleHistorySummary?.totalDays)
+            assertEquals(
+                NEXT_STAGE_DAYS,
+                model.uiState.value.timeModuleHistorySummary
+                    ?.totalDays,
+            )
         }
 
     /**

@@ -28,7 +28,7 @@ internal fun desktopUiLanguageForTag(effectiveLanguageTag: String): UiLanguage =
  * The gate renders the machine locale in EVERY mode it shows, not only the pre-unlock ones. That is not
  * fully forced by the data: most modes really do run with the encrypted database closed and no
  * `effectiveLanguageTag` to read, but `InitializeDatabase` and `FocusModeSelection` are reached after the
- * session-open check (`resolveDesktopStartupMode`, in `DesktopStartupFlow.kt`) and could read the stored
+ * session-open check (the shared decision, in shared code) and could read the stored
  * row. The gate renders them with its own chrome, which is hardcoded English today, so nothing shows the
  * difference. The shell root reads the shared rows once the gate is gone.
  *

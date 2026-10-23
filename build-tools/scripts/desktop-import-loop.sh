@@ -142,12 +142,39 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                 XDG_DATA_HOME="$DATA_ROOT" nohup "$LAUNCHER" >"$SCRATCH/app-stdout-$STAMP.log" 2>&1 &
                 APP_PID=$!
                 sleep 20
-                APP_LOG="$(find "$DATA_ROOT" -name 'payanam_desktop_*.log' -type f 2>/dev/null | head -1 || true)"
+                # The log goes where the APP decides, not where this script would guess. Mirroring
+                # DesktopAppPaths: with XDG_DATA_HOME set it replaces <home> as the parent, and the root
+                # name carries a "-debug" suffix on a debug build ("$APP_DIRECTORY_NAME-debug"). This .deb
+                # was built with build-linux.sh's default BUILD_TYPE=debug, so Payanam-debug is the root
+                # actually in use - a sweep that only knew the unsuffixed name found nothing under an
+                # otherwise completely healthy run, the same way desktop-loop.sh did.
+                # BOTH names are searched anyway: --reuse-deb/--skip-build can hand over a binary built
+                # the other way, and the debug flag is frozen in at build time. Newest wins.
+                APP_LOG=""
+                for root_name in "Payanam-debug" "Payanam"; do
+                    # `|| true` is load-bearing under this script's `set -euo pipefail`: head closes the
+                    # pipe on the first line, sort takes SIGPIPE and reports non-zero, and a bare
+                    # assignment would abort the whole run over a successful find.
+                    candidate="$(find "$DATA_ROOT/Documents/$root_name/logs" -maxdepth 1 -type f \
+                        -name 'payanam_desktop_*.log' ! -name 'payanam_desktop_latest_export.log' \
+                        -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)"
+                    [[ -n "$candidate" ]] || continue
+                    if [[ -z "$APP_LOG" || "$candidate" -nt "$APP_LOG" ]]; then
+                        APP_LOG="$candidate"
+                    fi
+                done
+                # Nothing in the app's own layout: fall back to a sweep of the whole isolated data root,
+                # which cannot miss an unexpected layout but is also why the rule above is tried first.
+                if [[ -z "$APP_LOG" ]]; then
+                    APP_LOG="$(find "$DATA_ROOT" -type f -name 'payanam_desktop_*.log' \
+                        ! -name 'payanam_desktop_latest_export.log' -printf '%T@ %p\n' 2>/dev/null \
+                        | sort -rn | head -1 | cut -d' ' -f2- || true)"
+                fi
                 if [[ -n "$APP_LOG" ]]; then
                     SURFACE="$(grep -a 'surfaceMounted' "$APP_LOG" | tail -1 | sed 's/ *$//' | cut -c1-160 || true)"
                     LAUNCH_OK="up (pid $APP_PID), it chose: ${SURFACE:-<no surfaceMounted line yet>}"
                 else
-                    LAUNCH_OK="up (pid $APP_PID) but wrote no log under $DATA_ROOT"
+                    LAUNCH_OK="up (pid $APP_PID) but wrote no log under $DATA_ROOT (looked in $DATA_ROOT/Documents/Payanam{,-debug}/logs)"
                 fi
                 verdict "LOOP-LAUNCH: $LAUNCH_OK"
                 kill "$APP_PID" 2>/dev/null || true

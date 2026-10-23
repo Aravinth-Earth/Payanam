@@ -47,6 +47,12 @@ import io.payanam.shared.platform.DocumentEntry
 import io.payanam.shared.platform.DocumentKind
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.platform.SupportState
+import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
+import io.payanam.shared.startup.DesktopStartupRuntimeState
+import io.payanam.shared.startup.startupGateInputs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -59,9 +65,6 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
 import java.util.Properties
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 
 /**
  * The REAL desktop destination bodies, mounted through the REAL shared graph - the seam
@@ -233,7 +236,7 @@ class DesktopNavHostDestinationRenderTest {
 
     @Test
     fun `the desktop unlock gate renders the shared screen's copy instead of throwing`() {
-        mountGate(DesktopStartupMode.UnlockPassphrase)
+        mountGate(state(sessionOpen = false))
 
         // The header, rendered unconditionally by `DatabasePassphraseUnlockScreen` and first in its scrolling
         // column, so `assertIsDisplayed` is safe and is the strongest statement this case makes: the body's own
@@ -252,7 +255,7 @@ class DesktopNavHostDestinationRenderTest {
 
     @Test
     fun `the unlock gate states there is no in-app update action on this platform`() {
-        mountGate(DesktopStartupMode.UnlockPassphrase)
+        mountGate(state(sessionOpen = false))
 
         // The Diagnostics zone's update slot, which this platform fills with an explicit statement rather
         // than omitting: no real action exists here (a .deb is installed by its packager), and a control
@@ -268,7 +271,7 @@ class DesktopNavHostDestinationRenderTest {
 
     @Test
     fun `the desktop passphrase setup gate renders the shared screen's copy instead of throwing`() {
-        mountGate(DesktopStartupMode.SetupPassphrase)
+        mountGate(state(hasPassphraseConfigured = false, sessionOpen = false))
 
         // `dbPassphraseSetupTitle` is the one header only the setup body renders: the unlock gate shares
         // `dbPassphraseInputLabel`, so an assertion on that alone could not tell the two apart. Before the body
@@ -344,7 +347,7 @@ class DesktopNavHostDestinationRenderTest {
         // control that the card itself drew - this screen's card carries no title of its own.
         databaseFile.parentFile?.mkdirs()
         databaseFile.writeText("a database the summary card must report")
-        mountGate(DesktopStartupMode.UnlockPassphrase)
+        mountGate(state(sessionOpen = false))
 
         composeRule.onNodeWithText(strings.appName).assertIsDisplayed()
         composeRule.onNodeWithText(strings.locSize).assertExists()
@@ -353,7 +356,7 @@ class DesktopNavHostDestinationRenderTest {
 
     @Test
     fun `the desktop database init gate renders the shared screen's copy instead of throwing`() {
-        mountGate(DesktopStartupMode.InitializeDatabase)
+        mountGate(state(databaseLifecycleReady = false))
 
         // The storage icon's contentDescription sits at the top of a `Column` with
         // `verticalArrangement = Center`, so a settled frame can push it outside the test window -
@@ -365,7 +368,7 @@ class DesktopNavHostDestinationRenderTest {
 
     @Test
     fun `the desktop focus mode gate renders the shared screen's copy instead of throwing`() {
-        mountGate(DesktopStartupMode.FocusModeSelection)
+        mountGate(state(focusModeOnboardingCompleted = false))
 
         // `FocusModeSelectionScreen` takes no ViewModel and no collaborators at all, which makes it the
         // cheapest real body in the file - and the one a re-stub would most plausibly be written against,
@@ -475,12 +478,12 @@ class DesktopNavHostDestinationRenderTest {
      */
     @Test
     fun `dismissing the database init gate moves the graph off its route`() {
-        val mode = mutableStateOf(DesktopStartupMode.InitializeDatabase)
-        mountGateBackedBy(mode = { mode.value })
+        val modeState = mutableStateOf(state(databaseLifecycleReady = false))
+        mountGateBackedBy(state = { modeState.value })
         composeRule.onNodeWithContentDescription(strings.settingsDatabaseTitle).assertExists()
 
         // What the platform does when the init gate reports ready: the startup mode re-resolves.
-        mode.value = DesktopStartupMode.FocusModeSelection
+        modeState.value = state(focusModeOnboardingCompleted = false)
         composeRule.waitForIdle()
 
         // The focus-mode step, i.e. the gate AFTER the init gate - not the init gate drawing again.
@@ -488,26 +491,49 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     /**
+     * Builds a [DesktopStartupRuntimeState] fact record. Defaults are "everything configured", so each
+     * call site states only what it is varying - the resolver's real priority order decides the gate.
+     */
+    private fun state(
+        scaffoldOnboardingStage: DesktopScaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
+        hasPassphraseConfigured: Boolean = true,
+        hasDatabaseArtifacts: Boolean = true,
+        databaseLifecycleReady: Boolean = true,
+        sessionOpen: Boolean = true,
+        focusModeOnboardingCompleted: Boolean = true,
+        securityStateUnavailable: Boolean = false,
+    ) = DesktopStartupRuntimeState(
+        hasPassphraseConfigured = hasPassphraseConfigured,
+        hasDatabaseArtifacts = hasDatabaseArtifacts,
+        databaseLifecycleReady = databaseLifecycleReady,
+        sessionOpen = sessionOpen,
+        focusModeOnboardingCompleted = focusModeOnboardingCompleted,
+        securityFilePath = "security",
+        databaseFilePath = "database",
+        scaffoldOnboardingStage = scaffoldOnboardingStage,
+        securityStateUnavailable = securityStateUnavailable,
+    )
+
+    /**
      * Mounts the REAL graph with the REAL desktop screens and exactly one gate raised.
      *
-     * The mode goes through the desktop's own `desktopNavGateFlags` projection rather than four booleans
-     * written out here, because that projection is what `DesktopApp.kt` feeds the graph and
-     * `DesktopNavGateFlagsTest` owns: at most one gate is ever true, and re-deciding that here would be a
-     * second implementation of the rule. `isLandingReady = false` is what makes the gate the start
-     * destination - with it true the graph opens `landingRoute` and no gate body composes at all, which is
-     * the mistake a reader of this fixture could most easily make.
+     * The state goes through the shared `startupGateInputs` function rather than gate booleans written
+     * out here, because that chain is what `DesktopApp.kt` feeds the graph: at most one gate is ever true,
+     * and re-deciding that here would be a second implementation of the rule. `isLandingReady = false` is
+     * what makes the gate the start destination - with it true the graph opens `landingRoute` and no gate
+     * body composes at all, which is the mistake a reader of this fixture could most easily make.
      */
     private fun mountGate(
-        mode: DesktopStartupMode,
+        state: DesktopStartupRuntimeState,
         documentSource: DocumentSource = AwtDocumentSource(),
     ) {
-        mountGateBackedBy({ mode }, documentSource)
+        mountGateBackedBy({ state }, documentSource)
     }
 
-    /** [mountGate] over a mode the caller can change, which is how a gate advancing is expressed here. */
+    /** [mountGate] over a state the caller can change, which is how a gate advancing is expressed here. */
     @Test
     fun `the add-task affordance opens the shared task form from the desktop shell`() {
-        mountGateBackedBy(mode = { DesktopStartupMode.Ready }, isLandingReady = true)
+        mountGateBackedBy(state = { state() }, isLandingReady = true)
 
         // BEFORE: the FAB publishes "Add Task" as its icon's contentDescription, never as text - so the
         // click target exists as a description and no TEXT node carries that string yet. Asserting the
@@ -534,7 +560,7 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     private fun mountGateBackedBy(
-        mode: () -> DesktopStartupMode,
+        state: () -> DesktopStartupRuntimeState,
         documentSource: DocumentSource = AwtDocumentSource(),
         isLandingReady: Boolean = false,
     ) {
@@ -543,17 +569,19 @@ class DesktopNavHostDestinationRenderTest {
             // `PayanamTheme`, unlike `DesktopShellGraphProbeTest` which can skip it: these are Material3
             // screens and that probe's bodies are `BasicText`. The production shell supplies the same theme.
             PayanamTheme(darkTheme = false) {
-                val flags = desktopNavGateFlags(mode())
+                val gateInputs = startupGateInputs(state())
                 PayanamNavHost(
                     screens = screens,
                     language = UiLanguage.ENGLISH,
                     minimalModeEnabled = false,
                     landingRoute = PayanamTab.Tasks.route,
                     isLandingReady = isLandingReady,
-                    shouldShowPassphraseSetup = flags.shouldShowPassphraseSetup,
-                    shouldShowPassphraseUnlock = flags.shouldShowPassphraseUnlock,
-                    shouldShowDatabaseInit = flags.shouldShowDatabaseInit,
-                    shouldShowFocusModeOnboarding = flags.shouldShowFocusModeOnboarding,
+                    shouldShowPassphraseSetup = gateInputs.shouldShowPassphraseSetup,
+                    shouldShowPassphraseUnlock = gateInputs.shouldShowPassphraseUnlock,
+                    shouldShowDatabaseInit = gateInputs.shouldShowDatabaseInit,
+                    shouldShowFocusModeOnboarding = gateInputs.shouldShowFocusModeOnboarding,
+                    shouldShowSecurityStateUnavailable = gateInputs.shouldShowSecurityStateUnavailable,
+                    shouldShowOnboardingIntro = gateInputs.shouldShowOnboardingIntro,
                 )
             }
         }
@@ -573,9 +601,14 @@ class DesktopNavHostDestinationRenderTest {
      */
     private fun desktopNavHostScreens(documentSource: DocumentSource = AwtDocumentSource()): DesktopPayanamNavHostScreens =
         DesktopPayanamNavHostScreens(
+            // No fact-reload hook: these cases mount the graph, not the reset leg that fires it.
+            onDatabaseResetObserved = {},
             databaseInitCollaborators =
                 DesktopDatabaseInitCollaborators(
                     sessionController = sessionController,
+                    // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                    // store, and the default resolves the operator's real data directory.
+                    onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                     // The real AWT source by default. The init body now OPENS a picker on a tap, so a case
                     // that taps the import control passes a recording source instead - a real dialog is a
                     // blocking modal no test could answer.
@@ -637,10 +670,17 @@ class DesktopNavHostDestinationRenderTest {
     @Test
     fun `the database-init import control asks the platform's picker for a file`() {
         val picker = RecordingDocumentSource()
-        mountGate(DesktopStartupMode.InitializeDatabase, documentSource = picker)
+        mountGate(state(databaseLifecycleReady = false), documentSource = picker)
 
         // Mounting this destination is not an import: nothing is asked for until the user taps.
         assertThat(picker.sourceRequests).isEqualTo(0)
+
+        // The shared screen's FIRST step is the tour - Android's order, which the desktop now renders here too
+        // (it used to run ahead of this screen as a startup gate of its own, and this screen was told to skip
+        // it). So the create/import choice is reached by leaving the tour: the walk the app's own first run
+        // makes. Without this the control is legitimately absent, and the failure reads as a missing button.
+        composeRule.onNodeWithText(strings.onboardingActionSkip).performClick()
+        composeRule.waitForIdle()
 
         composeRule.onNodeWithText(strings.locImportDatabaseFile).performClick()
         composeRule.waitForIdle()

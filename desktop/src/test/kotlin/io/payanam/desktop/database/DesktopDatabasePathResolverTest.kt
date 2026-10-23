@@ -46,10 +46,12 @@ class DesktopDatabasePathResolverTest {
         // Derive the expected path from the same sources the production code uses, so this
         // assertion cannot drift from DesktopAppPaths' layout. The directory comes from
         // resolveDatabaseDirectory() and the file name from the shared schema constant.
-        val expectedPath = Paths.get(
-            DesktopAppPaths.resolveDatabaseDirectory().toString(),
-            DesktopAppPaths.DATABASE_FILE_NAME,
-        ).toString()
+        val expectedPath =
+            Paths
+                .get(
+                    DesktopAppPaths.resolveDatabaseDirectory().toString(),
+                    DesktopAppPaths.DATABASE_FILE_NAME,
+                ).toString()
         assertThat(filePath).isEqualTo(expectedPath)
         assertThat(filePath).contains("Payanam")
     }

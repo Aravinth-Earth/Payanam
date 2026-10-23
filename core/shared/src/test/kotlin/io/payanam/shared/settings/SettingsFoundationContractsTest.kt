@@ -31,4 +31,36 @@ class SettingsFoundationContractsTest {
         assertThat(snapshot.areasWithStatus(FoundationReadiness.ExtractionNext)).isEqualTo(2)
         assertThat(snapshot.areasWithStatus(FoundationReadiness.AndroidOnly)).isEqualTo(1)
     }
+
+    @Test
+    fun `foundation area exposes title and summary for the checklist UI`() {
+        val area = FoundationArea(
+            id = "test_area",
+            title = "Test Area",
+            status = FoundationReadiness.ExtractionNext,
+            summary = "A test summary.",
+        )
+        assertThat(area.id).isEqualTo("test_area")
+        assertThat(area.title).isEqualTo("Test Area")
+        assertThat(area.status).isEqualTo(FoundationReadiness.ExtractionNext)
+        assertThat(area.summary).isEqualTo("A test summary.")
+    }
+
+    @Test
+    fun `areasWithStatus counts only matching entries in a custom list`() {
+        val snapshot =
+            SettingsFoundationSnapshot(
+                schemaVersion = 1,
+                moduleSelection = DataModuleSelection(),
+                areas =
+                    listOf(
+                        FoundationArea("a", "A", FoundationReadiness.SharedReady, ""),
+                        FoundationArea("b", "B", FoundationReadiness.SharedReady, ""),
+                        FoundationArea("c", "C", FoundationReadiness.AndroidOnly, ""),
+                    ),
+            )
+        assertThat(snapshot.areasWithStatus(FoundationReadiness.SharedReady)).isEqualTo(2)
+        assertThat(snapshot.areasWithStatus(FoundationReadiness.ExtractionNext)).isEqualTo(0)
+        assertThat(snapshot.areasWithStatus(FoundationReadiness.AndroidOnly)).isEqualTo(1)
+    }
 }

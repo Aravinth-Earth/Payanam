@@ -69,33 +69,36 @@ fun main() {
     val legacyStorageRoot = DesktopAppPaths.resolveLegacyRootDirectory()
     val newStorageRoot = DesktopAppPaths.resolveRootDirectory()
     if (DesktopStorageRootMigration.isMigrationNeeded(legacyStorageRoot, newStorageRoot)) {
-        val migrationReport = DesktopStorageRootMigration.performMigration(
-            legacyRoot = legacyStorageRoot,
-            newParent = newStorageRoot,
-            report = { line -> sessionLogger.i(source = "DesktopMain.storageMigration", message = line) },
-        )
+        val migrationReport =
+            DesktopStorageRootMigration.performMigration(
+                legacyRoot = legacyStorageRoot,
+                newParent = newStorageRoot,
+                report = { line -> sessionLogger.i(source = "DesktopMain.storageMigration", message = line) },
+            )
         sessionLogger.i(
             source = "DesktopMain.storageMigration",
             message = "Storage root migration completed",
-            data = mapOf(
-                "legacyRoot" to legacyStorageRoot.toString(),
-                "newParent" to newStorageRoot.toString(),
-                "moved" to migrationReport.moved.size,
-                "skipped" to migrationReport.skipped.size,
-                "complete" to migrationReport.isComplete,
-            ),
+            data =
+                mapOf(
+                    "legacyRoot" to legacyStorageRoot.toString(),
+                    "newParent" to newStorageRoot.toString(),
+                    "moved" to migrationReport.moved.size,
+                    "skipped" to migrationReport.skipped.size,
+                    "complete" to migrationReport.isComplete,
+                ),
         )
         // Report any refused children honestly — a non-empty target means something already wrote there.
         migrationReport.skipped.forEach { child ->
             sessionLogger.w(
                 source = "DesktopMain.storageMigration",
                 message = "Migration child skipped: ${child.legacyChildName} → ${child.newChildName} (${child.status})",
-                data = mapOf(
-                    "legacyChildName" to child.legacyChildName,
-                    "newChildName" to child.newChildName,
-                    "status" to child.status.name,
-                    "detail" to (child.detail ?: ""),
-                ),
+                data =
+                    mapOf(
+                        "legacyChildName" to child.legacyChildName,
+                        "newChildName" to child.newChildName,
+                        "status" to child.status.name,
+                        "detail" to (child.detail ?: ""),
+                    ),
             )
         }
     }
@@ -115,11 +118,11 @@ fun main() {
     PlatformFeatureFlags.install(
         FeatureFlagsState(
             minimalModeEnabled = false,
-            // On, because the delivery surface now exists end-to-end: `DesktopPlatformSeams` constructs the
-            // sink with `desktopFreedesktopReminderDelivery` behind it, and the data layer binds
-            // `DesktopTaskReminderScheduler` as the producer that hands it reminders - so the shared code
-            // that guards scheduling on this flag proceeds with a channel that can actually deliver.
-            remindersEnabled = true,
+            // Off, because reminders are not implemented on the desktop - they are documented as a
+            // limitation of this platform. The shared `AddTaskScreen` renders its reminder controls
+            // behind this flag, so leaving it on would offer a control that does nothing. Honest
+            // hiding, not a fake.
+            remindersEnabled = false,
             // Both settings-section decisions below are declared rather than left to the dataclass default,
             // because a mount site reading a holder that nothing filled is the failure this whole install
             // exists to prevent. The values match Android's own build config, which carries both as true.
@@ -212,7 +215,7 @@ fun main() {
                 state = desktopWindowState,
                 icon = brandIcon,
             ) {
-                EnforceMinimumWindowSize(sessionLogger)
+                enforceMinimumWindowSize(sessionLogger)
                 ReconcileOnWindowResume(sessionLogger)
                 desktopApp(onQuitRequested = {
                     sessionLogger.i("DesktopMain.onQuitRequested", "Quit requested from the UI")
@@ -395,7 +398,11 @@ internal fun desktopUncaughtExceptionHandler(
  * app is actually tested on, so this is a standard target rather than an invented one.
  */
 internal const val PHONE_WINDOW_WIDTH_DP = 412
-private const val PHONE_WINDOW_HEIGHT_DP = 915
+
+// `internal` rather than `private` so the tests that render the app in-process can size their surface to the
+// shipped window instead of a copy of it: a test that hardcodes 915 keeps passing when this line changes, which
+// is the one thing a resolution pin must not do. The width above is already `internal` for the same reason.
+internal const val PHONE_WINDOW_HEIGHT_DP = 915
 
 /**
  * Headroom kept out of the display so the window still fits together with its title bar and the desktop
@@ -492,7 +499,7 @@ private fun rememberDesktopMinimumWindowSize(): DpSize {
  * replaced and never outlives the composition that set it.
  */
 @Composable
-private fun FrameWindowScope.EnforceMinimumWindowSize(sessionLogger: UnifiedLogger) {
+private fun FrameWindowScope.enforceMinimumWindowSize(sessionLogger: UnifiedLogger) {
     val density = LocalDensity.current
     val minimumSize = rememberDesktopMinimumWindowSize()
     val minimumPixels =
@@ -534,7 +541,7 @@ private fun FrameWindowScope.EnforceMinimumWindowSize(sessionLogger: UnifiedLogg
  * restarted. Android has no such window because `MainActivity.onStart` re-runs its maintenance every time
  * the app returns to the foreground; this is that call, on the desktop's equivalent event.
  *
- * **A [FrameWindowScope] extension, and placed next to [EnforceMinimumWindowSize], for one reason: this is
+ * **A [FrameWindowScope] extension, and placed next to [enforceMinimumWindowSize], for one reason: this is
  * the only composition in the app that lives ABOVE `desktopApp`.** The session controller and the platform
  * seams are both built inside `remember` blocks in `DesktopApp.kt`, so a composable under `desktopApp`
  * could not reach either without threading two new parameters through every signature between here and
@@ -557,7 +564,7 @@ private fun FrameWindowScope.EnforceMinimumWindowSize(sessionLogger: UnifiedLogg
  * focus loss, so ON_RESUME is precisely the "we are back" signal here.
  *
  * **`DisposableEffect(window, ...)`, and the observer is removed in `onDispose`**, matching the shape
- * [EnforceMinimumWindowSize] uses for the same reason: a window replaced by a new one must not leave an
+ * [enforceMinimumWindowSize] uses for the same reason: a window replaced by a new one must not leave an
  * observer bound to the frame that is gone, or a leaked observer would keep reconciling against a window
  * nobody can see.
  *

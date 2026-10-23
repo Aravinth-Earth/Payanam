@@ -1,13 +1,11 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-
 package io.payanam.presentation.updates
 
+import io.payanam.shared.updates.ChannelStatus
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
-import io.payanam.shared.updates.ChannelStatus
-
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
@@ -46,12 +44,13 @@ class UpdateChannelContractTest {
     @Test
     fun `a result defaults to no channel statuses and to the moment it was built`() {
         val before = System.currentTimeMillis()
-        val result = UpdateCheckResult(
-            outcome = UpdateOutcome.UP_TO_DATE,
-            latestBuildNumber = 1,
-            releaseUrl = null,
-            error = null,
-        )
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UP_TO_DATE,
+                latestBuildNumber = 1,
+                releaseUrl = null,
+                error = null,
+            )
         assertEquals(emptyList<ChannelStatus>(), result.channelStatuses)
         assertNull(result.error)
         assertEquals(true, result.checkedAtMs >= before)

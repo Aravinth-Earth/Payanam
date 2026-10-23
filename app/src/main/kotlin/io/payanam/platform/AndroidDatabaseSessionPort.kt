@@ -38,7 +38,7 @@ constructor(
             "DB open requested via the shared port",
             mapOf(
                 "alreadyOpen" to delegate.isDbOpen(),
-                "passphraseLength" to passphrase.length,
+                "passphraseProvided" to passphrase.isNotEmpty(),
             ),
         )
         return delegate.openDatabase(passphrase)

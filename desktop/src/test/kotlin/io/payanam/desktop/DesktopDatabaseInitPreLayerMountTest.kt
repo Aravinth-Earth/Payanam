@@ -26,6 +26,9 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
+import io.payanam.shared.startup.DesktopStartupRuntimeState
+import io.payanam.shared.startup.startupGateInputs
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -148,10 +151,10 @@ class DesktopDatabaseInitPreLayerMountTest {
     /**
      * The REAL graph, the REAL desktop screens, one gate raised, and no data layer installed.
      *
-     * The mode goes through the desktop's own `desktopNavGateFlags` projection rather than four
-     * booleans written out here, because that projection is what the desktop shell feeds the graph
-     * and `DesktopNavGateFlagsTest` owns. `isLandingReady = false` is what makes the gate the start
-     * destination; with it true the graph opens `landingRoute` and no gate body composes at all.
+     * The mode goes through the production seam `startupGateInputs(state)` rather than four booleans
+     * written out here, because that seam is what the desktop shell feeds the graph and the shared startup
+     * module owns. `isLandingReady = false` is what makes the gate the start destination; with it true the
+     * graph opens `landingRoute` and no gate body composes at all.
      *
      * The collaborators are the desktop's own classes over temporary directories, never doubles: the
      * init body reads through the INSTALLED layer (which this test withholds) and the path resolver
@@ -164,7 +167,18 @@ class DesktopDatabaseInitPreLayerMountTest {
     @Suppress("TooGenericExceptionCaught") // Intentional: the assertion is about WHICH throw, not whether one happens
     private fun mountInitGate(): Throwable? =
         try {
-            val flags = desktopNavGateFlags(DesktopStartupMode.InitializeDatabase)
+            val state =
+                DesktopStartupRuntimeState(
+                    hasPassphraseConfigured = true,
+                    hasDatabaseArtifacts = false,
+                    databaseLifecycleReady = false,
+                    sessionOpen = true,
+                    focusModeOnboardingCompleted = false,
+                    securityFilePath = "",
+                    databaseFilePath = "",
+                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
+                )
+            val inputs = startupGateInputs(state)
             composeRule.setContent {
                 PayanamTheme(darkTheme = false) {
                     PayanamNavHost(
@@ -173,10 +187,10 @@ class DesktopDatabaseInitPreLayerMountTest {
                         minimalModeEnabled = false,
                         landingRoute = PayanamTab.Tasks.route,
                         isLandingReady = false,
-                        shouldShowPassphraseSetup = flags.shouldShowPassphraseSetup,
-                        shouldShowPassphraseUnlock = flags.shouldShowPassphraseUnlock,
-                        shouldShowDatabaseInit = flags.shouldShowDatabaseInit,
-                        shouldShowFocusModeOnboarding = flags.shouldShowFocusModeOnboarding,
+                        shouldShowPassphraseSetup = inputs.shouldShowPassphraseSetup,
+                        shouldShowPassphraseUnlock = inputs.shouldShowPassphraseUnlock,
+                        shouldShowDatabaseInit = inputs.shouldShowDatabaseInit,
+                        shouldShowFocusModeOnboarding = inputs.shouldShowFocusModeOnboarding,
                     )
                 }
             }
@@ -191,9 +205,14 @@ class DesktopDatabaseInitPreLayerMountTest {
     /** The desktop's real destination bodies, with the desktop's real collaborators. */
     private fun desktopNavHostScreens(): DesktopPayanamNavHostScreens =
         DesktopPayanamNavHostScreens(
+            // No fact-reload hook: these cases mount the graph, not the reset leg that fires it.
+            onDatabaseResetObserved = {},
             databaseInitCollaborators =
                 DesktopDatabaseInitCollaborators(
                     sessionController = sessionController,
+                    // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                    // store, and the default resolves the operator's real data directory.
+                    onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                     documentSource = AwtDocumentSource(),
                     passphraseVault = vault,
                     databasePathResolver =

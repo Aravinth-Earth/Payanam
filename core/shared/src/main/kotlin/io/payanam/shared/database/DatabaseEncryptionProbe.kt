@@ -12,9 +12,10 @@ import java.io.File
  * `Context`, the desktop through JDBC. So each platform answers for its own file and this contract carries
  * only the questions.
  *
- * The re-encryption half is here because Android's import path converts a plaintext file it has accepted,
- * and the desktop needs the same capability before the two can behave identically. It is NOT a claim that a
- * plaintext import is desirable — that product decision is tracked separately.
+ * The re-encryption half is here for the CREATE path, not the import path: a first run builds its database
+ * with the passphrase it was given, and both platforms need that same capability. Import asks the opposite
+ * question and is answered elsewhere — a plaintext file offered to import is REFUSED on both platforms,
+ * because a Payanam export IS the encrypted file and no version of it can produce a plaintext one.
  */
 interface DatabaseEncryptionProbe {
     /**

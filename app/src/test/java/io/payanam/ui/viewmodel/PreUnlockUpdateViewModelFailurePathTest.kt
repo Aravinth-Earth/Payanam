@@ -2,12 +2,12 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.ui.viewmodel
 
-import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.updates.ApkDownloader
+import io.payanam.presentation.updates.ApkInstaller
+import io.payanam.presentation.updates.InstallSourceReader
 import kotlinx.coroutines.flow.MutableStateFlow
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -16,11 +16,6 @@ import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
-import org.mockito.kotlin.any
-import org.mockito.kotlin.mock
-import org.mockito.kotlin.never
-import org.mockito.kotlin.verify
-import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
@@ -34,8 +29,8 @@ import java.io.File
  *
  * 1. All four guards run *synchronously*, before any `viewModelScope.launch`,
  *    so no test dispatcher / `Dispatchers.setMain` setup is needed.
- * 2. The installer package (F-Droid gate) is the only framework fact the
- *    constructor reads, so a mocked [Context] is enough to select the branch.
+ * 2. The F-Droid gate is the only framework fact the constructor reads, so a
+ *    fake [InstallSourceReader] is enough to select the branch.
  *
  * `_downloadState` is private with no producer that works offline (only the
  * DownloadManager poll loop writes [DownloadUiState.Downloaded]), so the two
@@ -45,7 +40,7 @@ import java.io.File
 @RunWith(RobolectricTestRunner::class)
 class PreUnlockUpdateViewModelFailurePathTest {
 
-    private lateinit var baseContext: Context
+    private lateinit var baseContext: android.content.Context
 
     @Before
     fun setUp() {
@@ -62,7 +57,7 @@ class PreUnlockUpdateViewModelFailurePathTest {
      */
     @Test
     fun `isFDroidBuild is false for a non-F-Droid installer`() {
-        val vm = viewModel(installerPackage = "com.android.vending")
+        val vm = viewModel(isFDroid = false)
         assertFalse(vm.isFDroidBuild)
     }
 
@@ -72,7 +67,7 @@ class PreUnlockUpdateViewModelFailurePathTest {
      */
     @Test
     fun `isFDroidBuild is true when installed from F-Droid`() {
-        val vm = viewModel(installerPackage = FDROID_INSTALLER)
+        val vm = viewModel(isFDroid = true)
         assertTrue(vm.isFDroidBuild)
     }
 
@@ -81,34 +76,34 @@ class PreUnlockUpdateViewModelFailurePathTest {
     /**
      * No APK url yet (user tapped Download before/instead of a successful
      * check). `latestApkUrl ?: return` must abandon the tap: state untouched
-     * and — the part that matters — DownloadManager never contacted, so no
+     * and — the part that matters — the downloader is never contacted, so no
      * orphaned download row can be left behind.
      */
     @Test
     fun `download refuses and leaves state Idle when no APK URL is available`() {
-        val context = contextWithInstaller("com.android.vending")
-        val vm = viewModel(context)
+        val downloader = FakeApkDownloader()
+        val vm = viewModel(isFDroid = false, apkDownloader = downloader)
 
         vm.download()
 
         assertEquals(DownloadUiState.Idle, vm.downloadState.value)
-        verify(context, never()).getSystemService(any())
+        assertEquals(0, downloader.enqueueCount)
     }
 
     /**
      * F-Droid installs are updated by the F-Droid client. The hatch must
-     * refuse before touching DownloadManager.
+     * refuse before touching the downloader.
      */
     @Test
     fun `download is refused on an F-Droid build`() {
-        val context = contextWithInstaller(FDROID_INSTALLER)
-        val vm = viewModel(context)
+        val downloader = FakeApkDownloader()
+        val vm = viewModel(isFDroid = true, apkDownloader = downloader)
 
         vm.download()
 
         assertTrue(vm.isFDroidBuild)
         assertEquals(DownloadUiState.Idle, vm.downloadState.value)
-        verify(context, never()).getSystemService(any())
+        assertEquals(0, downloader.enqueueCount)
     }
 
     /**
@@ -117,60 +112,60 @@ class PreUnlockUpdateViewModelFailurePathTest {
      */
     @Test
     fun `checkForUpdate is refused on an F-Droid build`() {
-        val context = contextWithInstaller(FDROID_INSTALLER)
-        val vm = viewModel(context)
+        val downloader = FakeApkDownloader()
+        val vm = viewModel(isFDroid = true, apkDownloader = downloader)
 
         vm.checkForUpdate()
 
         assertTrue(vm.isFDroidBuild)
         assertNull(vm.checkResultMessage.value)
         assertFalse(vm.checking.value)
-        verify(context, never()).getSystemService(any())
+        assertEquals(0, downloader.enqueueCount)
     }
 
     // ── install() failure paths ─────────────────────────────────────────
 
     /**
      * Nothing downloaded yet: the tap must be abandoned silently-but-safely,
-     * with no state mutation and, above all, no installer intent.
+     * with no state mutation and, above all, no installer handoff.
      */
     @Test
     fun `install refuses and leaves state Idle when nothing has been downloaded`() {
-        val context = contextWithInstaller("com.android.vending")
-        val vm = viewModel(context)
+        val installer = FakeApkInstaller()
+        val vm = viewModel(isFDroid = false, apkInstaller = installer)
 
         vm.install()
 
         assertEquals(DownloadUiState.Idle, vm.downloadState.value)
-        verify(context, never()).startActivity(any<Intent>())
+        assertEquals(0, installer.installCount)
     }
 
     /**
-     * `DownloadUiState.Downloaded.localPath` is nullable and AutoDownloadManager
-     * really does emit `null` when DownloadManager reports no local uri, so the
-     * null path must refuse rather than hand a null File to the installer.
+     * `DownloadUiState.Downloaded.localPath` is nullable and the downloader
+     * really can emit `null` when no local uri is available, so the null path
+     * must refuse rather than hand a null File to the installer.
      */
     @Test
     fun `install refuses when a downloaded record carries no local path`() {
-        val context = contextWithInstaller("com.android.vending")
-        val vm = viewModel(context)
+        val installer = FakeApkInstaller()
+        val vm = viewModel(isFDroid = false, apkInstaller = installer)
         seedDownloadState(vm, DownloadUiState.Downloaded(fileName = "unknown", localPath = null))
 
         vm.install()
 
         assertEquals(DownloadUiState.Downloaded(fileName = "unknown", localPath = null), vm.downloadState.value)
-        verify(context, never()).startActivity(any<Intent>())
+        assertEquals(0, installer.installCount)
     }
 
     /**
      * The APK was downloaded but is gone by install time (cleaned up, storage
      * unmounted, retention pass). This branch *does* surface a failure:
-     * `Failed("file_missing")`, and still no installer intent.
+     * `Failed("file_missing")`, and still no installer handoff.
      */
     @Test
     fun `install reports file_missing when the downloaded APK is gone at install time`() {
-        val context = contextWithInstaller("com.android.vending")
-        val vm = viewModel(context)
+        val installer = FakeApkInstaller()
+        val vm = viewModel(isFDroid = false, apkInstaller = installer)
         val missing = File(baseContext.cacheDir, "payanam-missing.apk")
         check(!missing.exists()) { "test fixture must not exist on disk" }
         seedDownloadState(vm, DownloadUiState.Downloaded(fileName = missing.name, localPath = missing.absolutePath))
@@ -178,29 +173,20 @@ class PreUnlockUpdateViewModelFailurePathTest {
         vm.install()
 
         assertEquals(DownloadUiState.Failed("file_missing"), vm.downloadState.value)
-        verify(context, never()).startActivity(any<Intent>())
+        assertEquals(0, installer.installCount)
     }
 
     // ── helpers ─────────────────────────────────────────────────────────
 
-    private fun viewModel(installerPackage: String?): PreUnlockUpdateViewModel =
-        viewModel(contextWithInstaller(installerPackage))
-
-    private fun viewModel(context: Context): PreUnlockUpdateViewModel =
-        PreUnlockUpdateViewModel(context)
-
-    /**
-     * Real application context with only the installer package faked, so every
-     * other framework call behaves normally while the F-Droid gate is selected.
-     */
-    private fun contextWithInstaller(installerPackage: String?): Context {
-        val packageManager = mock<PackageManager>()
-        whenever(packageManager.getInstallerPackageName(any())).thenReturn(installerPackage)
-        return mock<Context>().also {
-            whenever(it.packageName).thenReturn(baseContext.packageName)
-            whenever(it.packageManager).thenReturn(packageManager)
-        }
-    }
+    private fun viewModel(
+        isFDroid: Boolean,
+        apkDownloader: ApkDownloader = FakeApkDownloader(),
+        apkInstaller: ApkInstaller = FakeApkInstaller(),
+    ): PreUnlockUpdateViewModel = PreUnlockUpdateViewModel(
+        installSourceReader = FakeInstallSourceReader(isFDroid),
+        apkDownloader = apkDownloader,
+        apkInstaller = apkInstaller,
+    )
 
     @Suppress("UNCHECKED_CAST")
     private fun seedDownloadState(vm: PreUnlockUpdateViewModel, state: DownloadUiState) {
@@ -209,7 +195,33 @@ class PreUnlockUpdateViewModelFailurePathTest {
         (field.get(vm) as MutableStateFlow<DownloadUiState>).value = state
     }
 
-    private companion object {
-        const val FDROID_INSTALLER = "org.fdroid.fdroid"
+    // ── fakes ───────────────────────────────────────────────────────────
+
+    private class FakeInstallSourceReader(private val isFDroid: Boolean) : InstallSourceReader {
+        var callCount = 0
+            private set
+        override fun isFDroidBuild(): Boolean {
+            callCount++
+            return isFDroid
+        }
+    }
+
+    private class FakeApkDownloader : ApkDownloader {
+        var enqueueCount = 0
+            private set
+        override fun enqueue(url: String, fileName: String, wifiOnly: Boolean): String? {
+            enqueueCount++
+            return null
+        }
+        override fun queryProgress(downloadId: String): DownloadUiState = DownloadUiState.Idle
+    }
+
+    private class FakeApkInstaller : ApkInstaller {
+        var installCount = 0
+            private set
+        override fun install(apkPath: String): Boolean {
+            installCount++
+            return true
+        }
     }
 }

@@ -14,8 +14,8 @@ import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricAuthentication
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricRefusalReason
-import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
+import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseVault
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
@@ -62,18 +62,27 @@ data class DatabasePassphraseUnlockUiState(
  */
 fun classifyDatabaseOpenOutcome(outcome: DatabaseOpenOutcome): String =
     when (val issue = (outcome as? DatabaseOpenOutcome.Refused)?.issue) {
-        null -> "open_failed"
-        else ->
+        null -> {
+            "open_failed"
+        }
+
+        else -> {
             when (issue.type) {
                 DatabaseBootIssueType.DB_TOO_NEW -> "db_too_new"
+
                 DatabaseBootIssueType.DB_TOO_OLD -> "db_too_old"
+
                 DatabaseBootIssueType.SCHEMA_INVALID -> "schema_invalid"
+
                 DatabaseBootIssueType.SIDECAR_PRIMARY_MISSING -> "storage_incomplete"
+
                 DatabaseBootIssueType.OPEN_FAILED -> "open_failed"
+
                 DatabaseBootIssueType.REPAIRABLE_GENERIC,
                 DatabaseBootIssueType.NON_REPAIRABLE_GENERIC,
                 -> "open_failed"
             }
+        }
     }
 
 /**
@@ -175,7 +184,7 @@ class DatabasePassphraseUnlockViewModel(
             "Passphrase unlock requested",
             mapOf(
                 "passphraseBlank" to passphrase.isBlank(),
-                "passphraseLength" to passphrase.length,
+                "passphraseProvided" to passphrase.isNotEmpty(),
             ),
         )
         if (passphrase.isBlank()) {
@@ -282,13 +291,16 @@ class DatabasePassphraseUnlockViewModel(
                     return@launch
                 }
 
-                BiometricAvailability.Available -> Unit
+                BiometricAvailability.Available -> {
+                    Unit
+                }
             }
 
             _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
             when (val outcome = biometricPrompt.requestAuthentication()) {
-                is BiometricAuthentication.Authenticated ->
+                is BiometricAuthentication.Authenticated -> {
                     openSessionAndSucceed(outcome.passphrase, onSuccess, "biometric")
+                }
 
                 is BiometricAuthentication.Refused -> {
                     // A dismissal is not a failure: reporting one would put an error on screen for a user
@@ -376,13 +388,14 @@ class DatabasePassphraseUnlockViewModel(
         source: String,
     ) {
         val passphraseChars = passphrase.toCharArray()
-        val outcome = withContext(ioDispatcher) {
-            databaseOpener.open(
-                databasePath = databaseFile.absolutePath,
-                passphrase = passphraseChars,
-                readOnly = false,
-            )
-        }
+        val outcome =
+            withContext(ioDispatcher) {
+                databaseOpener.open(
+                    databasePath = databaseFile.absolutePath,
+                    passphrase = passphraseChars,
+                    readOnly = false,
+                )
+            }
         passphraseChars.fill('\u0000')
         if (outcome is DatabaseOpenOutcome.Refused) {
             val reasonCode = classifyDatabaseOpenOutcome(outcome)
@@ -428,6 +441,7 @@ class DatabasePassphraseUnlockViewModel(
             -> "biometric_unavailable"
 
             BiometricUnavailableReason.DISABLED_BY_PREFERENCE -> "biometric_unavailable"
+
             BiometricUnavailableReason.KEY_UNAVAILABLE -> "key_invalidated"
         }
 
@@ -540,4 +554,3 @@ fun passphraseUnlockViewModel(
         strings = strings,
         scope = scope,
     )
-

@@ -11,6 +11,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
 import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -49,6 +50,7 @@ import io.payanam.feature.assistant.ui.AssistantScreen
 import io.payanam.feature.assistant.ui.AssistantSettingsScreen
 import io.payanam.feature.settings.ui.SettingsScreen
 import io.payanam.platform.AndroidBiometricUnlockPrompt
+import io.payanam.platform.AndroidOnboardingMarker
 import io.payanam.platform.DatabaseInitEntryPoint
 import io.payanam.platform.PassphraseChangeEntryPoint
 import io.payanam.platform.PassphraseSetupEntryPoint
@@ -96,7 +98,22 @@ import java.time.LocalDate
  * Everything Android-specific about running a screen lives here rather than in the graph: the Hilt
  * ViewModel, the log lines the call sites used to emit, and the `LocalDate` used for the day-detail route.
  */
-internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
+internal class AndroidPayanamNavHostScreens(
+    /**
+     * The platform's own reaction to a COMPLETED forgot-passphrase reset.
+     *
+     * A reset deletes the database artifact family and clears the credential, so every startup fact
+     * `MainActivity.onCreate` resolved describes a database that no longer exists. Its own resolution is
+     * what the graph is handed as the gate flags, so the flags have to be re-resolved at that moment or the
+     * graph navigates into a state the platform's facts contradict. That was the measured defect (build
+     * 2038): after the reset the app bounced from `lenses` back to `passphrase_unlock` - a gate for a
+     * credential the reset had just deleted - and then entered the first-run flow.
+     *
+     * Undefaulted on purpose: a default here would be a silent no-op at a call site that must state when a
+     * reset has changed the facts.
+     */
+    private val onDatabaseResetObserved: () -> Unit,
+) : PayanamNavHostScreens {
     private val logger = UnifiedLogger.getInstance()
 
     @Composable
@@ -204,7 +221,16 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
         val preUnlockUpdateViewModel: PreUnlockUpdateViewModel = hiltViewModel()
         DatabasePassphraseUnlockScreen(
             onPassphraseUnlocked = onUnlocked,
-            onForgotPassphraseReset = onForgotPassphraseReset,
+            onForgotPassphraseReset = {
+                // The reset has just run: it deleted the database artifacts and cleared the credential. The
+                // gate flags this Activity resolved in `onCreate` now describe a database that is not there,
+                // so they are re-resolved BEFORE the graph's own navigation into the init gate - otherwise
+                // the stale unlock flag bounces the user straight back to a gate for a credential that no
+                // longer exists, which is exactly what build 2038's log shows.
+                logger.w("PayanamNavHost.passphraseUnlock", "Forgot-passphrase reset completed; re-resolving the startup gates")
+                onDatabaseResetObserved()
+                onForgotPassphraseReset()
+            },
             viewModel = unlockViewModel,
             biometricActions = AndroidBiometricUnlockScreenActions(
                 context = context,
@@ -299,11 +325,16 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
     override fun databaseInit(
         nav: PayanamNavActions,
         onDatabaseReady: () -> Unit,
+        resumesAfterReset: Boolean,
     ) {
         // The screen itself is in :core:ui and rendered by every platform. The ViewModel is built
         // from the installed data layer and retained here - the platform owns retention, the shared
         // screen owns none. The SAF picker and the log exporter are supplied as slots.
         val context = LocalContext.current
+        // The onboarding fact is DEVICE-LEVEL (see [AndroidOnboardingMarker]): read from this app's private
+        // preferences rather than from the database, so the reset that deletes the database cannot make the
+        // user sit through the tour again.
+        val onboardingMarker = remember(context) { AndroidOnboardingMarker.from(context) }
         val viewModel = retainSharedViewModel(key = "database_init", onRelease = { it.dispose() }) {
             val entryPoint = EntryPointAccessors.fromApplication(
                 context.applicationContext as Application,
@@ -338,6 +369,13 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
             debugLogExport = {
                 DatabaseInitLogExportActions()
             },
+            // Read fresh on every composition of this destination, so the write below is visible to a
+            // re-entry without a second copy of the fact being kept in this file.
+            onboardingIntroAlreadyCompleted = onboardingMarker.hasCompletedOnboarding(),
+            onOnboardingCompleted = { onboardingMarker.markOnboardingCompleted() },
+            // The reset's own continuation: the user asked for their data to be replaced, so this gate opens
+            // at the create form rather than re-teaching the app and offering the create/import choice.
+            beginAtDatabaseCreation = resumesAfterReset,
         )
     }
 

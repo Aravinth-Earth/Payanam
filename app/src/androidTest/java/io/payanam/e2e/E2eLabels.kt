@@ -165,6 +165,16 @@ object E2eLabels {
         val unlock: String get() = shared.dbPassphraseUnlockAction
 
         /**
+         * The unlock gate's forgot-passphrase entry, and the destructive action its dialog confirms.
+         *
+         * Both are needed by `ResetJourneyTest`, which drives the reset the way a user does: the entry on the
+         * gate, then the confirmation. Read from the shared table like every other label here, so the journey
+         * runs on a Tamil-locale device unchanged.
+         */
+        val forgotPassphrase: String get() = shared.dbPassphraseUnlockForgotAction
+        val resetConfirm: String get() = shared.dbPassphraseUnlockResetConfirm
+
+        /**
          * The onboarding tour's forward action.
          *
          * The tour is a three-slide pager: the button reads "Next" until the last slide and "Get
@@ -213,5 +223,12 @@ object E2eLabels {
         val aiAssistance: String get() = shared.assistantTitle
         val experimentalChip: String get() = shared.assistantChipExperimental
         val assistantOpen: String get() = shared.assistantEntryCta
+
+        // ── focus-mode onboarding gate ───────────────────────────────────────────────────────────────
+        // A startup GATE, not a screen the journey navigates to: it is evaluated when the ACTIVITY starts, so a
+        // database whose focus-mode onboarding was never completed is asked to choose a mode on the next launch.
+        // The copy comes from the shared table like every other label here, so a Tamil device resolves it too.
+        val chooseYourFocus: String get() = shared.chooseYourFocus
+        val skipFocusMode: String get() = shared.skipFocusMode
     }
 }

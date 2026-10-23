@@ -256,7 +256,9 @@ class TasksViewModelHabitsTest {
             // Both rows are visible before the filter is on; if the not-due habit were already
             // hidden there would be nothing for the toggle to narrow, and the case below would
             // pass for the wrong reason.
-            val idsBefore = viewModel.uiState.value.visibleHabitRows.map { it.id }
+            val idsBefore =
+                viewModel.uiState.value.visibleHabitRows
+                    .map { it.id }
             assertThat(idsBefore).containsExactly("dueHabit", "notDueHabit")
 
             viewModel.toggleDueTodayOnly()
@@ -266,8 +268,10 @@ class TasksViewModelHabitsTest {
             // Due-today filter keeps the due habit and drops the one whose window has not opened.
             // Named ids, not a count: a filter can only shrink or hold the list, so `isAtMost`
             // against the pre-toggle size holds even if the filter is not applied at all.
-            assertThat(viewModel.uiState.value.visibleHabitRows.map { it.id })
-                .containsExactly("dueHabit")
+            assertThat(
+                viewModel.uiState.value.visibleHabitRows
+                    .map { it.id },
+            ).containsExactly("dueHabit")
         }
 
     // ── ViewModel: toggleCheckmark ─────────────────────────────────────────

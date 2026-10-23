@@ -71,14 +71,35 @@ class DimensionIconKeysTest {
         // and a fallback icon. This is the check that keeps the two halves from drifting apart.
         val drawable =
             setOf(
-                "work", "favorite", "groups", "trending_up", "account_balance_wallet",
-                "self_improvement", "sports_esports", "menu_book", "volunteer_activism",
-                "category", "monitor_heart", "psychology", "home", "help_outline",
+                "work",
+                "favorite",
+                "groups",
+                "trending_up",
+                "account_balance_wallet",
+                "self_improvement",
+                "sports_esports",
+                "menu_book",
+                "volunteer_activism",
+                "category",
+                "monitor_heart",
+                "psychology",
+                "home",
+                "help_outline",
             )
         val resolved =
             DimensionTaxonomyCatalog.entries.map { DimensionIconKeys.defaultIconKeyForDimensionId(it.id) } +
-                listOf("work", "favorite", "groups", "trending_up", "account_balance_wallet",
-                    "self_improvement", "sports_esports", "menu_book", "volunteer_activism", "category")
+                listOf(
+                    "work",
+                    "favorite",
+                    "groups",
+                    "trending_up",
+                    "account_balance_wallet",
+                    "self_improvement",
+                    "sports_esports",
+                    "menu_book",
+                    "volunteer_activism",
+                    "category",
+                )
         for (key in resolved) {
             assertThat(key).isIn(drawable)
         }

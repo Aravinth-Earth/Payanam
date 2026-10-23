@@ -774,15 +774,6 @@ internal suspend fun runDesktopRecurrenceMaintenance(
             "Startup maintenance ran",
             mapOf("steps" to steps.joinToString()),
         )
-        // The reminders come AFTER the recovery steps, which is the order Android uses: its maintenance
-        // runs `runStartupRecovery` and only then `scheduleAllPendingTasks`, so a reminder is armed against
-        // the due date the recurring rollover has already advanced rather than the stale one. Android's
-        // other arming site is its boot receiver; the desktop has no boot, so this is its only re-arm.
-        replayDesktopReminders(
-            readTasks = { layer.tasks.getAllTasks().first() },
-            scheduler = layer.reminderScheduler,
-            logger = logger,
-        )
     }.onFailure { error ->
         logger.e(
             "DesktopDatabaseSessionController.runMaintenance",

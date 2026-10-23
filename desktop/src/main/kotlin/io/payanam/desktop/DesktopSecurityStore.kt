@@ -2,17 +2,29 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
+import io.payanam.database.jvm.PayanamDatabaseOpener
 import io.payanam.shared.security.PassphraseKdf
 import io.payanam.shared.security.SharedPassphraseLockoutPolicy
 import io.payanam.shared.security.SharedPassphrasePolicy
+import java.io.File
 import java.io.StringReader
 import java.io.StringWriter
 import java.nio.file.Path
 import java.security.SecureRandom
 import java.util.Base64
 import java.util.Properties
+import javax.crypto.SecretKeyFactory
+import javax.crypto.spec.PBEKeySpec
 
 private const val DESKTOP_SECURITY_SCHEMA_VERSION = 1
+
+/**
+ * The desktop's former PBKDF2 cost, written into verifiers before the configuration was shared.
+ *
+ * Only [DesktopSecurityStore.verifyPassphrase]'s re-hash path may read it: a verifier at this cost is
+ * accepted ONCE and rewritten at [PassphraseKdf.ITERATIONS] in the same step.
+ */
+private const val LEGACY_ITERATIONS = 10_000
 
 /** The passphrase verifier file. Named for what it holds, stable so a restart finds it. */
 private const val DESKTOP_SECURITY_FILE_NAME = "desktop-security.properties"
@@ -98,6 +110,16 @@ internal class DesktopSecurityStore(
     private val persistenceDatabase: DesktopKeyValueEntry =
         DesktopKeyValueEntry(securityFileIn(securityDirectory)),
     private val clock: () -> Long = System::currentTimeMillis,
+    /**
+     * The database this store guards, when the platform knows it.
+     *
+     * The verifier below is a hash this store wrote itself, so it only exists for a passphrase this platform
+     * configured. A database brought over from Android - the same encrypted file, the same schema, by design -
+     * has no desktop verifier, and the owner's correct passphrase was refused because a store cannot recognise
+     * a passphrase it never saw. The file is therefore asked first; the default keeps every construction that
+     * has no file (and every test about the store's own lockout) behaving exactly as before.
+     */
+    private val databaseFile: () -> File? = { null },
     private val logEvent: (DesktopSecurityLogLevel, String, String, Map<String, Any?>) -> Unit =
         { _, _, _, _ -> },
 ) {
@@ -375,6 +397,33 @@ internal class DesktopSecurityStore(
             return DesktopPassphraseActionResult.Locked(lockoutSecondsRemaining = remaining)
         }
 
+        // THE DATABASE FIRST. It is the only source of truth for whether a passphrase opens it, and it is
+        // the one artifact that survives an import from Android - where no desktop verifier exists to match.
+        // Placed after the lockout guard above on purpose: a lockout is a decision about attempts, and it has
+        // to outrank a passphrase that happens to be right, or the policy would be decorative. Placed before
+        // the verifier lookup below because a store with no verifier at all (an imported database, a cleared
+        // store) returns `state_unavailable` from there and would never reach a check that can accept.
+        val guardedDatabase = databaseFile()
+        if (guardedDatabase != null && guardedDatabase.exists() &&
+            runCatching {
+                PayanamDatabaseOpener.verifyPassphrase(guardedDatabase.toPath(), passphrase)
+            }.getOrDefault(false)
+        ) {
+            // Realign the store's verifier to the passphrase the file just proved. Skipped silently when the
+            // shared policy refuses to WRITE that verifier, because the database has already answered the
+            // only question this call asks; the write is bookkeeping so that hasPassphraseConfigured() agrees
+            // with the file it guards, and leaving the two disagreeing would hide an encrypted database
+            // behind the first-run screens.
+            configurePassphrase(passphrase)
+            logEvent(
+                DesktopSecurityLogLevel.INFO,
+                "DesktopSecurityStore.verifyPassphrase",
+                "Desktop passphrase verified against the database itself",
+                mapOf("outcome" to "verified_by_database", "verifierRealigned" to true),
+            )
+            return DesktopPassphraseActionResult.Success
+        }
+
         val saltBase64 = properties.getProperty(KEY_SALT_BASE64)
         val hashBase64 = properties.getProperty(KEY_HASH_BASE64)
         if (saltBase64.isNullOrBlank() || hashBase64.isNullOrBlank()) {
@@ -419,6 +468,27 @@ internal class DesktopSecurityStore(
                 "DesktopSecurityStore.verifyPassphrase",
                 "Desktop passphrase verified",
                 emptyMap(),
+            )
+            return DesktopPassphraseActionResult.Success
+        }
+
+        // THE RE-HASH PATH. A verifier written before the cost was shared was derived at 10,000
+        // iterations; after the fix the stored hash can never match a 210,000-iteration derivation, so
+        // without this branch the owner of such a verifier would be locked out of their own database -
+        // and the lockout counter would climb on every correct passphrase. The legacy cost is tried
+        // SECOND and only to ACCEPT one unlock; the verifier is rewritten at the shared cost in the same
+        // step, so the cheaper artifact cannot survive a single successful unlock.
+        if (deriveLegacyHash(passphrase = passphrase, salt = salt).contentEquals(expectedHash)) {
+            saveSnapshot(
+                snapshot.copy(failedUnlockAttempts = 0, lockedUntilEpochMillis = null),
+                saltBase64 = saltBase64,
+                hashBase64 = Base64.getEncoder().encodeToString(actualHash),
+            )
+            logEvent(
+                DesktopSecurityLogLevel.INFO,
+                "DesktopSecurityStore.verifyPassphrase",
+                "Desktop passphrase verified at the former cost and re-hashed at the shared cost",
+                mapOf("upgraded" to true),
             )
             return DesktopPassphraseActionResult.Success
         }
@@ -505,6 +575,26 @@ internal class DesktopSecurityStore(
         // The SHARED configuration. This store derived at 10,000 iterations while Android derived at 210,000,
         // which made the desktop's verifier the cheaper artifact to attack.
         return PassphraseKdf.derive(passphrase.toCharArray(), salt)
+    }
+
+    /**
+     * The desktop's FORMER cost, kept only to accept one unlock of a verifier that was written at it.
+     *
+     * Not a fallback that can be selected: [verifyPassphrase] tries the shared cost FIRST and rewrites the
+     * verifier at the shared cost the moment this one matches, so a database can pass through this path at
+     * most once. The constant is deliberately a negative-style name - "legacy" - so a future edit that
+     * reaches for it as a default reads as the wrong choice.
+     */
+    private fun deriveLegacyHash(
+        passphrase: String,
+        salt: ByteArray,
+    ): ByteArray {
+        val spec = PBEKeySpec(passphrase.toCharArray(), salt, LEGACY_ITERATIONS, PassphraseKdf.KEY_BITS)
+        return try {
+            SecretKeyFactory.getInstance(PassphraseKdf.ALGORITHM).generateSecret(spec).encoded
+        } finally {
+            spec.clearPassword()
+        }
     }
 
     internal companion object {

@@ -2,11 +2,13 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.platform
 
+import android.app.NotificationManager
 import android.content.Context
 import android.os.Build
 import android.os.Vibrator
 import android.os.VibratorManager
 import io.payanam.BuildConfig
+import io.payanam.PayanamApp
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.service.AutoBackupWorker
 import io.payanam.shared.platform.BackupBackgroundCapability
@@ -116,7 +118,17 @@ class AndroidHapticSink(
     }
 }
 
-/** What this Android device can do. Read once at startup and handed to the shared UI. */
+/**
+ * What this Android device can do. Read once at startup and handed to the shared UI.
+ *
+ * The reminders row is DERIVED from this device's notification state, never asserted. Android has no
+ * [ReminderSink] to ask, and inventing one to ask would be the very lie the vocabulary exists to prevent:
+ * the honest question is not "does this platform have the concept" (it does, and always does) but "will
+ * anything reach the user on THIS device" — which is a runtime permission and channel answer, not a
+ * build-time one. `SUPPORTED` means a notification can actually be posted right now; anything less reports
+ * the state the user would see, so shared UI can explain the reminder toggle rather than offer a control
+ * that posts into a disabled channel.
+ */
 fun androidCapabilities(context: Context): PlatformCapabilities {
     val haptics = AndroidHapticSink(context)
     return PlatformCapabilities(
@@ -125,12 +137,41 @@ fun androidCapabilities(context: Context): PlatformCapabilities {
         if (hasBiometricHardware(context)) SupportState.SUPPORTED else SupportState.NOT_APPLICABLE,
         supportsDynamicColor = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S,
         supportsHaptics = haptics.isActive,
-        // Android runs the notification channel and the reminder scheduler; delivery is a device+user
-        // question (permission, channel disabled) that this state does not claim to answer.
-        reminders = SupportState.SUPPORTED,
+        reminders = androidReminderSupport(context),
         // `WorkManager` keeps the schedule after the app is closed.
         backupBackground = SupportState.SUPPORTED,
     )
+}
+
+/**
+ * What this device's notification state actually permits, in the shared vocabulary.
+ *
+ * Two probes, both read from the platform's own [NotificationManager] rather than from a constant:
+ *
+ * - the app-wide switch (`areNotificationsEnabled`), which on API 33+ also carries the runtime
+ *   `POST_NOTIFICATIONS` grant, so a user who declined the prompt lands here and is told so;
+ * - the reminders channel's own importance, which is how a user silences reminders while leaving other
+ *   notifications alone. The channel is registered by [PayanamApp.createNotificationChannels] at startup, so
+ *   its absence means the reminders path has not been set up on this install — not that reminders work.
+ *
+ * NOT_APPLICABLE is deliberately NOT used for the blocked case: Android does have the concept and does
+ * accept the reminder, it cannot currently SHOW it, which is [SupportState.DECLINES]'s meaning — the call
+ * is accepted and the device is refusing on purpose. `NOT_SURFACED` would claim the sink merely has nothing
+ * to show yet, which is the desktop's position, not this one.
+ *
+ * Below API 26 there is no channel, so the app-wide switch is the whole answer; this project's `minSdk`
+ * is 28, so the branch exists for the contract rather than for a device anyone ships to.
+ */
+private fun androidReminderSupport(context: Context): SupportState {
+    val manager = context.getSystemService(NotificationManager::class.java) ?: return SupportState.DECLINES
+    if (!manager.areNotificationsEnabled()) return SupportState.DECLINES
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+        // Channel state is only readable from 26. `getNotificationChannel` returns null for a channel the
+        // user deleted from system settings, which is a refusal to show rather than an absent feature.
+        val channel = manager.getNotificationChannel(PayanamApp.CHANNEL_TASK_REMINDERS) ?: return SupportState.DECLINES
+        if (channel.importance == NotificationManager.IMPORTANCE_NONE) return SupportState.DECLINES
+    }
+    return SupportState.SUPPORTED
 }
 
 private fun hasBiometricHardware(context: Context): Boolean = context.packageManager.hasSystemFeature(android.content.pm.PackageManager.FEATURE_FINGERPRINT) ||

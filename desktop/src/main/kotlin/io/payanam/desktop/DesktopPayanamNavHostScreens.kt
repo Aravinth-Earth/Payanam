@@ -4,18 +4,18 @@
 
 package io.payanam.desktop
 
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.material3.Text
 import io.payanam.core.ui.assistant.AssistantScreenActions
 import io.payanam.core.ui.assistant.AssistantScreenContent
 import io.payanam.core.ui.assistant.AssistantSettingsScreenActions
@@ -30,15 +30,14 @@ import io.payanam.core.ui.focus.FocusModeSelectionScreen
 import io.payanam.core.ui.lenses.LensesScreen
 import io.payanam.core.ui.lenses.ScoringConfigScreen
 import io.payanam.core.ui.navigation.PayanamNavActions
-import io.payanam.core.ui.updates.PreUnlockUpdateActions
-import io.payanam.core.ui.updates.PreUnlockUpdateSection
-import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
 import io.payanam.core.ui.notes.NotesScreen
+import io.payanam.core.ui.onboarding.OnboardingIntroScreen
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.colorToStoredHex
 import io.payanam.core.ui.preferences.knownAppOwnedCatalogLabels
 import io.payanam.core.ui.preferences.localizedCatalogLabel
+import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.settings.SettingsScreen
 import io.payanam.core.ui.settings.SettingsScreenActions
 import io.payanam.core.ui.tasks.AddTaskScreen
@@ -47,14 +46,15 @@ import io.payanam.core.ui.tasks.ScoreDetailScreen
 import io.payanam.core.ui.tasks.TaskDetailScreen
 import io.payanam.core.ui.tasks.TasksScreen
 import io.payanam.core.ui.tasks.TasksScreenMode
+import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
-import io.payanam.core.ui.text.LocalUiStrings
-import io.payanam.core.ui.onboarding.OnboardingIntroScreen
-import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.time.MAX_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
 import io.payanam.core.ui.time.TimeScreen
+import io.payanam.core.ui.updates.PreUnlockUpdateActions
+import io.payanam.core.ui.updates.PreUnlockUpdateSection
+import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopPassphraseChangeCollaborators
@@ -178,6 +178,16 @@ internal class DesktopPayanamNavHostScreens(
      * [DesktopAssistantCollaborators].
      */
     private val assistantCollaborators: DesktopAssistantCollaborators,
+    /**
+     * The shell's own reaction to a COMPLETED forgot-passphrase reset.
+     *
+     * The reset runs inside the shared unlock ViewModel over this platform's port, so the shell is not told
+     * about it by construction - and the startup decision it derived is then stale in the worst way: it
+     * still reports the password gate the user has just left, and the graph composes `lenses` with only the
+     * bootstrap layer installed (the owner's build-405 crash). The callback re-reads the facts the decision
+     * is made from; it is called BEFORE the graph's own navigation runs, so the two agree.
+     */
+    private val onDatabaseResetObserved: () -> Unit,
 ) : PayanamNavHostScreens {
     // The desktop's own logger, already initialized from main() before any composable runs. Same
     // construction as Android's half: both are the platform implementation of the shared contract.
@@ -260,17 +270,28 @@ internal class DesktopPayanamNavHostScreens(
             }
         DatabasePassphraseUnlockScreen(
             onPassphraseUnlocked = onUnlocked,
-            onForgotPassphraseReset = onForgotPassphraseReset,
+            onForgotPassphraseReset = {
+                // The reset ran INSIDE the shared ViewModel, through this platform's own port, so nothing
+                // told the shell: the startup decision kept the facts it had read at launch and the graph
+                // then composed `lenses` with only the bootstrap layer installed, which is the crash in the
+                // owner's build-405 log (`LocalDataLayer.lenses was read before a data layer was
+                // installed`). Re-reading the facts BEFORE the graph's own navigation into the init gate is
+                // what makes the two agree.
+                logger.w("PayanamNavHost.passphraseUnlock", "Forgot-passphrase reset completed; re-reading the startup facts")
+                onDatabaseResetObserved()
+                onForgotPassphraseReset()
+            },
             viewModel = viewModel,
             biometricActions = null,
             preUnlockUpdate = {
                 // The shared section, told the truth: this platform installs its app through its own
                 // package manager, so there is no in-app update action to offer.
                 PreUnlockUpdateSection(
-                    uiState = PreUnlockUpdateUiState(
-                        buildNumber = DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
-                        platformSupport = SupportState.NOT_APPLICABLE,
-                    ),
+                    uiState =
+                        PreUnlockUpdateUiState(
+                            buildNumber = DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+                            platformSupport = SupportState.NOT_APPLICABLE,
+                        ),
                     // Lives in the port package, not here: this file's own render guard scans it for
                     // `override fun` lines and reads each one as a destination, so an interface
                     // implementation declared here is indistinguishable from an unwired screen.
@@ -325,6 +346,7 @@ internal class DesktopPayanamNavHostScreens(
     override fun databaseInit(
         nav: PayanamNavActions,
         onDatabaseReady: () -> Unit,
+        resumesAfterReset: Boolean,
     ) {
         // ADDITIVE, and deliberately: this destination renders the SHARED screen, and the desktop's own
         // stricter first-run gate that used to stand beside it is deleted now. Whether the desktop keeps
@@ -362,8 +384,17 @@ internal class DesktopPayanamNavHostScreens(
             },
             language = language,
             debugLogExport = { DesktopLogExportActions() },
-            // Reached only after the desktop's own startup surface already ran the intro, so the graph must not repeat it.
-            onboardingIntroAlreadyCompleted = true,
+            // The marker is DEVICE-LEVEL and lives beside the security store, not in the database: the tour
+            // is suppressed for an installation that has already been through it, and the reset (which
+            // deletes the database) cannot make it claim otherwise. The desktop used to pass a literal
+            // `false` here, which meant every visit to this gate re-ran the tour.
+            onboardingIntroAlreadyCompleted = databaseInitCollaborators.onboardingStore.hasCompletedOnboarding(),
+            onOnboardingCompleted = { databaseInitCollaborators.onboardingStore.markOnboardingCompleted() },
+            // The reset's own continuation: the graph sends a completed forgot-passphrase reset here, and
+            // the user asked for their data to be replaced - so this gate opens at its create form rather
+            // than re-teaching the app and offering the create/import choice over a database they just had
+            // wiped.
+            beginAtDatabaseCreation = resumesAfterReset,
         )
     }
 

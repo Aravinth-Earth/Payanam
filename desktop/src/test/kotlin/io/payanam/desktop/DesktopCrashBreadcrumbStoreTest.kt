@@ -87,11 +87,12 @@ class DesktopCrashBreadcrumbStoreTest {
         // this list - and order is content here: a trail replayed backwards reads as a process that
         // ran its steps in the wrong order, which is a different and wrong diagnosis from the one
         // that happened.
-        assertThat(trail).containsExactly(
-            "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_one",
-            "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_two",
-            "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_three",
-        ).inOrder()
+        assertThat(trail)
+            .containsExactly(
+                "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_one",
+                "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_two",
+                "2026-03-04 05:06:07.008 | DesktopBreadcrumbStoreTest | step_three",
+            ).inOrder()
     }
 
     @Test
@@ -390,7 +391,7 @@ class DesktopCrashBreadcrumbStoreTest {
                 line.startsWith("WARN DesktopCrashBreadcrumbStore ") &&
                     line.contains("Failed to clear the crash-safe breadcrumb trail") &&
                     line.contains("step=clear") &&
-                    line.contains("location=${file}")
+                    line.contains("location=$file")
             },
         ).isTrue()
         // The read half is reported under its own step name rather than folded into the clear's, so a

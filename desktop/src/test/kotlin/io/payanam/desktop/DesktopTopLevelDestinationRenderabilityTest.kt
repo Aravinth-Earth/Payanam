@@ -100,21 +100,20 @@ class DesktopTopLevelDestinationRenderabilityTest {
         assertThat(desktopLaunchRoute(state)).isEqualTo(recordedFreshInstallLaunchRoute)
     }
 
-    /**
-     * The scan still recognises a call site, so the assertion above is not vacuous.
-     *
-     * The failure mode of a source-reading test is a scan that silently matches nothing, which makes
-     * every assertion on its output pass - and this file hit exactly that: when the last two throw sites
-     * were wired, production had NO call site left to scan, so `isNotEmpty()` over the real file became
-     * permanently unsatisfiable rather than meaningful. The guard is therefore aimed at the SCAN instead
-     * of the production file: a synthetic source carrying the same shape the real one had is scanned
-     * here, so "the scanner finds a call site and attributes it to the destination it sits in" stays a
-     * claim even while the honest answer about production is "none".
-     *
-     * A claim about production cannot be made this way and is not made: `the top-level routes that throw
-     * are exactly the recorded ones` is the assertion about the real file, and it is red the moment a rail
-     * route starts throwing again.
-     */
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+//
+
     /**
      * The `DesktopTopLevelRoute`s whose override body calls `desktopDestinationNotMigrated`.
      *
@@ -157,13 +156,11 @@ class DesktopTopLevelDestinationRenderabilityTest {
         /** A throw call with its argument: the declaration has a parameter list, never a quoted string. */
         private val CALL = Regex("""desktopDestinationNotMigrated\("([^"]+)"""")
 
-        /**
-         * A source carrying the two shapes the scan must tell apart, and nothing else.
-         *
-         * Two rows rather than one because the attribution is the part worth measuring: a scanner that
-         * returned the first call site it found would pass a single-row fixture and fail this one. The
-         * closing declaration is included because it is the shape the quoted-argument requirement is there
-         * to exclude - a scan that matched it would report a destination no body calls from.
-         */
+//
+//
+//
+//
+//
+//
     }
 }

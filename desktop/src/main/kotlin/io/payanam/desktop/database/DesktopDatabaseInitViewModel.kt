@@ -3,6 +3,7 @@
 package io.payanam.desktop.database
 
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.desktop.DesktopOnboardingStore
 import io.payanam.desktop.security.DesktopEncryptionStateCheckpoint
 import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.port.DatabaseSessionManager
@@ -37,6 +38,21 @@ internal data class DesktopDatabaseInitCollaborators(
     val passphraseVault: PassphraseVault,
     val databasePathResolver: DatabasePathResolver = DesktopDatabasePathResolver(),
     val encryptionStateCheckpoint: EncryptionStateCheckpoint = DesktopEncryptionStateCheckpoint(),
+    /**
+     * This installation's onboarding marker, so the init gate can tell a FIRST RUN (show the tour) from the
+     * RESET's continuation (do not) - see [DesktopOnboardingStore].
+     *
+     * It rides these collaborators rather than a new one because it belongs to the gate that renders the
+     * tour: the database-init destination is the only reader and the only writer.
+     *
+     * UNDEFAULTED, and that is the point rather than a style choice. The tour's completion WRITES through
+     * this store, so a default would put a test's write into whatever directory the default resolves - which
+     * is the operator's real one. Measured 2026-10-14: a defaulted store here made the desktop's first-run
+     * journey test create `desktop-onboarding.properties` in the real app data directory, and the cases that
+     * ran after it in the same JVM then read that marker and found no tour. The path resolver is injected at
+     * every call site for the same reason (see `DesktopDatabaseInitPreLayerMountTest`).
+     */
+    val onboardingStore: DesktopOnboardingStore,
 )
 
 /**

@@ -22,18 +22,18 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import kotlinx.coroutines.launch
 
-/**
- * The desktop's debug-log exporter for the shared database-init screen.
- *
- * Mirrors Android's `DatabaseInitLogExportActions`: the same two outlined buttons, the same shared
- * strings, the same result line. The widgets are this module's own Material widgets because
- * `:desktop` compiles against Compose Material 2 (as the module's own shell chrome already does)
- * rather than Material 3 - the labels, order and behaviour are unchanged.
- *
- * Only the exporter behind the buttons differs: the desktop has no SAF picker and no R class, so
- * [UnifiedLogger.exportLatestLog] and [UnifiedLogger.exportAllLogs] copy the plain files this module
- * already writes into the plain log directory and report the resulting path.
- */
+//
+// The desktop's debug-log exporter for the shared database-init screen.
+//
+// Mirrors Android's `DatabaseInitLogExportActions`: the same two outlined buttons, the same shared
+// strings, the same result line. The widgets are this module's own Material widgets because
+// `:desktop` compiles against Compose Material 2 (as the module's own shell chrome already does)
+// rather than Material 3 - the labels, order and behaviour are unchanged.
+//
+// Only the exporter behind the buttons differs: the desktop has no SAF picker and no R class, so
+// [UnifiedLogger.exportLatestLog] and [UnifiedLogger.exportAllLogs] copy the plain files this module
+// already writes into the plain log directory and report the resulting path.
+
 /** Log action names, so the export lines name WHICH button was pressed rather than "an export". */
 private const val LATEST_LOG_ACTION = "exportLatestLog"
 private const val ALL_LOGS_ACTION = "exportAllLogs"

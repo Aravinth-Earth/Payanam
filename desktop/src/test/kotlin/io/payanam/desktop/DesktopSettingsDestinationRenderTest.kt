@@ -480,9 +480,14 @@ class DesktopSettingsDestinationRenderTest {
     private fun mountSettings() {
         val screens =
             DesktopPayanamNavHostScreens(
+                // No fact-reload hook: these cases mount the graph, not the reset leg that fires it.
+                onDatabaseResetObserved = {},
                 databaseInitCollaborators =
                     DesktopDatabaseInitCollaborators(
                         sessionController = sessionController,
+                        // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                        // store, and the default resolves the operator's real data directory.
+                        onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                         documentSource = AwtDocumentSource(),
                         passphraseVault = vault,
                         databasePathResolver =

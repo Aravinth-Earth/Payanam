@@ -110,50 +110,6 @@ object DatabaseEncryptionMigrationSupport {
     }
 
     /**
-     * Re-keys an encrypted [databaseFile] from [importedPassphrase] to
-     * [targetPassphrase] via `PRAGMA rekey`, verifying it re-opens under the new
-     * key. No-op (false) when the passphrases match or the file is missing.
-     */
-    fun migrateEncryptedDatabaseWithDifferentKey(
-        context: Context,
-        databaseFile: File,
-        importedPassphrase: String,
-        targetPassphrase: String,
-        logTag: String,
-    ): Boolean {
-        if (!databaseFile.exists()) {
-            logger.w(logTag, "Encrypted migration skipped because database file does not exist")
-            return false
-        }
-        if (importedPassphrase == targetPassphrase) {
-            logger.i(logTag, "Imported and target passphrases are identical; no re-encryption needed")
-            return false
-        }
-
-        // Verify imported DB can be opened with the provided passphrase
-        if (!canOpenWithSqlCipher(databaseFile, importedPassphrase)) {
-            throw IllegalStateException("Cannot decrypt imported database with provided passphrase.")
-        }
-
-        // Re-encrypt with the target passphrase
-        rekeyEncryptedDatabase(
-            context = context,
-            databaseFile = databaseFile,
-            currentPassphrase = importedPassphrase,
-            newPassphrase = targetPassphrase,
-            logTag = logTag,
-        )
-
-        // Verify re-encryption succeeded
-        if (!canOpenWithSqlCipher(databaseFile, targetPassphrase)) {
-            throw IllegalStateException("Re-encryption verification failed after passphrase change.")
-        }
-
-        logger.i(logTag, "Successfully migrated encrypted database to target passphrase")
-        return true
-    }
-
-    /**
      * Best-effort detection: true when [databaseFile] is not plaintext SQLite
      * (no "SQLite format 3" magic) and long enough to be a database, implying SQLCipher
      * encryption. A plaintext file returns false.

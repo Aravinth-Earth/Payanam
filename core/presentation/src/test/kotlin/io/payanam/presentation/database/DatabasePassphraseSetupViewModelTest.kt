@@ -63,11 +63,12 @@ class DatabasePassphraseSetupViewModelTest {
 
     @Before
     fun setUp() {
-        databaseDirectory = File.createTempFile("payanam-setup-dir", "").let {
-            it.delete()
-            it.mkdirs()
-            it
-        }
+        databaseDirectory =
+            File.createTempFile("payanam-setup-dir", "").let {
+                it.delete()
+                it.mkdirs()
+                it
+            }
         resolver = TestDatabasePathResolver(databaseDirectory)
         probe = TestEncryptionProbe()
         vault = TestPassphraseVault()
@@ -158,11 +159,12 @@ class DatabasePassphraseSetupViewModelTest {
     fun `every configure outcome maps to a distinct truthful reason code`() {
         val codes = PassphraseConfigureOutcome.entries.map { it to reasonCodeForConfigureOutcome(it) }
 
-        assertThat(codes).containsExactly(
-            PassphraseConfigureOutcome.CONFIGURED to null,
-            PassphraseConfigureOutcome.REJECTED_BY_POLICY to "rejected_by_policy",
-            PassphraseConfigureOutcome.STORE_UNAVAILABLE to "persist_failed",
-        ).inOrder()
+        assertThat(codes)
+            .containsExactly(
+                PassphraseConfigureOutcome.CONFIGURED to null,
+                PassphraseConfigureOutcome.REJECTED_BY_POLICY to "rejected_by_policy",
+                PassphraseConfigureOutcome.STORE_UNAVAILABLE to "persist_failed",
+            ).inOrder()
     }
 
     /**
@@ -226,12 +228,13 @@ class DatabasePassphraseSetupViewModelTest {
     fun `every wipe outcome maps to a reason code, and only the successful two to null`() {
         val codes = EncryptionCheckpointOutcome.entries.map { it to reasonCodeForWipeOutcome(it) }
 
-        assertThat(codes).containsExactly(
-            EncryptionCheckpointOutcome.CONFIRMED to null,
-            EncryptionCheckpointOutcome.NOT_SUPPORTED to null,
-            EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED to "reset_failed",
-            EncryptionCheckpointOutcome.STORE_UNAVAILABLE to "reset_failed",
-        ).inOrder()
+        assertThat(codes)
+            .containsExactly(
+                EncryptionCheckpointOutcome.CONFIRMED to null,
+                EncryptionCheckpointOutcome.NOT_SUPPORTED to null,
+                EncryptionCheckpointOutcome.PERFORMED_UNCONFIRMED to "reset_failed",
+                EncryptionCheckpointOutcome.STORE_UNAVAILABLE to "reset_failed",
+            ).inOrder()
     }
 
     /**
@@ -722,8 +725,7 @@ private class TestPassphraseVault : io.payanam.shared.security.PassphraseVault {
 
     override fun hasPassphraseConfigured(): Boolean = configureCalls > 0
 
-    override fun availability(): io.payanam.shared.security.VaultAvailability =
-        io.payanam.shared.security.VaultAvailability.AVAILABLE
+    override fun availability(): io.payanam.shared.security.VaultAvailability = io.payanam.shared.security.VaultAvailability.AVAILABLE
 
     override fun verifyPassphrase(passphrase: CharArray): Boolean = true
 
@@ -740,8 +742,7 @@ private class TestPassphraseVault : io.payanam.shared.security.PassphraseVault {
     override fun updatePassphrase(
         current: CharArray,
         new: CharArray,
-    ): io.payanam.shared.security.PassphraseUpdateOutcome =
-        io.payanam.shared.security.PassphraseUpdateOutcome.UPDATED
+    ): io.payanam.shared.security.PassphraseUpdateOutcome = io.payanam.shared.security.PassphraseUpdateOutcome.UPDATED
 
     override fun unlockLockoutSecondsRemaining(): Long = 0L
 

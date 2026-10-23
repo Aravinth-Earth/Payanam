@@ -5,6 +5,7 @@ package io.payanam.desktop
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import io.payanam.shared.startup.DesktopStartupContracts
 import io.payanam.shared.startup.DesktopStartupPaths
+import io.payanam.shared.startup.DesktopStartupRuntimeState
 import io.payanam.shared.startup.DesktopStartupSnapshot
 import io.payanam.shared.startup.DesktopStartupState
 

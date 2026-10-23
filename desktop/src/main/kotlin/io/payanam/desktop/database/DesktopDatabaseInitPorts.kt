@@ -94,8 +94,8 @@ internal object DesktopDatabaseInitPorts {
      * Also real, and it is the SAME object the desktop's own transfer gateway verifies a passphrase with, so
      * the init screen and the export path cannot disagree about what a file is. Its `ensureEncrypted` refuses
      * a plaintext-to-SQLCipher conversion, which is a measured driver limit rather than a gap in this file.
+     * Built once and exposed through both ports, so the two answers are the same object and cannot disagree.
      */
-    // Built once and exposed through both ports, so the two answers are the same object and cannot disagree.
     private val desktopEncryptionProbe = DesktopDatabaseEncryptionProbe()
 
     val encryptionProbe: DatabaseEncryptionProbe = desktopEncryptionProbe

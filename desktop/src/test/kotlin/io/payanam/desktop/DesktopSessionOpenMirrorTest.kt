@@ -101,9 +101,12 @@ class DesktopSessionOpenMirrorTest {
         // initialize it HERE (fully qualified, because several siblings import the SHARED UnifiedLogger under
         // the same name) rather than relying on a sibling class's leak - the shared-JVM class order is not a
         // contract, and a solo run of this class must work. The directory outlives the class on purpose.
-        io.payanam.desktop.UnifiedLogger.resetForTests()
+        io.payanam.desktop.UnifiedLogger
+            .resetForTests()
         io.payanam.desktop.UnifiedLogger.initialize(
-            logsDirectory = java.nio.file.Files.createTempDirectory("payanam-desktop-test-logs"),
+            logsDirectory =
+                java.nio.file.Files
+                    .createTempDirectory("payanam-desktop-test-logs"),
         )
         // The guard's refusal is asserted below, and it is written through the shared accessor: without this
         // the logger is the no-op default and the assertion would be vacuous. Reset in `@After` because test

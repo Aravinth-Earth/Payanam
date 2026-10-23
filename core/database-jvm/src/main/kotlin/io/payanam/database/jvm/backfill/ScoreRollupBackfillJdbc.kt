@@ -15,11 +15,13 @@ import io.payanam.database.jvm.JdbcFlows
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.database.jvm.readOccurrence
 import io.payanam.database.jvm.readTask
+import io.payanam.scoring.CatchUpTailCompute
 import io.payanam.scoring.MetricBaseline
 import io.payanam.scoring.ScoreRollupCompute
 import io.payanam.shared.logging.AppLogger
 import java.sql.Connection
 import java.sql.PreparedStatement
+import java.sql.ResultSet
 import java.sql.SQLException
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -94,6 +96,61 @@ class ScoreRollupBackfillJdbc(
         var outcome: ScoreRollupBackfillJdbcResult? = null
         JdbcFlows.onIo { outcome = runOnIo() }
         return requireNotNull(outcome) { "ScoreRollupBackfillJdbc.runIfNeeded produced no outcome" }
+    }
+
+    /**
+     * Repairs lagging habit tails on open. For every recurring task whose stored habit_metrics
+     * stop before yesterday, reads task + occurrences + existing rows, calls
+     * [CatchUpTailCompute.extendHabitTail] with today's date, and persists the returned rows
+     * via [upsertHabitMetrics] — inside the same serialized-transaction idiom as [runIfNeeded].
+     *
+     * Independent of the backfill guard: repair runs whether or not the backfill has run.
+     */
+    suspend fun catchUpTailRepair() {
+        JdbcFlows.onIo {
+            session.withSerializedAccess { connection ->
+                val tag = "ScoreRollupBackfillJdbc.catchUpTailRepair"
+                val previousAutoCommit = connection.autoCommit
+                connection.autoCommit = false
+                try {
+                    val recurring = readRecurringTasks(connection)
+                    val occurrencesByTask = readOccurrencesByTask(connection)
+                    val today = LocalDate.now()
+                    var repaired = 0
+                    for (task in recurring) {
+                        if (task.status == "archived") continue
+                        val occurrences = occurrencesByTask[task.id].orEmpty()
+                        val existingRows = readHabitMetricsByHabitId(connection, task.id)
+                        val newRows = CatchUpTailCompute.extendHabitTail(task, occurrences, existingRows, today)
+                        if (newRows.isEmpty()) continue
+                        val written = upsertHabitMetrics(connection, newRows)
+                        repaired++
+                        logger.i(
+                            tag,
+                            "TAIL_REPAIRED",
+                            mapOf(
+                                "habitId" to task.id,
+                                "rows" to written,
+                            ),
+                        )
+                    }
+                    connection.commit()
+                    if (repaired == 0) {
+                        logger.i(tag, "TAIL_REPAIR_SKIP", mapOf("reason" to "no habit tails needed repair"))
+                    }
+                } catch (error: SQLException) {
+                    runCatching { connection.rollback() }
+                    logger.e(
+                        tag,
+                        "TAIL_REPAIR_FAILED",
+                        error,
+                        mapOf("error" to (error.message ?: "Unknown error")),
+                    )
+                } finally {
+                    runCatching { connection.autoCommit = previousAutoCommit }
+                }
+            }
+        }
     }
 
     private fun runOnIo(): ScoreRollupBackfillJdbcResult =
@@ -362,6 +419,29 @@ class ScoreRollupBackfillJdbc(
             }
         }
 
+    private fun readHabitMetricsByHabitId(connection: Connection, habitId: String): List<HabitMetricEntity> =
+        connection.prepareStatement(HABIT_METRICS_BY_HABIT_ID_SQL).use { prepared ->
+            prepared.setString(1, habitId)
+            prepared.executeQuery().use { resultSet ->
+                buildList {
+                    while (resultSet.next()) {
+                        add(readHabitMetric(resultSet))
+                    }
+                }
+            }
+        }
+
+    private fun readHabitMetric(resultSet: ResultSet): HabitMetricEntity = HabitMetricEntity(
+        habitId = resultSet.getString("habitId"),
+        dayKey = resultSet.getString("dayKey"),
+        score = resultSet.getDouble("score"),
+        runningAvg = resultSet.getDouble("runningAvg"),
+        progress = resultSet.getDouble("progress"),
+        streakPos = resultSet.getInt("streakPos"),
+        streakNet = resultSet.getInt("streakNet"),
+        posContinue = resultSet.getInt("posContinue"),
+    )
+
     // ────────────────────────────────────────────────────────────────────
     // SQL — writes
     // ────────────────────────────────────────────────────────────────────
@@ -503,6 +583,8 @@ class ScoreRollupBackfillJdbc(
 
         /** Verbatim from `LifeDimensionDao.allWeights` (id + weight is all the scoring reads). */
         const val DIMENSION_WEIGHTS_SQL = "SELECT id, weight FROM life_dimensions"
+
+        const val HABIT_METRICS_BY_HABIT_ID_SQL = "SELECT * FROM habit_metrics WHERE habitId = ?"
 
         /**
          * `INSERT OR REPLACE`, deliberately: all three metric tables are keyed on a composite

@@ -128,6 +128,21 @@ class EncryptedFileClassifierTest {
     }
 
     @Test
+    fun `a read that was attempted and failed is READ_FAILED, not ABSENT`() {
+        // The two null-header cases are different: ABSENT means the file was never there to read,
+        // READ_FAILED means a read was attempted and returned nothing. The distinction matters because
+        // READ_FAILED is the case where the file EXISTS but could not be opened — a permission error, a
+        // locked file — and treating it as ABSENT would report "no database" for a database that is
+        // merely unreadable. Both must answer "not encrypted" (an unreadable file must not send the
+        // user to a passphrase prompt), but the reason must be attributable.
+        val verdict = EncryptedFileClassifier.classify(header = null, totalLength = 4096L, readSucceeded = true)
+
+        assertThat(verdict.isEncrypted).isFalse()
+        assertThat(verdict.hasPlaintextMagic).isFalse()
+        assertThat(verdict.reason).isEqualTo(EncryptedFileClassifier.Reason.READ_FAILED)
+    }
+
+    @Test
     fun `the threshold is derived from the magic rather than restated`() {
         // The derivation is the mechanism that stops the drift, so it is asserted directly: if someone hardcodes
         // a second number here, the two can diverge again and this fails.

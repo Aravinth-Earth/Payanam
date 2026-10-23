@@ -72,7 +72,10 @@ internal class DesktopStartupRecovery(
         }
 
         runCatching {
-            ScoreRollupBackfillJdbc(layer.session).runIfNeeded()
+            val backfill = ScoreRollupBackfillJdbc(layer.session)
+            val result = backfill.runIfNeeded()
+            backfill.catchUpTailRepair()
+            result
         }.onSuccess { result ->
             if (result.failureMessage != null) {
                 // runIfNeeded rolls back and leaves the guard unset on its own failure path rather than

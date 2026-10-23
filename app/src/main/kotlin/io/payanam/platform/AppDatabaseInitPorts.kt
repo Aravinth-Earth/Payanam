@@ -3,6 +3,9 @@
 package io.payanam.platform
 
 import android.content.Context
+import androidx.sqlite.db.SupportSQLiteDatabase
+import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
+import androidx.sqlite.db.SupportSQLiteOpenHelper
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister
@@ -38,15 +41,27 @@ fun appDatabaseInitFlagWriter(context: Context): DatabaseInitFlagWriter = Databa
  * `sessionManager.requireDatabase()`, and this runs during `detectBootstrapPlaceholder` on a first
  * launch, where no session exists yet and that call would throw. The value is parsed by the shared
  * helper with `String.toBoolean`, so a missing row, a null and junk all read as `false`.
+ *
+ * The read goes through androidx.sqlite's [SupportSQLiteOpenHelper] with a
+ * [FrameworkSQLiteOpenHelperFactory] rather than the platform's direct open API:
+ * the framework helper is the same path Room uses, so the file is opened with the same
+ * configuration the app's own database layer expects.
  */
-fun appDatabaseInitFlagReader(): DatabaseInitFlagReader = DatabaseInitFlagReader { file, key ->
-    android.database.sqlite.SQLiteDatabase
-        .openDatabase(file.absolutePath, null, android.database.sqlite.SQLiteDatabase.OPEN_READONLY)
-        .use { db ->
-            db.rawQuery("SELECT value FROM app_settings WHERE key = ? LIMIT 1", arrayOf(key)).use { c ->
-                if (c.moveToFirst()) c.getString(0) else null
-            }
+fun appDatabaseInitFlagReader(context: Context): DatabaseInitFlagReader = DatabaseInitFlagReader { file, key ->
+    val helper = FrameworkSQLiteOpenHelperFactory().create(
+        SupportSQLiteOpenHelper.Configuration.builder(context)
+            .name(file.absolutePath)
+            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                override fun onCreate(db: SupportSQLiteDatabase) {}
+                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+            })
+            .build(),
+    )
+    helper.readableDatabase.use { db ->
+        db.query("SELECT value FROM app_settings WHERE key = ? LIMIT 1", arrayOf(key)).use { c ->
+            if (c.moveToFirst()) c.getString(0) else null
         }
+    }
 }
 
 /**
@@ -54,8 +69,8 @@ fun appDatabaseInitFlagReader(): DatabaseInitFlagReader = DatabaseInitFlagReader
  * `PRAGMA wal_checkpoint(TRUNCATE)` on a temp copy needs a Room handle. The shared code decides
  * WHETHER the fold may delete the production `-wal`; this only performs it.
  */
-fun appDatabaseInitWalConsolidator(logger: UnifiedLogger): DatabaseInitWalConsolidator = DatabaseInitWalConsolidator { file, logTag ->
-    consolidateWalWithFramework(dbFile = file, logTag = logTag, logger = logger)
+fun appDatabaseInitWalConsolidator(context: Context, logger: UnifiedLogger): DatabaseInitWalConsolidator = DatabaseInitWalConsolidator { file, logTag ->
+    consolidateWalWithFramework(context = context, dbFile = file, logTag = logTag, logger = logger)
 }
 
 /**
@@ -69,25 +84,34 @@ fun appDatabaseInitWalConsolidator(logger: UnifiedLogger): DatabaseInitWalConsol
  * and requires an empty log. Both halves are needed: `busy = 1` alone can be reported with an empty
  * log, and a non-busy row with frames left is a fold that did not run.
  *
- * The no-op [android.database.DatabaseErrorHandler] is deliberate and applies ONLY to this temp copy —
- * a native-layer reaction to a malformed WAL must be allowed to hit a throwaway file, never the
- * user's database, which is why the caller copies first and this never sees the production path.
+ * The fold runs through androidx.sqlite's [SupportSQLiteOpenHelper] with a
+ * [FrameworkSQLiteOpenHelperFactory] rather than the platform's direct open API:
+ * the framework helper is the same path Room uses, so the temp copy is opened with the same
+ * configuration the app's own database layer expects. The old no-op error handler is gone
+ * with the direct API; the rationale for allowing a throw on the throwaway file is unchanged —
+ * the caller copies first, so a native-layer reaction to a malformed WAL hits only the temp copy,
+ * never the user's database.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: a bad WAL can throw anything from the native layer
 private fun consolidateWalWithFramework(
+    context: Context,
     dbFile: File,
     logTag: String,
     logger: UnifiedLogger,
 ): Boolean =
     try {
         var report: WalCheckpointRule.FoldReport = WalCheckpointRule.NO_ROW
-        android.database.sqlite.SQLiteDatabase.openDatabase(
-            dbFile.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
-            android.database.DatabaseErrorHandler { /* no-op: temp file only, not production DB */ },
-        ).use { db ->
-            db.rawQuery(WalCheckpointRule.FOLD_STATEMENT, null).use { cursor ->
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(dbFile.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build(),
+        )
+        helper.writableDatabase.use { db ->
+            db.query(WalCheckpointRule.FOLD_STATEMENT).use { cursor ->
                 if (cursor.moveToFirst()) {
                     report =
                         WalCheckpointRule.reportOf(

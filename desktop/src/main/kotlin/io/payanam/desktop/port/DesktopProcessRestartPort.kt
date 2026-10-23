@@ -85,8 +85,7 @@ internal class DesktopProcessRestartPort(
         ProcessBuilder("/bin/sh", "-c", "sleep 1; exec \"$1\"", "sh", command)
             .apply {
                 environment().remove("_JPACKAGE_LAUNCHER")
-            }
-            .redirectErrorStream(true)
+            }.redirectErrorStream(true)
             .inheritIO()
             .start()
     },

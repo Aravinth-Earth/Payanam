@@ -37,7 +37,7 @@ import java.nio.file.Files
  * contact is [DocumentSource] — faked below.
  */
 class DatabaseImportSupportRulesTest {
-    /* ---------------------------------------------------------------- RULE 1 */
+    // ---------------------------------------------------------------- RULE 1
 
     /**
      * A `-journal` is a sidecar, not a database: the picker must refuse it.
@@ -152,7 +152,7 @@ class DatabaseImportSupportRulesTest {
         targetDir.deleteRecursively()
     }
 
-    /* ---------------------------------------------------------------- RULE 2 */
+    // ---------------------------------------------------------------- RULE 2
 
     /**
      * The plaintext SQLite header is the only header accepted, built here with a real NUL — never the
@@ -254,7 +254,7 @@ class DatabaseImportSupportRulesTest {
         }
     }
 
-    /* -------------------------------------------------------------- fixtures */
+    // -------------------------------------------------------------- fixtures
 
     private fun withFile(
         name: String,

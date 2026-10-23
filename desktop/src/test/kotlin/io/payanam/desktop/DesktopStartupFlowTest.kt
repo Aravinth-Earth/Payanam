@@ -3,96 +3,13 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.startup.startupGateInputs
 import org.junit.Test
 
 /**
  * Provides the desktop startup flow test.
  */
 class DesktopStartupFlowTest {
-    @Test
-    fun `resolve startup mode requests setup when passphrase is missing`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = false,
-                    hasDatabaseArtifacts = false,
-                    databaseLifecycleReady = false,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.SetupPassphrase)
-    }
-
-    @Test
-    fun `resolve startup mode requests unlock when passphrase is configured but session is closed`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = true,
-                    hasDatabaseArtifacts = true,
-                    databaseLifecycleReady = true,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.UnlockPassphrase)
-    }
-
-    @Test
-    fun `resolve startup mode requests database initialization when session is open but lifecycle is not ready`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = true,
-                    hasDatabaseArtifacts = false,
-                    databaseLifecycleReady = false,
-                    sessionOpen = true,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.InitializeDatabase)
-    }
-
-    @Test
-    fun `resolve startup mode requests focus onboarding after database is ready`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = true,
-                    hasDatabaseArtifacts = true,
-                    databaseLifecycleReady = true,
-                    sessionOpen = true,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.FocusModeSelection)
-    }
-
     @Test
     fun `build startup runtime state reports lifecycle ready exactly when the database file is there`() {
         // Readiness is DERIVED from the file, so this is one fact, not a conjunction of three. The old
@@ -128,108 +45,16 @@ class DesktopStartupFlowTest {
     }
 
     @Test
-    fun `a launch with nothing on disk still opens the tour`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = false,
-                    hasDatabaseArtifacts = false,
-                    databaseLifecycleReady = false,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.OnboardingIntro)
-    }
-
-    @Test
-    fun `a launch that has database artifacts does not reopen the tour`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = true,
-                    hasDatabaseArtifacts = true,
-                    databaseLifecycleReady = true,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = true,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // The transient stage resets to Intro at every launch, so this is exactly the state a
-                    // returning user arrives in. The artifacts are the only fact that can tell that user
-                    // apart from a first-timer; before the clause under test, a fully configured install
-                    // was sent back through the tour on every start.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Intro,
-                ),
-            )
-
-        assertThat(mode).isEqualTo(DesktopStartupMode.UnlockPassphrase)
-        assertThat(mode).isNotEqualTo(DesktopStartupMode.OnboardingIntro)
-    }
-
-    @Test
-    fun `resolve startup mode refuses to proceed when the security state is unavailable`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = false,
-                    hasDatabaseArtifacts = false,
-                    databaseLifecycleReady = false,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                    securityStateUnavailable = true,
-                ),
-            )
-
-        // Guards the branch ORDER, which the compiler does not: this is a boolean `when` with
-        // `else -> Ready`, so moving the unavailable check below `!hasPassphraseConfigured` compiles
-        // cleanly and silently restores the fail-open (an unreadable store would offer passphrase
-        // setup instead of refusing). This assertion is the only thing that catches that.
-        assertThat(mode).isEqualTo(DesktopStartupMode.SecurityStateUnavailable)
-        assertThat(mode).isNotEqualTo(DesktopStartupMode.SetupPassphrase)
-    }
-
-    @Test
-    fun `resolve startup mode still requests setup when the security state is readable`() {
-        val mode =
-            resolveDesktopStartupMode(
-                DesktopStartupRuntimeState(
-                    hasPassphraseConfigured = false,
-                    hasDatabaseArtifacts = false,
-                    databaseLifecycleReady = false,
-                    sessionOpen = false,
-                    focusModeOnboardingCompleted = false,
-                    securityFilePath = "security",
-                    databaseFilePath = "database",
-                    // These cases describe the post-onboarding gates, which are only reachable once the
-                    // scaffold is complete; without this the intro stage would intercept them.
-                    scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
-                    securityStateUnavailable = false,
-                ),
-            )
-
-        // The other direction: the fix must not turn a genuine fresh install into a refusal.
-        assertThat(mode).isEqualTo(DesktopStartupMode.SetupPassphrase)
-    }
-
-    @Test
     fun `build startup runtime state carries the store availability flag`() {
-        val state =
+        // The fail-closed signal travels with the store's own read. Without it, "no passphrase configured" and
+        // "could not tell" are the same value and the gate would offer to configure a passphrase over an
+        // install that already has one - so this mapping is asserted at both ends, and what the graph is TOLD
+        // is asserted rather than only the field, because the field is not what the user meets.
+        fun stateFor(availability: DesktopSecurityAvailability) =
             buildDesktopStartupRuntimeState(
                 focusModeOnboardingCompleted = false,
                 bootstrapSchema = DesktopBootstrapSchema(),
-                securitySnapshot =
-                    DesktopSecuritySnapshot(
-                        availability = DesktopSecurityAvailability.UNAVAILABLE,
-                    ),
+                securitySnapshot = DesktopSecuritySnapshot(availability = availability),
                 databaseSnapshot =
                     DesktopDatabaseSnapshot(
                         databaseFilePath = "db",
@@ -242,7 +67,14 @@ class DesktopStartupFlowTest {
                 nowEpochMillis = 0L,
             )
 
-        assertThat(state.securityStateUnavailable).isTrue()
-        assertThat(resolveDesktopStartupMode(state)).isEqualTo(DesktopStartupMode.SecurityStateUnavailable)
+        val unreadable = stateFor(DesktopSecurityAvailability.UNAVAILABLE)
+        assertThat(unreadable.securityStateUnavailable).isTrue()
+        assertThat(startupGateInputs(unreadable).shouldShowSecurityStateUnavailable)
+            .isTrue()
+
+        val readable = stateFor(DesktopSecurityAvailability.AVAILABLE)
+        assertThat(readable.securityStateUnavailable).isFalse()
+        assertThat(startupGateInputs(readable).shouldShowSecurityStateUnavailable)
+            .isFalse()
     }
 }

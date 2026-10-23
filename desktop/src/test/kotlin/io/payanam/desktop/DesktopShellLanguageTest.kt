@@ -50,7 +50,7 @@ class DesktopShellLanguageTest {
     fun `the shell root renders the row's Tamil language while the machine locale says English`() {
         withJvmLocale(ENGLISH_TAG) {
             composeRule.setContent {
-                desktopShellRootSurface(preferences = shellPreferences(AppLanguageOption.TAMIL.key), darkTheme = false) { _ ->
+                desktopShellRootSurface(preferences = shellPreferences(AppLanguageOption.TAMIL.key)) { _ ->
                     // The ambient table the root installed, read the way a shared screen reads it.
                     Text(text = LocalUiStrings.current.locSearchNotes)
                 }
@@ -75,7 +75,7 @@ class DesktopShellLanguageTest {
             // test calls `setContent` once.
             var preferences by mutableStateOf(shellPreferences(AppLanguageOption.ENGLISH.key))
             composeRule.setContent {
-                desktopShellRootSurface(preferences = preferences, darkTheme = false) { _ ->
+                desktopShellRootSurface(preferences = preferences) { _ ->
                     Text(text = LocalUiStrings.current.locSearchNotes)
                 }
             }

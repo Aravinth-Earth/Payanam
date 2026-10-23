@@ -110,11 +110,12 @@ class DatabaseInitTempBackupSupportTest {
         val dir =
             dbInitCreateSidecarSafeTempBackup(
                 databaseFile = db,
-                walConsolidator = DatabaseInitWalConsolidator { file, _ ->
-                    consolidatedFile = file
-                    consolidations++
-                    true
-                },
+                walConsolidator =
+                    DatabaseInitWalConsolidator { file, _ ->
+                        consolidatedFile = file
+                        consolidations++
+                        true
+                    },
             )
 
         assertNotNull(dir)
@@ -170,10 +171,11 @@ class DatabaseInitTempBackupSupportTest {
         dbInitMarkInitCompletedDirect(
             databaseFile = db,
             passphrase = "s3cret",
-            flagWriter = DatabaseInitFlagWriter { file, passphrase ->
-                seenFile = file
-                seenPassphrase = passphrase
-            },
+            flagWriter =
+                DatabaseInitFlagWriter { file, passphrase ->
+                    seenFile = file
+                    seenPassphrase = passphrase
+                },
         )
 
         assertEquals(db, seenFile)
@@ -186,10 +188,13 @@ class DatabaseInitTempBackupSupportTest {
         val asked = mutableListOf<String>()
 
         val result =
-            dbInitReadInitCompletedFlag(db, DatabaseInitFlagReader { _, key ->
-                asked += key
-                "true"
-            })
+            dbInitReadInitCompletedFlag(
+                db,
+                DatabaseInitFlagReader { _, key ->
+                    asked += key
+                    "true"
+                },
+            )
 
         assertTrue(result)
         assertEquals(
@@ -273,12 +278,13 @@ class DatabaseInitTempBackupSupportTest {
         val issue =
             dbInitClassifyBootIssue(
                 databaseArtifactsExist = true,
-                healthResult = DatabaseHealthReport(
-                    isHealthy = false,
-                    needsRepair = false,
-                    detectedVersion = null,
-                    errorMessage = "Database version is too old to migrate",
-                ),
+                healthResult =
+                    DatabaseHealthReport(
+                        isHealthy = false,
+                        needsRepair = false,
+                        detectedVersion = null,
+                        errorMessage = "Database version is too old to migrate",
+                    ),
             )
         assertEquals(0, issue!!.detectedVersion)
     }

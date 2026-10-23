@@ -13,8 +13,8 @@ import io.payanam.shared.database.PayanamDatabaseHandle
 import io.payanam.shared.database.PayanamDatabaseOpener
 import io.payanam.shared.security.BiometricAuthentication
 import io.payanam.shared.security.BiometricAvailability
-import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
+import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
@@ -68,16 +68,27 @@ class DatabasePassphraseUnlockReasonCodeTableTest {
 
         /** [DatabasePassphraseUnlockViewModel.init] reads these two; answering them is not an assertion. */
         override fun unlockLockoutSecondsRemaining(): Long = 0L
+
         override fun isEncryptionEnabled(): Boolean = true
+
         override fun hasPassphraseConfigured(): Boolean = true
+
         override fun availability(): VaultAvailability = VaultAvailability.AVAILABLE
 
         override fun verifyPassphrase(passphrase: CharArray): Boolean = refuse()
+
         override fun configurePassphrase(passphrase: CharArray): PassphraseConfigureOutcome = refuse()
+
         override fun clearPassphrase() = refuse()
+
         override fun recordFailedUnlockAttempt(): Long = refuse()
+
         override fun resetUnlockAttempts() = refuse()
-        override fun updatePassphrase(current: CharArray, new: CharArray): PassphraseUpdateOutcome = refuse()
+
+        override fun updatePassphrase(
+            current: CharArray,
+            new: CharArray,
+        ): PassphraseUpdateOutcome = refuse()
     }
 
     private class FakePrompt : BiometricUnlockPrompt {
@@ -94,13 +105,22 @@ class DatabasePassphraseUnlockReasonCodeTableTest {
     private class FakeOpener : PayanamDatabaseOpener {
         private fun refuse(): Nothing = throw AssertionError("the reason-code table must not open a database")
 
-        override suspend fun verifyPassphrase(databasePath: String, passphrase: CharArray): Boolean = refuse()
-        override suspend fun open(databasePath: String, passphrase: CharArray, readOnly: Boolean): DatabaseOpenOutcome = refuse()
+        override suspend fun verifyPassphrase(
+            databasePath: String,
+            passphrase: CharArray,
+        ): Boolean = refuse()
+
+        override suspend fun open(
+            databasePath: String,
+            passphrase: CharArray,
+            readOnly: Boolean,
+        ): DatabaseOpenOutcome = refuse()
     }
 
     private class FakeHandle : PayanamDatabaseHandle {
         override val schemaVersion: Int = 1
         override val isOpen: Boolean = true
+
         override fun close() = Unit
     }
 
@@ -137,9 +157,10 @@ class DatabasePassphraseUnlockReasonCodeTableTest {
 
     @Test
     fun the_four_distinct_boot_failure_codes_get_four_different_sentences() {
-        val messages = listOf("storage_incomplete", "db_too_old", "db_too_new", "schema_invalid").map { code ->
-            viewModel.messageForReasonCode(code)
-        }
+        val messages =
+            listOf("storage_incomplete", "db_too_old", "db_too_new", "schema_invalid").map { code ->
+                viewModel.messageForReasonCode(code)
+            }
 
         assertThat(messages).containsNoDuplicates()
         assertThat(messages).doesNotContain(null)
@@ -167,7 +188,6 @@ class DatabasePassphraseUnlockReasonCodeTableTest {
 
         assertThat(classifyDatabaseOpenOutcome(opened)).isEqualTo("open_failed")
     }
-
 
     @Test
     fun a_code_this_class_never_raises_resolves_to_nothing() {

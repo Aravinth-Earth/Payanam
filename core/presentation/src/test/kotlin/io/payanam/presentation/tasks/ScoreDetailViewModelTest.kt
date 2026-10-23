@@ -627,7 +627,11 @@ class ScoreDetailViewModelTest {
             vm.shiftWindow(-30)
             advanceUntilIdle()
             assertNotEquals("the window really did move", java.time.LocalDate.now(), vm.uiState.value.windowEnd)
-            assertTrue("the shifted window loaded rows", vm.uiState.value.rows.isNotEmpty())
+            assertTrue(
+                "the shifted window loaded rows",
+                vm.uiState.value.rows
+                    .isNotEmpty(),
+            )
 
             vm.goToday()
             advanceUntilIdle()
@@ -636,24 +640,29 @@ class ScoreDetailViewModelTest {
             assertFalse(vm.uiState.value.isLoading)
             // Only the current dimension's row survives the filter.
             assertEquals(1, vm.uiState.value.rows.size)
-            assertEquals("dim_health", vm.uiState.value.rows[0].key)
+            assertEquals(
+                "dim_health",
+                vm.uiState.value.rows[0]
+                    .key,
+            )
         }
 
     @Test
     fun `goToday for DIMENSION publishes nothing when the repository holds no rows`() =
         runTest {
-            fakeRepository.dimensionRows = listOf(
-                DimensionMetricRow(
-                    dimensionId = "dim_finance",
-                    dayKey = "2026-09-21",
-                    score = 0.5,
-                    runningAvg = 0.5,
-                    progress = 0.5,
-                    streakPos = 0,
-                    streakNet = 0,
-                    posContinue = 0,
-                ),
-            )
+            fakeRepository.dimensionRows =
+                listOf(
+                    DimensionMetricRow(
+                        dimensionId = "dim_finance",
+                        dayKey = "2026-09-21",
+                        score = 0.5,
+                        runningAvg = 0.5,
+                        progress = 0.5,
+                        streakPos = 0,
+                        streakNet = 0,
+                        posContinue = 0,
+                    ),
+                )
 
             val vm = viewModel()
             vm.currentType = ScoreDetailType.DIMENSION
@@ -665,6 +674,9 @@ class ScoreDetailViewModelTest {
 
             assertEquals(java.time.LocalDate.now(), vm.uiState.value.windowEnd)
             assertFalse(vm.uiState.value.isLoading)
-            assertTrue(vm.uiState.value.rows.isEmpty())
+            assertTrue(
+                vm.uiState.value.rows
+                    .isEmpty(),
+            )
         }
 }

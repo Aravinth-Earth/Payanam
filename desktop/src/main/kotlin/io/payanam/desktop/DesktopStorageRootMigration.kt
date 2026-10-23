@@ -75,20 +75,20 @@ import java.nio.file.Path
  * the desktop logger when the migration is eventually invoked.
  */
 internal object DesktopStorageRootMigration {
-
     /**
      * Maps each legacy child directory name to its counterpart in the new layout.
      * `database/` becomes `db/`; all others keep their name.
      */
-    private val LEGACY_CHILD_TO_NEW_CHILD: Map<String, String> = mapOf(
-        "database" to "db",
-        "logs" to "logs",
-        "preferences" to "preferences",
-        "bootstrap" to "bootstrap",
-        "security" to "security",
-        "runtime" to "runtime",
-        "exports" to "exports",
-    )
+    private val LEGACY_CHILD_TO_NEW_CHILD: Map<String, String> =
+        mapOf(
+            "database" to "db",
+            "logs" to "logs",
+            "preferences" to "preferences",
+            "bootstrap" to "bootstrap",
+            "security" to "security",
+            "runtime" to "runtime",
+            "exports" to "exports",
+        )
 
     /**
      * Decides whether a migration is needed.
@@ -96,8 +96,10 @@ internal object DesktopStorageRootMigration {
      * Returns `true` only when [legacyRoot] exists (and is a directory) and [newParent] does not
      * exist. This is a pure read-only check — no filesystem writes are performed.
      */
-    fun isMigrationNeeded(legacyRoot: Path, newParent: Path): Boolean =
-        Files.isDirectory(legacyRoot) && !Files.exists(newParent)
+    fun isMigrationNeeded(
+        legacyRoot: Path,
+        newParent: Path,
+    ): Boolean = Files.isDirectory(legacyRoot) && !Files.exists(newParent)
 
     /**
      * Performs the one-time migration from [legacyRoot] to [newParent].
@@ -162,17 +164,18 @@ internal object DesktopStorageRootMigration {
         }
 
         // List source entries (also serves as the idempotency check: empty source = already moved).
-        val sourceEntries = try {
-            Files.list(source).use { it.toList() }
-        } catch (e: IOException) {
-            report("ERROR $legacyName → $newName: failed to list source: ${e.message}")
-            return MigrationChildReport(
-                legacyChildName = legacyName,
-                newChildName = newName,
-                status = MigrationChildStatus.ERROR,
-                detail = e.message,
-            )
-        }
+        val sourceEntries =
+            try {
+                Files.list(source).use { it.toList() }
+            } catch (e: IOException) {
+                report("ERROR $legacyName → $newName: failed to list source: ${e.message}")
+                return MigrationChildReport(
+                    legacyChildName = legacyName,
+                    newChildName = newName,
+                    status = MigrationChildStatus.ERROR,
+                    detail = e.message,
+                )
+            }
 
         if (sourceEntries.isEmpty()) {
             report("SKIP $legacyName → $newName: source is empty (already moved)")

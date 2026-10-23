@@ -28,13 +28,17 @@ import java.util.concurrent.CyclicBarrier
  * mark merges into the value it actually reads instead of overwriting one it read earlier.
  */
 class TimeScreenDateLoadStateHolderTest {
-    private val sections = listOf(
-        TimeScreenDateSection.ENTRIES,
-        TimeScreenDateSection.PLANNED_TASKS,
-        TimeScreenDateSection.OCCURRENCES,
-    )
+    private val sections =
+        listOf(
+            TimeScreenDateSection.ENTRIES,
+            TimeScreenDateSection.PLANNED_TASKS,
+            TimeScreenDateSection.OCCURRENCES,
+        )
 
-    private fun loadedFlag(state: TimeScreenDateLoadState, section: TimeScreenDateSection): Boolean =
+    private fun loadedFlag(
+        state: TimeScreenDateLoadState,
+        section: TimeScreenDateSection,
+    ): Boolean =
         when (section) {
             TimeScreenDateSection.ENTRIES -> state.entriesLoaded
             TimeScreenDateSection.PLANNED_TASKS -> state.plannedTasksLoaded
@@ -66,13 +70,14 @@ class TimeScreenDateLoadStateHolderTest {
         val merged = arrayOfNulls<TimeScreenDateLoadState>(sections.size)
         val readAfterOwnMark = arrayOfNulls<TimeScreenDateLoadState>(sections.size)
         val gate = CyclicBarrier(sections.size)
-        val workers = sections.indices.map { index ->
-            Thread {
-                awaitGate(gate)
-                merged[index] = holder.markSectionLoaded(requestId, sections[index])
-                readAfterOwnMark[index] = holder.current()
+        val workers =
+            sections.indices.map { index ->
+                Thread {
+                    awaitGate(gate)
+                    merged[index] = holder.markSectionLoaded(requestId, sections[index])
+                    readAfterOwnMark[index] = holder.current()
+                }
             }
-        }
         workers.forEach { it.start() }
         workers.forEach { it.join() }
         return ConcurrentRound(

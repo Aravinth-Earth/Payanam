@@ -14,7 +14,6 @@ import java.nio.file.Path
  * holders cannot both win) and the on-disk artefacts that prove the lease was acquired and released.
  */
 class DesktopSingleInstanceGuardLeaseTest {
-
     @Test
     fun `two independent acquires on the same runtime directory cannot both win`() {
         // FALSIFICATION CONTROL: the single-instance rule is violated if a second acquire succeeds

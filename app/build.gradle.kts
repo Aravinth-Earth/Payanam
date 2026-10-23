@@ -30,6 +30,28 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
+// The version comes from the build script's `-PbuildNumber` flag - the same property the desktop module
+// reads - so the number the gate prints, the number in the APK filename and the number the installed app
+// reports are one number. It used to be hardcoded, which meant a build script could print "Build #2028"
+// and hand over an APK that told the user it was 1825.
+//
+// With no flag (a bare `./gradlew assembleDebug`) it falls back to the tracked build counter, which is
+// where the script's own buildNumber comes from, so the value is never a guess and never stale.
+val buildNumber: Int =
+    (project.findProperty("buildNumber") as String?)?.toIntOrNull()
+        ?: run {
+            val counterFile = rootProject.file("build-tools/tracking/build-counter.json")
+            check(counterFile.exists()) { "Build counter missing: ${counterFile.path}" }
+            val counterJson = counterFile.readText()
+            val androidBlock =
+                requireNotNull(
+                    Regex("\"android\"\\s*:\\s*\\{([^}]*)\\}").find(counterJson)?.groupValues?.get(1),
+                ) { "No android block in ${counterFile.path}; cannot resolve the app version." }
+            requireNotNull(
+                Regex("\"builds\"\\s*:\\s*(\\d+)").find(androidBlock)?.groupValues?.get(1)?.toIntOrNull(),
+            ) { "No android.builds value in ${counterFile.path}; cannot resolve the app version." }
+        }
+
 android {
     namespace = "io.payanam"
     compileSdk = 36
@@ -39,8 +61,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1825
-          versionName = "1825"
+          versionCode = buildNumber
+          versionName = buildNumber.toString()
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -156,6 +178,13 @@ android {
         }
     }
 
+    // Robolectric unit tests must see the app's MERGED resources: without this the app's own
+    // strings resolve to unresolved IDs at runtime and getString() throws
+    // Resources$NotFoundException (measured in TaskReminderSchedulerTest).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -201,6 +230,7 @@ dependencies {
     implementation(project(":core:shared"))
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
+    implementation(project(":core:backup"))
     // The shared state layer: the ViewModels move here one feature at a time, and the Android app
     // consumes them like any other platform.
     implementation(project(":core:presentation"))
@@ -245,6 +275,10 @@ dependencies {
     // Room (for direct DB/DAO access via DatabaseSessionManager)
     implementation(libs.room.runtime)
     implementation(libs.room.ktx)
+    // androidx.sqlite: direct dependency for SupportSQLiteOpenHelper/FrameworkSQLiteOpenHelperFactory
+    // used by the AppDatabaseInitPorts/UhabitsImporter reads (Room does not expose these as api).
+    implementation(libs.androidx.sqlite)
+    implementation(libs.androidx.sqlite.framework)
 
     // WorkManager for auto-backup
     implementation(libs.workmanager)

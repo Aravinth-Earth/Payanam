@@ -263,7 +263,7 @@ class DatabaseImportFlowIntegrationTest {
                     "Completed import cycle",
                     mapOf(
                         "cycle" to cycle,
-                        "passphraseLength" to cyclePassphrase.length,
+                        "passphraseProvided" to cyclePassphrase.isNotEmpty(),
                     ),
                 )
             }

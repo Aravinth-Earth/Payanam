@@ -16,7 +16,11 @@ import java.time.LocalDate
  * cannot produce - which is exactly why they need asserting rather than assuming.
  */
 class LensRangeDateUtilsTest {
-    private fun dates(from: String, to: String, maxRangeDays: Int): List<LocalDate> =
+    private fun dates(
+        from: String,
+        to: String,
+        maxRangeDays: Int,
+    ): List<LocalDate> =
         buildLensDatesForRange(
             rangeStartDate = LocalDate.parse(from),
             rangeEndDate = LocalDate.parse(to),
@@ -83,7 +87,11 @@ class LensRangeDateUtilsTest {
         val resolved = dates("2026-02-01", "2026-02-06", maxRangeDays = 730)
 
         resolved.zipWithNext { earlier, later ->
-            assertEquals(1L, java.time.temporal.ChronoUnit.DAYS.between(earlier, later))
+            assertEquals(
+                1L,
+                java.time.temporal.ChronoUnit.DAYS
+                    .between(earlier, later),
+            )
         }
     }
 }

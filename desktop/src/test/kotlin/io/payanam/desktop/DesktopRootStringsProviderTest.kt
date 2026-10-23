@@ -63,7 +63,10 @@ class DesktopRootStringsProviderTest {
         // case replaces, the root would render Tamil copy and this assertion would fail.
         withJvmLocale(TAG_TAMIL) {
             composeRule.setContent {
-                desktopRootSurface(darkTheme = false, language = desktopUiLanguageForTag(TAG_ENGLISH), preferences = AppPreferencesState()) {
+                desktopRootSurface(
+                    language = desktopUiLanguageForTag(TAG_ENGLISH),
+                    preferences = AppPreferencesState(),
+                ) {
                     Text(text = LocalUiStrings.current.settingsDatabaseNotes)
                 }
             }
@@ -147,7 +150,6 @@ class DesktopRootStringsProviderTest {
     private fun renderRootCopy(effectiveLanguageTag: String) {
         composeRule.setContent {
             desktopRootSurface(
-                darkTheme = false,
                 language = desktopUiLanguageForTag(effectiveLanguageTag),
                 preferences = AppPreferencesState(),
             ) {

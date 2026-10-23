@@ -129,10 +129,22 @@ class TrackingService : Service() {
     /**
      * Dispatches the incoming command: start (with extras), stop, or a
      * notification refresh. Sticky so the OS restarts it after reclaim.
+     *
+     * The foreground entitlement is taken FIRST, before the action is even looked at, because the framework's
+     * obligation is created per `startForegroundService()` call and is satisfied only by a `startForeground()`
+     * on that same start. A START is not the only action this service can be started with: a STOP that arrives
+     * first used to return without ever going foreground, so the obligation stayed open and the framework
+     * raised `ForegroundServiceDidNotStartInTimeException` about five seconds later — the process crashed even
+     * though a later START did call `startForeground()`, because that satisfied a different start. Every branch
+     * below therefore either keeps this foreground state or ends it deliberately.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
         logger.i("TrackingService.onStartCommand", "Command received", mapOf("action" to (action ?: "null")))
+
+        // Satisfies the obligation for THIS delivery, whatever the action turns out to be.
+        startForeground(NOTIFICATION_ID, buildStartUpNotification())
+
         when (action) {
             ACTION_START -> {
                 val taskId = intent.getStringExtra(EXTRA_TASK_ID)
@@ -149,16 +161,45 @@ class TrackingService : Service() {
             }
 
             ACTION_UPDATE -> {
-                updateNotification()
+                if (_currentSession.value == null) {
+                    // Nothing to refresh, and no session to keep a notification for: leaving the foreground
+                    // state we had to enter, rather than parking a notification with no reason to exist.
+                    logger.i("TrackingService.onStartCommand", "Refresh with no session; ending the foreground state")
+                    stopForeground(STOP_FOREGROUND_REMOVE)
+                    stopSelf()
+                } else {
+                    updateNotification()
+                }
             }
 
             else -> {
                 logger.w("TrackingService.onStartCommand", "Unknown or null action; ignoring", mapOf("action" to (action ?: "null")))
+                // Same reasoning as the refresh case: this delivery went foreground to satisfy the framework
+                // and has no work to do, so it must not leave the notification behind.
+                stopForeground(STOP_FOREGROUND_REMOVE)
+                stopSelf()
             }
         }
 
         return START_STICKY
     }
+
+    /**
+     * The notification the service goes foreground with before it knows what it was started for.
+     *
+     * Deliberately bare: it exists to satisfy the framework's obligation at the top of [onStartCommand], and
+     * a START replaces it with the session's own notification moments later. It reuses the channel's own name
+     * as its title, so no new string is needed for a state the user sees only for an instant.
+     */
+    private fun buildStartUpNotification(): Notification =
+        NotificationCompat.Builder(this, CHANNEL_ID)
+            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setContentTitle(getString(R.string.notification_channel_tracking))
+            .setOngoing(true)
+            .setOnlyAlertOnce(true)
+            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+            .setPriority(NotificationCompat.PRIORITY_LOW)
+            .build()
 
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun startTrackingSession(

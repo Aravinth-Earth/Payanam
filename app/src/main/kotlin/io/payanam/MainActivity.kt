@@ -49,6 +49,7 @@ import io.payanam.core.ui.preferences.AppLanguageOption
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.text.rememberUiLanguage
+import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.backfill.ScoreRollupBackfillService
 import io.payanam.platform.AndroidStartupRecovery
@@ -68,7 +69,6 @@ import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.logging.CrashBreadcrumbs
 import io.payanam.ui.AndroidPayanamNavHostScreens
 import io.payanam.ui.logging.InteractionLog
-import io.payanam.ui.theme.PayanamTheme
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.widget.TimeTrackingWidgetProvider
 import kotlinx.coroutines.CancellationException
@@ -355,7 +355,7 @@ class MainActivity : FragmentActivity() {
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
                             PayanamNavHost(
-                                screens = remember { AndroidPayanamNavHostScreens() },
+                                screens = remember { AndroidPayanamNavHostScreens(onDatabaseResetObserved = { reresolveStartupGatesAfterReset() }) },
                                 language = rememberUiLanguage(),
                                 minimalModeEnabled = FeatureFlags.minimalModeEnabled,
                                 tabVisibility = defaultPrefsState.tabVisibility,
@@ -368,13 +368,19 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    if (sessionManager.isDbOpen()) {
-                                        logger.i("MainActivity.onCreate", "Database init completed (create-new); session open, dismissing init gate")
-                                        showDatabaseInit = false
-                                    } else {
-                                        logger.i("MainActivity.onCreate", "Database init completed (import); restarting process for clean Room/Hilt re-initialization")
-                                        restartProcess()
-                                    }
+                                    // The import path carries on — the smooth transition, on both platforms
+                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
+                                    // needed ... we can smoothly handle it"). The import path re-opens the
+                                    // imported database in-process, so the session check is the OBSERVABLE,
+                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // the imported data with no relaunch.
+                                    val sessionOpen = sessionManager.isDbOpen()
+                                    logger.i(
+                                        "MainActivity.onCreate",
+                                        "Database init completed; dismissing init gate and carrying on (no restart)",
+                                        mapOf("sessionOpen" to sessionOpen),
+                                    )
+                                    showDatabaseInit = false
                                 },
                                 onRestartAfterDelete = {
                                     logger.i("MainActivity.onCreate", "Delete all data confirmed; restarting process for clean Room/Hilt re-initialization")
@@ -465,7 +471,7 @@ class MainActivity : FragmentActivity() {
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
                             PayanamNavHost(
-                                screens = remember { AndroidPayanamNavHostScreens() },
+                                screens = remember { AndroidPayanamNavHostScreens(onDatabaseResetObserved = { reresolveStartupGatesAfterReset() }) },
                                 language = rememberUiLanguage(),
                                 minimalModeEnabled = FeatureFlags.minimalModeEnabled,
                                 tabVisibility = prefsState.tabVisibility,
@@ -478,13 +484,19 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    if (sessionManager.isDbOpen()) {
-                                        logger.i("MainActivity.onCreate", "Database init completed (create-new); session open, dismissing init gate")
-                                        showDatabaseInit = false
-                                    } else {
-                                        logger.i("MainActivity.onCreate", "Database init completed (import); restarting process for clean Room/Hilt re-initialization")
-                                        restartProcess()
-                                    }
+                                    // The import path carries on — the smooth transition, on both platforms
+                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
+                                    // needed ... we can smoothly handle it"). The import path re-opens the
+                                    // imported database in-process, so the session check is the OBSERVABLE,
+                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // the imported data with no relaunch.
+                                    val sessionOpen = sessionManager.isDbOpen()
+                                    logger.i(
+                                        "MainActivity.onCreate",
+                                        "Database init completed; dismissing init gate and carrying on (no restart)",
+                                        mapOf("sessionOpen" to sessionOpen),
+                                    )
+                                    showDatabaseInit = false
                                 },
                                 onRestartAfterDelete = {
                                     logger.i("MainActivity.onCreate", "Delete all data confirmed; restarting process for clean Room/Hilt re-initialization")
@@ -504,6 +516,20 @@ class MainActivity : FragmentActivity() {
                                 onFocusModePresetSelected = { preset ->
                                     prefsViewModel.setActivePreset(preset)
                                     prefsViewModel.markFocusModeOnboardingCompleted()
+                                    // Lower the gate in the SAME breath as marking the row, or the graph is handed
+                                    // straight back to the chooser it just left. `showFocusModeOnboarding` is read
+                                    // once per `onCreate` and is what the nav host follows, so marking the row
+                                    // alone leaves the graph on `focus_mode_selection` until the process restarts.
+                                    //
+                                    // Measured 2026-10-14 on SM-A176B (fresh install, then a language change that
+                                    // restarts the activity): the chooser came up, the tap below selected a preset,
+                                    // and the run then sat on the chooser for the rest of the phase -
+                                    //   PayanamNavHost: Focus mode preset selected, navigating to Lenses | [preset="full_suite"]
+                                    //   PayanamNavHost.destinationChanged | [route="lenses"]
+                                    //   PayanamNavHost: Startup gate moved; the graph follows it | [from="lenses", to="focus_mode_selection"]
+                                    // with no shell on screen afterwards. The same bounce is what a real user would
+                                    // see for as long as the process lived.
+                                    showFocusModeOnboarding = false
                                 },
                                 onSilentUnlockRequested = { route -> requestSilentUnlock(route) },
                             )
@@ -701,6 +727,55 @@ class MainActivity : FragmentActivity() {
     // scratch with the correct encryption state. Use after operations that replace the DB file on
     // disk (e.g. import), where activity.recreate() leaves a stale Room singleton pointing at the
     // old bootstrap file descriptor.
+
+    /**
+     * Re-resolves the startup gates after a COMPLETED forgot-passphrase reset.
+     *
+     * `onCreate` resolves these ONCE, and a reset invalidates every one of them mid-run: the database
+     * artifact family is deleted and the credential is cleared, so nothing is left to unlock and the
+     * database-init gate is what the user must see. The stale values were the measured defect (build 2038):
+     * after the passphrase was set, the graph went to `lenses` and this Activity's still-true
+     * `showPassphraseUnlock` bounced it back to `passphrase_unlock` - a gate for the credential the reset had
+     * just deleted - and the app then entered the first-run flow over a database the user had asked to be
+     * replaced.
+     *
+     * This is a RE-DERIVATION, not a second answer: the same facts and the same resolvers `onCreate` uses,
+     * with the two session-dependent facts answered as the reset left them (`isHealthy = false` for a file
+     * that is not there, `databaseInitCompleted = false` for a row that went with it). The init gate then
+     * reports ready through the existing `onDatabaseReady` path, which lowers its flag the same way it did
+     * on a first run.
+     */
+    private fun reresolveStartupGatesAfterReset() {
+        val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
+        val hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
+        val shouldShowPassphraseUnlock =
+            hasPassphraseConfigured && encryptionManager.isEncryptionEnabled() && !sessionManager.isOpen.value
+        val shouldShowDatabaseInit =
+            resolveShouldShowDatabaseInit(
+                hasDatabaseArtifacts = hasDatabaseArtifacts,
+                shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
+                isHealthy = false,
+                databaseInitCompleted = false,
+            )
+        showPassphraseUnlock = shouldShowPassphraseUnlock
+        showDatabaseInit = shouldShowDatabaseInit
+        showPassphraseSetup = !hasPassphraseConfigured && !shouldShowDatabaseInit && !shouldShowPassphraseUnlock
+        // A wiped database has no focus-mode row either, and that row is read through the session the reset
+        // closed. The gate is the init gate now; focus onboarding is re-decided when the database is.
+        showFocusModeOnboarding = false
+        logger.w(
+            "MainActivity.reresolveStartupGatesAfterReset",
+            "Startup gates re-resolved after the forgot-passphrase reset",
+            mapOf(
+                "hasDatabaseArtifacts" to hasDatabaseArtifacts,
+                "hasPassphraseConfigured" to hasPassphraseConfigured,
+                "sessionOpen" to sessionManager.isOpen.value,
+                "showPassphraseUnlock" to shouldShowPassphraseUnlock,
+                "showDatabaseInit" to shouldShowDatabaseInit,
+                "showPassphraseSetup" to showPassphraseSetup,
+            ),
+        )
+    }
 
     /** Forces a process restart (used after unrecoverable DB/init state). */
     private fun restartProcess() {

@@ -86,7 +86,7 @@ class DatabaseSessionManager
                     "DB open requested",
                     mapOf(
                         "alreadyOpen" to (_db != null),
-                        "passphraseLength" to passphrase.length,
+                        "passphraseProvided" to passphrase.isNotEmpty(),
                         "encryptionEnabled" to encryptionManager.isEncryptionEnabled(),
                     ),
                 )
@@ -197,7 +197,7 @@ class DatabaseSessionManager
             logger.d(
                 "DatabaseSessionManager.requireOpenPassphrase",
                 "Provided open passphrase handle",
-                mapOf("length" to passphrase.length),
+                mapOf("passphraseProvided" to passphrase.isNotEmpty()),
             )
             return passphrase
         }

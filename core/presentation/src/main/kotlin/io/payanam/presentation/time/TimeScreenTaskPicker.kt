@@ -16,7 +16,10 @@ import io.payanam.domain.model.Task
  * @param dueTasks the tasks planned for the selected date
  * @param allTasks every task the screen has loaded
  */
-fun buildTaskPickerTasks(dueTasks: List<Task>, allTasks: List<Task>): List<Task> {
+fun buildTaskPickerTasks(
+    dueTasks: List<Task>,
+    allTasks: List<Task>,
+): List<Task> {
     val duePending = dueTasks.filter { it.status == "pending" }.distinctBy { it.id }
     val allPending = allTasks.filter { it.status == "pending" }.distinctBy { it.id }
     return (duePending + allPending).distinctBy { it.id }

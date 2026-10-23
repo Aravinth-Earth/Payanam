@@ -479,6 +479,6 @@ class DatabaseArtifactDeletionGuardTest {
         const val IMPORT_FUNCTION = "importFrom"
 
         /** The guard itself, excluded from the caller scan because it declares every intent. */
-        const val GUARD_SOURCE = "core/database/src/main/kotlin/io/payanam/database/security/DatabaseFileGuard.kt"
+        const val GUARD_SOURCE = "core/shared/src/main/kotlin/io/payanam/database/security/DatabaseFileGuard.kt"
     }
 }

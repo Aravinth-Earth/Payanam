@@ -82,6 +82,7 @@ class DesktopBackupPortsTest {
                 DesktopDatabaseBackupPort(
                     statusStore = store,
                     performBackup = { "/tmp/payanam-backups/auto_bk/payanam.db" },
+                    checkpoint = { true },
                     logger = NoOpUnifiedLogger,
                 )
 
@@ -101,6 +102,7 @@ class DesktopBackupPortsTest {
                 DesktopDatabaseBackupPort(
                     statusStore = store,
                     performBackup = { error("disk full") },
+                    checkpoint = { true },
                     logger = NoOpUnifiedLogger,
                 )
 
@@ -233,6 +235,7 @@ class DesktopBackupPortsTest {
             DesktopDatabaseBackupPort(
                 statusStore = store,
                 performBackup = { backupDir(root, "${BACKUP_ARTIFACT_PREFIX}fresh", 9_000L).absolutePath },
+                checkpoint = { true },
                 logger = NoOpUnifiedLogger,
                 rotationPolicy = { BackupRotationPolicy(enabled = true, keepCount = 1) },
                 backupDirectory = root,
@@ -259,6 +262,7 @@ class DesktopBackupPortsTest {
             DesktopDatabaseBackupPort(
                 statusStore = statusStore(),
                 performBackup = { throw IllegalStateException("disk full") },
+                checkpoint = { true },
                 logger = NoOpUnifiedLogger,
                 rotationPolicy = { BackupRotationPolicy(enabled = true, keepCount = 1) },
                 backupDirectory = root,
@@ -302,6 +306,46 @@ class DesktopBackupPortsTest {
         assertThat(deleted.map { it.name }).containsExactly(older.name)
         assertThat(older.exists()).isFalse()
         assertThat(written.toFile().exists()).isTrue()
+    }
+
+    @Test
+    fun `two backups started in the same second get different files`() {
+        val root = tempFolder.newFolder("same-second").toPath()
+
+        // Two calls into the REAL producer with nothing in between: the clock almost certainly reads
+        // the same second both times, which is the defect's own precondition - not something a stub
+        // would have to arrange. The second call only differs from the first because the first
+        // artifact EXISTS, so both are created here exactly as the transfer would create them.
+        val first = desktopScheduledBackupDestination(root)
+        assertThat(first.toFile().createNewFile()).isTrue()
+        val second = desktopScheduledBackupDestination(root)
+        assertThat(second.toFile().createNewFile()).isTrue()
+
+        // Before the fix both calls formatted the same second into the same path: the names would be
+        // equal and the second createNewFile would return false, so the first backup was reachable at
+        // one path that the next same-second run overwrote (REPLACE_EXISTING) - a silent data loss
+        // that rotation then counted as a single artifact.
+        assertThat(second.fileName.toString()).isNotEqualTo(first.fileName.toString())
+        assertThat(
+            java.nio.file.Files
+                .exists(first),
+        ).isTrue()
+        assertThat(
+            java.nio.file.Files
+                .exists(second),
+        ).isTrue()
+        assertThat(first.fileName.toString()).startsWith(BACKUP_ARTIFACT_PREFIX)
+        assertThat(second.fileName.toString()).startsWith(BACKUP_ARTIFACT_PREFIX)
+        // The disambiguating counter is zero-padded and fixed-width, because rotation breaks an mtime
+        // tie by sorting NAME descending and a variable-width `-2` sorts AFTER `-10`. Asserted only
+        // when both calls read the SAME second: if the clock ticked between them the second name is
+        // a fresh plain stamp, which the two assertions above already cover, and pinning this would
+        // make the test fail on a fast machine for the right code.
+        val plainStamp = first.fileName.toString().removeSuffix(".$BACKUP_ARTIFACT_EXTENSION")
+        if (second.fileName.toString().startsWith("$plainStamp-")) {
+            assertThat(second.fileName.toString())
+                .isEqualTo("$plainStamp-02.$BACKUP_ARTIFACT_EXTENSION")
+        }
     }
 
     @Test
@@ -431,4 +475,33 @@ class DesktopBackupPortsTest {
         assertThat(snapshot.lastSuccessDisplay).isNull()
         assertThat(snapshot.latestFailure).isNull()
     }
+
+    @Test
+    fun `a failed checkpoint never invokes performBackup and records the failure`() =
+        runBlocking {
+            val store = statusStore()
+            var performBackupInvoked = false
+            val port =
+                DesktopDatabaseBackupPort(
+                    statusStore = store,
+                    performBackup = {
+                        performBackupInvoked = true
+                        "/tmp/should-not-exist.db"
+                    },
+                    checkpoint = { false },
+                    logger = NoOpUnifiedLogger,
+                )
+
+            val thrown =
+                runCatching { port.backupToAppBackupDirectory(BackupTrigger.AUTO) }.exceptionOrNull()
+
+            assertThat(thrown).isInstanceOf(IllegalStateException::class.java)
+            assertThat(thrown!!.message).contains("write-ahead log could not be folded")
+            assertThat(performBackupInvoked).isFalse()
+            assertThat(store.status.value.latestFailure).isNotNull()
+            assertThat(
+                store.status.value.latestFailure!!
+                    .message,
+            ).contains("write-ahead log could not be folded")
+        }
 }

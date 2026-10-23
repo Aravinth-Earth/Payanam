@@ -41,10 +41,22 @@ class DesktopBackupFailureBannerTest {
             backupStatusStore = port,
         )
 
+    /**
+     * A status store rooted in THIS test's own directory.
+     *
+     * Constructed explicitly rather than with `DesktopBackupStatusPort()`, whose default resolves
+     * `DesktopAppPaths.resolvePreferencesDirectory()` - the OPERATOR'S real data root. Measured 2026-10-13:
+     * these two cases wrote `last_backup_failure_message=disk full` into the real
+     * `<home>/Documents/Payanam/preferences/desktop-backup-status.properties`, and the app then showed a
+     * backup-failure banner for a backup that never ran. A test that writes outside its own directory is a
+     * defect in the test, and a fixture message makes it look like the user's own data.
+     */
+    private fun statusPortInTestDirectory() = DesktopBackupStatusPort(temporaryFolder.newFolder().toPath())
+
     @Test
     fun `a recorded failure populates the banner fields the graph reads`() =
         runBlocking {
-            val port = DesktopBackupStatusPort()
+            val port = statusPortInTestDirectory()
             val source = sourceWith(port)
 
             assertThat(source.preferences.first().autoBackupLastErrorMessage).isNull()
@@ -64,7 +76,7 @@ class DesktopBackupFailureBannerTest {
     @Test
     fun `dismissing clears the banner`() =
         runBlocking {
-            val port = DesktopBackupStatusPort()
+            val port = statusPortInTestDirectory()
             val source = sourceWith(port)
             port.recordFailure("disk full")
             withTimeout(AWAIT_MILLIS) { source.preferences.first { it.autoBackupLastErrorMessage != null } }

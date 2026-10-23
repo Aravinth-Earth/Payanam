@@ -83,7 +83,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_money_finance",
         slug = "money_finance",
         fallbackLabel = "Money & Finance",
-        fallbackDescription = "Activities involving budgeting, saving, spending, investing, bills, and financial decisions for present and future needs.",
+        fallbackDescription = 
+            "Activities involving budgeting, saving, spending, investing," +
+                "bills, and financial decisions for present and future needs.",
         sortOrder = 60,
         defaultWeight = 0.8,
         defaultColorHex = "#FF9800",
@@ -105,7 +107,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_recreation_leisure",
         slug = "recreation_leisure",
         fallbackLabel = "Recreation & Leisure",
-        fallbackDescription = "Activities done for enjoyment, rest, hobbies, fun, exploration, and renewal outside essential responsibilities.",
+        fallbackDescription = 
+            "Activities done for enjoyment, rest, hobbies, fun," +
+                "exploration, and renewal outside essential responsibilities.",
         sortOrder = 80,
         defaultWeight = 0.7,
         defaultColorHex = "#00BCD4",
@@ -115,7 +119,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_community_service",
         slug = "community_service",
         fallbackLabel = "Community & Service",
-        fallbackDescription = "Activities that help others, support communities, encourage participation, and create value beyond personal or family needs.",
+        fallbackDescription = 
+            "Activities that help others, support communities, encourage" +
+                "participation, and create value beyond personal or family needs.",
         sortOrder = 90,
         defaultWeight = 0.7,
         defaultColorHex = "#607D8B",

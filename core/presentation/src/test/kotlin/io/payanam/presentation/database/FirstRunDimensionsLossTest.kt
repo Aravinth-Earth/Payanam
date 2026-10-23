@@ -149,8 +149,7 @@ class FirstRunDimensionsLossTest {
      * Suspend and inline rather than a convenience that returns null: the row being absent is one of the
      * two answers this suite asserts on, so a helper that hid absence would hide half of test D.
      */
-    private suspend fun markAsStored(): String? =
-        appSettings.getSetting(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING)
+    private suspend fun markAsStored(): String? = appSettings.getSetting(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING)
 
     // ============================================================= the four behaviours
 

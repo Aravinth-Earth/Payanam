@@ -2,8 +2,11 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.platform
 
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import io.payanam.PayanamApp
 import io.payanam.shared.platform.BackupBackgroundCapability
 import io.payanam.shared.platform.HapticFeedback
 import io.payanam.shared.platform.SupportState
@@ -11,6 +14,7 @@ import kotlinx.coroutines.runBlocking
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import org.robolectric.annotation.Config
 
 /**
@@ -47,9 +51,35 @@ class AndroidPlatformSeamsTest {
     }
 
     @Test
-    fun `Android claims reminders, because it has a notification channel to deliver them on`() {
-        assertThat(androidCapabilities(context).reminders)
-            .isEqualTo(SupportState.SUPPORTED)
+    fun `Android reports reminders from what this device permits, not from a constant`() {
+        val manager = context.getSystemService(NotificationManager::class.java)
+
+        // The app-wide switch off, which on newer SDKs also carries the runtime permission grant. Reminders
+        // are accepted and cannot be shown - the platform's own refusal, not an absent feature.
+        shadowOf(manager).setNotificationsEnabled(false)
+        assertThat(androidCapabilities(context).reminders).isNotEqualTo(SupportState.SUPPORTED)
+
+        // Switched on with a live channel: the reminders path is genuinely usable.
+        shadowOf(manager).setNotificationsEnabled(true)
+        manager.createNotificationChannel(
+            NotificationChannel(
+                PayanamApp.CHANNEL_TASK_REMINDERS,
+                "Task reminders",
+                NotificationManager.IMPORTANCE_HIGH,
+            ),
+        )
+        assertThat(androidCapabilities(context).reminders).isEqualTo(SupportState.SUPPORTED)
+
+        // The user silences the reminders channel alone. This is the assertion that fails if the value is
+        // ever put back to a bare constant: a hardcoded supported state cannot follow the device down.
+        manager.createNotificationChannel(
+            NotificationChannel(
+                PayanamApp.CHANNEL_TASK_REMINDERS,
+                "Task reminders",
+                NotificationManager.IMPORTANCE_NONE,
+            ),
+        )
+        assertThat(androidCapabilities(context).reminders).isNotEqualTo(SupportState.SUPPORTED)
     }
 
     @Test

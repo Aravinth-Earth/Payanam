@@ -258,6 +258,46 @@ class DesktopShellGraphProbeTest {
     private fun bodyText(route: String): String = "body:$route"
 
     /**
+     * A completed forgot-passphrase reset continues into the DATABASE-INIT gate, and that gate is TOLD.
+     *
+     * THE DEFECT THIS PINS (build 2038, owner's device log): the reset used to be sent to the passphrase-setup
+     * gate, which both platforms' own startup decisions contradict - "no database artifacts" is the init
+     * gate's own condition on Android (`resolveShouldShowDatabaseInit`) and on the desktop (the scaffold
+     * branch). The platform then re-resolved its gates, the graph's gate effect moved the user off the setup
+     * screen, and the flow ended on the tour and the create/import chooser over a database the user had just
+     * asked to be replaced.
+     *
+     * TWO ASSERTIONS, and the second is the load-bearing one: the destination change says WHERE the reset
+     * went, and the recorded flag says WHAT it was told - which is what makes the gate open at its create
+     * form (the passphrase for the replacing database is collected there) rather than at the first-run pair.
+     */
+    @Test
+    fun `a completed forgot-passphrase reset continues into the database-init gate and tells it so`() {
+        val resetScreens = RecordingScreens(composedRoutes, offerForgotPassphraseResetFlow = true)
+        composeRule.setContent {
+            PayanamNavHost(
+                screens = resetScreens,
+                language = UiLanguage.ENGLISH,
+                minimalModeEnabled = false,
+                landingRoute = PayanamTab.Lenses.route,
+                isLandingReady = false,
+                shouldShowPassphraseUnlock = true,
+            )
+        }
+        composeRule.waitForIdle()
+        assertThat(composedRoutes.last()).isEqualTo(RecordingScreens.PASSPHRASE_UNLOCK)
+
+        composeRule.onNodeWithText(RecordingScreens.RESET_LABEL).performClick()
+        composeRule.waitForIdle()
+
+        assertThat(composedRoutes.last()).isEqualTo(RecordingScreens.DATABASE_INIT)
+        // The production route string, not the fake's own tag: what the navigation library accepted is the
+        // thing this half asserts, and the shared route table is its definition.
+        assertThat(navigation.routes).contains(PayanamRoutes.DATABASE_INIT)
+        assertThat(resetScreens.lastDatabaseInitResumesAfterReset).isTrue()
+    }
+
+    /**
      * Every destination, rendering its route as text and recording that it composed.
      *
      * The bodies are deliberately inert: the host owns the routes, the arguments and the gates, and this
@@ -275,7 +315,24 @@ class DesktopShellGraphProbeTest {
          * assertion here looks at.
          */
         private val offerPassphraseChangeFlow: Boolean = false,
+        /**
+         * When true, the fake unlock body offers the control that reports a COMPLETED forgot-passphrase
+         * reset to the host, so a test can drive the reset leg through the graph without a real screen.
+         *
+         * Off by default, for the same reason as [offerPassphraseChangeFlow]: a fake that fired the reset on
+         * its own would exercise a flow no other assertion here looks at.
+         */
+        private val offerForgotPassphraseResetFlow: Boolean = false,
     ) : PayanamNavHostScreens {
+        /**
+         * What the last composition of the init destination was told about the reset.
+         *
+         * Recorded rather than inferred: the graph navigates to this gate for a first run AND for the reset,
+         * and only the flag tells the two apart - so an assertion that read the landing route alone could
+         * not notice the flag being dropped.
+         */
+        var lastDatabaseInitResumesAfterReset: Boolean? = null
+
         @Composable
         private fun body(route: String) {
             composedRoutes += route
@@ -297,7 +354,12 @@ class DesktopShellGraphProbeTest {
             nav: PayanamNavActions,
             onUnlocked: () -> Unit,
             onForgotPassphraseReset: () -> Unit,
-        ) = body(PASSPHRASE_UNLOCK)
+        ) {
+            body(PASSPHRASE_UNLOCK)
+            if (offerForgotPassphraseResetFlow) {
+                BasicText(text = RESET_LABEL, modifier = Modifier.clickable { onForgotPassphraseReset() })
+            }
+        }
 
         @Composable
         override fun passphraseChange(
@@ -314,7 +376,11 @@ class DesktopShellGraphProbeTest {
         override fun databaseInit(
             nav: PayanamNavActions,
             onDatabaseReady: () -> Unit,
-        ) = body(DATABASE_INIT)
+            resumesAfterReset: Boolean,
+        ) {
+            lastDatabaseInitResumesAfterReset = resumesAfterReset
+            body(DATABASE_INIT)
+        }
 
         @Composable
         override fun onboardingIntro(onFinished: () -> Unit) = body(ONBOARDING_INTRO)
@@ -400,11 +466,14 @@ class DesktopShellGraphProbeTest {
         companion object {
             // Distinct literal tags rather than the shared route table: a fixture that read its own
             // expectations from production constants could not notice those constants changing.
-            /** The fake `settings` body's control: navigate to the passphrase-change destination. */
+            // The fake `settings` body's control: navigate to the passphrase-change destination.
             const val OPEN_CHANGE_LABEL = "open:passphrase-change"
 
             /** The fake passphrase-change body's control: report a successful change to the host. */
             const val SUCCESS_LABEL = "success:passphrase-change"
+
+            /** The fake unlock body's control: report a COMPLETED forgot-passphrase reset to the host. */
+            const val RESET_LABEL = "reset:forgot-passphrase"
 
             const val PASSPHRASE_SETUP = "gate:passphrase-setup"
             const val PASSPHRASE_UNLOCK = "gate:passphrase-unlock"

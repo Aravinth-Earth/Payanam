@@ -29,21 +29,19 @@ import kotlinx.coroutines.flow.flowOf
 import java.io.File
 import java.io.OutputStream
 
-/**
- * ONE shared harness for the [DatabaseInitViewModel] tests, and the only place its collaborators are
- * faked.
- *
- * WHY IT IS SHARED AND NOT NESTED IN A TEST CLASS: the ViewModel takes thirteen collaborators, and the
- * two halves of it that the suite covers (status/create, and import) are tested by different files. A
- * fake nested in one of them is invisible to the other, so the second file would grow its own copy and
- * the two copies would drift. Everything here is top-level and `internal`-by-default, so both files
- * build the same [DatabaseInitViewModel] the same way.
- *
- * WHAT THESE FAKES ARE NOT: they are not mocks with verified call orders. Each one records WHAT IT WAS
- * ASKED - which key, which file, which passphrase, how many times - because that is the only evidence a
- * test of an orchestration class can assert on. A fake that returned a canned value and kept no
- * evidence would make a test pass whether the ViewModel asked the right question or the wrong one.
- */
+// ONE shared harness for the DatabaseInitViewModel tests, and the only place its collaborators are
+// faked.
+//
+// WHY IT IS SHARED AND NOT NESTED IN A TEST CLASS: the ViewModel takes thirteen collaborators, and the
+// two halves of it that the suite covers (status/create, and import) are tested by different files. A
+// fake nested in one of them is invisible to the other, so the second file would grow its own copy and
+// the two copies would drift. Everything here is top-level and `internal`-by-default, so both files
+// build the same DatabaseInitViewModel the same way.
+//
+// WHAT THESE FAKES ARE NOT: they are not mocks with verified call orders. Each one records WHAT IT WAS
+// ASKED - which key, which file, which passphrase, how many times - because that is the only evidence a
+// test of an orchestration class can assert on. A fake that returned a canned value and kept no
+// evidence would make a test pass whether the ViewModel asked the right question or the wrong one.
 
 // ------------------------------------------------------------------ path & session
 

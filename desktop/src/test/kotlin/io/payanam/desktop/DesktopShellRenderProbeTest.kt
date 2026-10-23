@@ -84,8 +84,7 @@ class DesktopShellRenderProbeTest {
             contentPaneFixture(
                 Modifier
                     .fillMaxSize()
-                    .semantics { contentDescription = CONTENT_PANE_DESCRIPTION }
-                    .padding(28.dp),
+                    .semantics { contentDescription = CONTENT_PANE_DESCRIPTION },
             )
         }
 

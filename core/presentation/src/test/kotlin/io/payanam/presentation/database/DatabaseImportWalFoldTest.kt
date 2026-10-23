@@ -94,12 +94,13 @@ class DatabaseImportWalFoldTest {
             DatabaseImportSupport.consolidateWalAfterImport(
                 dbFile = db,
                 logTag = "FoldTest",
-                walConsolidator = DatabaseInitWalConsolidator { file, _ ->
-                    foldedPath = file
-                    // Stand in for `PRAGMA wal_checkpoint(TRUNCATE)`: append to the file the caller gave us.
-                    file.appendBytes(";consolidated".toByteArray(Charsets.ISO_8859_1))
-                    true
-                },
+                walConsolidator =
+                    DatabaseInitWalConsolidator { file, _ ->
+                        foldedPath = file
+                        // Stand in for `PRAGMA wal_checkpoint(TRUNCATE)`: append to the file the caller gave us.
+                        file.appendBytes(";consolidated".toByteArray(Charsets.ISO_8859_1))
+                        true
+                    },
             )
 
         assertTrue(folded)
@@ -129,11 +130,12 @@ class DatabaseImportWalFoldTest {
         DatabaseImportSupport.consolidateWalAfterImport(
             dbFile = db,
             logTag = "FoldTest",
-            walConsolidator = DatabaseInitWalConsolidator { file, _ ->
-                assertEquals("A file SQLite would have created for itself", tempFoldFile(), file)
-                assertEquals(tempFoldFile(), file)
-                true
-            },
+            walConsolidator =
+                DatabaseInitWalConsolidator { file, _ ->
+                    assertEquals("A file SQLite would have created for itself", tempFoldFile(), file)
+                    assertEquals(tempFoldFile(), file)
+                    true
+                },
         )
 
         assertTrue("The temp fold copy must be cleaned up", !tempFoldFile().exists())
@@ -205,10 +207,11 @@ class DatabaseImportWalFoldTest {
             DatabaseImportSupport.consolidateWalAfterImport(
                 dbFile = db,
                 logTag = "FoldTest",
-                walConsolidator = DatabaseInitWalConsolidator { _, _ ->
-                    checkpointWasAsked = true
-                    true
-                },
+                walConsolidator =
+                    DatabaseInitWalConsolidator { _, _ ->
+                        checkpointWasAsked = true
+                        true
+                    },
             )
 
         assertFalse(folded)
@@ -232,10 +235,11 @@ class DatabaseImportWalFoldTest {
             DatabaseImportSupport.consolidateWalAfterImport(
                 dbFile = db,
                 logTag = "FoldTest",
-                walConsolidator = DatabaseInitWalConsolidator { _, _ ->
-                    checkpointWasAsked = true
-                    true
-                },
+                walConsolidator =
+                    DatabaseInitWalConsolidator { _, _ ->
+                        checkpointWasAsked = true
+                        true
+                    },
             )
 
         assertTrue(folded)

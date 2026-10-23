@@ -5,6 +5,7 @@ package io.payanam.presentation.database
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.port.DatabaseForgotPassphraseReset
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.DatabaseOpenOutcome
@@ -13,9 +14,8 @@ import io.payanam.shared.database.PayanamDatabaseOpener
 import io.payanam.shared.security.BiometricAuthentication
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricRefusalReason
-import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.BiometricUnavailableReason
-import io.payanam.domain.port.DatabaseForgotPassphraseReset
+import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
@@ -290,8 +290,7 @@ class DatabasePassphraseUnlockViewModelTest {
 
     @Test
     fun `each boot issue maps to the reason code its own copy expects`() {
-        fun reasonFor(type: DatabaseBootIssueType) =
-            classifyDatabaseOpenOutcome(DatabaseOpenOutcome.Refused(DatabaseBootIssue(type)))
+        fun reasonFor(type: DatabaseBootIssueType) = classifyDatabaseOpenOutcome(DatabaseOpenOutcome.Refused(DatabaseBootIssue(type)))
 
         assertThat(reasonFor(DatabaseBootIssueType.DB_TOO_NEW)).isEqualTo("db_too_new")
         assertThat(reasonFor(DatabaseBootIssueType.DB_TOO_OLD)).isEqualTo("db_too_old")
@@ -427,8 +426,7 @@ class DatabasePassphraseUnlockViewModelTest {
 
         override fun isEncryptionEnabled(): Boolean = encryptionEnabled
 
-        override fun configurePassphrase(passphrase: CharArray): PassphraseConfigureOutcome =
-            PassphraseConfigureOutcome.CONFIGURED
+        override fun configurePassphrase(passphrase: CharArray): PassphraseConfigureOutcome = PassphraseConfigureOutcome.CONFIGURED
 
         override fun clearPassphrase() = Unit
 
@@ -473,6 +471,7 @@ class DatabasePassphraseUnlockViewModelTest {
     private object OpenHandle : PayanamDatabaseHandle {
         override val schemaVersion: Int = 1
         override val isOpen: Boolean = true
+
         override fun close() = Unit
     }
 

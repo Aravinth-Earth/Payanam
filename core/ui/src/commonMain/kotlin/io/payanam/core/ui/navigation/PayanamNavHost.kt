@@ -154,6 +154,21 @@ fun PayanamNavHost(
     var pendingTimeQuickStartRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingTimeStopTrackingRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingReturnRouteAfterUnlock by remember { mutableStateOf<String?>(resumeToRouteAfterUnlock) }
+    /**
+     * True while the database-init gate showing is the NEXT STEP OF A RESET rather than a first run.
+     *
+     * The owner's ruling (2026-10-14): *"When a user is using a reset option which means user already know
+     * how an app works only then they will be using the reset option. So in that case we don't need to show
+     * them the onboarding flow once more."* A reset deletes the database and the credential, so the facts
+     * it leaves behind are indistinguishable from a first install - which is why the reset used to be sent
+     * to the passphrase-setup gate and then into the first-run flow: the tour, then the create/import
+     * chooser, over a database the user had just asked to be replaced.
+     *
+     * The gate for "no database" on BOTH platforms is this init gate, so the reset continues HERE, and the
+     * flag is what the destination is told. It is cleared when the gate reports ready, so a later first run
+     * on the same process is not mistaken for the reset's continuation.
+     */
+    var databaseInitFollowsReset by remember { mutableStateOf(false) }
 
     // Check if a route is allowed given current feature flags and preferences.
     // Delegates to PayanamNavRoutePolicy for testable logic; logs outcomes for observability.
@@ -366,14 +381,18 @@ fun PayanamNavHost(
         if (resumeToRouteAfterUnlock != null && pendingReturnRouteAfterUnlock != resumeToRouteAfterUnlock) {
             pendingReturnRouteAfterUnlock = resumeToRouteAfterUnlock
         }
-        // The unlock gate must not yank the passphrase-change screen either: the change closes the
-        // session itself (the rekey needs the file alone), the desktop's gate follows the session
-        // LIVE, and navigating away mid-submit cancels the change and rolls the backup back over a
-        // rekey that had already succeeded. The sibling effects (top-level navigation, external
-        // commands) already guard PASSPHRASE_CHANGE this way; this one was missing it.
-        if (currentResolvedRoute == PayanamRoutes.PASSPHRASE_UNLOCK ||
-            currentResolvedRoute == PayanamRoutes.PASSPHRASE_CHANGE
-        ) {
+        // The unlock gate must not yank a startup gate the user is standing on. The passphrase-change
+        // screen was the first case: the change closes the session itself (the rekey needs the file
+        // alone), the desktop's gate follows the session LIVE, and navigating away mid-submit cancels
+        // the change and rolls the backup back over a rekey that had already succeeded. The
+        // forgot-passphrase reset is the second: it deletes the database and navigates to the setup
+        // screen, and this effect sent the user back to an unlock screen for a database that no longer
+        // exists, so the button looked dead on Android and desktop both.
+        //
+        // Guarding only PASSPHRASE_CHANGE (and PASSPHRASE_UNLOCK) left the other gates exposed to the
+        // same override, so the condition is the whole gate set now - the same set the helper below
+        // already treats as "not somewhere the user was".
+        if (isStartupGateRoute(currentResolvedRoute)) {
             return@LaunchedEffect
         }
         if (shouldCaptureReturnRouteForUnlock(currentResolvedRoute)) {
@@ -482,7 +501,7 @@ fun PayanamNavHost(
                 }
             },
         ) { innerPadding ->
-            if (!backupFailureMessage.isNullOrBlank()) {
+            if (!backupFailureMessage.isNullOrBlank() && !shouldShowPassphraseUnlock && currentRoute != PayanamRoutes.PASSPHRASE_UNLOCK) {
                 AlertDialog(
                     onDismissRequest = onDismissBackupFailure,
                     title = { Text(strings.backupFailureDialogTitle) },
@@ -686,11 +705,24 @@ fun PayanamNavHost(
                             }
                         },
                         onForgotPassphraseReset = {
-                            logger.w("PayanamNavHost", "Forgot-passphrase reset completed; navigating to setup")
+                            logger.w("PayanamNavHost", "Forgot-passphrase reset completed; continuing into the database-init gate")
                             // Same rule as the unlock callback above, and for the same reason: this arrives
                             // from the reset work, not from the composition.
+                            //
+                            // WHY THE INIT GATE AND NOT THE PASSPHRASE-SETUP GATE. The reset deleted the
+                            // database AND the credential, and both platforms' own startup decisions answer
+                            // "no database artifacts" with the init gate (Android:
+                            // `resolveShouldShowDatabaseInit` -> true; desktop: the scaffold branch ->
+                            // `InitializeDatabase`). Sending the user to the setup gate instead put the graph
+                            // on a screen both platforms' facts said was not the gate - so the graph's own
+                            // gate effect moved it on, and the setup screen was left behind with its
+                            // passphrase unconfigured. The init gate is where the passphrase is collected
+                            // for a database that does not exist yet (its own create form), and it is where
+                            // the mandatory life dimensions are confirmed - the one step a REPLACED database
+                            // genuinely needs again. See `DatabaseInitScreen.beginAtDatabaseCreation`.
+                            databaseInitFollowsReset = true
                             CoroutineScope(Dispatchers.Main.immediate).launch {
-                                navController.navigate(PayanamRoutes.PASSPHRASE_SETUP) {
+                                navController.navigate(PayanamRoutes.DATABASE_INIT) {
                                     popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
                                 }
                             }
@@ -721,12 +753,18 @@ fun PayanamNavHost(
                 composable(PayanamRoutes.DATABASE_INIT) {
                     screens.databaseInit(
                         nav = navActions,
+                        // The reset's own continuation: the destination opens at its create form rather
+                        // than offering the first-run tour and the create/import chooser. Cleared below, in
+                        // the same breath as the ready report, so the flag cannot outlive the gate it
+                        // describes.
+                        resumesAfterReset = databaseInitFollowsReset,
                         onDatabaseReady = {
                             logger.i(
                                 "PayanamNavHost",
                                 "Database init reported ready; delegating startup flow re-evaluation",
-                                mapOf("from" to "DatabaseInit"),
+                                mapOf("from" to "DatabaseInit", "followedReset" to databaseInitFollowsReset),
                             )
+                            databaseInitFollowsReset = false
                             onDatabaseReady()
                         },
                     )

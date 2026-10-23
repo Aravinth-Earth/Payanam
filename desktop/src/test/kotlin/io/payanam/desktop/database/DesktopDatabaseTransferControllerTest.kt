@@ -50,9 +50,12 @@ class DesktopDatabaseTransferControllerTest {
         // initialize it HERE (fully qualified, because several siblings import the SHARED UnifiedLogger under
         // the same name) rather than relying on a sibling class's leak - the shared-JVM class order is not a
         // contract, and a solo run of this class must work. The directory outlives the class on purpose.
-        io.payanam.desktop.UnifiedLogger.resetForTests()
+        io.payanam.desktop.UnifiedLogger
+            .resetForTests()
         io.payanam.desktop.UnifiedLogger.initialize(
-            logsDirectory = java.nio.file.Files.createTempDirectory("payanam-desktop-test-logs"),
+            logsDirectory =
+                java.nio.file.Files
+                    .createTempDirectory("payanam-desktop-test-logs"),
         )
         databasePath = tempFolder.newFolder().toPath().resolve("payanam.db")
         // The table is created once through a throwaway connection. Every session the tests use is FRESH,

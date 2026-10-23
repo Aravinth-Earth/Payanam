@@ -202,5 +202,4 @@ class AwtDocumentSourceTest {
             largestWrite = maxOf(largestWrite, len)
         }
     }
-
 }

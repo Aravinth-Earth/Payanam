@@ -10,8 +10,8 @@ import io.payanam.shared.updates.ChannelStatus
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
-import io.payanam.shared.updates.resolveUpdateResult
 import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.resolveUpdateResult
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -39,11 +39,12 @@ private val STABLE_TAG_REGEX = Regex("""^v(\d+)$""")
  * Any other tag returns `null`, so a caller can tell "not a release tag at all" apart from
  * "a release whose channel could not be read".
  */
-fun channelFromTag(tagName: String): UpdateChannel? = PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
-    UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
-} ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
-    UpdateChannel.STABLE
-}
+fun channelFromTag(tagName: String): UpdateChannel? =
+    PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
+        UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
+    } ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
+        UpdateChannel.STABLE
+    }
 
 private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
 
@@ -78,7 +79,10 @@ data class ApkAssetSelection(
  * A release with no matching APK yields a fail-closed [ApkAssetSelection.typeMismatch];
  * downstream that becomes [UpdateOutcome.TYPE_MISMATCH], never just a null URL.
  */
-fun selectApkAssets(assets: JSONArray?, expectedType: String): ApkAssetSelection {
+fun selectApkAssets(
+    assets: JSONArray?,
+    expectedType: String,
+): ApkAssetSelection {
     if (assets == null) return ApkAssetSelection(typeMismatch = true)
     val entries = mutableListOf<Pair<String, String>>()
     for (a in 0 until assets.length()) {
@@ -104,7 +108,10 @@ fun selectApkAssets(assets: JSONArray?, expectedType: String): ApkAssetSelection
  * name before a retry enqueue — legacy/untyped and other-type names fail
  * closed, and a `.sha256` sibling never passes.
  */
-fun artifactNameMatchesBuildType(fileName: String, buildType: String): Boolean = fileName.endsWith(".apk") && fileName.contains("_${buildType}_")
+fun artifactNameMatchesBuildType(
+    fileName: String,
+    buildType: String,
+): Boolean = fileName.endsWith(".apk") && fileName.contains("_${buildType}_")
 
 /** Fail-closed selection trace: the release has no APK for the running build
  *  type. Logged at `i` because release builds turn `d` off; guarded because the
@@ -138,13 +145,17 @@ private fun logFailClosedSelection(
  * array returns an empty list.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
-fun parseReleases(body: String, runningType: String): List<ChannelStatus>? {
-    val releases = try {
-        JSONArray(body)
-    } catch (e: JSONException) {
-        logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
-        return null
-    }
+fun parseReleases(
+    body: String,
+    runningType: String,
+): List<ChannelStatus>? {
+    val releases =
+        try {
+            JSONArray(body)
+        } catch (e: JSONException) {
+            logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
+            return null
+        }
     val statuses = mutableListOf<ChannelStatus>()
     for (i in 0 until releases.length()) {
         val release = releases.optJSONObject(i) ?: continue
@@ -177,12 +188,19 @@ fun parseReleases(body: String, runningType: String): List<ChannelStatus>? {
 
 /** One page fetch outcome: [Ok] carries the body plus the next-page URL. */
 private sealed interface PageFetch {
-    data class Ok(val body: String, val nextUrl: String?) : PageFetch
-    data class Failed(val error: UpdateCheckError) : PageFetch
+    data class Ok(
+        val body: String,
+        val nextUrl: String?,
+    ) : PageFetch
+
+    data class Failed(
+        val error: UpdateCheckError,
+    ) : PageFetch
 }
 
 /** Extract the `rel="next"` URL from a GitHub `Link` header, or null. */
-fun nextPageUrl(linkHeader: String?): String? = linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
+fun nextPageUrl(linkHeader: String?): String? =
+    linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
 
 /**
  * Checks GitHub releases for app updates across all channels.
@@ -193,7 +211,6 @@ fun nextPageUrl(linkHeader: String?): String? = linkHeader?.let { Regex("""<([^>
  * non-success [UpdateOutcome] — never "up to date".
  */
 object UpdateChecker {
-
     /** GitHub releases list endpoint; per_page=100 with the walk in [check]. */
     private const val RELEASES_LIST_URL =
         "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=100"
@@ -294,7 +311,11 @@ object UpdateChecker {
         }
 
     /** One page fetch: the body plus the next-page URL, or the failure reason. */
-    private fun fetchPage(url: String, currentBuildNumber: Int, page: Int): PageFetch {
+    private fun fetchPage(
+        url: String,
+        currentBuildNumber: Int,
+        page: Int,
+    ): PageFetch {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.apply {
             requestMethod = "GET"
@@ -326,12 +347,13 @@ object UpdateChecker {
     }
 
     /** Result shape for every non-success path — FAILED with its reason. */
-    private fun failureResult(error: UpdateCheckError) = UpdateCheckResult(
-        outcome = UpdateOutcome.FAILED,
-        latestBuildNumber = null,
-        releaseUrl = null,
-        error = error,
-    )
+    private fun failureResult(error: UpdateCheckError) =
+        UpdateCheckResult(
+            outcome = UpdateOutcome.FAILED,
+            latestBuildNumber = null,
+            releaseUrl = null,
+            error = error,
+        )
 
     /**
      * Read response body with a size cap. Compatible with API 28+.

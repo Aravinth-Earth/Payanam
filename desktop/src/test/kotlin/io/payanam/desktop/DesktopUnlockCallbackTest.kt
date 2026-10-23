@@ -29,6 +29,9 @@ import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.PassphraseConfigureOutcome
+import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
+import io.payanam.shared.startup.DesktopStartupRuntimeState
+import io.payanam.shared.startup.startupGateInputs
 import kotlinx.coroutines.TimeoutCancellationException
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
@@ -59,7 +62,7 @@ import java.util.concurrent.atomic.AtomicInteger
  *
  * **What is real here.** The mount is `DesktopNavHostDestinationRenderTest`'s own idiom verbatim: the shared
  * `PayanamNavHost` with the desktop's real `DesktopPayanamNavHostScreens`, the start destination chosen by the
- * desktop's own `desktopNavGateFlags(DesktopStartupMode.UnlockPassphrase)` projection, and the desktop's real
+ * production seam `startupGateInputs(state)`, and the desktop's real
  * collaborators over a real `DesktopSecurityStore` and a real `DesktopDatabaseSessionController`. The unlock
  * is the real one: the typed passphrase goes into the shared screen's own field, the shared
  * `DatabasePassphraseUnlockViewModel` verifies it against the desktop's real vault and opens a real SQLCipher
@@ -242,8 +245,8 @@ class DesktopUnlockCallbackTest {
      * handed to the graph exactly where `DesktopApp.kt:1022` hands it.
      *
      * `DesktopNavHostDestinationRenderTest`'s `mountGate`, with one change: the callback parameter. The gate
-     * flags go through the desktop's own `desktopNavGateFlags` projection rather than four booleans written
-     * out here, so "at most one gate is ever true" stays owned by `DesktopNavGateFlagsTest`; and
+     * flags go through the production seam `startupGateInputs(state)` rather than four booleans written
+     * out here, so "at most one gate is ever true" stays owned by the shared startup module; and
      * `isLandingReady = false` is what makes the gate the start destination rather than letting the graph
      * open `landingRoute` with no gate body composed at all.
      */
@@ -252,17 +255,28 @@ class DesktopUnlockCallbackTest {
         composeRule.setContent {
             // `PayanamTheme`, as the render test supplies: these are Material3 screens.
             PayanamTheme(darkTheme = false) {
-                val flags = desktopNavGateFlags(DesktopStartupMode.UnlockPassphrase)
+                val state =
+                    DesktopStartupRuntimeState(
+                        hasPassphraseConfigured = true,
+                        hasDatabaseArtifacts = false,
+                        databaseLifecycleReady = false,
+                        sessionOpen = false,
+                        focusModeOnboardingCompleted = false,
+                        securityFilePath = "",
+                        databaseFilePath = "",
+                        scaffoldOnboardingStage = DesktopScaffoldOnboardingStage.Bypassed,
+                    )
+                val inputs = startupGateInputs(state)
                 PayanamNavHost(
                     screens = screens,
                     language = UiLanguage.ENGLISH,
                     minimalModeEnabled = false,
                     landingRoute = PayanamTab.Tasks.route,
                     isLandingReady = false,
-                    shouldShowPassphraseSetup = flags.shouldShowPassphraseSetup,
-                    shouldShowPassphraseUnlock = flags.shouldShowPassphraseUnlock,
-                    shouldShowDatabaseInit = flags.shouldShowDatabaseInit,
-                    shouldShowFocusModeOnboarding = flags.shouldShowFocusModeOnboarding,
+                    shouldShowPassphraseSetup = inputs.shouldShowPassphraseSetup,
+                    shouldShowPassphraseUnlock = inputs.shouldShowPassphraseUnlock,
+                    shouldShowDatabaseInit = inputs.shouldShowDatabaseInit,
+                    shouldShowFocusModeOnboarding = inputs.shouldShowFocusModeOnboarding,
                     onPassphraseUnlocked = onPassphraseUnlocked,
                 )
             }
@@ -280,9 +294,14 @@ class DesktopUnlockCallbackTest {
      */
     private fun desktopUnlockScreens(): DesktopPayanamNavHostScreens =
         DesktopPayanamNavHostScreens(
+            // No fact-reload hook: these cases mount the graph, not the reset leg that fires it.
+            onDatabaseResetObserved = {},
             databaseInitCollaborators =
                 DesktopDatabaseInitCollaborators(
                     sessionController = sessionController,
+                    // A TEST-OWNED marker, never the default: the tour's completion WRITES through this
+                    // store, and the default resolves the operator's real data directory.
+                    onboardingStore = DesktopOnboardingStore(securityDirectory = temporaryFolder.newFolder().toPath()),
                     documentSource = AwtDocumentSource(),
                     passphraseVault = vault,
                     // Injected, never defaulted: the default resolves the host's real data directory, and no

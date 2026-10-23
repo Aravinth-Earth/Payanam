@@ -914,24 +914,25 @@ class DatabaseInitViewModelCreateStatusTest {
             // to say "checking", and a screen that renders before that would flash a create prompt at a
             // user who already has a database.
             healthCheck.checkFailure = IllegalStateException("blocked")
-            val viewModel = DatabaseInitViewModel(
-                appSettingsRepository = appSettings,
-                databaseSessionManager = sessionManager,
-                lifeDimensionCatalogRepository = lifeDimensions,
-                strings = testUiStrings(),
-                healthCheck = healthCheck,
-                databasePathResolver = pathResolver,
-                encryptionProbe = encryptionProbe,
-                documentSource = documentSource,
-                databaseInitFlagWriter = flagWriter,
-                databaseInitFlagReader = flagReader,
-                databaseInitWalConsolidator = walConsolidator,
-                dimensionSetupPersister = dimensionPersister,
-                encryptionStateCheckpoint = checkpoint,
-                passphraseVault = vault,
-                scope = scope,
-                ioDispatcher = testDispatcher,
-            )
+            val viewModel =
+                DatabaseInitViewModel(
+                    appSettingsRepository = appSettings,
+                    databaseSessionManager = sessionManager,
+                    lifeDimensionCatalogRepository = lifeDimensions,
+                    strings = testUiStrings(),
+                    healthCheck = healthCheck,
+                    databasePathResolver = pathResolver,
+                    encryptionProbe = encryptionProbe,
+                    documentSource = documentSource,
+                    databaseInitFlagWriter = flagWriter,
+                    databaseInitFlagReader = flagReader,
+                    databaseInitWalConsolidator = walConsolidator,
+                    dimensionSetupPersister = dimensionPersister,
+                    encryptionStateCheckpoint = checkpoint,
+                    passphraseVault = vault,
+                    scope = scope,
+                    ioDispatcher = testDispatcher,
+                )
 
             assertThat(viewModel.uiState.value.isChecking).isTrue()
             assertThat(viewModel.uiState.value.databaseExists).isFalse()

@@ -194,7 +194,7 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.configurePassphrase",
             "Configuring database passphrase",
             mapOf(
-                "passphraseLength" to passphrase.length,
+                "passphraseProvided" to passphrase.isNotEmpty(),
                 "hadPassphraseConfigured" to hasPassphraseConfigured(),
             ),
         )
@@ -203,7 +203,7 @@ class DatabaseEncryptionManager(
             stage = "started",
             data =
                 mapOf(
-                    "passphraseLength" to passphrase.length,
+                    "passphraseProvided" to passphrase.isNotEmpty(),
                     "hadPassphraseConfigured" to hasPassphraseConfigured(),
                 ),
         )
@@ -282,8 +282,8 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.updatePassphrase",
             "Updating database passphrase metadata",
             mapOf(
-                "currentLength" to currentPassphrase.length,
-                "newLength" to newPassphrase.length,
+                "currentProvided" to currentPassphrase.isNotEmpty(),
+                "newProvided" to newPassphrase.isNotEmpty(),
             ),
         )
         if (!verifyPassphrase(currentPassphrase)) {

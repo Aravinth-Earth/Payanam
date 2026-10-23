@@ -1,3 +1,6 @@
+#  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+#  SPDX-License-Identifier: AGPL-3.0-or-later
+#
 # Drive script for build-tools/scripts/desktop-loop.sh (-d this file) - PHASE 1 of the unlock-gate pair.
 #
 # WHAT THIS EXISTS FOR
@@ -31,25 +34,55 @@
 # nothing and the run looks like it silently failed, so the default carries a '#' for that reason alone.
 PASSPHRASE="${LOOP_PASSPHRASE:-LoopDrive#Pass9}"
 
+# --- WHICH PRIMARY COLOUR THIS THEME PAINTS ---------------------------------------------------------------
+# The app's primary control is #00796B (teal 700) in the LIGHT scheme and #80CBC4 (teal 200) in the DARK one.
+# MEASURED 2026-10-14 from build 406's own frames: an isolated $HOME has an EMPTY preference store, so the
+# theme resolves through the system's answer - which under Xvfb is DARK - and the loop's default #00796B then
+# matches NOTHING on screen:
+#   [create-database] no #00796B region of >=400px anywhere in the 1280x900 frame
+# so every primary-button step below failed on a screen that was rendering perfectly. The finder is asked for
+# the colour the theme ACTUALLY paints instead. The light colour is offered FIRST, so a light-theme run
+# behaves exactly as it did before this pair was introduced.
+PRIMARY_COLORS=("${LOOP_PRIMARY_COLOR:-#00796B}" "#80CBC4")
+
+# click_primary LABEL BAND [SETTLE]
+# The colour-aware form of click_button: same loud failure, one extra question ("which theme colour?").
+click_primary() {
+    local label="$1" band="$2" settle="${3:-3}" colour
+    for colour in "${PRIMARY_COLORS[@]}"; do
+        if find_button_centre --label "$label" --band "$band" --color "$colour" >/dev/null 2>&1; then
+            click_button "$label" --band "$band" --color "$colour" --settle "$settle"
+            return 0
+        fi
+    done
+    die "STEP '$label': no primary-coloured control in band $band matched ANY known theme colour (${PRIMARY_COLORS[*]})"
+}
+
 shot 01-tour-page-1
 
-# The tour: ONE "Next" tap, measured 2026-10-06, not the three this comment used to claim.
+# The tour is THREE slides, so the choice screen appears after the THIRD tap. The control at (254,739) is
+# "Next" on slides 1 and 2 and "Start" on slide 3 - three taps, not one.
 #
-# HOW IT WAS MEASURED, because the number matters and two runs disagreed with it: shot 01 is taken
-# BEFORE any click, so shot 01 and shot 00 are the same screen (the tour). OCR of shot 02 - the frame
-# AFTER exactly one click - reads "Welcome To Payanam / Create New Empty Database / Import Database File
-# (.db)". The tour is therefore over after ONE tap, and every subsequent tap at this point lands on a
-# screen that does not have a Next button, which is why the loop refused it with "the click left the
-# screen byte-identical". A tap that misses is exactly what this harness exists to refuse, so the count
-# here is load-bearing: re-adding taps does not make the run more thorough, it makes it fail.
+# MEASURED 2026-10-14, build 402: this file carried "the tour is over after ONE tap" while also claiming
+# "the tour is TWO pages" - the two contradict each other, and against build 402 a single tap left a screen
+# with NO create control on it at all. The run died at
+# `find_text_centre --text 'Create New Empty Database'` with "the gate screen has changed again", and shots
+# 02, 04 and 05 were BYTE-IDENTICAL to each other: one tap had moved the tour from slide 1 to slide 2, and
+# the screen stayed there. The shared tour's own source is the authority for the count - it builds
+# `onboarding_slide1..3_title` into a three-entry page list - and this driver's sibling
+# (`desktop-loop-drive-onboarding.sh`) has always tapped three times.
+#
+# The tour being the FIRST step of the shared database-init screen is also the app change this run exists to
+# photograph: the desktop used to raise the tour as a startup gate of its own ahead of that screen and then
+# tell the screen to skip its copy. Android has only the one copy, inside the screen.
 click 254 739 2
-shot 02-after-tour-next
+shot 02-tour-page-2
 
-# MEASURED 2026-10-06: the tour is TWO pages, not three. A third click here left the screen
-# BYTE-IDENTICAL (the loop refused it: "the click left the screen byte-identical"), and OCR of the
-# frame that shot 02 captured reads "Welcome To Payanam / Create New Empty Database / Import Database
-# File (.db)" - i.e. the tour was already over and shot 02's name is what was stale, not the app.
-# Do NOT re-add a third tap: the frames either side of this point are identical when it is present.
+click 254 739 2
+shot 03-tour-page-3
+
+# The third tap finishes the tour and hands over to the create/import choice on the SAME shared screen.
+click 254 739 2
 shot 04-after-tour
 
 # The database-init gate needs a moment to compose and to run its health check before it is tappable -
@@ -59,13 +92,15 @@ shot 05-setup-gate
 
 # Create the empty database. This is the step that makes the NEXT launch resolve to the unlock gate
 # instead of re-asking to create one.
-# LOCATED BY ITS WORDS, not by a stored coordinate - measured 2026-10-06. The hardcoded point this
-# used to click, (256,517), left the screen byte-identical: the real control sits at (270,487), off by
-# (14,30) after some earlier layout change, and a stale pixel fails SILENTLY in the sense that it looks
-# like a slow app rather than a wrong number. The loop's text finder removes that whole class of drift.
-CREATE_CENTRE="$(find_text_centre --text 'Create New Empty Database' --scale 2)" ||
-    die "could not find the create-database control by its words - the gate screen has changed again"
-click $CREATE_CENTRE 3
+#
+# FOUND BY COLOUR, NOT BY ITS WORDS - the label route was retired 2026-10-14 (build 406). It used to ask
+# `find_text_centre --text 'Create New Empty Database'`, which answered "no text matched" on a screen that
+# was rendering the control correctly: in the dark scheme the pill is a light fill (#80CBC4) under dark
+# label glyphs, and that combination is below what the OCR can read at any scale - measured by cropping the
+# pill and OCRing it at 200%, 300% and 400%: every attempt returned stroke fragments ("-C-l-T---"), never
+# the words. The colour finder has no such trouble, and the band below is the measured location of the
+# control as a sanity check: if a reflow moves it out of the band, the run says so loudly.
+click_primary create-database 450-520 3
 shot 06-after-create
 
 # Let the created database finish writing, and let the screen that asks for a passphrase compose.
@@ -84,14 +119,16 @@ shot 08-passphrase-settled
 # The first field. click() is used rather than a bare mousemove because the field must take FOCUS, and
 # click() also reports whether the tap changed the screen - the warning it prints when the frame is
 # byte-identical is how a field that did not take focus gets caught here rather than three steps later.
-click 256 437 1
+#
+# RE-MEASURED 2026-10-14 (build 406): the window's content sits ~22px higher than when (256,437)/(256,517)
+# were taken, so both field points were taken again from this build's own frame - the labels read
+# "Passphrase" at y=411 and "Confirm passphrase" at y=485 in `04-create-form-settled.png`.
+click 253 415 1
 type_text "$PASSPHRASE"
 shot 09-first-field-typed
 
-# The second field. Its centre is (256, 517) - the SAME y as the "create new database" button on the
-# previous screen, which is why the shot above is what tells the two screens apart: the coordinates are
-# reused and the layout is not.
-click 256 517 1
+# The second field.
+click 253 492 1
 type_text "$PASSPHRASE"
 shot 10-both-fields-typed
 
@@ -104,7 +141,14 @@ shot 10-both-fields-typed
 # primary control and clicks where it actually is. The band below is the measured location as a SANITY
 # CHECK: if a reflow moves the button out of it, the run says so loudly and still clicks the real
 # control, which is the whole point - the coordinates are no longer load-bearing.
-click_button submit-passphrase --band 520-610 --settle 4
+# The submit control is rendered in the scheme's SECONDARY container, measured #453C80 (dark) on build 406 -
+# NOT the primary teal the other steps are found by, so the colour finder is the wrong question here: asked
+# for teal in this band it fell back to the whole frame and clicked a stray blob outside the window (measured:
+# `the click at (847,560) left the screen byte-identical`). The point below is the measured centre of the
+# control in `10-both-fields-typed.png` (band y 534-589, x 72-435), and the step that follows it is checked
+# against the app's OWN log line ("Passphrase accepted; waiting for mandatory dimension setup before DB
+# creation") rather than against the frame, because a filled form and an empty one look the same here.
+click 253 561 4
 shot 11-after-submit
 
 # MEASURED: accepting the passphrase does NOT create the database. The log says
@@ -117,12 +161,17 @@ shot 11-after-submit
 # This step is what the previous run of this script was missing: it stopped on the passphrase form, so no
 # database was ever written and the next launch could only ever resolve back to the setup gate.
 #
-# FOUND, NOT GUESSED (2026-09-30): the literal (255,739) this step used to carry also no longer lands -
-# same byte-identical frames - so it is found by colour now, with y=724-779 as the sanity band.
+# FOUND, NOT GUESSED (2026-09-30; re-measured 2026-10-14 on build 406): the literal (255,739) this step
+# used to carry no longer lands, and the colour finder cannot answer for it either - asked for teal inside
+# y=716-771 it fell back to the whole frame and clicked (850,744), a stray blob OUTSIDE the app window
+# (the frame is the whole root window; the app is a 412px-wide child of it). The point below is the
+# measured centre of this build's control: band y 716-771, x 72-435, centre (253,743). A coordinate is safe
+# HERE because the loop's click() fails the run loudly when the frame does not change, so a control that
+# moved cannot be clicked silently.
 sleep 6
 shot 12-dimension-setup
 
-click_button dimension-setup-continue --band 700-800 --settle 4
+click 253 743 4
 shot 13-after-continue
 
 # The database is actually created only now, and the app recomposes into the shell. Generous waits, and a

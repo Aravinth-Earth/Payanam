@@ -78,11 +78,21 @@ fun keepScreenOn(activity: Activity) {
     }
 }
 
+/**
+ * How long a label is given to arrive before the harness starts scrolling for it.
+ *
+ * Measured 2026-10-14, and the reason it is not the 5s it was: after `build-android.ps1` installs a
+ * freshly built APK, the FIRST launch is a cold one (dexopt/JIT), and the Time screen's own body had not
+ * finished composing when the arrival window closed - the journey then reported
+ * `'கணாணிப்பைத் தொடங்கவும்' is not on this screen` with only the nav bar in the diagnosis, on the very
+ * phase that had PASSED twenty minutes earlier on the warm app. A condition wait returns as soon as the
+ * label appears, so a generous window costs nothing when the app is fast and is the only thing that makes
+ * the cold case honest.
+ */
+private const val ARRIVAL_WAIT_MS = 15_000L
+
 /** Below this height a swipe gesture collapses into a tap. */
 private const val MIN_SWIPE_HEIGHT_PX = 300
-
-/** How long a label gets to arrive before the search starts scrolling a lazy list for it. */
-private const val ARRIVAL_WAIT_MS = 5_000L
 
 class E2eHarness(
     private val rule: ComposeTestRule,
@@ -191,18 +201,24 @@ class E2eHarness(
         runCatching { rule.waitUntil(ARRIVAL_WAIT_MS) { exists(label) } }
         if (exists(label)) return
 
+        var canScroll = true
         repeat(4) {
-            if (exists(label)) return
+            if (exists(label) || !canScroll) return@repeat
             bringIntoView(label)
             if (exists(label)) return
-            swipeVertically(up = true)
+            canScroll = swipeVertically(up = true)
         }
+        if (exists(label)) return
+        canScroll = true
         repeat(4) {
-            if (exists(label)) return
+            if (exists(label) || !canScroll) return@repeat
             bringIntoView(label)
             if (exists(label)) return
-            swipeVertically(up = false)
+            canScroll = swipeVertically(up = false)
         }
+        // Reached with the reason NAMED: the check below reports the label and every clickable on the screen,
+        // which is the message a reader needs. It used to be pre-empted by a throw from the swipe itself, so a
+        // missing control was reported as a broken swipe rule. Measured 2026-10-13 on the Time screen.
         check(exists(label)) {
             "'$label' is not on this screen, even after scrolling\n${diagnose(label)}"
         }
@@ -423,9 +439,12 @@ class E2eHarness(
     fun collectTexts(maxSwipes: Int = 12): List<String> {
         val collected = LinkedHashSet<String>()
         collected.addAll(dumpTexts(limit = 200))
-        repeat(maxSwipes) {
-            swipeVertically(up = true)
+        // Stops as soon as the screen has nothing left to scroll: a loop that kept asking would gather the same
+        // window over and over on a screen with no scrollable container at all.
+        var swipes = 0
+        while (swipes < maxSwipes && swipeVertically(up = true)) {
             collected.addAll(dumpTexts(limit = 200))
+            swipes++
         }
         return collected.toList()
     }
@@ -570,14 +589,21 @@ class E2eHarness(
     }
 
     /**
-     * Swipes the largest scrollable on the screen.
+     * Swipes the largest scrollable container vertically, and says whether it could.
      *
      * Two traps, both hit for real: a swipe issued on a zero-height container degenerates into a
      * tap, and a gesture that runs to the very bottom edge can land on the bottom navigation bar —
      * which silently navigates away from the screen under test. So: require a properly sized
      * container, take the biggest one, and inset the stroke away from both edges.
+     *
+     * A screen with no container big enough to scroll is a NORMAL state - the label the caller wants is
+     * simply not there - so this reports it instead of throwing. It used to `error(...)` here, which meant the
+     * caller's own named diagnosis (the missing label plus every clickable on the screen) never ran: measured
+     * 2026-10-13, the Android journey reached the Time screen, could not find the start-tracking control, and
+     * died with `no scrollable to swipe` - a message about the SWIPE RULE, on a screen whose real problem was a
+     * missing control.
      */
-    private fun swipeVertically(up: Boolean) {
+    private fun swipeVertically(up: Boolean): Boolean {
         val scrollables = rule.onAllNodes(hasScrollAction())
         val nodes = runCatching { scrollables.fetchSemanticsNodes() }.getOrDefault(emptyList())
         log(
@@ -587,14 +613,17 @@ class E2eHarness(
         val index = nodes.indices
             .filter { nodes[it].size.height > MIN_SWIPE_HEIGHT_PX && nodes[it].size.width > 300 }
             .maxByOrNull { nodes[it].size.height * nodes[it].size.width }
-            ?: error(
+            ?: run {
                 // The message says what it LOOKED FOR, not only what it found. A bare list of the candidate
                 // sizes leaves the reader to infer the rule from this file, which is the failure this message
                 // was written to remove: on the Time screen it printed `candidates were []` and named nothing.
-                "swipe(up=$up): no scrollable to swipe — looking for a container taller than " +
-                    "${MIN_SWIPE_HEIGHT_PX}px and wider than 300px; the ${nodes.size} scrollable(s) on screen were " +
-                    nodes.map { "${it.size.width.toInt()}x${it.size.height.toInt()}" },
-            )
+                log(
+                    "swipe(up=$up): nothing to swipe - looking for a container taller than " +
+                        "${MIN_SWIPE_HEIGHT_PX}px and wider than 300px; the ${nodes.size} scrollable(s) on screen " +
+                        "were " + nodes.map { "${it.size.width.toInt()}x${it.size.height.toInt()}" },
+                )
+                return false
+            }
         // Coordinates are node-local, and the node's height is known from its semantics, so the
         // stroke can be inset without reaching into the touch scope's own geometry helpers.
         val height = nodes[index].size.height.toFloat()
@@ -612,6 +641,7 @@ class E2eHarness(
         // has to be compared — a swipe that changes nothing leaves the caller scrolling blindly.
         val after = dumpTexts().take(3)
         log("swipe(up=$up): content ${if (before == after) "UNCHANGED" else "moved"} | $before -> $after")
+        return true
     }
 
     /**
@@ -627,18 +657,51 @@ class E2eHarness(
         if (isOnScreen(label)) return
 
         var swipes = 0
-        while (!isOnScreen(label) && swipes < maxSwipes) {
-            swipeVertically(up = true)
+        // Each direction stops the moment the screen refuses a swipe, so the check below reports the label and
+        // the screen's controls - not a swipe rule - when the screen simply has nothing to scroll.
+        while (!isOnScreen(label) && swipes < maxSwipes && swipeVertically(up = true)) {
             swipes++
         }
         swipes = 0
-        while (!isOnScreen(label) && swipes < maxSwipes) {
-            swipeVertically(up = false)
+        while (!isOnScreen(label) && swipes < maxSwipes && swipeVertically(up = false)) {
             swipes++
         }
         check(isOnScreen(label)) {
             "scrollTo: '$label' never became visible ($maxSwipes swipes each way)\n${diagnose(label)}"
         }
+    }
+
+    /**
+     * Answers the focus-mode onboarding gate when it is up, and does nothing when it is not.
+     *
+     * The gate is evaluated when the ACTIVITY starts, so a fresh install meets it after a RESTART rather than
+     * right after the database is created - which is why the journey's early phases never saw it. Nothing
+     * answered it, so the run ended on the chooser while looking for a Settings row: measured 2026-10-14, the
+     * language change restarted the app, `scrollTo` for the default-landing row failed with the chooser's own
+     * copy ("Choose Your Focus" … "I'll choose later") in the diagnosis. "Later" is picked because it leaves the
+     * user's dimensions untouched.
+     */
+    fun answerFocusModeGate(
+        gateLabel: () -> String,
+        skipLabel: () -> String,
+        timeoutMs: Long = 15_000,
+    ) {
+        // The gate arrives LATE: a restart re-composes the app, and the graph moves to the focus chooser only
+        // after the startup gate re-resolves. Measured 2026-10-14: the language change restarted the activity,
+        // this question was asked ~600ms BEFORE `PayanamNavHost` logged the move to `focus_mode_selection`, and a
+        // one-shot check therefore missed the chooser - the next nav tap then timed out on a screen that was not
+        // the shell.
+        //
+        // The labels are LAMBDAS, not strings: the gate renders in whatever language the app is in when it
+        // appears, and this call sits right after a language CHANGE whose locale applies asynchronously. A label
+        // resolved once here is a bet on which language won that race - measured: the parameters were resolved
+        // while the app was still Tamil, the chooser came up in English, and the comparison could not match for
+        // the whole 15 seconds. Resolving per poll costs nothing and cannot lose that race.
+        val arrived = runCatching { rule.waitUntil(timeoutMs) { exists(gateLabel()) } }.isSuccess
+        if (!arrived) return
+        log("focus-mode onboarding gate is up; leaving it with 'later'")
+        click(skipLabel())
+        rule.waitForIdle()
     }
 
     /** Maestro's `pressKey: Back`. */

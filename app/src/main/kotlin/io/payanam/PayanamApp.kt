@@ -62,6 +62,19 @@ import timber.log.Timber
 class PayanamApp : Application() {
 
     /**
+     * Init the platform logger at the EARLIEST application phase. Manifest components (broadcast
+     * receivers) can be instantiated before onCreate runs - measured under Robolectric with merged
+     * resources (NotificationActionReceiver.<init> -> UnifiedLogger.getInstance() throwing
+     * "not initialized" from registerBroadcastReceivers), and reachable in production on a cold
+     * start straight into a receiver (boot / notification action), where getInstance() before init
+     * throws. initialize() is idempotent, so onCreate's own call below remains a harmless no-op.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+    }
+
+    /**
      * Boot sequence: logger first, crash handler + breadcrumbs, notification
      * channels, then the lazy app-start update check.
      */
