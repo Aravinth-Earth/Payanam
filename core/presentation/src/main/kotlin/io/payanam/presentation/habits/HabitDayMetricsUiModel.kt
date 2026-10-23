@@ -11,12 +11,20 @@ package io.payanam.presentation.habits
  * [label] is the localized chip caption (Day Score, Run Avg, …).
  * [isPlaceholderRank] marks chips whose rank model is not yet built (Due) so the
  * UI can render the rank dimmed/neutral instead of a real ordinal.
+ *
+ * [rankNumber] and [rankTotal] are the SAME rank as [rank], kept as numbers:
+ * today's 1-based position among [rankTotal] distinct historical values. They
+ * let a renderer scale this chip by its OWN rank (1 of N → best, N of N → worst)
+ * without parsing the "X/Y" text back apart. Both are null when there is no
+ * history (the "—" rank) or when the rank is a placeholder (Due).
  */
 data class DayMetricChipData(
     val value: String,
     val rank: String,
     val label: String,
     val isPlaceholderRank: Boolean = false,
+    val rankNumber: Int? = null,
+    val rankTotal: Int? = null,
 )
 
 /**

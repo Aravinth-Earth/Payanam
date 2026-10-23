@@ -22,9 +22,10 @@ import io.payanam.shared.startup.DesktopScaffoldOnboardingStage
 import io.payanam.shared.startup.startupGateInputs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.TimeoutCancellationException
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
@@ -103,7 +104,13 @@ class DesktopImportLoopHarnessTest {
         // could not be skipped due to other failures) - measured by the desktop gate, which runs with no
         // fixture at all.
         // Order: stop the ViewModel's work, then close the session, THEN reset the process-wide holders.
-        viewModelScope?.cancel()
+        // WHY THE JOIN, and why it stays FIRST: cancelling the scope is not WAITING for it. A collector
+        // still inside its JDBC call when the session closes throws for real - not a cancellation - and
+        // with no CoroutineExceptionHandler on this scope that failure reaches the JVM-global exception
+        // collector, which re-throws it as UncaughtExceptionsBeforeTest in whichever LATER test opens a
+        // TestScope: the victim moves from run to run. Joining here is what proves nothing of this scope
+        // is still running when the session closes.
+        runBlocking { viewModelScope?.coroutineContext?.get(Job)?.cancelAndJoin() }
         sessionController?.closeAndUninstall()
         LocalDataLayer.resetForTests()
         AppLogger.resetForTests()

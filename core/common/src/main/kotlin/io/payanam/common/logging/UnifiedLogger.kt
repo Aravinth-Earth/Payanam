@@ -4,16 +4,15 @@ package io.payanam.common.logging
 
 import android.content.Context
 import android.os.Environment
-import kotlinx.coroutines.CoroutineScope
+import android.os.SystemClock
+import io.payanam.shared.concurrent.appCoroutineScope
+import io.payanam.shared.logging.LogSanitizer
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import android.os.SystemClock
-import io.payanam.shared.logging.LogSanitizer
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -41,7 +40,7 @@ class UnifiedLogger private constructor(
     private var logFile: File
     private val logBuffer = mutableListOf<String>()
     private val mutex = Mutex()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = appCoroutineScope("UnifiedLogger", Dispatchers.IO)
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val sequenceCounter = AtomicLong(0)
 
@@ -53,10 +52,10 @@ class UnifiedLogger private constructor(
         clearOldLogsSync(keepLast = 9)
         logFile = createSessionLogFile()
 
-        scope.launch {
+        launchSafely {
             while (true) {
                 kotlinx.coroutines.delay(AUTO_FLUSH_INTERVAL_MS)
-                flush()
+                runIterationSafely("auto-flush") { flush() }
             }
         }
 
@@ -140,7 +139,7 @@ class UnifiedLogger private constructor(
         message: String,
         data: Map<String, Any?>,
     ) {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 val prepared = prepareLog(level, source, message, data)
                 logBuffer.add(prepared.entry)
@@ -153,11 +152,72 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /**
+     * Runs [block] on this logger's own scope, never letting a failure escape into the process.
+     *
+     * The logger is the last place a failure should be reported FROM, so it must not be the place a
+     * failure is raised FROM: an unexpected throw inside a log write is reported to stderr and
+     * logcat and then dropped. Cancellation is the one exception - it is rethrown, so structured
+     * concurrency still works and a cancelled scope still unwinds quietly.
+     *
+     * Without this, the scope's `CoroutineExceptionHandler` would report the failure back through
+     * `AppLogger`, which is this logger, whose write would fail the same way and start the loop
+     * again. Guarding the writes is what breaks that cycle.
+     */
+    private fun launchSafely(block: suspend () -> Unit) {
+        scope.launch {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (
+                @Suppress("TooGenericExceptionCaught") failure: Exception,
+            ) {
+                System.err.println("UnifiedLogger: Background log write failed: ${failure.message}")
+                android.util.Log.e(LOGCAT_TAG, "UnifiedLogger background log write failed", failure)
+            }
+        }
+    }
+
+    /**
+     * Runs ONE iteration of a repeating background task, keeping the repeat alive when that
+     * iteration fails.
+     *
+     * [launchSafely] guards a whole block, so a `while (true)` wrapped in it dies with the FIRST
+     * failure: the try/catch sits OUTSIDE the loop, so a throw leaves the `while`, the catch
+     * swallows it, and the loop never runs again. For the auto-flush that failure is SILENT -
+     * entries pile up in the buffer and nothing reaches the log file again, so anything reading
+     * the file (an export, a support bundle, a test waiting on a terminal marker) sees stale
+     * content forever. Guarding each iteration separately keeps one failed flush from ending the
+     * repeat: the failure is reported and the next iteration still runs.
+     *
+     * Cancellation is the only thing that ends a repeat: a [CancellationException] is rethrown, so
+     * a cancelled scope still unwinds the loop quietly. `runCatching` is deliberately NOT used
+     * here - it catches `Throwable`, which would swallow that cancellation as well.
+     */
+    private suspend fun runIterationSafely(
+        description: String,
+        block: suspend () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (
+            @Suppress("TooGenericExceptionCaught") failure: Exception,
+        ) {
+            System.err.println("UnifiedLogger: Background $description failed: ${failure.message}")
+            android.util.Log.e(LOGCAT_TAG, "UnifiedLogger background $description failed", failure)
+        }
+    }
+
     private fun buildErrorData(
         error: Throwable?,
         data: Map<String, Any?>,
         stackFrameLimit: Int,
-    ): Map<String, Any?> = io.payanam.shared.logging.ErrorPayload.build(error, data, stackFrameLimit)
+    ): Map<String, Any?> =
+        io.payanam.shared.logging.ErrorPayload
+            .build(error, data, stackFrameLimit)
 
     private fun prepareLog(
         level: String,
@@ -210,7 +270,7 @@ class UnifiedLogger private constructor(
 
     /** Requests an async flush of the buffered entries to disk. */
     fun flush() {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 flushInternal()
             }
@@ -227,7 +287,17 @@ class UnifiedLogger private constructor(
                 }
             }
             logBuffer.clear()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: IOException) {
+            System.err.println("UnifiedLogger: Failed to flush buffer: ${e.message}")
+            android.util.Log.e(LOGCAT_TAG, "UnifiedLogger flush failed", e)
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            // A logger must never be the thing that kills the process. An unexpected throw while
+            // writing the buffer is reported and dropped, never rethrown into the caller - and
+            // `eSync` calls this inside a `runBlocking`, where a rethrow would crash the caller.
             System.err.println("UnifiedLogger: Failed to flush buffer: ${e.message}")
             android.util.Log.e(LOGCAT_TAG, "UnifiedLogger flush failed", e)
         }
@@ -307,7 +377,9 @@ class UnifiedLogger private constructor(
                     if (!tmpFile.renameTo(exportFile)) {
                         throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
                     }
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
                     tmpFile.delete()
                     throw e
                 }
@@ -359,7 +431,9 @@ class UnifiedLogger private constructor(
                         throw IOException("Atomic rename failed: ${tmpZip.name} → ${zipFile.name}")
                     }
                     cleanupOldExports(exportDir, keepLast = EXPORT_RETENTION_KEEP)
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
                     tmpZip.delete()
                     throw e
                 }
@@ -408,7 +482,10 @@ class UnifiedLogger private constructor(
      * Zip [snapshot.files] + a session-live.log entry with the buffered lines.
      * Writes to [tmpZip] so the caller can rename atomically afterwards.
      */
-    private fun createZipFileAtomic(tmpZip: File, snapshot: LogSnapshot) {
+    private fun createZipFileAtomic(
+        tmpZip: File,
+        snapshot: LogSnapshot,
+    ) {
         java.util.zip.ZipOutputStream(java.io.FileOutputStream(tmpZip)).use { zos ->
             snapshot.files.forEach { file ->
                 addFileToZip(zos, file)
@@ -423,7 +500,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Re-open the zip and confirm entry count + EOCD magic before it is renamed into place. */
-    private fun verifyZipIntegrity(zipFile: File, expectedEntries: Int) {
+    private fun verifyZipIntegrity(
+        zipFile: File,
+        expectedEntries: Int,
+    ) {
         java.util.zip.ZipFile(zipFile).use { zip ->
             val actual = zip.size()
             if (actual != expectedEntries) {
@@ -439,7 +519,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Prune the exported-logs dir to the newest [keepLast] payanam artifacts. */
-    private fun cleanupOldExports(exportDir: File, keepLast: Int) {
+    private fun cleanupOldExports(
+        exportDir: File,
+        keepLast: Int,
+    ) {
         val artifacts =
             exportDir
                 .listFiles()
@@ -468,7 +551,7 @@ class UnifiedLogger private constructor(
 
     /** Asynchronously prunes old session files, keeping the newest [keepLast]. */
     fun clearOldLogs(keepLast: Int = 10) {
-        scope.launch {
+        launchSafely {
             try {
                 val deletedCount = clearOldLogsSync(keepLast)
                 if (deletedCount > 0) {
@@ -524,6 +607,7 @@ class UnifiedLogger private constructor(
         private const val MAX_BUFFER_SIZE = 100
         private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
+
         // ZIP End-Of-Central-Directory record: fixed 22-byte trailer whose first
         // 4 bytes are the PK\x05\x06 magic. Used to confirm a written zip is complete.
         private const val EOCD_RECORD_SIZE = 22

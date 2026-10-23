@@ -1,7 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Pre-Android-12 counterpart of data_extraction_rules.xml, and it states the
+    same thing: the database and the passphrase preferences are excluded from
+    OS-level backup and transfer. Migration happens through the app's own
+    export and import, not through the platform copying our files.
+
+    Kept explicit rather than relying on android:allowBackup="false", so the
+    declaration does not silently disagree with the manifest.
+-->
 <full-backup-content>
-    <include domain="database" path="." />
-    <include domain="sharedpref" path="." />
+    <exclude domain="database" path="." />
+    <exclude domain="sharedpref" path="." />
 </full-backup-content>

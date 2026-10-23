@@ -67,6 +67,7 @@ class TasksCrudTest {
 
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(l.addTask) // back on the Tasks list
         showAllTasks()
         h.assertVisible(TASK_TITLE)
@@ -82,6 +83,8 @@ class TasksCrudTest {
         h.type(l.taskTitleField, TASK_TITLE_EDITED)
         h.scrollTo(l.ui.locSaveChanges)
         h.click(l.ui.locSaveChanges)
+        // The edit save arms the reminder, so the notification offer is raised and holds the way back.
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(TASK_TITLE_EDITED) // the detail screen reloaded with the new title
         h.back()
         showAllTasks()
@@ -94,6 +97,7 @@ class TasksCrudTest {
         h.type(l.taskTitleField, TASK_TITLE_2)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(l.addTask)
         showAllTasks()
         h.assertVisible(TASK_TITLE_2)

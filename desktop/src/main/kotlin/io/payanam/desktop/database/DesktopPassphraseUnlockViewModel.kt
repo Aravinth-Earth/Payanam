@@ -9,6 +9,7 @@ import io.payanam.presentation.database.passphraseUnlockViewModel
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseVault
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,6 +75,12 @@ internal fun databasePassphraseUnlockViewModel(
     collaborators: DesktopPassphraseUnlockCollaborators,
     strings: UiStrings,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    /**
+     * Dispatcher the platform's identity prompt runs on. The desktop's own prompt
+     * ([io.payanam.desktop.security.DesktopBiometricUnlockPrompt]) is a no-op that refuses immediately, so a
+     * background dispatcher is correct - there is no OS prompt and no main thread to reach.
+     */
+    promptDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ): DatabasePassphraseUnlockViewModel {
     AppLogger.current.i(
         "DesktopDatabasePassphraseUnlockViewModel.databasePassphraseUnlockViewModel",
@@ -91,5 +98,6 @@ internal fun databasePassphraseUnlockViewModel(
         databaseFile = collaborators.databaseFile,
         strings = strings,
         scope = scope,
+        promptDispatcher = promptDispatcher,
     )
 }

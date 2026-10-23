@@ -313,5 +313,19 @@ compose.desktop {
                 exePackageVersion = "0.0.${buildNumber}"
             }
         }
+        // ProGuard runs for the release distribution and STAYS enabled - the point of the rules
+        // file is a correct rule, not a disabled optimizer. The file is required because the
+        // bundled SQLite JDBC driver probes for SLF4J reflectively and falls back to
+        // java.util.logging when no SLF4J binding is present. The desktop ships no SLF4J, so that
+        // missing class is expected, but ProGuard cannot see the try/catch fallback and fails the
+        // release build with "Please correct the above warnings first".
+        buildTypes {
+            release {
+                proguard {
+                    isEnabled.set(true)
+                    configurationFiles.from(rootProject.file("desktop/proguard-desktop.pro"))
+                }
+            }
+        }
     }
 }

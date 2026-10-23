@@ -1,0 +1,52 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    Security floor for the :app module. Android Lint reads this file automatically
+    because it is named lint.xml and sits in the module directory; no Gradle setting
+    points at it.
+
+    These checks ship as warnings by default, which means a regression would only be
+    seen by someone reading the report. Here they are errors, so the same regression
+    fails :app:lintDebug.
+
+    The id set is deliberately small: every id below was confirmed to have zero hits
+    in this codebase at the time it was added (recorded 2026-10-22), so the gate costs
+    nothing today and only fires when new unsafe code appears. Any id added later must
+    be verified to have zero hits first, otherwise this file turns existing warnings
+    into a broken build for no security gain.
+-->
+<lint>
+    <!-- A hardcoded credential embedded in source. An error because a secret that is
+         committed is already leaked and only a build failure reliably stops the next one. -->
+    <issue id="SecretInSource" severity="error" />
+
+    <!-- A Cipher obtained through Cipher.getInstance with ECB or with no explicit
+         mode and padding. An error because ECB encrypts identical plaintext blocks to
+         identical ciphertext, so structure leaks through the ciphertext, and because an
+         unstated mode/padding lets the platform default decide the security property. -->
+    <issue id="GetInstance" severity="error" />
+
+    <!-- An X509TrustManager that accepts any certificate chain. An error because it
+         silently removes TLS server authentication, so every connection is spoofable. -->
+    <issue id="TrustAllX509TrustManager" severity="error" />
+
+    <!-- Any hand-written X509TrustManager implementation. Separate from the check above
+         because this one fires on the implementation itself rather than on a recognised
+         trust-all body: writing a trust manager by hand is where certificate validation
+         gets disabled by accident. Verified: this is the id that fires on a hand-rolled
+         manager whose checks are empty. -->
+    <issue id="CustomX509TrustManager" severity="error" />
+
+    <!-- A HostnameVerifier that returns true for any host. An error because it voids
+         hostname checking after the TLS handshake, allowing an off-path attacker. -->
+    <issue id="BadHostnameVerifier" severity="error" />
+
+    <!-- A file or directory made world-readable. An error because other apps can read
+         it, and the app's whole design assumes its data is private to it. -->
+    <issue id="SetWorldReadable" severity="error" />
+
+    <!-- A file or directory made world-writable. An error because other apps can
+         modify or plant content the app later reads as its own. -->
+    <issue id="SetWorldWritable" severity="error" />
+</lint>

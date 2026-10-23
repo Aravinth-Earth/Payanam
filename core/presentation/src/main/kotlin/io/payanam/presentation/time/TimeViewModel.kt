@@ -253,8 +253,16 @@ class TimeViewModel(
         )
         scope.launch {
             try {
+                // Closing any previous entry is DB bookkeeping only - do NOT also stop the
+                // tracking service here. timeTrackingController.stopTracking() reaches
+                // TrackingService, which calls stopSelf(); that teardown races the
+                // startTracking(...) below and can land while the replacement foreground start
+                // is still pending, killing the process with
+                // ForegroundServiceDidNotStartInTimeException. The start below re-enters the very
+                // same service instance and calls startForeground with the same NOTIFICATION_ID,
+                // so the session is replaced in place; no stop is needed because the session is
+                // replaced, not ended.
                 timeEntryRepository.stopActiveTimeEntry()
-                timeTrackingController.stopTracking()
                 val input =
                     TimeEntryInput(
                         lifeIntentionCategory = dimensionLabel,
@@ -291,6 +299,9 @@ class TimeViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // Deliberately no compensating stopTracking() here: this catch can run before or
+                // inside the stopActiveTimeEntry() call, i.e. while a genuinely running session
+                // still owns the service, and stopping then would kill a live session.
                 logger.e(
                     "TimeViewModel.startTracking",
                     "Failed to start tracking",
@@ -648,8 +659,10 @@ class TimeViewModel(
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         scope.launch {
             try {
-                timeEntryRepository.stopActiveTimeEntry()
-                timeTrackingController.stopTracking()
+                // Resolve the entry to continue BEFORE mutating anything. The lookup is a pure
+                // in-memory read of _uiState with no side effects, so it runs first; that way the
+                // unknown-id path below changes nothing at all, instead of stopping the active DB
+                // entry and leaving the tracking service running a session the DB no longer knows.
                 val entry =
                     _uiState.value.timeEntries.find { it.id == entryId }
                         ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
@@ -657,6 +670,12 @@ class TimeViewModel(
                     logger.w("TimeViewModel.continueEntry", "Entry not found", mapOf("entryId" to entryId))
                     return@launch
                 }
+                // DB bookkeeping only: do NOT stop the tracking service before restarting it.
+                // See startTracking() above - stopTracking() leads to TrackingService.stopSelf()
+                // and that teardown races this method's foreground start, so the process can be
+                // killed for a missing startForeground(). startTracking(...) below replaces the
+                // session in place on the same service instance and notification id.
+                timeEntryRepository.stopActiveTimeEntry()
                 val input =
                     TimeEntryInput(
                         lifeIntentionCategory = entry.lifeIntentionCategory,
@@ -696,6 +715,9 @@ class TimeViewModel(
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
+                // No compensating stopTracking() here for the same reason as startTracking():
+                // the failure may precede or occur inside stopActiveTimeEntry(), while the
+                // already-running session still legitimately owns the service.
                 logger.e("TimeViewModel.continueEntry", "Failed to continue entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
             }

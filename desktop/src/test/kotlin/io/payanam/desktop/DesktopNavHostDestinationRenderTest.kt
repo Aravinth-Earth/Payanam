@@ -52,7 +52,10 @@ import io.payanam.shared.startup.DesktopStartupRuntimeState
 import io.payanam.shared.startup.startupGateInputs
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
+import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -130,6 +133,12 @@ class DesktopNavHostDestinationRenderTest {
     private lateinit var databaseFile: File
     private lateinit var vault: DesktopPassphraseVault
     private lateinit var sessionLogger: UnifiedLogger
+
+    /**
+     * Held so teardown can stop the setup ViewModel's work BEFORE the session closes: the scope is its own
+     * `Dispatchers.Default` job, and once it is handed to the factory nothing else can reach it to cancel it.
+     */
+    private var setupViewModelScope: CoroutineScope? = null
 
     @Before
     fun setUp() {
@@ -224,6 +233,13 @@ class DesktopNavHostDestinationRenderTest {
 
     @After
     fun tearDown() {
+        // WHY THE JOIN, and why it comes FIRST: cancelling the scope is not WAITING for it. A collector
+        // still running when the session closes throws for real - not a cancellation - and with no
+        // CoroutineExceptionHandler on this scope that failure reaches the JVM-global exception collector,
+        // which re-throws it as UncaughtExceptionsBeforeTest in whichever LATER test opens a TestScope: the
+        // victim moves from run to run. Joining before the session closes is what stops one test's failure
+        // from being charged to an unrelated one.
+        runBlocking { setupViewModelScope?.coroutineContext?.get(Job)?.cancelAndJoin() }
         // Both holders are reset in BOTH directions for the reason `LocalDataLayer.resetForTests` documents:
         // the `@Before` guard stops this class asserting on state leaked out of an earlier one, and the
         // `@After` guard stops it leaking onward. A failing assertion aborts the test body before it can
@@ -301,6 +317,11 @@ class DesktopNavHostDestinationRenderTest {
         // the CARD drew - without it, an absence assertion proves nothing.
         val databaseDirectory = temporaryFolder.newFolder("setup-summary")
         databaseDirectory.resolve("payanam.db").writeText("a database the summary card must report")
+        // The scope is kept in a field so teardown can cancel AND join it: the factory's default scope is a
+        // bare `Dispatchers.Default` job, and one this test never stops is one whose failure lands on
+        // whichever unrelated test opens a TestScope next.
+        val setupScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        setupViewModelScope = setupScope
         val setupViewModel =
             passphraseSetupViewModel(
                 databasePathResolver =
@@ -308,7 +329,7 @@ class DesktopNavHostDestinationRenderTest {
                 encryptionProbe = DesktopDatabaseInitPorts.encryptionProbe,
                 passphraseVault = vault,
                 encryptionStateCheckpoint = DesktopEncryptionStateCheckpoint(),
-                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+                scope = setupScope,
             )
         composeRule.setContent {
             CompositionLocalProvider(LocalUiStrings provides strings) {

@@ -17,7 +17,6 @@ import org.junit.rules.ExternalResource
 import java.io.File
 import java.time.Instant
 
-
 /**
  * Deletes the canonical database file and its SQLite companion files.
  * Shared by e2e seeds and import tests, which both need a pristine canonical path.

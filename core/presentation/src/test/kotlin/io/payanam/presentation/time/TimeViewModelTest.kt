@@ -609,11 +609,13 @@ class TimeViewModelTest {
         }
 
     /**
-     * A session must not be left running under the one being started, so the running entry is stopped
-     * first - in the store AND on the platform.
+     * A session must not be left running under the one being started, so the running entry is closed
+     * in the store first. The platform session is deliberately NOT stopped: the foreground start
+     * below replaces the session in place, and stopping it here would race that start and can kill
+     * the process for a missing startForeground().
      */
     @Test
-    fun `starting tracking stops any running session first`() =
+    fun `starting tracking closes the running entry without stopping the platform session`() =
         runTest {
             timeEntryRepository.activeEntry = entry("running", endedAt = null)
             val viewModel = viewModel()
@@ -623,7 +625,7 @@ class TimeViewModelTest {
             advanceUntilIdle()
 
             assertTrue(timeEntryRepository.stopCalls > 0)
-            assertEquals(1, timeTrackingController.stopCalls)
+            assertEquals(0, timeTrackingController.stopCalls)
         }
 
     /** [carried] the success callback: the screen navigates on it, so it has to fire. */
@@ -1423,9 +1425,16 @@ class TimeViewModelTest {
             assertEquals("Build", timeTrackingController.started.single().dimension)
         }
 
-    /** An unknown id is refused before anything is written: continuing nothing must write nothing. */
+    /**
+     * An unknown id is refused before anything is touched: continuing nothing must change nothing.
+     * The entry lookup and its early return happen BEFORE the store is asked to stop the active
+     * entry, so the not-found path must not write, must not start a session and must not stop the
+     * running platform session. Asserting the platform stop count pins that order: moving the stop
+     * back above the lookup would stop the DB entry while the tracking service keeps running the
+     * old session.
+     */
     @Test
-    fun `continuing an unknown entry writes nothing`() =
+    fun `continuing an unknown entry changes nothing at all`() =
         runTest {
             val viewModel = viewModel()
             advanceUntilIdle()
@@ -1435,6 +1444,7 @@ class TimeViewModelTest {
 
             assertTrue(timeEntryRepository.updated.isEmpty())
             assertTrue(timeTrackingController.started.isEmpty())
+            assertEquals(0, timeTrackingController.stopCalls)
         }
 
     /** A store that refuses the re-open is reported. */

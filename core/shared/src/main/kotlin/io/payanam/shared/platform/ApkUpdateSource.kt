@@ -51,6 +51,15 @@ enum class InstallRefusal {
 
     /** This platform cannot install app updates at all. */
     PLATFORM_NOT_APPLICABLE,
+
+    /**
+     * The artifact did not verify against the digest its release published; it may also mean this
+     * platform never verified an artifact for that build at all.
+     *
+     * A refusal and never a warning: an APK whose bytes were not confirmed is not installable, so
+     * there is no state in which this becomes "go ahead anyway".
+     */
+    CHECKSUM_UNVERIFIED,
 }
 
 /** Whether the platform's installer actually took the handoff. */

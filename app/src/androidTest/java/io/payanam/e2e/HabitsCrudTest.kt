@@ -77,6 +77,7 @@ class HabitsCrudTest {
         h.click(l.ui.locOk)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(HABIT_TITLE)
         h.assertLogged("AddTaskViewModel.createTask", "Task created successfully")
         h.log("phase2=created")

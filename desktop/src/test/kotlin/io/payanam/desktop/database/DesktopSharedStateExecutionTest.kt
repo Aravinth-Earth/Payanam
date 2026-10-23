@@ -9,8 +9,9 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.notes.notesViewModel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -118,7 +119,13 @@ class DesktopSharedStateExecutionTest {
 
     @After
     fun tearDown() {
-        viewModelScope?.cancel()
+        // WHY THE JOIN, and why it comes FIRST: cancelling the scope is not WAITING for it. The shared
+        // ViewModel's collectors never complete on their own, so one still inside the session when the
+        // session closes throws for real - not a cancellation - and with no CoroutineExceptionHandler on
+        // this scope that failure reaches the JVM-global exception collector, which re-throws it as
+        // UncaughtExceptionsBeforeTest in whichever LATER test opens a TestScope. Joining here is what
+        // keeps this test's failure from being charged to an unrelated one.
+        runBlocking { viewModelScope?.coroutineContext?.get(Job)?.cancelAndJoin() }
         LocalDataLayer.resetForTests()
         session.close()
     }

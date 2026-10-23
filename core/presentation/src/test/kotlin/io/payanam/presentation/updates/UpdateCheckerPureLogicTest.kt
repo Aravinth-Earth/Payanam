@@ -8,6 +8,23 @@ import io.payanam.shared.updates.UpdateChannel
 import org.json.JSONArray
 import org.junit.Test
 
+/** A GitHub release asset URL in the shape GitHub serves it; the policy pins scheme, host and path. */
+private fun assetUrl(fileName: String): String =
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/test/$fileName"
+
+/** The dev-channel APK the fixture release ships, as a real download URL. */
+private const val DEV_APK_URL =
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/dev-v12/" +
+        "payanam_1.0.0_debug_arm64-v8a.apk"
+
+/** The dev-channel checksum sibling of [DEV_APK_URL]. */
+private const val DEV_SHA_URL = "$DEV_APK_URL.sha256"
+
+/** The stable-channel APK the fixture release ships. */
+private const val STABLE_APK_URL =
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/v11/" +
+        "payanam_1.0.0_release_arm64-v8a.apk"
+
 /** A GitHub releases list as the list endpoint returns it: one entry per channel release. */
 private val RELEASE_LIST_JSON =
     """
@@ -17,8 +34,8 @@ private val RELEASE_LIST_JSON =
         "name": "Payanam #12",
         "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v12",
         "assets": [
-          {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "https://d/dev12.apk"},
-          {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "https://d/dev12.sha256"}
+          {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "$DEV_APK_URL"},
+          {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "$DEV_SHA_URL"}
         ]
       },
       {
@@ -26,7 +43,7 @@ private val RELEASE_LIST_JSON =
         "name": "Payanam #11",
         "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/v11",
         "assets": [
-          {"name": "payanam_1.0.0_release_arm64-v8a.apk", "browser_download_url": "https://d/rel11.apk"}
+          {"name": "payanam_1.0.0_release_arm64-v8a.apk", "browser_download_url": "$STABLE_APK_URL"}
         ]
       }
     ]
@@ -80,30 +97,30 @@ class UpdateCheckerPureLogicTest {
         // Both types ship in one release: the running type decides, not presence.
         val assets =
             assetsOf(
-                "payanam_1.0.0_release_arm64-v8a.apk" to "https://d/rel.apk",
-                "payanam_1.0.0_release_arm64-v8a.apk.sha256" to "https://d/rel.sha256",
-                "payanam_1.0.0_debug_arm64-v8a.apk" to "https://d/dbg.apk",
-                "payanam_1.0.0_debug_arm64-v8a.apk.sha256" to "https://d/dbg.sha256",
+                "payanam_1.0.0_release_arm64-v8a.apk" to assetUrl("rel.apk"),
+                "payanam_1.0.0_release_arm64-v8a.apk.sha256" to assetUrl("rel.apk.sha256"),
+                "payanam_1.0.0_debug_arm64-v8a.apk" to assetUrl("dbg.apk"),
+                "payanam_1.0.0_debug_arm64-v8a.apk.sha256" to assetUrl("dbg.apk.sha256"),
             )
 
         val debug = selectApkAssets(assets, expectedType = "debug")
 
-        assertThat(debug.apkUrl).isEqualTo("https://d/dbg.apk")
-        assertThat(debug.sha256Url).isEqualTo("https://d/dbg.sha256")
+        assertThat(debug.apkUrl).isEqualTo(assetUrl("dbg.apk"))
+        assertThat(debug.sha256Url).isEqualTo(assetUrl("dbg.apk.sha256"))
         assertThat(debug.typeMismatch).isFalse()
         // Distinct, first-seen order — the fail-closed log reads this list.
         assertThat(debug.assetTypesSeen).containsExactly("release", "debug").inOrder()
 
         val release = selectApkAssets(assets, expectedType = "release")
 
-        assertThat(release.apkUrl).isEqualTo("https://d/rel.apk")
-        assertThat(release.sha256Url).isEqualTo("https://d/rel.sha256")
+        assertThat(release.apkUrl).isEqualTo(assetUrl("rel.apk"))
+        assertThat(release.sha256Url).isEqualTo(assetUrl("rel.apk.sha256"))
         assertThat(release.typeMismatch).isFalse()
     }
 
     @Test
     fun `a release shipping only the other build type fails closed`() {
-        val assets = assetsOf("payanam_1.0.0_release_arm64-v8a.apk" to "https://d/rel.apk")
+        val assets = assetsOf("payanam_1.0.0_release_arm64-v8a.apk" to assetUrl("rel.apk"))
 
         val selection = selectApkAssets(assets, expectedType = "debug")
 
@@ -117,8 +134,8 @@ class UpdateCheckerPureLogicTest {
     fun `an absent empty untyped or checksum-only asset list all fail closed`() {
         // No assets key at all, an empty list, a legacy untyped name and a release whose only
         // type-bearing asset is the checksum: each yields a mismatch and never a URL.
-        val untyped = assetsOf("payanam-1.0.0.apk" to "https://d/legacy.apk")
-        val checksumOnly = assetsOf("payanam_1.0.0_debug_arm64-v8a.apk.sha256" to "https://d/dbg.sha256")
+        val untyped = assetsOf("payanam-1.0.0.apk" to assetUrl("legacy.apk"))
+        val checksumOnly = assetsOf("payanam_1.0.0_debug_arm64-v8a.apk.sha256" to assetUrl("dbg.apk.sha256"))
 
         for (assets in listOf(null, JSONArray("[]"), untyped, checksumOnly)) {
             val selection = selectApkAssets(assets, expectedType = "debug")
@@ -145,8 +162,8 @@ class UpdateCheckerPureLogicTest {
         val dev = statuses.first()
         assertThat(dev.buildNumber).isEqualTo(12)
         assertThat(dev.releaseUrl).isEqualTo("https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v12")
-        assertThat(dev.apkDownloadUrl).isEqualTo("https://d/dev12.apk")
-        assertThat(dev.apkSha256Url).isEqualTo("https://d/dev12.sha256")
+        assertThat(dev.apkDownloadUrl).isEqualTo(DEV_APK_URL)
+        assertThat(dev.apkSha256Url).isEqualTo(DEV_SHA_URL)
         assertThat(dev.typeMismatch).isFalse()
 
         // The stable release ships only a release apk, so a debug install fails closed on it.

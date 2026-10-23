@@ -43,9 +43,9 @@ class FocusModeTest {
 
     @Test
     fun focusMode() {
-        FreshSetup(h).run()                 // onboarding -> passphrase -> dimensions; ends on dimension screen
+        FreshSetup(h).run() // onboarding -> passphrase -> dimensions; ends on dimension screen
         h.scrollTo(l.ui.dbInitDimensionSetupContinueAction)
-        h.click(l.ui.dbInitDimensionSetupContinueAction)   // "Verify and proceed" -> main app
+        h.click(l.ui.dbInitDimensionSetupContinueAction) // "Verify and proceed" -> main app
         h.assertVisible(l.perDimension)
 
         // ── go to Settings ──
@@ -61,7 +61,7 @@ class FocusModeTest {
         h.assertVisible(l.ui.presetSimpleJournal)
         h.assertVisible(l.ui.presetSimpleTasks)
         h.assertVisible(l.ui.presetFullSuite)
-        h.click(l.ui.presetSimpleJournal)   // default is FULL_SUITE; this is a non-default preset
+        h.click(l.ui.presetSimpleJournal) // default is FULL_SUITE; this is a non-default preset
 
         // ── 3. a tab-visibility switch: read, flip, assert the new state ──
         // SIMPLE_JOURNAL leaves the Journal tab visible, so this switch reads ON both before and
@@ -75,7 +75,7 @@ class FocusModeTest {
         }
 
         // ── 4. the bottom nav reflects the hidden tab; then restore it ──
-        h.goToTab(l.ui.settingsDatabaseNotes)   // Notes: visible under the preset, renders no "Journal"
+        h.goToTab(l.ui.settingsDatabaseNotes) // Notes: visible under the preset, renders no "Journal"
         check(!h.isOnScreen(l.ui.locJournal)) {
             "the bottom nav still shows the Journal tab after it was hidden in Focus Mode settings"
         }

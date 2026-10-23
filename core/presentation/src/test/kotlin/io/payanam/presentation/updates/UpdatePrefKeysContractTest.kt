@@ -15,7 +15,7 @@ import org.junit.Test
  * records for `DatabaseArtifacts`' file names ("a rename orphans a user's in-flight backup instead of
  * failing anything"), applied to preference rows.
  *
- * It also asserts the set is exactly these eleven, so deleting a key that is still read or written
+ * It also asserts the set is exactly these twelve, so deleting a key that is still read or written
  * somewhere fails here rather than at a runtime default.
  */
 class UpdatePrefKeysContractTest {
@@ -32,10 +32,11 @@ class UpdatePrefKeysContractTest {
         assertThat(UpdatePrefKeys.LAST_DOWNLOADED_FILE).isEqualTo("last_downloaded_file")
         assertThat(UpdatePrefKeys.LAST_DOWNLOADED_AT).isEqualTo("last_downloaded_at")
         assertThat(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL).isEqualTo("active_download_url")
+        assertThat(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL).isEqualTo("active_download_sha256_url")
     }
 
     @Test
-    fun `the key set is exactly these eleven, none duplicated`() {
+    fun `the key set is exactly these twelve, none duplicated`() {
         val declared =
             listOf(
                 UpdatePrefKeys.UPDATE_CHANNEL,
@@ -49,9 +50,10 @@ class UpdatePrefKeysContractTest {
                 UpdatePrefKeys.LAST_DOWNLOADED_FILE,
                 UpdatePrefKeys.LAST_DOWNLOADED_AT,
                 UpdatePrefKeys.ACTIVE_DOWNLOAD_URL,
+                UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL,
             )
 
-        assertThat(declared).hasSize(11)
-        assertThat(declared.toSet()).hasSize(11)
+        assertThat(declared).hasSize(12)
+        assertThat(declared.toSet()).hasSize(12)
     }
 }

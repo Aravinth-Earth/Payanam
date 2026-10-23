@@ -8,8 +8,8 @@ import org.junit.Test
 /**
  * Contract tests for [InstallSourceReader].
  *
- * The real implementation queries `PackageManager.getInstallSourceInfo` — Android-framework
- * code that cannot run on the JVM. These tests pin the interface contract via a fake:
+ * The real implementation answers from the Android build configuration, which is not on the JVM test
+ * classpath here. These tests pin the interface contract via a fake:
  * the ViewModel reads [InstallSourceReader.isFDroidBuild] once at construction and branches
  * on it for every user action, so the fake must return a stable boolean.
  */

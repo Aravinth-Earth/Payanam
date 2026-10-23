@@ -2,9 +2,9 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
-import io.payanam.presentation.updates.nextPageUrl
 import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.presentation.updates.channelFromTag
+import io.payanam.presentation.updates.nextPageUrl
 import io.payanam.shared.updates.ChannelStatus
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError

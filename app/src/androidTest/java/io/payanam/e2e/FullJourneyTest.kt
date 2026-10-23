@@ -26,7 +26,7 @@ import org.junit.runner.RunWith
  *
  * LOCALE: every label is read from [E2eLabels] rather than written here as English copy, so the whole
  * journey runs on a device in whatever language the app is in. Task titles the suite types in
- * ("Quick Task", "Full Detail Task") are data, not copy, and stay literals — see [TASK_DATA].
+ * ("Quick Task", "Full Detail Task") are data, not copy, and stay literals — see [TaskData].
  */
 @RunWith(AndroidJUnit4::class)
 class FullJourneyTest {
@@ -95,8 +95,8 @@ class FullJourneyTest {
         // ═══ PHASE 10 — DATA PERSISTENCE ══════════════════════════════════════════════════════════
         // Everything created earlier in this run must still be there after all the navigating.
         h.clickNav(l.tasks)
-        h.assertVisible(TASK_DATA.quickTask)
-        h.assertVisible(TASK_DATA.fullDetailTask)
+        h.assertVisible(TaskData.QUICK_TASK)
+        h.assertVisible(TaskData.FULL_DETAIL_TASK)
         h.clickNav(l.lenses)
         h.assertVisible(l.lenses)
         h.log("phase10=done")
@@ -249,6 +249,7 @@ class FullJourneyTest {
         h.type(l.taskTitleField, "Daily Meditation")
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
     }
 
     /** Port of Phase 3: start the timer, confirm it runs, stop it, dismiss the edit dialog. */
@@ -261,6 +262,7 @@ class FullJourneyTest {
 
         h.click(l.startTracking)
         h.click(l.start)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(l.stopTracking)
 
         h.click(l.stopTracking)
@@ -300,21 +302,23 @@ class FullJourneyTest {
         // ── create 1: title only ──
         h.click(l.addTask)
         h.assertVisible(l.taskTitleField)
-        h.type(l.taskTitleField, TASK_DATA.quickTask)
+        h.type(l.taskTitleField, TaskData.QUICK_TASK)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
-        h.assertVisible(TASK_DATA.quickTask)
+        h.dismissNotificationOfferIfPresent()
+        h.assertVisible(TaskData.QUICK_TASK)
 
         // ── create 2: title + description ──
         h.click(l.addTask)
-        h.type(l.taskTitleField, TASK_DATA.fullDetailTask)
+        h.type(l.taskTitleField, TaskData.FULL_DETAIL_TASK)
         h.type(l.descriptionOptional, "Important task")
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
-        h.assertVisible(TASK_DATA.fullDetailTask)
+        h.dismissNotificationOfferIfPresent()
+        h.assertVisible(TaskData.FULL_DETAIL_TASK)
 
         // ── detail screen ──
-        h.click(TASK_DATA.fullDetailTask)
+        h.click(TaskData.FULL_DETAIL_TASK)
         h.assertVisible(l.taskDetails)
         h.back()
     }
@@ -377,9 +381,9 @@ class FullJourneyTest {
         const val DIMENSION_FAVORITE_ICON_TAG = "dimension_icon_favorite"
 
         /** Titles this suite types into the app, so it can find them again. Data, not localized copy. */
-        object TASK_DATA {
-            const val quickTask = "Quick Task"
-            const val fullDetailTask = "Full Detail Task"
+        object TaskData {
+            const val QUICK_TASK = "Quick Task"
+            const val FULL_DETAIL_TASK = "Full Detail Task"
         }
     }
 }

@@ -12,33 +12,33 @@ import androidx.biometric.BiometricManager.Authenticators.BIOMETRIC_STRONG
 import androidx.biometric.BiometricPrompt
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.FragmentActivity
-import io.payanam.presentation.data.LocalDataLayer
-import io.payanam.presentation.updates.artifactNameMatchesBuildType
-import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.platform.AndroidDocumentSource
-import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.BulkHabitMappingResult
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
-import io.payanam.presentation.settings.listDatabaseArtifactFiles
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.settings.toDatabaseArtifactUiModel
 import io.payanam.presentation.settings.UhabitsImportResult
-import io.payanam.shared.updates.UpdateChannel
-import io.payanam.shared.updates.UpdateCheckError
-import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.presentation.settings.listDatabaseArtifactFiles
+import io.payanam.presentation.settings.toDatabaseArtifactUiModel
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.presentation.updates.UpdatePrefKeys
-import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.settings.BackupInterval
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -54,7 +54,6 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 import java.io.File
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
@@ -74,6 +73,14 @@ class SettingsViewModel(
     // The repo's TasksViewModel keeps `private val scope` safely only because its own extensions sit in
     // the same file.
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    /**
+     * The shared install gate.
+     *
+     * Defaulted because this ViewModel is built at its one call site rather than injected, but a
+     * constructor parameter all the same so a test can hand in a scripted verdict and prove the four
+     * gate branches. Production's default is the same [ApkChecksumVerifier] Hilt binds.
+     */
+    private val checksumVerifier: ApkChecksumVerifier = DefaultApkChecksumVerifier(),
 ) {
     private val taskRepository = LocalDataLayer.current.tasks
     private val timeEntryRepository = LocalDataLayer.current.timeEntries
@@ -99,8 +106,8 @@ class SettingsViewModel(
     )
     val uiState: StateFlow<SettingsUiState> = _uiState.asStateFlow()
 
-    /** Whether the app was installed from F-Droid (disables in-app update UI). */
-    val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+    /** Whether this is the F-Droid channel build (disables in-app update UI). */
+    val isFDroidBuild: Boolean = FdroidBuildCheck.isFDroidBuild()
 
     private val _navigateToDatabaseInit = MutableSharedFlow<Unit>(extraBufferCapacity = 1)
     val navigateToDatabaseInit: SharedFlow<Unit> = _navigateToDatabaseInit.asSharedFlow()
@@ -190,6 +197,7 @@ class SettingsViewModel(
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, null)
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, null)
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, null)
             logger.i("SettingsViewModel.onCancelDownload", "Download cancelled", mapOf("downloadId" to id))
             _uiState.update { it.copy(downloadState = DownloadUiState.Idle) }
         }
@@ -251,6 +259,7 @@ class SettingsViewModel(
                 // A fresh check will re-discover the APK if it's still the latest.
                 logger.d("SettingsViewModel.restoreCompletedDownload", "Completed download is stale; reverting to check", mapOf("fileName" to fileName, "build" to build))
                 appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+                appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, null)
             }
         }
     }
@@ -312,8 +321,12 @@ class SettingsViewModel(
         }
     }
 
-    /** User tapped "Update now" in the popup → launch the system installer. */
-    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    /**
+     * User tapped "Update now" in the popup → verify the download, then launch the system installer.
+     *
+     * Fail-closed: only [ChecksumVerdict.Verified] may reach the installer. Every other verdict keeps
+     * the downloaded file in place and surfaces its own user-visible message (see [installBlockKey]).
+     */
     internal fun onInstallNow() {
         // Button path (Downloaded state) may not have a pending popup — derive
         // the file from the download state when that's the case.
@@ -325,6 +338,25 @@ class SettingsViewModel(
             _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("file_missing")) }
             return
         }
+        scope.launch {
+            val sha256Url = appSettingsRepository.getSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL)
+            val verdict = checksumVerifier.verify(file, sha256Url)
+            logger.i("SettingsViewModel.onInstallNow", "Install gate verdict", mapOf("verdict" to verdict.logName()))
+            val blockKey = verdict.installBlockKey()
+            if (blockKey != null) {
+                // Dismiss the popup and show the reason; the APK itself is left untouched.
+                _uiState.update {
+                    it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed(blockKey))
+                }
+                return@launch
+            }
+            launchInstaller(file)
+        }
+    }
+
+    /** Hand [file] to the system installer once it has passed the checksum gate. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
+    private fun launchInstaller(file: File) {
         try {
             val uri = androidx.core.content.FileProvider.getUriForFile(
                 context,
@@ -340,7 +372,7 @@ class SettingsViewModel(
             // Install flow handed off to the system; clear pending state.
             _uiState.update { it.copy(pendingInstallPath = null) }
         } catch (e: Exception) {
-            logger.e("SettingsViewModel.onInstallNow", "Install launch failed", e)
+            logger.e("SettingsViewModel.launchInstaller", "Install launch failed", e)
             _uiState.update { it.copy(pendingInstallPath = null, downloadState = DownloadUiState.Failed("install_launch_failed")) }
         }
     }
@@ -408,7 +440,6 @@ class SettingsViewModel(
                 }
             } catch (e: Exception) {
                 logger.e("SettingsViewModel.loadDatabaseStats", "Failed to load stats", e)
-                Timber.e(e, "Error loading database stats")
             }
         }
     }
@@ -635,7 +666,6 @@ class SettingsViewModel(
                         "error" to (e.message ?: "Unknown error"),
                     ),
                 )
-                Timber.e(e, "Delete database failed")
             }
         }
     }
@@ -1000,6 +1030,7 @@ class SettingsViewModel(
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD, buildNumber.toString())
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_FILE, fileName)
                 appSettingsRepository.setSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT, System.currentTimeMillis().toString())
+                persistSha256UrlIfKnown()
             }
             _uiState.update { it.copy(downloadState = DownloadUiState.Downloaded(fileName, existingPath)) }
             return
@@ -1031,9 +1062,26 @@ class SettingsViewModel(
             // Persist the URL so a Retry survives app restarts.
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, downloadUrl)
             appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
+            // ...and the checksum sidecar URL, so the install gate can verify this download
+            // even after a restart wipes the in-memory check result.
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, selected?.apkSha256Url)
         }
         logger.i("SettingsViewModel.startAutoDownload", "Auto-download started", mapOf("build" to buildNumber, "file" to fileName, "downloadId" to id))
         pollDownloadProgress()
+    }
+
+    /**
+     * Remember the selected channel's published checksum URL when the in-memory check result still
+     * carries one. Never clears: a stored value already describes the file on disk, and clearing it
+     * would turn a verifiable download into an unconfirmable one after a restart.
+     */
+    private suspend fun persistSha256UrlIfKnown() {
+        val sha256Url = _uiState.value.updateCheckResult?.channelStatuses
+            ?.firstOrNull { it.channel == _uiState.value.updateChannel }
+            ?.apkSha256Url
+        if (!sha256Url.isNullOrBlank()) {
+            appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, sha256Url)
+        }
     }
 
     /** Manual "Download update" / Retry entry point (single-button state machine). */
@@ -1051,6 +1099,7 @@ class SettingsViewModel(
                 // surface a user-visible failure (no silent no-op).
                 if (!artifactNameMatchesBuildType(fileName, ApkBuildType.running())) {
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, null)
                     logger.i(
                         "SettingsViewModel.downloadOrRetry",
                         "Persisted download URL failed build-type validation; cleared",
@@ -1079,6 +1128,7 @@ class SettingsViewModel(
                 if (id != null) {
                     activeDownloadId = id
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
+                    persistSha256UrlIfKnown()
                     logger.i("SettingsViewModel.downloadOrRetry", "Retry download enqueued", mapOf("file" to fileName, "downloadId" to id))
                     pollDownloadProgress()
                 } else {

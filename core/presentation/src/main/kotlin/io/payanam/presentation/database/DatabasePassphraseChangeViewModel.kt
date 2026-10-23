@@ -232,6 +232,13 @@ class DatabasePassphraseChangeViewModel(
         ) {
             logger.e("DatabasePassphraseChangeViewModel.submit", "Passphrase change failed, restoring backup", error)
             withContext(ioDispatcher) {
+                // The sidecars the FAILED attempt created go FIRST, before the restore. The restore puts
+                // the main file back, but a `-journal` the attempt left beside it is not in the backup set
+                // - nothing else removes it - and a database with a sidecar beside it is one the desktop's
+                // opener REFUSES (`SIDECAR_PRIMARY_MISSING`), which would leave the user with a database
+                // they cannot open after a change that was supposed to change nothing. Observed: the
+                // failed rekey's `-journal` survived the restore and the reopen was refused.
+                discardSidecarsCreatedBy(dbFile, backups)
                 DatabaseArtifactBackupSupport.restore(backups)
                 DatabaseArtifactBackupSupport.cleanup(backups)
             }
@@ -239,6 +246,54 @@ class DatabasePassphraseChangeViewModel(
             sessionManager.openDatabase(currentPassphrase)
             "generic"
         }
+    }
+
+    /**
+     * Removes the sidecars the FAILED attempt created, so the restore lands the file set the database
+     * had before the attempt began.
+     *
+     * **WHY THIS IS NOT IN THE SHARED RESTORE HELPER.** [DatabaseArtifactBackupSupport.restore] copies
+     * backups back and counts what came back; it knows nothing about the attempt that failed. Its other
+     * caller - the SETUP flow - fails a PLAINTEXT-to-ENCRYPTED conversion, which on Android builds a NEW
+     * file and swaps it in rather than rewriting the main file in place, and which deletes the source's
+     * own companions itself. "A sidecar this attempt created" is a statement about an IN-PLACE rewrite of
+     * the main file, and only the passphrase change performs one. Putting the deletion in the shared
+     * helper would change a shared contract for a second caller whose operation is a different one.
+     *
+     * **ONLY THIS DATABASE'S OWN SIDECARS.** The family is [DatabaseArtifacts.sidecarFilesFor] of
+     * [dbFile], so a sidecar belonging to a different file is never touched.
+     *
+     * **A SIDECAR THAT WAS BACKED UP IS NOT DELETED.** Every family member that existed before the
+     * attempt was backed up, and the restore puts it back; the end state is the family the database had
+     * before the attempt, not an emptied directory.
+     */
+    private fun discardSidecarsCreatedBy(
+        dbFile: File,
+        backups: List<Pair<File, File>>,
+    ) {
+        val backedUp = backups.map { (original, _) -> original }.toSet()
+        val created = DatabaseArtifacts.sidecarFilesFor(dbFile).filter { it.exists() && it !in backedUp }
+        if (created.isEmpty()) return
+        val removed = mutableListOf<String>()
+        created.forEach { sidecar ->
+            if (sidecar.delete()) {
+                removed += sidecar.name
+            } else {
+                logger.w(
+                    "DatabasePassphraseChangeViewModel.submit",
+                    "Could not remove a sidecar the failed passphrase change left behind",
+                    mapOf("sidecar" to sidecar.name),
+                )
+            }
+        }
+        logger.w(
+            "DatabasePassphraseChangeViewModel.submit",
+            "Removed the sidecars the failed passphrase change created",
+            // The NAMES, joined into one string: a collection would be summarised to a count by the
+            // log sanitizer, and "which sidecar was it" is the whole point of the line. These are file
+            // names beside the database, never the absolute path.
+            mapOf("sidecars" to removed.joinToString(", ")),
+        )
     }
 
     /**

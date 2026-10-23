@@ -28,64 +28,64 @@ import javax.inject.Singleton
  */
 @Singleton
 class AndroidStartupRecovery
-    @Inject
-    constructor(
-        private val recurrenceManager: Provider<RecurrenceManager>,
-        private val scoreRollupBackfillService: Provider<ScoreRollupBackfillService>,
-    ) : StartupRecovery {
-        override suspend fun runStartupRecovery(): List<StartupRecoveryStep> {
-            if (PlatformFeatureFlags.current.minimalModeEnabled) {
-                UnifiedLogger.getInstance().i(SOURCE, "Minimal mode: skipping recurrence maintenance (habits disabled)")
-                return emptyList()
-            }
-            val completed = mutableListOf<StartupRecoveryStep>()
+@Inject
+constructor(
+    private val recurrenceManager: Provider<RecurrenceManager>,
+    private val scoreRollupBackfillService: Provider<ScoreRollupBackfillService>,
+) : StartupRecovery {
+    override suspend fun runStartupRecovery(): List<StartupRecoveryStep> {
+        if (PlatformFeatureFlags.current.minimalModeEnabled) {
+            UnifiedLogger.getInstance().i(SOURCE, "Minimal mode: skipping recurrence maintenance (habits disabled)")
+            return emptyList()
+        }
+        val completed = mutableListOf<StartupRecoveryStep>()
 
-            runCatching {
-                recurrenceManager.get().repairStuckRecurringTasks()
-            }.onSuccess { repaired ->
-                if (repaired > 0) {
-                    UnifiedLogger.getInstance().i(
-                        SOURCE,
-                        "Startup recovery repaired $repaired stuck recurring task occurrence(s)",
-                    )
-                }
-                completed += StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS
-            }.onFailure { failure ->
-                UnifiedLogger.getInstance().e(
+        runCatching {
+            recurrenceManager.get().repairStuckRecurringTasks()
+        }.onSuccess { repaired ->
+            if (repaired > 0) {
+                UnifiedLogger.getInstance().i(
                     SOURCE,
-                    "Startup recovery step ${StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS} failed",
-                    failure,
+                    "Startup recovery repaired $repaired stuck recurring task occurrence(s)",
                 )
             }
-
-            runCatching {
-                recurrenceManager.get().autoAdvanceRecurringTasks()
-            }.onSuccess {
-                completed += StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS
-            }.onFailure { failure ->
-                UnifiedLogger.getInstance().e(
-                    SOURCE,
-                    "Startup recovery step ${StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS} failed",
-                    failure,
-                )
-            }
-
-            runCatching {
-                scoreRollupBackfillService.get().runIfNeeded()
-            }.onSuccess {
-                completed += StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS
-            }.onFailure { failure ->
-                UnifiedLogger.getInstance().e(
-                    SOURCE,
-                    "Startup recovery step ${StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS} failed",
-                    failure,
-                )
-            }
-
-            return completed
+            completed += StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS
+        }.onFailure { failure ->
+            UnifiedLogger.getInstance().e(
+                SOURCE,
+                "Startup recovery step ${StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS} failed",
+                failure,
+            )
         }
 
-        private companion object {
-            const val SOURCE = "AndroidStartupRecovery"
+        runCatching {
+            recurrenceManager.get().autoAdvanceRecurringTasks()
+        }.onSuccess {
+            completed += StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS
+        }.onFailure { failure ->
+            UnifiedLogger.getInstance().e(
+                SOURCE,
+                "Startup recovery step ${StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS} failed",
+                failure,
+            )
         }
+
+        runCatching {
+            scoreRollupBackfillService.get().runIfNeeded()
+        }.onSuccess {
+            completed += StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS
+        }.onFailure { failure ->
+            UnifiedLogger.getInstance().e(
+                SOURCE,
+                "Startup recovery step ${StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS} failed",
+                failure,
+            )
+        }
+
+        return completed
     }
+
+    private companion object {
+        const val SOURCE = "AndroidStartupRecovery"
+    }
+}

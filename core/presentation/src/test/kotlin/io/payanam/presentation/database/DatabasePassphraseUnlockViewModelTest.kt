@@ -21,6 +21,7 @@ import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.security.Report
 import io.payanam.shared.security.VaultAvailability
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
 import kotlinx.coroutines.test.advanceUntilIdle
@@ -29,6 +30,8 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import kotlin.coroutines.ContinuationInterceptor
+import kotlin.coroutines.coroutineContext
 
 /**
  * The unlock gate over its real collaborators' contracts: a fake [PassphraseVault], a fake
@@ -84,6 +87,9 @@ class DatabasePassphraseUnlockViewModelTest {
             strings = strings,
             scope = scope,
             ioDispatcher = testDispatcher,
+            // The prompt must run on the dispatcher this platform supplies; point it at the test scheduler
+            // so `advanceUntilIdle` governs that hop too (the default is a real background pool).
+            promptDispatcher = testDispatcher,
         )
 
     // ------------------------------------------------------------------ the three production risks
@@ -141,6 +147,58 @@ class DatabasePassphraseUnlockViewModelTest {
             assertThat(opener.openedWith).isEqualTo("unwrapped-by-the-platform")
             assertThat(vault.resetAttemptsCalled).isTrue()
             assertThat(viewModel.uiState.value.errorReasonCode).isNull()
+            viewModel.dispose()
+        }
+
+    @Test
+    fun `the prompt is invoked on the injected prompt dispatcher`() =
+        runTest(testDispatcher) {
+            // THE REGRESSION THIS TEST EXISTS FOR: `startBiometricUnlock` used to call the platform prompt
+            // directly inside the ViewModel's background scope. On Android that reaches
+            // `BiometricPrompt.authenticate(...)`, which is main-thread-only; off the main thread it threw
+            // and the exception killed the process on launch. The fix is that the prompt runs on the
+            // dispatcher the platform supplies, so that is exactly what is asserted here.
+            val promptDispatcher = StandardTestDispatcher(testScheduler)
+            prompt.availability = BiometricAvailability.Available
+            prompt.answer = BiometricAuthentication.Authenticated("unwrapped-by-the-platform")
+            val viewModel =
+                DatabasePassphraseUnlockViewModel(
+                    vault = vault,
+                    biometricPrompt = prompt,
+                    forgottenPassphraseReset = reset,
+                    databaseOpener = opener,
+                    databaseFile = databaseFile,
+                    strings = strings,
+                    scope = scope,
+                    ioDispatcher = testDispatcher,
+                    promptDispatcher = promptDispatcher,
+                )
+
+            viewModel.startBiometricUnlock { }
+            advanceUntilIdle()
+
+            assertThat(prompt.authenticationRequests).isEqualTo(1)
+            // The dispatcher the prompt actually observed is the one that was injected - not the scope's.
+            assertThat(prompt.requestDispatcher).isSameInstanceAs(promptDispatcher)
+            viewModel.dispose()
+        }
+
+    @Test
+    fun `a prompt that throws keeps the app open and reports an error`() =
+        runTest(testDispatcher) {
+            val viewModel = viewModel()
+            prompt.availability = BiometricAvailability.Available
+            prompt.failure = IllegalStateException("prompt exploded")
+            var unlocked = false
+
+            viewModel.startBiometricUnlock { unlocked = true }
+            advanceUntilIdle()
+
+            // The whole point of the guard: a misbehaving platform prompt must surface as state, not as an
+            // uncaught coroutine exception that takes the process down.
+            assertThat(unlocked).isFalse()
+            assertThat(viewModel.uiState.value.isUnlocking).isFalse()
+            assertThat(viewModel.uiState.value.errorReasonCode).isEqualTo("biometric_error")
             viewModel.dispose()
         }
 
@@ -441,10 +499,18 @@ class DatabasePassphraseUnlockViewModelTest {
         var answer: BiometricAuthentication = BiometricAuthentication.Refused(BiometricRefusalReason.FAILED)
         var authenticationRequests = 0
 
+        /** The dispatcher this prompt was actually resumed on, captured to prove where it was invoked. */
+        var requestDispatcher: CoroutineDispatcher? = null
+
+        /** When set, [requestAuthentication] throws it - the misbehaving-platform case. */
+        var failure: Throwable? = null
+
         override fun availability(): BiometricAvailability = availability
 
         override suspend fun requestAuthentication(): BiometricAuthentication {
             authenticationRequests++
+            requestDispatcher = coroutineContext[ContinuationInterceptor] as? CoroutineDispatcher
+            failure?.let { throw it }
             return answer
         }
     }

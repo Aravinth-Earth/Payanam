@@ -21,6 +21,7 @@ import io.payanam.presentation.habits.HabitDayMetricsState
 import io.payanam.presentation.platform.elapsedMillis
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.presentation.scoring.ScoreMetricColumn
+import io.payanam.scoring.ordinalRankParts
 import io.payanam.scoring.ordinalRankToday
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
@@ -257,10 +258,20 @@ class TasksViewModel(
         val cascadeChips =
             metrics.map { (metric, label) ->
                 val value = dayToday?.let { metricValueForChip(it, metric) } ?: "—"
-                val rank = ordinalRankToday(histByMetric[metric].orEmpty())
-                DayMetricChipData(value = value, rank = rank, label = label)
+                val series = histByMetric[metric].orEmpty()
+                val rank = ordinalRankToday(series)
+                // The same rank, kept as numbers, so the strip can scale each chip by its OWN rank.
+                val parts = ordinalRankParts(series)
+                DayMetricChipData(
+                    value = value,
+                    rank = rank,
+                    label = label,
+                    rankNumber = parts?.rank,
+                    rankTotal = parts?.total,
+                )
             }
-        // Due chip: real count, placeholder rank.
+        // Due chip: real count, placeholder rank — there is no numeric rank behind a
+        // placeholder, so rankNumber/rankTotal stay null and the strip keeps it neutral.
         val dueChip =
             DayMetricChipData(
                 value = dueCount.toString(),

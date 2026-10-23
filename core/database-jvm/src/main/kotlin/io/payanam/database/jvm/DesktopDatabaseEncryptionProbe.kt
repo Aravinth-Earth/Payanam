@@ -227,6 +227,15 @@ class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe, DatabaseRekey {
      * connection would be rejected by SQLite as a write, and the resulting error would name the pragma
      * rather than the real cause. A read/write handle is exactly the one thing the desktop must supply to
      * take part in the shared sequence.
+     *
+     * **THE BUSY TIMEOUT IS NOT OPTIONAL HERE, and it is not an optimisation.** A rekey takes an EXCLUSIVE
+     * lock on the file, and the rekey runs while other connections may still be settling - the app's own
+     * session, the assistant's reader, a health check. Without a timeout this driver refuses the lock
+     * INSTANTLY, and it DROPS the SQLite return code on the way out (`safeExec` -> `NativeBridge.exec` ->
+     * `pop`), so the refused COMMIT is invisible: the statement returns as if it had worked, the file is
+     * left half-rekeyed, and the shared gate then reports a file that was never rekeyed. The same wait
+     * every other connection in this module gets, issued by the opener's own helper so that the pragma
+     * text and the number live in ONE place.
      */
     private fun openWritable(
         databaseFile: File,
@@ -234,10 +243,20 @@ class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe, DatabaseRekey {
     ): java.sql.Connection {
         val properties = Properties()
         properties.setProperty(PayanamDatabaseOpener.KEY_PROPERTY, passphrase)
-        return DriverManager.getConnection(
-            PayanamDatabaseOpener.URL_PREFIX + databaseFile.toPath().toAbsolutePath(),
-            properties,
-        )
+        val connection =
+            DriverManager.getConnection(
+                PayanamDatabaseOpener.URL_PREFIX + databaseFile.toPath().toAbsolutePath(),
+                properties,
+            )
+        try {
+            PayanamDatabaseOpener.applyBusyTimeout(connection)
+        } catch (error: java.sql.SQLException) {
+            // A connection that could not be given a busy timeout is not one to hand back: closing it here
+            // releases whatever lock it already holds, so the caller's rollback is not fighting it.
+            runCatching { connection.close() }
+            throw error
+        }
+        return connection
     }
 
     /**

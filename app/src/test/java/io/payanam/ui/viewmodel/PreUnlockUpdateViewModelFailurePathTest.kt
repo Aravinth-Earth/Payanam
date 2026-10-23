@@ -4,6 +4,8 @@ package io.payanam.ui.viewmodel
 
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.ApkChecksumVerifier
+import io.payanam.feature.settings.ChecksumVerdict
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.updates.ApkDownloader
 import io.payanam.presentation.updates.ApkInstaller
@@ -186,6 +188,10 @@ class PreUnlockUpdateViewModelFailurePathTest {
         installSourceReader = FakeInstallSourceReader(isFDroid),
         apkDownloader = apkDownloader,
         apkInstaller = apkInstaller,
+        // None of these cases reach the checksum gate (each refuses earlier), so the verdict here is
+        // never consulted; the branch coverage for it lives in
+        // `PreUnlockUpdateViewModelInstallGateTest`.
+        checksumVerifier = FakeChecksumVerifier(),
     )
 
     @Suppress("UNCHECKED_CAST")
@@ -219,9 +225,19 @@ class PreUnlockUpdateViewModelFailurePathTest {
     private class FakeApkInstaller : ApkInstaller {
         var installCount = 0
             private set
-        override fun install(apkPath: String): Boolean {
+        override suspend fun install(
+            apkPath: String,
+            sha256Url: String?,
+        ): Boolean {
             installCount++
             return true
         }
+    }
+
+    private class FakeChecksumVerifier : ApkChecksumVerifier {
+        override suspend fun verify(
+            apkFile: File,
+            sha256Url: String?,
+        ): ChecksumVerdict = ChecksumVerdict.Verified
     }
 }

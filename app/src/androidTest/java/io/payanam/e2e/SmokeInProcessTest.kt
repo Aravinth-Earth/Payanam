@@ -58,6 +58,7 @@ class SmokeInProcessTest {
         h.type(l.taskTitleField, QUICK_TASK)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(QUICK_TASK)
 
         // ── HABITS: renders ──
@@ -68,6 +69,7 @@ class SmokeInProcessTest {
         h.goToTab(l.time)
         h.click(l.startTracking)
         h.click(l.start)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(l.stopTracking)
         h.click(l.stopTracking)
         h.click(l.cancel)

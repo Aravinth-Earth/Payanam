@@ -45,18 +45,17 @@ class DatabaseBackupCoordinator @Inject constructor(
 
     private val checkpointPort: BackupCheckpointPort = object : BackupCheckpointPort {
         override fun isDbOpen() = sessionManager.isDbOpen()
-        override fun foldWal(): WalCheckpointRule.FoldReport =
-            sessionManager.requireDatabase().openHelper.writableDatabase
-                .query(WalCheckpointRule.FOLD_STATEMENT)
-                .use { cursor ->
-                    if (cursor.moveToFirst()) {
-                        WalCheckpointRule.reportOf(
-                            intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
-                        )
-                    } else {
-                        WalCheckpointRule.NO_ROW
-                    }
+        override fun foldWal(): WalCheckpointRule.FoldReport = sessionManager.requireDatabase().openHelper.writableDatabase
+            .query(WalCheckpointRule.FOLD_STATEMENT)
+            .use { cursor ->
+                if (cursor.moveToFirst()) {
+                    WalCheckpointRule.reportOf(
+                        intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
+                    )
+                } else {
+                    WalCheckpointRule.NO_ROW
                 }
+            }
     }
 
     private val dbFile: File = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)

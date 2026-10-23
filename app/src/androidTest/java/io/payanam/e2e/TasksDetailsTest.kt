@@ -105,6 +105,7 @@ class TasksDetailsTest {
 
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(DETAILED_TASK)
         h.log("one-time=saved")
     }
@@ -132,6 +133,7 @@ class TasksDetailsTest {
 
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
 
         // A recurring task lives in the Habits tab; the title there is the proof recurrence persisted.
         h.goToTab(l.habits)

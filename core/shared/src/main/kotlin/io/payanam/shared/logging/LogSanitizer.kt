@@ -24,6 +24,12 @@ import java.util.Locale
  * - A credential whose value contains whitespace is only partially masked, for the same reason.
  * - Classification is a denylist by key name. A caller that logs user data under an unrecognised key
  *   is not protected — use the established keys.
+ * - Email and bare-credential redaction are **shape** heuristics. An email-shaped string is redacted
+ *   wherever it appears (including a value), while a credential-shaped token is only redacted in free
+ *   text (message and diagnostic), not in a plain map value — a map value already has a key to
+ *   classify it by. The residual cost of the shape rules is that a long mixed-case alphanumeric run
+ *   containing a digit (32+ characters, no separators) is treated as a secret: a leaked key and a
+ *   build identifier are not distinguishable by shape alone, and the leak is the worse failure.
  */
 object LogSanitizer {
     private const val MAX_VALUE_LENGTH = 64
@@ -59,6 +65,67 @@ object LogSanitizer {
             """(?i)\b(?<key>password|passphrase|secret|token|otp|apikey|api[_-]?key|authorization|credential)""" +
                 """(?<separator>\s*["']?\s*[=:]\s*["']?)(?<scheme>(?:bearer|basic)\s+)?(?<value>\S+)""",
         )
+
+    /**
+     * An email address anywhere in free text, e.g. `someone@example.com`,
+     * `first.last+tag@mail.example.co.uk`.
+     *
+     * The shape is deliberately strict, because it runs over ordinary prose:
+     * - the local part is one run of address characters and cannot start mid-word (the lookbehind),
+     *   so `@Composable` (no local part) and `user@` (no domain) do not match;
+     * - the domain needs at least one label plus a **letter-only** TLD of 2+ characters, which keeps
+     *   version strings such as `a@1.2` and `name@host` from matching;
+     * - the TLD class is letter-only, so a trailing sentence period stays outside the match.
+     */
+    private val emailRegex =
+        Regex(
+            """(?<![\w.%+\-])[A-Za-z0-9._%+\-]+@(?:[A-Za-z0-9](?:[A-Za-z0-9\-]{0,61}[A-Za-z0-9])?\.)+[A-Za-z]{2,}""",
+        )
+
+    /**
+     * A bare hex credential: 32 or more hex characters with nothing else around them.
+     *
+     * 32 hex characters is 128 bits, the point at which a hex run stops being an identifier and
+     * starts being a digest or a key (MD5 is 32, SHA-1 40, SHA-256 64). Shorter runs are ordinary
+     * build numbers, counters and short ids, and redacting those would cost real diagnostics; the
+     * lookarounds stop a fragment of a longer mixed token from matching. Multi-segment identifiers
+     * such as UUIDs never reach 32 in one segment, so they are untouched (see [uuidRegex]).
+     */
+    private val bareHexKeyRegex =
+        Regex(
+            """(?<![0-9A-Fa-f])[0-9A-Fa-f]{32,}(?![0-9A-Fa-f])""",
+        )
+
+    /**
+     * A bare base64-shaped credential: 32+ base64 characters, with padding allowed.
+     *
+     * The lookaheads require **mixed case and at least one digit** before the run counts as a secret.
+     * That requirement is what keeps ordinary long words and identifiers out: a class or method name
+     * such as `DatabaseEncryptionManagerRestore` has no digit, and file names carry `.`/`_`/`-`,
+     * which are outside the base64 alphabet and therefore split the run. A token that is long,
+     * mixed-case and alphanumeric-with-a-digit is key-shaped in practice.
+     */
+    private val bareBase64KeyRegex =
+        Regex(
+            """(?<![A-Za-z0-9+/])""" +
+                """(?=[A-Za-z0-9+/]*\d)(?=[A-Za-z0-9+/]*[a-z])(?=[A-Za-z0-9+/]*[A-Z])""" +
+                """[A-Za-z0-9+/]{32,}={0,2}(?![A-Za-z0-9+/=])""",
+        )
+
+    /**
+     * A bare provider key, without `key=` context: the app's optional assistant sends the user's key
+     * to the provider as `Authorization: Bearer <key>` (`OpenCodeGoClient.headers`,
+     * `core/domain/src/main/kotlin/io/payanam/domain/assistant/OpenCodeGoClient.kt:167`), and the
+     * key fixtures in this repo are `sk-…` (`AssistantViewModelTest`). The app checks no prefix of
+     * its own — `AssistantViewModel` accepts any pasted key — so this covers the `sk-` family that
+     * the provider actually issues rather than a prefix the app enforces, and requires 16+ trailing
+     * characters so a stray `sk-` in prose cannot match.
+     */
+    private val bareProviderKeyRegex =
+        Regex(
+            """\bsk-[A-Za-z0-9_\-]{16,}""",
+        )
+
     private val allowedEmptyIdentifierTokens = setOf("none", "null", "n/a", "unknown")
 
     /**
@@ -191,7 +258,7 @@ object LogSanitizer {
 
     /**
      * Single-line-izes [message], redacts filesystem paths, and masks credentials written inline as
-     * `key=value` or `key: value`.
+     * `key=value` or `key: value`, email addresses, and bare credential-shaped tokens.
      */
     fun sanitizeMessage(message: String): String = redactInlineCredentials(replacePaths(message.replace(lineBreakRegex, " ").trim()))
 
@@ -202,14 +269,23 @@ object LogSanitizer {
      */
     private fun sanitizeDiagnostic(value: String): String = redactInlineCredentials(replacePaths(value))
 
+    /**
+     * Free-text secret redaction: `key=value` credentials first (the structured shape), then the
+     * shape heuristics for an email address and a bare credential token. The order matters only for
+     * readability — an already-redacted `<redacted>` matches none of the later patterns.
+     */
     private fun redactInlineCredentials(value: String): String =
-        value.replace(inlineCredentialRegex) { match ->
-            // Preserve key, separator and auth scheme; replace only the credential value.
-            match.groups["key"]?.value.orEmpty() +
-                match.groups["separator"]?.value.orEmpty() +
-                match.groups["scheme"]?.value.orEmpty() +
-                REDACTED_VALUE
-        }
+        value
+            .replace(inlineCredentialRegex) { match ->
+                // Preserve key, separator and auth scheme; replace only the credential value.
+                match.groups["key"]?.value.orEmpty() +
+                    match.groups["separator"]?.value.orEmpty() +
+                    match.groups["scheme"]?.value.orEmpty() +
+                    REDACTED_VALUE
+            }.replace(emailRegex, REDACTED_VALUE)
+            .replace(bareProviderKeyRegex, REDACTED_VALUE)
+            .replace(bareBase64KeyRegex, REDACTED_VALUE)
+            .replace(bareHexKeyRegex, REDACTED_VALUE)
 
     private fun replacePaths(value: String): String =
         value
@@ -268,15 +344,20 @@ object LogSanitizer {
         return renderPlainValue(value.toString())
     }
 
-    /** A non-classified value: redact it if it looks like a path, otherwise bound its length. */
+    /**
+     * A non-classified value: redact it if it looks like a path, otherwise bound its length. An email
+     * address is redacted here too, because a plain value (for example `contact`) has no key that
+     * classifies it — shape is the only signal available.
+     */
     private fun renderPlainValue(text: String): String {
         if (isPathLike(text)) {
             return REDACTED_PATH_VALUE
         }
-        return if (text.length > MAX_VALUE_LENGTH) {
-            "${text.take(MAX_VALUE_LENGTH)}..."
+        val withoutEmails = text.replace(emailRegex, REDACTED_VALUE)
+        return if (withoutEmails.length > MAX_VALUE_LENGTH) {
+            "${withoutEmails.take(MAX_VALUE_LENGTH)}..."
         } else {
-            text
+            withoutEmails
         }
     }
 

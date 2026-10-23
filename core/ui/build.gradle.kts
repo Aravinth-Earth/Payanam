@@ -94,6 +94,22 @@ kotlin {
                 // Copy lives in a Kotlin table instead (see onboarding/OnboardingIntroStrings.kt).
             }
         }
+        // The Android half of this module's platform seams reaches AndroidX directly: the permission
+        // launcher comes from activity-compose, and NotificationManagerCompat comes from androidx.core.
+        // Both used to arrive only as transitive `api` dependencies of navigation-compose - a
+        // navigation library, not the source of this module's platform calls - so a change to that
+        // library's own api surface could break this module's compile for a reason that had nothing to
+        // do with the code. Declaring what the module actually imports, at the versions the catalog
+        // already pins for :app, is what makes those dependencies honest.
+        //
+        // `core-ktx` is the catalog's alias for androidx.core; it carries `androidx.core:core` (the
+        // artifact NotificationManagerCompat lives in) with it, and it is the same line :app declares.
+        val androidMain by getting {
+            dependencies {
+                implementation(libs.activity.compose)
+                implementation(libs.core.ktx)
+            }
+        }
         val commonTest by getting {
             dependencies {
                 implementation(kotlin("test"))

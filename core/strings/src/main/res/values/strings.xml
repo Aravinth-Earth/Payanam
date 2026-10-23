@@ -633,6 +633,14 @@
     <string name="loc_notes">Notes:</string>
     <string name="loc_notes_empty_icon">📝</string>
     <string name="loc_notes_optional">Notes (optional)</string>
+    <!-- The notification-permission offer. Raised AFTER the action that would notify (a started timer,
+         a saved reminder), never before it, and only while the platform blocks notifications. -->
+    <string name="loc_notification_permission_title">Turn on notifications?</string>
+    <string name="loc_notification_permission_allow">Allow</string>
+    <string name="loc_notification_permission_not_now">Not now</string>
+    <string name="loc_notification_permission_open_settings">Open settings</string>
+    <string name="loc_notification_permission_timer_body">The tracking timer you started will not show up in your notifications.</string>
+    <string name="loc_notification_permission_reminder_body">This reminder will not arrive, because notifications are turned off for Payanam.</string>
     <string name="loc_now">Now</string>
     <string name="loc_now_lowercase">Now Lowercase</string>
     <string name="loc_off">Off</string>

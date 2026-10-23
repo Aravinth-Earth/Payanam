@@ -50,18 +50,18 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.payanam.R
+import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.settings.StatRow
+import io.payanam.feature.settings.ApkBuildType
+import io.payanam.feature.settings.buildNumberFromFileName
+import io.payanam.feature.settings.labelResId
+import io.payanam.feature.settings.shippedApkType
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
-import io.payanam.R
-import io.payanam.common.logging.UnifiedLogger
-import io.payanam.feature.settings.ApkBuildType
-import io.payanam.feature.settings.buildNumberFromFileName
-import io.payanam.feature.settings.labelResId
-import io.payanam.feature.settings.shippedApkType
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -170,7 +170,6 @@ internal fun DebugLogExportActions(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 /**
  * The about card's CONTENT, without the card.
  *
@@ -181,6 +180,7 @@ internal fun DebugLogExportActions(
  *
  * `expanded` and `onToggleExpanded` are gone for the same reason: nothing in here reads them.
  */
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AboutSettingsContent(
     uiState: SettingsUiState,
@@ -749,6 +749,9 @@ private fun failedMessageRes(key: String): Int = when (key) {
     "file_missing" -> R.string.settings_update_error_file_missing
     "type_mismatch" -> R.string.settings_update_type_mismatch
     "install_launch_failed" -> R.string.settings_update_error_install_launch
+    "checksum_mismatch" -> R.string.settings_update_error_checksum_mismatch
+    "checksum_unavailable" -> R.string.settings_update_error_checksum_unavailable
+    "checksum_absent" -> R.string.settings_update_error_checksum_absent
     "retry_available" -> R.string.settings_update_error_retry_later
     "download_error_file" -> R.string.settings_update_error_file
     "download_error_http" -> R.string.settings_update_error_http

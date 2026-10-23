@@ -52,7 +52,6 @@ import io.payanam.core.ui.text.rememberUiLanguage
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.backfill.ScoreRollupBackfillService
-import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.database.security.DatabaseArtifactJanitor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
@@ -60,6 +59,7 @@ import io.payanam.domain.port.ProcessRestart
 import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.notification.NotificationScheduler
+import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.service.AutoBackupWorker

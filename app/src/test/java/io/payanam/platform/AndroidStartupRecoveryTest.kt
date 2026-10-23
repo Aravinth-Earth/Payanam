@@ -49,8 +49,7 @@ class AndroidStartupRecoveryTest {
     }
     private val backfillService: ScoreRollupBackfillService = mock()
 
-    private fun recovery(recurrence: RecurrenceManager = recurrenceManager): AndroidStartupRecovery =
-        AndroidStartupRecovery({ recurrence }, { backfillService })
+    private fun recovery(recurrence: RecurrenceManager = recurrenceManager): AndroidStartupRecovery = AndroidStartupRecovery({ recurrence }, { backfillService })
 
     @Before
     fun setUp() {

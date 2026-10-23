@@ -2,8 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.e2e
 
-import android.net.Uri
 import android.content.Context
+import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.payanam.common.logging.UnifiedLogger
@@ -15,9 +15,11 @@ import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
-import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import io.payanam.platform.AndroidDatabaseHealthCheck
+import io.payanam.platform.AndroidDatabasePathResolver
 import io.payanam.platform.AndroidDocumentSource
 import io.payanam.platform.appDatabaseDimensionSetupPersister
 import io.payanam.platform.appDatabaseInitFlagReader
@@ -26,9 +28,6 @@ import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.platform.importDatabase
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister
 import io.payanam.presentation.database.DatabaseInitViewModel
-import io.payanam.shared.database.DatabaseEncryptionProbe
-import io.payanam.shared.database.DatabaseHealthCheck
-import io.payanam.shared.database.DatabaseHealthReport
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.StateFlow
@@ -51,6 +50,14 @@ import java.io.File
  *
  * It also guards the incident this work fixes at the level the unit test cannot: the import source is
  * a real SQLCipher file on device, and it must still exist after being classified.
+ *
+ * The ViewModel is wired to the REAL Android collaborators — the platform's own path resolver, health
+ * check and encryption probe — because the file being imported IS a real encrypted SQLCipher database.
+ * A stub that answered "not encrypted", or a health check that answered "no database here", or a path
+ * resolver that pointed at a file the test never creates, would send the import down a refusal the
+ * production code never takes on an encrypted file: the seam under test would not be reached at all.
+ * The stubs that remain are the two whose answers this journey does not depend on — the settings map
+ * and the dimension catalog, neither of which the import path consults for anything it asserts.
  *
  * Fixture sequencing (load-bearing, per the approved plan): the fixture is created through the app's
  * own managers at the canonical path, then **closed and checkpointed** (the session runs WAL with
@@ -87,9 +94,14 @@ class ImportSeamTest {
                 databaseSessionManager = SharedSessionPort(sessionManager),
                 lifeDimensionCatalogRepository = FakeLifeDimensionCatalogRepository(),
                 strings = UiStrings.of(UiLanguage.ENGLISH),
-                healthCheck = FakeDatabaseHealthCheck(),
-                databasePathResolver = FakeDatabasePathResolver(),
-                encryptionProbe = FakeDatabaseEncryptionProbe(),
+                // The real Android collaborators, not stubs: the import target must be the app's own
+                // database path (the file this test later asserts on), the health check must open that
+                // file, and the probe must see the SQLCipher header of the fixture. A stub answering
+                // "not encrypted" would take the refusal branch the production code reserves for a
+                // file that is not a Payanam database, so the journey under test would never run.
+                healthCheck = AndroidDatabaseHealthCheck(context),
+                databasePathResolver = AndroidDatabasePathResolver(context),
+                encryptionProbe = AndroidDatabaseEncryptionProbe(context),
                 documentSource = AndroidDocumentSource(context),
                 databaseInitFlagWriter = appDatabaseInitFlagWriter(context),
                 databaseInitFlagReader = appDatabaseInitFlagReader(context),
@@ -197,7 +209,13 @@ class ImportSeamTest {
         deleteCanonicalDatabaseArtifacts(context)
     }
 
-    /** Minimal in-memory stand-in: the import path never reads settings, only writes on success. */
+    /**
+     * Minimal in-memory stand-in for the settings repository.
+     *
+     * The import path writes the init-completed flag straight into the database file, and the status
+     * check reads only the first-run dimensions mark from here — so this map never has to hold a claim
+     * the test never measured.
+     */
     private class FakeAppSettingsRepository : AppSettingsRepository {
         private val values = mutableMapOf<String, String?>()
 
@@ -229,59 +247,11 @@ class ImportSeamTest {
     }
 
     /**
-     * A health check for a test that never opens a database.
-     *
-     * Reports "no artifacts" rather than healthy: with no file there is nothing to have checked, and a
-     * fake claiming healthy would assert something the test never measured.
-     */
-    private class FakeDatabaseHealthCheck : DatabaseHealthCheck {
-        override suspend fun check(
-            databaseFile: File,
-            passphrase: String?,
-        ): DatabaseHealthReport = DatabaseHealthReport(
-            isHealthy = false,
-            errorMessage = "No database file in this test",
-        )
-
-        override fun hasArtifacts(databaseFile: java.io.File): Boolean = false
-    }
-
-    /**
-     * An encryption probe for a test that imports no database.
-     *
-     * Reports "not encrypted" and refuses to open, because nothing here is an encrypted file. A fake that
-     * claimed a passphrase worked would assert something the test never measured.
-     */
-    private class FakeDatabaseEncryptionProbe : DatabaseEncryptionProbe {
-        override fun isDetectablyEncrypted(
-            databaseFile: java.io.File,
-            logTag: String,
-        ): Boolean = false
-
-        override fun canOpen(
-            databaseFile: java.io.File,
-            passphrase: String,
-            logTag: String,
-        ): Boolean = false
-
-        override fun ensureEncrypted(
-            databaseFile: java.io.File,
-            passphrase: String,
-            logTag: String,
-        ): Unit = throw UnsupportedOperationException("no re-encryption in this test")
-
-        override fun readTableCounts(
-            databaseFile: java.io.File,
-            passphrase: String?,
-            tableNames: List<String>,
-        ): Map<String, Int> = tableNames.associateWith { 0 }
-    }
-
-    /**
      * A life-dimension catalog for a test that seeds no dimensions.
      *
-     * Empty and inert, so the seed path records that it wrote nothing. A fake that reported a row would make
-     * the import's integrity check compare counts against rows the test never created.
+     * Empty and inert, so the seed path records that it wrote nothing. The import path never consults it
+     * — only the create path does — and a fake that reported a row would claim dimensions this test
+     * never created.
      */
     private class FakeLifeDimensionCatalogRepository : LifeDimensionCatalogRepository {
         var replacedWith: List<ConfiguredLifeDimension>? = null
@@ -319,12 +289,5 @@ class ImportSeamTest {
         override fun isSessionOpen(): Boolean = delegate.isDbOpen()
 
         override val sessionOpenState: StateFlow<Boolean> get() = delegate.isOpen
-    }
-
-    /** A path resolver pointing at a path the test never creates. */
-    private class FakeDatabasePathResolver : DatabasePathResolver {
-        override fun databaseDirectory(): String = System.getProperty("java.io.tmpdir") ?: "/tmp"
-
-        override fun databaseFilePath(): String = databaseDirectory() + "/no-such-payanam.db"
     }
 }

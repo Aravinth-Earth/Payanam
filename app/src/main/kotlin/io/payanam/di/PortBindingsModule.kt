@@ -30,13 +30,15 @@ import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.feature.settings.AndroidApkUpdateSource
+import io.payanam.feature.settings.ApkChecksumVerifier
+import io.payanam.feature.settings.DefaultApkChecksumVerifier
 import io.payanam.notification.NotificationScheduler
+import io.payanam.platform.AndroidApkDownloader
+import io.payanam.platform.AndroidApkInstaller
 import io.payanam.platform.AndroidBackupStatusPort
 import io.payanam.platform.AndroidDatabaseBackupPort
 import io.payanam.platform.AndroidDatabasePathResolver
 import io.payanam.platform.AndroidDatabaseSessionPort
-import io.payanam.platform.AndroidApkDownloader
-import io.payanam.platform.AndroidApkInstaller
 import io.payanam.platform.AndroidDocumentSource
 import io.payanam.platform.AndroidInstallSourceReader
 import io.payanam.platform.AndroidProcessRestartPort
@@ -234,7 +236,10 @@ object PortBindingsModule {
      */
     @Provides
     @Singleton
-    fun provideApkUpdateSource(@ApplicationContext context: Context): ApkUpdateSource = AndroidApkUpdateSource(context)
+    fun provideApkUpdateSource(
+        @ApplicationContext context: Context,
+        checksumVerifier: ApkChecksumVerifier,
+    ): ApkUpdateSource = AndroidApkUpdateSource(context, checksumVerifier = checksumVerifier)
 
     /**
      * Exposes Android's database-init flag writer as the shared [DatabaseInitFlagWriter] port.
@@ -278,7 +283,7 @@ object PortBindingsModule {
     fun provideProcessRestart(impl: AndroidProcessRestartPort): ProcessRestart = impl
 
     /**
-     * Exposes Android's F-Droid install-source check as the shared [InstallSourceReader] port.
+     * Exposes Android's F-Droid build flag as the shared [InstallSourceReader] port.
      */
     @Provides
     @Singleton
@@ -297,6 +302,17 @@ object PortBindingsModule {
     @Provides
     @Singleton
     fun provideAndroidApkInstaller(impl: AndroidApkInstaller): ApkInstaller = impl
+
+    /**
+     * Exposes the checksum gate as its injectable interface, so every install path shares one
+     * implementation and a unit test can substitute a fake verdict.
+     *
+     * A `@Provides` over the `@Inject` class for the same reason as [provideAndroidApkInstaller]: the
+     * callers depend on the interface, and only this module knows which class answers it.
+     */
+    @Provides
+    @Singleton
+    fun provideApkChecksumVerifier(impl: DefaultApkChecksumVerifier): ApkChecksumVerifier = impl
 }
 
 /**

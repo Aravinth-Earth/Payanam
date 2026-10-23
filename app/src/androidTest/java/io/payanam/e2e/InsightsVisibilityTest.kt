@@ -173,13 +173,16 @@ class InsightsVisibilityTest {
     /** Row labels read from the app's own copy, so a ta-IN device resolves them too. */
     private val SCORE_CARD_ROWS: List<String>
         get() = listOf(
-            l.settingsInsightsTimeOverallScoreCardTitle, l.settingsInsightsTimeDimensionScoreCardsTitle,
+            l.settingsInsightsTimeOverallScoreCardTitle,
+            l.settingsInsightsTimeDimensionScoreCardsTitle,
         )
 
     /** Row labels read from the app's own copy, so a ta-IN device resolves them too. */
     private val LINE_GRAPH_ROWS: List<String>
         get() = listOf(
-            l.settingsInsightsTimeDailyScoreTrendTitle, l.settingsInsightsTimeProgressTrendTitle, l.settingsInsightsTimeHistoricalRankingTitle,
+            l.settingsInsightsTimeDailyScoreTrendTitle,
+            l.settingsInsightsTimeProgressTrendTitle,
+            l.settingsInsightsTimeHistoricalRankingTitle,
             l.settingsInsightsTimeMomentumStreakTitle,
         )
 }

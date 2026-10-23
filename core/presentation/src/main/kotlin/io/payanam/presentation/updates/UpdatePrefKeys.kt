@@ -27,4 +27,5 @@ object UpdatePrefKeys {
     const val LAST_DOWNLOADED_FILE = "last_downloaded_file"
     const val LAST_DOWNLOADED_AT = "last_downloaded_at"
     const val ACTIVE_DOWNLOAD_URL = "active_download_url"
+    const val ACTIVE_DOWNLOAD_SHA256_URL = "active_download_sha256_url"
 }
