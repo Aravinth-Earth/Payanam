@@ -1,13 +1,27 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!--
+    The only supported way to move Payanam to a new device is the app's own
+    export and import during onboarding, which the user drives with their
+    passphrase. The OS-level copy routes below are excluded so that the
+    encrypted database never travels by a path the app does not control.
+
+    The passphrase preferences are excluded too, and that matters more than the
+    database does: they hold the verifier and its salt, so carrying them beside
+    the ciphertext would hand over a passphrase-checking bundle in one package.
+
+    Excluded explicitly rather than left to android:allowBackup="false", because
+    whether that attribute alone blocks device-to-device transfer varies by
+    Android version and by the manufacturer's migration tool.
+-->
 <data-extraction-rules>
     <cloud-backup>
-        <include domain="database" path="." />
-        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
-        <include domain="database" path="." />
-        <include domain="sharedpref" path="." />
+        <exclude domain="database" path="." />
+        <exclude domain="sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>

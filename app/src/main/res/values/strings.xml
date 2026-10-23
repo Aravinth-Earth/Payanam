@@ -578,6 +578,14 @@
     <string name="loc_notes">Notes:</string>
     <string name="loc_notes_optional">Notes (optional)</string>
     <string name="loc_notes_empty_icon">📝</string>
+    <!-- The notification-permission offer. Kept in step with the shared table in :core:strings, which is
+         where the shared screens read it from; the values are identical so the pair cannot drift. -->
+    <string name="loc_notification_permission_title">Turn on notifications?</string>
+    <string name="loc_notification_permission_allow">Allow</string>
+    <string name="loc_notification_permission_not_now">Not now</string>
+    <string name="loc_notification_permission_open_settings">Open settings</string>
+    <string name="loc_notification_permission_timer_body">The tracking timer you started will not show up in your notifications.</string>
+    <string name="loc_notification_permission_reminder_body">This reminder will not arrive, because notifications are turned off for Payanam.</string>
     <string name="loc_ok">OK</string>
     <string name="loc_previous_day">Previous day</string>
     <string name="loc_range">Range</string>
@@ -1181,6 +1189,9 @@
     <string name="settings_update_error_space">Not enough storage space for the update.</string>
     <string name="settings_update_error_retry_later">Download interrupted — will need a fresh attempt.</string>
     <string name="settings_update_error_exists">File conflict — download again.</string>
+    <string name="settings_update_error_checksum_mismatch">Update not installed — the downloaded file does not match the published release file. Try again.</string>
+    <string name="settings_update_error_checksum_unavailable">Update not installed — the download could not be confirmed as genuine. Try again.</string>
+    <string name="settings_update_error_checksum_absent">Update not installed — this release cannot be confirmed. Try again later.</string>
     <string name="settings_update_install_title">Update available</string>
     <string name="settings_update_install_message">A new build has been downloaded. Install it now?</string>
     <string name="settings_update_install_now">Update now</string>

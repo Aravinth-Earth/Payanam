@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 import java.util.Properties
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -169,6 +170,26 @@ android {
             )
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                // The refusal to emit an unsigned release is opt-in, not unconditional: a
+                // third-party builder (F-Droid) compiles this repo from source with a bare
+                // `assembleRelease` and no release keystore, and an unconditional throw would
+                // break that build outright. Our own pipeline passes
+                // -Ppayanam.requireReleaseSigning=true, and only there does the build stop
+                // rather than produce a release artefact that carries no release signature.
+                val requireReleaseSigning =
+                    (project.providers.gradleProperty("payanam.requireReleaseSigning").orNull
+                        ?: "false").toBoolean()
+                if (requireReleaseSigning) {
+                    throw GradleException(
+                        "Release signing is required but keystore-release.properties is missing. " +
+                            "This build refuses to emit an unsigned release artefact. Provide " +
+                            "keystore-release.properties at the repository root (storeFile, " +
+                            "storePassword, keyAlias, keyPassword), or build without " +
+                            "-Ppayanam.requireReleaseSigning=true. Third-party builders (F-Droid) " +
+                            "build without that property and are unaffected.",
+                    )
+                }
             }
         }
     }
@@ -189,6 +210,14 @@ android {
     // Resources$NotFoundException (measured in TaskReminderSchedulerTest).
     testOptions {
         unitTests.isIncludeAndroidResources = true
+    }
+
+    // Stated explicitly rather than left to the default, so the security floor in lint.xml
+    // cannot be quietly switched off by a future AGP default change. Warnings stay warnings
+    // on purpose: the existing warning backlog is large and warningsAsErrors would fail every
+    // build for unrelated reasons, which is how a gate gets bypassed instead of fixed.
+    lint {
+        abortOnError = true
     }
 
     buildFeatures {

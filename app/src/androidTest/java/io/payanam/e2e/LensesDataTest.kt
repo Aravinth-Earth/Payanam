@@ -90,6 +90,7 @@ class LensesDataTest {
         h.type(l.taskTitleField, SEEDED_TASK_TITLE)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(SEEDED_TASK_TITLE)
 
         // Open the task detail and complete it.

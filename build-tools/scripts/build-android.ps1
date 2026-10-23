@@ -4,6 +4,9 @@
 
 param(
     [switch]$Clean,
+    # -Install opts in to installing the built APK on the connected device. It is OFF by
+    # default (a plain run builds and stops), so no attached phone is updated by accident.
+    [switch]$Install,
     [switch]$CleanInstall,
     [switch]$SkipTests,
     [switch]$SkipGuardrails,
@@ -11,7 +14,7 @@ param(
     [switch]$KeepDaemons,
     [switch]$Release,
     [switch]$Publish,
-    [switch]$Universal,
+    [switch]$Arm64Only,
     [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
     [string]$OutputDir = "output/apks"
 )
@@ -442,6 +445,62 @@ function Invoke-DaemonCleanup
     {
         Write-LogWithTime "  ⚠️ JVM daemon cleanup warning: $($_.Exception.Message)" "Yellow"
     }
+}
+
+# Probes a directory by writing $RequiredBytes of zeros into it and removing the probe file
+# again. Returns $true only when the whole amount landed on disk. The write goes out in 1 MB
+# chunks on purpose: allocating the whole 64 MB in memory would add the very pressure this
+# check exists to detect.
+function Test-TempDirectoryCapacity
+{
+    param(
+        [string]$Directory,
+        [long]$RequiredBytes
+    )
+
+    $probePath = Join-Path $Directory ("payanam-tmp-probe-{0}.bin" -f $PID)
+    $chunk = [byte[]]::new(1048576)
+    $written = 0L
+    $usable = $false
+
+    try
+    {
+        $stream = [System.IO.FileStream]::new(
+            $probePath,
+            [System.IO.FileMode]::Create,
+            [System.IO.FileAccess]::Write,
+            [System.IO.FileShare]::None
+        )
+        try
+        {
+            while ($written -lt $RequiredBytes)
+            {
+                $remaining = $RequiredBytes - $written
+                $chunkSize = if ($remaining -lt $chunk.Length) { [int]$remaining } else { $chunk.Length }
+                $stream.Write($chunk, 0, $chunkSize)
+                $written += $chunkSize
+            }
+            $stream.Flush()
+        } finally
+        {
+            $stream.Dispose()
+        }
+        # A quota-exceeded write can fail part-way through and still leave a file behind, so the
+        # size on disk is checked as well as the absence of an exception.
+        $actualBytes = (Get-Item -LiteralPath $probePath).Length
+        $usable = ($actualBytes -ge $RequiredBytes)
+    } catch
+    {
+        $usable = $false
+    } finally
+    {
+        if (Test-Path -LiteralPath $probePath)
+        {
+            Remove-Item -LiteralPath $probePath -Force -ErrorAction SilentlyContinue
+        }
+    }
+
+    return $usable
 }
 
 function Exit-WithCleanup
@@ -1424,7 +1483,12 @@ $runCoverage = $false
 $runStaticAnalysis = $false
 $runPostInstallVerification = $false
 $runDeviceSmoke = $false
-$runDeviceInstall = $true
+# Device install is OPT-IN: a plain run builds the APK and stops, so an attached phone is
+# never updated by accident. -Install opts in explicitly. -RunInProcess and -CleanInstall
+# also imply it, because the in-process test tier runs from inside the POST-INSTALL
+# VERIFICATION block (no install means no device to verify) and -CleanInstall literally
+# means "install fresh". No profile — including 'full' — enables an install on its own.
+$runDeviceInstall = ($Install.IsPresent -or $RunInProcess.IsPresent -or $CleanInstall.IsPresent)
 $runAndroidGuardrails = $true
 switch ($effectiveProfile)
 {
@@ -1461,6 +1525,8 @@ if ($RunInProcess.IsPresent)
 {
     # The in-process tier runs from inside the post-install verification block, so an explicit
     # flag must open that path too. Flag-only by design: no profile enables it, including 'full'.
+    # -RunInProcess also implies the device install (set with $runDeviceInstall above), because
+    # this block only runs after a successful install.
     $runPostInstallVerification = $true
 }
 
@@ -1517,7 +1583,67 @@ if (-not (Test-Path "gradle/wrapper/gradle-wrapper.jar"))
 }
 Write-LogWithTime "  ✅ Gradle wrapper present" "Green"
 
-# Check 3: Core source files exist
+# Check 3: Temp directory capacity (must run BEFORE any Gradle invocation)
+# Gradle, the Kotlin daemon, jpackage and dpkg-deb all stage large scratch files in the system
+# temp directory. On a host where that directory is a small tmpfs with a per-user quota, those
+# writes fail with "Disk quota exceeded" and the build dies for ENVIRONMENT reasons - there is
+# no code defect anywhere to fix. Probe the temp directory ONCE, before Gradle starts, and move
+# the whole run onto a bigger filesystem when it cannot hold the scratch space. On a healthy
+# machine this changes NOTHING: no env var is touched, no daemon is stopped, and the only
+# output is one line.
+Write-LogWithTime "Checking temp directory capacity..." "Cyan"
+$tempProbeRequiredBytes = 64 * 1024 * 1024
+$tempProbeDirectory = if ($env:TMPDIR) { $env:TMPDIR } else { [System.IO.Path]::GetTempPath() }
+if (Test-TempDirectoryCapacity -Directory $tempProbeDirectory -RequiredBytes $tempProbeRequiredBytes)
+{
+    Write-LogWithTime "  ✅ Temp directory usable: $tempProbeDirectory" "DarkGray"
+} else
+{
+    $tempFallback = if ($env:PAYANAM_BUILD_TMP) { $env:PAYANAM_BUILD_TMP } else { "/var/tmp/payanam-build-tmp" }
+    $tempFallbackReady = $false
+    try
+    {
+        New-Item -ItemType Directory -Path $tempFallback -Force -ErrorAction Stop | Out-Null
+        $tempFallbackReady = $true
+    } catch
+    {
+        $tempFallbackReady = $false
+    }
+    if (-not $tempFallbackReady)
+    {
+        Write-LogWithTime "  ❌ Temp directory probe failed for $tempProbeDirectory and the fallback $tempFallback could not be created." "Red"
+        Write-LogWithTime "     Set PAYANAM_BUILD_TMP to a writable directory on a larger filesystem, then re-run." "Yellow"
+        Exit-WithCleanup 1
+    }
+
+    $env:TMPDIR = $tempFallback
+    $javaTempOption = "-Djava.io.tmpdir=$tempFallback"
+    if ($env:JAVA_TOOL_OPTIONS)
+    {
+        $env:JAVA_TOOL_OPTIONS = "$($env:JAVA_TOOL_OPTIONS) $javaTempOption"
+    } else
+    {
+        $env:JAVA_TOOL_OPTIONS = $javaTempOption
+    }
+
+    # A daemon started before the probe still holds the OLD temp dir, so stop it: the next build
+    # then starts a fresh daemon that picks the new one up.
+    try
+    {
+        if ($IsWindows) {
+            cmd /c ".\gradlew.bat --stop 2>nul" | Out-Null
+        } else {
+            ./gradlew --stop 2>/dev/null | Out-Null
+        }
+    } catch
+    {
+        # Best effort only: the daemon stop must never fail the build.
+    }
+
+    Write-LogWithTime "  ⚠️ Temp directory probe FAILED for $tempProbeDirectory (64 MB write); using $tempFallback for this run." "Yellow"
+}
+
+# Check 4: Core source files exist
 Write-LogWithTime "Checking source structure..." "Cyan"
 $requiredPaths = @(
     "app/src/main/kotlin/io/payanam/PayanamApp.kt",
@@ -1966,10 +2092,19 @@ $gradleTask = if ($Release)
 { "assembleDebug"
 }
 
-if ($Universal)
+# Our own release builds must never emit an unsigned APK: the app module refuses to
+# assemble a release variant without keystore-release.properties when this flag is set.
+# Third-party source builds (F-Droid) do not pass it and are unaffected.
+if ($Release)
 {
-    $gradleTask += " -PuniversalBuild=true"
-    Write-LogWithTime "Universal: all ABIs included (arm64, arm32, x86, x86_64)" "Yellow"
+    $gradleTask += " -Ppayanam.requireReleaseSigning=true"
+    Write-LogWithTime "Release signing required: an unsigned release APK will not be produced." "Yellow"
+}
+
+if ($Arm64Only)
+{
+    $gradleTask += " -Parm64Only=true"
+    Write-LogWithTime "Arm64-only: arm64-v8a ABI only (opt-in; default builds all ABIs)" "Yellow"
 }
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
@@ -1987,10 +2122,10 @@ if ($buildRun.ExitCode -ne 0)
     Exit-WithCleanup 1
 }
 Write-LogWithTime "✅ APK build successful!" "Green"
-if ($Universal) {
-    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
-} else {
+if ($Arm64Only) {
     Write-LogWithTime "ABI filter: arm64-v8a only (~11 MB saved vs universal)" "Yellow"
+} else {
+    Write-LogWithTime "ABI filter: none (universal build, all ABIs included)" "Yellow"
 }
 
 # Find APK
@@ -2037,16 +2172,18 @@ Set-Content -Path "$apkFinalPath.sha256" -Value "$apkHash  $apkFinalName" -Encod
 Write-LogWithTime "SHA256: $apkHash" "Cyan"
 if ($Release)
 {
-    # Fail-open by design on the build path (historical behaviour): if the toolchain
-    # cannot complete the checks, warn and continue. The publish path
-    # (publish-release.ps1, beta/stable) calls this with -FailClosed instead.
-    Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath
+    # Fail-closed on the build path: a release artefact that cannot be verified is not a
+    # verified artefact, so an APK that cannot be checked must fail the build instead of
+    # passing through as if it had been checked. The publish path
+    # (publish-release.ps1, beta/stable) verifies with -FailClosed as well.
+    Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath -FailClosed
 }
 
 # ── Publish to channel (default OFF; -Publish opts in) ────────────────────────
-# Local iteration builds never publish: the home loop is edit → build → USB
-# install → test → logs → repeat, and publish happens only AFTER the tested
-# code is committed (publish-release.ps1 -ApkPath <tested.apk>, no rebuild).
+# Local iteration builds never publish: the home loop is edit → build → -Install →
+# test → logs → repeat (the install step is opt-in; a plain run builds and stops),
+# and publish happens only AFTER the tested code is committed
+# (publish-release.ps1 -ApkPath <tested.apk>, no rebuild).
 # -Publish makes THIS build go to the channel too; branch guards inside
 # publish-release.ps1 (feature/* → dev, dev → beta, main → stable) still apply.
 if ($Publish)
@@ -2092,10 +2229,29 @@ if ($Publish)
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== DEVICE INSTALLATION ===" "Magenta"
 
+# The installed package name is derived ONCE here and reused for the presence check, the
+# uninstall, the install and post-install verification. It must mirror app/build.gradle.kts:
+# the debug build type sets applicationIdSuffix = ".debug", so a debug build installs as
+# io.payanam.debug while a release build installs as io.payanam. Uninstalling or probing the
+# other package would target a different app (and destroy its data).
+# Note: the broadcast action io.payanam.PING and the activity class io.payanam.MainActivity
+# are NOT package names and intentionally stay untouched.
+$installedPackageName = if ($buildType -eq "release")
+{ "io.payanam"
+} else
+{ "io.payanam.debug"
+}
+
 if (-not $runDeviceInstall)
 {
-    Write-LogWithTime "Skipping device install for profile '$effectiveProfile'." "Yellow"
+    Write-LogWithTime "Skipping device installation: no install flag was passed (default is build-only)." "Yellow"
+    Write-LogWithTime "Pass -Install to install on the connected device (-CleanInstall and -RunInProcess imply it)." "Yellow"
     Write-LogWithTime "APK ready for manual install: $apkFinalPath" "Cyan"
+    Write-LogWithTime "Target package for this $buildType build: $installedPackageName" "Cyan"
+    Write-LogWithTime "Commands you would run (copy-paste as needed):" "Yellow"
+    Write-LogWithTime "  Upgrade, keeping data: adb install -r -d `"$apkFinalPath`"" "Cyan"
+    Write-LogWithTime "  Clean install, step 1 (removes this build's data): adb uninstall $installedPackageName" "Cyan"
+    Write-LogWithTime "  Clean install, step 2: adb install `"$apkFinalPath`"" "Cyan"
 } else
 {
     $deviceConnected = $false
@@ -2107,27 +2263,40 @@ if (-not $runDeviceInstall)
             $deviceConnected = $true
             Write-LogWithTime "Android device detected" "Green"
 
-            $currentPackage = adb shell pm list packages 2>&1 | Select-String "io.payanam"
-            if ($currentPackage)
+            # Exact, anchored match on the `package:<name>` line: a substring probe would also
+            # match io.payanam.debug / io.payanam.debug.test and pick the wrong branch.
+            $packageListing = adb shell pm list packages 2>&1
+            $currentPackage = @(
+                $packageListing |
+                    ForEach-Object { $_.ToString().Trim() } |
+                    Where-Object { $_ -eq "package:$installedPackageName" }
+            )
+            if ($currentPackage.Count -gt 0)
             {
                 if ($CleanInstall)
                 {
-                    Write-LogWithTime "Uninstalling previous version..." "Yellow"
-                    adb uninstall io.payanam 2>$null | Out-Null
+                    Write-LogWithTime "Uninstalling previous version of $installedPackageName..." "Yellow"
+                    adb uninstall $installedPackageName 2>$null | Out-Null
                     Write-LogWithTime "Installing fresh..." "Yellow"
                     $installResult = adb install $apkFinalPath 2>&1
+                    $installExitCode = $LASTEXITCODE
                 } else
                 {
                     Write-LogWithTime "Upgrading (keeping data)..." "Yellow"
                     $installResult = adb install -r -d $apkFinalPath 2>&1
+                    $installExitCode = $LASTEXITCODE
                 }
             } else
             {
-                Write-LogWithTime "First time install..." "Yellow"
+                Write-LogWithTime "First time install of $installedPackageName..." "Yellow"
                 $installResult = adb install $apkFinalPath 2>&1
+                $installExitCode = $LASTEXITCODE
             }
 
-            if ($LASTEXITCODE -eq 0)
+            # Success needs BOTH: the tool reported `Success` and the exit code was zero.
+            $installOutput = ($installResult | Out-String)
+            $installReportedSuccess = ($installOutput -match '(?m)^\s*Success\s*$')
+            if ($installReportedSuccess -and $installExitCode -eq 0)
             {
                 Write-LogWithTime "✅ APK installed successfully!" "Green"
 
@@ -2136,11 +2305,7 @@ if (-not $runDeviceInstall)
                     Write-LogWithTime "" "White"
                     Write-LogWithTime "=== POST-INSTALL VERIFICATION ===" "Magenta"
 
-                    $packageName = if ($buildType -eq "release")
-                    { "io.payanam"
-                    } else
-                    { "io.payanam.debug"
-                    }
+                    $packageName = $installedPackageName
                     $fullActivity = "io.payanam.MainActivity"
 
                     Write-LogWithTime "Stopping previous app instance..." "Cyan"
@@ -2222,10 +2387,11 @@ if (-not $runDeviceInstall)
                     Write-LogWithTime "⚠️ APK installation skipped due to signature mismatch with installed app" "Yellow"
                     Write-LogWithTime "$installResult" "Yellow"
                     Write-LogWithTime "APK ready for manual install after uninstalling the incompatible app build: $apkFinalPath" "Cyan"
+                    Write-LogWithTime "Incompatible package for this $buildType build: $installedPackageName (adb uninstall $installedPackageName)" "Cyan"
                 } else
                 {
-                    Write-LogWithTime "❌ APK installation failed!" "Red"
-                    Write-LogWithTime "$installResult" "Red"
+                    Write-LogWithTime "❌ APK installation failed! (exit code: $installExitCode, package: $installedPackageName)" "Red"
+                    Write-LogWithTime "Install output: $installOutput" "Red"
                     Exit-WithCleanup 1
                 }
             }

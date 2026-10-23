@@ -2,22 +2,22 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
-import io.payanam.platform.AndroidDocumentSource
-import io.payanam.platform.appDatabaseInitWalConsolidator
-import io.payanam.core.ui.text.uiStringsFor
-import io.payanam.platform.AndroidDatabaseEncryptionProbe
-import android.net.Uri
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
+import android.net.Uri
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.NoteRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.platform.AndroidDatabaseEncryptionProbe
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
@@ -194,8 +194,7 @@ class SettingsPlaintextImportRefusalTest {
      * fails, because it resolves to a different sentence (or throws). The wording itself stays pinned
      * by `Test-StringParity` in all four shipping tables.
      */
-    private fun appString(resId: Int): String =
-        androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().getString(resId)
+    private fun appString(resId: Int): String = androidx.test.core.app.ApplicationProvider.getApplicationContext<android.content.Context>().getString(resId)
 
     /** Waits for the import coroutine to publish a terminal state, or fails the test. */
     private fun awaitSettled(viewModel: SettingsViewModel) {

@@ -38,9 +38,8 @@ class AndroidOnboardingMarker(
         const val KEY_ONBOARDING_COMPLETED = "onboarding_completed"
 
         /** Builds the marker over this app's private preferences file. */
-        fun from(context: Context): AndroidOnboardingMarker =
-            AndroidOnboardingMarker(
-                context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
-            )
+        fun from(context: Context): AndroidOnboardingMarker = AndroidOnboardingMarker(
+            context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE),
+        )
     }
 }

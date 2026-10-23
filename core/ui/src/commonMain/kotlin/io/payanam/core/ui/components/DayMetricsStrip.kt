@@ -9,8 +9,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
@@ -22,6 +20,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.theme.scoreColor
 import io.payanam.presentation.habits.DayMetricChipData
 
 /**
@@ -30,7 +29,8 @@ import io.payanam.presentation.habits.DayMetricChipData
  * (score → runningAvg → progress → streakPos → streakNet → posContinue, then Due).
  *
  * Layout tuned for phone width (380dp): a single 7-column grid, each chip
- * showing value (big), rank "X/Y" (green, dimmed if placeholder), and a tiny label.
+ * showing value (big), rank "X/Y" (coloured by that chip's OWN position on its
+ * OWN scale, dimmed when there is no rank to colour), and a tiny label.
  */
 @Composable
 fun DayMetricsStrip(
@@ -53,11 +53,9 @@ fun DayMetricsStrip(
 
 @Composable
 private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier, onClick: (() -> Unit)? = null) {
-    val rankColor = if (chip.isPlaceholderRank) {
-        MaterialTheme.colorScheme.onSurfaceVariant
-    } else {
-        Color(0xFF5FD38A)
-    }
+    // The rank colour is scaled by THIS chip's rank on THIS chip's own scale, and stays neutral when
+    // there is no rank to scale - no history yet ("—"), or a placeholder rank (Due).
+    val rankColor = dayMetricRankColor(chip = chip, neutralColor = MaterialTheme.colorScheme.onSurfaceVariant)
     Column(
         modifier = modifier
             .let { base ->
@@ -93,4 +91,47 @@ private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier
             textAlign = TextAlign.Center,
         )
     }
+}
+
+/**
+ * The colour of a chip's rank text.
+ *
+ * A rank is a position on that chip's OWN scale - today's 1-based rank among the distinct values that
+ * metric has ever had - so the colour is scaled by that chip's own rank: 1 of N is the best value it
+ * has ever had (green), N of N is the worst (red), and the ranks between are proportional. The mapping
+ * goes through the shared [scoreColor] palette, so a rank never reads as a different severity than any
+ * other score in the app.
+ *
+ * THE COLOUR IS REDUNDANT ENCODING, and the "X/Y" text is never dimmed away to make it work: the
+ * text is drawn beside the colour and stays fully legible, so a user who cannot tell the colours apart
+ * still reads the rank.
+ *
+ * @param chip the chip whose rank is being drawn.
+ * @param neutralColor the theme's dimmed text colour, used when there is no rank to scale.
+ */
+internal fun dayMetricRankColor(
+    chip: DayMetricChipData,
+    neutralColor: Color,
+): Color {
+    // CASE 1 - a placeholder rank (Due) has no ordinal position at all, so there is nothing to scale.
+    if (chip.isPlaceholderRank) return neutralColor
+
+    // CASE 2 - no history: the rank reads "—" and both numbers are null. This is NEUTRAL, never green:
+    // the strip used to paint EVERY non-placeholder rank green, so a metric with no history at all was
+    // drawn as the best possible one. An absent number is not a good number.
+    val rankNumber = chip.rankNumber
+    val rankTotal = chip.rankTotal
+    if (rankNumber == null || rankTotal == null) return neutralColor
+
+    // CASE 3 - a single distinct historical value (rank 1 of 1) is the best there is, and the scale
+    // below would divide by (total - 1) == 0.
+    val goodness =
+        if (rankTotal <= 1) {
+            1f
+        } else {
+            1f - (rankNumber - 1).toFloat() / (rankTotal - 1).toFloat()
+        }
+
+    // Clamped, because a rank outside 1..total must not produce a colour outside the palette's range.
+    return scoreColor(goodness.coerceIn(0f, 1f))
 }

@@ -28,6 +28,7 @@ import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -86,6 +87,21 @@ class TimeVisualsViewModelTest {
     /** A scope for the ViewModel under test, driven by the test scheduler. */
     private fun TestScope.newViewModelScope(): CoroutineScope =
         CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)).also { viewModelScope = it }
+
+    /**
+     * A scope for the ViewModel under test whose children report an escaping failure to [escaped]
+     * instead of to the JVM-global handler.
+     *
+     * The global handler is what turned a contained failure into `UncaughtExceptionsBeforeTest` in an
+     * unrelated LATER test, so a case that wants to prove a failure did NOT escape needs a handler of
+     * its own to see it.
+     */
+    private fun TestScope.newRecordingViewModelScope(escaped: MutableList<Throwable>): CoroutineScope =
+        CoroutineScope(
+            SupervisorJob() +
+                StandardTestDispatcher(testScheduler) +
+                CoroutineExceptionHandler { _, throwable -> escaped += throwable },
+        ).also { viewModelScope = it }
 
     private fun TestScope.viewModel(): TimeVisualsViewModel {
         val scope = newViewModelScope()
@@ -570,6 +586,68 @@ class TimeVisualsViewModelTest {
             advanceUntilIdle()
 
             assertEquals(date, viewModel.uiState.value.selectedDate)
+        }
+
+    // ────────────────────────────────────────────────────────────────
+    // loadForDate — failed load (closed database session)
+    // ────────────────────────────────────────────────────────────────
+
+    /**
+     * A load that fails because the database session closed under it is reported, not thrown.
+     *
+     * The desktop closes its database session when the window closes, so a visuals load that is still in
+     * flight reads from a closed session and fails with "PayanamDatabaseSession is closed". With no
+     * catch in the coroutine, that failure escaped the launched coroutine, reached the JVM-global
+     * exception collector and was re-thrown as `UncaughtExceptionsBeforeTest` in whichever unrelated test
+     * ran later - which is why the victim test moved from run to run.
+     *
+     * The scope carries a `CoroutineExceptionHandler` so the escape is observable HERE rather than in a
+     * later test: `escaped` stays empty while the ViewModel contains the failure, and this case goes red
+     * the moment the catch is removed.
+     */
+    @Test
+    fun `loadForDate reports a failed load instead of throwing it`() =
+        runTest {
+            val escaped = mutableListOf<Throwable>()
+            val scope = newRecordingViewModelScope(escaped)
+            val viewModel =
+                TimeVisualsViewModel(
+                    fakeTimeEntryRepository,
+                    fakeTaskRepository,
+                    fakeDayPlanRepository,
+                    fakeTaskOccurrenceRepository,
+                    scope,
+                )
+            val date = LocalDate.of(2026, 7, 15)
+            fakeTimeEntryRepository.setEntriesForDate(
+                date,
+                listOf(
+                    entry(
+                        id = "e1",
+                        startedAt = date.atTime(9, 0),
+                        endedAt = date.atTime(10, 0),
+                        dimensionId = "dim_physical_health",
+                    ),
+                ),
+            )
+            fakeDayPlanRepository.failure = IllegalStateException("PayanamDatabaseSession is closed")
+
+            viewModel.loadForDate(date)
+            advanceUntilIdle()
+
+            // The failure stayed inside the load: nothing reached the scope's exception handler.
+            assertTrue("the load failure escaped the coroutine", escaped.isEmpty())
+            // The screen is not left spinning on a load that can never finish.
+            assertFalse(viewModel.uiState.value.isLoading)
+
+            // The failed load finished and the ViewModel is still usable: the next load runs and renders.
+            // (If the failed load were still in flight, the second call would be skipped as a duplicate
+            // and the state would stay at the empty default instead of showing the entry.)
+            fakeDayPlanRepository.failure = null
+            viewModel.loadForDate(date)
+            advanceUntilIdle()
+
+            assertEquals(60L, viewModel.uiState.value.dayOverall.trackedMinutes)
         }
 
     // ────────────────────────────────────────────────────────────────
@@ -1136,6 +1214,14 @@ class TimeVisualsViewModelTest {
     private class FakeDayPlanRepository : DayPlanRepository {
         private val allocationsByDay = mutableMapOf<String, List<DayPlanAllocationRecord>>()
 
+        /**
+         * When set, [getEffectiveAllocationsForDay] throws it instead of returning allocations.
+         *
+         * Stands in for the desktop's closed-session race: the window closes while a visuals load is in
+         * flight, and the read then fails instead of returning an empty day.
+         */
+        var failure: Throwable? = null
+
         fun setAllocationsForDay(
             dayKey: String,
             allocations: List<DayPlanAllocationRecord>,
@@ -1143,8 +1229,13 @@ class TimeVisualsViewModelTest {
             allocationsByDay[dayKey] = allocations
         }
 
-        override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> =
-            allocationsByDay[dayKey].orEmpty()
+        override suspend fun getEffectiveAllocationsForDay(dayKey: String): List<DayPlanAllocationRecord> {
+            val thrown = failure
+            if (thrown != null) {
+                throw thrown
+            }
+            return allocationsByDay[dayKey].orEmpty()
+        }
 
         // --- Stubs ---
 

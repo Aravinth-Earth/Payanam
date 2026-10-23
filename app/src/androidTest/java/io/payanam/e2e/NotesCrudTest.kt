@@ -16,7 +16,6 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 
-
 /**
  * Notes CRUD journey on a fresh install: empty state, add two notes, edit one,
  * search, delete one.

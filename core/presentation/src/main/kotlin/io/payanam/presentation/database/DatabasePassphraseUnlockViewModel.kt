@@ -17,6 +17,7 @@ import io.payanam.shared.security.BiometricRefusalReason
 import io.payanam.shared.security.BiometricUnavailableReason
 import io.payanam.shared.security.BiometricUnlockPrompt
 import io.payanam.shared.security.PassphraseVault
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -122,6 +123,19 @@ class DatabasePassphraseUnlockViewModel(
      * dispatcher tracks, so a test that idled virtual time would read the state before the work landed.
      */
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Dispatcher the platform's own identity prompt is invoked on.
+     *
+     * WHY THE PLATFORM SUPPLIES IT: the prompt is the one thing here that reaches real platform UI, and on
+     * Android `BiometricPrompt.authenticate(...)` is MAIN-THREAD-ONLY - called from any other thread it
+     * throws. [startBiometricUnlock] runs inside [scope], whose default is a background pool, so the prompt
+     * used to be invoked off the main thread and the thrown exception escaped the coroutine and killed the
+     * process on every launch (the prompt is auto-triggered by the unlock gate). This is the same seam
+     * `:app` already uses for `addTaskViewModel(resultDispatcher = Dispatchers.Main.immediate)`: a
+     * platform-neutral module cannot name a main thread, so the caller that has one passes it in. The
+     * default suits a platform with no OS prompt (the desktop), where the prompt is a no-op.
+     */
+    private val promptDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     private val logger = AppLogger.current
     private val _uiState = MutableStateFlow(DatabasePassphraseUnlockUiState())
@@ -271,7 +285,12 @@ class DatabasePassphraseUnlockViewModel(
      * NO TIMEOUT AND NO FALLBACK PROMPT: [BiometricUnlockPrompt.requestAuthentication] resolves exactly once
      * and only on a terminal event, so a timeout added here would race a dialog that is still legitimately
      * on screen and report a failure the user has not made.
+     *
+     * WHY THE CATCH IS BROAD: this path is auto-triggered by the unlock gate, and the platform's
+     * prompt is the only thing here that reaches real platform UI, so an escaping exception would be
+     * a launch crash-loop — a reported UI error is preferable to an unopenable app.
      */
+    @Suppress("TooGenericExceptionCaught") // Intentional: auto-triggered; an escaping exception is a launch crash-loop
     fun startBiometricUnlock(onSuccess: () -> Unit) {
         scope.launch {
             when (val availability = biometricPrompt.availability()) {
@@ -297,7 +316,31 @@ class DatabasePassphraseUnlockViewModel(
             }
 
             _uiState.update { it.copy(isUnlocking = true, errorReasonCode = null) }
-            when (val outcome = biometricPrompt.requestAuthentication()) {
+            val outcome =
+                try {
+                    // The prompt MUST be invoked on the dispatcher this platform supplied. On Android
+                    // `BiometricPrompt.authenticate(...)` is main-thread-only, and this method used to reach
+                    // it from [scope]'s background pool, which threw on every launch.
+                    withContext(promptDispatcher) { biometricPrompt.requestAuthentication() }
+                } catch (cancellation: CancellationException) {
+                    // A teardown is not a failure to report: rethrow so structured concurrency still works.
+                    throw cancellation
+                } catch (failure: Exception) {
+                    // A misbehaving platform prompt that throws an Exception must not take the app down
+                    // with it. This call is auto-triggered on the unlock gate, so an escaping exception here
+                    // is a launch crash-loop - an unopenable app is worse than a failed unlock. Report it as
+                    // a UI error instead. Errors are not caught here, only Exception.
+                    logger.e(
+                        "DatabasePassphraseUnlockViewModel.startBiometricUnlock",
+                        "Biometric prompt threw; keeping the app open and reporting the failure",
+                        failure,
+                    )
+                    _uiState.update {
+                        it.copy(isUnlocking = false, errorReasonCode = "biometric_error")
+                    }
+                    return@launch
+                }
+            when (outcome) {
                 is BiometricAuthentication.Authenticated -> {
                     openSessionAndSucceed(outcome.passphrase, onSuccess, "biometric")
                 }
@@ -544,6 +587,12 @@ fun passphraseUnlockViewModel(
     databaseFile: File,
     strings: UiStrings,
     scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    /**
+     * Dispatcher the platform's identity prompt runs on. Defaults to a background pool for a platform with
+     * no OS prompt; Android passes `Dispatchers.Main.immediate` because its `BiometricPrompt` is
+     * main-thread-only.
+     */
+    promptDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ): DatabasePassphraseUnlockViewModel =
     DatabasePassphraseUnlockViewModel(
         vault = vault,
@@ -553,4 +602,5 @@ fun passphraseUnlockViewModel(
         databaseFile = databaseFile,
         strings = strings,
         scope = scope,
+        promptDispatcher = promptDispatcher,
     )

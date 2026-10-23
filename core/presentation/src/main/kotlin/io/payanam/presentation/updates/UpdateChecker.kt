@@ -57,13 +57,195 @@ private val ARTIFACT_TYPE_REGEX = Regex("""_(debug|release)_""")
  *  without UnifiedLogger.initialize(). */
 private val logger: UnifiedLogger by lazy { AppLogger.current }
 
+/*
+ * Trusted-URL policy.
+ *
+ * Two URLs in the update path come from the network and are attacker-influenced
+ * if the response is tampered with: the pagination `next` URL out of the `Link`
+ * header, and a release asset URL out of the release JSON. Both are re-checked
+ * against this project's origin before they are fetched or handed to a
+ * downloader. One rule, both call sites.
+ *
+ * Pure string parsing on purpose: no `android.*` and no `java.net`, because this
+ * file is shared with the desktop build.
+ */
+
+/**
+ * The releases list endpoint, and the single source of truth for the trusted
+ * host and path: the policy below derives them from this constant, so the
+ * expectation can never drift from the URL the checker actually fetches.
+ */
+internal const val RELEASES_API_URL = "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=100"
+
+/** Only TLS is trusted; `http`, `file`, `content` and every other scheme are refused. */
+private const val TRUSTED_SCHEME = "https"
+
+/** `/repos` prefixes a GitHub REST repo URL; stripping it yields the matching web path. */
+private const val REPOS_PATH_SEGMENT = "/repos"
+
+/**
+ * Host that serves this project's release-asset downloads.
+ *
+ * Deliberately NOT derived from [RELEASES_API_URL]: the API lives on
+ * `api.github.com` while an asset URL lives on `github.com`.
+ */
+private const val ASSET_HOST = "github.com"
+
+/** The parts of an absolute URL this policy needs. */
+private data class SimpleUrl(
+    val scheme: String,
+    val host: String,
+    val path: String,
+)
+
+/** Why a URL was refused. These names are log-safe: they never carry URL text. */
+internal enum class UrlRejection {
+    /** Not an absolute URL, or shaped so it could read as one host and resolve to another. */
+    MALFORMED,
+
+    /** A scheme other than `https`. */
+    NOT_HTTPS,
+
+    /** The scheme and path may look right, but the host is not this project's. */
+    FOREIGN_HOST,
+
+    /** Right scheme and host, but the path leaves this project's releases tree. */
+    OUTSIDE_PATH,
+}
+
+/**
+ * Split [raw] into scheme, host and path, or null when it is not a plain URL.
+ *
+ * Refuses the shapes that let a URL read as one host and resolve to another:
+ * embedded whitespace or backslashes (parser-differential smuggling), userinfo
+ * (`https://api.github.com@evil.example`), and an explicit port.
+ */
+private fun parseSimpleUrl(raw: String): SimpleUrl? {
+    val value = raw.trim()
+    // Whitespace, control characters and backslashes are parser-differential
+    // smuggling vectors (`https://api.github.com\@evil`), so refuse them outright.
+    val hasUnsafeChar = value.any { it.isWhitespace() || it.code < 0x20 || it.code == 0x7F || it == '\\' }
+    if (value.isEmpty() || hasUnsafeChar) return null
+    val schemeEnd = value.indexOf("://")
+    if (schemeEnd <= 0) return null
+    val rest = value.substring(schemeEnd + 3)
+    val authorityEnd = rest.indexOfFirst { it == '/' || it == '?' || it == '#' }.let { if (it < 0) rest.length else it }
+    val authority = rest.substring(0, authorityEnd)
+    if (authority.isEmpty() || '@' in authority || ':' in authority) return null
+    val remainder = rest.substring(authorityEnd)
+    val pathEnd = remainder.indexOfFirst { it == '?' || it == '#' }.let { if (it < 0) remainder.length else it }
+    return SimpleUrl(
+        scheme = value.substring(0, schemeEnd).lowercase(),
+        host = authority.lowercase(),
+        path = remainder.substring(0, pathEnd).ifEmpty { "/" },
+    )
+}
+
+/** The trusted API target, parsed once from [RELEASES_API_URL]. */
+private val TRUSTED_API_TARGET: SimpleUrl? = parseSimpleUrl(RELEASES_API_URL)
+
+/**
+ * `<owner>/<repo>/releases/download/` web prefix, derived from the API path so
+ * the two expectations stay one fact. Null when the constant is not shaped the
+ * way this derivation assumes, which fails the asset check closed.
+ */
+private val TRUSTED_ASSET_PATH_PREFIX: String? =
+    TRUSTED_API_TARGET
+        ?.path
+        ?.takeIf { it.startsWith("$REPOS_PATH_SEGMENT/") }
+        ?.removePrefix(REPOS_PATH_SEGMENT)
+        ?.trimEnd('/')
+        ?.plus("/download/")
+
+/**
+ * Null when [url] may be fetched as a releases API page, otherwise why not.
+ *
+ * The query string is ignored: pagination appends `?page=N`, and a query is not
+ * a place a URL can carry the request somewhere else.
+ */
+internal fun releasesApiRejection(url: String?): UrlRejection? {
+    val target = TRUSTED_API_TARGET ?: return UrlRejection.MALFORMED
+    return rejectionOf(url, target.host, target.path, atSegmentBoundary = true)
+}
+
+/** Null when [url] may be handed to a downloader as an asset, otherwise why not. */
+internal fun assetRejection(url: String?): UrlRejection? {
+    val prefix = TRUSTED_ASSET_PATH_PREFIX ?: return UrlRejection.MALFORMED
+    return rejectionOf(url, ASSET_HOST, prefix, atSegmentBoundary = false)
+}
+
+/** Three-step check shared by both kinds of URL: scheme, then host, then path. */
+private fun rejectionOf(
+    url: String?,
+    expectedHost: String,
+    pathPrefix: String,
+    atSegmentBoundary: Boolean,
+): UrlRejection? {
+    val parsed = parseSimpleUrl(url ?: return UrlRejection.MALFORMED) ?: return UrlRejection.MALFORMED
+    if (parsed.scheme != TRUSTED_SCHEME) return UrlRejection.NOT_HTTPS
+    if (parsed.host != expectedHost) return UrlRejection.FOREIGN_HOST
+    val withinPath =
+        if (atSegmentBoundary) {
+            parsed.path == pathPrefix || parsed.path.startsWith("$pathPrefix/")
+        } else {
+            parsed.path.startsWith(pathPrefix)
+        }
+    return if (withinPath) null else UrlRejection.OUTSIDE_PATH
+}
+
+/**
+ * True when [url] is a page of this project's releases API: `https` on
+ * `api.github.com`, under `/repos/Aravinth-Earth/Payanam/releases`.
+ */
+fun isTrustedReleasesApiUrl(url: String?): Boolean = releasesApiRejection(url) == null
+
+/**
+ * True when [url] may be handed to a downloader as one of this project's release
+ * assets: `https` on `github.com`, under
+ * `/Aravinth-Earth/Payanam/releases/download/`.
+ *
+ * Deliberately narrow, and deliberately NOT extended to
+ * `objects.githubusercontent.com` / `release-assets.githubusercontent.com`:
+ * that is where GitHub's asset redirect lands, and the redirect is followed by
+ * the downloader, not by this code. The only URL validated here is the one this
+ * module hands over, so do not "widen" this check and do not chase the redirect.
+ */
+fun isTrustedAssetUrl(url: String?): Boolean = assetRejection(url) == null
+
+/** What the page walk does with the `next` URL it was just handed. */
+internal enum class NextPageDecision {
+    /** The next URL is trusted: continue at it. */
+    CONTINUE,
+
+    /** No next URL at all: the list genuinely ended and the scan is complete. */
+    END_OF_LIST,
+
+    /** A next page was offered but is not trusted: stop, and the scan is TRUNCATED. */
+    REFUSED,
+}
+
+/**
+ * Decide the walk's next step from a response's `next` URL.
+ *
+ * [NextPageDecision.REFUSED] is deliberately not [NextPageDecision.END_OF_LIST]:
+ * refusing to follow an untrusted URL must never let a truncated scan produce a
+ * "no release" or "up to date" verdict, so the caller keeps `scanComplete` false.
+ */
+internal fun nextPageDecision(nextUrl: String?): NextPageDecision = when {
+    nextUrl == null -> NextPageDecision.END_OF_LIST
+    isTrustedReleasesApiUrl(nextUrl) -> NextPageDecision.CONTINUE
+    else -> NextPageDecision.REFUSED
+}
+
 /** Outcome of the type-aware asset selection within one release. */
 data class ApkAssetSelection(
     /** Download URL of the `.apk` asset carrying the expected build type, or null. */
     val apkUrl: String? = null,
     /** Download URL of that APK's paired `.sha256` sibling, when the release ships one. */
     val sha256Url: String? = null,
-    /** True when the release ships no `.apk` of the expected build type (fail-closed). */
+    /** True when the release ships no downloadable `.apk` for the expected build type —
+     *  absent, wrong type, or carrying a download URL that failed the trusted-URL
+     *  policy (fail-closed). */
     val typeMismatch: Boolean = false,
     /** Distinct build-type tokens seen across the release's asset names (for fail-closed logs). */
     val assetTypesSeen: List<String> = emptyList(),
@@ -100,6 +282,54 @@ fun selectApkAssets(
         sha256Url = shaEntry?.second,
         typeMismatch = apkEntry == null,
         assetTypesSeen = entries.mapNotNull { (name, _) -> ARTIFACT_TYPE_REGEX.find(name)?.groupValues?.get(1) }.distinct(),
+    )
+}
+
+/**
+ * Apply the asset URL policy to a selection: a URL that is not one of this
+ * project's release assets is never handed on. A refused APK URL means the
+ * release offers no update at all (fail-closed, [ApkAssetSelection.typeMismatch]);
+ * a refused checksum URL alone only drops the checksum.
+ *
+ * No other asset is tried: swapping to a different asset would be guessing which
+ * file the attacker meant.
+ */
+private fun ApkAssetSelection.withTrustedAssetUrls(
+    channel: UpdateChannel,
+    buildNumber: Int?,
+    runningType: String,
+): ApkAssetSelection {
+    val apk = apkUrl
+    if (apk != null && !isTrustedAssetUrl(apk)) {
+        logRefusedAssetUrl("apk", channel, buildNumber, runningType, apk)
+        return copy(apkUrl = null, sha256Url = null, typeMismatch = true)
+    }
+    val sha = sha256Url
+    if (sha != null && !isTrustedAssetUrl(sha)) {
+        logRefusedAssetUrl("sha256", channel, buildNumber, runningType, sha)
+        return copy(sha256Url = null)
+    }
+    return this
+}
+
+/** Fail-closed trace for a refused asset URL: the reason only, never the URL itself. */
+private fun logRefusedAssetUrl(
+    kind: String,
+    channel: UpdateChannel,
+    buildNumber: Int?,
+    runningType: String,
+    url: String,
+) {
+    logger.w(
+        "UpdateChecker.parseReleases",
+        "Refused a release asset URL outside the project download path; no update offered (fail closed)",
+        mapOf(
+            "asset" to kind,
+            "channel" to channel.name,
+            "build" to (buildNumber ?: -1),
+            "runningType" to runningType,
+            "reason" to (assetRejection(url)?.name ?: UrlRejection.MALFORMED.name),
+        ),
     )
 }
 
@@ -173,14 +403,16 @@ fun parseReleases(
         if (selection.typeMismatch) {
             logFailClosedSelection(channel, buildNumber, runningType, selection.assetTypesSeen)
         }
+        // A selection whose URL is not one of this project's assets offers no update.
+        val trusted = selection.withTrustedAssetUrls(channel, buildNumber, runningType)
         statuses.add(
             ChannelStatus(
                 channel = channel,
                 buildNumber = buildNumber,
                 releaseUrl = htmlUrl,
-                apkDownloadUrl = selection.apkUrl,
-                apkSha256Url = selection.sha256Url,
-                typeMismatch = selection.typeMismatch,
+                apkDownloadUrl = trusted.apkUrl,
+                apkSha256Url = trusted.sha256Url,
+                typeMismatch = trusted.typeMismatch,
             ),
         )
     }
@@ -212,10 +444,6 @@ fun nextPageUrl(linkHeader: String?): String? =
  * non-success [UpdateOutcome] — never "up to date".
  */
 object UpdateChecker {
-    /** GitHub releases list endpoint; per_page=100 with the walk in [check]. */
-    private const val RELEASES_LIST_URL =
-        "https://api.github.com/repos/Aravinth-Earth/Payanam/releases?per_page=100"
-
     /**
      * Page cap for the walk: the selected channel's newest release is searched
      * page by page (newest first) and the scan stops as soon as it is seen.
@@ -254,7 +482,7 @@ object UpdateChecker {
                 // guess, so scanComplete gates the resolve below.
                 val collected = mutableListOf<ChannelStatus>()
                 var scanComplete = false
-                var url: String? = RELEASES_LIST_URL
+                var url: String? = RELEASES_API_URL
                 var page = 0
                 while (url != null && page < MAX_PAGES) {
                     page++
@@ -275,8 +503,26 @@ object UpdateChecker {
                                 scanComplete = true
                                 break
                             }
-                            url = fetched.nextUrl
-                            if (url == null) scanComplete = true
+                            when (nextPageDecision(fetched.nextUrl)) {
+                                NextPageDecision.CONTINUE -> url = fetched.nextUrl
+                                NextPageDecision.END_OF_LIST -> {
+                                    url = null
+                                    scanComplete = true
+                                }
+                                NextPageDecision.REFUSED -> {
+                                    // Stop, but the walk did not reach the end of the list, so
+                                    // scanComplete stays false: no verdict is derived from it.
+                                    logger.w(
+                                        "UpdateChecker.check",
+                                        "Refused a pagination URL outside the releases API; walk stopped (fail closed)",
+                                        mapOf(
+                                            "page" to page,
+                                            "reason" to (releasesApiRejection(fetched.nextUrl)?.name ?: UrlRejection.MALFORMED.name),
+                                        ),
+                                    )
+                                    url = null
+                                }
+                            }
                         }
                     }
                 }

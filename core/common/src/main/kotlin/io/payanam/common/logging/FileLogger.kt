@@ -4,9 +4,8 @@ package io.payanam.common.logging
 
 import android.content.Context
 import android.os.Environment
-import kotlinx.coroutines.CoroutineScope
+import io.payanam.shared.concurrent.appCoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
@@ -16,6 +15,7 @@ import java.io.IOException
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
+import java.util.concurrent.CancellationException
 
 /**
  * Data class for log entry parameters
@@ -50,7 +50,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     private val sessionStart = System.currentTimeMillis()
     private val logBuffer = mutableListOf<String>()
     private val mutex = Mutex()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = appCoroutineScope("FileLogger", Dispatchers.IO)
     private var stepCounter = 1
 
     init {
@@ -83,10 +83,10 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
         logFile.writeText(header)
 
         // Start auto-flush every 5 seconds
-        scope.launch {
+        launchSafely {
             while (true) {
                 kotlinx.coroutines.delay(AUTO_FLUSH_INTERVAL_MS)
-                flush()
+                runIterationSafely("auto-flush") { flush() }
             }
         }
 
@@ -172,7 +172,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
      * Core logging function
      */
     private fun log(entry: LogEntry) {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 val timestamp = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US).format(Date())
                 val step = stepCounter++
@@ -205,10 +205,66 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     }
 
     /**
+     * Runs [block] on this logger's own scope, never letting a failure escape into the process.
+     *
+     * The logger is the last place a failure should be reported FROM, so it must not be the place a
+     * failure is raised FROM: an unexpected throw inside a log write is reported to the console and
+     * then dropped. Cancellation is the one exception - it is rethrown, so structured concurrency
+     * still works and a cancelled scope still unwinds quietly.
+     *
+     * Without this, the scope's `CoroutineExceptionHandler` would report the failure back through
+     * `AppLogger`, which is this logger, whose write would fail the same way and start the loop
+     * again. Guarding the writes is what breaks that cycle.
+     */
+    private fun launchSafely(block: suspend () -> Unit) {
+        scope.launch {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (
+                @Suppress("TooGenericExceptionCaught") failure: Exception,
+            ) {
+                System.err.println("FileLogger: Background log write failed: ${failure.message}")
+            }
+        }
+    }
+
+    /**
+     * Runs ONE iteration of a repeating background task, keeping the repeat alive when that
+     * iteration fails.
+     *
+     * [launchSafely] guards a whole block, so a `while (true)` wrapped in it dies with the FIRST
+     * failure: the try/catch sits OUTSIDE the loop, so a throw leaves the `while`, the catch
+     * swallows it, and the loop never runs again. For the auto-flush that failure is SILENT -
+     * entries pile up in the buffer and nothing reaches the log file again, so anything reading
+     * the file sees stale content forever. Guarding each iteration separately keeps one failed
+     * flush from ending the repeat: the failure is reported and the next iteration still runs.
+     *
+     * Cancellation is the only thing that ends a repeat: a [CancellationException] is rethrown, so
+     * a cancelled scope still unwinds the loop quietly. `runCatching` is deliberately NOT used
+     * here - it catches `Throwable`, which would swallow that cancellation as well.
+     */
+    private suspend fun runIterationSafely(
+        description: String,
+        block: suspend () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (
+            @Suppress("TooGenericExceptionCaught") failure: Exception,
+        ) {
+            System.err.println("FileLogger: Background $description failed: ${failure.message}")
+        }
+    }
+
+    /**
      * Flush buffer to file
      */
     fun flush() {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 flushInternal()
             }
@@ -225,8 +281,18 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
                 }
             }
             logBuffer.clear()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: IOException) {
             // Fallback to console if file write fails
+            System.err.println(
+                "FileLogger: Failed to flush buffer: ${e.message}",
+            )
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            // A logger must never be the thing that kills the process. An unexpected throw while
+            // writing the buffer is reported and dropped, never rethrown into the caller.
             System.err.println(
                 "FileLogger: Failed to flush buffer: ${e.message}",
             )

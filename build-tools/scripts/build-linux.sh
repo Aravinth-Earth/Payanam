@@ -235,6 +235,55 @@ info "Checking Gradle wrapper..."
 chmod +x ./gradlew
 ok "Gradle wrapper present"
 
+# ── Temp directory capacity (must run BEFORE any Gradle invocation) ───────────
+# Gradle, the Kotlin daemon, jpackage and dpkg-deb all stage large scratch files in the system
+# temp directory. On a host where that directory is a small tmpfs with a per-user quota, those
+# writes fail with "Disk quota exceeded" and the build dies for ENVIRONMENT reasons - there is
+# no code defect anywhere to fix. Probe the temp directory ONCE, before Gradle starts, and move
+# the whole run onto a bigger filesystem when it cannot hold the scratch space. On a healthy
+# machine this changes NOTHING: no env var is touched, no daemon is stopped, and the only
+# output is one line.
+TMP_PROBE_BYTES=$((64 * 1024 * 1024))
+TMP_PROBE_DIR="${TMPDIR:-/tmp}"
+
+# Writes zeros into the directory and removes the probe file again in EVERY path. Returns 0 only
+# when the whole amount landed on disk: a quota-exceeded write fails part-way through and leaves
+# a short file behind, which is exactly the case this has to catch.
+tmp_probe_capacity() {
+    local dir="$1" required="$2"
+    local probe_file="$dir/payanam-tmp-probe.$$"
+    local count=$(( required / 1024 / 1024 ))
+    local written=0
+    rm -f "$probe_file" 2>/dev/null || true
+    if ! dd if=/dev/zero of="$probe_file" bs=1M count="$count" status=none 2>/dev/null; then
+        rm -f "$probe_file" 2>/dev/null || true
+        return 1
+    fi
+    written=$(stat -c %s "$probe_file" 2>/dev/null || echo 0)
+    rm -f "$probe_file" 2>/dev/null || true
+    [[ "$written" -eq "$required" ]]
+}
+
+info "Checking temp directory capacity..."
+if tmp_probe_capacity "$TMP_PROBE_DIR" "$TMP_PROBE_BYTES"; then
+    info "  Temp directory usable: $TMP_PROBE_DIR"
+else
+    TMP_FALLBACK="${PAYANAM_BUILD_TMP:-/var/tmp/payanam-build-tmp}"
+    if ! mkdir -p "$TMP_FALLBACK" 2>/dev/null; then
+        fail "Temp directory $TMP_PROBE_DIR failed the 64 MB write probe and the fallback $TMP_FALLBACK could not be created. Set PAYANAM_BUILD_TMP to a writable directory on a larger filesystem."
+    fi
+    export TMPDIR="$TMP_FALLBACK"
+    if [[ -n "${JAVA_TOOL_OPTIONS:-}" ]]; then
+        export JAVA_TOOL_OPTIONS="$JAVA_TOOL_OPTIONS -Djava.io.tmpdir=$TMP_FALLBACK"
+    else
+        export JAVA_TOOL_OPTIONS="-Djava.io.tmpdir=$TMP_FALLBACK"
+    fi
+    # A daemon started before the probe still holds the OLD temp dir, so stop it: the next build
+    # then starts a fresh daemon that picks the new one up.
+    ./gradlew --stop >/dev/null 2>&1 || true
+    warn "  Temp directory probe FAILED for $TMP_PROBE_DIR (64 MB write); using $TMP_FALLBACK for this run."
+fi
+
 # Source structure
 info "Checking desktop source structure..."
 MISSING=()

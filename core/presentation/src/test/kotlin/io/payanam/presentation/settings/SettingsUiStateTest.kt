@@ -123,16 +123,21 @@ class SettingsUiStateTest {
             )
         assertFalse(state(fresh).isUpdateResultStale())
 
+        // One second inside the window, not sitting on the 15-minute line: the predicate reads the
+        // clock again when it runs, so a value placed exactly on the boundary turns stale on the
+        // next millisecond and this test would flake on a slow machine while passing in isolation.
         val justInside =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,
                 latestBuildNumber = 1234,
                 releaseUrl = null,
                 error = null,
-                checkedAtMs = now - 15 * 60 * 1000L,
+                checkedAtMs = now - 15 * 60 * 1000L + 1000L,
             )
         assertFalse(state(justInside).isUpdateResultStale())
 
+        // One millisecond past the line, so it is stale on the stale side no matter how much time
+        // passes between reading the clock here and reading it again inside the predicate.
         val justOutside =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,

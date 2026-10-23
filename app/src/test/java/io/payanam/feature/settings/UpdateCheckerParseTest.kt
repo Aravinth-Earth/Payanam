@@ -5,8 +5,8 @@ package io.payanam.feature.settings
 import android.app.DownloadManager
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.presentation.updates.parseReleases
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.presentation.updates.parseReleases
 import io.payanam.shared.updates.ChannelStatus
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
@@ -47,13 +47,13 @@ class UpdateCheckerParseTest {
             [
               {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"https://example.test/dev-v1562",
                "assets":[
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"https://example.test/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"https://example.test/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"}
+                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"},
+                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"}
                ]},
               {"tag_name":"beta-v1560","name":"Beta #1560","html_url":"https://example.test/beta-v1560",
-               "assets":[{"name":"Payanam_Android_1560_release_20260805_090000.apk","browser_download_url":"https://example.test/beta-v1560/Payanam_Android_1560_release_20260805_090000.apk"}]},
+               "assets":[{"name":"Payanam_Android_1560_release_20260805_090000.apk","browser_download_url":"${ASSET_BASE}/beta-v1560/Payanam_Android_1560_release_20260805_090000.apk"}]},
               {"tag_name":"v1558","name":"Stable #1558","html_url":"https://example.test/v1558",
-               "assets":[{"name":"Payanam_Android_1558_release_20260801_080000.apk","browser_download_url":"https://example.test/v1558/Payanam_Android_1558_release_20260801_080000.apk"}]}
+               "assets":[{"name":"Payanam_Android_1558_release_20260801_080000.apk","browser_download_url":"${ASSET_BASE}/v1558/Payanam_Android_1558_release_20260801_080000.apk"}]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(body, "debug"))
@@ -61,7 +61,7 @@ class UpdateCheckerParseTest {
 
         val dev = statuses.first { it.channel == UpdateChannel.DEV }
         assertEquals(1562, dev.buildNumber)
-        assertEquals("https://example.test/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", dev.apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", dev.apkDownloadUrl)
         assertEquals(dev.apkDownloadUrl + ".sha256", dev.apkSha256Url)
         assertFalse(dev.typeMismatch)
 
@@ -80,7 +80,7 @@ class UpdateCheckerParseTest {
         val body = """
             [
               {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"https://example.test/dev-v1562",
-               "assets":[{"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"https://example.test/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk"}]}
+               "assets":[{"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk"}]}
             ]
         """.trimIndent()
         // Debug install: the dev release ships only a release-type APK.
@@ -92,7 +92,7 @@ class UpdateCheckerParseTest {
 
         // Release install: the same release selects cleanly.
         val releaseView = requireNotNull(parseReleases(body, "release"))
-        assertEquals("https://example.test/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", releaseView[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", releaseView[0].apkDownloadUrl)
         assertFalse(releaseView[0].typeMismatch)
     }
 
@@ -102,20 +102,20 @@ class UpdateCheckerParseTest {
             [
               {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
                "assets":[
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"url/sha"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"url/apk"}
+                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"},
+                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"}
                ]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(shaFirst, "debug"))
-        assertEquals("url/apk", statuses[0].apkDownloadUrl)
-        assertEquals("url/sha", statuses[0].apkSha256Url)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", statuses[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256", statuses[0].apkSha256Url)
         assertFalse(statuses[0].typeMismatch)
 
         val shaOnly = """
             [
               {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
-               "assets":[{"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"url/sha"}]}
+               "assets":[{"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"}]}
             ]
         """.trimIndent()
         val shaOnlyStatuses = requireNotNull(parseReleases(shaOnly, "debug"))
@@ -142,13 +142,13 @@ class UpdateCheckerParseTest {
             [
               {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
                "assets":[
-                 {"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"url/release"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"url/debug"}
+                 {"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk"},
+                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"}
                ]}
             ]
         """.trimIndent()
-        assertEquals("url/debug", requireNotNull(parseReleases(body, "debug"))[0].apkDownloadUrl)
-        assertEquals("url/release", requireNotNull(parseReleases(body, "release"))[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", requireNotNull(parseReleases(body, "debug"))[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", requireNotNull(parseReleases(body, "release"))[0].apkDownloadUrl)
     }
 
     @Test
@@ -254,5 +254,10 @@ class UpdateCheckerParseTest {
         assertEquals("download_paused_wifi", downloadPausedMessage(DownloadManager.PAUSED_WAITING_FOR_NETWORK))
         assertEquals("download_paused_retry", downloadPausedMessage(DownloadManager.PAUSED_WAITING_TO_RETRY))
         assertEquals("download_paused", downloadPausedMessage(99999))
+    }
+
+    private companion object {
+        /** The only release-asset URL shape the trusted-URL policy accepts. */
+        const val ASSET_BASE = "https://github.com/Aravinth-Earth/Payanam/releases/download"
     }
 }

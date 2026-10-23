@@ -54,4 +54,27 @@ class HabitDayMetricsUiModelTest {
         assertThat(state.isLoading).isFalse()
         assertThat(state.chips.map { it.label }).containsExactly("Day Score", "Run Avg").inOrder()
     }
+
+    @Test
+    fun `a chip without a numeric rank says so, so the strip does not scale it`() {
+        val chip = DayMetricChipData(value = "72", rank = "3/9", label = "Day Score")
+
+        assertThat(chip.rankNumber).isNull()
+        assertThat(chip.rankTotal).isNull()
+    }
+
+    @Test
+    fun `a chip can carry its rank as numbers as well as text`() {
+        val chip =
+            DayMetricChipData(
+                value = "72",
+                rank = "3/9",
+                label = "Day Score",
+                rankNumber = 3,
+                rankTotal = 9,
+            )
+
+        assertThat(chip.rankNumber).isEqualTo(3)
+        assertThat(chip.rankTotal).isEqualTo(9)
+    }
 }

@@ -122,8 +122,7 @@ class TimeEntryEditTest {
     }
 
     /** The one timeline block for the dimension this journey added. */
-    private fun entryBlockMatcher(): SemanticsMatcher =
-        hasClickAction() and hasContentDescription(l.workLivelihood, substring = true)
+    private fun entryBlockMatcher(): SemanticsMatcher = hasClickAction() and hasContentDescription(l.workLivelihood, substring = true)
 
     private companion object {
         /** The create modal's dimension dropdown field (see `TimeScreenEntryDialogs`). */

@@ -5,6 +5,10 @@ import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
+import io.payanam.core.ui.platform.NotificationPermissionReason
+import io.payanam.core.ui.platform.NotificationPermissionRationaleDialog
+import io.payanam.core.ui.platform.rememberNotificationPermission
+import io.payanam.shared.platform.SupportState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -49,6 +53,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -86,8 +91,18 @@ fun AddTaskScreen(
     val tagSuggestions by viewModel.tagSuggestions.collectAsState()
     val prefs = LocalAppPreferences.current
     val dimensionOptions = prefs.visibleDimensionOptions()
+    // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
+    // composable scope and not inside the save callback.
+    val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
+    // The notification permission, and the offer that may follow a save that armed a reminder. The
+    // offer is raised AFTER the save has committed, never before it: the task exists and its reminder
+    // is armed either way, and the user is only losing the notification that would have told them.
+    val notificationPermission = rememberNotificationPermission()
+    // Saveable, so a rotation while the offer is up does not drop the offer and strand the screen on
+    // a task that was already created.
+    var showNotificationRationale by rememberSaveable { mutableStateOf(false) }
     val unknownErrorMessage = strings.locUnknownErrorOccurred
     val actionFailedPlaceholder = "__ACTION_FAILED_REASON__"
     val actionFailedTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedPlaceholder,
@@ -535,6 +550,15 @@ fun AddTaskScreen(
                             "recurrenceRule" to (if (recurrenceEnabled) recurrenceRule else "none"),
                         ),
                     )
+                    // Whether THIS save arms a reminder. The screen can see the three facts the reminder
+                    // needs - the feature flag, the mode and the time - and the ViewModel arms the
+                    // reminder from exactly those, so this is the same question the scheduler asks.
+                    // A recurring task with no date still gets the ViewModel's default due time, so it
+                    // still arms one.
+                    val reminderArmed =
+                        remindersEnabled &&
+                            notificationMode != "off" &&
+                            (dueDateTime != null || recurrenceEnabled)
                     viewModel.createTask(
                         title = title,
                         description = description.ifBlank { null },
@@ -557,7 +581,15 @@ fun AddTaskScreen(
                         tags = parseTagsInput(tagsInput),
                         onResult = { result ->
                             result.onSuccess {
-                                onTaskSaved()
+                                // The save has COMMITTED: the task exists and its reminder is armed.
+                                // The offer only reports that the notification that would have told
+                                // the user about it cannot arrive, so the way back is held until the
+                                // offer has been seen - the task itself is already saved either way.
+                                if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
+                                    showNotificationRationale = true
+                                } else {
+                                    onTaskSaved()
+                                }
                             }.onFailure { error ->
                                 val message = error.message ?: unknownErrorMessage
                                 scope.launch {
@@ -623,5 +655,17 @@ fun AddTaskScreen(
                 },
             )
         }
+    }
+    // The offer, raised after the task was saved. Dismissing it - by any route - only goes back; it
+    // never un-saves the task and never cancels the reminder that was armed.
+    if (showNotificationRationale) {
+        NotificationPermissionRationaleDialog(
+            permission = notificationPermission,
+            reason = NotificationPermissionReason.TASK_REMINDER,
+            onDismiss = {
+                showNotificationRationale = false
+                onTaskSaved()
+            },
+        )
     }
 }

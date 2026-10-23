@@ -5,6 +5,10 @@ package io.payanam.core.ui.tasks
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
+import io.payanam.core.ui.platform.NotificationPermissionReason
+import io.payanam.core.ui.platform.NotificationPermissionRationaleDialog
+import io.payanam.core.ui.platform.rememberNotificationPermission
+import io.payanam.shared.platform.SupportState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -46,6 +50,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -88,6 +93,16 @@ fun EditTaskScreen(
 ) {
     val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
+    // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
+    // composable scope and not inside the save callback.
+    val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
+    // The notification permission, and the offer that may follow a save that left a reminder armed. The
+    // offer is raised AFTER the save, never before it: the edit is committed either way, and the user
+    // is only losing the notification that would have told them about the reminder.
+    val notificationPermission = rememberNotificationPermission()
+    // Saveable, so a rotation while the offer is up does not drop the offer and strand the screen on
+    // an edit that was already saved.
+    var showNotificationRationale by rememberSaveable { mutableStateOf(false) }
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
     }
@@ -138,12 +153,39 @@ fun EditTaskScreen(
                     tagSuggestions = uiState.tagSuggestions,
                     onSave = { input ->
                         viewModel.updateTask(input)
-                        onTaskSaved()
+                        // Whether this save leaves a reminder armed. The screen can see the three facts
+                        // the reminder needs - the feature flag, the mode and the time - and the
+                        // ViewModel re-arms the reminder from exactly those, so this is the same
+                        // question the scheduler asks.
+                        val reminderArmed =
+                            remindersEnabled &&
+                                input.notificationMode != "off" &&
+                                input.dueDate != null
+                        // The save has been handed over and the reminder re-armed. The offer only reports
+                        // that the notification cannot arrive, so the way back is held until the offer
+                        // has been seen - the edit itself is already saved either way.
+                        if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
+                            showNotificationRationale = true
+                        } else {
+                            onTaskSaved()
+                        }
                     },
                     modifier = Modifier.padding(padding),
                 )
             }
         }
+    }
+    // The offer, raised after the edit was saved. Dismissing it - by any route - only goes back; it
+    // never un-saves the edit and never cancels the reminder that was armed.
+    if (showNotificationRationale) {
+        NotificationPermissionRationaleDialog(
+            permission = notificationPermission,
+            reason = NotificationPermissionReason.TASK_REMINDER,
+            onDismiss = {
+                showNotificationRationale = false
+                onTaskSaved()
+            },
+        )
     }
 }
 

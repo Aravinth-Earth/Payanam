@@ -5,27 +5,26 @@
 package io.payanam.feature.settings
 
 import io.payanam.core.ui.text.UiStrings
-import io.payanam.presentation.database.DatabaseInitWalConsolidator
-import io.payanam.shared.platform.DocumentSource
 import io.payanam.presentation.database.DatabaseImportIntegritySupport
 import io.payanam.presentation.database.DatabaseImportSupport
-import io.payanam.presentation.settings.backupDatabaseArtifactFiles
+import io.payanam.presentation.database.DatabaseInitWalConsolidator
 import io.payanam.presentation.settings.BulkHabitMappingResult
-import io.payanam.presentation.settings.cleanupDatabaseArtifactBackups
-import io.payanam.presentation.settings.deleteRuntimeDatabaseArtifacts
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
+import io.payanam.presentation.settings.UhabitsImportResult
+import io.payanam.presentation.settings.backupDatabaseArtifactFiles
+import io.payanam.presentation.settings.cleanupDatabaseArtifactBackups
+import io.payanam.presentation.settings.deleteRuntimeDatabaseArtifacts
 import io.payanam.presentation.settings.listDatabaseArtifactFiles
 import io.payanam.presentation.settings.restoreDatabaseArtifactFiles
-import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.isActiveArtifact
 import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.shared.platform.DocumentSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import timber.log.Timber
 
 /**
  * Extension functions for SettingsViewModel handling encrypted database imports.
@@ -40,8 +39,6 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
         data = data.orEmpty(),
     )
 }
-
-
 
 /**
  * Starts an ENCRYPTED database import from [sourceUri]: backs up the current DB + encryption prefs,
@@ -360,7 +357,6 @@ fun SettingsViewModel.importDatabase(
                     "errorMessage" to (e.message ?: "unknown"),
                 ),
             )
-            Timber.e(e, "Import: Failed with error")
             val rawMessage = e.message ?: "Import failed"
             val resolvedMessage =
                 if (rawMessage.contains("unable to open database", ignoreCase = true) ||

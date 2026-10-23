@@ -257,6 +257,14 @@ object E2eLabels {
         val chooseYourFocus: String get() = shared.chooseYourFocus
         val skipFocusMode: String get() = shared.skipFocusMode
 
+        // ── notification-permission offer ─────────────────────────────────────────────────────────────
+        // The app asks for the notification permission AFTER the action that would notify - a started timer, a
+        // task saved with a reminder - and never before it. On a device where notifications are switched off
+        // (a fresh install on Android 13 and later) that offer is a modal dialog, so a journey that saves a
+        // task or starts a timer meets it. Read from the shared table, so a Tamil device resolves it too.
+        val notificationOfferTitle: String get() = shared.locNotificationPermissionTitle
+        val notificationOfferNotNow: String get() = shared.locNotificationPermissionNotNow
+
         // ── focus mode + tab visibility (shared settings) ──────────────────────────────────────────
         val focusMode: String get() = shared.focusModeTitle
         val tabVisibility: String get() = shared.tabVisibility
@@ -341,14 +349,9 @@ object E2eLabels {
          * "Dev (daily) channel ships: debug APK" — composed from the SAME resource the app formats, so the
          * expectation follows the locale instead of asserting English copy.
          */
-        fun updateChannelShips(channel: String, apk: String): String =
-            shared.settingsUpdateChannelShips.format(channel, apk)
+        fun updateChannelShips(channel: String, apk: String): String = shared.settingsUpdateChannelShips.format(channel, apk)
 
         /** "You are on: debug build" — composed from the app's own pattern for the same reason. */
-        fun runningBuildType(buildType: String): String =
-            shared.settingsUpdateRunningBuildType.format(buildType)
-
-
-
+        fun runningBuildType(buildType: String): String = shared.settingsUpdateRunningBuildType.format(buildType)
     }
 }

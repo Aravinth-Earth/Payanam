@@ -18,7 +18,6 @@ fun UpdateChannel.labelResId(): Int = when (this) {
     UpdateChannel.STABLE -> R.string.settings_update_channel_stable
 }
 
-
 /**
  * Build-type tokens used in artifact names:
  * `Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.apk`.
@@ -35,7 +34,6 @@ internal object ApkBuildType {
     fun running(): String = if (BuildConfig.DEBUG) DEBUG else RELEASE
 }
 
-
 /**
  * Build type a channel ships — one artifact per channel (naming plan):
  * dev → debug, beta/stable → release.
@@ -44,4 +42,3 @@ internal fun UpdateChannel.shippedApkType(): String = when (this) {
     UpdateChannel.DEV -> ApkBuildType.DEBUG
     UpdateChannel.BETA, UpdateChannel.STABLE -> ApkBuildType.RELEASE
 }
-

@@ -6,15 +6,15 @@ package io.payanam.feature.settings
 
 import android.content.Context
 import dagger.hilt.android.qualifiers.ApplicationContext
-import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.presentation.updates.UpdateChecker
+import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
-import io.payanam.presentation.updates.UpdatePrefKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -40,8 +40,8 @@ class AppStartUpdateChecker @Inject constructor(
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
     private val logger = UnifiedLogger.getInstance()
 
-    /** F-Droid installs are updated by the F-Droid client — the in-app updater is disabled. */
-    private val isFDroidBuild: Boolean = InstallerChecker.isFDroidBuild(context)
+    /** The F-Droid channel build is updated by the F-Droid client — the in-app updater is disabled. */
+    private val isFDroidBuild: Boolean = FdroidBuildCheck.isFDroidBuild()
 
     /**
      * Checks for app updates after the DB session unlocks. Safety net: catches
@@ -54,7 +54,7 @@ class AppStartUpdateChecker @Inject constructor(
                 // F-Droid owns updates for its installs; the in-app updater must
                 // not run (same gate as the Settings update UI).
                 if (isFDroidBuild) {
-                    logger.i("AppStartUpdateChecker.onAppStart", "F-Droid install; in-app update check disabled")
+                    logger.i("AppStartUpdateChecker.onAppStart", "F-Droid channel build; in-app update check disabled")
                     return@launch
                 }
                 // Wait for the DB to unlock before touching any preference.
@@ -143,6 +143,9 @@ class AppStartUpdateChecker @Inject constructor(
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_ID, id.toString())
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, url)
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
+                    // Persist the checksum sidecar URL too: the Settings install gate verifies the
+                    // download against it, and this path owns no in-memory check result to fall back on.
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, selected?.apkSha256Url)
                     logger.i("AppStartUpdateChecker.onAppStart", "Auto-download enqueued after unlock", mapOf("file" to fileName, "downloadId" to id))
                 }
             } catch (e: Exception) {

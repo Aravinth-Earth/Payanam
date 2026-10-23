@@ -101,6 +101,7 @@ class HabitsFilterSortTest {
         h.click(l.ui.locOk)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(title)
     }
 

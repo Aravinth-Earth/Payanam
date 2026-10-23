@@ -136,13 +136,9 @@ class DimensionSetupTest {
         h.assertVisible(l.perDimension)
     }
 
-    private fun firstRunLabels(): Array<String> {
-        return (tourLabels() + l.welcomeToPayanam).toTypedArray()
-    }
+    private fun firstRunLabels(): Array<String> = (tourLabels() + l.welcomeToPayanam).toTypedArray()
 
-    private fun tourLabels(): List<String> {
-        return listOf(l.onboardingAction, l.onboardingNext, l.onboardingSkip)
-    }
+    private fun tourLabels(): List<String> = listOf(l.onboardingAction, l.onboardingNext, l.onboardingSkip)
 
     private companion object {
         const val TEST_DB_PASSPHRASE = "E2ETestPass!2026"

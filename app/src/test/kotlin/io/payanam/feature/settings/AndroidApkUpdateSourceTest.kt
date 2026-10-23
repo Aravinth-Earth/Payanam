@@ -7,17 +7,17 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
-import io.payanam.shared.updates.UpdateCheckError
-import io.payanam.shared.updates.UpdateCheckResult
-import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.InstallHandoff
 import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
+import io.payanam.shared.updates.ChannelStatus
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -37,12 +37,12 @@ import java.io.File
  * Every answer here is produced by the class under test through its own collaborators. The channel read is
  * scripted through the constructor's own check function, so no network is involved and the mapping under
  * test is the mapping that runs in production. The store-managed build is reached through the constructor's
- * store flag rather than through [InstallerChecker], which reads the installing package off a real device and
- * cannot be provoked from a test; everything downstream of that one fact is still this class's own answer.
+ * store flag rather than through [FdroidBuildCheck], which reports a fact about the build itself and cannot
+ * be provoked from a test; everything downstream of that one fact is still this class's own answer.
  *
  * The install refusals are reached by the real handoff, not by asserting on the source's internals: a path
- * that does not exist is refused as a missing artifact before any URI is built, and a real file that this
- * build cannot publish to an installer is refused as having no installer. Nothing is stubbed to fail.
+ * that does not exist is refused as a missing artifact before any URI is built, and a real file this source
+ * never verified is refused as an unverified checksum. Nothing is stubbed to fail.
  */
 @RunWith(RobolectricTestRunner::class)
 class AndroidApkUpdateSourceTest {
@@ -64,13 +64,12 @@ class AndroidApkUpdateSourceTest {
         result: UpdateCheckResult,
         storeManaged: Boolean = false,
         channel: UpdateChannel = UpdateChannel.DEV,
-    ): ApkUpdateSource =
-        AndroidApkUpdateSource(
-            context = context,
-            channel = channel,
-            isStoreManaged = storeManaged,
-            checkForUpdates = { _, _ -> result },
-        )
+    ): ApkUpdateSource = AndroidApkUpdateSource(
+        context = context,
+        channel = channel,
+        isStoreManaged = storeManaged,
+        checkForUpdates = { _, _ -> result },
+    )
 
     @Before
     fun setUp() {
@@ -230,10 +229,11 @@ class AndroidApkUpdateSourceTest {
     }
 
     @Test
-    fun `a real file this build cannot publish is refused as having no installer`() {
-        // The distinct reason from the one above, and the file really is present - so the earlier
-        // missing-file branch is not what answers here. What refuses it is the handoff itself: the artifact
-        // sits outside every location this build hands to an installer, so there is nowhere to send it.
+    fun `a real file this source never verified is refused as an unverified checksum`() {
+        // The file really is present, so the missing-file branch is not what answers here. What refuses it
+        // is provenance: this source hands over only an artifact it verified when it fetched it, and a
+        // `UpdateDownload` built by hand names no such artifact. Refusing with its own reason keeps this
+        // apart from NO_INSTALLER, which would claim the device has nothing that could open the file.
         val source = sourceReporting(upToDate())
         val unpublished = context.filesDir.resolve("Payanam_Android_${NEWER_BUILD}_debug_test.apk")
         unpublished.writeBytes(ByteArray(1))
@@ -242,7 +242,7 @@ class AndroidApkUpdateSourceTest {
         val handoff =
             source.startInstall(UpdateDownload(buildNumber = NEWER_BUILD, platformHandle = unpublished.absolutePath))
 
-        assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.NO_INSTALLER))
+        assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.CHECKSUM_UNVERIFIED))
     }
 
     @Test
@@ -272,24 +272,22 @@ class AndroidApkUpdateSourceTest {
      * Built from the real per-channel status shape rather than a bare enum, so the mapping is exercised with
      * the same data a genuine check produces.
      */
-    private fun upToDate(): UpdateCheckResult =
-        UpdateCheckResult(
-            outcome = UpdateOutcome.UP_TO_DATE,
-            latestBuildNumber = BuildConfig.VERSION_CODE,
-            releaseUrl = "https://example.invalid/releases/current",
-            error = null,
-            channelStatuses = fetchableStatuses,
-        )
+    private fun upToDate(): UpdateCheckResult = UpdateCheckResult(
+        outcome = UpdateOutcome.UP_TO_DATE,
+        latestBuildNumber = BuildConfig.VERSION_CODE,
+        releaseUrl = "https://example.invalid/releases/current",
+        error = null,
+        channelStatuses = fetchableStatuses,
+    )
 
     /** A channel read that found a newer release carrying a downloadable artifact. */
-    private fun availableUpdate(): UpdateCheckResult =
-        UpdateCheckResult(
-            outcome = UpdateOutcome.UPDATE_AVAILABLE,
-            latestBuildNumber = NEWER_BUILD,
-            releaseUrl = "https://example.invalid/releases/next",
-            error = null,
-            channelStatuses = fetchableStatuses,
-        )
+    private fun availableUpdate(): UpdateCheckResult = UpdateCheckResult(
+        outcome = UpdateOutcome.UPDATE_AVAILABLE,
+        latestBuildNumber = NEWER_BUILD,
+        releaseUrl = "https://example.invalid/releases/next",
+        error = null,
+        channelStatuses = fetchableStatuses,
+    )
 
     /**
      * A channel read that ended on [outcome] without reaching a verdict.
@@ -297,13 +295,12 @@ class AndroidApkUpdateSourceTest {
      * No statuses and no build number: the shape a check produces when the channel could not be read to a
      * conclusion, which is precisely the case that must never be reported as an available update.
      */
-    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult =
-        UpdateCheckResult(
-            outcome = outcome,
-            latestBuildNumber = null,
-            releaseUrl = null,
-            error = if (outcome == UpdateOutcome.FAILED) UpdateCheckError.NO_INTERNET else null,
-        )
+    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult = UpdateCheckResult(
+        outcome = outcome,
+        latestBuildNumber = null,
+        releaseUrl = null,
+        error = if (outcome == UpdateOutcome.FAILED) UpdateCheckError.NO_INTERNET else null,
+    )
 
     /**
      * An available-update verdict whose release ships no artifact.
@@ -311,23 +308,22 @@ class AndroidApkUpdateSourceTest {
      * The gap this covers is real: a release can be newer and carry no APK of this install's build type, and
      * the checker reports the verdict anyway with the asset selection held closed.
      */
-    private fun verdictWithNoArtifact(): UpdateCheckResult =
-        UpdateCheckResult(
-            outcome = UpdateOutcome.UPDATE_AVAILABLE,
-            latestBuildNumber = NEWER_BUILD,
-            releaseUrl = "https://example.invalid/releases/next",
-            error = null,
-            channelStatuses =
-                listOf(
-                    ChannelStatus(
-                        channel = UpdateChannel.DEV,
-                        buildNumber = NEWER_BUILD,
-                        releaseUrl = "https://example.invalid/releases/next",
-                        apkDownloadUrl = null,
-                        typeMismatch = true,
-                    ),
-                ),
-        )
+    private fun verdictWithNoArtifact(): UpdateCheckResult = UpdateCheckResult(
+        outcome = UpdateOutcome.UPDATE_AVAILABLE,
+        latestBuildNumber = NEWER_BUILD,
+        releaseUrl = "https://example.invalid/releases/next",
+        error = null,
+        channelStatuses =
+        listOf(
+            ChannelStatus(
+                channel = UpdateChannel.DEV,
+                buildNumber = NEWER_BUILD,
+                releaseUrl = "https://example.invalid/releases/next",
+                apkDownloadUrl = null,
+                typeMismatch = true,
+            ),
+        ),
+    )
 
     /**
      * A real, non-empty file inside the directory this app publishes to the installer.

@@ -18,6 +18,7 @@ import io.payanam.presentation.time.TimeTrendStripSummary
 import io.payanam.presentation.time.TimeVisualsCalculator
 import io.payanam.presentation.time.TimeVisualsState
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -56,6 +57,7 @@ class TimeVisualsViewModel(
      * Loads visuals for [date]: fast render before task lookup, then the full
      * pass with per-dimension rollups and trend figures.
      */
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun loadForDate(date: LocalDate) {
         if (inFlightDate == date && loadJob?.isActive == true) {
             logger.d(
@@ -145,6 +147,26 @@ class TimeVisualsViewModel(
                             "durationMs" to (elapsedMillis() - startMs).toString(),
                         ),
                     )
+                } catch (e: CancellationException) {
+                    // A cancelled load is not a FAILED one: the scope is going away (the window closed, the
+                    // ViewModel was disposed). Rethrow so the coroutine still ends as cancelled and the
+                    // cancellation is never reported as a load failure.
+                    throw e
+                } catch (e: Exception) {
+                    // WHY THIS CATCH EXISTS: the desktop closes its database session when the window
+                    // closes, so a visuals load that is still in flight can read from a closed session and
+                    // fail ("PayanamDatabaseSession is closed"). With no catch, that failure escaped the
+                    // launched coroutine, reached the JVM-global exception collector and was re-thrown as
+                    // UncaughtExceptionsBeforeTest in whichever unrelated test ran later - which is why
+                    // the victim test moved from run to run. The failure belongs to THIS load: report it,
+                    // and leave the screen usable instead of spinning on a load that can never finish.
+                    logger.e(
+                        "TimeVisualsViewModel.loadForDate",
+                        "Failed to load time visuals",
+                        e,
+                        mapOf("date" to date.toString()),
+                    )
+                    _uiState.update { it.copy(isLoading = false) }
                 } finally {
                     inFlightDate = null
                 }

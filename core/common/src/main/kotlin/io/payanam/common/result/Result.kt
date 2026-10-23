@@ -27,8 +27,10 @@ sealed class Result<out T> {
 
     /** True when this is a [Success]. */
     val isSuccess: Boolean get() = this is Success
+
     /** True when this is an [Error]. */
     val isError: Boolean get() = this is Error
+
     /** True when this is [Loading]. */
     val isLoading: Boolean get() = this is Loading
 
@@ -74,7 +76,9 @@ sealed class Result<out T> {
 inline fun <T> runCatching(block: () -> T): Result<T> =
     try {
         Result.Success(block())
-    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
         Result.Error(e)
     }
 
@@ -84,6 +88,8 @@ inline fun <T> runCatching(block: () -> T): Result<T> =
 suspend inline fun <T> runSuspendCatching(crossinline block: suspend () -> T): Result<T> =
     try {
         Result.Success(block())
-    } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+    } catch (
+        @Suppress("TooGenericExceptionCaught") e: Exception,
+    ) {
         Result.Error(e)
     }

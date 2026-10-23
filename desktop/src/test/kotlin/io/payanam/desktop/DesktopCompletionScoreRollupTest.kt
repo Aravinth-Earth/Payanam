@@ -14,6 +14,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancelAndJoin
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -56,6 +57,16 @@ class DesktopCompletionScoreRollupTest {
     private lateinit var uiWatch: Job
     private lateinit var viewModel: TasksViewModel
 
+    /**
+     * The scope the ViewModel runs on — a FIELD, not a local.
+     *
+     * WHY: the ViewModel's init collectors never complete on their own, so tearDown has to be able
+     * to cancel AND join them. A scope that only existed inside setUp could be cancelled but never
+     * waited for, and a collector still inside the session when the session closes turns into an
+     * exception that escapes into the JVM-global collector.
+     */
+    private lateinit var scope: CoroutineScope
+
     private val today: LocalDate = LocalDate.now()
     private val yesterday: LocalDate = today.minusDays(1)
 
@@ -74,10 +85,16 @@ class DesktopCompletionScoreRollupTest {
         // A second handle on the same file for the raw INSERT/SELECT the seeds and assertions use.
         connection =
             DriverManager.getConnection("jdbc:sqlcipher:${file.toAbsolutePath()}", properties)
+        // This handle gets the opener's own busy_timeout, because it is the SAME convention every
+        // connection in :core:database-jvm gets (PayanamDatabaseOpener.applyBusyTimeout, 5000 ms).
+        // Without it this handle has no wait at all: a lock held for a moment by the session's
+        // writer is a hard "database is locked" instead of a wait — a failure that depends on WHEN
+        // the read lands, not on what the code does.
+        connection.createStatement().use { it.execute("PRAGMA busy_timeout = $BUSY_TIMEOUT_MS") }
         layer = DesktopPayanamDataLayer(session)
 
         // Construct TasksViewModel by hand using the factory mapping at TasksViewModel.kt:1428-1445
-        val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
+        scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         viewModel =
             TasksViewModel(
                 taskRepository = layer.tasks,
@@ -106,8 +123,21 @@ class DesktopCompletionScoreRollupTest {
 
     @After
     fun tearDown() {
+        // WHY THIS ORDER: uiWatch runs ON the scope, so it is cancelled first; then the scope is
+        // cancelled AND JOINED, so no collector is still inside the session; only then is the
+        // session closed.
+        //
+        // The join is what makes this safe. The ViewModel's init collectors (TasksViewModel.kt:146,
+        // :158, :181) never complete on their own, and closing the session out from under one
+        // makes it throw "PayanamDatabaseSession is closed" - with no CoroutineExceptionHandler on
+        // this scope, that failure reaches the JVM-global exception collector and is re-thrown as
+        // UncaughtExceptionsBeforeTest in whichever LATER test opens a TestScope. That is what made
+        // the victim move from run to run. Cancelling without joining would leave the same window
+        // open; closing the session first would guarantee the escape.
         uiWatch.cancel()
+        runBlocking { scope.coroutineContext[Job]?.cancelAndJoin() }
         session.close()
+        connection.close()
     }
 
     /**
@@ -210,29 +240,50 @@ class DesktopCompletionScoreRollupTest {
             }
     }
 
+    /**
+     * Reads the habit's stored metric rows through the SESSION, not the second handle.
+     *
+     * WHY: the cascade writer (ScoreRollupTriggerJdbc.recalcForStatusChange) rebuilds these rows
+     * while holding the session's connection, and this read used to run on the SECOND handle - a
+     * different file handle, so a cascade write in flight turned the read into
+     * "java.sql.SQLException: database is locked" depending on WHEN the read landed.
+     *
+     * [PayanamDatabaseSession.withSerializedAccess] is the path production uses: the writer's
+     * transaction and this read are serialised by the session's own lock, and the writer COMMITS
+     * before it releases that lock - so the rows read here are the committed rows the cascade
+     * wrote, not a partial view of an open transaction. The assertion is unchanged: it still reads
+     * the real rows the cascade wrote.
+     */
     private fun readHabitMetrics(habitId: String): List<HabitMetricEntity> =
-        connection
-            .prepareStatement(
-                "SELECT * FROM habit_metrics WHERE habitId = ? ORDER BY dayKey",
-            ).use { statement ->
-                statement.setString(1, habitId)
-                statement.executeQuery().use { resultSet ->
-                    buildList {
-                        while (resultSet.next()) {
-                            add(
-                                HabitMetricEntity(
-                                    habitId = resultSet.getString("habitId"),
-                                    dayKey = resultSet.getString("dayKey"),
-                                    score = resultSet.getDouble("score"),
-                                    runningAvg = resultSet.getDouble("runningAvg"),
-                                    progress = resultSet.getDouble("progress"),
-                                    streakPos = resultSet.getInt("streakPos"),
-                                    streakNet = resultSet.getInt("streakNet"),
-                                    posContinue = resultSet.getInt("posContinue"),
-                                ),
-                            )
+        session.withSerializedAccess { sessionConnection ->
+            sessionConnection
+                .prepareStatement(
+                    "SELECT * FROM habit_metrics WHERE habitId = ? ORDER BY dayKey",
+                ).use { statement ->
+                    statement.setString(1, habitId)
+                    statement.executeQuery().use { resultSet ->
+                        buildList {
+                            while (resultSet.next()) {
+                                add(
+                                    HabitMetricEntity(
+                                        habitId = resultSet.getString("habitId"),
+                                        dayKey = resultSet.getString("dayKey"),
+                                        score = resultSet.getDouble("score"),
+                                        runningAvg = resultSet.getDouble("runningAvg"),
+                                        progress = resultSet.getDouble("progress"),
+                                        streakPos = resultSet.getInt("streakPos"),
+                                        streakNet = resultSet.getInt("streakNet"),
+                                        posContinue = resultSet.getInt("posContinue"),
+                                    ),
+                                )
+                            }
                         }
                     }
                 }
-            }
+        }
+
+    private companion object {
+        /** The same wait the opener gives every connection it opens — see PayanamDatabaseOpener. */
+        const val BUSY_TIMEOUT_MS = 5000
+    }
 }

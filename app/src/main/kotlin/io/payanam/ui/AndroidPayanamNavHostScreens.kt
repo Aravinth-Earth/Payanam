@@ -17,13 +17,8 @@ import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import dagger.hilt.android.EntryPointAccessors
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.core.ui.updates.PreUnlockUpdateActions
-import io.payanam.core.ui.updates.PreUnlockUpdateSection
-import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.ImportDatabaseFileButton
-import io.payanam.core.ui.onboarding.OnboardingIntroScreen
-import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.database.DatabaseInitScreen
 import io.payanam.core.ui.database.DatabasePassphraseChangeScreen
 import io.payanam.core.ui.database.DatabasePassphraseSetupScreen
@@ -36,6 +31,8 @@ import io.payanam.core.ui.lenses.ScoringConfigScreen
 import io.payanam.core.ui.navigation.PayanamNavActions
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
 import io.payanam.core.ui.notes.NotesScreen
+import io.payanam.core.ui.onboarding.OnboardingIntroScreen
+import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.tasks.AddTaskScreen
 import io.payanam.core.ui.tasks.EditTaskScreen
 import io.payanam.core.ui.tasks.ScoreDetailScreen
@@ -44,6 +41,9 @@ import io.payanam.core.ui.tasks.TasksScreen
 import io.payanam.core.ui.tasks.TasksScreenMode
 import io.payanam.core.ui.text.rememberUiLanguage
 import io.payanam.core.ui.time.TimeScreen
+import io.payanam.core.ui.updates.PreUnlockUpdateActions
+import io.payanam.core.ui.updates.PreUnlockUpdateSection
+import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.di.PassphraseUnlockEntryPoint
 import io.payanam.di.UnavailableBiometricUnlockPrompt
 import io.payanam.feature.assistant.ui.AssistantScreen
@@ -208,6 +208,9 @@ internal class AndroidPayanamNavHostScreens(
                     databaseOpener = entryPoint.payanamDatabaseOpener(),
                     databaseFile = entryPoint.databaseFile(),
                     strings = entryPoint.uiStrings(),
+                    // The biometric prompt is built on `BiometricPrompt`, whose `authenticate(...)` is
+                    // main-thread-only; run it on Android's main thread, not the ViewModel's background pool.
+                    promptDispatcher = Dispatchers.Main.immediate,
                 )
             }
         // The screen is shared now (`:core:ui`), so Android supplies what only it can: the biometric
@@ -247,12 +250,12 @@ internal class AndroidPayanamNavHostScreens(
                 // section takes. collectAsState lives here rather than in the shared body because this is
                 // the composable scope that owns the collection.
                 //
-                // RENDERED ON EVERY PLATFORM NOW, off one shared contract. `isFDroidBuild` is a boolean
-                // about one installer, so it is translated here, where the platform's own answer is
-                // known, into the three-valued state the section renders: Android has an in-app APK
-                // updater and either runs it (SUPPORTED) or has its updates taken over by F-Droid's
-                // packager (DECLINES). Neither value is a mapping Android can be wrong about - both
-                // platforms agree that a store-managed install draws the static note.
+                // RENDERED ON EVERY PLATFORM NOW, off one shared contract. `isFDroidBuild` is a build
+                // fact - a compile-time flag this APK carries, not a lookup of whichever installer is
+                // present - so it is translated here into the three-valued state the section renders:
+                // Android has an in-app APK updater and either runs it (SUPPORTED) or has its updates
+                // taken over by F-Droid's packager (DECLINES). Neither value is a mapping Android can be
+                // wrong about - both platforms agree that a store-managed install draws the static note.
                 val downloadState by preUnlockUpdateViewModel.downloadState.collectAsState()
                 val isChecking by preUnlockUpdateViewModel.checking.collectAsState()
                 val resultMessage by preUnlockUpdateViewModel.checkResultMessage.collectAsState()
@@ -260,11 +263,11 @@ internal class AndroidPayanamNavHostScreens(
                     uiState = PreUnlockUpdateUiState(
                         buildNumber = preUnlockUpdateViewModel.currentBuildNumber,
                         platformSupport =
-                            if (preUnlockUpdateViewModel.isFDroidBuild) {
-                                SupportState.DECLINES
-                            } else {
-                                SupportState.SUPPORTED
-                            },
+                        if (preUnlockUpdateViewModel.isFDroidBuild) {
+                            SupportState.DECLINES
+                        } else {
+                            SupportState.SUPPORTED
+                        },
                         downloadState = downloadState,
                         isChecking = isChecking,
                         checkResultMessage = resultMessage,
@@ -663,7 +666,6 @@ internal class AndroidPayanamNavHostScreens(
         )
     }
 }
-
 
 /**
  * Adapts [PreUnlockUpdateViewModel] to the framework-free [PreUnlockUpdateActions] the shared section

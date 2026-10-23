@@ -7,14 +7,17 @@ package io.payanam.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
+import io.payanam.BuildConfig
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.feature.settings.ApkBuildType
+import io.payanam.feature.settings.ApkChecksumVerifier
+import io.payanam.feature.settings.installBlockKey
+import io.payanam.feature.settings.logName
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.updates.ApkDownloader
 import io.payanam.presentation.updates.ApkInstaller
 import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.presentation.updates.UpdateChecker
-import io.payanam.BuildConfig
-import io.payanam.common.logging.UnifiedLogger
-import io.payanam.feature.settings.ApkBuildType
-import io.payanam.presentation.download.DownloadUiState
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
@@ -48,6 +51,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private val installSourceReader: InstallSourceReader,
     private val apkDownloader: ApkDownloader,
     private val apkInstaller: ApkInstaller,
+    private val checksumVerifier: ApkChecksumVerifier,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
@@ -68,6 +72,17 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private var latestBuildNumber: Int? = null
     private var latestReleaseUrl: String? = null
     private var latestApkUrl: String? = null
+
+    /**
+     * The selected channel's published `.sha256` sidecar URL for [latestApkUrl], or null when the
+     * release published none.
+     *
+     * Held in memory rather than persisted: this hatch runs BEFORE the database is unlocked, so it
+     * reads and writes no database-backed preference (see the class doc). That is not a weaker guard —
+     * a persisted download URL is not read back here either, so the install gate and the download it
+     * guards always belong to the same check.
+     */
+    private var latestSha256Url: String? = null
     private var pollJob: Job? = null
 
     /** Cooldown guard: 60s between manual checks (mirrors Settings rate guards). */
@@ -118,6 +133,9 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         latestReleaseUrl = result.releaseUrl
                         val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
                         latestApkUrl = selected?.apkDownloadUrl
+                        // The sidecar URL travels with the APK URL it belongs to: the install gate can
+                        // only verify this download against the digest this check published.
+                        latestSha256Url = selected?.apkSha256Url
                         logger.i(
                             "PreUnlockUpdateChecker.check",
                             "Update available",
@@ -125,6 +143,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                                 "latestBuild" to (result.latestBuildNumber ?: -1),
                                 "releaseUrl" to (result.releaseUrl ?: ""),
                                 "hasApkUrl" to (latestApkUrl != null),
+                                "hasSha256Url" to (latestSha256Url != null),
                             ),
                         )
                         _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
@@ -137,6 +156,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
+                        latestSha256Url = null
                         logger.i(
                             "PreUnlockUpdateChecker.check",
                             "Check failed closed: dev channel ships a different build type",
@@ -149,6 +169,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
+                        latestSha256Url = null
                         logger.i("PreUnlockUpdateChecker.check", "Check complete: no releases on the dev channel yet")
                         _checkResultMessage.value = "no_release"
                     }
@@ -157,6 +178,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
+                        latestSha256Url = null
                         logger.i(
                             "PreUnlockUpdateChecker.check",
                             "Check inconclusive — newest release not comparable",
@@ -169,6 +191,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                         latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
+                        latestSha256Url = null
                         logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
                         _checkResultMessage.value = "up_to_date"
                     }
@@ -229,8 +252,15 @@ class PreUnlockUpdateViewModel @Inject constructor(
         }
     }
 
-    /** User tapped "Install now" — launch the system installer (manual only). */
-    @Suppress("TooGenericExceptionCaught") // Intentional: installer handoff may throw
+    /**
+     * User tapped "Install now" — verify the downloaded APK, then launch the system installer (manual only).
+     *
+     * Fail-closed: only a verified download may reach the installer. Every other verdict leaves the
+     * downloaded file in place and reports its own reason key through [downloadState], which is the same
+     * mechanism this hatch already reports every other download failure through. The installer collaborator
+     * repeats the check at its own seam, so a file swapped between this check and the handoff is still
+     * refused there.
+     */
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
@@ -242,8 +272,29 @@ class PreUnlockUpdateViewModel @Inject constructor(
             logger.e("PreUnlockUpdateChecker.install", "File missing at install time", null, mapOf("path" to path))
             return
         }
+        viewModelScope.launch {
+            val verdict = checksumVerifier.verify(file, latestSha256Url)
+            logger.i(
+                "PreUnlockUpdateChecker.install",
+                "Install gate verdict",
+                mapOf("verdict" to verdict.logName()),
+            )
+            val blockKey = verdict.installBlockKey()
+            if (blockKey != null) {
+                // The APK is the user's only copy, so it is left untouched: the reason key explains
+                // why it is not being installed.
+                _downloadState.value = DownloadUiState.Failed(blockKey)
+                return@launch
+            }
+            launchInstaller(path)
+        }
+    }
+
+    /** Hand [path] to the platform installer, which verifies the digest again before its own handoff. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: installer handoff may throw
+    private suspend fun launchInstaller(path: String) {
         try {
-            val success = apkInstaller.install(path)
+            val success = apkInstaller.install(path, latestSha256Url)
             if (!success) {
                 _downloadState.value = DownloadUiState.Failed("install_launch_failed")
                 logger.e("PreUnlockUpdateChecker.install", "Install launch failed", null)

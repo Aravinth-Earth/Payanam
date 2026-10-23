@@ -298,6 +298,103 @@ class LogSanitizerTest {
     }
 
     @Test
+    fun sanitizeMessage_redactsAnEmailAddress() {
+        val output = LogSanitizer.sanitizeMessage("Invite sent to someone@example.com for the export")
+
+        assertThat(output).doesNotContain("someone@example.com")
+        assertThat(output).contains("<redacted>")
+        // The surrounding diagnostic text survives — only the address is replaced.
+        assertThat(output).contains("Invite sent to")
+        assertThat(output).contains("for the export")
+    }
+
+    @Test
+    fun sanitizeData_redactsAnEmailAddressValue() {
+        val output =
+            LogSanitizer.sanitizeData(
+                mapOf(
+                    "contact" to "someone@example.com",
+                    "retryCount" to 3,
+                ),
+            )
+
+        assertThat(output["contact"]).isEqualTo("<redacted>")
+        assertThat(output["retryCount"]).isEqualTo(3)
+    }
+
+    @Test
+    fun sanitizeMessage_redactsAnEmailWithATagAndSubdomain() {
+        val output = LogSanitizer.sanitizeMessage("Reply-to: first.last+tag@mail.example.co.uk")
+
+        assertThat(output).doesNotContain("first.last")
+        assertThat(output).doesNotContain("example.co.uk")
+        assertThat(output).contains("<redacted>")
+    }
+
+    @Test
+    fun sanitizeMessage_keepsAtSignsThatAreNotEmailAddresses() {
+        // Over-redaction guard: an annotation name is not an address (no local part) and a bare
+        // "user@" is not an address either (no domain). Neither may be rewritten.
+        val input = "Preview render @Composable skipped for user@ and @Keep"
+
+        assertThat(LogSanitizer.sanitizeMessage(input)).isEqualTo(input)
+    }
+
+    @Test
+    fun sanitizeMessage_redactsABareHexKey() {
+        val key = "9f2c4a7e1b3d5f6081c2d3e4f5a6b7c8"
+
+        val output = LogSanitizer.sanitizeMessage("Transport rejected $key in header")
+
+        assertThat(output).doesNotContain(key)
+        assertThat(output).contains("<redacted>")
+        assertThat(output).contains("Transport rejected")
+    }
+
+    @Test
+    fun sanitizeMessage_redactsABareProviderPrefixedKey() {
+        val key = "sk-or-v1-2f8a41c9be7d0356a1c4e8b9d2f60a7c"
+
+        val output = LogSanitizer.sanitizeMessage("Pasted $key rejected")
+
+        assertThat(output).doesNotContain("sk-or-v1")
+        assertThat(output).contains("<redacted>")
+    }
+
+    @Test
+    fun sanitizeMessage_keepsHexShorterThanTheCredentialThreshold() {
+        // Boundary: one character under the 32-hex-character threshold must survive, or ordinary
+        // build ids and short hashes become unreadable.
+        val shortHex = "9f2c4a7e1b3d5f6081c2d3e4f5a6b7c"
+
+        val output = LogSanitizer.sanitizeMessage("Build $shortHex finished")
+
+        assertThat(output).contains(shortHex)
+        assertThat(output).doesNotContain("<redacted>")
+    }
+
+    @Test
+    fun sanitizeMessage_keepsOrdinaryLongWordsFileNamesAndBuildNumbers() {
+        // Over-redaction guard for the shape heuristics: a mixed-case identifier with no digit, a
+        // file name (its separators split the base64 run), and a plain build number all stay.
+        val input =
+            "Imported AutoBackupRestoreOrchestrationHelper from payanam_auto_backup_2026_10_22.db (build 202610221)"
+
+        assertThat(LogSanitizer.sanitizeMessage(input)).isEqualTo(input)
+    }
+
+    @Test
+    fun sanitizeMessage_keepsTheKeyNameWhileRedactingAHexValuedCredential() {
+        // Regression: adding the bare-token rules must not swallow the `key=` framing that makes a
+        // credential log readable.
+        val output = LogSanitizer.sanitizeMessage("apikey=9f2c4a7e1b3d5f6081c2d3e4f5a6b7c8 rejected")
+
+        assertThat(output).doesNotContain("9f2c4a7e")
+        assertThat(output).contains("apikey=")
+        assertThat(output).contains("<redacted>")
+    }
+
+    @Test
     fun sanitizeData_summarisesCollectionsAndMapsAndKeepsUnclassifiedScalars() {
         val output =
             LogSanitizer.sanitizeData(

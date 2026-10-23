@@ -58,10 +58,14 @@ import io.payanam.core.ui.preferences.optionsForSelection
 import io.payanam.core.ui.preferences.visibleDimensionOptions
 import io.payanam.core.ui.preferences.visibleDimensions
 import io.payanam.core.ui.flags.LocalFeatureFlags
+import io.payanam.core.ui.platform.NotificationPermissionReason
+import io.payanam.core.ui.platform.NotificationPermissionRationaleDialog
+import io.payanam.core.ui.platform.rememberNotificationPermission
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.platform.SupportState
 import io.payanam.presentation.day.DayPlanViewModel
 import io.payanam.presentation.time.TimeTagEditorViewModel
 import io.payanam.presentation.time.TimeViewModel
@@ -118,6 +122,12 @@ fun TimeScreen(
     var lastAutoScrollHourHeightDp by remember { mutableStateOf<Float?>(null) }
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
     var hasObservedTimelineRefresh by remember { mutableStateOf(false) }
+    // The notification permission, and the offer that may follow a start. The offer is raised from the
+    // STATE TRANSITION into tracking (see the effect below), never from a start button, so it cannot
+    // gate the action the user came for: the tracking service runs correctly without the permission and
+    // the only thing missing is the notification's drawer row.
+    val notificationPermission = rememberNotificationPermission()
+    var showNotificationRationale by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
     val density = LocalDensity.current
     val lifecycleOwner = LocalLifecycleOwner.current
@@ -194,6 +204,32 @@ fun TimeScreen(
             duration = SnackbarDuration.Indefinite,
         )
         viewModel.clearError()
+    }
+    // WHY THE OFFER IS RAISED HERE AND NOT ON A START BUTTON:
+    //
+    // Tracking starts in three places on this screen - the FAB's start dialog, the modal's "set and
+    // continue", and the modal's "start task tracking" - and each of them ends in the same place: an
+    // ACTIVE ENTRY appears in the state. Watching that transition therefore covers all three with one
+    // hook, and it is inherently AFTER the user's action, because the entry only exists once the start
+    // has been committed. A hook on any one button would miss the other two.
+    //
+    // The entry's ID is the key rather than its presence, so a stop (the entry goes away) and a fresh
+    // start (a new entry arrives) are two different transitions.
+    val activeEntryId = uiState.activeEntry?.id
+    // Seeded with the entry this screen already had, so a session that RESUMES with a timer already
+    // running does not raise an offer for something the user did not just do.
+    var seenActiveEntryId by remember { mutableStateOf(activeEntryId) }
+    LaunchedEffect(activeEntryId) {
+        val previousEntryId = seenActiveEntryId
+        seenActiveEntryId = activeEntryId
+        if (activeEntryId == null || previousEntryId == activeEntryId) return@LaunchedEffect
+        if (notificationPermission.state != SupportState.DECLINES) return@LaunchedEffect
+        logger.i(
+            "TimeScreen.notificationOffer",
+            "Tracking started while notifications are blocked; offering the permission",
+            mapOf("entryId" to activeEntryId),
+        )
+        showNotificationRationale = true
     }
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
@@ -828,6 +864,15 @@ fun TimeScreen(
                 logger.d("TimeBlockModal.actionTapped", "Modal action tapped", mapOf("action" to "dismiss"))
                 activeModalTarget = null
             },
+        )
+    }
+    // The offer, raised after the tracking has already started. It is a REPORT of what is missing, not a
+    // condition of the start: dismissing it leaves the timer running exactly as it was.
+    if (showNotificationRationale) {
+        NotificationPermissionRationaleDialog(
+            permission = notificationPermission,
+            reason = NotificationPermissionReason.TRACKING_TIMER,
+            onDismiss = { showNotificationRationale = false },
         )
     }
 }

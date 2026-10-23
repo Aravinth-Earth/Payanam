@@ -68,7 +68,12 @@ object PayanamDatabaseOpener {
     internal const val URL_PREFIX = "jdbc:sqlcipher:"
     internal const val KEY_PROPERTY = "key"
 
-    /** Milliseconds a blocked write waits instead of failing immediately with `SQLITE_BUSY`. */
+    /**
+     * Milliseconds a blocked write waits instead of failing immediately with `SQLITE_BUSY`.
+     *
+     * The WRITE paths wait this long - the opener's own, the create path's and the rekey's - so a lock
+     * that is about to clear is waited out rather than turned into a failure.
+     */
     private const val BUSY_TIMEOUT_MS = 5000
 
     /** Sidecars that mean the file was not cleanly checkpointed before it was copied. */
@@ -429,7 +434,15 @@ object PayanamDatabaseOpener {
         return DriverManager.getConnection("$URL_PREFIX${databasePath.toAbsolutePath()}", properties)
     }
 
-    private fun applyBusyTimeout(connection: Connection) {
+    /**
+     * Issues `PRAGMA busy_timeout`, so a blocked write WAITS instead of failing instantly.
+     *
+     * Internal, not private: the desktop's REKEY connection is opened by [DesktopDatabaseEncryptionProbe]
+     * beside this one, and a rekey that meets a transient lock has to wait exactly as every other
+     * connection in this module does. The pragma text and the number stay in this file, so there is ONE
+     * convention rather than two - the same reason [URL_PREFIX] and [KEY_PROPERTY] are internal.
+     */
+    internal fun applyBusyTimeout(connection: Connection) {
         connection.createStatement().use { it.execute("PRAGMA busy_timeout = $BUSY_TIMEOUT_MS") }
     }
 

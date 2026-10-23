@@ -113,6 +113,7 @@ class NotificationScheduler @Inject constructor(
                 )
                 return
             }
+
             is NotificationDecision.Fire -> {
                 // The shared decider only returns Fire when a due time exists; this local
                 // carries that fact across to the alarm path, since the compiler cannot.

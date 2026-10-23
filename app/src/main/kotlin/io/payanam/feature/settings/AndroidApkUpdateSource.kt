@@ -5,21 +5,23 @@ package io.payanam.feature.settings
 import android.content.Context
 import android.content.Intent
 import androidx.core.content.FileProvider
-import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.shared.updates.UpdateChannel
-import io.payanam.shared.updates.UpdateCheckResult
-import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.InstallHandoff
 import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
+import io.payanam.shared.updates.ChannelStatus
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.delay
 import java.io.File
+import java.util.Collections
 
 /** Mime type the system package installer answers for. */
 private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
@@ -82,9 +84,15 @@ private const val MAX_DOWNLOAD_POLLS = 1_800
 class AndroidApkUpdateSource(
     private val context: Context,
     private val channel: UpdateChannel = UpdateChannel.DEV,
-    private val isStoreManaged: Boolean = InstallerChecker.isFDroidBuild(context),
+    private val isStoreManaged: Boolean = FdroidBuildCheck.isFDroidBuild(),
     private val checkForUpdates: suspend (currentBuildNumber: Int, channel: UpdateChannel) -> UpdateCheckResult =
         { currentBuildNumber, requested -> UpdateChecker.check(currentBuildNumber, requested, ApkBuildType.running()) },
+    /**
+     * The shared install gate. Injected rather than reached for as a singleton so the fetch path is
+     * exercised with a scripted verdict; production wiring supplies the same singleton every other
+     * install path uses.
+     */
+    private val checksumVerifier: ApkChecksumVerifier = DefaultApkChecksumVerifier(),
 ) : ApkUpdateSource {
     private val logger = UnifiedLogger.getInstance()
 
@@ -98,6 +106,19 @@ class AndroidApkUpdateSource(
      */
     @Volatile
     private var lastChecked: UpdateCheckResult? = null
+
+    /**
+     * Build numbers whose fetched artifact matched its published digest, so only those may be handed to
+     * an installer.
+     *
+     * Why a set of build numbers and not a re-hash at install time: [startInstall] is deliberately not
+     * suspend (see the port's contract), so it must not fetch a sidecar or hash a multi-megabyte file on
+     * the caller's thread. The bytes are hashed once, when the artifact is fetched ([downloadNewerBuild]
+     * is suspend and is where the file appears), and this set is the provenance record that the artifact
+     * being handed over is the one that matched. A caller that constructs a [UpdateDownload] by hand is
+     * therefore refused rather than trusted.
+     */
+    private val verifiedBuilds: MutableSet<Int> = Collections.synchronizedSet(mutableSetOf<Int>())
 
     /**
      * [SupportState.SUPPORTED] for a build that installs itself, [SupportState.DECLINES] for one whose
@@ -164,9 +185,9 @@ class AndroidApkUpdateSource(
         val newer =
             availability as? UpdateAvailability.Newer
                 ?: return refuseFetch(
-                "Only a newer-build answer names something to fetch",
-                mapOf("askedWith" to availability::class.java.simpleName),
-            )
+                    "Only a newer-build answer names something to fetch",
+                    mapOf("askedWith" to availability::class.java.simpleName),
+                )
         if (!newer.installable) {
             return refuseFetch(
                 "The answer says this platform could not install the newer build; nothing was fetched",
@@ -194,6 +215,23 @@ class AndroidApkUpdateSource(
                     mapOf("newerBuild" to newer.buildNumber, "fileName" to fileName),
                 )
         val fetched = awaitFetchedArtifact(downloadId, newer.buildNumber) ?: return null
+        // The checksum gate for this path. It sits where the artifact comes into existence, because a
+        // `UpdateDownload` is this source's claim that the file is installable - and that claim is only
+        // true of bytes that matched the digest the release published. A refusal returns null with the
+        // file left on disk; nothing unverified ever gets a handle.
+        val verdict = checksumVerifier.verify(fetched, statusFor(newer.buildNumber)?.apkSha256Url)
+        logger.i(
+            "$SOURCE.downloadNewerBuild",
+            "Checksum gate verdict for the fetched artifact",
+            mapOf("newerBuild" to newer.buildNumber, "verdict" to verdict.logName()),
+        )
+        if (verdict != ChecksumVerdict.Verified) {
+            return refuseFetch(
+                "The fetched artifact did not verify against its published digest, so nothing installable is offered",
+                mapOf("newerBuild" to newer.buildNumber, "verdict" to verdict.logName()),
+            )
+        }
+        verifiedBuilds.add(newer.buildNumber)
         logger.i(
             "$SOURCE.downloadNewerBuild",
             "Fetched a newer build into this app's own storage",
@@ -207,9 +245,11 @@ class AndroidApkUpdateSource(
      *
      * The order is deliberate: the file is checked before any URI is built, so an artifact that is gone
      * costs nothing and is reported as the precise [InstallRefusal.FILE_MISSING] instead of surfacing as
-     * an installer failure. The launch is then attempted and its outcome reported - this platform cannot
-     * know whether the user completed the install, only whether the system accepted the handoff, so
-     * [InstallHandoff.Launched] claims nothing beyond that.
+     * an installer failure. Provenance is then checked - only a build whose fetched artifact matched its
+     * published digest may proceed, so a handle this source never verified is
+     * [InstallRefusal.CHECKSUM_UNVERIFIED]. The launch is then attempted and its outcome reported - this
+     * platform cannot know whether the user completed the install, only whether the system accepted the
+     * handoff, so [InstallHandoff.Launched] claims nothing beyond that.
      *
      * EVERY failure past that point is [InstallRefusal.NO_INSTALLER], and deliberately so: whether no
      * activity accepted the artifact or this build cannot publish that location at all, the file is present
@@ -240,6 +280,17 @@ class AndroidApkUpdateSource(
                 InstallRefusal.FILE_MISSING,
                 "The fetched artifact was gone before the installer could be asked for it",
                 mapOf("path" to handle),
+            )
+        }
+        // The install gate for this path, immediately before the intent is built and after the file's
+        // presence is established (so a vanished file still gets its precise reason). Only a build whose
+        // artifact this source verified may be handed over: a handle this source never produced has no
+        // provenance, and an unverified APK is not installable.
+        if (!verifiedBuilds.contains(download.buildNumber)) {
+            return refuseInstall(
+                download,
+                InstallRefusal.CHECKSUM_UNVERIFIED,
+                "No artifact for this build was verified against its published digest, so none is handed over",
             )
         }
         return try {
@@ -274,11 +325,18 @@ class AndroidApkUpdateSource(
      * Matched on BOTH the channel and the build number: a read may hold several channels and a channel may
      * hold a different build than the one the answer named, and either mismatch would fetch the wrong file.
      */
-    private fun artifactUrlFor(buildNumber: Int): String? =
-        lastChecked
-            ?.channelStatuses
-            ?.firstOrNull { it.channel == channel && it.buildNumber == buildNumber }
-            ?.apkDownloadUrl
+    private fun artifactUrlFor(buildNumber: Int): String? = statusFor(buildNumber)?.apkDownloadUrl
+
+    /**
+     * The last channel read's status for [buildNumber] on this source's channel, or null when that read
+     * did not carry one.
+     *
+     * One lookup for both asset URLs (the APK and its `.sha256` sibling), so a digest can never be
+     * paired with a build from a different channel or a different release.
+     */
+    private fun statusFor(buildNumber: Int): ChannelStatus? = lastChecked
+        ?.channelStatuses
+        ?.firstOrNull { it.channel == channel && it.buildNumber == buildNumber }
 
     /**
      * Polls the system download until it reports a finished file, and returns null for every other ending.
@@ -346,34 +404,33 @@ class AndroidApkUpdateSource(
      * user is not being told their build is current, and collapsing them into one catch-all would make the
      * next added outcome silently join whichever group it was written next to.
      */
-    private fun UpdateCheckResult.toAvailability(): UpdateAvailability =
-        when (outcome) {
-            UpdateOutcome.UPDATE_AVAILABLE -> newerOrInconclusive()
+    private fun UpdateCheckResult.toAvailability(): UpdateAvailability = when (outcome) {
+        UpdateOutcome.UPDATE_AVAILABLE -> newerOrInconclusive()
 
-            // The only outcome that was actually read and proved there is nothing newer.
-            UpdateOutcome.UP_TO_DATE -> UpdateAvailability.UpToDate
+        // The only outcome that was actually read and proved there is nothing newer.
+        UpdateOutcome.UP_TO_DATE -> UpdateAvailability.UpToDate
 
-            // The release exists and is newer, but ships no artifact this build could install: a verdict
-            // about a file that is not there.
-            UpdateOutcome.TYPE_MISMATCH ->
-                inconclusive("the release ships no artifact this build could install", outcome.name)
+        // The release exists and is newer, but ships no artifact this build could install: a verdict
+        // about a file that is not there.
+        UpdateOutcome.TYPE_MISMATCH ->
+            inconclusive("the release ships no artifact this build could install", outcome.name)
 
-            // A completed scan that found no release for the channel at all.
-            UpdateOutcome.NO_RELEASE_ON_CHANNEL ->
-                inconclusive("the channel has no release to compare against", outcome.name)
+        // A completed scan that found no release for the channel at all.
+        UpdateOutcome.NO_RELEASE_ON_CHANNEL ->
+            inconclusive("the channel has no release to compare against", outcome.name)
 
-            // A release that was found and carries no comparable build number.
-            UpdateOutcome.RELEASE_UNREADABLE ->
-                inconclusive("the release carries no comparable build number", outcome.name)
+        // A release that was found and carries no comparable build number.
+        UpdateOutcome.RELEASE_UNREADABLE ->
+            inconclusive("the release carries no comparable build number", outcome.name)
 
-            // The walk hit its page ceiling, so the channel may simply not have been reached yet.
-            UpdateOutcome.INDETERMINATE ->
-                inconclusive("the scan stopped before the channel was reached", outcome.name)
+        // The walk hit its page ceiling, so the channel may simply not have been reached yet.
+        UpdateOutcome.INDETERMINATE ->
+            inconclusive("the scan stopped before the channel was reached", outcome.name)
 
-            // The check itself failed; the reason is logged rather than swallowed.
-            UpdateOutcome.FAILED ->
-                inconclusive("the check failed", outcome.name, mapOf("error" to (error?.name ?: "unspecified")))
-        }
+        // The check itself failed; the reason is logged rather than swallowed.
+        UpdateOutcome.FAILED ->
+            inconclusive("the check failed", outcome.name, mapOf("error" to (error?.name ?: "unspecified")))
+    }
 
     /**
      * The newer-build answer, or inconclusive when the verdict cannot be backed by a fetchable artifact.

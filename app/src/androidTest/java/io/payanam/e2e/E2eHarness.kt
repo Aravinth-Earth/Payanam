@@ -3,20 +3,17 @@
 package io.payanam.e2e
 
 import android.app.Activity
+import android.content.Context
 import android.graphics.Bitmap
 import android.view.WindowManager
 import androidx.compose.ui.graphics.asAndroidBitmap
 import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.getOrNull
-import android.content.Context
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.junit4.AndroidComposeTestRule
-import androidx.test.ext.junit.rules.ActivityScenarioRule
-import io.payanam.MainActivity
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.captureToImage
@@ -28,6 +25,7 @@ import androidx.compose.ui.test.hasSetTextAction
 import androidx.compose.ui.test.hasTestTag
 import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.isDisplayed
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
 import androidx.compose.ui.test.junit4.ComposeTestRule
 import androidx.compose.ui.test.onFirst
 import androidx.compose.ui.test.onRoot
@@ -39,12 +37,14 @@ import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
 import androidx.test.espresso.Espresso
+import androidx.test.ext.junit.rules.ActivityScenarioRule
 import androidx.test.platform.app.InstrumentationRegistry
+import io.payanam.MainActivity
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
 import kotlin.math.roundToInt
 
-/**
+/*
  * Shared interaction vocabulary for the in-process E2E tiers.
  *
  * Each helper mirrors one Maestro command so the port from the Maestro flows stays mechanical:
@@ -210,8 +210,7 @@ class E2eHarness(
     // ─────────────────────────────── matching ────────────────────────────────────────────────────
 
     /** Maestro's `text:` semantics: match the visible text OR the contentDescription. */
-    fun labelled(text: String): SemanticsMatcher =
-        hasText(text) or hasContentDescription(text)
+    fun labelled(text: String): SemanticsMatcher = hasText(text) or hasContentDescription(text)
 
     /**
      * Same lookup, but requiring the whole string.
@@ -220,8 +219,7 @@ class E2eHarness(
      * the tap lands on whichever node comes first in the tree. Preferring an exact match removes
      * that coin-flip without narrowing what the suite covers.
      */
-    fun labelledExactly(text: String): SemanticsMatcher =
-        hasText(text, substring = false) or hasContentDescription(text, substring = false)
+    fun labelledExactly(text: String): SemanticsMatcher = hasText(text, substring = false) or hasContentDescription(text, substring = false)
 
     /**
      * Substring form of [labelled], for a label the app renders with a runtime suffix.
@@ -231,8 +229,7 @@ class E2eHarness(
      * their count in the same text node. Use this for a control whose copy the app formats with a value
      * that changes at runtime (filter chips, "… (N)" rows).
      */
-    fun labelledSubstring(text: String): SemanticsMatcher =
-        hasText(text, substring = true) or hasContentDescription(text, substring = true)
+    fun labelledSubstring(text: String): SemanticsMatcher = hasText(text, substring = true) or hasContentDescription(text, substring = true)
 
     /**
      * Taps the first on-screen node whose text/contentDescription CONTAINS [label].
@@ -241,9 +238,13 @@ class E2eHarness(
      * surface (the same split [click] handles) — the tap lands on the control underneath.
      */
     fun clickSubstring(label: String, timeoutMs: Long = 30_000) {
-        rule.waitUntil(timeoutMs) {
-            rule.onAllNodes(labelledSubstring(label)).fetchSemanticsNodes().isNotEmpty()
-        }
+        // A bare Compose timeout names no screen, so the wait is caught and the failure carries the diagnosis.
+        val appeared = runCatching {
+            rule.waitUntil(timeoutMs) {
+                rule.onAllNodes(labelledSubstring(label)).fetchSemanticsNodes().isNotEmpty()
+            }
+        }.isSuccess
+        check(appeared) { "no on-screen node containing '$label' after ${timeoutMs}ms\n${diagnose(label)}" }
         val target = firstDisplayed(rule.onAllNodes(labelledSubstring(label)))
         check(target != null) { "no on-screen node containing '$label'\n${diagnose(label)}" }
         log("substring-tap=$label")
@@ -254,26 +255,27 @@ class E2eHarness(
     }
 
     /** Presence without waiting. */
-    fun exists(label: String): Boolean =
-        rule.onAllNodes(labelled(label)).fetchSemanticsNodes().isNotEmpty()
+    fun exists(label: String): Boolean = rule.onAllNodes(labelled(label)).fetchSemanticsNodes().isNotEmpty()
 
     /** Presence without waiting, by testTag. */
-    fun existsTag(tag: String): Boolean =
-        rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
+    fun existsTag(tag: String): Boolean = rule.onAllNodes(hasTestTag(tag)).fetchSemanticsNodes().isNotEmpty()
 
     /** Blocks until the label appears; fails loudly on timeout (never silently continues). */
     fun waitFor(label: String, timeoutMs: Long = 30_000) {
-        rule.waitUntil(timeoutMs) { exists(label) }
+        // A bare Compose timeout names no screen, so the wait is caught and the failure carries the diagnosis.
+        val appeared = runCatching {
+            rule.waitUntil(timeoutMs) { exists(label) }
+        }.isSuccess
+        check(appeared) { "'$label' never appeared within ${timeoutMs}ms\n${diagnose(label)}" }
     }
 
     /**
-     * Waits for the label, scrolling to find it.
+     * Waits for the label, scrolling to find it; true when this screen offers it at all.
      *
      * A lazy list composes ONLY what is on screen, so a row further down the Settings screen is not
      * merely invisible — it is absent from the tree, and a plain existence wait times out. Scroll
      * down looking for it, then back up, which is what Maestro's `scrollUntilVisible` does.
      */
-    /** Scrolls looking for the label; true when this screen offers it at all. */
     fun find(label: String): Boolean = runCatching { ensurePresent(label) }.isSuccess
 
     private fun ensurePresent(label: String, waitMs: Long = 5_000, maxSwipes: Int = 15) {
@@ -447,11 +449,9 @@ class E2eHarness(
     }
 
     /** The newest session log file the app has written, or null. */
-    private fun sessionLogFile(): File? =
-        File(activityContext().filesDir, "logs").listFiles()?.maxByOrNull { it.lastModified() }
+    private fun sessionLogFile(): File? = File(activityContext().filesDir, "logs").listFiles()?.maxByOrNull { it.lastModified() }
 
-    private fun readSessionLog(): String =
-        runCatching { sessionLogFile()?.readText().orEmpty() }.getOrDefault("")
+    private fun readSessionLog(): String = runCatching { sessionLogFile()?.readText().orEmpty() }.getOrDefault("")
 
     // ─────────────────────────────── actions ─────────────────────────────────────────────────────
 
@@ -606,8 +606,7 @@ class E2eHarness(
     }
 
     /** True when the given text is on screen right now (no waiting). */
-    fun seesText(text: String): Boolean =
-        dumpTexts(limit = 200).any { it.contains(text, ignoreCase = false) }
+    fun seesText(text: String): Boolean = dumpTexts(limit = 200).any { it.contains(text, ignoreCase = false) }
 
     // ─────────────────────────────── touch targets ───────────────────────────────────────────────
 
@@ -764,8 +763,7 @@ class E2eHarness(
      * is always on screen and carries no state, so a lookup by label alone matches it, reports "not a
      * switch", and never scrolls down to the real control.
      */
-    private fun switchNamed(label: String): SemanticsMatcher =
-        labelledExactly(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.ToggleableState)
+    private fun switchNamed(label: String): SemanticsMatcher = labelledExactly(label) and SemanticsMatcher.keyIsDefined(SemanticsProperties.ToggleableState)
 
     /** Taps the switch itself — never a same-named nav item or heading. */
     private fun clickSwitch(label: String) {
@@ -817,10 +815,9 @@ class E2eHarness(
      *
      * Polls, because a field backed by the encrypted database can be re-populated a frame after the write.
      */
-    fun fieldHolds(label: String, expected: String, timeoutMs: Long = 15_000): Boolean =
-        runCatching {
-            rule.waitUntil(timeoutMs) { fieldHoldsNow(label, expected) }
-        }.isSuccess
+    fun fieldHolds(label: String, expected: String, timeoutMs: Long = 15_000): Boolean = runCatching {
+        rule.waitUntil(timeoutMs) { fieldHoldsNow(label, expected) }
+    }.isSuccess
 
     /** One reading of [fieldHolds], without waiting - the poll body. */
     private fun fieldHoldsNow(label: String, expected: String): Boolean {
@@ -975,6 +972,32 @@ class E2eHarness(
         if (!arrived) return
         log("focus-mode onboarding gate is up; leaving it with 'later'")
         click(skipLabel())
+        rule.waitForIdle()
+    }
+
+    /**
+     * Dismisses the notification-permission offer when it is up, and does nothing when it is not.
+     *
+     * WHY THE TIER NEEDS THIS:
+     *
+     * The app asks for the notification permission AFTER the action that would notify - a started timer, a
+     * task saved with a reminder - and it never blocks that action: the timer runs and the task is saved
+     * whether or not the user answers. On a device where notifications are switched off (a fresh install on
+     * Android 13 and later) that offer IS a modal dialog, so a journey that saves a task or starts a timer
+     * meets it. It is a legitimate part of the flow now, and the journey's job is to get past it the way a
+     * user would.
+     *
+     * "Not now" is the answer a user who does not care about notifications picks: it changes nothing that
+     * was already saved, and it leaves the offer out of the way.
+     *
+     * The wait is bounded and this is a NO-OP when the offer never arrives - on a device where the
+     * permission is already granted the offer does not exist, and the journey must not be held up by it.
+     */
+    fun dismissNotificationOfferIfPresent(timeoutMs: Long = 5_000) {
+        val arrived = runCatching { rule.waitUntil(timeoutMs) { exists(l.notificationOfferTitle) } }.isSuccess
+        if (!arrived) return
+        log("notification offer is up; leaving it with 'not now'")
+        click(l.notificationOfferNotNow)
         rule.waitForIdle()
     }
 

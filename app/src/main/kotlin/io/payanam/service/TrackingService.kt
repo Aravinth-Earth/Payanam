@@ -20,6 +20,7 @@ import io.payanam.MainActivity
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -191,15 +192,14 @@ class TrackingService : Service() {
      * a START replaces it with the session's own notification moments later. It reuses the channel's own name
      * as its title, so no new string is needed for a state the user sees only for an instant.
      */
-    private fun buildStartUpNotification(): Notification =
-        NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground)
-            .setContentTitle(getString(R.string.notification_channel_tracking))
-            .setOngoing(true)
-            .setOnlyAlertOnce(true)
-            .setCategory(NotificationCompat.CATEGORY_PROGRESS)
-            .setPriority(NotificationCompat.PRIORITY_LOW)
-            .build()
+    private fun buildStartUpNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
+        .setSmallIcon(R.mipmap.ic_launcher_foreground)
+        .setContentTitle(getString(R.string.notification_channel_tracking))
+        .setOngoing(true)
+        .setOnlyAlertOnce(true)
+        .setCategory(NotificationCompat.CATEGORY_PROGRESS)
+        .setPriority(NotificationCompat.PRIORITY_LOW)
+        .build()
 
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun startTrackingSession(
@@ -246,7 +246,7 @@ class TrackingService : Service() {
         updateJob = serviceScope.launch {
             while (true) {
                 delay(1000) // Update every second
-                updateNotification()
+                runNotificationIterationSafely(logger) { updateNotification() }
             }
         }
         logger.i(
@@ -397,6 +397,37 @@ class TrackingService : Service() {
         // Flush WAL journal when foreground service exits
         sessionManager.checkpoint()
         super.onDestroy()
+    }
+}
+
+/**
+ * Runs ONE tick of the per-second notification update, keeping the ticker alive when that tick
+ * fails.
+ *
+ * A throw from a single tick would otherwise leave the loop AND take the process down with it: the
+ * ticker's scope is a hand-rolled `SupervisorJob` scope with no exception handler, so the failure
+ * reaches the platform's uncaught-exception handler. The session would then be left with a
+ * notification frozen at whatever elapsed time the last successful tick showed. Reporting the
+ * failure and continuing keeps the ticker running; only cancellation ends it.
+ *
+ * A [CancellationException] is rethrown, so cancelling the ticker still unwinds it quietly.
+ */
+private suspend fun runNotificationIterationSafely(
+    logger: UnifiedLogger,
+    block: suspend () -> Unit,
+) {
+    try {
+        block()
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (
+        @Suppress("TooGenericExceptionCaught") failure: Exception,
+    ) {
+        logger.e(
+            "TrackingService.updateNotification",
+            "Notification update failed; continuing",
+            failure,
+        )
     }
 }
 

@@ -59,6 +59,13 @@ class TouchTargetSweepTest {
     @Test
     fun displayedControlsAreBigEnoughToTap() {
         FreshSetup(h).run()
+
+        // run() ends on the mandatory dimension step, so the sweep needs it cleared first: the bottom
+        // navigation it walks is not composed there, and the first nav tap would time out.
+        h.scrollTo(l.verifyAndProceed)
+        h.click(l.verifyAndProceed)
+        h.assertVisible(l.perDimension)
+
         h.assertTouchTargets("Lenses", MIN_TOUCH_TARGET_DP)
 
         h.goToTab(l.tasks)

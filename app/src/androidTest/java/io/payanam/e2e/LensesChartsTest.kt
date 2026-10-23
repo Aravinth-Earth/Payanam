@@ -84,6 +84,7 @@ class LensesChartsTest {
         h.click(l.ui.locOk)
         h.scrollTo(l.saveTask)
         h.click(l.saveTask)
+        h.dismissNotificationOfferIfPresent()
         h.assertVisible(HABIT_TITLE)
         h.log("seed=habit")
     }

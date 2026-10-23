@@ -1,5 +1,5 @@
 # Payanam E2E Test Suite — Specification
-Last Updated: 2026-09-13
+Last Updated: 2026-10-20
 
 ## Goal
 Fastest possible UI-driven regression suite covering every user-facing interaction in the app.
@@ -31,10 +31,12 @@ when its SUBJECT is the fresh state:
 
 | Route | Install | Classes | Why |
 |---|---|---|---|
-| A — first-run gates | fresh (`-KeepInstalled false`) | `FullJourneyTest`, `SmokeInProcessTest`, `DimensionSetupTest`, `FocusModeTest`, `WidgetCommandTest`, `ImportPickerUnificationTest`, `ImportSeamTest` | the onboarding tour, the passphrase gate, the dimension step and the pending-command window only exist on a first run |
-| B — provisioned app | reuse (`-KeepInstalled true`) | every feature journey: tasks, habits, notes, journal, time, lenses, settings, assistant, insights, channel-type, layout/touch probes | they need a provisioned app and nothing else |
-| C — closed session | reuse, new process | `UnlockTest`, `PassphraseLifecycleTest` | the lock screen only appears once the session has closed, which needs a process restart |
+| A — first-run gates | fresh (`-KeepInstalled false`) | `FullJourneyTest`, `SmokeInProcessTest`, `DimensionSetupTest`, `FocusModeTest`, `WidgetCommandTest`, `ImportPickerUnificationTest`, `TouchTargetSweepTest` | the onboarding tour, the passphrase gate, the dimension step and the pending-command window only exist on a first run |
+| B — provisioned app | clean start, reuse (`-KeepInstalled true`) | one shared invocation of 20 classes: `TasksCrudTest`, `TasksDetailsTest`, `HabitsCrudTest`, `HabitsFilterSortTest`, `NotesCrudTest`, `NotesTagsDimensionTest`, `JournalCrudTest`, `JournalPerDimensionTest`, `TimeEntryEditTest`, `TimeGapDayPlanTest`, `LensesChartsTest`, `LensesDataTest`, `InsightsVisibilityTest`, `SettingsTogglesTest`, `SettingsBackupRunTest`, `UpdateChannelTypeTest`, `LayoutProbeTest`, `AssistantSettingsTest`, `AssistantSetupStatesTest`, `ImportSeamTest` | they need a provisioned app and nothing else — and a CLEAN baseline to start from, because the reuse is inside the run, not between runs |
+| C — closed session | reuse, new process | `UnlockTest` | the lock screen only appears once the session has closed, which needs a process restart |
 | D — reset | reuse, new process | `ResetJourneyTest` | the reset restarts the app's own process |
+| E — passphrase lifecycle | fresh (`-KeepInstalled false`), own invocation | `PassphraseLifecycleTest` | it walks the first run itself — onboarding → passphrase setup → change screen — instead of calling `FreshSetup.run()`, so it needs the app at first run and has to lead its own fresh install |
+| F — seeded assistant | fresh (`-KeepInstalled false`), own invocation | `AssistantReconfigureTest` | it starts from a SEEDED CONFIGURED assistant — a state the UI cannot reach without a live provider key — and the seed has to land before the app launches |
 
 `-TestClass` maps to `-Pandroid.testInstrumentationRunnerArguments.class=`, which takes a comma-separated
 list, so a route is just a list of classes — no runner change is needed.
@@ -43,6 +45,68 @@ list, so a route is just a list of classes — no runner change is needed.
 **16**, against a baseline of **30 m 40 s** for the whole 32-test suite with **30 failures** — 27 of them the
 `FreshSetup` wait expiring because the app was already provisioned. The app's own log confirmed every class
 reported `setup=reused`: **the reuse mechanism works.**
+
+**Measured (SM-A176B, 2026-10-20).** The shared route B is **20 of 20 green**, and `ImportSeamTest` is one
+of them. It used to sit in route A with a fresh install of its own; it was repaired to drive the REAL
+encryption probe, health check and path resolver instead of stubs, so the file it imports is a real
+encrypted SQLCipher database on the device and the seam under test is actually reached — which is what let
+it drop the fresh-install requirement and **ride the shared route B with the rest of the feature
+journeys.**
+
+**Route B must start from a CLEAN install — the reuse is INSIDE a run, not between runs.** Three
+consecutive invocations of the same 20-class route measured today say so:
+
+- **B2** — started from an app an earlier single-class run had provisioned, with no journey data in it:
+  **20 pass**, and the only failure was the seeded `AssistantReconfigureTest` (since excluded from the
+  route) — effectively green.
+- **B3** — started immediately after B2 finished, i.e. from the database B2 left behind: **11 of 20
+  FAILED**, with "label not on screen" errors spread across unrelated screens — dimension labels, task
+  titles, note titles. The app had unlocked normally (`setup=ready`), so this was NOT a provisioning
+  failure: the earlier classes had created and renamed dimensions and left data the next run did not
+  expect.
+- **B4** — the same 20 classes after `adb uninstall io.payanam.debug; adb uninstall io.payanam.debug.test`:
+  **"OK (20 tests)"**, all green.
+
+**`-KeepInstalled:$false` cannot supply that start.** It uninstalls the app **after** a run, so a run that
+follows another one still begins on the database the previous run left behind — the B3 state. The clean
+baseline has to be established **before** the invocation:
+
+```pwsh
+# 1. Clean baseline FIRST: uninstall both APKs. -KeepInstalled:$false uninstalls AFTER a
+#    run, so it can never clean the start of the NEXT one.
+adb uninstall io.payanam.debug
+adb uninstall io.payanam.debug.test
+
+# 2. Then the 20 classes of route B in ONE shared invocation. The route table above is
+#    the list of record. -Runs 1, because a second cycle would start on this cycle's data.
+$routeB = @(
+    'TasksCrudTest', 'TasksDetailsTest', 'HabitsCrudTest', 'HabitsFilterSortTest',
+    'NotesCrudTest', 'NotesTagsDimensionTest', 'JournalCrudTest', 'JournalPerDimensionTest',
+    'TimeEntryEditTest', 'TimeGapDayPlanTest', 'LensesChartsTest', 'LensesDataTest',
+    'InsightsVisibilityTest', 'SettingsTogglesTest', 'SettingsBackupRunTest',
+    'UpdateChannelTypeTest', 'LayoutProbeTest', 'AssistantSettingsTest',
+    'AssistantSetupStatesTest', 'ImportSeamTest'
+) | ForEach-Object { "io.payanam.e2e.$_" }
+
+pwsh build-tools/scripts/run-inprocess-tests.ps1 -Runs 1 -KeepInstalled:$true -TestClass ($routeB -join ',')
+```
+
+**The reuse mechanism is not in question.** `FreshSetup.runIfNeeded()` still provisions the first class of
+the run, and every later class in the SAME run still reuses that app — the mechanism the 2026-10-17
+measurement confirmed. What has to be clean is the baseline the run STARTS from, not the state it shares
+once it is going.
+
+**Two classes are their own invocation, and the measurement says why.** `PassphraseLifecycleTest` walks the
+first run itself — onboarding → database chooser → passphrase setup, and then the change screen out of
+Settings — and it deliberately does NOT call `FreshSetup.run()`, because it has to assert the setup screen's
+validation errors BEFORE a valid passphrase is submitted. In a shared or closed-session route it stops at
+its own precondition check — "the passphrase lifecycle needs a clean app, but the app is already
+provisioned" — so it passes only with a fresh install (`-KeepInstalled false`), leading its own invocation.
+`AssistantReconfigureTest` starts from a SEEDED CONFIGURED assistant: `AssistantSeedRule` creates that
+fixture through the app's own managers BEFORE the activity launches, because the UI cannot reach a
+configured assistant without a live provider key. In a shared run the app is already provisioned and
+already running, the seeded state never takes effect, and the assistant shows the setup surface instead of
+the chat surface — so it passes only as its own invocation with a fresh install.
 
 **What route B still needs, and why it is a per-class job.** The feature journeys were written for a fresh,
 EMPTY app — a one-class-per-invocation world. Sharing one app breaks that assumption in four ways, and each
@@ -119,8 +183,8 @@ XML, the HTML report and the per-test logcat.
 3. No re-setups and no repeated steps; every action happens once
 4. Journeys that need their own process or their own clean install are separate classes, each run by
    its own runner invocation — `UnlockTest` (the lock screen), `SmokeInProcessTest`,
-   `WidgetCommandTest`, `InsightsVisibilityTest`, `UpdateChannelTypeTest`,
-   `ImportPickerUnificationTest`, `ImportSeamTest`
+   `WidgetCommandTest`, `ImportPickerUnificationTest`. The route table above is the authority on which
+   classes share an invocation; `ImportSeamTest` rides the shared route B.
 
 ## Label & selector policy (app-side)
 

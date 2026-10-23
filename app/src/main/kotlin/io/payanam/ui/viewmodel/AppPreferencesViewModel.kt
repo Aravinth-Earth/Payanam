@@ -89,10 +89,10 @@ private data class BackupSettingsBundle(
     val backupStatus: BackupStatusSnapshot,
 )
 
-@HiltViewModel
 /**
  * Exposes app settings (theme, language, dimensions, backup, charts) and persists edits.
  */
+@HiltViewModel
 class AppPreferencesViewModel @Inject constructor(
     private val appSettingsRepository: AppSettingsRepository,
     private val lifeDimensionCatalogRepository: LifeDimensionCatalogRepository,
@@ -129,10 +129,10 @@ class AppPreferencesViewModel @Inject constructor(
         lifeDimensions = lifeDimensionCatalogRepository,
         scoreRollupTrigger = scoreRollupCascadeService,
         labelNormalizer =
-            DimensionLabelNormalizer { canonicalId, candidateLabel, effectiveLanguageTag ->
-                localizedCatalogLabel(canonicalId, effectiveLanguageTag) == candidateLabel ||
-                    candidateLabel in knownAppOwnedCatalogLabels(canonicalId)
-            },
+        DimensionLabelNormalizer { canonicalId, candidateLabel, effectiveLanguageTag ->
+            localizedCatalogLabel(canonicalId, effectiveLanguageTag) == candidateLabel ||
+                candidateLabel in knownAppOwnedCatalogLabels(canonicalId)
+        },
     )
     init {
         UnifiedLogger.setDebugLoggingEnabled(DebugLoggingPrefs.resolve(context))
@@ -242,12 +242,14 @@ class AppPreferencesViewModel @Inject constructor(
     fun setThemeMode(mode: ThemeModeOption) {
         launchWrite { writer.setThemeMode(mode.key) }
     }
+
     /**
      * Persists the chosen app language.
      */
     fun setAppLanguage(language: AppLanguageOption) {
         launchWrite { writer.setAppLanguage(language.key) }
     }
+
     /**
      * Normalizes [languageTag] to a supported tag and updates the runtime system language.
      */
@@ -263,18 +265,21 @@ class AppPreferencesViewModel @Inject constructor(
             mapOf("systemLanguageTag" to normalizedTag),
         )
     }
+
     /**
      * Persists the chosen font family.
      */
     fun setFontFamily(fontFamily: FontFamilyOption) {
         launchWrite { writer.setFontFamily(fontFamily.key) }
     }
+
     /**
      * Persists the chosen clock format.
      */
     fun setTimeFormat(timeFormat: TimeFormatOption) {
         launchWrite { writer.setTimeFormat(timeFormat.key) }
     }
+
     /**
      * Persists the timeline hour-height (clamped to the supported DP range).
      */
@@ -282,12 +287,14 @@ class AppPreferencesViewModel @Inject constructor(
         val clamped = hourHeightDp.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
         launchWrite { writer.setTimeHourHeightDp(clamped) }
     }
+
     /**
      * Persists a user-edited display label for [dimension] (resolves to its id).
      */
     fun setDimensionLabel(dimension: LifeDimension, label: String) {
         setDimensionLabel(dimension.id, label)
     }
+
     /**
      * Persists a user-edited display label for a dimension by [dimensionId].
      */
@@ -300,6 +307,7 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
+
     /**
      * Persists the editable weight for [dimension] (delegates to the id overload).
      */
@@ -315,60 +323,70 @@ class AppPreferencesViewModel @Inject constructor(
     fun setDimensionWeight(dimensionId: String, weight: Double) {
         launchWrite { writer.setDimensionWeight(dimensionId, weight) }
     }
+
     /**
      * Persists a user-edited color for [dimension] (resolves to its id).
      */
     fun setDimensionColor(dimension: LifeDimension, color: Color) {
         setDimensionColor(dimension.id, color)
     }
+
     /**
      * Persists a user-edited color for a dimension by [dimensionId].
      */
     fun setDimensionColor(dimensionId: String, color: Color) {
         launchWrite { writer.setDimensionColor(dimensionId, colorToStoredHex(color)) }
     }
+
     /**
      * Clears the user-overridden label for a dimension, reverting to the canonical label.
      */
     fun resetDimensionLabel(dimensionId: String) {
         launchWrite { writer.resetDimensionLabel(dimensionId) }
     }
+
     /**
      * Persists the chosen icon for a dimension and refreshes UI.
      */
     fun setDimensionIcon(dimensionId: String, iconKey: String) {
         launchWrite { writer.setDimensionIcon(dimensionId, iconKey) }
     }
+
     /**
      * Persists the visible/hidden toggle for [dimension] (resolves to its id).
      */
     fun setDimensionVisibility(dimension: LifeDimension, isVisible: Boolean) {
         setDimensionVisibility(dimension.id, isVisible)
     }
+
     /**
      * Persists the visible/hidden toggle for a dimension by [dimensionId].
      */
     fun setDimensionVisibility(dimensionId: String, isVisible: Boolean) {
         launchWrite { writer.setDimensionVisibility(dimensionId, isVisible) }
     }
+
     /**
      * Persists the auto-backup on/off toggle.
      */
     fun setAutoBackupEnabled(enabled: Boolean) {
         launchWrite { writer.setAutoBackupEnabled(enabled) }
     }
+
     /**
      * Persists the auto-backup cadence.
      */
     fun setAutoBackupInterval(interval: BackupInterval) {
         launchWrite { writer.setAutoBackupInterval(interval.key) }
     }
+
     /**
      * Records the last successful auto-backup timestamp.
      */
     fun setAutoBackupLastRun(timestamp: String) {
         launchWrite { writer.setAutoBackupLastRun(timestamp) }
     }
+
     /**
      * Persists backup rotation on/off and syncs to shared prefs.
      */
@@ -376,6 +394,7 @@ class AppPreferencesViewModel @Inject constructor(
         launchWrite { writer.setBackupRotationEnabled(enabled) }
         syncBackupRotationToSharedPrefs(enabled, _uiState.value.backupRotationCount)
     }
+
     /**
      * Persists the retained-backup count (1-999) and syncs to shared prefs.
      */
@@ -393,6 +412,7 @@ class AppPreferencesViewModel @Inject constructor(
             .putInt("backup_rotation_count", count)
             .apply()
     }
+
     /**
      * Re-reads backup status from storage and pushes it into UI state.
      */
@@ -415,6 +435,7 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
+
     /**
      * Clears the current auto-backup failure message from the UI.
      */
@@ -431,9 +452,7 @@ class AppPreferencesViewModel @Inject constructor(
             )
         }
     }
-    /**
-     * Kicks off a manual backup to the app backup directory and refreshes status.
-     */
+
     /**
      * Runs one shared write on this ViewModel's scope.
      *
@@ -446,14 +465,15 @@ class AppPreferencesViewModel @Inject constructor(
     }
 
     /**
-     * Runs a manual backup on this ViewModel's scope and publishes the outcome on the manual-backup
-     * result flow, so a tap on the backup button always ends in a state the screen can render.
+     * Kicks off a manual backup to the app backup directory and refreshes status, then publishes the
+     * outcome on the manual-backup result flow, so a tap on the backup button always ends in a state
+     * the screen can render.
      *
      * The catch below it is deliberately broad: the backup + restore pipeline this drives fails in
      * several unrelated ways, and every one of them has to become a message rather than a crash out of a
      * button tap.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: backup + restore pipeline; multiple failure modes
+    @Suppress("TooGenericExceptionCaught") // Intentional: backup + restore pipeline; multiple failure modes
     fun triggerManualBackupNow() {
         _manualBackupInProgress.value = true
         viewModelScope.launch {
@@ -565,10 +585,11 @@ class AppPreferencesViewModel @Inject constructor(
         }
         return rows
     }
+
     /**
      * Runs the habit-score diagnostics pass and publishes the result to the UI.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun runHabitScoreDiagnostics() {
         if (_habitScoreDiagnosticsInProgress.value) {
             return
@@ -719,12 +740,14 @@ class AppPreferencesViewModel @Inject constructor(
             }
         }
     }
+
     /**
      * Persists the day-boundary hour (0-5) used for daily rollups.
      */
     fun setDayBoundaryHour(hour: Int) {
         launchWrite { writer.setDayBoundaryHour(hour) }
     }
+
     /**
      * Persists the debug-logging toggle and applies it live.
      */
@@ -734,18 +757,21 @@ class AppPreferencesViewModel @Inject constructor(
         // Mirror for the process-start path: the DB preference is unreadable before unlock.
         DebugLoggingPrefs.write(context, enabled)
     }
+
     /**
      * Persists the global auto-track-habit-time toggle.
      */
     fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
         launchWrite { writer.setAutoTrackHabitTimeGlobal(enabled) }
     }
+
     /**
      * Persists auto-track toggle for the dimension (id or [dimension]).
      */
     fun setAutoTrackDimensionPreference(dimension: LifeDimension, enabled: Boolean) {
         setAutoTrackDimensionPreference(dimension.id, enabled)
     }
+
     /**
      * Persists auto-track toggle for the dimension (id or [dimension]).
      */
@@ -774,156 +800,182 @@ class AppPreferencesViewModel @Inject constructor(
     fun markFocusModeOnboardingCompleted() {
         launchWrite { writer.markFocusModeOnboardingCompleted() }
     }
+
     /**
      * Makes the Time screen the default launch destination.
      */
     fun setLaunchDestinationTime() {
         launchWrite { writer.setLaunchDestinationTime() }
     }
+
     /**
      * Makes the Tasks screen the default launch destination, with an optional [taskFilter].
      */
     fun setLaunchDestinationTasks(taskFilter: TaskFilter?) {
         launchWrite { writer.setLaunchDestinationTasks(taskFilter?.key) }
     }
+
     /**
      * Persists the default launch-destination route.
      */
     fun setLaunchDestination(route: String) {
         launchWrite { writer.setLaunchDestination(route) }
     }
+
     /**
      * Toggles the Time insights module on the dashboard.
      */
     fun setChartTimeModuleEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeModuleEnabled(enabled) }
     }
+
     /**
      * Toggles the Time overall-snapshot card.
      */
     fun setChartTimeOverallSnapshotEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeOverallSnapshotEnabled(enabled) }
     }
+
     /**
      * Toggles the Time execution-details card.
      */
     fun setChartTimeExecutionDetailsEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeExecutionDetailsEnabled(enabled) }
     }
+
     /**
      * Toggles the Time score-cards section.
      */
     fun setChartTimeScoreCardsEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeScoreCardsEnabled(enabled) }
     }
+
     /**
      * Toggles the Time overall score card.
      */
     fun setChartTimeOverallScoreCardEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeOverallScoreCardEnabled(enabled) }
     }
+
     /**
      * Toggles the per-dimension Time score cards.
      */
     fun setChartTimeDimensionScoreCardsEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeDimensionScoreCardsEnabled(enabled) }
     }
+
     /**
      * Toggles the Time line-graphs section.
      */
     fun setChartTimeLineGraphsEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeLineGraphsEnabled(enabled) }
     }
+
     /**
      * Toggles the daily score-trend chart.
      */
     fun setChartTimeDailyScoreTrendEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeDailyScoreTrendEnabled(enabled) }
     }
+
     /**
      * Toggles the progress-trend chart.
      */
     fun setChartTimeProgressTrendEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeProgressTrendEnabled(enabled) }
     }
+
     /**
      * Toggles the historical-ranking chart.
      */
     fun setChartTimeHistoricalRankingEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeHistoricalRankingEnabled(enabled) }
     }
+
     /**
      * Toggles the momentum-streak chart.
      */
     fun setChartTimeMomentumStreakEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTimeMomentumStreakEnabled(enabled) }
     }
+
     /**
      * Toggles the Task insights module.
      */
     fun setChartTaskModuleEnabled(enabled: Boolean) {
         launchWrite { writer.setChartTaskModuleEnabled(enabled) }
     }
+
     /**
      * Toggles the Habit insights module.
      */
     fun setChartHabitModuleEnabled(enabled: Boolean) {
         launchWrite { writer.setChartHabitModuleEnabled(enabled) }
     }
+
     /**
      * Toggles the Journal insights module.
      */
     fun setChartJournalModuleEnabled(enabled: Boolean) {
         launchWrite { writer.setChartJournalModuleEnabled(enabled) }
     }
+
     /**
      * Toggles the Note insights module.
      */
     fun setChartNoteModuleEnabled(enabled: Boolean) {
         launchWrite { writer.setChartNoteModuleEnabled(enabled) }
     }
+
     /**
      * Toggles the average-daily-time chart.
      */
     fun setChartAverageDailyTimeEnabled(enabled: Boolean) {
         launchWrite { writer.setChartAverageDailyTimeEnabled(enabled) }
     }
+
     /**
      * Toggles the dimension-split chart.
      */
     fun setChartDimSplitEnabled(enabled: Boolean) {
         launchWrite { writer.setChartDimSplitEnabled(enabled) }
     }
+
     /**
      * Toggles the dimension-trend chart.
      */
     fun setChartDimTrendEnabled(enabled: Boolean) {
         launchWrite { writer.setChartDimTrendEnabled(enabled) }
     }
+
     /**
      * Toggles the daily-timeline chart.
      */
     fun setChartDailyTimelineEnabled(enabled: Boolean) {
         launchWrite { writer.setChartDailyTimelineEnabled(enabled) }
     }
+
     /**
      * Toggles the weekly-pattern chart.
      */
     fun setChartWeeklyPatternEnabled(enabled: Boolean) {
         launchWrite { writer.setChartWeeklyPatternEnabled(enabled) }
     }
+
     /**
      * Toggles the daily-rhythm chart.
      */
     fun setChartDailyRhythmEnabled(enabled: Boolean) {
         launchWrite { writer.setChartDailyRhythmEnabled(enabled) }
     }
+
     /**
      * Toggles excluding empty days from the weekly-pattern chart.
      */
     fun setChartWeeklyPatternExclEmpty(enabled: Boolean) {
         launchWrite { writer.setChartWeeklyPatternExclEmpty(enabled) }
     }
+
     /**
      * Toggles excluding empty days from the daily-rhythm chart.
      */
@@ -963,9 +1015,6 @@ class AppPreferencesViewModel @Inject constructor(
         private const val KEY_BACKUP_ROTATION_ENABLED = AppPreferenceKeys.KEY_BACKUP_ROTATION_ENABLED
         private const val KEY_BACKUP_ROTATION_COUNT = AppPreferenceKeys.KEY_BACKUP_ROTATION_COUNT
         private const val KEY_DEBUG_LOGGING_ENABLED = AppPreferenceKeys.KEY_DEBUG_LOGGING_ENABLED
-
-
-
 
         private const val KEY_DATABASE_INIT_COMPLETED = AppPreferenceKeys.KEY_DATABASE_INIT_COMPLETED
         private const val KEY_ACTIVE_PRESET = AppPreferenceKeys.KEY_ACTIVE_PRESET
