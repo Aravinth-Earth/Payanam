@@ -678,8 +678,13 @@ fun PayanamNavHost(
                             // model answers it on the dispatcher that model runs on, so the navigation is
                             // handed to the main dispatcher rather than assumed to be there.
                             CoroutineScope(Dispatchers.Main.immediate).launch {
-                                navController.navigate(nextRoute) {
-                                    popUpTo(PayanamRoutes.PASSPHRASE_SETUP) { inclusive = true }
+                                // Same double-transition guard as the unlock callback below: clearing the
+                                // setup gate changes `startDestination`, so the graph may already be on
+                                // `nextRoute` and a second push would pop an entry that never reached CREATED.
+                                if (navController.currentBackStackEntry?.resolveConcreteRoute() != nextRoute) {
+                                    navController.navigate(nextRoute) {
+                                        popUpTo(PayanamRoutes.PASSPHRASE_SETUP) { inclusive = true }
+                                    }
                                 }
                             }
                         },
@@ -705,8 +710,16 @@ fun PayanamNavHost(
                             // entry's state off the thread that owns it and the graph threw
                             // `Method setCurrentState must be called on the main thread`.
                             CoroutineScope(Dispatchers.Main.immediate).launch {
-                                navController.navigate(nextRoute) {
-                                    popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                                // Guard against the transition being performed twice. Clearing the unlock
+                                // gate changes `startDestination`, so the NavHost rebuilds the graph and
+                                // lands on `nextRoute` by itself. Navigating as well pops that freshly built
+                                // entry before it reaches CREATED, which the lifecycle registry rejects with
+                                // "State must be at least 'CREATED' to be moved to 'DESTROYED'" on the
+                                // `lenses` route (measured, build 2054). Whoever got there first wins.
+                                if (navController.currentBackStackEntry?.resolveConcreteRoute() != nextRoute) {
+                                    navController.navigate(nextRoute) {
+                                        popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
+                                    }
                                 }
                             }
                         },

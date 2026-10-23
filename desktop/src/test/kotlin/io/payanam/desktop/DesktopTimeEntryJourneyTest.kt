@@ -74,6 +74,9 @@ class DesktopTimeEntryJourneyTest : DesktopAppJourneyHarness() {
             onAllNodesWithText(strings.locLifeDimension).onFirst().performClick()
             awaitNodeWithTag("time_entry_dimension_field")
             onNodeWithTag("time_entry_dimension_field").performClick()
+            // The menu composes its options asynchronously; clicking before they exist is what made this
+            // journey fail intermittently inside the full suite while passing on its own.
+            awaitNodeWithText(SECOND_DIMENSION)
             onNodeWithText(SECOND_DIMENSION).performClick()
             onNodeWithTag(EDIT_TIME_ENTRY_CONFIRM_BUTTON_TAG).performClick()
 

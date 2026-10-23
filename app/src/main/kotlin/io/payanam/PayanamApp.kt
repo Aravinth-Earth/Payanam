@@ -393,7 +393,10 @@ class PayanamApp : Application() {
                         "System process exit record",
                         mapOf(
                             "reason" to info.reason,
-                            "reasonDescription" to describeExitReason(info.reason),
+                            // Named "reasonKind", not "reasonDescription": the sanitiser treats any key
+                            // containing "description" as user content and redacts the value, which hid
+                            // the readable name and left only the opaque numeric code in the export.
+                            "reasonKind" to describeExitReason(info.reason),
                             "importance" to info.importance,
                             "status" to info.status,
                             "description" to (info.description ?: "none"),
