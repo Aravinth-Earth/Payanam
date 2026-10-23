@@ -47,7 +47,6 @@ class DatabaseEncryptionManagerSecurityModelTest {
         val configured = manager.configurePassphrase("ValidTest#Pass123")
         assertThat(configured).isTrue()
         assertThat(manager.hasPassphraseConfigured()).isTrue()
-        assertThat(prefs.getString("db_mode", null)).isEqualTo("encrypted")
         assertThat(prefs.getString("db_verifier_hash", null)).isNotNull()
         assertThat(prefs.getString("db_verifier_salt", null)).isNotNull()
         assertThat(prefs.getString("db_wrapped_passphrase", null)).isNull()
@@ -120,7 +119,6 @@ class DatabaseEncryptionManagerSecurityModelTest {
     fun backupAndRestoreEncryptionPrefs_restoresVerifierAndBiometricState() {
         prefs
             .edit()
-            .putString("db_mode", "encrypted")
             .putString("db_verifier_hash", "hash_blob")
             .putString("db_verifier_salt", "salt_blob")
             .putBoolean("biometric_unlock_enabled", true)
@@ -131,7 +129,6 @@ class DatabaseEncryptionManagerSecurityModelTest {
         assertThat(backedUp).isTrue()
         prefs
             .edit()
-            .remove("db_mode")
             .remove("db_verifier_hash")
             .remove("db_verifier_salt")
             .putBoolean("biometric_unlock_enabled", false)
@@ -140,7 +137,6 @@ class DatabaseEncryptionManagerSecurityModelTest {
             .commit()
         val restored = manager.restoreEncryptionPrefs()
         assertThat(restored).isTrue()
-        assertThat(prefs.getString("db_mode", null)).isEqualTo("encrypted")
         assertThat(prefs.getString("db_verifier_hash", null)).isEqualTo("hash_blob")
         assertThat(prefs.getString("db_verifier_salt", null)).isEqualTo("salt_blob")
         assertThat(prefs.getBoolean("biometric_unlock_enabled", false)).isTrue()

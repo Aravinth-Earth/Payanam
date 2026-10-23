@@ -9,6 +9,7 @@ import io.payanam.domain.port.DatabaseSchemaResult
 import io.payanam.domain.port.DatabaseTableSchema
 import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.port.ReadOnlyQueryOutcome
+import io.payanam.domain.port.ReadOnlyQueryRules
 import io.payanam.domain.port.ReadOnlyRefusal
 import io.payanam.shared.logging.AppLogger
 import java.nio.file.Path
@@ -80,7 +81,7 @@ class ReadOnlyDatabaseQueryJvm(
     }
 
     override fun readSchema(): DatabaseSchemaResult =
-        when (val outcome = query(SCHEMA_QUERY, SCHEMA_MAX_ROWS)) {
+        when (val outcome = query(ReadOnlyQueryRules.SCHEMA_QUERY, ReadOnlyQueryRules.SCHEMA_MAX_ROWS)) {
             is ReadOnlyQueryOutcome.Rows -> {
                 DatabaseSchemaResult.Tables(
                     outcome.rows.mapNotNull { row ->
@@ -255,21 +256,6 @@ class ReadOnlyDatabaseQueryJvm(
         private const val QUERY_ONLY_STATEMENT = "PRAGMA query_only"
 
         private val READ_ONLY_LEADING_KEYWORDS = setOf("SELECT", "VALUES", "EXPLAIN")
-
-        /**
-         * The schema read, identical to the one Android's assistant already uses.
-         *
-         * `app_settings` is excluded because it is where the API key lives: a `CREATE TABLE` statement
-         * names the column, and a model that can read that table's rows can read the key, so the
-         * exclusion belongs where the SQL is written rather than in a caller's good intentions.
-         */
-        private const val SCHEMA_QUERY =
-            "SELECT name, sql FROM sqlite_master WHERE type='table' " +
-                "AND name NOT LIKE 'sqlite_%' AND name NOT LIKE 'room_%' " +
-                "AND name != 'app_settings' ORDER BY name"
-
-        /** Far above the number of tables in any schema; a bound, not a guess about this one. */
-        private const val SCHEMA_MAX_ROWS = 512
     }
 }
 

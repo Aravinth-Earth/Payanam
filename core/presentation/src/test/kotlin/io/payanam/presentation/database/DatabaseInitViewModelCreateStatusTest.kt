@@ -243,15 +243,18 @@ class DatabaseInitViewModelCreateStatusTest {
         runTest(testDispatcher) {
             plantDatabase()
             healthCheck.artifactsExist = true
-            vault.encryptionEnabled = true
+            // The FILE is what says it is encrypted now, not the platform mode: the same probe that
+            // answers every other file question on this platform answers this one, so the test steers
+            // the probe rather than the vault.
+            encryptionProbe.encrypted = true
 
             val viewModel = newViewModel()
             advanceUntilIdle()
 
             assertThat(viewModel.uiState.value.databaseExists).isTrue()
             // An encrypted file's row counts are unreadable without the passphrase, so asking for them
-            // would be asking a question with no answer. The arm returns before the read AND before the
-            // flag read - the flag is inside the encrypted file too.
+            // would be asking a question with no answer. The arm returns after the probe's answer and
+            // before the read AND before the flag read - the flag is inside the encrypted file too.
             assertThat(encryptionProbe.readTableCountsCalls).isEqualTo(0)
             assertThat(flagReader.calls).isEqualTo(0)
             viewModel.dispose()

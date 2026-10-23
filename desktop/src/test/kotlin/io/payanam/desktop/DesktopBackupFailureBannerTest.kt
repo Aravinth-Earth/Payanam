@@ -101,9 +101,9 @@ class DesktopBackupFailureBannerTest {
         // single-port test and obvious in production, so it is asserted structurally.
         val stores =
             DesktopPersistenceStores(
-                bootstrapStore = DesktopBootstrapStore(),
+                bootstrapSchemaProbe = DesktopBootstrapSchemaProbe(),
                 securityStore = DesktopSecurityStore(securityDirectory = temporaryFolder.newFolder().toPath()),
-                databaseStore = DesktopDatabaseStore(),
+                databaseProbe = DesktopDatabaseProbe(),
             )
 
         assertThat(stores.backupStatusStore).isSameInstanceAs(stores.backupStatusStore)

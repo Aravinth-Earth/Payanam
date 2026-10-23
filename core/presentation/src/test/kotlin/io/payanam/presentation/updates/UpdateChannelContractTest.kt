@@ -3,6 +3,11 @@
 
 package io.payanam.presentation.updates
 
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.ChannelStatus
+
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

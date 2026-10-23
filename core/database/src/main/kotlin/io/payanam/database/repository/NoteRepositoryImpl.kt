@@ -4,7 +4,6 @@
 
 package io.payanam.database.repository
 
-import androidx.room.withTransaction
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.JournalNoteEntity
 import io.payanam.database.entity.NoteEntity
@@ -131,7 +130,7 @@ class NoteRepositoryImpl
                     updatedAt = now.format(formatter),
                 )
 
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 sessionManager.requireDatabase().journalDao().insertNote(note)
                 syncLegacyNoteShadow(note)
             }
@@ -178,7 +177,7 @@ class NoteRepositoryImpl
                     updatedAt = now.format(formatter),
                 )
 
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 sessionManager.requireDatabase().journalDao().updateNote(updated)
                 syncLegacyNoteShadow(updated)
             }
@@ -193,7 +192,7 @@ class NoteRepositoryImpl
          */
         override suspend fun deleteNote(id: String) {
             logger.i("NoteRepositoryImpl.deleteNote", "Deleting note", mapOf("id" to id))
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 sessionManager.requireDatabase().journalDao().deleteNoteById(id)
                 sessionManager.requireDatabase().noteDao().deleteById(id)
             }

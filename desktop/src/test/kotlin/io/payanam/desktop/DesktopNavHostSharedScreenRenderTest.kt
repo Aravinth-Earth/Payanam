@@ -8,6 +8,7 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.navigation.PayanamNavHost
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
@@ -74,7 +75,7 @@ import java.time.Instant
  * and nineteen near-identical test cases would guard it one destination at a time while leaving the rest
  * unguarded, which is the same blind spot in a different shape. So [wiredTabs] and [wiredChildRoutes] are
  * the single source of truth for what this file covers, and
- * [every shared screen method is rendered here, rendered by the gate file, or a recorded throw site] is
+ * [every shared screen method is rendered here, rendered as a gate destination by the graph, or a recorded throw site] is
  * what keeps that honest against the seam itself: a destination added to [PayanamNavHostScreens] with no
  * row here and no recorded reason FAILS, so the walk cannot silently cover less than it claims.
  *
@@ -245,6 +246,49 @@ class DesktopNavHostSharedScreenRenderTest {
     }
 
     /**
+     * The consent gate opens on the way IN, through the entry the desktop actually ships.
+     *
+     * The Lenses entry is the only door to the assistant on this platform, and it is guarded: the entry card
+     * raises the shared consent dialog, and only the dialog's Proceed calls the navigation that opens the
+     * assistant. This case walks that door in the real graph - the Lenses destination is entered by
+     * `landingRoute`, the entry card is clicked by its own copy, and the assertion is the shared dialog's
+     * title, which nothing else in the tree draws.
+     *
+     * A regression this detects: the dialog call being replaced by a direct `onOpenAssistant()`, or the
+     * entry being rewired to navigate first - either would leave the dialog's copy absent while every other
+     * case in this file stays green, because the assistant destination itself still renders.
+     */
+    @Test
+    fun `choosing the Lenses entry opens the consent gate before the assistant destination`() {
+        val screens = desktopNavHostScreens()
+        composeRule.setContent {
+            PayanamTheme(darkTheme = false) {
+                PayanamNavHost(
+                    screens = screens,
+                    language = UiLanguage.ENGLISH,
+                    minimalModeEnabled = false,
+                    landingRoute = PayanamTab.Lenses.route,
+                    isLandingReady = true,
+                )
+            }
+        }
+        composeRule.waitForIdle()
+
+        // The entry card draws only after the screen's own state read completes - the same race the
+        // destination walk absorbs with `awaitCopy`, so the click waits for the card's copy to exist.
+        composeRule.waitUntil(TIMEOUT_MILLIS) {
+            composeRule.onAllNodesWithText(strings.assistantEntryCta).fetchSemanticsNodes().isNotEmpty()
+        }
+        // The card's own action is its CTA button - the title text is not clickable.
+        composeRule.onNodeWithText(strings.assistantEntryCta).performClick()
+
+        // The dialog, not the destination: this title is drawn by the shared consent dialog alone, and the
+        // Proceed button proves the gate is actionable rather than a dead surface.
+        composeRule.onNodeWithText(strings.assistantConsentTitle).assertExists()
+        composeRule.onNodeWithText(strings.assistantConsentProceed).assertExists()
+    }
+
+    /**
      * The walk covers the whole wired surface, and says so out loud rather than leaving it to be believed.
      *
      * This is the check that makes the two cases above mean what their names claim. It partitions the seam -
@@ -265,13 +309,13 @@ class DesktopNavHostSharedScreenRenderTest {
      * what keeps "19 methods, 17 rendering, 2 recorded residue" an audited partition rather than a hope.
      */
     @Test
-    fun `every shared screen method is rendered here, rendered by the gate file, or a recorded throw site`() {
+    fun `every shared screen method is rendered here, rendered as a gate destination by the graph, or a recorded throw site`() {
         val implemented = implementedDestinationNames()
         assertThat(implemented).isNotEmpty()
 
         val renderedHere = (wiredTabs + wiredChildRoutes).map { it.method }.toSet()
         val recorded = RECORDED_THROW_SITES.keys
-        val gates = GATE_DESTINATIONS_OWNED_BY_THE_GATE_FILE
+        val gates = GATE_DESTINATIONS_OWNED_BY_THE_GRAPH
 
         // The partition is total: every implemented method is claimed exactly once, by one of the three.
         val unaccounted = implemented - renderedHere - recorded - gates
@@ -598,13 +642,17 @@ class DesktopNavHostSharedScreenRenderTest {
          * reached by raising a gate FLAG - the graph picks it as `startDestination` - not by naming its
          * route, which is a different fixture shape and already has an owner.
          */
-        val GATE_DESTINATIONS_OWNED_BY_THE_GATE_FILE =
+        val GATE_DESTINATIONS_OWNED_BY_THE_GRAPH =
             setOf(
                 "passphraseSetup",
                 "passphraseUnlock",
                 "passphraseChange",
                 "databaseInit",
                 "focusModeSelection",
+                // The last two the desktop's own surface used to render. Both are graph destinations now:
+                // the graph renders the shared tour screen and the shared refusal screen.
+                "onboardingIntro",
+                "securityStateUnavailable",
             )
 
         /**

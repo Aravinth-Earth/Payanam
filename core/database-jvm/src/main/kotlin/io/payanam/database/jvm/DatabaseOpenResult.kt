@@ -46,6 +46,7 @@ internal object RefusalDetail {
     const val NOT_READABLE = "not_readable"
     const val NATIVE_UNAVAILABLE = "native_unavailable"
     const val READ_ONLY_NOT_ENFORCED = "read_only_not_enforced"
+    const val FOREIGN_KEYS_NOT_ENFORCED = "foreign_keys_not_enforced"
     const val OPEN_THREW = "open_threw"
     const val GUARD_THREW = "guard_threw"
     const val CREATE_THREW = "create_threw"

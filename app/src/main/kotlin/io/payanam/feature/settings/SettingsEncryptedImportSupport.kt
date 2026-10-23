@@ -5,28 +5,24 @@
 package io.payanam.feature.settings
 
 import android.net.Uri
-import androidx.lifecycle.viewModelScope
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.text.uiStringsFor
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.platform.AndroidDatabaseEncryptionProbe
 import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitWalConsolidator
 import io.payanam.presentation.database.DatabaseImportIntegritySupport
 import io.payanam.presentation.database.DatabaseImportSupport
-import io.payanam.presentation.database.DatabaseInitWalConsolidator
 import io.payanam.presentation.settings.BulkHabitMappingResult
 import io.payanam.presentation.settings.ExportResult
 import io.payanam.presentation.settings.ImportResult
 import io.payanam.presentation.settings.UhabitsImportResult
 import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.database.PayanamDatabaseSchema
-import io.payanam.shared.database.WalCheckpointRule
 import io.payanam.shared.logging.CrashBreadcrumbs
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import timber.log.Timber
-import java.io.File
 
 /**
  * Extension functions for SettingsViewModel handling encrypted database imports.
@@ -69,49 +65,6 @@ private val SettingsViewModel.importStrings: io.payanam.core.ui.text.UiStrings
     get() = uiStringsFor(context)
 
 /**
- * Runs `PRAGMA wal_checkpoint(TRUNCATE)` on the TEMP copy the shared orchestration hands over, and answers
- * whether the log was actually emptied.
- *
- * Platform-specific by necessity (a Room handle, or this one already-open read-only file check for a
- * plaintext temp file), and deliberately the SAME evidence the shared [WalCheckpointRule] defines: a fold
- * that opened without error but left frames behind is not a fold, because the caller deletes the
- * production `-wal` on a `true` and those frames exist nowhere else.
- */
-@Suppress("TooGenericExceptionCaught") // Intentional: a bad WAL can throw anything from the native layer
-private fun consolidateWalOnTempCopy(
-    dbFile: File,
-    logTag: String,
-): Boolean =
-    try {
-        var report: WalCheckpointRule.FoldReport = WalCheckpointRule.NO_ROW
-        android.database.sqlite.SQLiteDatabase.openDatabase(
-            dbFile.absolutePath,
-            null,
-            android.database.sqlite.SQLiteDatabase.OPEN_READWRITE,
-            android.database.DatabaseErrorHandler { /* no-op: temp file only, not production DB */ },
-        ).use { db ->
-            db.rawQuery(WalCheckpointRule.FOLD_STATEMENT, null).use { cursor ->
-                if (cursor.moveToFirst()) {
-                    report =
-                        WalCheckpointRule.reportOf(
-                            intArrayOf(cursor.getInt(0), cursor.getInt(1), cursor.getInt(2)),
-                        )
-                } else {
-                    report = WalCheckpointRule.NO_ROW
-                }
-            }
-        }
-        dbFile.exists() && dbFile.length() > 0 && WalCheckpointRule.walIsEmpty(report)
-    } catch (e: Exception) {
-        UnifiedLogger.getInstance().w(
-            logTag,
-            "WAL checkpoint on temp copy failed; preserving WAL to avoid data loss",
-            mapOf("error" to (e.message ?: "Unknown"), "exception" to e.javaClass.simpleName),
-        )
-        false
-    }
-
-/**
  * Starts an ENCRYPTED database import from [sourceUri]: backs up the current DB + encryption prefs,
  * swaps in the imported file, and if the imported file is encrypted it pauses and surfaces
  * [awaitingImportPassphrase], resuming via [resumeImportWithPassphrase].
@@ -152,7 +105,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
     }
     logger.i("SettingsViewModel.importDatabase", "Import started", mapOf("sourceUri" to sourceUri.toString()))
     breadcrumb(stage = "settings_import_started", data = mapOf("sourceUri" to sourceUri.toString()))
-    viewModelScope.launch {
+    scope.launch {
         updateUiState { it.copy(isImporting = true, importResult = null) }
 
         // Flag to prevent backup cleanup when paused at passphrase gate
@@ -238,9 +191,7 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
                     DatabaseImportSupport.consolidateWalAfterImport(
                         dbFile = dbFile,
                         logTag = "SettingsViewModel.importDatabase",
-                        walConsolidator = DatabaseInitWalConsolidator { file, tag ->
-                            consolidateWalOnTempCopy(dbFile = file, logTag = tag)
-                        },
+                        walConsolidator = appDatabaseInitWalConsolidator(logger),
                     )
 
                     // Detect encrypted imports; pause and ask user for passphrase if needed.
@@ -364,7 +315,15 @@ fun SettingsViewModel.importDatabase(sourceUri: Uri) {
             logger.i("SettingsViewModel.importDatabase", "Database file operations complete, loading stats")
             val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
             val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
-                val passphrase = if (databaseEncryptionManager.isEncryptionEnabled()) sessionManager.requireOpenPassphrase() else null
+                // The FILE decides whether a passphrase is needed to read it, not the local mode: an
+                // imported file that is detectably encrypted needs the open passphrase to count its rows,
+                // and one that is not needs none - whatever mode this device happens to be in.
+                val passphrase =
+                    if (importEncryptionProbe.isDetectablyEncrypted(dbFile, "SettingsViewModel.importDatabase")) {
+                        sessionManager.requireOpenPassphrase()
+                    } else {
+                        null
+                    }
                 val counts =
                     DatabaseImportIntegritySupport.readCoreCounts(
                         databaseFile = dbFile,
@@ -451,7 +410,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
         stage = "settings_resume_import_started",
         data = mapOf("passphraseLength" to passphrase.length),
     )
-    viewModelScope.launch {
+    scope.launch {
         updateUiState { it.copy(isImporting = true, importPassphraseError = null) }
         try {
             withContext(Dispatchers.IO) {
@@ -586,7 +545,7 @@ fun SettingsViewModel.resumeImportWithPassphrase(passphrase: String) {
 fun SettingsViewModel.cancelImportPassphrase() {
     logger.i("SettingsViewModel.cancelImportPassphrase", "User cancelled encrypted import passphrase prompt")
     breadcrumb(stage = "settings_resume_import_cancelled")
-    viewModelScope.launch {
+    scope.launch {
         withContext(Dispatchers.IO) {
             databaseEncryptionManager.restoreEncryptionPrefs()
             val deleted = deleteRuntimeDatabaseArtifacts(context)

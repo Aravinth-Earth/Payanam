@@ -16,8 +16,13 @@ import androidx.fragment.app.FragmentActivity
 import androidx.hilt.navigation.compose.hiltViewModel
 import dagger.hilt.android.EntryPointAccessors
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.updates.PreUnlockUpdateActions
+import io.payanam.core.ui.updates.PreUnlockUpdateSection
+import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.ImportDatabaseFileButton
+import io.payanam.core.ui.onboarding.OnboardingIntroScreen
+import io.payanam.core.ui.security.SecurityStateUnavailableScreen
 import io.payanam.core.ui.database.DatabaseInitScreen
 import io.payanam.core.ui.database.DatabasePassphraseChangeScreen
 import io.payanam.core.ui.database.DatabasePassphraseSetupScreen
@@ -68,13 +73,13 @@ import io.payanam.presentation.tasks.tasksViewModel
 import io.payanam.presentation.time.timeTagEditorViewModel
 import io.payanam.presentation.time.timeViewModel
 import io.payanam.presentation.time.timeVisualsViewModel
+import io.payanam.shared.platform.SupportState
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.settings.FocusModePreset
 import io.payanam.ui.screens.AndroidBiometricUnlockScreenActions
 import io.payanam.ui.screens.DatabaseInitLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseSetupLogExportActions
 import io.payanam.ui.screens.DatabasePassphraseUnlockLogExportActions
-import io.payanam.ui.screens.PreUnlockUpdateSection
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 import io.payanam.ui.viewmodel.PreUnlockUpdateViewModel
 import kotlinx.coroutines.Dispatchers
@@ -210,7 +215,37 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
                 },
                 logger = logger,
             ),
-            preUnlockUpdate = { PreUnlockUpdateSection(viewModel = preUnlockUpdateViewModel) },
+            preUnlockUpdate = {
+                // The section itself now lives in :core:ui; this lambda is the Android ADAPTER - it maps
+                // this platform's ViewModel onto the framework-free state/actions contract the shared
+                // section takes. collectAsState lives here rather than in the shared body because this is
+                // the composable scope that owns the collection.
+                //
+                // RENDERED ON EVERY PLATFORM NOW, off one shared contract. `isFDroidBuild` is a boolean
+                // about one installer, so it is translated here, where the platform's own answer is
+                // known, into the three-valued state the section renders: Android has an in-app APK
+                // updater and either runs it (SUPPORTED) or has its updates taken over by F-Droid's
+                // packager (DECLINES). Neither value is a mapping Android can be wrong about - both
+                // platforms agree that a store-managed install draws the static note.
+                val downloadState by preUnlockUpdateViewModel.downloadState.collectAsState()
+                val isChecking by preUnlockUpdateViewModel.checking.collectAsState()
+                val resultMessage by preUnlockUpdateViewModel.checkResultMessage.collectAsState()
+                PreUnlockUpdateSection(
+                    uiState = PreUnlockUpdateUiState(
+                        buildNumber = preUnlockUpdateViewModel.currentBuildNumber,
+                        platformSupport =
+                            if (preUnlockUpdateViewModel.isFDroidBuild) {
+                                SupportState.DECLINES
+                            } else {
+                                SupportState.SUPPORTED
+                            },
+                        downloadState = downloadState,
+                        isChecking = isChecking,
+                        checkResultMessage = resultMessage,
+                    ),
+                    actions = AndroidPreUnlockUpdateActions(preUnlockUpdateViewModel),
+                )
+            },
             debugLogExport = { DatabasePassphraseUnlockLogExportActions() },
         )
     }
@@ -313,6 +348,28 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
     ) {
         FocusModeSelectionScreen(
             onPresetSelected = onPresetSelected,
+        )
+    }
+
+    @Composable
+    override fun onboardingIntro(onFinished: () -> Unit) {
+        // The shared tour screen. Android raises the flag that reaches this destination only if its own
+        // first-run flow ever routes here; today it does not - the flag is the desktop's - so this is the
+        // shared screen wired for completeness rather than a second onboarding path.
+        OnboardingIntroScreen(language = rememberUiLanguage(), onFinished = onFinished)
+    }
+
+    @Composable
+    override fun securityStateUnavailable(
+        onSecurityResetRequested: () -> Unit,
+        onQuitRequested: () -> Unit,
+    ) {
+        // The shared refusal surface, wired for completeness: Android's own startup flow does not raise
+        // the flag that reaches it today. The two callbacks are the graph's contract, so they are passed
+        // through rather than stubbed with a no-op that would look wired and do nothing.
+        SecurityStateUnavailableScreen(
+            onSecurityResetRequested = onSecurityResetRequested,
+            onQuitRequested = onQuitRequested,
         )
     }
 
@@ -567,4 +624,19 @@ internal class AndroidPayanamNavHostScreens : PayanamNavHostScreens {
             onNavigateBack = { nav.goBack() },
         )
     }
+}
+
+
+/**
+ * Adapts [PreUnlockUpdateViewModel] to the framework-free [PreUnlockUpdateActions] the shared section
+ * takes. It exists so the shared section never has to know this platform's ViewModel type.
+ */
+private class AndroidPreUnlockUpdateActions(
+    private val viewModel: PreUnlockUpdateViewModel,
+) : PreUnlockUpdateActions {
+    override fun onCheckRequested() = viewModel.checkForUpdate()
+
+    override fun onDownloadRequested() = viewModel.download()
+
+    override fun onInstallRequested() = viewModel.install()
 }

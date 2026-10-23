@@ -33,7 +33,7 @@ internal enum class DesktopPlatform {
  * | Platform | Root |
  * |----------|------|
  * | Windows  | `%LOCALAPPDATA%\Payanam` → `%APPDATA%\Payanam` → `<home>\AppData\Local\Payanam` |
- * | Linux    | `$XDG_DATA_HOME/Payanam` → `<home>/.local/share/Payanam` |
+ * | Linux    | `<home>/Documents/Payanam` (debug: `<home>/Documents/Payanam-debug`) |
  *
  * [osName] is an explicit parameter rather than an ambient `System.getProperty` read for two reasons:
  * both layouts stay unit-testable on either host, and a Linux build cannot regress into a Windows path.
@@ -58,8 +58,6 @@ object DesktopAppPaths {
     private const val APP_DIRECTORY_NAME = "Payanam"
     private const val WINDOWS_FALLBACK_APPDATA = "AppData"
     private const val WINDOWS_FALLBACK_LOCAL = "Local"
-    private const val XDG_FALLBACK_LOCAL = ".local"
-    private const val XDG_FALLBACK_SHARE = "share"
 
     /**
      * App data root for the host platform (by default, the real host).
@@ -99,22 +97,52 @@ object DesktopAppPaths {
     }
 
     /**
-     * Linux root: `$XDG_DATA_HOME/Payanam`, then `~/.local/share/Payanam`.
+     * Linux root: `<home>/Documents/Payanam`, or `<home>/Documents/Payanam-debug` on a debug build.
      *
-     * The XDG basedir spec requires `XDG_DATA_HOME` to be an **absolute** path, so a relative or blank
-     * value is ignored and the default used rather than silently resolving relative to the process
-     * working directory. Windows variables are never consulted on Linux.
+     * `XDG_DATA_HOME`, when set, replaces `<home>` as the parent. This is what makes the layout
+     * overridable: a harness (the import loop) launches the shipped binary with `XDG_DATA_HOME` pointed at
+     * a scratch directory and reasonably expects every path the app resolves to land inside it. Before
+     * this, the Linux branch ignored the environment entirely — the parameter was threaded through for
+     * the Windows layouts only — so an isolated run still read and wrote the operator's real `Documents`,
+     * and a startup migration would have MOVED the real data. An override that covers one of the two
+     * locations the migration looks at is worse than none, because it reads as safety.
+     *
+     * Note the default parent differs from [resolveLegacyRootDirectory]'s: this root has always been
+     * `<home>/Documents`, so an unset variable must keep resolving exactly that, NOT `<home>/.local/share`.
      */
     private fun linuxRootDirectory(
         environment: Map<String, String>,
         userHome: String,
     ): Path {
-        val xdgDataHome = environment["XDG_DATA_HOME"]?.takeIf { it.isNotBlank() && it.startsWith("/") }
-        if (xdgDataHome != null) {
-            return Paths.get(xdgDataHome, APP_DIRECTORY_NAME)
-        }
+        val rootName = if (DesktopBuildInfo.IS_DEBUG_BUILD) "$APP_DIRECTORY_NAME-debug" else APP_DIRECTORY_NAME
+        val parent = dataHomeOverride(environment) ?: Paths.get(userHome)
+        return parent.resolve("Documents").resolve(rootName)
+    }
 
-        return Paths.get(userHome, XDG_FALLBACK_LOCAL, XDG_FALLBACK_SHARE, APP_DIRECTORY_NAME)
+    /** The `XDG_DATA_HOME` override, or null when it is unset or blank. */
+    private fun dataHomeOverride(environment: Map<String, String>): Path? =
+        environment["XDG_DATA_HOME"]?.takeIf { it.isNotBlank() }?.let { Paths.get(it) }
+
+    /**
+     * The root an install used BEFORE this layout, so the startup migration can find it.
+     *
+     * `<xdg>/Payanam` (with the same debug suffix), where `<xdg>` is the `XDG_DATA_HOME` override or its
+     * specified default `<home>/.local/share` — i.e. exactly where an XDG-respecting install put itself,
+     * and exactly where `XDG_DATA_HOME` points during a run that must not touch the operator's real data.
+     * It is deliberately resolved by the SAME override as [resolveRootDirectory] rather than from an
+     * ambient `user.home` read: an override that isolates the new location but not the legacy one leaves
+     * the migration writing to the real home directory, which is the failure this method exists to stop.
+     */
+    fun resolveLegacyRootDirectory(
+        environment: Map<String, String> = System.getenv(),
+        userHome: String = System.getProperty("user.home"),
+        osName: String = System.getProperty("os.name").orEmpty(),
+    ): Path {
+        val rootName = if (DesktopBuildInfo.IS_DEBUG_BUILD) "$APP_DIRECTORY_NAME-debug" else APP_DIRECTORY_NAME
+        return when (DesktopPlatform.of(osName)) {
+            DesktopPlatform.WINDOWS -> windowsRootDirectory(environment, userHome)
+            DesktopPlatform.LINUX -> (dataHomeOverride(environment) ?: Paths.get(userHome, ".local", "share")).resolve(rootName)
+        }
     }
 
     /**
@@ -160,7 +188,7 @@ object DesktopAppPaths {
         environment: Map<String, String> = System.getenv(),
         userHome: String = System.getProperty("user.home"),
         osName: String = System.getProperty("os.name").orEmpty(),
-    ): Path = resolveRootDirectory(environment, userHome, osName).resolve("database")
+    ): Path = resolveRootDirectory(environment, userHome, osName).resolve("db")
 
     /**
      * `<root>/runtime` — transient runtime artifacts (locks, sockets).

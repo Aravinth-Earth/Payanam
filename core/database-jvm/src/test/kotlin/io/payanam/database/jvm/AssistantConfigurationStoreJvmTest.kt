@@ -194,7 +194,7 @@ class AssistantConfigurationStoreJvmTest {
     // --- save ------------------------------------------------------------------------------------
 
     @Test
-    fun `save writes exactly the fourteen neutral rows`() {
+    fun `save writes exactly the thirteen neutral rows`() {
         runBlocking {
             store().save(
                 defaults().copy(
@@ -235,7 +235,6 @@ class AssistantConfigurationStoreJvmTest {
                     "assistant.about_strengths" to "S",
                     "assistant.about_focus" to "F",
                     "assistant.about_note" to "Note",
-                    "assistant.notice_shown" to "true",
                 )
 
             assertThat(rows()).isEqualTo(expected)
@@ -279,7 +278,7 @@ class AssistantConfigurationStoreJvmTest {
             store().save(defaults().copy(promptAdditions = "first"))
             store().save(defaults().copy(promptAdditions = "second"))
 
-            assertThat(rows().size).isEqualTo(14)
+            assertThat(rows().size).isEqualTo(13)
             assertThat(raw("assistant.prompt_additions")).isEqualTo("second")
         }
     }
@@ -296,8 +295,8 @@ class AssistantConfigurationStoreJvmTest {
             assertThat(raw("assistant.model")).isEqualTo("gpt-x")
             assertThat(raw("assistant.max_rows")).isEqualTo("400")
             assertThat(raw("assistant.setup_required")).isEqualTo("false")
-            // Fourteen neutral rows plus the three single-writer rows.
-            assertThat(rows().size).isEqualTo(17)
+            // Thirteen neutral rows plus the three single-writer rows.
+            assertThat(rows().size).isEqualTo(16)
         }
     }
 
@@ -345,7 +344,7 @@ class AssistantConfigurationStoreJvmTest {
             assertThat(raw("assistant.model")).isEqualTo("old-model")
             assertThat(raw("assistant.max_rows")).isEqualTo("111")
             assertThat(raw("assistant.setup_required")).isEqualTo("true")
-            assertThat(rows().size).isEqualTo(17)
+            assertThat(rows().size).isEqualTo(16)
         }
     }
 
@@ -381,7 +380,7 @@ class AssistantConfigurationStoreJvmTest {
             assertThat(hasRow("assistant.setup_required")).isFalse()
             // The neutral settings survive a key change: the user's own text is not the provider's.
             assertThat(raw("assistant.prompt_additions")).isEqualTo("keep me")
-            assertThat(rows().size).isEqualTo(14)
+            assertThat(rows().size).isEqualTo(13)
         }
     }
 
@@ -474,33 +473,31 @@ class AssistantConfigurationStoreJvmTest {
     }
 
     @Test
-    fun `an unreadable setup-required flag fails OPEN to false and is reported nowhere`() {
+    fun `an unreadable setup-required flag fails CLOSED to true and is reported`() {
         runBlocking {
             seedRaw("assistant.setup_required", "yes")
 
-            // DIVERGENCE, pinned not smoothed: the pending-setup flag is read with a bare `?: false`
-            // rather than through AssistantStoredValue, so an unreadable flag loads as "no reconfigure
-            // needed" — the opposite of how every other field in the same row-set behaves, and never
-            // reported. The Android implementation behaves the same way, so this port matches it; the
-            // port's contract nowhere authorises it. See the implementation's KDoc.
-            assertThat(store().loadConfig().setupRequired).isFalse()
-            assertThat(recordingLogger.warnings).isEmpty()
+            // Fail-closed: an unparseable flag loads as true (into the setup surface), not false.
+            // The flag is read through AssistantStoredValue.boolean with fallback = false (absent row
+            // = no reconfigure needed), then the unreadable case is overridden to true.
+            assertThat(store().loadConfig().setupRequired).isTrue()
+            assertThat(recordingLogger.warnings).isNotEmpty()
+            assertThat(recordingLogger.warnings.first().data["key"]).isEqualTo("assistant.setup_required")
         }
     }
 
     @Test
-    fun `save also writes the notice row, so a stale settings value un-records the notice`() {
+    fun `save does NOT write the notice row, so markNoticeShown remains the sole writer`() {
         runBlocking {
             store().markNoticeShown()
             assertThat(raw("assistant.notice_shown")).isEqualTo("true")
 
-            // DIVERGENCE, pinned not smoothed: the port presents markNoticeShown as THE notice writer,
-            // but save writes the same row from the settings it is handed, so saving noticeShown = false
-            // after the notice was acknowledged clears it.
+            // Single-writer: save must not touch the notice row. Saving noticeShown = false after
+            // the notice was acknowledged must NOT clear it.
             store().save(defaults())
 
-            assertThat(raw("assistant.notice_shown")).isEqualTo("false")
-            assertThat(store().loadConfig().settings.noticeShown).isFalse()
+            assertThat(raw("assistant.notice_shown")).isEqualTo("true")
+            assertThat(store().loadConfig().settings.noticeShown).isTrue()
         }
     }
 

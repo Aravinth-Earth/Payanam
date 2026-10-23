@@ -10,6 +10,13 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.domain.repository.NoteRepository
+import io.payanam.domain.repository.TaskRepository
+import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.data.PayanamDataLayer
+import io.payanam.presentation.data.UninstalledDataLayer
 import io.payanam.presentation.settings.ImportResult
 import io.payanam.service.BackupStatusStore
 import io.payanam.service.DatabaseBackupCoordinator
@@ -211,6 +218,20 @@ class SettingsPlaintextImportRefusalTest {
      */
     private fun newViewModel(): SettingsViewModel {
         val encryptionManager = DatabaseEncryptionManager(context)
+        // The ViewModel reads its repositories from the installed data layer now that it is Hilt-free, so
+        // the layer must be installed before it is constructed - its property initialisers run at build
+        // time, and the default layer throws on every read by design. This delegates to that default and
+        // overrides exactly the four members this ViewModel touches, which is the same shape the other
+        // core/presentation tests use; the values are mocks for the same reason the old code passed mocks
+        // (nothing on the import path reads a repository, only the `init` block does).
+        LocalDataLayer.install(
+            object : PayanamDataLayer by UninstalledDataLayer {
+                override val tasks: TaskRepository = mock()
+                override val timeEntries: TimeEntryRepository = mock()
+                override val notes: NoteRepository = mock()
+                override val appSettings: AppSettingsRepository = mock()
+            },
+        )
         return SettingsViewModel(
             context = context,
             sessionManager = DatabaseSessionManager(context, encryptionManager),
@@ -221,10 +242,6 @@ class SettingsPlaintextImportRefusalTest {
                 mock(),
                 BackupStatusStore(context),
             ),
-            taskRepository = mock(),
-            timeEntryRepository = mock(),
-            noteRepository = mock(),
-            appSettingsRepository = mock(),
         )
     }
 

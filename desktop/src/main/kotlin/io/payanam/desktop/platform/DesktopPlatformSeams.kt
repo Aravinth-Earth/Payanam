@@ -106,7 +106,12 @@ internal class DesktopReminderSink(
 }
 
 /**
- * The desktop's delivery hook: it RECORDS the reminder and reports that nothing was shown.
+ * The desktop's log-only delivery hook: it RECORDS the reminder and reports that nothing was shown.
+ *
+ * This is NOT the delivery the running app uses. `DesktopApp.kt` wires the freedesktop `notify-send`
+ * hook instead, so a reminder armed from a user action is actually delivered to the desktop's
+ * notification daemon. This function remains as the honest fallback for a platform that has no
+ * delivery surface, and as the default when no real hook is injected.
  *
  * Returning `false` is the whole point. A hook that returned `true` — or a tray balloon, or a `System.out`
  * line dressed up as a notification — would flip the sink's capability to
@@ -443,6 +448,15 @@ internal class DesktopPlatformSeams(
             seams.reconcileBackupSchedule()
             return true
         }
+
+        /**
+         * The sink the installed seams own, or null when none were ever built.
+         *
+         * The producer half's one reader: a task-reminder scheduler needs the sink that is INSTALLED rather
+         * than one captured at bind time, so a reminder armed before the seams exist is refused and logged,
+         * and every later one reaches the same sink the capability is derived from.
+         */
+        fun installedReminderSink(): ReminderSink? = installed?.reminderSink
     }
 }
 

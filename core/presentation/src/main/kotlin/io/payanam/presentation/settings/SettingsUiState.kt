@@ -5,8 +5,8 @@
 package io.payanam.presentation.settings
 
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckResult
 
 /**
  * UI state for the Settings screen.

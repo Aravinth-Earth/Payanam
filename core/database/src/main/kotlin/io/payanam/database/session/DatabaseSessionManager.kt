@@ -8,6 +8,7 @@ import android.content.Context
 import androidx.annotation.VisibleForTesting
 import androidx.room.Room
 import androidx.room.RoomDatabase
+import androidx.room.withTransaction
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.DatabaseHealthChecker
@@ -19,6 +20,7 @@ import io.payanam.database.migration.MIGRATION_19_20
 import io.payanam.database.migration.MIGRATION_20_21
 import io.payanam.database.migration.MIGRATION_21_22
 import io.payanam.database.security.DatabaseEncryptionManager
+import io.payanam.database.transaction.DatabaseTransactionRunner
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -59,7 +61,7 @@ class DatabaseSessionManager
     constructor(
         @ApplicationContext private val context: Context,
         private val encryptionManager: DatabaseEncryptionManager,
-    ) {
+    ) : DatabaseTransactionRunner {
         private val logger = UnifiedLogger.getInstance()
         private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
         private val mutex = Mutex()
@@ -217,6 +219,18 @@ class DatabaseSessionManager
             }
             return db
         }
+
+        /**
+         * Runs [block] in one Room transaction, and is the ONLY place in the app that calls Room's
+         * `withTransaction`.
+         *
+         * Every repository used to reach for `requireDatabase().withTransaction` itself, which made
+         * Room's transaction API a dependency of the callers rather than of the data layer. They now
+         * come through [DatabaseTransactionRunner], so the transaction mechanism is one file's
+         * concern and both platforms can describe the same guarantee.
+         */
+        override suspend fun <T> inTransaction(block: suspend () -> T): T =
+            requireDatabase().withTransaction { block() }
 
         /**
          * Returns true if the DB session is currently open.

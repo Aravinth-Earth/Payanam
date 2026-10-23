@@ -71,6 +71,31 @@ class DatabaseInitCountsRegressionTest {
     }
 
     @Test
+    fun `an unreadable read logs why it could not be counted, not just a zero`() {
+        // The other half of the same regression: a silent 0 reads as "the conversion destroyed your data",
+        // so the read that produced it must say what it was reading and that the file could not answer.
+        // The assertion is on the log's own content - the source, the message and the facts a reader needs -
+        // rather than on the mere fact that something was logged.
+        val recorder = RecordingLogger()
+        AppLogger.install(recorder)
+        DatabaseImportIntegritySupport.readCoreCounts(
+            databaseFile = File("/tmp/payanam-unreadable-logged.db"),
+            passphrase = "passphrase-that-cannot-open-it",
+            encryptionProbe = FakeProbe(counts = mapOf("tasks" to 3)),
+        )
+
+        val read = recorder.entries.single { it.message == "Reading import integrity core counts" }
+        assertThat(read.source).isEqualTo("DatabaseImportIntegritySupport.readCoreCounts")
+        assertThat(read.data["dbFile"]).isEqualTo("/tmp/payanam-unreadable-logged.db")
+        assertThat(read.data["hasPassphrase"]).isEqualTo(true)
+        // And the result is logged too, with the zero visible in the entry - the count that the caller
+        // compares is never reported without its own record.
+        val result = recorder.entries.single { it.message == "Read import integrity core counts" }
+        assertThat(result.data["timeEntries"]).isEqualTo(0)
+        assertThat(result.data["tasks"]).isEqualTo(3)
+    }
+
+    @Test
     fun `readCoreCounts reads a fully readable file without the no-op logger installed`() {
         // No logger installed on purpose: the promoted object logs through AppLogger.current, and reading
         // counts must not depend on a platform having installed one.
@@ -116,7 +141,14 @@ class DatabaseInitCountsRegressionTest {
 
     /** A logger that records what it was told, so "logs why" is an assertion and not a hope. */
     private class RecordingLogger : io.payanam.shared.logging.UnifiedLogger {
+        data class Entry(
+            val source: String,
+            val message: String,
+            val data: Map<String, Any?>,
+        )
+
         val sources = mutableListOf<String>()
+        val entries = mutableListOf<Entry>()
 
         override fun d(
             source: String,
@@ -124,6 +156,7 @@ class DatabaseInitCountsRegressionTest {
             data: Map<String, Any?>,
         ) {
             sources.add(source)
+            entries.add(Entry(source, message, data))
         }
 
         override fun i(
@@ -132,6 +165,7 @@ class DatabaseInitCountsRegressionTest {
             data: Map<String, Any?>,
         ) {
             sources.add(source)
+            entries.add(Entry(source, message, data))
         }
 
         override fun w(
@@ -140,6 +174,7 @@ class DatabaseInitCountsRegressionTest {
             data: Map<String, Any?>,
         ) {
             sources.add(source)
+            entries.add(Entry(source, message, data))
         }
 
         override fun e(
@@ -149,6 +184,7 @@ class DatabaseInitCountsRegressionTest {
             data: Map<String, Any?>,
         ) {
             sources.add(source)
+            entries.add(Entry(source, message, data))
         }
 
         override fun eSync(
@@ -158,6 +194,7 @@ class DatabaseInitCountsRegressionTest {
             data: Map<String, Any?>,
         ) {
             sources.add(source)
+            entries.add(Entry(source, message, data))
         }
     }
 

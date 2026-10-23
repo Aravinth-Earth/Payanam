@@ -96,6 +96,8 @@ fun PayanamNavHost(
     shouldShowPassphraseSetup: Boolean = false,
     shouldShowDatabaseInit: Boolean = false,
     shouldShowFocusModeOnboarding: Boolean = false,
+    shouldShowSecurityStateUnavailable: Boolean = false,
+    shouldShowOnboardingIntro: Boolean = false,
     resumeToRouteAfterUnlock: String? = null,
     externalCommand: PayanamExternalNavigationCommand? = null,
     backupFailureMessage: String? = null,
@@ -104,6 +106,9 @@ fun PayanamNavHost(
     onFocusModePresetSelected: (FocusModePreset) -> Unit = {},
     onPassphraseUnlocked: () -> Unit = {},
     onDatabaseReady: () -> Unit = {},
+    onOnboardingIntroFinished: () -> Unit = {},
+    onSecurityResetRequested: () -> Unit = {},
+    onQuitRequested: () -> Unit = {},
     onRestartAfterDelete: () -> Unit = {},
     /**
      * The restart duty after a successful passphrase change: the platform's own exit path.
@@ -243,13 +248,17 @@ fun PayanamNavHost(
         shouldShowPassphraseSetup,
         shouldShowDatabaseInit,
         shouldShowFocusModeOnboarding,
+        shouldShowSecurityStateUnavailable,
+        shouldShowOnboardingIntro,
     ) {
         val request = topLevelNavigationRequest ?: return@LaunchedEffect
         if (shouldShowPassphraseUnlock || currentRoute == PayanamRoutes.PASSPHRASE_UNLOCK ||
             shouldShowPassphraseSetup || currentRoute == PayanamRoutes.PASSPHRASE_SETUP ||
             currentRoute == PayanamRoutes.PASSPHRASE_CHANGE ||
             shouldShowDatabaseInit || currentRoute == PayanamRoutes.DATABASE_INIT ||
-            shouldShowFocusModeOnboarding || currentRoute == PayanamRoutes.FOCUS_MODE_SELECTION
+            shouldShowFocusModeOnboarding || currentRoute == PayanamRoutes.FOCUS_MODE_SELECTION ||
+            shouldShowSecurityStateUnavailable || currentRoute == PayanamRoutes.SECURITY_STATE_UNAVAILABLE ||
+            shouldShowOnboardingIntro || currentRoute == PayanamRoutes.ONBOARDING_INTRO
         ) {
             // Wait rather than drop: the gate is showing, and the key list re-runs this effect when it stops.
             return@LaunchedEffect
@@ -277,12 +286,16 @@ fun PayanamNavHost(
         shouldShowPassphraseSetup,
         shouldShowDatabaseInit,
         shouldShowFocusModeOnboarding,
+        shouldShowSecurityStateUnavailable,
+        shouldShowOnboardingIntro,
     ) {
         if (shouldShowPassphraseUnlock || currentRoute == PayanamRoutes.PASSPHRASE_UNLOCK ||
             shouldShowPassphraseSetup || currentRoute == PayanamRoutes.PASSPHRASE_SETUP ||
             currentRoute == PayanamRoutes.PASSPHRASE_CHANGE ||
             shouldShowDatabaseInit || currentRoute == PayanamRoutes.DATABASE_INIT ||
-            shouldShowFocusModeOnboarding || currentRoute == PayanamRoutes.FOCUS_MODE_SELECTION
+            shouldShowFocusModeOnboarding || currentRoute == PayanamRoutes.FOCUS_MODE_SELECTION ||
+            shouldShowSecurityStateUnavailable || currentRoute == PayanamRoutes.SECURITY_STATE_UNAVAILABLE ||
+            shouldShowOnboardingIntro || currentRoute == PayanamRoutes.ONBOARDING_INTRO
         ) {
             return@LaunchedEffect
         }
@@ -353,7 +366,14 @@ fun PayanamNavHost(
         if (resumeToRouteAfterUnlock != null && pendingReturnRouteAfterUnlock != resumeToRouteAfterUnlock) {
             pendingReturnRouteAfterUnlock = resumeToRouteAfterUnlock
         }
-        if (currentResolvedRoute == PayanamRoutes.PASSPHRASE_UNLOCK) {
+        // The unlock gate must not yank the passphrase-change screen either: the change closes the
+        // session itself (the rekey needs the file alone), the desktop's gate follows the session
+        // LIVE, and navigating away mid-submit cancels the change and rolls the backup back over a
+        // rekey that had already succeeded. The sibling effects (top-level navigation, external
+        // commands) already guard PASSPHRASE_CHANGE this way; this one was missing it.
+        if (currentResolvedRoute == PayanamRoutes.PASSPHRASE_UNLOCK ||
+            currentResolvedRoute == PayanamRoutes.PASSPHRASE_CHANGE
+        ) {
             return@LaunchedEffect
         }
         if (shouldCaptureReturnRouteForUnlock(currentResolvedRoute)) {
@@ -488,7 +508,9 @@ fun PayanamNavHost(
             val landingReady =
                 isLandingReady && landingRoute.isNotEmpty() &&
                     !shouldShowPassphraseSetup && !shouldShowPassphraseUnlock &&
-                    !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding
+                    !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding &&
+                    !shouldShowSecurityStateUnavailable &&
+                    !shouldShowOnboardingIntro
             // The startup gates are STATE, and the graph has to follow them. `startDestination` is read when
             // the graph is CREATED and never again - measured, not assumed: on the Linux desktop the
             // database-init gate's import completed, the platform's startup mode advanced past that gate, and
@@ -500,6 +522,34 @@ fun PayanamNavHost(
             // PASSPHRASE_UNLOCK is deliberately NOT its business: the unlock gate above owns its own effect,
             // because it carries a return route, and two navigations out of one flag change is how a screen
             // ends up flickering between two gates.
+            // The refusal outranks every other gate: when the passphrase store cannot be read, the app
+            // must not fall through to a first-run tour or an unlock screen it cannot honour. This effect
+            // navigates to the refusal destination and leaves it there - nothing pops it, because nothing
+            // behind it is usable.
+            LaunchedEffect(shouldShowOnboardingIntro, currentResolvedRoute) {
+                if (!shouldShowOnboardingIntro) return@LaunchedEffect
+                if (currentResolvedRoute == PayanamRoutes.ONBOARDING_INTRO) return@LaunchedEffect
+                // A gate effect that runs on the FIRST composition runs before the NavHost below has
+                // set its graph, and navigate() on a graph-less controller throws - measured on the
+                // Linux desktop's first run, where this effect crashed the app before the tour ever
+                // drew. The back stack exists exactly when the graph does, so an empty back stack
+                // means "not yet": the NavHost's own initial composition then lands on the gate's
+                // start destination anyway, and this effect re-runs on the next state change.
+                if (navController.currentBackStackEntry == null) return@LaunchedEffect
+                navController.navigate(PayanamRoutes.ONBOARDING_INTRO) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+
+            LaunchedEffect(shouldShowSecurityStateUnavailable, currentResolvedRoute) {
+                if (!shouldShowSecurityStateUnavailable) return@LaunchedEffect
+                if (currentResolvedRoute == PayanamRoutes.SECURITY_STATE_UNAVAILABLE) return@LaunchedEffect
+                if (navController.currentBackStackEntry == null) return@LaunchedEffect
+                navController.navigate(PayanamRoutes.SECURITY_STATE_UNAVAILABLE) {
+                    popUpTo(0) { inclusive = true }
+                }
+            }
+
             LaunchedEffect(
                 shouldShowPassphraseSetup,
                 shouldShowDatabaseInit,
@@ -555,10 +605,21 @@ fun PayanamNavHost(
                         landingRoute
                     } else {
                         when {
+                            // The refusal outranks every other gate (see the effect above): a store that
+                            // cannot be read must not fall through to a first-run tour or an unlock
+                            // screen it cannot honour.
+                            shouldShowSecurityStateUnavailable -> PayanamRoutes.SECURITY_STATE_UNAVAILABLE
+
                             shouldShowPassphraseSetup -> PayanamRoutes.PASSPHRASE_SETUP
+
                             shouldShowPassphraseUnlock -> PayanamRoutes.PASSPHRASE_UNLOCK
+
                             shouldShowDatabaseInit -> PayanamRoutes.DATABASE_INIT
+
+                            shouldShowOnboardingIntro -> PayanamRoutes.ONBOARDING_INTRO
+
                             shouldShowFocusModeOnboarding -> PayanamRoutes.FOCUS_MODE_SELECTION
+
                             else -> null
                         }
                     }
@@ -668,6 +729,21 @@ fun PayanamNavHost(
                             )
                             onDatabaseReady()
                         },
+                    )
+                }
+
+                // The first-run tour, reached the same way every other startup gate is.
+                composable(PayanamRoutes.ONBOARDING_INTRO) {
+                    screens.onboardingIntro(onFinished = onOnboardingIntroFinished)
+                }
+
+                // The fail-closed refusal. It is a destination rather than platform chrome so that a
+                // platform that cannot read its passphrase store has exactly one surface to show, drawn
+                // by the shared screen and reached the same way every other startup gate is.
+                composable(PayanamRoutes.SECURITY_STATE_UNAVAILABLE) {
+                    screens.securityStateUnavailable(
+                        onSecurityResetRequested = onSecurityResetRequested,
+                        onQuitRequested = onQuitRequested,
                     )
                 }
 

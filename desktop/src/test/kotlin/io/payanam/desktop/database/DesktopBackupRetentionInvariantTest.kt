@@ -153,7 +153,7 @@ class DesktopBackupRetentionInvariantTest {
         val deleted =
             runBlocking {
                 pruneScheduledBackupRotation(
-                    exportDirectory = root,
+                    backupDirectory = root,
                     backupRows = {
                         mapOf(
                             AppPreferenceKeys.KEY_BACKUP_ROTATION_ENABLED to "true",

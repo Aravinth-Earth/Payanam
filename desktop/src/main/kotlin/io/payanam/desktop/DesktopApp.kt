@@ -15,10 +15,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material.Card
-import androidx.compose.material.MaterialTheme
-import androidx.compose.material.Surface
-import androidx.compose.material.Text
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.MaterialTheme as Material3Theme
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.DisposableEffect
@@ -48,6 +49,7 @@ import io.payanam.core.ui.preferences.ThemeModeOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseOpenerAdapter
@@ -64,6 +66,8 @@ import io.payanam.desktop.database.rotationPolicyFromBackupRows
 import io.payanam.desktop.database.scheduledBackupArtifactName
 import io.payanam.desktop.platform.AwtDocumentSource
 import io.payanam.desktop.platform.DesktopDebugFlags
+import io.payanam.desktop.platform.DesktopPlatformSeams
+import io.payanam.desktop.platform.desktopFreedesktopReminderDelivery
 import io.payanam.desktop.platform.desktopPlatformSeams
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.day.dayViewModel
@@ -269,7 +273,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                         // one, and every test of it was a test of a class nothing called. The rows are
                         // read the same way the schedule reads them, so the two cannot disagree.
                         pruneScheduledBackupRotation(
-                            exportDirectory = DesktopAppPaths.resolveExportDirectory().toFile(),
+                            backupDirectory = DesktopAppPaths.resolveDatabaseDirectory().toFile(),
                             backupRows = backupRows,
                             logger = sessionLogger,
                         )
@@ -282,6 +286,10 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                 // class treats a failed read as "no schedule" and logs it, so the window is never taken
                 // down by a reconcile that ran too early.
                 backupRows = backupRows,
+                // The REAL delivery: `notify-send` on the freedesktop bus, with the miss logged rather
+                // than skipped. The log-only default stays the seams constructor's default, so any other
+                // construction site keeps the honest no-channel state rather than silently gaining one.
+                deliverReminder = desktopFreedesktopReminderDelivery(sessionLogger),
             )
         }
     val callbacks =
@@ -294,6 +302,11 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             // transfer paths do not look.
             firstRunDatabasePath = { desktopDatabaseFilePath() },
             openSessionPassphrase = { databaseSessionController.passphraseForTransfer() },
+            // The import gate's session read, through the SHARED contract member
+            // (`DesktopDatabaseSessionPort.isSessionOpen()`, answered by the controller's `isOpen`) -
+            // the desktop's counterpart to Android's `sessionManager.isDbOpen()`, asked in the same place
+            // so the two platforms' restart decisions come from the same question.
+            sessionOpen = { databaseSessionController.isOpen },
             // The create returns the app's session as its proof and closes it again, so the app's OWN
             // session is established here - otherwise the gate would move past "database ready" with an
             // uninstalled data layer and every read would throw.
@@ -318,14 +331,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
             onSettingChanged = { key, value ->
                 databaseScope.launch {
                     rememberedState.preferencesSource.setSetting(key, value)
-                    // The toggle's whole job is the SCHEDULE, so the schedule follows the row - Android's
-                    // `AutoBackupWorker` rule, applied to the in-process timer. Reconciling on every other
-                    // key would be harmless (idempotent) and noisy, so only these two trigger it.
-                    if (key == AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED ||
-                        key == AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL
-                    ) {
-                        platformSeams.reconcileBackupSchedule()
-                    }
+                    reconcileAfterSettingChange(platformSeams, key)
                 }
             },
             // The focus preset is NINE rows written as one unit, under the source's own mutex - the same
@@ -394,16 +400,12 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
     // Projected ONCE, above the branch, so the surface that is mounted and the flags the graph is given are
     // the same decision.
     val navGateFlags = desktopNavGateFlags(models.startupMode)
-    // Hoisted so the marker below and the branch that follows cannot disagree about which surface was
-    // mounted: one predicate, one evaluation, logged.
-    val graphOwnsGate = desktopStartupGateShownByGraph(models.startupMode)
     LaunchedEffect(models.startupMode) {
         sessionLogger.i(
             source = "DesktopApp.surfaceMounted",
             message = "Startup surface chosen",
             data =
                 mapOf(
-                    "graphOwnsGate" to graphOwnsGate,
                     "startupMode" to models.startupMode.name,
                     "shouldShowDatabaseInit" to navGateFlags.shouldShowDatabaseInit,
                     "shouldShowPassphraseSetup" to navGateFlags.shouldShowPassphraseSetup,
@@ -411,7 +413,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                 ),
         )
     }
-    if (graphOwnsGate) {
+    run {
         // The gate-bearing modes mount the SHELL, so the shared graph's own `DatabasePassphraseSetupScreen`
         // and `DatabaseInitScreen` are what a fresh install shows. The four modes with no graph gate keep the
         // desktop's own surface below, or the app's tabs would be on screen with nothing in front of them.
@@ -502,7 +504,7 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                         sessionController = databaseSessionController,
                         // The SAME path the reset was built with, taken from the store that already resolves
                         // it - so the file this gate opens is the file that reset deletes.
-                        databaseFile = stores.databaseStore.getDatabaseFilePath().toFile(),
+                        databaseFile = stores.databaseProbe.getDatabaseFilePath().toFile(),
                     )
                 },
             passphraseChangeCollaborators =
@@ -532,16 +534,6 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                         databaseFile = desktopDatabaseFilePath(),
                     )
                 },
-        )
-    } else {
-        desktopStartupGateSurface(
-            snapshot = models.startupSnapshot,
-            startupMode = models.startupMode,
-            runtimeState = models.startupRuntimeState,
-            databaseSnapshot = models.databaseSnapshot,
-            dimensionInputs = models.dimensionInputs,
-            callbacks = callbacks,
-            sessionLogger = sessionLogger,
         )
     }
 }
@@ -601,24 +593,20 @@ private fun desktopShellSurface(
         // ready app (rail, header, inset: the behaviour that must not change) from the four gate-bearing
         // modes, where the graph's own gate screen IS the window.
         val showsDesktopChrome = gateFlags.showsNoGate
-        Row(modifier = Modifier.fillMaxSize()) {
-            if (showsDesktopChrome) {
-                desktopNavigationRail(
-                    activeRoute = state.activeRoute,
-                    routes = state.navigationModel.primaryRoutes,
-                    onNavigate = { route ->
-                        callbacks.onRouteSelected(route)
-                        // The graph is a sibling, not a child: this is the only channel to it.
-                        callbacks.onRailRouteRequested(route.storageKey)
-                        sessionLogger.i(
-                            source = "DesktopApp.desktopNavigationRail",
-                            message = "Desktop route selected",
-                            data = mapOf("route" to route.storageKey),
-                        )
-                    },
-                )
-            }
-            Box(modifier = Modifier.weight(1f)) {
+        // The shipped shape is phone-shaped at EVERY window size, so the layout is held at the phone width
+        // and centred rather than being allowed to grow. Without this the content pane lays itself out as a
+        // desktop surface once the window is resized - which is the "different shape at a different size"
+        // the sizing rule forbids, and it is not cosmetic: controls that are absent at the phone width
+        // (the shared screens' floating action button among them) appear only in that second shape.
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
+            Box(
+                modifier = Modifier
+                    .width(PHONE_WINDOW_WIDTH_DP.dp)
+                    .fillMaxHeight(),
+            ) {
                 desktopContentPane(
                     state = state,
                     language = language,
@@ -716,11 +704,11 @@ private fun desktopStateEffects(
     // derived from the database file, and onboarding completion + the launch route are read from the
     // shared rows (logged above, from the navigation model). The bootstrap snapshot carries a schema
     // version and nothing else, so the only honest thing to log is that it is in force.
-    LaunchedEffect(lifecycleState.bootstrapSnapshot) {
+    LaunchedEffect(lifecycleState.bootstrapSchema) {
         sessionLogger.i(
             source = "DesktopApp.desktopBootstrap",
             message = "Desktop bootstrap state active",
-            data = mapOf("schemaVersion" to lifecycleState.bootstrapSnapshot.schemaVersion),
+            data = mapOf("schemaVersion" to lifecycleState.bootstrapSchema.schemaVersion),
         )
     }
     LaunchedEffect(startupMode) {
@@ -754,13 +742,12 @@ internal fun desktopRootSurface(
     preferences: AppPreferencesState,
     content: @Composable () -> Unit,
 ) {
-    val desktopColors = desktopColorPalette()
     // The SHARED theme, so anything rendered from :core:ui gets the same Material 3 tokens Android does -
     // and the dynamic-colour seam runs here too (the desktop's actual answers null, selecting the fallback).
+    // It is now the ONLY theme installed here: the desktop's own routes were migrated off their Material 2
+    // components, so the palette that used to wrap this is gone rather than kept for their sake.
     io.payanam.core.ui.theme.PayanamTheme(darkTheme = darkTheme) {
-        // Material 2 stays for the desktop's own routes, which V1-V5 replace with shared screens.
         CompositionLocalProvider(
-            LocalDesktopDarkTheme provides darkTheme,
             // The shared screens read their copy from this ambient table - they replaced their
             // stringResource(...) calls with lookups against it. Android installs it once inside
             // PayanamNavHost, but this desktop renders shared screens without that graph (the
@@ -775,87 +762,21 @@ internal fun desktopRootSurface(
             // is holding, and the pre-unlock ones say so by naming the defaults they pass.
             LocalAppPreferences provides preferences,
         ) {
-            MaterialTheme(colors = desktopColors.materialColors) {
-                Surface(
-                    modifier = Modifier.fillMaxSize(),
-                    color = desktopColors.background,
-                ) {
-                    content()
-                }
+            Surface(
+                modifier = Modifier.fillMaxSize(),
+                // The window's own surface. This paints the full-size root the whole shell sits on -
+                // not a card, not the rail chrome - and `surface` is the matching Material 3 role for a
+                // window background. `surfaceVariant` would put a second, competing surface tint on the
+                // background of every screen.
+                color = Material3Theme.colorScheme.surface,
+            ) {
+                content()
             }
         }
     }
 }
 
-@Composable
-private fun desktopNavigationRail(
-    activeRoute: DesktopTopLevelRoute,
-    routes: List<DesktopTopLevelRoute>,
-    onNavigate: (DesktopTopLevelRoute) -> Unit,
-) {
-    Column(
-        modifier =
-            Modifier
-                .width(320.dp)
-                .fillMaxHeight()
-                .background(desktopChromeBackgroundColor())
-                .padding(20.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        Text(
-            text = "Payanam",
-            style = MaterialTheme.typography.h5,
-            fontWeight = FontWeight.Bold,
-        )
-        Text(
-            text = "Local-first desktop",
-            style = MaterialTheme.typography.body2,
-            color = desktopMutedTextColor(),
-        )
-        routes.forEach { route ->
-            Card(
-                backgroundColor =
-                    if (route == activeRoute) {
-                        desktopSelectedCardColor()
-                    } else {
-                        desktopCardColor()
-                    },
-                shape = RoundedCornerShape(16.dp),
-                elevation = 0.dp,
-            ) {
-                Column(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .semantics {
-                                role = Role.Button
-                                contentDescription = "Navigate to ${route.displayName}"
-                                selected = route == activeRoute
-                                stateDescription =
-                                    if (route == activeRoute) {
-                                        "${route.displayName} route selected"
-                                    } else {
-                                        "${route.displayName} route not selected"
-                                    }
-                            }.clickable { onNavigate(route) }
-                            .padding(horizontal = 14.dp, vertical = 12.dp),
-                    verticalArrangement = Arrangement.spacedBy(4.dp),
-                ) {
-                    Text(
-                        text = route.displayName,
-                        style = MaterialTheme.typography.body1,
-                        fontWeight = FontWeight.SemiBold,
-                    )
-                    Text(
-                        text = route.summary(),
-                        style = MaterialTheme.typography.caption,
-                        color = desktopMutedTextColor(),
-                    )
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun desktopContentPane(
@@ -901,11 +822,15 @@ private fun desktopContentPane(
     //
     // `Ready` (and the scaffold modes, which never reach this function) take the `else` branch unchanged:
     // the rail, the header, the inset and the semantics label are all still exactly as they were.
+    val paneStrings = LocalUiStrings.current
     val paneModifier =
         if (gateFlags.showsNoGate) {
             Modifier
                 .fillMaxSize()
-                .semantics { contentDescription = "Desktop content pane for ${state.activeRoute.displayName}" }
+                .semantics {
+                    contentDescription =
+                        paneStrings.desktopContentPaneFor.formatArgs(state.activeRoute.displayName)
+                }
                 .padding(28.dp)
         } else {
             Modifier.fillMaxSize()
@@ -947,6 +872,11 @@ private fun desktopContentPane(
                     assistantCollaborators = assistantCollaborators,
                 )
             }
+        // A composition scope for the unlock callback inside this mount: the reconcile it launches must not
+        // block the unlock's own navigation, and this is the composition that owns the mount. Deliberately
+        // local rather than threaded in - nothing else in the pane needs a scope, and a parameter would be a
+        // second place for the same handle to live.
+        val unlockScope = rememberCoroutineScope()
         PayanamNavHost(
             screens = navHostScreens,
             // The value the shell root derived from the shared rows, not a second derivation: the graph
@@ -967,11 +897,11 @@ private fun desktopContentPane(
             resumeToRouteAfterUnlock = state.resumeToRouteAfterUnlock,
             onSilentUnlockRequested = { route -> callbacks.onSilentUnlockRequested(route) },
             onUnlockReturnRouteConsumed = { callbacks.onUnlockReturnRouteConsumed() },
-            // Minimal mode, read from the SAME named source Android installs it into:
-            // `PlatformFeatureFlags`, which `PayanamApp.onCreate` fills from `BuildConfig.MINIMAL_MODE`
-            // before any composition exists. The desktop has no build config and installs nothing, so this
-            // reads that holder's own default - `FeatureFlagsState.minimalModeEnabled = false`, the full
-            // feature set - and what the graph renders is unchanged.
+            // Minimal mode, read from the same named source Android installs it into: `PlatformFeatureFlags`,
+            // which `PayanamApp.onCreate` fills from `BuildConfig.MINIMAL_MODE` and `DesktopMain.main` fills
+            // from this platform's own declared values, before any composition exists. The desktop takes no
+            // build-time capability flag - it is a full-feature build - so the field it installs is the
+            // explicit `false` this reads back rather than a generated constant.
             //
             // A READ rather than a hard-coded `false` so this mount site cannot disagree with the shared
             // ViewModels, which already take the flag from that same holder (see `TimeViewModel`,
@@ -993,6 +923,13 @@ private fun desktopContentPane(
             shouldShowPassphraseUnlock = gateFlags.shouldShowPassphraseUnlock,
             shouldShowDatabaseInit = gateFlags.shouldShowDatabaseInit,
             shouldShowFocusModeOnboarding = gateFlags.shouldShowFocusModeOnboarding,
+            shouldShowSecurityStateUnavailable = gateFlags.shouldShowSecurityStateUnavailable,
+            shouldShowOnboardingIntro = gateFlags.shouldShowOnboardingIntro,
+            // The refusal destination's two actions: the reset the dialog confirmed, and the exit path
+            // every other terminal gate already uses.
+            onOnboardingIntroFinished = callbacks.onOnboardingIntroAdvanced,
+            onSecurityResetRequested = callbacks.onSecurityResetRequested,
+            onQuitRequested = callbacks.onQuitRequested,
             onFocusModePresetSelected = callbacks.onCompleteFocusModeOnboarding,
             onRestartAfterDelete = callbacks.onQuitRequested,
             // The passphrase-change destination's restart duty, and the same exit path the delete flow
@@ -1002,6 +939,18 @@ private fun desktopContentPane(
             // passphrase-change destination is still unwired.
             onRestartAfterPassphraseChange = callbacks.onQuitRequested,
             onDatabaseReady = callbacks.onGraphDatabaseReady,
+            // Android runs its post-unlock initialisation here (`handlePostUnlockInitState()`, MainActivity
+            // :360). The desktop's equivalent is the reconcile the session-open path already runs on launch -
+            // same call, same guard - so what runs on the desktop is that reconcile and nothing more: this
+            // platform deliberately does not recompute score roll-ups (a declared divergence, see
+            // DesktopUnsupportedPorts.scoreRollupTrigger), and inventing a step it cannot perform would make
+            // the log claim a reconciliation that did not happen.
+            //
+            // Launched rather than awaited: the unlock's own navigation must not wait on a WAL-backed
+            // rollover, and the reconcile is guarded, so an overlapping resume cannot double-run it.
+            onPassphraseUnlocked = {
+                unlockScope.launch { DesktopDatabaseSessionController.reconcileProcessSessionOnResume() }
+            },
         )
     }
 }
@@ -1011,185 +960,14 @@ private fun desktopHeader(activeRoute: DesktopTopLevelRoute) {
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             text = activeRoute.displayName,
-            style = MaterialTheme.typography.h4,
+            style = Material3Theme.typography.headlineLarge,
             fontWeight = FontWeight.Bold,
         )
         Text(
             text = activeRoute.summary(),
-            style = MaterialTheme.typography.body1,
-            color = desktopBodyTextColor(),
+            style = Material3Theme.typography.bodyLarge,
+            color = Material3Theme.colorScheme.onSurface,
         )
-    }
-}
-
-@Composable
-internal fun statusBanner(snapshot: SettingsFoundationSnapshot) {
-    Card(
-        backgroundColor = desktopBannerCardColor(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "Shared desktop foundation v${snapshot.schemaVersion}",
-                style = MaterialTheme.typography.h6,
-                fontWeight = FontWeight.SemiBold,
-            )
-            Text(
-                text =
-                    "${DesktopBuildInfo.VERSION_DISPLAY_NAME} | " +
-                        "${snapshot.areasWithStatus(FoundationReadiness.SharedReady)} shared-ready, " +
-                        "${snapshot.areasWithStatus(FoundationReadiness.ExtractionNext)} extraction-next, " +
-                        "${snapshot.areasWithStatus(FoundationReadiness.AndroidOnly)} Android-only areas",
-                style = MaterialTheme.typography.body2,
-            )
-        }
-    }
-}
-
-@Composable
-internal fun featureGrid(cards: List<FoundationArea>) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        cards.forEach { card ->
-            Card(
-                backgroundColor = desktopSurfaceColor(),
-                shape = RoundedCornerShape(18.dp),
-                elevation = 0.dp,
-            ) {
-                Row(
-                    modifier =
-                        Modifier
-                            .fillMaxWidth()
-                            .padding(18.dp),
-                    horizontalArrangement = Arrangement.spacedBy(16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Box(
-                        modifier =
-                            Modifier
-                                .size(12.dp)
-                                .background(card.status.swatch(), RoundedCornerShape(50)),
-                    )
-                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                        Text(
-                            text = card.title,
-                            style = MaterialTheme.typography.h6,
-                            fontWeight = FontWeight.SemiBold,
-                        )
-                        Text(
-                            text = card.summary,
-                            style = MaterialTheme.typography.body2,
-                            color = desktopMutedTextColor(),
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-internal fun selectionPreview(
-    selection: DataModuleSelection,
-    sessionLogger: UnifiedLogger,
-    onSelectionChanged: (DataModuleSelection) -> Unit,
-) {
-    Card(
-        backgroundColor = desktopCardColor(),
-        shape = RoundedCornerShape(20.dp),
-        elevation = 0.dp,
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Text(
-                text = "Desktop-safe shared model check",
-                style = MaterialTheme.typography.h6,
-                fontWeight = FontWeight.SemiBold,
-            )
-            desktopToggleRow(
-                label = "Tasks",
-                enabled = selection.tasks,
-                onToggle = {
-                    val nextSelection = selection.copy(tasks = !selection.tasks)
-                    sessionLogger.i(
-                        source = "DesktopApp.selectionPreview",
-                        message = "Toggled module selection",
-                        data = mapOf("module" to "tasks", "enabled" to nextSelection.tasks),
-                    )
-                    onSelectionChanged(nextSelection)
-                },
-            )
-            desktopToggleRow(
-                label = "Time entries",
-                enabled = selection.timeEntries,
-                onToggle = {
-                    val nextSelection = selection.copy(timeEntries = !selection.timeEntries)
-                    sessionLogger.i(
-                        source = "DesktopApp.selectionPreview",
-                        message = "Toggled module selection",
-                        data = mapOf("module" to "timeEntries", "enabled" to nextSelection.timeEntries),
-                    )
-                    onSelectionChanged(nextSelection)
-                },
-            )
-            desktopToggleRow(
-                label = "Notes",
-                enabled = selection.notes,
-                onToggle = {
-                    val nextSelection = selection.copy(notes = !selection.notes)
-                    sessionLogger.i(
-                        source = "DesktopApp.selectionPreview",
-                        message = "Toggled module selection",
-                        data = mapOf("module" to "notes", "enabled" to nextSelection.notes),
-                    )
-                    onSelectionChanged(nextSelection)
-                },
-            )
-        }
-    }
-}
-
-@Composable
-internal fun desktopToggleRow(
-    label: String,
-    enabled: Boolean,
-    onToggle: () -> Unit,
-    interactive: Boolean = true,
-) {
-    Card(
-        backgroundColor = if (enabled) desktopSelectedCardColor() else desktopSurfaceColor(),
-        shape = RoundedCornerShape(14.dp),
-        elevation = 0.dp,
-    ) {
-        Row(
-            modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics {
-                        role = Role.Button
-                        contentDescription = "$label toggle"
-                        stateDescription = if (enabled) "$label enabled" else "$label disabled"
-                        // NOTE: interactivity is driven by [interactive], NOT by [enabled]. [enabled] is the
-                        // toggle's STATE (on/off), so gating .clickable on it would make every Off toggle
-                        // permanently un-clickable - a one-way switch. The biometric row is the only caller
-                        // that passes interactive = false.
-                    }.then(if (interactive) Modifier.clickable(onClick = onToggle) else Modifier)
-                    .padding(horizontal = 14.dp, vertical = 12.dp),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(text = label, style = MaterialTheme.typography.body1)
-            Text(
-                text = if (enabled) "On" else "Off",
-                style = MaterialTheme.typography.button,
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
     }
 }
 
@@ -1206,17 +984,17 @@ fun desktopFoundationSnapshot(selection: DataModuleSelection): SettingsFoundatio
  * rather than fixed because a fixed name would be overwritten by the next run and a user's only backup
  * would silently be their most recent, not their last known good.
  *
- * The directory is created here because nothing else does: the manual export's destination is chosen by
- * a file dialog, so the exports folder never exists until something writes into it.
+ * The directory is created here because nothing else does: the database directory is created on
+ * demand by the first write, so the backup ensures it exists before the transfer begins.
  */
-internal fun desktopScheduledBackupDestination(exportDirectory: Path = DesktopAppPaths.resolveExportDirectory()): Path {
+internal fun desktopScheduledBackupDestination(databaseDirectory: Path = DesktopAppPaths.resolveDatabaseDirectory()): Path {
     // A failure to create it is not swallowed: the gateway reports `DESTINATION_UNWRITABLE` and the
     // scheduler logs it, which is the honest answer - a backup that has nowhere to go did not happen.
-    Files.createDirectories(exportDirectory)
+    Files.createDirectories(databaseDirectory)
     val stamp = LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
     // The NAME comes from the shared prefix the rotation matcher prunes with, so an artifact this
     // app writes is one rotation can recognise; a name assembled only here would be invisible to it.
-    return exportDirectory.resolve(scheduledBackupArtifactName(stamp))
+    return databaseDirectory.resolve(scheduledBackupArtifactName(stamp))
 }
 
 /** The backup file's timestamp, to the second: sortable, and no two runs in one second collide. */
@@ -1225,7 +1003,7 @@ private val BACKUP_FILE_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPatte
 /**
  * Prunes old backup artifacts in the folder a scheduled backup just wrote into.
  *
- * [backupRows] and [exportDirectory] are parameters so this is exercisable without an open session and
+ * [backupRows] and [backupDirectory] are parameters so this is exercisable without an open session and
  * without the real exports folder: the reader is passed in rather than reached for, so the scheduled
  * path and the backup port can be shown to read retention through the SAME source instead of two
  * implementations of one idea.
@@ -1237,7 +1015,7 @@ private val BACKUP_FILE_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPatte
  * Returns what was deleted, so the caller can report it and a test can assert it.
  */
 internal suspend fun pruneScheduledBackupRotation(
-    exportDirectory: java.io.File,
+    backupDirectory: java.io.File,
     backupRows: suspend () -> Map<String, String?>,
     // FULLY QUALIFIED, deliberately: this file is in `io.payanam.desktop`, which declares its OWN
     // `UnifiedLogger` class, so a bare `UnifiedLogger` here would resolve to that class and the helper
@@ -1255,7 +1033,7 @@ internal suspend fun pruneScheduledBackupRotation(
                 )
             }.getOrNull() ?: return emptyList()
     val policy = rotationPolicyFromBackupRows(rows)
-    return pruneOldBackupDirectories(exportDirectory, policy, logger)
+    return pruneOldBackupDirectories(backupDirectory, policy, logger)
 }
 
 /**
@@ -1277,3 +1055,26 @@ private fun desktopDatabaseFilePath(): Path =
     DesktopAppPaths
         .resolveDatabaseDirectory()
         .resolve(DesktopAppPaths.DATABASE_FILE_NAME)
+
+/**
+ * The reconcile that follows a settings row - for the two keys the backup schedule is derived from.
+ *
+ * Extracted from the shell's `onSettingChanged` callback so the pair the behaviour consists of can be
+ * driven by a test: the row is written first (by the caller, through the same guarded source), and only
+ * the keys named here move the schedule. Reconciling on every other key would be harmless - the
+ * reconcile is idempotent - and noisy, so the two-key list IS the decision, and it belongs where a test
+ * can pin it rather than inline in a composable's lambda.
+ *
+ * The toggle's whole job is the SCHEDULE, so the schedule follows the row - Android's `AutoBackupWorker`
+ * rule, applied to the in-process timer.
+ */
+internal suspend fun reconcileAfterSettingChange(
+    platformSeams: DesktopPlatformSeams,
+    key: String,
+) {
+    if (key == AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED ||
+        key == AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL
+    ) {
+        platformSeams.reconcileBackupSchedule()
+    }
+}

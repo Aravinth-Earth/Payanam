@@ -588,7 +588,11 @@ class E2eHarness(
             .filter { nodes[it].size.height > MIN_SWIPE_HEIGHT_PX && nodes[it].size.width > 300 }
             .maxByOrNull { nodes[it].size.height * nodes[it].size.width }
             ?: error(
-                "swipe(up=$up): no scrollable to swipe — candidates were " +
+                // The message says what it LOOKED FOR, not only what it found. A bare list of the candidate
+                // sizes leaves the reader to infer the rule from this file, which is the failure this message
+                // was written to remove: on the Time screen it printed `candidates were []` and named nothing.
+                "swipe(up=$up): no scrollable to swipe — looking for a container taller than " +
+                    "${MIN_SWIPE_HEIGHT_PX}px and wider than 300px; the ${nodes.size} scrollable(s) on screen were " +
                     nodes.map { "${it.size.width.toInt()}x${it.size.height.toInt()}" },
             )
         // Coordinates are node-local, and the node's height is known from its semantics, so the

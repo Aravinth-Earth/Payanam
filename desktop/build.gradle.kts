@@ -46,6 +46,16 @@ dependencies {
     // onboarding the Android onboarding rather than a lookalike scaffold.
     implementation(project(":core:ui"))
     implementation(compose.desktop.currentOs)
+    // Material 3, so this module can name `MaterialTheme.colorScheme` itself. `:core:ui` declares it as
+    // `implementation`, which does not re-export it, so the desktop's shell chrome cannot read a shared
+    // theme token without a declaration here.
+    //
+    // The compose plugin's accessor - the SAME one `:core:ui` uses - rather than the
+    // `libs.compose.material3` catalog alias, which resolves to androidx's Android artifact. One
+    // coordinate means one `MaterialTheme.colorScheme` on the classpath, so a token read here and a
+    // token read inside a shared screen resolve the same `LocalColorScheme` instead of two competing
+    // ones. JVM-only module, no Android dependency, so it is safe on the desktop classpath.
+    implementation(compose.material3)
     implementation(libs.coroutines.core)
     // The shared screens call repeatOnLifecycle (TimeScreen), which resolves Dispatchers.Main. On
     // Android that comes from coroutines-android; the desktop equivalent is coroutines-swing, which
@@ -151,20 +161,13 @@ tasks.named<org.gradle.testing.jacoco.tasks.JacocoCoverageVerification>("jacocoT
     violationRules {
         rule {
             limit {
-                // 0.52 is the MEASURED value, not an aspiration. It fell from 0.75 when the desktop's
-                // own plain-SQLite data layer was deleted along with its 8 store test classes: those
-                // were the best-covered code in this module, so removing them lowered the ratio of the
-                // code that REMAINS, which is mostly UI.
-                //
-                // This is the one case where lowering a floor is honest rather than a cover-up: the set
-                // of code under test changed by deletion, so the old number no longer describes the same
-                // thing. It is not permission for new code to arrive untested — the floor still fails
-                // the build if coverage regresses from here.
-                //
-                // RATCHET: raise this as the shared data layer replaces the desktop stores, because
-                // repository implementations are unit-testable and will pull the ratio up. Restoring
-                // 0.75 is expected, not optional.
-                minimum = "0.52".toBigDecimal()
+                // 0.75 restored. The floor fell to 0.52 when the desktop's own plain-SQLite data
+                // layer was deleted along with its 8 store test classes - the best-covered code in
+                // this module - so the old number no longer described the same set. The shared data
+                // layer that replaced those stores brought the ratio back up (measured 0.7571
+                // instruction / 0.8042 line), so the floor returns to 0.75 and ratchets from here:
+                // it fails the build on any fall.
+                minimum = "0.75".toBigDecimal()
             }
         }
     }

@@ -304,8 +304,8 @@ object DatabaseImportSupport {
         logTag: String,
         walConsolidator: DatabaseInitWalConsolidator,
     ): Boolean {
-        val walFile = File(dbFile.parent, dbFile.name + WAL_SUFFIX)
-        val shmFile = File(dbFile.parent, dbFile.name + SHM_SUFFIX)
+        val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
+        val shmFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.SHM_SUFFIX)
 
         logger.i(
             logTag,
@@ -339,8 +339,8 @@ object DatabaseImportSupport {
         // SHM is process-local and can be safely rebuilt for standard SQLite imports.
         shmFile.delete()
         val tempDb = File(dbFile.parent, dbFile.name + "." + DatabaseArtifacts.WAL_MERGE_TEMP_SUFFIX)
-        val tempWal = File(dbFile.parent, tempDb.name + WAL_SUFFIX)
-        val tempShm = File(dbFile.parent, tempDb.name + SHM_SUFFIX)
+        val tempWal = File(dbFile.parent, tempDb.name + DatabaseArtifacts.WAL_SUFFIX)
+        val tempShm = File(dbFile.parent, tempDb.name + DatabaseArtifacts.SHM_SUFFIX)
 
         return try {
             dbFile.copyTo(tempDb, overwrite = true)
@@ -539,10 +539,9 @@ object DatabaseImportSupport {
     private const val DB_EXTENSION = ".db"
 
     /**
-     * The `-wal` and `-shm` names are [DatabaseArtifacts.sidecarSuffixes], not constants restated here.
+     * The `-wal` and `-shm` names are read from [DatabaseArtifacts] ([DatabaseArtifacts.WAL_SUFFIX],
+     * [DatabaseArtifacts.SHM_SUFFIX]) and are not restated in this file.
      * A sidecar this file does not know about would be copied into the temp fold, left behind after a
      * successful checkpoint, or never deleted — and each of those loses a committed write silently.
      */
-    private val WAL_SUFFIX: String = DatabaseArtifacts.WAL_SUFFIX
-    private val SHM_SUFFIX: String = DatabaseArtifacts.SHM_SUFFIX
 }

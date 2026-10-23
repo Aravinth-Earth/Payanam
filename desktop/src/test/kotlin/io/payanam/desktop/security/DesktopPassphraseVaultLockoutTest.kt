@@ -51,6 +51,32 @@ class DesktopPassphraseVaultLockoutTest {
     }
 
     @Test
+    fun `an active lockout still holds after the app is relaunched`() {
+        // The shape of a relaunch: a SECOND vault over the SAME directory, built the way the app builds one
+        // at startup. The schedule only matters if it survives the process boundary - a lockout that resets
+        // on restart is a lockout the attacker clears by closing the window, which is the whole point of
+        // persisting it.
+        val securityDirectory = tempFolder.newFolder("relaunch").toPath()
+        val firstVault = DesktopPassphraseVault(DesktopSecurityStore(securityDirectory = securityDirectory))
+        firstVault.configurePassphrase(validPassphrase.toCharArray())
+
+        // Three wrong attempts: the third crosses the policy's threshold and starts a real cool-down.
+        repeat(3) {
+            firstVault.verifyPassphrase("Wr0ng-Passphrase!".toCharArray())
+            firstVault.recordFailedUnlockAttempt()
+        }
+        assertThat(firstVault.unlockLockoutSecondsRemaining()).isGreaterThan(0L)
+
+        // Relaunch.
+        val relaunchedVault = DesktopPassphraseVault(DesktopSecurityStore(securityDirectory = securityDirectory))
+
+        // The countdown is still running, and the CORRECT passphrase does not unlock: a held lockout that
+        // still accepted the right passphrase would be a lockout in name only.
+        assertThat(relaunchedVault.unlockLockoutSecondsRemaining()).isGreaterThan(0L)
+        assertThat(relaunchedVault.verifyPassphrase(validPassphrase.toCharArray())).isFalse()
+    }
+
+    @Test
     fun `the first two wrong attempts cost nothing`() {
         failedAttempt()
         failedAttempt()

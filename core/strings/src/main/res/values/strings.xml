@@ -968,6 +968,7 @@
     <string name="settings_update_install_now_button">Install now</string>
     <string name="settings_update_install_title">Update available</string>
     <string name="settings_update_no_releases">No releases on this channel yet.</string>
+    <string name="settings_update_not_supported_here">Updates on this platform are installed by your package manager — there is no in-app update action.</string>
     <string name="settings_update_open_fdroid">Open F-Droid</string>
     <string name="settings_update_paused">Download paused</string>
     <string name="settings_update_paused_retry">Paused — will retry automatically</string>
@@ -1031,5 +1032,44 @@
          names what a readable import is: the .db file a Payanam export produced, with its passphrase. -->
     <string name="settings_import_error_unreadable_db">The selected file could not be read as a database. Import the encrypted .db file from a Payanam export, and enter the passphrase that export was made with — Payanam never creates a plaintext backup, so there is nothing else to import.</string>
     <string name="settings_import_error_plaintext_db">This file is an unencrypted database. Payanam only imports encrypted databases — import a .db file from a Payanam export instead.</string>
+
+    <!-- The startup gate's security-unavailable surface and the reset dialog it leads to. These moved out
+         of the desktop's own gate so the surface can live in the shared graph; the copy is unchanged, and
+         the Tamil table carries the same keys. -->
+    <string name="startup_security_unavailable_title">What you can do</string>
+    <string name="startup_security_unavailable_body">Resetting clears the local passphrase and its lockout state only — your tasks, journal, notes and settings are not touched.</string>
+    <string name="startup_security_reset_action">Reset local security state</string>
+    <string name="startup_quit_action">Quit</string>
+    <string name="startup_reset_dialog_title">Reset desktop data?</string>
+    <string name="startup_reset_dialog_body">This will remove the current local desktop database and clear the saved passphrase so setup can start fresh.</string>
+    <string name="startup_reset_action">Reset</string>
+    <string name="startup_reset_completed_status">Desktop data was reset. Create a new passphrase to continue.</string>
+    <!-- Startup gate summaries: the header card's per-mode body, moved out of the desktop gate. -->
+    <string name="startup_summary_welcome">Payanam is a local-first life tracker. Nothing leaves this machine, and your database is encrypted with a passphrase only you know.</string>
+    <string name="startup_summary_setup_passphrase">Create the desktop passphrase for this installation before continuing into the local-first app.</string>
+    <string name="startup_summary_unlock">Unlock the existing protected desktop installation to continue into the app.</string>
+    <string name="startup_summary_initialize">Create the local desktop database so this installation can start working on its own.</string>
+    <string name="startup_summary_focus">Choose the initial navigation preset for this desktop installation before entering the app shell.</string>
+    <string name="startup_summary_ready">Desktop startup checks are complete.</string>
+    <string name="startup_summary_security_unavailable">Payanam cannot read its local passphrase configuration. Your data has not been changed.</string>
+    <!-- Startup gate titles: the header card's per-mode heading, moved out of the desktop gate. -->
+    <string name="desktop_shell_tagline">Local-first desktop</string>
+    <string name="settings_day_boundary_title">Day boundary</string>
+    <string name="settings_day_boundary_hint">The hour a day rolls over. Tasks and charts after this hour count toward the next day.</string>
+    <string name="settings_day_boundary_midnight">Midnight</string>
+    <string name="settings_day_boundary_five_am">5 AM</string>
+    <string name="desktop_rail_navigate_to">Navigate to %1$s</string>
+    <string name="desktop_rail_route_selected">%1$s route selected</string>
+    <string name="desktop_rail_route_not_selected">%1$s route not selected</string>
+    <string name="desktop_content_pane_for">Desktop content pane for %1$s</string>
+    <string name="startup_gate_content_description">Desktop startup gate</string>
+    <string name="startup_title_welcome">Welcome to Payanam</string>
+    <string name="startup_title_setup_passphrase">Set up local protection</string>
+    <string name="startup_title_unlock">Unlock local desktop session</string>
+    <string name="startup_title_initialize">Create local data space</string>
+    <string name="startup_title_focus">Choose your focus mode</string>
+    <string name="startup_title_ready">Desktop ready</string>
+    <string name="startup_title_security_unavailable">Security state unreadable</string>
+    <string name="startup_cancel_action">Cancel</string>
 
 </resources>

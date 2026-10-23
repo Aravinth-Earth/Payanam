@@ -163,12 +163,23 @@ object TimeVisualsCalculator {
      *
      * Today is bounded by [now] instead, which is what makes a running entry - the one with no
      * [TimeEntry.endedAt] - stop where the clock stopped rather than at a day's worth of optimism.
+     *
+     * A day that has not arrived yet is owned by nothing: it runs from its own midnight back to its own
+     * midnight, so every interval on it clips to nothing and the day reports zero tracked minutes. Before
+     * this branch existed, a future date fell through to the successor-start rule and was handed a window
+     * that began before the day and ended after it - crediting the user with a whole day of time on a date
+     * the clock has not reached. Zero is not a special case here; it is the only value a future day can
+     * honestly have.
      */
-    private fun effectiveDayEnd(
+    fun effectiveDayEnd(
         selectedDate: LocalDate,
         now: LocalDateTime,
     ): LocalDateTime =
-        if (selectedDate == now.toLocalDate()) now else selectedDate.plusDays(1).atStartOfDay()
+        when {
+            selectedDate == now.toLocalDate() -> now
+            selectedDate.isAfter(now.toLocalDate()) -> selectedDate.atStartOfDay()
+            else -> selectedDate.plusDays(1).atStartOfDay()
+        }
 
     private fun countOverlaps(intervals: List<Triple<LocalDateTime, LocalDateTime, Double>>): Int {
         if (intervals.size < 2) return 0

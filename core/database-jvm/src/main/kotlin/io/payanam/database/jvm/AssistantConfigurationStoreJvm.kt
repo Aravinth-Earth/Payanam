@@ -19,7 +19,7 @@ import java.time.Instant
  *
  * Ported from `AssistantSettingsStore` (the app module's implementation) as the truth for behaviour: the
  * same storage keys, the same parse-and-default rules, the same rows each member owns. The one platform
- * coupling there — Room's `withTransaction` — is [JdbcQueries.transaction] here, which also joins a
+ * coupling there — the Android platform's transaction helper — is [JdbcQueries.transaction] here, which also joins a
  * nested call instead of committing early, so [saveAll] and [clearProviderConfiguration] keep the
  * all-or-nothing property the Android versions have.
  *
@@ -43,25 +43,18 @@ import java.time.Instant
  * Android file, and the test is the detector, not the design. Moving the constants onto the port is a
  * follow-up in one place: `AssistantSettingsStore`'s companion plus this one.
  *
- * ## Two places the port's wording and the Android behaviour do not agree
+ * ## Single-writer discipline
  *
- * Neither is smoothed over here; both are reported to the layer above, and the Android behaviour is
- * what this port implements because the shared database and the existing rows are the truth:
+ * [markNoticeShown] is the ONLY writer of the notice row. [save] does not write it, so a neutral
+ * save of a settings value whose `noticeShown` is stale-false cannot un-record the first-run notice.
  *
- *  - **[markNoticeShown] is not the only writer of the notice row.** The port presents it as *the*
- *    notice operation and names exactly two single-writer rows (the key to [saveAll], the flag to
- *    [beginReconfigure] and [saveAll]); [save] also writes `assistant.notice_shown`, because it is a
- *    field of the settings being saved. So a neutral save of a settings value whose `noticeShown` is
- *    stale-false un-records the first-run notice that [markNoticeShown] recorded. The port does not
- *    document that writer, and the fix — whether [save] should stop writing the row or the port should
- *    name it — is a contract decision, not a porting decision.
- *  - **An unreadable pending-setup flag fails OPEN and is not reported.** Every numeric and boolean
- *    setting goes through [AssistantStoredValue], which distinguishes an absent row from an unreadable
- *    one and reports the unreadable key. The flag does not: an unparseable `assistant.setup_required`
- *    reads as `false`, i.e. "no reconfigure needed", with no warning. Every other field in the same
- *    row-set fails the safe way (default for this load, row left alone), and the port nowhere
- *    authorises this one to do the opposite. Reported, not repaired: changing the Android behaviour
- *    would change what an already-corrupt database means on the phone.
+ * ## Fail-closed pending-setup flag
+ *
+ * An unparseable `assistant.setup_required` row loads as `true` (fail-closed: into the setup
+ * surface) and is reported via [reportUnreadableStoredRow]. The flag is read through
+ * [AssistantStoredValue.boolean] with `fallback = false` (absent row = no reconfigure needed),
+ * then the unreadable case is overridden to `true` so a corrupt row cannot silently disable the
+ * setup surface.
  *
  * `updatedAt` is stamped with [Instant] because that is what the Android assistant store writes into
  * this column for these rows. The sibling `AppSettingsRepositoryJvm` stamps local date-time instead; the
@@ -86,10 +79,15 @@ class AssistantConfigurationStoreJvm(
         JdbcFlows.onIo {
             val config =
                 JdbcQueries.transaction(session) {
+                    val setupRequiredField =
+                        AssistantStoredValue.boolean(KEY_SETUP_REQUIRED, read(KEY_SETUP_REQUIRED), fallback = false)
+                    // Fail-closed: an unreadable row loads as true (into the setup surface), not false.
+                    val setupRequired = if (setupRequiredField.usable) setupRequiredField.value else true
+                    if (!setupRequiredField.usable) reportUnreadableStoredRow(KEY_SETUP_REQUIRED)
                     StoredAssistantConfig(
                         apiKey = read(KEY_API_KEY) ?: "",
                         settings = loadSettings(),
-                        setupRequired = read(KEY_SETUP_REQUIRED)?.toBooleanStrictOrNull() ?: false,
+                        setupRequired = setupRequired,
                     )
                 }
             logger.d(
@@ -153,8 +151,8 @@ class AssistantConfigurationStoreJvm(
     }
 
     /**
-     * Records that the first-run notice has been seen. Note that [save] writes the same row from the
-     * settings it is handed; see this class's KDoc.
+     * Records that the first-run notice has been seen. This is the ONLY writer of the notice row;
+     * [save] does not write it.
      */
     override suspend fun markNoticeShown() {
         JdbcFlows.onIo {
@@ -255,7 +253,6 @@ class AssistantConfigurationStoreJvm(
         write(KEY_ABOUT_STRENGTHS, clean.aboutMe.strengths)
         write(KEY_ABOUT_FOCUS, clean.aboutMe.focusAreas)
         write(KEY_ABOUT_NOTE, clean.aboutMe.note)
-        write(KEY_NOTICE_SHOWN, clean.noticeShown.toString())
     }
 
     private fun read(key: String): String? = JdbcQueries.readScalar(session, SETTING_BY_KEY_SQL, arrayOf(key))
@@ -289,25 +286,25 @@ class AssistantConfigurationStoreJvm(
          * Rows [save] writes, asserted against this writer by `AssistantConfigurationStoreJvmTest`: the
          * number in the log line must not be able to report rows the writer stopped writing.
          */
-        private const val NEUTRAL_SETTING_ROWS = 14
+        private const val NEUTRAL_SETTING_ROWS = 13
 
-        private const val KEY_API_KEY = "assistant.api_key"
-        private const val KEY_MODEL = "assistant.model"
-        private const val KEY_LENGTH = "assistant.length"
-        private const val KEY_MAX_ROWS = "assistant.max_rows"
-        private const val KEY_ROUNDS = "assistant.rounds"
-        private const val KEY_HISTORY = "assistant.history_depth"
-        private const val KEY_SHOW_METHOD = "assistant.show_method"
-        private const val KEY_CHIPS = "assistant.chips"
-        private const val KEY_PROMPT_ADDITIONS = "assistant.prompt_additions"
-        private const val KEY_ABOUT_GOALS = "assistant.about_goals"
-        private const val KEY_ABOUT_WANTS = "assistant.about_wants"
-        private const val KEY_ABOUT_NEEDS = "assistant.about_needs"
-        private const val KEY_ABOUT_STRENGTHS = "assistant.about_strengths"
-        private const val KEY_ABOUT_FOCUS = "assistant.about_focus"
-        private const val KEY_ABOUT_NOTE = "assistant.about_note"
-        private const val KEY_NOTICE_SHOWN = "assistant.notice_shown"
-        private const val KEY_SETUP_REQUIRED = "assistant.setup_required"
+        private const val KEY_API_KEY = AssistantConfigurationStore.KEY_API_KEY
+        private const val KEY_MODEL = AssistantConfigurationStore.KEY_MODEL
+        private const val KEY_LENGTH = AssistantConfigurationStore.KEY_LENGTH
+        private const val KEY_MAX_ROWS = AssistantConfigurationStore.KEY_MAX_ROWS
+        private const val KEY_ROUNDS = AssistantConfigurationStore.KEY_ROUNDS
+        private const val KEY_HISTORY = AssistantConfigurationStore.KEY_HISTORY
+        private const val KEY_SHOW_METHOD = AssistantConfigurationStore.KEY_SHOW_METHOD
+        private const val KEY_CHIPS = AssistantConfigurationStore.KEY_CHIPS
+        private const val KEY_PROMPT_ADDITIONS = AssistantConfigurationStore.KEY_PROMPT_ADDITIONS
+        private const val KEY_ABOUT_GOALS = AssistantConfigurationStore.KEY_ABOUT_GOALS
+        private const val KEY_ABOUT_WANTS = AssistantConfigurationStore.KEY_ABOUT_WANTS
+        private const val KEY_ABOUT_NEEDS = AssistantConfigurationStore.KEY_ABOUT_NEEDS
+        private const val KEY_ABOUT_STRENGTHS = AssistantConfigurationStore.KEY_ABOUT_STRENGTHS
+        private const val KEY_ABOUT_FOCUS = AssistantConfigurationStore.KEY_ABOUT_FOCUS
+        private const val KEY_ABOUT_NOTE = AssistantConfigurationStore.KEY_ABOUT_NOTE
+        private const val KEY_NOTICE_SHOWN = AssistantConfigurationStore.KEY_NOTICE_SHOWN
+        private const val KEY_SETUP_REQUIRED = AssistantConfigurationStore.KEY_SETUP_REQUIRED
 
         /** Verbatim from `AppSettingsDao.getSetting`; `key` is a SQL keyword, so it is backticked. */
         const val SETTING_BY_KEY_SQL = "SELECT value FROM app_settings WHERE `key` = ?"

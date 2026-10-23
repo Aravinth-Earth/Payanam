@@ -3,41 +3,6 @@
 package io.payanam.shared.settings
 
 /**
- * Desktop task filter for the launch destination, persisted by [storageKey].
- * Mirrors Android's [io.payanam.ui.viewmodel.TaskFilter] for settings parity.
- *
- * This one adds [NONE] for "no filter" (Android models that as a null filter) and [ALL], and its
- * [Companion.fromStorageKey] falls back to [NONE]. It was deliberately DISTINCT from a second enum,
- * `io.payanam.shared.tasks.DesktopTaskFilter` (the task-board filter), which shared 7 identical
- * storage keys with it by design - they were previously the same simple name in one module, which is
- * how drift hides. That enum went with the desktop's JSON task board (deleted 2026-09-22, its stores
- * replaced by TaskRepository), so there is no second enum left to rename alongside this one.
- */
-enum class DesktopLaunchTaskFilter(
-    val storageKey: String,
-    val displayName: String,
-) {
-    NONE(storageKey = "none", displayName = "No filter"),
-    ALL(storageKey = "all", displayName = "All tasks"),
-    ACTIVE(storageKey = "active", displayName = "Active"),
-    TODAY(storageKey = "today", displayName = "Today"),
-    OVERDUE(storageKey = "overdue", displayName = "Overdue"),
-    FUTURE(storageKey = "future", displayName = "Future"),
-    COMPLETED(storageKey = "completed", displayName = "Completed"),
-    ARCHIVED(storageKey = "archived", displayName = "Archived"),
-    NOT_ACTIVE(storageKey = "not_active", displayName = "Not active"),
-    ;
-
-    companion object {
-        /**
-         * Resolves a persisted [key] to its [DesktopLaunchTaskFilter], defaulting to
-         * [NONE] when the key is null or unrecognized.
-         */
-        fun fromStorageKey(key: String?): DesktopLaunchTaskFilter = entries.firstOrNull { it.storageKey == key } ?: NONE
-    }
-}
-
-/**
  * UI theme selection persisted on desktop (system / light / dark).
  */
 enum class DesktopThemeMode(
@@ -139,7 +104,11 @@ data class DesktopSettingsSnapshot(
     // export is a copy of the encrypted database, so there is no mode to choose and no module to include.
     // Scope B: genuinely missing desktop settings
     val timeFormat: String = "24h",
-    val launchTaskFilter: DesktopLaunchTaskFilter = DesktopLaunchTaskFilter.NONE,
+    // REMOVED: launchTaskFilter. It was a desktop-only enum (DesktopLaunchTaskFilter) whose eight keys
+    // duplicated the shared TaskFilter's and whose ninth, `none`, modelled what Android models as a null
+    // filter. Nothing read the field: the only references were its own declaration and one test assertion,
+    // and the desktop's launch-filter writes already go through the shared TaskFilter.key. Deleting it
+    // leaves exactly one enum writing these storage keys.
     val backupRotationEnabled: Boolean = false,
     val backupRotationCount: Int = 50,
 ) {

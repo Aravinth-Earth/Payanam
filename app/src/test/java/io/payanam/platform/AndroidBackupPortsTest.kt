@@ -8,6 +8,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.port.formatBackupDisplayTimestamp
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.runBlocking
 import org.junit.Before
@@ -70,5 +71,36 @@ class AndroidBackupPortsTest {
         assertThat(result.attemptsUsed).isEqualTo(1)
         assertThat(java.io.File(result.destinationPath).exists()).isTrue()
         assertThat(store.status.value.lastSuccessAtMillis).isGreaterThan(0L)
+    }
+
+    @Test
+    fun `the backup contains exactly the database's own bytes, with no pending sidecar beside it`() = runBlocking {
+        val databaseFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+        databaseFile.parentFile?.mkdirs()
+        SQLiteDatabase.openOrCreateDatabase(databaseFile, null).use { database -> database.version = 1 }
+        val sourceBytes = databaseFile.readBytes()
+
+        val store = io.payanam.service.BackupStatusStore(context)
+        val coordinator =
+            io.payanam.service.DatabaseBackupCoordinator(
+                context,
+                mock<io.payanam.database.session.DatabaseSessionManager>(),
+                store,
+            )
+        val port = AndroidDatabaseBackupPort(coordinator)
+
+        val result = port.backupToAppBackupDirectory(BackupTrigger.MANUAL)
+
+        // THE FAMILY, MEASURED RATHER THAN ASSUMED: the destination holds the database's own bytes - a
+        // backup that exists but carries a partial or empty file would pass the two assertions above and
+        // fail here - and no `-wal` sits beside it, because the checkpoint rule refuses a snapshot while
+        // the log still holds pending pages. "Exactly the family" is this pair: the file, and nothing
+        // pending around it.
+        val destinationFile = java.io.File(result.destinationPath, PayanamDatabaseSchema.DATABASE_NAME)
+        assertThat(destinationFile.exists()).isTrue()
+        assertThat(destinationFile.readBytes()).isEqualTo(sourceBytes)
+        assertThat(
+            java.io.File(result.destinationPath, PayanamDatabaseSchema.DATABASE_NAME + DatabaseArtifacts.WAL_SUFFIX).exists(),
+        ).isFalse()
     }
 }

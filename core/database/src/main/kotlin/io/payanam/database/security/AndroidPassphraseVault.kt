@@ -3,12 +3,15 @@
 package io.payanam.database.security
 
 import android.content.Context
+import io.payanam.shared.database.DatabaseEncryptionProbe
+import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.security.SharedPassphraseLockoutPolicy
 import io.payanam.shared.security.SharedPassphrasePolicy
 import io.payanam.shared.security.VaultAvailability
+import java.io.File
 
 /**
  * The Android side of the passphrase-vault contract, over [DatabaseEncryptionManager].
@@ -40,6 +43,16 @@ import io.payanam.shared.security.VaultAvailability
 class AndroidPassphraseVault(
     context: Context,
     private val encryptionManager: DatabaseEncryptionManager = DatabaseEncryptionManager(context),
+    /**
+     * The probe and the file it should read, so the encryption answer comes from the FILE rather than from
+     * the stored mode flag - the same shape the desktop vault already has. The production vault is built
+     * with both (the probe from the Hilt graph, the path from the context); the defaults exist for the test
+     * constructions that are about the store's lockout or refusal behaviour and have no file to answer
+     * about - for those, "no file to detect" is reported as not encrypted, which is the honest answer and
+     * the same one a plaintext file gets.
+     */
+    private val encryptionProbe: DatabaseEncryptionProbe? = null,
+    private val databaseFile: () -> File? = { context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME) },
 ) : PassphraseVault {
     override fun hasPassphraseConfigured(): Boolean = encryptionManager.hasPassphraseConfigured()
 
@@ -92,7 +105,19 @@ class AndroidPassphraseVault(
         }
     }
 
-    override fun isEncryptionEnabled(): Boolean = encryptionManager.isEncryptionEnabled()
+    /**
+     * Whether the database file is detectably encrypted - answered by the FILE, not by the stored mode.
+     *
+     * The mode flag answers a different question ("which mode is this installation in"), and it was the
+     * wrong one to put behind this member: the member's callers ask about the bytes they are about to act
+     * on. The answer now comes from the same probe every other file question on this platform uses, so the
+     * two platforms cannot disagree about what "encrypted" means, and a file that is not detectably
+     * encrypted still reads `false` whatever the flag says.
+     */
+    override fun isEncryptionEnabled(): Boolean {
+        val file = databaseFile() ?: return false
+        return encryptionProbe?.isDetectablyEncrypted(file, "AndroidPassphraseVault.isEncryptionEnabled") ?: false
+    }
 
     /** Reads the persisted lockout-until timestamp; the counter survives a process restart. */
     override fun unlockLockoutSecondsRemaining(): Long = encryptionManager.getUnlockRemainingSeconds()

@@ -3,6 +3,7 @@
 package io.payanam.presentation.time
 
 import java.time.LocalDate
+import java.util.concurrent.atomic.AtomicReference
 
 /**
  * The three independently-loading sections of one selected-date load on the
@@ -82,4 +83,52 @@ class TimeScreenDateLoadState(
             plannedTasksLoaded = plannedTasksLoaded,
             occurrencesLoaded = occurrencesLoaded,
         )
+}
+
+/**
+ * Holds the current [TimeScreenDateLoadState] of the Time screen and merges section arrivals into it
+ * atomically.
+ *
+ * The three section collectors run concurrently on the ViewModel's dispatcher, so each one arrives at
+ * [markSectionLoaded] independently. [TimeScreenDateLoadState] is immutable and its `markSectionLoaded`
+ * returns a NEW instance carrying the OTHER sections' flags as read at that moment, so a plain
+ * read-modify-write over a plain `var` is a lost update: two arrivals that interleave between their read
+ * and their write make the later writer commit the earlier arrival's flags as still unloaded. That flag
+ * is never re-marked (each collector marks its own section once), so `isReady()` can stay false forever
+ * and the screen keeps its loading placeholder.
+ *
+ * [markSectionLoaded] therefore merges through [AtomicReference.updateAndGet], whose function is applied
+ * to the CURRENT value and retried on contention - concurrent arrivals set their own bit in the value
+ * they read rather than overwriting one another. Being a single atomic read-modify-write it needs no
+ * suspension point, so callers stay plain non-suspending functions, and the merged snapshot it returns is
+ * the one callers then read [TimeScreenDateLoadState.isReady] from, so the mark and the readiness check
+ * see the same state.
+ *
+ * [replace] is for starting a fresh load (new [TimeScreenDateLoadState.requestId]), which must replace
+ * the whole state rather than merge into the previous load's flags.
+ */
+class TimeScreenDateLoadStateHolder(initial: TimeScreenDateLoadState) {
+    private val state = AtomicReference(initial)
+
+    /**
+     * Marks [section] loaded on the load whose id is [requestId], returning the merged state, or `null`
+     * when [requestId] is not the current load (a superseded load's late arrival, which must be ignored
+     * rather than marking the current one ready).
+     */
+    fun markSectionLoaded(requestId: Long, section: TimeScreenDateSection): TimeScreenDateLoadState? =
+        state.updateAndGet { current ->
+            if (current.requestId != requestId) {
+                current
+            } else {
+                current.markSectionLoaded(section)
+            }
+        }.takeIf { it.requestId == requestId }
+
+    /** The merged state after the most recent mark. */
+    fun current(): TimeScreenDateLoadState = state.get()
+
+    /** Starts a new selected-date load, discarding the flags of the load it replaces. */
+    fun replace(next: TimeScreenDateLoadState) {
+        state.set(next)
+    }
 }

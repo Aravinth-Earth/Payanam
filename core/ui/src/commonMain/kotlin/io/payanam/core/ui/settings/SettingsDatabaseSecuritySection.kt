@@ -401,12 +401,45 @@ fun SettingsDatabaseSecuritySection(
  * ONE list, read and write alike: the menu draws these values and the write reports these values, so a
  * row that displays one preference cannot write another. A second list for the display would be the only
  * way for that to diverge.
+ *
+ * WHY EVERY TIER IS NAMED: each of these nine numbers is a product decision - how long the app may stay
+ * open before it asks for the passphrase again - and a list of bare integers records none of them. The
+ * names say which decision each one is, which is what makes the ladder reviewable: a reader can see the
+ * floor, the six sub-hour rungs and the three hour-scale rungs without counting. The three longest are
+ * written as multiples of [MINUTES_PER_HOUR] because they ARE the one-hour rung in a different unit;
+ * the six below an hour stay separate rungs because a five-minute timeout is not a multiple of anything
+ * smaller that means anything.
  */
-// The numbers ARE the choices - naming nine constants would add nine names that say nothing the values and
-// the KDoc above do not. Suppressed on this declaration rather than for the whole file, so the next
-// un-named literal anywhere else in this section is still caught.
-@Suppress("MagicNumber")
-internal val UNLOCK_TIMEOUT_CHOICES = listOf(1, 2, 5, 10, 15, 30, 60, 120, 240)
+
+/** Unit conversion: minutes in an hour. Every `60` in this file is this. */
+private const val MINUTES_PER_HOUR = 60
+
+/** The floor of the ladder, which is the platform clamp's own lower bound - no shorter timeout is legal. */
+private const val MIN_UNLOCK_TIMEOUT_MINUTES = 1
+
+/** The six sub-hour rungs, the fine-grained end of the ladder where looking away is brief. */
+private const val TWO_MINUTE_UNLOCK_TIMEOUT_MINUTES = 2
+private const val FIVE_MINUTE_UNLOCK_TIMEOUT_MINUTES = 5
+private const val TEN_MINUTE_UNLOCK_TIMEOUT_MINUTES = 10
+private const val FIFTEEN_MINUTE_UNLOCK_TIMEOUT_MINUTES = 15
+private const val THIRTY_MINUTE_UNLOCK_TIMEOUT_MINUTES = 30
+
+/** The three hour-scale rungs, written as the one-hour rung and its two multiples. */
+private const val ONE_HOUR_UNLOCK_TIMEOUT_MINUTES = MINUTES_PER_HOUR
+private const val TWO_HOUR_UNLOCK_TIMEOUT_MINUTES = 2 * MINUTES_PER_HOUR
+private const val FOUR_HOUR_UNLOCK_TIMEOUT_MINUTES = 4 * MINUTES_PER_HOUR
+
+internal val UNLOCK_TIMEOUT_CHOICES = listOf(
+    MIN_UNLOCK_TIMEOUT_MINUTES,
+    TWO_MINUTE_UNLOCK_TIMEOUT_MINUTES,
+    FIVE_MINUTE_UNLOCK_TIMEOUT_MINUTES,
+    TEN_MINUTE_UNLOCK_TIMEOUT_MINUTES,
+    FIFTEEN_MINUTE_UNLOCK_TIMEOUT_MINUTES,
+    THIRTY_MINUTE_UNLOCK_TIMEOUT_MINUTES,
+    ONE_HOUR_UNLOCK_TIMEOUT_MINUTES,
+    TWO_HOUR_UNLOCK_TIMEOUT_MINUTES,
+    FOUR_HOUR_UNLOCK_TIMEOUT_MINUTES,
+)
 
 /**
  * Formats a timeout in minutes the way the read and the write must agree on: plain minutes below an

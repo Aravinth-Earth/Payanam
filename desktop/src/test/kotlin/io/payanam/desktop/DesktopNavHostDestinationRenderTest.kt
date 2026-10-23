@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -10,18 +11,22 @@ import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performTextInput
 import com.google.common.truth.Truth.assertThat
+import io.payanam.core.ui.database.DatabasePassphraseSetupScreen
 import io.payanam.core.ui.navigation.PayanamNavHost
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
 import io.payanam.core.ui.navigation.PayanamRoutes
 import io.payanam.core.ui.navigation.PayanamTab
 import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
+import io.payanam.desktop.database.DesktopDatabaseInitPorts
 import io.payanam.desktop.database.DesktopDatabasePathResolver
 import io.payanam.desktop.database.DesktopDatabaseSessionController
 import io.payanam.desktop.database.DesktopPassphraseChangeCollaborators
@@ -30,9 +35,11 @@ import io.payanam.desktop.database.DesktopPayanamDataLayer
 import io.payanam.desktop.database.DesktopSettingsCollaborators
 import io.payanam.desktop.platform.AwtDocumentSource
 import io.payanam.desktop.security.DesktopBiometricUnlockPrompt
+import io.payanam.desktop.security.DesktopEncryptionStateCheckpoint
 import io.payanam.desktop.security.DesktopForgottenPassphraseReset
 import io.payanam.desktop.security.DesktopPassphraseVault
 import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.database.passphraseSetupViewModel
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.platform.COPY_NOT_ATTEMPTED
@@ -52,6 +59,9 @@ import java.sql.Connection
 import java.sql.DriverManager
 import java.time.Instant
 import java.util.Properties
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
 
 /**
  * The REAL desktop destination bodies, mounted through the REAL shared graph - the seam
@@ -87,9 +97,8 @@ import java.util.Properties
  *    encrypted file instead of a repository double.
  *  - `UnifiedLogger`. `DesktopPayanamNavHostScreens` has a `private val logger = UnifiedLogger.getInstance()`
  *    field, so the CONSTRUCTOR throws if `initialize` has not run. Production initializes it from `main()`
- *    before any composable runs, and this file does the same in `@Before` - following
- *    `DesktopStartupGateUiTest`, which resets the singleton in both directions because a test class in a
- *    module shares one JVM.
+ *    before any composable runs, and this file does the same in `@Before`, resetting the singleton in both
+ *    directions because a test class in a module shares one JVM.
  *  - `DesktopDatabasePathResolver`. Injected, not defaulted: the default resolves the host's real
  *    `~/.local/share/Payanam` directory, and the init ViewModel health-checks whatever that resolves to. A
  *    render test that probed the developer's own database would be nondeterministic and would touch real
@@ -123,8 +132,8 @@ class DesktopNavHostDestinationRenderTest {
     fun setUp() {
         // The class under test's `logger` field calls `UnifiedLogger.getInstance()` at CONSTRUCTION, so a
         // missing logger fails every case here with a message about logging rather than about a destination.
-        // Reset first, as `DesktopStartupGateUiTest` does, so a leaked instance from an earlier class cannot
-        // point this one at a deleted TemporaryFolder.
+        // Reset first, so a leaked instance from an earlier class cannot point this one at a deleted
+        // TemporaryFolder.
         UnifiedLogger.resetForTests()
         sessionLogger =
             UnifiedLogger.initialize(
@@ -146,6 +155,34 @@ class DesktopNavHostDestinationRenderTest {
                     value TEXT,
                     updatedAt TEXT NOT NULL,
                     PRIMARY KEY(`key`)
+                )
+                """.trimIndent(),
+            )
+        }
+        // The tags family, because the task list the shell mounts reads it: the generated fixture is
+        // version 21 but carries no tags tables, so a case that renders the real task list would fail on
+        // `no such table: tags` before it could assert anything about the route.
+        connection.createStatement().use { statement ->
+            statement.execute(
+                """
+                CREATE TABLE IF NOT EXISTS tags (
+                    id TEXT NOT NULL PRIMARY KEY,
+                    name TEXT NOT NULL,
+                    normalized_name TEXT NOT NULL,
+                    usage_count INTEGER NOT NULL DEFAULT 0,
+                    last_used_at TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                )
+                """.trimIndent(),
+            )
+            statement.execute(
+                """
+                CREATE TABLE IF NOT EXISTS task_tags (
+                    task_id TEXT NOT NULL,
+                    tag_id TEXT NOT NULL,
+                    created_at TEXT NOT NULL,
+                    PRIMARY KEY(task_id, tag_id)
                 )
                 """.trimIndent(),
             )
@@ -214,6 +251,22 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     @Test
+    fun `the unlock gate states there is no in-app update action on this platform`() {
+        mountGate(DesktopStartupMode.UnlockPassphrase)
+
+        // The Diagnostics zone's update slot, which this platform fills with an explicit statement rather
+        // than omitting: no real action exists here (a .deb is installed by its packager), and a control
+        // that cannot act is forbidden. `assertExists` rather than `assertIsDisplayed`: the zone sits at
+        // the foot of the screen's scrolling column, and a statement scrolled past the fold is still the
+        // correct screen. The copy is the shared table's, in the language the graph was handed.
+        composeRule.onNodeWithText(strings.settingsUpdateNotSupportedHere).assertExists()
+        // And nothing that looks like an action: the Android-only check/download labels must not appear
+        // here, or the "never a control that cannot act" half would be unmet while the statement passed.
+        composeRule.onNodeWithText(strings.settingsUpdateCheckButton).assertDoesNotExist()
+        composeRule.onNodeWithText(strings.settingsUpdateDownloadButton).assertDoesNotExist()
+    }
+
+    @Test
     fun `the desktop passphrase setup gate renders the shared screen's copy instead of throwing`() {
         mountGate(DesktopStartupMode.SetupPassphrase)
 
@@ -225,6 +278,77 @@ class DesktopNavHostDestinationRenderTest {
         // The primary action sits at the foot of the setup column, so how far down it falls depends on the test
         // window's height; a button scrolled past the fold is still the correct screen.
         composeRule.onNodeWithText(strings.dbPassphraseSetupAction).assertExists()
+    }
+
+    @Test
+    fun `the setup screen renders no Plaintext storage-mode label for an existing database`() {
+        // The rule this pins: no screen tells a user their storage mode is "plaintext". A database that
+        // exists at this gate is about to be encrypted, so the word described a transient step as if it
+        // were the product's storage model.
+        //
+        // MOUNTED DIRECTLY RATHER THAN THROUGH THE GATE, and for a measured reason: the desktop's setup
+        // helper builds its ViewModel over `DesktopDatabasePathResolver()`'s DEFAULT, which resolves the
+        // host's real directory - so a gate mount would probe the developer's own database and this case
+        // would assert on a card whose state depends on the machine it runs on. (An earlier draft did mount
+        // the gate and asserted an absence; mutating the fix back in still passed, because the card never
+        // drew - which is how both the vacuity and the host-path dependency were found.) The resolver here
+        // points at a temp directory holding a file, which is exactly the state the label used to appear in.
+        //
+        // The title is the positive control that the screen drew, and the summary title is the control that
+        // the CARD drew - without it, an absence assertion proves nothing.
+        val databaseDirectory = temporaryFolder.newFolder("setup-summary")
+        databaseDirectory.resolve("payanam.db").writeText("a database the summary card must report")
+        val setupViewModel =
+            passphraseSetupViewModel(
+                databasePathResolver =
+                    DesktopDatabasePathResolver(databaseDirectory = { databaseDirectory.absolutePath }),
+                encryptionProbe = DesktopDatabaseInitPorts.encryptionProbe,
+                passphraseVault = vault,
+                encryptionStateCheckpoint = DesktopEncryptionStateCheckpoint(),
+                scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+            )
+        composeRule.setContent {
+            CompositionLocalProvider(LocalUiStrings provides strings) {
+                PayanamTheme(darkTheme = false) {
+                    DatabasePassphraseSetupScreen(
+                        onPassphraseConfigured = {},
+                        viewModel = setupViewModel,
+                    )
+                }
+            }
+        }
+        composeRule.waitUntil(timeoutMillis = 5_000) { setupViewModel.uiState.value.hasExistingLocalDatabase }
+        composeRule.waitForIdle()
+
+        composeRule.onNodeWithText(strings.dbPassphraseSetupTitle).assertIsDisplayed()
+        composeRule.onNodeWithText(strings.dbPassphraseDbSummaryTitle).assertExists()
+        // The exact text the removed line rendered. That line was FORMATTED - "Storage mode: Plaintext" - so an
+        // exact-match lookup for the bare word never matched it: the first version of this case asserted only
+        // the bare word, and the mutation that re-added the line still passed, which is how the shape was
+        // found. The bare word is asserted too, so a future call site that renders it plainly is caught.
+        composeRule
+            .onNodeWithText(
+                strings.dbPassphraseDbSummaryStorageMode.formatArgs(strings.dbPassphraseStorageModePlaintext),
+            ).assertDoesNotExist()
+        composeRule.onNodeWithText(strings.dbPassphraseStorageModePlaintext).assertDoesNotExist()
+    }
+
+    @Test
+    fun `the unlock gate renders no Plaintext storage-mode label`() {
+        // The same rule at the other gate, as its own case because one test may call `setContent` once and a
+        // shared case could not tell which gate had drawn.
+        //
+        // The file is created for the same reason as above, and the state it reaches is the violating one:
+        // with a fresh vault `storageModeLabelKey` resolves to "plaintext", so the summary card is drawn and
+        // the row is in exactly the branch that used to render the word. The size row's label is the positive
+        // control that the card itself drew - this screen's card carries no title of its own.
+        databaseFile.parentFile?.mkdirs()
+        databaseFile.writeText("a database the summary card must report")
+        mountGate(DesktopStartupMode.UnlockPassphrase)
+
+        composeRule.onNodeWithText(strings.appName).assertIsDisplayed()
+        composeRule.onNodeWithText(strings.locSize).assertExists()
+        composeRule.onNodeWithText(strings.dbPassphraseStorageModePlaintext).assertDoesNotExist()
     }
 
     @Test
@@ -381,9 +505,38 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     /** [mountGate] over a mode the caller can change, which is how a gate advancing is expressed here. */
+    @Test
+    fun `the add-task affordance opens the shared task form from the desktop shell`() {
+        mountGateBackedBy(mode = { DesktopStartupMode.Ready }, isLandingReady = true)
+
+        // BEFORE: the FAB publishes "Add Task" as its icon's contentDescription, never as text - so the
+        // click target exists as a description and no TEXT node carries that string yet. Asserting the
+        // absence first is what makes the click below prove the ROUTE changed, not that the string was
+        // always on screen.
+        composeRule.onNodeWithContentDescription(strings.locAddTask, useUnmergedTree = true).assertExists()
+        composeRule.onNodeWithText(strings.locAddTask).assertDoesNotExist()
+
+        composeRule.onNodeWithContentDescription(strings.locAddTask, useUnmergedTree = true).performClick()
+        composeRule.waitForIdle()
+
+        // AFTER: the shared AddTaskScreen is on screen - its top-bar title is that same string, now as
+        // TEXT, and its form's own label is there beside it.
+        composeRule.onNodeWithText(strings.locAddTask).assertExists()
+        composeRule.onNodeWithText(strings.locTaskTitle).assertExists()
+
+        // Dispose the composition while the session is still open: the form's ViewModel keeps a tag-suggestion
+        // flow collecting from the session, and this class's teardown closes the session BEFORE the rule
+        // disposes the composition - so without this the flow is still reading when the connection goes, and
+        // the uncaught exception fails a case whose assertions have already passed. Replacing the content
+        // ends the composition here, on purpose, in the test's own time.
+        composeRule.setContent { }
+        composeRule.waitForIdle()
+    }
+
     private fun mountGateBackedBy(
         mode: () -> DesktopStartupMode,
         documentSource: DocumentSource = AwtDocumentSource(),
+        isLandingReady: Boolean = false,
     ) {
         val screens = desktopNavHostScreens(documentSource = documentSource)
         composeRule.setContent {
@@ -396,7 +549,7 @@ class DesktopNavHostDestinationRenderTest {
                     language = UiLanguage.ENGLISH,
                     minimalModeEnabled = false,
                     landingRoute = PayanamTab.Tasks.route,
-                    isLandingReady = false,
+                    isLandingReady = isLandingReady,
                     shouldShowPassphraseSetup = flags.shouldShowPassphraseSetup,
                     shouldShowPassphraseUnlock = flags.shouldShowPassphraseUnlock,
                     shouldShowDatabaseInit = flags.shouldShowDatabaseInit,

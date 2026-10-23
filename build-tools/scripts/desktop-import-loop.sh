@@ -30,6 +30,7 @@
 #   --data-root <path>   where the run's app data goes            (default: a fresh scratch dir)
 #   --build <profile>    quick|normal|full                        (default: full)
 #   --skip-build         reuse the newest .deb already in output/debs
+#   --reuse-deb <path>   drive this .deb instead of the newest    (implies --skip-build)
 #   --skip-launch        do not launch the app; only run the import harness
 #
 # Exit: 0 only when the build, the launch and the harness all pass.
@@ -49,6 +50,8 @@ DATA_ROOT=""
 BUILD_PROFILE="full"
 SKIP_BUILD=0
 SKIP_LAUNCH=0
+REUSE_DEB=""
+REUSE_DEB_GIVEN=0
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
@@ -57,6 +60,7 @@ while [[ $# -gt 0 ]]; do
     --data-root) DATA_ROOT="${2:-}"; shift 2 ;;
     --build) BUILD_PROFILE="${2:-}"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
+    --reuse-deb) REUSE_DEB="${2:-}"; REUSE_DEB_GIVEN=1; shift 2 ;;
     --skip-launch) SKIP_LAUNCH=1; shift ;;
     -h | --help) sed -n '3,40p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
@@ -67,6 +71,17 @@ done
 [[ -n "$PWD_FILE" ]] || { echo "ERROR: --pwd is required" >&2; exit 2; }
 [[ -f "$DB" ]] || { echo "ERROR: database not found: $DB" >&2; exit 2; }
 [[ -f "$PWD_FILE" ]] || { echo "ERROR: passphrase file not found: $PWD_FILE" >&2; exit 2; }
+if [[ "$REUSE_DEB_GIVEN" -eq 1 ]]; then
+    # A named .deb is the whole point of this option: the run must exercise the artifact the caller
+    # chose, not whatever happens to be newest. Validated the same way --db and --pwd are - exist,
+    # then suffix. --skip-build is implied rather than rejected: naming the artifact IS the skip, and
+    # accepting the pair quietly would let the log claim a build that never ran.
+    [[ -n "$REUSE_DEB" ]] || { echo "ERROR: --reuse-deb needs a .deb path" >&2; exit 2; }
+    [[ -f "$REUSE_DEB" ]] || { echo "ERROR: .deb not found: $REUSE_DEB" >&2; exit 2; }
+    [[ "$REUSE_DEB" == *.deb ]] || { echo "ERROR: --reuse-deb needs a .deb path, got: $REUSE_DEB" >&2; exit 2; }
+    REUSE_DEB="$(realpath "$REUSE_DEB")"
+    SKIP_BUILD=1
+fi
 
 STAMP="$(date +%Y%m%d_%H%M%S)"
 [[ -n "$DATA_ROOT" ]] || DATA_ROOT="$SCRATCH/data-root-$STAMP"
@@ -77,7 +92,11 @@ verdict() { printf '%s\n' "$1" | tee -a "$VERDICT_LOG"; }
 
 # ---------------------------------------------------------------- step 1: build
 if [[ "$SKIP_BUILD" -eq 1 ]]; then
-    step "1/4 build: SKIPPED (--skip-build)"
+    if [[ "$REUSE_DEB_GIVEN" -eq 1 ]]; then
+        step "1/4 build: SKIPPED (--reuse-deb) - the named .deb, not a fresh one, is what this run proves"
+    else
+        step "1/4 build: SKIPPED (--skip-build)"
+    fi
 else
     step "1/4 build: bash build-tools/scripts/build-linux.sh --profile $BUILD_PROFILE"
     if ! bash build-tools/scripts/build-linux.sh --profile "$BUILD_PROFILE" >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
@@ -99,11 +118,18 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
         verdict "LOOP-NOTE: $LAUNCH_OK"
     else
         IMAGE="$SCRATCH/image-$STAMP"
-        DEB="$(ls -t "$REPO_ROOT"/output/debs/Payanam_Linux_*.deb 2>/dev/null | head -1 || true)"
+        if [[ -n "$REUSE_DEB" ]]; then
+            DEB="$REUSE_DEB"
+        else
+            DEB="$(ls -t "$REPO_ROOT"/output/debs/Payanam_Linux_*.deb 2>/dev/null | head -1 || true)"
+        fi
         if [[ -z "$DEB" ]]; then
             LAUNCH_OK="blocked: no .deb in output/debs"
             verdict "LOOP-NOTE: $LAUNCH_OK"
         else
+            # Name the artifact and its age in the log. Every later line describes THAT binary, and a
+            # .deb older than the tree under test would otherwise be indistinguishable from a fresh one.
+            verdict "LOOP-DEB: $DEB (built $(date -r "$DEB" '+%Y-%m-%d %H:%M:%S'))"
             mkdir -p "$IMAGE"
             dpkg -x "$DEB" "$IMAGE"
             LAUNCHER="$(find "$IMAGE" -type f -path '*/bin/Payanam' | head -1 || true)"

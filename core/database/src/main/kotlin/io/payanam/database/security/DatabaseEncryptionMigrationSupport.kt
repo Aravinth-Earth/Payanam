@@ -23,8 +23,13 @@ import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
 object DatabaseEncryptionMigrationSupport {
     private val logger = UnifiedLogger.getInstance()
 
-    /** First 16 bytes of every unencrypted SQLite database file ("SQLite format 3\u0000"). */
-    private val SQLITE_PLAINTEXT_MAGIC = "SQLite format 3\u0000".toByteArray()
+    /**
+     * First 16 bytes of every unencrypted SQLite database file.
+     *
+     * The BYTES are the shared declaration's, not a second copy: a private restatement of the magic is how
+     * this file and the classifier came to be able to disagree about what "plaintext" means.
+     */
+    private val SQLITE_PLAINTEXT_MAGIC = io.payanam.shared.database.EncryptedFileClassifier.SQLITE_PLAINTEXT_MAGIC
 
     /**
      * Exports [sourceDatabase] to [destinationDatabase]. When
@@ -322,7 +327,7 @@ object DatabaseEncryptionMigrationSupport {
         try {
             val sourceVersion = encryptedDb.version
             encryptedDb.rawExecSQL("PRAGMA rekey = '${escapeSql(passphrase)}';")
-            encryptedDb.rawExecSQL("PRAGMA user_version = $sourceVersion;")
+            writeUserVersion(encryptedDb, sourceVersion)
             logger.i(
                 logTag,
                 "SQLCipher rekey conversion completed for plaintext source",
@@ -400,13 +405,42 @@ object DatabaseEncryptionMigrationSupport {
                 "ATTACH DATABASE '${escapeSql(destinationDatabase.absolutePath)}' AS plaintext KEY '';",
             )
             sourceDb.rawExecSQL("SELECT sqlcipher_export('plaintext');")
-            sourceDb.rawExecSQL("PRAGMA plaintext.user_version = ${sourceDb.version};")
+            writeUserVersion(sourceDb, sourceDb.version, schema = "plaintext")
             sourceDb.rawExecSQL("DETACH DATABASE plaintext;")
         } finally {
             sourceDb.close()
         }
         if (!destinationDatabase.exists() || destinationDatabase.length() == 0L) {
             throw IllegalStateException("Plaintext export output was empty.")
+        }
+    }
+
+    /**
+     * Sets `user_version` on [database] to [version], in the main schema or in the attached
+     * [schema] when one is named — the single named place in this module where that header field
+     * is written.
+     *
+     * The pragma is issued as a QUERY and the cursor is drained before returning, mirroring the
+     * desktop's `writePragma`. That shape exists because `Statement.execute`/`executeUpdate`
+     * persist `0` for `PRAGMA user_version` on SQLCipher JDBC 0.2.13 (measured there); on this
+     * module's driver no equivalent loss has been measured, so the drain is carried over as the
+     * known-good form rather than as a fix — but keep it. Stepping the statement and reading the
+     * cursor to completion is what makes "did this pragma actually take effect?" answerable, and
+     * the `.use` below is what guarantees it on the error path too. Do not "simplify" this into
+     * `rawExecSQL`.
+     *
+     * [schema] is a SQLCipher attach alias from a caller in this file, never user input.
+     */
+    private fun writeUserVersion(
+        database: SqlCipherDatabase,
+        version: Int,
+        schema: String? = null,
+    ) {
+        val qualified = if (schema == null) "user_version" else "$schema.user_version"
+        database.rawQuery("PRAGMA $qualified = $version;", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                // Drained deliberately: see above.
+            }
         }
     }
 

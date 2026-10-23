@@ -293,7 +293,9 @@ class DatabaseInitViewModel(
     }
 
     private suspend fun detectBootstrapPlaceholder(dbFile: java.io.File): Boolean {
-        val isEncrypted = passphraseVault.isEncryptionEnabled()
+        // A file question, answered by the file: a bootstrap placeholder cannot be detected in a file
+        // that is detectably encrypted, and that is true of THIS file regardless of the platform mode.
+        val isEncrypted = encryptionProbe.isDetectablyEncrypted(dbFile)
         if (isEncrypted) return false
         val databaseInitCompleted = readDatabaseInitCompletedFlag(dbFile)
         val counts = withContext(ioDispatcher) {

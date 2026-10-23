@@ -24,7 +24,7 @@ data class DesktopDatabaseSnapshot(
     val databaseLastModifiedMs: Long,
 )
 
-internal class DesktopDatabaseStore(
+internal class DesktopDatabaseProbe(
     /** The REAL database file, not a scaffold path - see [DesktopDatabaseSnapshot]. */
     databaseFilePath: Path = databaseFile(),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
@@ -56,7 +56,7 @@ internal class DesktopDatabaseStore(
      */
     fun ensureInitialized(): DesktopDatabaseSnapshot {
         logEvent(
-            "DesktopDatabaseStore.ensureInitialized",
+            "DesktopDatabaseProbe.ensureInitialized",
             "Read desktop database facts",
             emptyMap(),
         )
@@ -71,7 +71,7 @@ internal class DesktopDatabaseStore(
      */
     fun resetDatabaseArtifact(): DesktopDatabaseSnapshot {
         logEvent(
-            "DesktopDatabaseStore.resetDatabaseArtifact",
+            "DesktopDatabaseProbe.resetDatabaseArtifact",
             "Re-read desktop database facts without touching the file",
             emptyMap(),
         )

@@ -14,7 +14,7 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateChannel
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test

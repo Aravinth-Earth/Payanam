@@ -40,6 +40,17 @@ class DesktopNavHostParityTest {
     private val desktopFile = File(repoRoot, "desktop/src/main/kotlin/io/payanam/desktop/DesktopApp.kt")
 
     /**
+     * The desktop's own call into the shared settings screen's actions object.
+     *
+     * Scanned as well as the graph, because a shared decision input can be answered at either site: the graph
+     * takes `minimalModeEnabled`, and the settings destination builds the same-named field of
+     * `SettingsScreenActions`. Reading only the graph is how a bare `false` at the second site stayed
+     * invisible to this file.
+     */
+    private val desktopScreensFile =
+        File(repoRoot, "desktop/src/main/kotlin/io/payanam/desktop/DesktopPayanamNavHostScreens.kt")
+
+    /**
      * The named arguments of every `PayanamNavHost(` call in [source], unioned across calls.
      *
      * Two mount sites on Android, one on the desktop, so a parameter Android supplies at only one of its
@@ -50,17 +61,20 @@ class DesktopNavHostParityTest {
      * = false` inside `Surface(` is not a graph parameter - and a looser scan swept those in and then
      * failed a healthy build.
      */
-    private fun passedArguments(source: File): Map<String, String> {
+    private fun passedArguments(
+        source: File,
+        needle: String = GRAPH_MOUNT_CALL,
+    ): Map<String, String> {
         val result = mutableMapOf<String, String>()
         val lines = source.readLines()
-        for ((callLine, callColumn) in callSites(lines)) {
+        for ((callLine, callColumn) in callSites(lines, needle)) {
             var depth = 0
             var braceDepth = 0
             var lineIndex = callLine
             var first = true
             while (lineIndex < lines.size) {
                 val line = lines[lineIndex]
-                val scanned = if (first) line.substring(callColumn + "PayanamNavHost(".length) else line
+                val scanned = if (first) line.substring(callColumn + needle.length) else line
                 // The opening line's own parens count too, or the scan ends before reading any argument.
                 depth += line.count { it == '(' } - line.count { it == ')' }
                 // A lambda argument's BODY holds assignments at the same indent - Android writes
@@ -82,10 +96,13 @@ class DesktopNavHostParityTest {
         return result
     }
 
-    /** Every `(line, column)` where a `PayanamNavHost(` call opens. */
-    private fun callSites(lines: List<String>): List<Pair<Int, Int>> =
+    /** Every `(line, column)` where a `needle` call opens. */
+    private fun callSites(
+        lines: List<String>,
+        needle: String,
+    ): List<Pair<Int, Int>> =
         lines.flatMapIndexed { index, line ->
-            val column = line.indexOf("PayanamNavHost(")
+            val column = line.indexOf(needle)
             if (column >= 0 && !line.trimStart().startsWith("//")) listOf(index to column) else emptyList()
         }
 
@@ -109,9 +126,13 @@ class DesktopNavHostParityTest {
         // failure mode of a source-reading test. This is the guard against a test that proves nothing.
         val android = passedArguments(androidFile)
         val desktop = passedArguments(desktopFile)
+        val desktopScreens = passedArguments(desktopScreensFile, SETTINGS_ACTIONS_CALL)
 
         assertThat(android).isNotEmpty()
         assertThat(desktop).isNotEmpty()
+        // The second scan has to prove itself non-empty for the same reason: an empty parse would make the
+        // literal check above pass while inspecting nothing.
+        assertThat(desktopScreens).isNotEmpty()
         assertThat(declaredParameters()).isNotEmpty()
     }
 
@@ -159,12 +180,19 @@ class DesktopNavHostParityTest {
         // hard-codes the answer: a bare `true`/`false` here is a value chosen at the mount site, free to
         // drift from the shared ViewModels that read the same flag from the holder. That is the check.
         val desktop = passedArguments(desktopFile)
+        val desktopScreens = passedArguments(desktopScreensFile, SETTINGS_ACTIONS_CALL)
 
+        // Per site, then unioned: merging the two maps first would let the graph's own correct read mask a
+        // literal at the settings site, because only one value survives per key.
         val hardCoded =
-            SHARED_DECISION_INPUTS
-                .filter { it in desktop }
-                .filter { isLiteral(desktop.getValue(it)) }
-                .sorted()
+            (
+                SHARED_DECISION_INPUTS
+                    .filter { it in desktop }
+                    .filter { isLiteral(desktop.getValue(it)) } +
+                    SHARED_DECISION_INPUTS
+                        .filter { it in desktopScreens }
+                        .filter { isLiteral(desktopScreens.getValue(it)) }
+            ).sorted()
 
         assertThat(hardCoded).isEqualTo(RECORDED_VALUE_MISMATCHES)
     }
@@ -186,6 +214,17 @@ class DesktopNavHostParityTest {
 
         /** A parameter declaration in the graph's signature. */
         val DECLARED = Regex("""^\s{4}(\w+):""")
+
+        /** The shared navigation graph's mount call. */
+        const val GRAPH_MOUNT_CALL = "PayanamNavHost("
+
+        /**
+         * The desktop's construction of the shared settings screen's actions object.
+         *
+         * The second place a build-time decision can be answered locally: `SettingsScreenActions` carries a
+         * same-named field for the same flag the graph takes.
+         */
+        const val SETTINGS_ACTIONS_CALL = "SettingsScreenActions("
 
         /**
          * The parameters that are a build-time feature decision rather than a preference row.
@@ -215,15 +254,14 @@ class DesktopNavHostParityTest {
          * Seven were closed on 2026-09-26 - the backup-failure banner, return-route-after-unlock, and the
          * whole `aiAssistantEnabled` build flag, which is DELETED rather than wired: AI Assistance is a
          * permanent capability in both apps, so the desktop no longer hard-codes a value that can disagree.
-         * That leaves three, all of them features that silently do not work on the desktop: no external
-         * navigation, no post-unlock initialisation, no post-import reinitialisation, and the
-         * consumed-callback that has to land with the first.
+         * `onPassphraseUnlocked` was closed on 2026-10-03, when the mount site began supplying it: the graph
+         * no longer takes its `= {}` default there. That leaves two, both features that silently do not work
+         * on the desktop: no external navigation, and the consumed-callback that has to land with it.
          */
         val RECORDED_MISSING_ON_DESKTOP =
             listOf(
                 "externalCommand",
                 "onExternalCommandConsumed",
-                "onPassphraseUnlocked",
             )
 
         /**

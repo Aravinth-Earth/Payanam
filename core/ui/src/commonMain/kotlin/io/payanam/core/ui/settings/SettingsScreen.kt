@@ -312,6 +312,20 @@ fun SettingsScreenContent(
                 }
             }
             SettingsCard(
+                title = strings.settingsDayBoundaryTitle,
+                icon = Icons.Default.Timer,
+                expanded = expandedSection == SettingsSection.DAY_BOUNDARY,
+                onToggleExpanded = {
+                    logSectionToggle(logger, expandedSection, "day_boundary", SettingsSection.DAY_BOUNDARY)
+                    expandedSection = expandedSection.toggle(SettingsSection.DAY_BOUNDARY)
+                },
+            ) {
+                SettingsDayBoundarySection(
+                    currentHour = prefsState.dayBoundaryHour,
+                    onDayBoundaryHourChange = actions.onDayBoundaryHourChanged,
+                )
+            }
+            SettingsCard(
                 title = strings.settingsInsightsChartsVisibilityTitle,
                 icon = Icons.Default.TrendingUp,
                 expanded = expandedSection == SettingsSection.TIME_INSIGHTS,
@@ -476,6 +490,7 @@ fun SettingsScreenContent(
                         },
                         isExporting = uiState.isExporting,
                         isImporting = uiState.isImporting,
+                        deleteAllDataEnabled = actions.deleteAllDataEnabled,
                     )
                 }
             } else {
@@ -516,6 +531,7 @@ fun SettingsScreenContent(
                             logDataAction(logger, "delete_all")
                             actions.onDeleteAllDataRequested()
                         },
+                        deleteAllDataEnabled = actions.deleteAllDataEnabled,
                     )
                 }
             }
@@ -532,7 +548,6 @@ fun SettingsScreenContent(
             }
             if (importSourceSelected) {
                 ImportDatabaseConfirmDialog(
-                    showEncryptedModeWarning = actions.encryptionEnabled,
                     onConfirm = {
                         actions.onImportConfirmed()
                     },

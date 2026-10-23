@@ -413,6 +413,7 @@ kotlin {
 dependencies {
     api(project(":core:domain"))
     api(project(":core:database-model"))
+    implementation(project(":core:scoring"))
     implementation(project(":core:shared"))
     implementation(libs.coroutines.core)
     implementation(libs.sqlcipher.jvm.jdbc)

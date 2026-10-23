@@ -12,16 +12,16 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.AutoDownloadManager
 import io.payanam.feature.settings.InstallerChecker
-import io.payanam.feature.settings.UpdateChecker
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -103,7 +103,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                 mapOf("currentBuild" to currentBuildNumber, "channel" to UpdateChannel.DEV.name),
             )
             try {
-                val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV)
+                val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV, ApkBuildType.running())
                 when (result.outcome) {
                     UpdateOutcome.FAILED -> {
                         logger.e(

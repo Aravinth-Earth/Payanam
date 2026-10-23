@@ -17,7 +17,9 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.platform.LocalContext
 import androidx.hilt.navigation.compose.hiltViewModel
+import dagger.hilt.android.EntryPointAccessors
 import io.payanam.FeatureFlags
 import io.payanam.core.ui.settings.SettingsScreenActions
 import io.payanam.core.ui.settings.SettingsScreenContent
@@ -25,9 +27,15 @@ import io.payanam.core.ui.settings.UHABITS_IMPORT_MIME_TYPES
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.cancelImportPassphrase
 import io.payanam.feature.settings.resumeImportWithPassphrase
+import io.payanam.platform.SettingsEntryPoint
 import io.payanam.service.AutoBackupWorker
+import io.payanam.ui.retainSharedViewModel
 import io.payanam.ui.screens.AndroidDatabaseSecurityBiometricActions
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.cancel
 
 /**
  * The Android half of the settings screen: the three activity-result pickers, the backup worker, the
@@ -51,7 +59,7 @@ import io.payanam.ui.viewmodel.AppPreferencesViewModel
  */
 @Composable
 fun SettingsScreen(
-    viewModel: SettingsViewModel = hiltViewModel(),
+    viewModel: SettingsViewModel = retainedSettingsViewModel(),
     onNavigateToPassphraseChange: () -> Unit = {},
     onNavigateToScoringConfig: () -> Unit = {},
     onNavigateToDatabaseInit: () -> Unit = {},
@@ -62,7 +70,6 @@ fun SettingsScreen(
     val prefsState by prefsViewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     val context = activity
-    val encryptionManager = viewModel.databaseEncryptionManager
     val manualBackupInProgress by prefsViewModel.manualBackupInProgress.collectAsState()
     val habitScoreDiagnosticsInProgress by prefsViewModel.habitScoreDiagnosticsInProgress.collectAsState()
     val logger = remember { io.payanam.common.logging.UnifiedLogger.getInstance() }
@@ -160,6 +167,7 @@ fun SettingsScreen(
             onDimensionWeightChanged = { id, weight -> prefsViewModel.setDimensionWeight(id, weight) },
             onDimensionVisibilityChanged = { id, visible -> prefsViewModel.setDimensionVisibility(id, visible) },
             onAutoTrackHabitTimeGlobalChanged = { enabled -> prefsViewModel.setAutoTrackHabitTimeGlobal(enabled) },
+            onDayBoundaryHourChanged = { hour -> prefsViewModel.setDayBoundaryHour(hour) },
             onAutoTrackDimensionPreferenceChanged = { id, enabled -> prefsViewModel.setAutoTrackDimensionPreference(id, enabled) },
             onChartVisibilityChanged = { key, enabled -> prefsViewModel.setChartVisibility(key, enabled) },
             onAutoBackupEnabledChanged = { enabled -> prefsViewModel.setAutoBackupEnabled(enabled) },
@@ -202,7 +210,6 @@ fun SettingsScreen(
             onImportPassphraseSubmitted = { passphrase -> viewModel.resumeImportWithPassphrase(passphrase) },
             onImportPassphraseDismissed = { viewModel.cancelImportPassphrase() },
             onBulkMapImportedHabitsConfirmed = { id, label -> viewModel.bulkMapImportedHabitsToDimension(id, label) },
-            encryptionEnabled = encryptionManager.isEncryptionEnabled(),
             onNavigateToPassphraseChange = onNavigateToPassphraseChange,
         ),
     )
@@ -224,4 +231,43 @@ private fun biometricActionsHolder(
         context = context,
         onEnableBiometricRequested = onEnableBiometricRequested,
     )
+}
+
+/**
+ * The settings ViewModel, constructed here because [SettingsViewModel] is a plain class now.
+ *
+ * It stopped extending `androidx.lifecycle.ViewModel`, so `hiltViewModel()` can no longer resolve it, and
+ * it takes its collaborators as constructor parameters rather than as injected fields. The platform
+ * therefore builds it - the way [biometricActionsHolder] above resolves its own Hilt-free dependencies -
+ * and Hilt's bindings are reached through [SettingsEntryPoint] rather than by injection.
+ *
+ * It is RETAINED rather than merely remembered, and it is handed its own [kotlinx.coroutines.CoroutineScope]
+ * instead of being left on the constructor's default, because both halves of that are the same user flow:
+ * tapping "export database", "delete database" or "check for updates" starts work the user expects to finish
+ * even though the next thing they do is leave - tap a rail card, answer a system prompt, rotate the phone.
+ * A `remember` block would drop the instance on the first of those; a composition scope
+ * (`rememberCoroutineScope()`, still used above for plain collaborator actions) would abandon the launch
+ * mid-flight on the second. The scope here is created with the instance and cancelled in the holder's
+ * `onCleared()`, so the work is deliberately long-lived and its teardown is deliberate too - the same
+ * rule the desktop shell states for its settings writes.
+ */
+@Composable
+private fun retainedSettingsViewModel(): SettingsViewModel {
+    // The APPLICATION context, not [LocalContext]: this instance outlives the activity that made it, so a
+    // retained ViewModel holding an Activity context would leak it. Same reason the passphrase-setup
+    // screen above builds from `context.applicationContext`.
+    val context = LocalContext.current.applicationContext
+    return retainSharedViewModel(
+        key = "settings",
+        onRelease = { it.scope.cancel() },
+    ) {
+        val entryPoint = EntryPointAccessors.fromApplication(context, SettingsEntryPoint::class.java)
+        SettingsViewModel(
+            context = context,
+            sessionManager = entryPoint.androidDatabaseSessionManager(),
+            databaseEncryptionManager = entryPoint.databaseEncryptionManager(),
+            databaseBackupCoordinator = entryPoint.databaseBackupCoordinator(),
+            scope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+        )
+    }
 }

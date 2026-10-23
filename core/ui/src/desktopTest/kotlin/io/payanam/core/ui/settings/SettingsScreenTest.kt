@@ -29,7 +29,7 @@ import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateChannel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -304,6 +304,46 @@ class SettingsScreenTest {
         scrollTo("7")
         composeRule.onAllNodesWithText("7").assertCountEquals(1)
     }
+
+    /**
+     * No shared screen may imply an update check this platform never performed.
+     *
+     * The desktop's update source answers `Inconclusive` without ever reading a channel, so the shared settings
+     * screen, which both platforms mount, must not carry an update affordance that only one of them can honour.
+     * The case is the gate's own: with `updateCheckResult` at its default (null - the state the desktop is always
+     * in) the screen shows no update copy at all.
+     *
+     * WHY THE ANCHOR ASSERTION COMES FIRST: "no update string" is satisfied by a screen that drew nothing, so the
+     * about card's title is asserted present before the absence is claimed. Without it this case would pass on a
+     * blank render, which is the failure mode a negative assertion invites.
+     *
+     * WHY THE PRE-UNLOCK COPY IS INCLUDED: those strings belong to the pre-unlock surface, so their absence here is
+     * not obvious - it is the check that the settings screen does not quietly borrow copy from the one screen that
+     * does talk about downloading a build.
+     */
+    @Test
+    fun noUpdateStringIsShownWhenNoCheckHasRun() {
+        setContent()
+
+        // Positive control on the SAME query: the substring form this case uses must find text that is there.
+        // Without it, nine zero counts could all be a query that matches nothing.
+        composeRule.onAllNodesWithText(strings.settingsAboutTitle, substring = true).assertCountEquals(1)
+
+        listOf(
+            strings.settingsUpdateAutoCheck,
+            strings.settingsUpdateAutoDownload,
+            strings.preUnlockUpdateHint,
+            strings.preUnlockUpdateUpToDate,
+            strings.preUnlockUpdateCheckFailed,
+            strings.preUnlockUpdateDownloadFailed,
+            strings.preUnlockUpdateDownloadInstall,
+            strings.preUnlockUpdateDownloading,
+            strings.preUnlockUpdateBuildValue,
+        ).forEach { copy ->
+            composeRule.onAllNodesWithText(copy, substring = true).assertCountEquals(0)
+        }
+    }
+
     @Test
     fun debugTreeDump() {
         setContent()

@@ -15,6 +15,7 @@ import io.payanam.presentation.database.DatabaseImportSupport
 import io.payanam.presentation.database.DatabaseInitWalConsolidator
 import io.payanam.presentation.database.dbInitClassifyBootIssue
 import io.payanam.presentation.database.dbInitDeleteAllFiles
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.DatabaseBootIssue
 import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.DatabaseHealthReport
@@ -151,7 +152,7 @@ class DbLayerLifecycleRegressionTest {
         File(dbDir, "payanam.db.bak").writeText("bak")
 
         // Create temp backup subdir with a file inside
-        val tempBackupDir = File(dbDir, "payanam_temp_backup")
+        val tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
         tempBackupDir.mkdirs()
         File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("backup-db")
         val deletedCount = deleteAllDatabaseArtifactFiles(context)
@@ -169,7 +170,7 @@ class DbLayerLifecycleRegressionTest {
         dbDir.mkdirs()
         File(dbDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("db")
         File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").writeText("wal")
-        val tempBackupDir = File(dbDir, "payanam_temp_backup")
+        val tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
         tempBackupDir.mkdirs()
         File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME).writeText("backup-db")
         dbInitDeleteAllFiles(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME))

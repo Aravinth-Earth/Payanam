@@ -30,9 +30,11 @@ internal object JdbcQueries {
         parameters: Array<out String?>,
         map: (ResultSet) -> T,
     ): T =
-        session.requireConnection().prepareStatement(sql).use { statement ->
-            parameters.forEachIndexed { index, value -> statement.setString(index + 1, value) }
-            statement.executeQuery().use { map(it) }
+        session.withSerializedAccess { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                parameters.forEachIndexed { index, value -> statement.setString(index + 1, value) }
+                statement.executeQuery().use { map(it) }
+            }
         }
 
     /**
@@ -48,9 +50,11 @@ internal object JdbcQueries {
         sql: String,
         parameters: Array<out String?>,
     ): Int =
-        session.requireConnection().prepareStatement(sql).use { statement ->
-            parameters.forEachIndexed { index, value -> statement.setString(index + 1, value) }
-            statement.executeUpdate()
+        session.withSerializedAccess { connection ->
+            connection.prepareStatement(sql).use { statement ->
+                parameters.forEachIndexed { index, value -> statement.setString(index + 1, value) }
+                statement.executeUpdate()
+            }
         }
 
     /**
@@ -70,7 +74,7 @@ internal object JdbcQueries {
      * after which the outer rollback can no longer undo it, and a failure halfway through a multi-table
      * write would leave it half applied. The callers nest for real: `clearDayPlan` wraps its delete and its
      * mode change in one transaction, and the mode change marks the day lens-dirty, which is itself a
-     * read-modify-write that wants to be atomic. Room's own `withTransaction` joins for the same reason.
+     * read-modify-write that wants to be atomic. The Android side's transaction helper joins for the same reason.
      *
      * The catch is deliberately `Throwable` rather than `Exception`: a rollback is required on ANY failure,
      * `Error` included, because a half-applied multi-table write is worse than propagating whatever went
@@ -79,12 +83,11 @@ internal object JdbcQueries {
     fun <T> transaction(
         session: PayanamDatabaseSession,
         block: () -> T,
-    ): T {
-        val connection = session.requireConnection()
-        if (!connection.autoCommit) return block()
+    ): T = session.withSerializedAccess { connection ->
+        if (!connection.autoCommit) return@withSerializedAccess block()
         val previousAutoCommit = connection.autoCommit
         connection.autoCommit = false
-        return try {
+        return@withSerializedAccess try {
             val result = block()
             connection.commit()
             result

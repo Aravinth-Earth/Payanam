@@ -37,6 +37,26 @@ data class FeatureFlagsState(
      * default of false would silently hide a working surface there rather than fail loudly.
      */
     val plansCtaEnabled: Boolean = true,
+
+    /**
+     * Whether the settings section that edits the focus-mode rows is offered. Android reads it from
+     * `BuildConfig.FOCUS_MODE_SETTINGS_ENABLED`.
+     *
+     * A compile-time decision, like the flags above, and it belongs here rather than at each mount site for
+     * the reason this type exists: a screen that hid the section on one platform and offered it on the other
+     * would be a divergence no test could see.
+     */
+    val focusModeSettingsEnabled: Boolean = true,
+
+    /**
+     * Whether the settings section that edits the score configuration is offered. Android reads it from
+     * `BuildConfig.SCORE_SETTINGS_ENABLED`.
+     *
+     * Note the shared actions object defaults this to false while this holder defaults it to true: the two are
+     * asked at different layers. This holder answers "what does this build ship", and the default here is the
+     * full feature set, matching every other flag on this type.
+     */
+    val scoreSettingsEnabled: Boolean = true,
 )
 
 /**

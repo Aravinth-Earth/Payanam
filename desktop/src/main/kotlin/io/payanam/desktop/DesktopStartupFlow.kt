@@ -87,9 +87,6 @@ enum class DesktopStartupMode {
     /** SCAFFOLD: first onboarding surface. See [DesktopScaffoldOnboardingStage]. */
     OnboardingIntro,
 
-    /** SCAFFOLD: create a new space or import an existing encrypted database. */
-    OnboardingDatabaseChoice,
-
     /** Passphrase has not been configured yet; user must set it up. */
     SetupPassphrase,
 
@@ -138,7 +135,13 @@ fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): Desktop
             DesktopStartupMode.SecurityStateUnavailable
         }
 
-        runtimeState.scaffoldOnboardingStage == DesktopScaffoldOnboardingStage.Intro -> {
+        runtimeState.scaffoldOnboardingStage == DesktopScaffoldOnboardingStage.Intro &&
+            !runtimeState.hasDatabaseArtifacts -> {
+            // The tour runs only when there is nothing to return to. The stage is transient by design, so a
+            // launch that HAS database artifacts is by definition a returning one, and asking a returning
+            // user to sit through the tour again is the defect this clause removes - the state's own KDoc
+            // used to justify the default with "the scaffold has no database to skip it with", and the
+            // database artifacts are exactly that. A launch with nothing on disk still opens onboarding.
             DesktopStartupMode.OnboardingIntro
         }
 
@@ -197,7 +200,7 @@ fun resolveDesktopStartupMode(runtimeState: DesktopStartupRuntimeState): Desktop
  */
 fun buildDesktopStartupRuntimeState(
     focusModeOnboardingCompleted: Boolean,
-    bootstrapSnapshot: DesktopBootstrapSnapshot,
+    bootstrapSchema: DesktopBootstrapSchema,
     securitySnapshot: DesktopSecuritySnapshot,
     databaseSnapshot: DesktopDatabaseSnapshot,
     sessionOpen: Boolean,
@@ -297,7 +300,7 @@ internal sealed interface DesktopDatabaseCreateOutcome {
  * existing success path - re-reading the database snapshot, where `initCompleted` is derived from this
  * very file - so there is still exactly one way past this gate.
  *
- * @param databasePath the target file: the same value `DesktopDatabaseStore.getDatabaseFilePath()`
+ * @param databasePath the target file: the same value `DesktopDatabaseProbe.getDatabaseFilePath()`
  *   returns, i.e. `<root>/database/payanam.db`, so the create, the open and the transfer gateway cannot
  *   disagree about where the database lives.
  * @param passphrase the caller's array; read, never retained and never logged.
@@ -357,10 +360,10 @@ internal fun createDesktopFirstRunDatabase(
 /**
  * The one-line answer for the gate's status area.
  *
- * EXISTS because the gate's own Initialize handler prints an unconditional success string
- * (`DesktopStartupGate.kt`, in the `onInitialize` click lambda), which is how a button that did nothing
- * reported that it had initialised the database. The call site must publish THIS instead, so a refusal
- * reaches the user rather than being overwritten by a success the create never achieved.
+ * EXISTS because the deleted gate's Initialize handler printed an unconditional success string, which
+ * is how a button that did nothing reported that it had initialised the database. The call site must
+ * publish THIS instead, so a refusal reaches the user rather than being overwritten by a success the
+ * create never achieved.
  */
 internal fun desktopDatabaseCreateStatusMessage(outcome: DesktopDatabaseCreateOutcome): String =
     when (outcome) {

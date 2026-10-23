@@ -36,6 +36,8 @@
 #   type_text 'my passphrase'
 #   press Return
 #   shot 03-after-passphrase
+#   find_button_centre --label 'Run Backup Now'   # locate a PRIMARY-coloured control by colour
+#   click_text --text 'Cancel' 2.5 cancel         # locate a control BY ITS WORDS, then click it
 # Anything it writes to $RUN_DIR is kept for inspection.
 set -uo pipefail
 
@@ -323,6 +325,319 @@ click_button() {
     # shellcheck disable=SC2086
     click $found "$settle" "$label"
 }
+
+# --- FIND A CONTROL BY ITS LABEL, INSTEAD OF ITS COLOUR ----------------------------------------------------
+# WHY THIS IS NOT A REPLACEMENT FOR find_button_centre, BUT A SECOND ANSWER TO THE SAME QUESTION
+# find_button_centre finds the PRIMARY-coloured pill. It cannot see a secondary button, a plain text
+# link, a menu row, a list item, a tab, or a heading - all of which the drive may need to touch, and all
+# of which are exactly the controls that have no fixed pixel to hardcode. So this asks a different
+# question: not "where is the teal" but "where are these WORDS".
+#
+# The same failure mode kills both, which is why the contract is identical: stdout is ONLY "<x> <y>",
+# every human-readable line goes to stderr, and a miss is a LOUD one. A finder that guesses is worse
+# than no finder, because the click lands, the run looks green, and nothing was exercised.
+#
+# find_text_centre --text TEXT [--region X1,Y1,X2,Y2] [--scale N] [--lang LANG]
+# Prints "<x> <y>" on stdout - the centre of the matched words, in ROOT window coordinates.
+#
+# --region X1,Y1,X2,Y2 is a rectangle in root coordinates whose far corner is EXCLUSIVE, i.e. the crop
+#   is (X2-X1)x(Y2-Y1) at +X1+Y1, the same convention as ImageMagick's -crop WxH+X+Y. It is a HINT in
+#   the useful sense and a hard filter in the honest one: it shrinks the pixels OCR has to read, which
+#   makes small text much more likely to be recognised, and it does NOT make the helper fall back to the
+#   whole frame when the text is missing. Silently searching somewhere else is how a rename turns into a
+#   run that reports a button it never found.
+#
+# --scale N upscales before OCR. DEFAULT 2, AND THE DEFAULT IS LOAD-BEARING (measured here, on a 9px
+#   DejaVu rendering of "Run Backup Now"): at scale 1 tesseract returns NO words at all for that line and
+#   the helper reports "no match"; at scale 2 and 3 it returns the full phrase. Small-font controls -
+#   secondary text, list rows, tooltips - are invisible at 1x. -filter point is used deliberately: for
+#   integer magnification of rendered glyphs it reproduces each pixel as a clean NxN block, and measured
+#   against Lanczos/Mitchell/Cubic it gave the same match and the same coordinates.
+#
+# --lang eng IS THE DEFAULT BECAUSE IT IS THE ONLY ONE THAT WORKS HERE. MEASURED on this host:
+#   tesseract 5.5.0 with tessdata at /usr/share/tesseract-ocr/5/tessdata/ containing eng.traineddata and
+#   osd.traineddata and NOTHING else. No tesseract-ocr-tam, so a --lang tam run does not degrade to
+#   English - it fails outright.
+#   READ THIS BEFORE YOU TRUST TEXT SEARCH OVER THE WHOLE APP: the first-run tour renders in TAMIL, so
+#   click_text CANNOT reach the tour. A drive still has to cross the first run by the coordinates the
+#   existing drives already use, and text search is for the English screens past it. Do not assume
+#   "the helper found no text" means "the app has no text there" - it can mean the script is in a script
+#   this install cannot read. The fix is a language pack, not a different coordinate.
+find_text_centre() {
+    local text="" region="" scale=2 lang=eng
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --text)   [[ $# -ge 2 ]] || { say "find_text_centre: --text was given with no value" >&2; return 2; }
+                      text="$2"; shift 2 ;;
+            --region) [[ $# -ge 2 ]] || { say "find_text_centre: --region was given with no value" >&2; return 2; }
+                      region="$2"; shift 2 ;;
+            --scale)  [[ $# -ge 2 ]] || { say "find_text_centre: --scale was given with no value" >&2; return 2; }
+                      scale="$2"; shift 2 ;;
+            --lang)   [[ $# -ge 2 ]] || { say "find_text_centre: --lang was given with no value" >&2; return 2; }
+                      lang="$2"; shift 2 ;;
+            *) say "find_text_centre: unknown option '$1'" >&2; return 2 ;;
+        esac
+    done
+    if [[ -z "$text" ]]; then
+        say "find_text_centre: --text is required so a failure can name what it searched for" >&2
+        return 2
+    fi
+    [[ "$scale" =~ ^[0-9]+$ ]] && (( scale >= 1 )) || { say "find_text_centre: --scale must be an integer >= 1, got '$scale'" >&2; return 2; }
+
+    local frame work tsv prog err w h
+    frame=$(mktemp "${TMPDIR:-/tmp}/payanam-text-XXXXXX.png")
+    work=$(mktemp "${TMPDIR:-/tmp}/payanam-text-ocr-XXXXXX.png")
+    tsv=$(mktemp "${TMPDIR:-/tmp}/payanam-text-XXXXXX.tsv")
+    err=$(mktemp "${TMPDIR:-/tmp}/payanam-text-XXXXXX.err")
+    prog=$(mktemp "${TMPDIR:-/tmp}/payanam-text-XXXXXX.awk")
+    # shellcheck disable=SC2064
+    trap "rm -f '$frame' '$work' '$tsv' '$err' '$prog'" RETURN
+
+    import -window root "$frame" 2>/dev/null || { say "[$text] could not photograph the screen" >&2; return 2; }
+    w=$(identify -format %w "$frame" 2>/dev/null) || return 2
+    h=$(identify -format %h "$frame" 2>/dev/null) || return 2
+    [[ -n "$w" && -n "$h" ]] || { say "[$text] could not read the frame's size" >&2; return 2; }
+
+    # Where the crop starts in ROOT coordinates. Without a region this is the whole frame at 0,0.
+    local cx=0 cy=0 cw=$w ch=$h
+    if [[ -n "$region" ]]; then
+        local rx1 ry1 rx2 ry2
+        if [[ ! "$region" =~ ^([0-9]+),([0-9]+),([0-9]+),([0-9]+)$ ]]; then
+            say "[$text] --region must be X1,Y1,X2,Y2 (four non-negative integers), got '$region'" >&2
+            return 2
+        fi
+        rx1="${BASH_REMATCH[1]}" ry1="${BASH_REMATCH[2]}" rx2="${BASH_REMATCH[3]}" ry2="${BASH_REMATCH[4]}"
+        # Clamp to the frame. A drive that hardcodes a band from an older build must not be able to
+        # make ImageMagick fail with "geometry out of bounds", which would read as a toolchain problem
+        # rather than as the layout having moved.
+        (( rx1 >= w )) && { say "[$text] region x1=$rx1 is outside the ${w}x${h} frame" >&2; return 2; }
+        (( ry1 >= h )) && { say "[$text] region y1=$ry1 is outside the ${w}x${h} frame" >&2; return 2; }
+        (( rx2 > w )) && rx2=$w
+        (( ry2 > h )) && ry2=$h
+        if (( rx2 - rx1 < 1 || ry2 - ry1 < 1 )); then
+            say "[$text] region $region is empty once clamped to the ${w}x${h} frame" >&2
+            return 2
+        fi
+        cx=$rx1; cy=$ry1; cw=$((rx2 - rx1)); ch=$((ry2 - ry1))
+    fi
+
+    # Crop THEN upscale, in that order: magnifying the whole 1280x900 root window to catch a 9px label
+    # costs several times the pixels for no gain, while magnifying only the region keeps the glyphs
+    # large AND the frame small.
+    convert "$frame" -crop "${cw}x${ch}+${cx}+${cy}" +repage -filter point -resize "$((scale * 100))%" "$work" \
+        || { say "[$text] could not crop/scale the frame to ${cw}x${ch}+${cx}+${cy} at ${scale}x" >&2; return 2; }
+
+    # tesseract's output base is `stdout` and the TSV lands on stdout, so the parse and the diagnostics
+    # are separated into two files on purpose. Capturing both into one stream is the same mistake this
+    # file already documents for connected-components (an empty file then reads as "nothing is there").
+    tesseract "$work" stdout --dpi 96 -l "$lang" tsv >"$tsv" 2>"$err"
+    local tesseract_rc=$?
+    # --dpi 96 IS NOT COSMETIC. Without it tesseract prints "Estimating resolution as N" and spends the
+    # time guessing; the measured cost on the test images was 0.32s against 0.18s with byte-IDENTICAL
+    # recognition (same md5 over the TSV), so it is free accuracy and less noise. Never drop it for
+    # being "redundant".
+    if (( tesseract_rc != 0 )); then
+        say "[$text] tesseract failed (rc $tesseract_rc) reading '$text' --lang $lang. On this host only 'eng' and 'osd' are installed, so a missing language pack is by far the likeliest cause:" >&2
+        sed 's/^/    /' "$err" >&2
+        return 2
+    fi
+    # An empty TSV is NOT the same as "the text is not there". It means OCR produced no words at all -
+    # a blank frame, a wrong region, or a language that cannot read this script. Reporting it as a
+    # missing label would be a false negative that reads exactly like the opposite of a real miss.
+    [[ -s "$tsv" ]] || {
+        say "[$text] tesseract produced an EMPTY TSV for the ${cw}x${ch} region at ${scale}x with --lang $lang - that is the OCR failing to read the frame, NOT evidence the text is absent" >&2
+        return 2
+    }
+
+    # The matcher arrives as a QUOTED heredoc so that nothing in the awk source is expanded: $1, $7,
+    # $12, the backslashes in norm()'s character class and the embedded single quotes all have to reach
+    # awk byte for byte.
+    #
+    # The needle goes in through the ENVIRONMENT, never `awk -v`. -v runs its argument through awk's own
+    # escape processing first, so a needle containing a backslash, a quote or a $ is rewritten before
+    # awk ever compares it - the search then silently fails to match text that is plainly on screen.
+    # ENVIRON[] hands it over unchanged. The scale and the crop offset travel the same way, and the
+    # scaled->root conversion (divide by SCALE, add the offset) happens INSIDE the awk, once per word,
+    # so every matching tier sees the same root-window points and this function must NOT divide again.
+    cat >"$prog" <<'LOOP_OCR_MATCHER_AWK'
+# Matcher for find_text_centre: tesseract `tsv` on stdin, "<x> <y> <tier> <matches> <words>" or nothing.
+# It reports WHERE text was found; it never proposes a coordinate for text that is not there.
+function norm(s) {
+    s = tolower(s)
+    gsub(/^[!"#$%&'()*+,\-.\/:;<=>?@\[\\\]\^_`{|}~[:space:]]+/, "", s)
+    gsub(/[!\"#$%&'()*+,\-.\/:;<=>?@\[\\\]\^_`{|}~[:space:]]+$/, "", s)
+    return s
+}
+# Tier 1, the strongest: the needle's words appear CONSECUTIVELY on one OCR text line.
+function try_exact(   i, j, hit) {
+    for (i = 1; i + nneedle - 1 <= nw; i++) {
+        hit = 1
+        for (j = 0; j < nneedle; j++)
+            if (LWORD[i + j] != NEEDLE[j + 1]) { hit = 0; break }
+        if (hit) { consider(1, i, nneedle); return }
+    }
+}
+# Tier 2: the needle's words appear in order with other words between them (a button label that OCR
+# split, or a label with an icon or a field value inside it).
+function try_gapped(   i, j, k) {
+    for (i = 1; i <= nw; i++) {
+        if (LWORD[i] != NEEDLE[1]) continue
+        j = 2; k = i + 1
+        while (j <= nneedle && k <= nw) {
+            if (LWORD[k] == NEEDLE[j]) j++
+            k++
+        }
+        if (j > nneedle) { consider(2, i, nneedle); return }
+    }
+}
+# Tier 3, the weakest: the whole normalised needle occurs as a substring of the line, which is what
+# catches a needle OCR has punctured mid-word ("Run-Backup Now" vs "Run Backup Now").
+function try_phrase(   i, joined) {
+    joined = ""
+    for (i = 1; i <= nw; i++) joined = joined (i > 1 ? " " : "") LWORD[i]
+    if (index(joined, PHRASE) > 0) consider(3, 1, nw)
+}
+# consider TIER FIRST COUNT -> union the boxes of the matched words into this line's best run.
+# Lowest tier wins; within a tier the LARGEST box wins, so a duplicate word resolves to the bigger one
+# rather than to whichever the OCR happened to list first.
+function consider(t, first, count,   i, x0, x1, y0, y1, a) {
+    x0 = 1e9; x1 = -1; y0 = 1e9; y1 = -1
+    for (i = first; i < first + count; i++) {
+        if (LCX[i] < x0) x0 = LCX[i]
+        if (LCX[i] + LW[i] > x1) x1 = LCX[i] + LW[i]
+        if (LCY[i] < y0) y0 = LCY[i]
+        if (LCY[i] + LH[i] > y1) y1 = LCY[i] + LH[i]
+    }
+    a = (x1 - x0 > 0 ? x1 - x0 : 1) * (y1 - y0 > 0 ? y1 - y0 : 1)
+    if (lbesttier == 0 || t < lbesttier || (t == lbesttier && a > larea)) {
+        lbesttier = t; larea = a; lbx0 = x0; lbx1 = x1; lby0 = y0; lby1 = y1
+    }
+    lmatches++
+}
+function flush_line() {
+    if (nw > 0) {
+        try_exact(); if (!lbesttier) try_gapped(); if (!lbesttier) try_phrase()
+        if (lbesttier) {
+            a = (lbx1 - lbx0) * (lby1 - lby0)
+            if (btier == 0 || lbesttier < btier || (lbesttier == btier && a > barea)) {
+                btier = lbesttier; barea = a
+                bx0 = lbx0; bx1 = lbx1; by0 = lby0; by1 = lby1
+                bmatches = lmatches
+            }
+        }
+    }
+    delete LWORD; delete LCX; delete LCY; delete LW; delete LH
+    nw = 0; lbesttier = 0; larea = 0; lmatches = 0
+}
+BEGIN {
+    FS = "\t"                      # tesseract tsv is tab separated; without this $1 is "level"
+    PHRASE = norm(ENVIRON["LOOP_TEXT_NEEDLE"])
+    if (PHRASE == "") { print "find_text_centre: empty needle" > "/dev/stderr"; fatal = 1 }
+    nneedle = split(PHRASE, NEEDLE, " ")
+    XOFF = ENVIRON["LOOP_TEXT_XOFF"] + 0
+    YOFF = ENVIRON["LOOP_TEXT_YOFF"] + 0
+    SCALE = ENVIRON["LOOP_TEXT_SCALE"] + 0
+    if (SCALE < 1) SCALE = 1
+    nw = 0; btier = 0; barea = 0; bmatches = 0
+    lbesttier = 0; larea = 0; lmatches = 0
+}
+$1 == 5 && $12 != "" && $11 + 0 > 0 {
+    word = norm($12)
+    if (word != "") {
+        key = $2 SUBSEP $3 SUBSEP $4 SUBSEP $5
+        if (nw > 0 && key != linekey) flush_line()
+        linekey = key
+        nw++
+        LWORD[nw] = word
+        # Scaled -> root conversion happens here once, so every tier sees the same points.
+        LCX[nw] = XOFF + int($7 / SCALE)
+        LCY[nw] = YOFF + int($8 / SCALE)
+        LW[nw] = int($9 / SCALE)
+        LH[nw] = int($10 / SCALE)
+    }
+}
+END {
+    if (nw > 0) flush_line()
+    if (fatal) exit 3
+    if (!btier) exit 1        # no match: EMPTY stdout and a non-zero code, so a caller cannot mistake
+    printf "%d %d %d %d %d\n", int((bx0 + bx1) / 2), int((by0 + by1) / 2), btier, bmatches, nneedle
+}
+LOOP_OCR_MATCHER_AWK
+
+    # status is read DIRECTLY, not inferred from whether anything was printed - see the measured bug
+    # documented in click_button: a command substitution that prints nothing can hide the helper's own
+    # failure, and the run then goes on to act on an empty result.
+    local hit rc
+    hit=$(LOOP_TEXT_NEEDLE="$text" LOOP_TEXT_XOFF="$cx" LOOP_TEXT_YOFF="$cy" LOOP_TEXT_SCALE="$scale" \
+        awk -f "$prog" "$tsv")
+    rc=$?
+    case "$rc" in
+        0) ;;
+        1) say "[$text] no text matched in the ${w}x${h} frame (searched region ${cx},${cy} ${cw}x${ch} at ${scale}x, --lang $lang). Not printing a guess - a coordinate invented here is the bug this helper replaces. If this screen renders in Tamil, see the --lang note on find_text_centre: only 'eng' and 'osd' are installed." >&2
+           return 1 ;;
+        3) say "[$text] the needle was empty after normalisation - nothing to search for" >&2
+           return 2 ;;
+        *) say "[$text] the matcher failed (rc $rc)" >&2
+           return 2 ;;
+    esac
+    [[ -n "$hit" ]] || { say "[$text] the matcher reported a match but printed nothing - treating that as a failure" >&2; return 2; }
+
+    local mx my tier matches words
+    read -r mx my tier matches words <<<"$hit"
+    [[ "$mx" =~ ^[0-9]+$ && "$my" =~ ^[0-9]+$ ]] \
+        || { say "[$text] the matcher returned '$hit', which is not an x y point" >&2; return 2; }
+    # Tier names the reason the match was found, which is the first thing to read when a finder lands on
+    # the wrong control: 1 = the words are consecutive, 2 = they were in order but split, 3 = only a
+    # substring of the line matched.
+    local tier_name
+    case "$tier" in
+        1) tier_name="consecutive words" ;;
+        2) tier_name="gapped words" ;;
+        *) tier_name="phrase substring" ;;
+    esac
+    say "[$text] matched ${words} words (tier $tier = $tier_name, ${matches} match(es)) -> centre (${mx},${my}) in root coordinates" >&2
+    printf '%s %s\n' "$mx" "$my"
+    return 0
+}
+
+# click_text --text TEXT [settle-seconds] [step-name]
+# Locate the words, then click their centre - so a drive states what it wants instead of a pixel, and a
+# label that is not there is a loud failure rather than a tap into empty background.
+#
+# Positional settle and step-name come after --text so a drive reads as one line, matching click()'s
+# shape. --settle and --step are also accepted for anyone who prefers the flag form.
+click_text() {
+    local text="" settle="$CLICK_SETTLE" step="" pos=0
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --text)   [[ $# -ge 2 ]] || die "click_text: --text was given with no value"
+                      text="$2"; shift 2 ;;
+            --settle) [[ $# -ge 2 ]] || die "click_text: --settle was given with no value"
+                      settle="$2"; shift 2 ;;
+            --step)   [[ $# -ge 2 ]] || die "click_text: --step was given with no value"
+                      step="$2"; shift 2 ;;
+            -*) say "click_text: unknown option '$1'" >&2; return 2 ;;
+            *) pos=$((pos + 1))
+               if   (( pos == 1 )); then settle="$1"
+               elif (( pos == 2 )); then step="$1"
+               else say "click_text: unexpected extra argument '$1' (expected: --text TEXT [settle] [step])" >&2; return 2
+               fi
+               shift ;;
+        esac
+    done
+    [[ -n "$text" ]] || die "click_text: --text is required so a failure can name what it searched for"
+    [[ -n "$step" ]] || step="click_text \"$text\""
+
+    local found rc
+    found=$(find_text_centre --text "$text"); rc=$?
+    if (( rc != 0 )) || [[ -z "$found" ]]; then
+        die "STEP '$step': could not find the text \"$text\" to click (see the [loop] lines above for why). No click was made - stopping here rather than tapping a guessed pixel."
+    fi
+    [[ "$found" =~ ^[0-9]+[[:space:]]+[0-9]+$ ]] \
+        || die "STEP '$step': the text matcher returned '$found', which is not a single x y point - refusing to click it"
+    # shellcheck disable=SC2086
+    click $found "$settle" "$step"
+}
 type_text() { xdotool type --delay 25 "$1"; sleep 0.4; }
 press() { xdotool key "$1"; sleep 0.6; }
 shot() { import -window root "$RUN_DIR/$1.png" && say "shot: $RUN_DIR/$1.png"; }
@@ -442,6 +757,12 @@ command -v import >/dev/null || die "imagemagick's 'import' is not installed (ap
 # produces the screenshot and the app's own log, which is where a crash shows up.
 if [[ -n "$DRIVE_FILE" ]]; then
     command -v xdotool >/dev/null || die "xdotool is not installed (apt install xdotool) and -d was given, so there is nothing to drive the app with"
+fi
+# tesseract is only needed to READ A LABEL - find_text_centre and click_text. Like xdotool above it is
+# required per-use rather than upfront, so a drive that only hardcodes pixels still runs on a machine
+# without it; it dies, by name, on the first click_text instead.
+if [[ -n "$DRIVE_FILE" ]]; then
+    command -v tesseract >/dev/null || die "tesseract is not installed (apt install tesseract-ocr)"
 fi
 command -v flock >/dev/null || die "flock is not installed (apt install util-linux) - without it a second run would collide with the first instead of waiting for it"
 
@@ -671,7 +992,10 @@ if [[ -n "$DRIVE_FILE" ]]; then
     # report SUCCESS because the failing die never executed.
     # CLICK_SETTLE travels for the same reason: an unset default becomes an empty settle in the child, so
     # click() would wait 0s and then measure a screen that had not moved yet.
-    export -f click type_text press shot say frame_hash click_button find_button_centre die
+    # find_text_centre and click_text are on this list for the same reason as everything else on it: a
+    # drive calls them from the CHILD shell, and an unexported helper is "command not found" there - not
+    # a crash, just a drive that stops finding anything and looks otherwise healthy.
+    export -f click type_text press shot say frame_hash click_button find_button_centre find_text_centre click_text die
     export CLICK_SETTLE LOOP_PRIMARY_COLOR LOOP_BUTTON_MIN_AREA LOOP_BUTTON_FUZZ
     # A drive file that dies (see click/click_button) exits the CHILD non-zero. "say ... exited non-zero"
     # is how a failed step used to read as a completed run, so the code is kept and the run ends on it.

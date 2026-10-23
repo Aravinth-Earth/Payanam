@@ -7,6 +7,7 @@ import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.desktop.DesktopDatabaseCreateOutcome
 import io.payanam.desktop.createDesktopFirstRunDatabase
+import io.payanam.desktop.platform.DesktopStartupRecovery
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.shared.database.DatabaseBootIssue
@@ -20,6 +21,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.nio.file.Files
 import java.nio.file.Path
@@ -117,22 +119,28 @@ internal class DesktopDatabaseSessionController(
      * midnight and a stuck occurrence was never repaired. The app looked fine and quietly kept
      * yesterday's state.
      *
-     * **TWO of Android's THREE steps, not three.** `MainActivity.runStartupMaintenance` also calls
-     * `ScoreRollupBackfillService.runIfNeeded` (`:573`), and this method does not — deliberately, and
-     * not because it was missed twice. The backfill and the cascade that drives it
-     * (`ScoreRollupCascadeService`) live in `core/database`, an Android library
-     * (`core/database/build.gradle.kts:8`) that this module does not depend on
-     * (`desktop/build.gradle.kts:36-47`). `:core:scoring` holds no metric roll-up compute, the shared
-     * `:core:domain` ports declare no backfill or maintenance port at all, and `:core:database-jvm`
-     * ships only READERS of `habit_metrics` / `dimension_metrics` / `day_metrics` — no writer anywhere.
-     * The third step therefore needs promoting and porting; wiring alone cannot reach it.
+     * **All THREE of Android's steps, not two.** `MainActivity.runStartupMaintenance` also calls the score
+     * roll-up backfill, and the backfill now RUNS on this platform: the compute was promoted and ported into
+     * `:core:database-jvm` as `ScoreRollupBackfillJdbc`, a JDBC writer for `habit_metrics` /
+     * `dimension_metrics` / `day_metrics` rather than the readers that module used to ship. It is reached
+     * from the post-unlock recovery path — [DesktopStartupRecovery] runs it as
+     * `StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS` — so it is guarded by the SAME `app_settings` key Android
+     * writes, which is what makes one database backfilled once across both platforms instead of twice.
      *
-     * The desktop's refusal of the LIVE cascade is a separate, declared position: this platform does not
-     * recompute roll-ups (see `DesktopUnsupportedPorts.scoreRollupTrigger`), on the stated premise that
-     * Android computes them into the same database the desktop reads back. Backfilling historical scores
-     * here would make this platform a second roll-up writer against that premise, so it is a product
-     * decision rather than a wiring fix — and until it is made, historical scores stay whatever Android
-     * last wrote.
+     * The desktop's refusal of the LIVE cascade remains a separate, declared position: this platform still
+     * does not recompute roll-ups day by day (see `DesktopUnsupportedPorts.scoreRollupTrigger`), on the
+     * stated premise that Android computes them into the same database the desktop reads back. The one-time
+     * historical rebuild is not that thing — it reconstructs what an earlier version never wrote, and it is
+     * the half that can be reached without a cascade — so the two positions are compatible rather than in
+     * conflict, and it is the cascade, not the backfill, that a product decision still holds open. Today's
+     * rows therefore stay absent until a cascade equivalent exists, which is the backfill's own documented
+     * boundary rather than a failure.
+     *
+     * What genuinely does not exist here is a RE-ARM of reminders at session resume: delivery itself is
+     * complete on this platform (the sink is constructed with a freedesktop delivery behind it and the data
+     * layer binds the producer that hands it reminders), but the scheduler arms reminders from task due
+     * times and there is no desktop step that replays a backlog of them at resume or after a restart.
+     * Pretending otherwise would make this log claim a reconciliation that did not happen.
      *
      * Called from the one place a session comes into existence, so it runs on every open exactly as
      * Android's runs on every `onStart` past the gates. It is fire-and-forget: startup must not be delayed
@@ -175,15 +183,19 @@ internal class DesktopDatabaseSessionController(
      * idempotent day-boundary repairs, so a second pass adds nothing, while a queued pass would run the
      * whole repair set again for a resume that arrived while the first was still going.
      *
-     * **The score roll-up backfill is deliberately NOT here, and neither are any other step that does not
-     * exist on this platform.** See [runStartupMaintenance]'s own KDoc: there is no desktop writer for
-     * `habit_metrics` / `dimension_metrics` / `day_metrics` anywhere in the reachable modules, so there is
-     * nothing to call here that would not be a second roll-up writer against a premise this platform has
-     * declared it does not hold. Android's third step (`scheduleAllPendingTasks`) has no desktop
-     * equivalent either, for the same shape of reason: reminders are not surfaced on this platform
-     * `[DesktopPlatformSeams.reminderSink]` reports `NOT_SURFACED` and logs that nothing was shown).
-     * What runs here is exactly what runs at open, and nothing more - inventing steps this platform cannot
-     * perform would make the log claim a reconciliation that did not happen.
+     * **The score roll-up backfill runs here too, so what runs at resume is everything that runs at open.**
+     * This passage used to say the opposite, and the reason it could be trusted then was that it was true:
+     * the backfill had no desktop writer to call. It does now — `ScoreRollupBackfillJdbc` in
+     * `:core:database-jvm`, reached through [DesktopStartupRecovery] — so this path runs it exactly as
+     * [runStartupMaintenance] does, and the shared `app_settings` guard is what makes the second run a no-op
+     * rather than a second rebuild.
+     *
+     * Android's `scheduleAllPendingTasks` still has no desktop equivalent, and that one really is absent
+     * rather than merely unwired: the reminder DELIVERY surface is complete on this platform (the sink is
+     * constructed with a freedesktop delivery behind it and the data layer binds the producer that hands it
+     * reminders), but the scheduler arms reminders from task due times and there is no desktop step that
+     * replays a backlog of them at resume. Inventing steps this platform cannot perform would make the log
+     * claim a reconciliation that did not happen.
      */
     internal suspend fun runMaintenanceAfterResume() {
         val layer = installedLayer
@@ -266,6 +278,19 @@ internal class DesktopDatabaseSessionController(
      * reached. A consumer that needs the truth reads THIS flow, which the session owner flips itself.
      */
     val sessionOpenState: StateFlow<Boolean> = _sessionOpenState.asStateFlow()
+
+    /**
+     * True while a close came from the shared passphrase port and a reopen (or a restart) will follow.
+     *
+     * The passphrase-change flow closes the session itself before the rekey, and the desktop's gate
+     * follows [sessionOpenState] LIVE - measured without this: the gate armed ~80ms into the change,
+     * the graph reset to `passphrase_unlock`, the change screen was destroyed, and the in-flight
+     * submit was cancelled after a rekey that had already succeeded, rolling the backup back over it.
+     * `followDesktopSessionOpenedState` is the reader that honours this; it skips the state flip so
+     * the gate never arms mid-change. The port clears it when the reopen follows.
+     */
+    @Volatile
+    internal var closeInFlightForRekey = false
 
     /**
      * The passphrase for the session in force, or null when none was established.
@@ -722,10 +747,12 @@ internal class DesktopDatabaseSessionController(
  * rule would be a second answer to "which days is this habit due", and the desktop already reads that
  * answer through the shared repositories — so the rule has to stay shared even when the layer is not.
  *
- * Android's third step, the score roll-up backfill, is deliberately ABSENT and not missed: there is no
- * desktop writer for `habit_metrics` / `dimension_metrics` / `day_metrics` anywhere in the reachable
- * modules, so calling anything here would make this platform a second roll-up writer against a premise it
- * has declared it does not hold. See the KDoc on `DesktopDatabaseSessionController.runStartupMaintenance`.
+ * Android's third step, the score roll-up backfill, RUNS here rather than being absent: the compute was
+ * ported into `:core:database-jvm` as `ScoreRollupBackfillJdbc`, and the call below reaches it through
+ * [DesktopStartupRecovery], which is the same three-step set the open path runs. It is guarded by the same
+ * `app_settings` key Android writes, so the two platforms backfill one database between them rather than
+ * twice. See the KDoc on `DesktopDatabaseSessionController.runStartupMaintenance` — including why the LIVE
+ * cascade this drives is still, and separately, a platform that has not adopted it.
  *
  * Top-level rather than a method, so the controller's `maintenance` parameter can default to it: a default
  * argument cannot reference an instance member of the object being constructed.
@@ -737,25 +764,29 @@ internal suspend fun runDesktopRecurrenceMaintenance(
     layer: DesktopPayanamDataLayer,
     logger: UnifiedLogger,
 ) {
-    val recurrenceManager = RecurrenceManager(layer.tasks, layer.taskOccurrences)
+    // The three startup recovery steps live behind one call, and each step carries its own failure handler. The
+    // handler here is deliberately the outer one only: a step that throws is already excluded, logged under its own
+    // name, and its siblings still run, so what arrives here is either a completed run or a run that lost one step.
     runCatching {
-        val repaired = recurrenceManager.repairStuckRecurringTasks()
-        if (repaired > 0) {
-            logger.i(
-                "DesktopDatabaseSessionController.runMaintenance",
-                "Repaired stuck recurring tasks",
-                mapOf("repairedCount" to repaired),
-            )
-        }
-        recurrenceManager.autoAdvanceRecurringTasks()
+        val steps = DesktopStartupRecovery(layer).runStartupRecovery()
         logger.i(
             "DesktopDatabaseSessionController.runMaintenance",
-            "Auto-advanced recurring tasks",
+            "Startup maintenance ran",
+            mapOf("steps" to steps.joinToString()),
+        )
+        // The reminders come AFTER the recovery steps, which is the order Android uses: its maintenance
+        // runs `runStartupRecovery` and only then `scheduleAllPendingTasks`, so a reminder is armed against
+        // the due date the recurring rollover has already advanced rather than the stale one. Android's
+        // other arming site is its boot receiver; the desktop has no boot, so this is its only re-arm.
+        replayDesktopReminders(
+            readTasks = { layer.tasks.getAllTasks().first() },
+            scheduler = layer.reminderScheduler,
+            logger = logger,
         )
     }.onFailure { error ->
         logger.e(
             "DesktopDatabaseSessionController.runMaintenance",
-            "Startup maintenance failed; recurring tasks may not have advanced",
+            "Startup maintenance failed; some recovery steps may not have run",
             error,
             mapOf("error" to (error.message ?: "Unknown error")),
         )

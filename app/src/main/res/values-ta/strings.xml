@@ -1213,13 +1213,6 @@
 <string name="activity_detail_col_continue">தொடர்ச்சி</string>
      <string name="activity_detail_loading">ஏற்றுகிறது…</string>
 
-    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
-    <string name="pre_unlock_update_download_install">பதிவிறக்கி நிறுவு</string>
-    <string name="pre_unlock_update_downloading">பதிவிறக்குகிறது %1$d%%</string>
-    <string name="pre_unlock_update_up_to_date">சமீபத்திய பதிப்பில்தான் உள்ளீர்கள்</string>
-    <string name="pre_unlock_update_check_failed">சரிபார்ப்பு தோல்வி — இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்</string>
-    <string name="pre_unlock_update_download_failed">பதிவிறக்கம் தோல்வி — மீண்டும் முயற்சிக்கவும்</string>
-    <string name="pre_unlock_update_hint">கைமுறை மட்டுமே — தானாக ஒருபோதும் இல்லை. Dev சேனல் பயன்படுத்துகிறது.</string>
 
     <string name="loc_lens_metric_label">அளவீடு: %1$s</string>
 
@@ -1289,7 +1282,7 @@
     <string name="assistant_settings_max_rows">ஒரு query-க்கு max rows</string>
     <string name="assistant_settings_rounds">ஒரு கேள்விக்கு rounds</string>
     <string name="assistant_settings_history">வரலாறு ஆழம் (messages)</string>
-    <string name="assistant_settings_prompt_title">System prompt</string>
+    <string name="assistant_settings_prompt_title">கணினி prompt</string>
     <string name="assistant_settings_prompt_hint">உங்கள் கூடுதல்கள் (built-in instructions-க்குப் பின் சேர்க்கப்படும்)</string>
     <string name="assistant_settings_builtin_title">உள்ளமைந்த instructions (locked)</string>
     <string name="assistant_settings_builtin_caption">Read-only. பாதுகாப்பு code-ல இருப்பதால், prompt-ஐ மாற்றினாலும் write அனுமதிக்கப்படாது.</string>

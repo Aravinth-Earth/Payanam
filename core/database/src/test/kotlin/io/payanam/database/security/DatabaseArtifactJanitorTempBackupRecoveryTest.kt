@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.io.File
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 
 @RunWith(RobolectricTestRunner::class)
@@ -35,7 +36,7 @@ class DatabaseArtifactJanitorTempBackupRecoveryTest {
         }
         dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         dbDir = dbFile.parentFile ?: error("DB parent directory should exist")
-        tempBackupDir = File(dbDir, "payanam_temp_backup")
+        tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
         dbFile.delete()
         File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-wal").delete()
         File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-shm").delete()

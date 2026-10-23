@@ -430,21 +430,6 @@ class TaskOccurrenceRepositoryJvm(
             }
         }
 
-    private fun ResultSet.readOccurrence(): TaskOccurrenceEntity =
-        TaskOccurrenceEntity(
-            id = getString("id"),
-            taskId = getString("taskId"),
-            dueDate = getString("dueDate"),
-            completedAt = getString("completedAt"),
-            actualCompletedAt = getString("actualCompletedAt"),
-            actualDurationMinutes = getNullableInt("actualDurationMinutes"),
-            status = getString("status"),
-            statusReason = getString("statusReason"),
-            createdAt = getString("createdAt"),
-            completionRate = getNullableDouble("completionRate"),
-            note = getString("note"),
-        )
-
     private fun TaskOccurrenceEntity.toBindings(): Array<String?> =
         arrayOf(
             id,
@@ -480,17 +465,6 @@ class TaskOccurrenceRepositoryJvm(
             completionRate = completionRate,
             note = note,
         )
-
-    /** `getInt`/`getDouble` return 0 for SQL NULL, which would invent a logged duration or a rate. */
-    private fun ResultSet.getNullableInt(column: String): Int? {
-        val value = getInt(column)
-        return if (wasNull()) null else value
-    }
-
-    private fun ResultSet.getNullableDouble(column: String): Double? {
-        val value = getDouble(column)
-        return if (wasNull()) null else value
-    }
 
     private fun markDirtyForDay(
         day: LocalDate,
@@ -568,4 +542,30 @@ class TaskOccurrenceRepositoryJvm(
         /** Verbatim from `TaskOccurrenceDao.deleteById`. */
         const val DELETE_BY_ID_SQL = "DELETE FROM task_occurrences WHERE id = ?"
     }
+}
+
+internal fun ResultSet.readOccurrence(): TaskOccurrenceEntity =
+    TaskOccurrenceEntity(
+        id = getString("id"),
+        taskId = getString("taskId"),
+        dueDate = getString("dueDate"),
+        completedAt = getString("completedAt"),
+        actualCompletedAt = getString("actualCompletedAt"),
+        actualDurationMinutes = getNullableInt("actualDurationMinutes"),
+        status = getString("status"),
+        statusReason = getString("statusReason"),
+        createdAt = getString("createdAt"),
+        completionRate = getNullableDouble("completionRate"),
+        note = getString("note"),
+    )
+
+/** `getInt`/`getDouble` return 0 for SQL NULL, which would invent a logged duration or a rate. */
+private fun ResultSet.getNullableInt(column: String): Int? {
+    val value = getInt(column)
+    return if (wasNull()) null else value
+}
+
+private fun ResultSet.getNullableDouble(column: String): Double? {
+    val value = getDouble(column)
+    return if (wasNull()) null else value
 }

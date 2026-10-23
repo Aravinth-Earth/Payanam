@@ -22,9 +22,11 @@ import java.time.LocalDateTime
  * MEASUREMENT: how many orphaned rows ordinary deletes leave behind in a database written on Linux.
  *
  * **The question.** Android's Room delegate issues `PRAGMA foreign_keys = ON` on every open; the JVM
- * opener issues nothing, so SQLite's default of OFF stands. A delete that the schema declares as
- * `ON DELETE CASCADE` or `ON DELETE SET NULL` therefore has to write the declared action out by
- * hand, or the child row survives the parent. This class MEASURES what is left, through
+ * opener used to issue nothing, so SQLite's default of OFF stood, and a delete the schema declares as
+ * `ON DELETE CASCADE` or `ON DELETE SET NULL` had to write the declared action out by hand or the child
+ * row survived the parent. **The opener now enforces the pragma** — parity with Room, measured in
+ * [PayanamDatabaseOpenerForeignKeysTest] — so the repository statements that compensate for it are
+ * redundant, and this class measures the end state: what is left behind, through
  * [DatabaseForeignKeyCheck], on a database built by the app's own create path and driven through the
  * repositories' own public delete methods.
  *
@@ -46,9 +48,9 @@ import java.time.LocalDateTime
  *   `createTask`/`recordOccurrence`/`replaceTaskTags`/`deleteTask` (and the note and time-entry
  *   equivalents), never by a raw `INSERT` into a child table. The delete under test is the delete a
  *   user reaches from a screen, which is the only one whose child rows could be stranded.
- * - Nothing enables enforcement. `PRAGMA foreign_keys` is READ on the app's own session and asserted
- *   to be `0`, so the cause is established by measurement rather than assumed, and the fixture does
- *   not perturb the very flag under study.
+ * - The pragma is READ on the app's own session and its value is asserted, so the file's own premise is
+ *   a measurement rather than an assumption — it read `0` while the opener issued nothing, and it reads
+ *   `1` now that the opener enforces, which is how the change this file describes is visible at all.
  * - The file is generated per test in a temp directory. A real export is never opened; it holds the
  *   user's personal data.
  *
@@ -241,21 +243,27 @@ class OrdinaryDeletesLeaveOrphanedRowsTest {
     /**
      * The task delete leaves nothing behind, and says so for each of the five children separately.
      *
-     * [TaskRepositoryJvm.deleteTask] writes the declared actions out by hand because this connection
-     * enforces nothing: four `ON DELETE CASCADE` children are deleted and the one `ON DELETE SET
-     * NULL` child has its `taskId` cleared. The session pragma is still asserted to be `0`, which is
-     * what makes this a real result rather than a vacuous one — with enforcement on, the cascades would
-     * fire on their own and an empty assertion here would prove nothing about the repository.
+     * [TaskRepositoryJvm.deleteTask] writes the declared actions out by hand. Since the opener now
+     * enforces `PRAGMA foreign_keys` (parity with Room's delegate — see
+     * [PayanamDatabaseOpenerForeignKeysTest]), those statements are REDUNDANT: the declared `CASCADE`
+     * and `SET NULL` actions would fire without them, and every assertion below is a statement about the
+     * END STATE — no child may survive its parent — rather than an attribution to a particular statement.
      *
-     * Each child is named in the failure message when one survives, so a dropped statement is
-     * localised by child table rather than reported as a bare "not empty".
+     * **That is a real loss of attribution and it is stated rather than papered over.** With enforcement
+     * on, dropping one of the repository's child statements no longer turns this file red, because the
+     * schema would cover it. What still turns it red is a surviving child or a missing parent row; what
+     * this file can no longer tell you is which statement removed a row. The pragma is asserted to be `1`
+     * below, so the file's own premise is read rather than assumed in either state.
+     *
+     * Each child is named in the failure message when one survives, so a divergence is localised by child
+     * table rather than reported as a bare "not empty".
      */
     @Test
     fun `deleting a task removes its four cascade children and clears its set-null child`(): Unit =
         runBlocking {
-            assertWithMessage("the session under test must not enforce foreign keys")
+            assertWithMessage("the session under test must enforce foreign keys, as Room's delegate does for Android")
                 .that(declaredForeignKeys())
-                .isEqualTo(0)
+                .isEqualTo(1)
 
             val timeEntryId = deleteATaskWithEveryChildAttached()
 

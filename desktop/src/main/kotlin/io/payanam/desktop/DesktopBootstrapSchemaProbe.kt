@@ -6,7 +6,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 
 /**
- * DesktopBootstrapSnapshot.
+ * DesktopBootstrapSchema.
  *
  * Three of the four fields it used to carry are gone, each because it duplicated a fact that has a real
  * owner now:
@@ -20,11 +20,11 @@ import java.nio.file.Path
  *
  * What remains is the schema version, so a future change can still tell what wrote a payload.
  */
-data class DesktopBootstrapSnapshot(
+data class DesktopBootstrapSchema(
     val schemaVersion: Int = DESKTOP_BOOTSTRAP_SCHEMA_VERSION,
 )
 
-internal class DesktopBootstrapStore(
+internal class DesktopBootstrapSchemaProbe(
     /** The real database directory - the bootstrap payload lives beside the database it describes. */
     bootstrapFile: Path = bootstrapFile(),
     private val logEvent: (String, String, Map<String, Any?>) -> Unit = { _, _, _ -> },
@@ -36,13 +36,13 @@ internal class DesktopBootstrapStore(
      * default, and the previous version's `ensureSnapshot()` wrote a default row into the scaffold on
      * first run purely so the in-memory store had an entry to find. That store is gone.
      */
-    fun ensureSnapshot(): DesktopBootstrapSnapshot {
+    fun ensureSnapshot(): DesktopBootstrapSchema {
         logEvent(
-            "DesktopBootstrapStore.ensureSnapshot",
+            "DesktopBootstrapSchemaProbe.ensureSnapshot",
             "Using default desktop bootstrap snapshot",
             emptyMap(),
         )
-        return DesktopBootstrapSnapshot()
+        return DesktopBootstrapSchema()
     }
 
     /**
@@ -52,11 +52,11 @@ internal class DesktopBootstrapStore(
      * facts this snapshot used to carry are either derived from the database file or read from the
      * shared rows, so there is nothing here whose absence can change a decision.
      */
-    fun loadSnapshot(): DesktopBootstrapSnapshot {
+    fun loadSnapshot(): DesktopBootstrapSchema {
         if (!Files.exists(bootstrapFile)) {
-            return DesktopBootstrapSnapshot()
+            return DesktopBootstrapSchema()
         }
-        return DesktopBootstrapSnapshot()
+        return DesktopBootstrapSchema()
     }
 
     /**

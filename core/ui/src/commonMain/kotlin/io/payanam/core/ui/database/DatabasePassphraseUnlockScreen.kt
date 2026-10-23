@@ -307,14 +307,15 @@ fun DatabasePassphraseUnlockScreen(
                         } else {
                             "-"
                         }
-                        SummaryRow(
-                            label = strings.dbPassphraseStorageModeLabel,
-                            value = if (uiState.storageModeLabelKey == "encrypted") {
-                                strings.dbPassphraseStorageModeEncrypted
-                            } else {
-                                strings.dbPassphraseStorageModePlaintext
-                            },
-                        )
+                        // Shown only for a database that IS encrypted. The else arm used to label a
+                        // not-yet-encrypted database "plaintext", which describes a transient state
+                        // rather than the product's storage model.
+                        if (uiState.storageModeLabelKey == "encrypted") {
+                            SummaryRow(
+                                label = strings.dbPassphraseStorageModeLabel,
+                                value = strings.dbPassphraseStorageModeEncrypted,
+                            )
+                        }
                         SummaryRow(
                             label = strings.locSize,
                             value = "${uiState.databaseSizeKb} KB",

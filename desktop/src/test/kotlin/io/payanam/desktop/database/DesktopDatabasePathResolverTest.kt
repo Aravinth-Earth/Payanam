@@ -3,8 +3,10 @@
 package io.payanam.desktop.database
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.desktop.DesktopAppPaths
 import io.payanam.shared.database.PayanamDatabaseSchema
 import org.junit.Test
+import java.nio.file.Paths
 
 /**
  * Tests for the desktop's database path resolver.
@@ -41,10 +43,14 @@ class DesktopDatabasePathResolverTest {
     fun `the default path lands in the app's database directory`() {
         val filePath = DesktopDatabasePathResolver().databaseFilePath()
 
-        // `<root>/database/payanam.db` from DesktopAppPaths: the "database" segment proves the resolver
-        // did not fall back to some other subdirectory, and "Payanam" proves it stayed in the app's own
-        // data directory rather than a bare shared location.
-        assertThat(filePath).endsWith("/database/payanam.db")
+        // Derive the expected path from the same sources the production code uses, so this
+        // assertion cannot drift from DesktopAppPaths' layout. The directory comes from
+        // resolveDatabaseDirectory() and the file name from the shared schema constant.
+        val expectedPath = Paths.get(
+            DesktopAppPaths.resolveDatabaseDirectory().toString(),
+            DesktopAppPaths.DATABASE_FILE_NAME,
+        ).toString()
+        assertThat(filePath).isEqualTo(expectedPath)
         assertThat(filePath).contains("Payanam")
     }
 }

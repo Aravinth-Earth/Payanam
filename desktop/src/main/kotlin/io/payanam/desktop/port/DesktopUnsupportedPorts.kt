@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop.port
 
+import io.payanam.core.ui.updates.PreUnlockUpdateActions
 import io.payanam.desktop.DesktopBuildInfo
 import io.payanam.domain.model.Task
 import io.payanam.domain.port.HabitTimeEntryRecorder
@@ -11,6 +12,7 @@ import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
+import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.scoring.CompletionStats
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
@@ -20,16 +22,30 @@ import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.emptyFlow
 import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
+ * The build type string this platform passes to the shared update checker.
+ *
+ * `UpdateChecker.check` takes it to choose which `.apk` asset a DOWNLOAD would fetch; it has no bearing on
+ * the build-number verdict, and this platform has no asset to fetch at all (it ships as a `.deb`). The value
+ * is the one a stable-channel release is named with, so the check reads the same release list Android's
+ * stable channel reads rather than a debug-named one this platform never publishes.
+ */
+private const val DESKTOP_UPDATE_RUNNING_TYPE = "release"
+
+/**
  * The desktop's implementations of the shared state layer's platform capabilities that it does not have yet.
  *
  * WHY THEY ARE HERE AND NOT SHARED: each one is a statement about this PLATFORM, not about the capability. The
- * desktop has no reminder channel, no score-cascade writer (Android computes the roll-ups and writes them into
+ * desktop has a reminder channel — the freedesktop `notify-send` delivery hook, which the scheduler arms
+ * against from user actions — but no score-cascade writer (Android computes the roll-ups and writes them into
  * the same database the desktop reads) and no habit time-entry recorder. Shipping these as the shared default
  * would let a platform that does have them inherit the absence silently; shipping them here keeps the absence
  * visible at exactly one place, and the contract still forces every platform to answer for every capability.
@@ -242,18 +258,38 @@ internal object DesktopUnsupportedPorts {
         }
 
     /**
-     * In-app updating on a platform that has none.
+     * In-app updating on a platform that has none, over a caller-supplied channel read.
      *
      * A desktop build ships as a `.deb` its packager owns: there is no APK to replace and no per-app
      * installer to hand a file to, so [ApkUpdateSource.state] is [SupportState.NOT_APPLICABLE] rather than a
      * refusal — [SupportState.DECLINES] would claim a platform that once said yes and changed its mind.
      *
-     * The CHECK still answers, deliberately. `isNewerBuildAvailable` reports
-     * [UpdateAvailability.Inconclusive] and says why in the log, which is the honest answer for a build
-     * that ships no update feed: a shared screen can then show "this platform installs apps itself" instead
-     * of either a dead button or a false claim of being up to date. Nothing is skipped silently.
+     * The CHECK still answers, and for real: [isNewerBuildAvailable] asks the SHARED checker Android uses,
+     * with this build number and this platform's channel, so both platforms report the same answer for the
+     * same channel state. What differs is only what can be done about it. A check that cannot conclude maps
+     * to [UpdateAvailability.Inconclusive] and says why in the log, never to
+     * [UpdateAvailability.UpToDate] — so a shared screen can show "this platform installs apps itself"
+     * instead of either a dead button or a false claim of being up to date. Nothing is skipped silently.
+     *
+     * WHY A FACTORY BESIDE THE [apkUpdateSource] VAL RATHER THAN A SECOND IMPLEMENTATION: this platform's
+     * port had no seam at all, so nothing could drive it over a channel state it did not reach itself. The
+     * default below is the real check, so every existing call site keeps compiling and keeps asking the
+     * release list for real; a caller that needs a specific channel state supplies [checkForUpdates] and gets
+     * the SAME mapping this object applies.
+     *
+     * The parameter is named and shaped exactly as `AndroidApkUpdateSource`'s is, because the point of the
+     * seam is that one channel state can be driven through BOTH platforms and the two answers compared. Two
+     * differently-shaped seams would make that comparison something written twice or checked by eye.
+     *
+     * @param checkForUpdates how the release channel is read. Defaults to the real shared check with this
+     *   platform's build number and [DESKTOP_UPDATE_RUNNING_TYPE].
      */
-    val apkUpdateSource: ApkUpdateSource =
+    internal fun apkUpdateSource(
+        checkForUpdates: suspend (currentBuildNumber: Int, channel: UpdateChannel) -> UpdateCheckResult =
+            { currentBuildNumber, requested ->
+                UpdateChecker.check(currentBuildNumber, requested, DESKTOP_UPDATE_RUNNING_TYPE)
+            },
+    ): ApkUpdateSource =
         object : ApkUpdateSource {
             override val state: SupportState = SupportState.NOT_APPLICABLE
 
@@ -261,14 +297,57 @@ internal object DesktopUnsupportedPorts {
             // platform compares it against a release channel, so it is reported and not acted upon.
             override val currentBuildNumber: Int? = DesktopBuildInfo.PLATFORM_BUILD_NUMBER
 
+            // The CHECK still answers, and now does so for real: the same shared checker Android uses,
+            // asked with this build number and this platform's channel, so both platforms report the
+            // same result for the same channel state. What differs is only what can be done about it -
+            // a desktop build ships as a `.deb` its packager owns, so [UpdateAvailability.Newer] is
+            // reported with `installable = false`, which the shared type documents as the normal desktop
+            // case. `runningType` picks which APK asset a DOWNLOAD would fetch and has no bearing on the
+            // build-number verdict, so a constant is right here: there is no asset for this platform and
+            // the verdict is still the channel's.
             override suspend fun isNewerBuildAvailable(): UpdateAvailability {
-                logger.w(
-                    "DesktopUnsupportedPorts.isNewerBuildAvailable",
-                    "No update check on this platform: a desktop build is installed by its packager, " +
-                        "not by the app",
-                    mapOf("build" to currentBuildNumber),
-                )
-                return UpdateAvailability.Inconclusive
+                val build = currentBuildNumber
+                if (build == null) {
+                    logger.w(
+                        "DesktopUnsupportedPorts.isNewerBuildAvailable",
+                        "The desktop build number is unknown, so no update check can be made",
+                    )
+                    return UpdateAvailability.Inconclusive
+                }
+                val result = checkForUpdates(build, UpdateChannel.STABLE)
+                return when (result.outcome) {
+                    UpdateOutcome.UPDATE_AVAILABLE ->
+                        UpdateAvailability.Newer(
+                            buildNumber = result.latestBuildNumber ?: build,
+                            // WHY false AND NOT A STORE CHECK: this platform is not declining — it has no
+                            // installer at all, so there is nothing to install a fetched artifact with. The
+                            // shared type documents `installable = false` as the NORMAL desktop case.
+                            // Android's `installable = !isStoreManaged` is the TRUE case for a platform with
+                            // one; the two differ because the platforms differ, so this is documented at
+                            // the site rather than reconciled into one shared constant.
+                            installable = false,
+                        )
+
+                    UpdateOutcome.UP_TO_DATE -> UpdateAvailability.UpToDate
+
+                    UpdateOutcome.TYPE_MISMATCH,
+                    UpdateOutcome.NO_RELEASE_ON_CHANNEL,
+                    UpdateOutcome.RELEASE_UNREADABLE,
+                    UpdateOutcome.INDETERMINATE,
+                    UpdateOutcome.FAILED,
+                    -> {
+                        logger.w(
+                            "DesktopUnsupportedPorts.isNewerBuildAvailable",
+                            "Update check did not produce an answer",
+                            mapOf(
+                                "outcome" to result.outcome.name,
+                                "error" to result.error?.name,
+                                "build" to build,
+                            ),
+                        )
+                        UpdateAvailability.Inconclusive
+                    }
+                }
             }
 
             override suspend fun downloadNewerBuild(availability: UpdateAvailability): UpdateDownload? {
@@ -289,6 +368,15 @@ internal object DesktopUnsupportedPorts {
                 return InstallHandoff.Refused(InstallRefusal.PLATFORM_NOT_APPLICABLE)
             }
         }
+
+    /**
+     * The desktop's update source over the real channel read - the production instance.
+     *
+     * A property and a function may share one name in Kotlin (their JVM signatures differ, so there is no
+     * clash): the property is what production uses, and the function is the injection seam a parity test
+     * drives. Both resolve to the same mapping, because the function IS the implementation.
+     */
+    val apkUpdateSource: ApkUpdateSource = apkUpdateSource()
 
     /**
      * The home-screen widget this platform does not have.
@@ -324,4 +412,23 @@ internal object DesktopUnsupportedPorts {
             currentStreak = 0,
             longestStreak = 0,
         )
+}
+
+/**
+ * The actions the shared pre-unlock update section would dispatch - none of which this platform can perform.
+ *
+ * The section returns early on `SupportState.NOT_APPLICABLE`, before any of these can be reached, so a no-op
+ * is the honest answer rather than a stub pretending to work: this platform's app is installed by its own
+ * package manager, and there is no in-app download or installer handoff to hand it.
+ *
+ * Declared here rather than beside its call site on purpose. The desktop screens file carries a render guard
+ * that scans it for `override fun` lines and reads each as a destination, so an interface implementation
+ * declared there is indistinguishable from an unwired screen.
+ */
+internal object NoOpPreUnlockUpdateActions : PreUnlockUpdateActions {
+    override fun onCheckRequested() = Unit
+
+    override fun onDownloadRequested() = Unit
+
+    override fun onInstallRequested() = Unit
 }

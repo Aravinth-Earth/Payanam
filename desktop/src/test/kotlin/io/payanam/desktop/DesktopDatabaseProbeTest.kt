@@ -23,13 +23,13 @@ import java.nio.file.Path
  * Each case therefore creates a real file (or deliberately does not) and reads the store back, so "the
  * store reports the file that is actually there" is a claim with a way to fail.
  */
-class DesktopDatabaseStoreTest {
+class DesktopDatabaseProbeTest {
     @get:Rule
     val tempFolder = TemporaryFolder()
 
     @Test
     fun `a database that is not there reports no artifacts and a zero size`() {
-        val store = DesktopDatabaseStore(databaseFilePath = tempFolder.newFolder().toPath().resolve("payanam.db"))
+        val store = DesktopDatabaseProbe(databaseFilePath = tempFolder.newFolder().toPath().resolve("payanam.db"))
 
         val snapshot = store.loadSnapshot()
 
@@ -47,7 +47,7 @@ class DesktopDatabaseStoreTest {
         // 3 KB, so the /1024 division is observable rather than rounded back to the same number.
         Files.write(path, ByteArray(3 * 1024))
 
-        val snapshot = DesktopDatabaseStore(databaseFilePath = path).loadSnapshot()
+        val snapshot = DesktopDatabaseProbe(databaseFilePath = path).loadSnapshot()
 
         assertThat(snapshot.hasArtifacts).isTrue()
         // The one fact the whole change turns on: readiness IS the file being there, so it cannot
@@ -64,7 +64,7 @@ class DesktopDatabaseStoreTest {
         // settings screen told the user their data lived somewhere it never did.
         val path = tempFolder.newFolder().toPath().resolve("payanam.db")
 
-        val snapshot = DesktopDatabaseStore(databaseFilePath = path).loadSnapshot()
+        val snapshot = DesktopDatabaseProbe(databaseFilePath = path).loadSnapshot()
 
         assertThat(snapshot.databaseFilePath).isEqualTo(path.toString())
         assertThat(snapshot.databaseFilePath).doesNotContain("desktop-local-state-mock")
@@ -77,7 +77,7 @@ class DesktopDatabaseStoreTest {
         // and a test that only asserted the returned snapshot could not tell a read from a delete.
         val path = tempFolder.newFolder().toPath().resolve("payanam.db")
         Files.write(path, ByteArray(1024))
-        val store = DesktopDatabaseStore(databaseFilePath = path)
+        val store = DesktopDatabaseProbe(databaseFilePath = path)
 
         val after = store.resetDatabaseArtifact()
 
@@ -90,7 +90,7 @@ class DesktopDatabaseStoreTest {
     fun `the default path is the real database file beside the data root`() {
         // Resolved on every call rather than captured in a default argument, so a redirected data root
         // is honoured - and the file name stays single-sourced with the transfer gateway's resolver.
-        val resolved = DesktopDatabaseStore().getDatabaseFilePath()
+        val resolved = DesktopDatabaseProbe().getDatabaseFilePath()
 
         assertThat(resolved.fileName.toString()).isEqualTo(DesktopAppPaths.DATABASE_FILE_NAME)
         assertThat(resolved.fileName.toString()).isNotEqualTo("desktop-local-state-mock.unused")

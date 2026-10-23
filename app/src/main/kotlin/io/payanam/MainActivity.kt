@@ -51,9 +51,12 @@ import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.text.rememberUiLanguage
 import io.payanam.database.DatabaseHealthChecker
 import io.payanam.database.backfill.ScoreRollupBackfillService
+import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.database.security.DatabaseArtifactJanitor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.ProcessRestart
+import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.notification.NotificationScheduler
 import io.payanam.presentation.flags.FeatureFlagsState
@@ -97,6 +100,9 @@ class MainActivity : FragmentActivity() {
     lateinit var notificationScheduler: Lazy<NotificationScheduler>
 
     @Inject
+    lateinit var startupRecovery: Lazy<AndroidStartupRecovery>
+
+    @Inject
     lateinit var recurrenceManager: Lazy<RecurrenceManager>
 
     @Inject
@@ -110,6 +116,9 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var encryptionManager: DatabaseEncryptionManager
+
+    @Inject
+    lateinit var processRestart: ProcessRestart
 
     private var showDatabaseInit by mutableStateOf(false)
     private var showFocusModeOnboarding by mutableStateOf(false)
@@ -553,30 +562,21 @@ class MainActivity : FragmentActivity() {
         }
         val appContext = applicationContext
         startupMaintenanceJob = startupMaintenanceScope.launch {
-            if (FeatureFlags.minimalModeEnabled) {
-                logger.i("MainActivity.onStart", "Minimal mode: skipping recurrence maintenance (habits disabled)")
-            } else {
-                try {
-                    val repairedCount = recurrenceManager.get().repairStuckRecurringTasks()
-                    if (repairedCount > 0) {
-                        logger.i(
-                            "MainActivity.onStart",
-                            "Repaired stuck recurring tasks",
-                            mapOf(
-                                "repairedCount" to repairedCount,
-                            ),
-                        )
-                    }
-                    recurrenceManager.get().autoAdvanceRecurringTasks()
-                    logger.i("MainActivity.onStart", "Auto-advanced recurring tasks")
-                    // One-time score roll-up backfill (rule conversion + L1/L2/L3)
-                    scoreRollupBackfillService.get().runIfNeeded()
-                } catch (e: CancellationException) {
-                    logger.d("MainActivity.onStart", "Startup recurrence maintenance cancelled")
-                    throw e
-                } catch (e: Exception) {
-                    logger.e("MainActivity.onStart", "Failed to auto-advance recurring tasks", e)
-                }
+            // One startup step list on both platforms: the steps are the shared StartupRecoveryStep
+            // entries, and the AndroidStartupRecovery implementation owns the minimal-mode decision
+            // (an empty list rather than a claimed step) exactly as the desktop's implementation does.
+            try {
+                val steps = startupRecovery.get().runStartupRecovery()
+                logger.i(
+                    "MainActivity.onStart",
+                    "Startup recovery ran",
+                    mapOf("steps" to steps.joinToString(separator = ",")),
+                )
+            } catch (e: CancellationException) {
+                logger.d("MainActivity.onStart", "Startup recovery cancelled")
+                throw e
+            } catch (e: Exception) {
+                logger.e("MainActivity.onStart", "Startup recovery failed", e)
             }
             if (FeatureFlags.remindersEnabled) {
                 try {
@@ -712,11 +712,19 @@ class MainActivity : FragmentActivity() {
             stage = "kill_process_for_restart",
         )
         logger.flush()
-        packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            startActivity(intent)
+        // The rebuild-and-relaunch itself is the shared port's job, not this class's: it already launches
+        // the same intent with NEW_TASK|CLEAR_TASK and kills this pid unconditionally, and it reports a
+        // refusal with a reason instead of leaving the caller unable to tell "restarted" from "nothing
+        // happened". The snapshot marker above stays here because it is this screen's own diagnostic (the
+        // pre-restart DB-artifact state the next launch reads back), not the port's restart bookkeeping.
+        val outcome = processRestart.restartProcess()
+        if (outcome is ProcessRestartOutcome.Refused) {
+            logger.w(
+                "MainActivity.restartProcess",
+                "Process restart refused: ${outcome.reason}",
+                mapOf("reason" to outcome.reason.name, "detail" to (outcome.detail ?: "")),
+            )
         }
-        Process.killProcess(Process.myPid())
     }
 
     /** Attempts a silent (no-UI) unlock and navigates to [returnRoute] on success. */

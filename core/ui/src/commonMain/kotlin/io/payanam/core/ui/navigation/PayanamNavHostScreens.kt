@@ -61,6 +61,17 @@ interface PayanamNavHostScreens {
         onPresetSelected: (FocusModePreset) -> Unit,
     )
 
+    /** The first-run tour. */
+    @Composable
+    fun onboardingIntro(onFinished: () -> Unit)
+
+    /** The fail-closed refusal shown when the passphrase store cannot be read. */
+    @Composable
+    fun securityStateUnavailable(
+        onSecurityResetRequested: () -> Unit,
+        onQuitRequested: () -> Unit,
+    )
+
     /** The Tasks tab. */
     @Composable
     fun tasks(nav: PayanamNavActions)

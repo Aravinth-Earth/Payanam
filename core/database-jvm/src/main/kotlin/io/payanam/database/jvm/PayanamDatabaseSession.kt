@@ -64,6 +64,28 @@ class PayanamDatabaseSession internal constructor(
         return connection
     }
 
+    /**
+     * Runs [block] while holding this session's lock, so the single connection is USED serially, not
+     * merely handed out serially.
+     *
+     * WHY THIS EXISTS, MEASURED 2026-10-05: [requireConnection] alone only serialises the accessor.
+     * A caller that takes the connection and then prepares a statement on its own thread races every
+     * other caller that did the same - and the driver's native layer is not safe under that race. A
+     * JVM crash log shows the exact death: a SIGSEGV in `libsqlcipher_jni.so`'s `findElementWithHash`
+     * under `JdbcQueries.read -> prepareStatement`, on a `DefaultDispatcher` worker, while the test
+     * JVM ran many repository flows at once (`desktop/hs_err_pid2245066.log`). Every statement use in
+     * this module now runs through here, which is what the type's own KDoc always claimed.
+     *
+     * Reentrant: JDBC transactions and helpers that nest reads inside a write re-enter it safely,
+     * because Java's monitor is reentrant and the same thread taking it twice is exactly the nesting
+     * those callers need.
+     */
+    @Synchronized
+    fun <T> withSerializedAccess(block: (Connection) -> T): T {
+        check(!closed) { "PayanamDatabaseSession is closed" }
+        return block(connection)
+    }
+
     /** True once [close] has run. */
     val isClosed: Boolean get() = closed
 

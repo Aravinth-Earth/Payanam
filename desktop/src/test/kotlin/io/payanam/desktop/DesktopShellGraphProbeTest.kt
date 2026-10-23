@@ -317,6 +317,15 @@ class DesktopShellGraphProbeTest {
         ) = body(DATABASE_INIT)
 
         @Composable
+        override fun onboardingIntro(onFinished: () -> Unit) = body(ONBOARDING_INTRO)
+
+        @Composable
+        override fun securityStateUnavailable(
+            onSecurityResetRequested: () -> Unit,
+            onQuitRequested: () -> Unit,
+        ) = body(SECURITY_STATE_UNAVAILABLE)
+
+        @Composable
         override fun focusModeSelection(
             nav: PayanamNavActions,
             onPresetSelected: (FocusModePreset) -> Unit,
@@ -402,6 +411,8 @@ class DesktopShellGraphProbeTest {
             const val PASSPHRASE_CHANGE = "gate:passphrase-change"
             const val DATABASE_INIT = "gate:database-init"
             const val FOCUS_MODE_SELECTION = "gate:focus-mode-selection"
+            const val ONBOARDING_INTRO = "gate:onboarding-intro"
+            const val SECURITY_STATE_UNAVAILABLE = "gate:security-state-unavailable"
             const val ADD_TASK = "route:add-task"
             const val TASK_DETAIL = "route:task-detail"
             const val EDIT_TASK = "route:edit-task"

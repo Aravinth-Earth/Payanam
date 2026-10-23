@@ -53,9 +53,9 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.settings.StatRow
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.updates.UpdateChannel
-import io.payanam.presentation.updates.UpdateCheckError
-import io.payanam.presentation.updates.UpdateOutcome
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.feature.settings.ApkBuildType

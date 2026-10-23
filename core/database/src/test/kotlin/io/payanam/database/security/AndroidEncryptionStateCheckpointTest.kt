@@ -120,7 +120,15 @@ class AndroidEncryptionStateCheckpointTest {
         const val PREFS_NAME = "db_security_prefs"
         const val PASSPHRASE = "ValidTest#Pass123"
         const val WRAPPED_MATERIAL = "not-a-real-ciphertext"
-        /** 7 string keys + 1 boolean key, per `BACKUP_STRING_KEYS`/`BACKUP_BOOLEAN_KEYS`. */
-        const val EXPECTED_BACKUP_KEYS = 8
+        /**
+         * 6 string keys + 1 boolean key, per `BACKUP_STRING_KEYS`/`BACKUP_BOOLEAN_KEYS`.
+         *
+         * This was 8 while `db_mode` was also captured. `db_mode` is gone: the stored mode flag was
+         * retired because the encryption question is answered from the database FILE, not from a
+         * preference, so there is no longer a mode to back up or restore. The count is asserted so a
+         * deleter that quietly stopped covering a key fails here instead of passing by having nothing
+         * to remove.
+         */
+        const val EXPECTED_BACKUP_KEYS = 7
     }
 }

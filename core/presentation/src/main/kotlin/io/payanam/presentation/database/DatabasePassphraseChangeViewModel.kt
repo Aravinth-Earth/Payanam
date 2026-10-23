@@ -111,11 +111,15 @@ class DatabasePassphraseChangeViewModel(
             _uiState.update { it.copy(isSaving = true, errorReasonCode = null, isSuccess = false) }
             val errorCode = changePassphraseWithRollback(currentPassphrase, newPassphrase)
             if (errorCode == null) {
-                // Success: UI shows success state briefly, then process restarts for clean re-auth
-                _uiState.update { it.copy(isSaving = false, errorReasonCode = null, isSuccess = true) }
-                // Close and restart so cold boot prompts re-auth with the new passphrase
+                // Close and restart so cold boot prompts re-auth with the new passphrase. The spawn
+                // runs BEFORE the success state flips, because the success state IS the host's quit
+                // signal: spawning after it began put the fork inside the app's own teardown (a
+                // SIGSEGV storm under software rendering), and the replacement degenerated into a
+                // main-class-less JVM that printed the usage and exited. Order measured 2026-10-05.
                 sessionManager.closeDatabase()
                 restartProcess()
+                // Success: UI shows success state briefly, then the host quits this process.
+                _uiState.update { it.copy(isSaving = false, errorReasonCode = null, isSuccess = true) }
             } else {
                 _uiState.update { it.copy(isSaving = false, errorReasonCode = errorCode, isSuccess = false) }
             }

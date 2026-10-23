@@ -186,28 +186,50 @@ class DesktopProcessRestartPortTest {
     @Test
     fun `a refused restart leaves the port able to restart on a retry`() {
         val runtimeDirectory = Files.createTempDirectory("desktop-restart-retry")
-        val refused =
-            DesktopProcessRestartPort(
-                runtimeDirectory = runtimeDirectory,
-                commandOf = { "" },
-                spawn = { throw AssertionError("must not spawn for an empty command") },
-                checkpointAndClose = { throw AssertionError("must not fold for an empty command") },
-                clock = { fixedInstant },
-            )
-        assertThat(refused.restartProcess()).isInstanceOf(ProcessRestartOutcome.Refused::class.java)
-
+        val markerPath = runtimeDirectory.resolve("desktop-restart-marker.txt")
+        // ONE PORT, NOT TWO. The guard under test is per-INSTANCE state, so a retry handed a second
+        // instance would read it unset by construction, and this test would pass even if the refusal
+        // had already consumed it. A fold after a refusal is therefore only reachable if the SAME
+        // instance is asked again - which is what happens in production, where every call re-reads the
+        // command from the OS and the port that refuses is the port that is still usable.
+        var launchCommand = ""
         var spawnCount = 0
-        val retried =
+        var foldCount = 0
+        val port =
             DesktopProcessRestartPort(
                 runtimeDirectory = runtimeDirectory,
-                commandOf = { launcherPath },
-                spawn = { spawnCount++ },
-                checkpointAndClose = { },
+                commandOf = { launchCommand },
+                spawn = { command ->
+                    // Any spawn at all can only be the retry's, and it can only carry the launcher.
+                    assertThat(command).isEqualTo(launcherPath)
+                    spawnCount++
+                },
+                checkpointAndClose = { foldCount++ },
                 clock = { fixedInstant },
             )
 
-        assertThat(retried.restartProcess()).isEqualTo(ProcessRestartOutcome.Launched)
+        val refused = port.restartProcess()
+
+        assertThat(refused).isInstanceOf(ProcessRestartOutcome.Refused::class.java)
+        assertThat((refused as ProcessRestartOutcome.Refused).reason)
+            .isEqualTo(ProcessRestartRefusal.NO_LAUNCH_COMMAND)
+        // The refusal left the fold guard UNSET. That is only observable as the fold NOT having run, and
+        // it is the whole premise of the retry below: had the refusal consumed the guard, the retry on
+        // this same instance could never fold, and `foldCount` would still be 0 after it.
+        assertThat(foldCount).isEqualTo(0)
+        assertThat(spawnCount).isEqualTo(0)
+        assertThat(Files.exists(markerPath)).isFalse()
+
+        launchCommand = launcherPath
+
+        val retried = port.restartProcess()
+
+        assertThat(retried).isEqualTo(ProcessRestartOutcome.Launched)
+        // The fold the refusal did not take, taken here on the same instance: one fold across the whole
+        // refusal-then-retry sequence, and one spawn.
+        assertThat(foldCount).isEqualTo(1)
         assertThat(spawnCount).isEqualTo(1)
+        assertThat(Files.exists(markerPath)).isTrue()
     }
 
     /**

@@ -5,6 +5,7 @@ package io.payanam.database.security
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.VaultAvailability
@@ -110,20 +111,64 @@ class AndroidVaultChangeAndEncryptionModeTest {
     }
 
     @Test
-    fun `encryption is reported as off until a passphrase is actually stored`() {
-        val fresh = AndroidPassphraseVault(ApplicationProvider.getApplicationContext())
+    fun `the encryption answer comes from the file, and the store keeps answering about the material`() {
+        // The vault no longer answers this member from the stored mode. It answers from the FILE through
+        // the platform's probe - the same question every other file reader asks - so this test steers the
+        // probe and the file, not a preferences flag. The store still owns the MATERIAL question, and the
+        // never-enabled-without-material rule now lives exactly there: a fresh install has no passphrase,
+        // and configuring one turns the material answer on. The two answers are asserted together so a
+        // vault that collapsed them again would fail here.
+        val probeFile = java.io.File.createTempFile("vault-encryption", ".db")
+        val probe =
+            object : DatabaseEncryptionProbe {
+                var encrypted = false
 
-        // A fresh install has no passphrase and therefore nothing encrypted. The two answers are read
-        // together on purpose: `hasPassphraseConfigured` alone cannot distinguish "nothing stored" from
-        // "a credential this vault cannot read", which is why the contract pairs it with availability.
+                override fun isDetectablyEncrypted(
+                    databaseFile: java.io.File,
+                    logTag: String,
+                ): Boolean = encrypted
+
+                override fun canOpen(
+                    databaseFile: java.io.File,
+                    passphrase: String,
+                    logTag: String,
+                ): Boolean = true
+
+                override fun ensureEncrypted(
+                    databaseFile: java.io.File,
+                    passphrase: String,
+                    logTag: String,
+                ) = Unit
+
+                override fun readTableCounts(
+                    databaseFile: java.io.File,
+                    passphrase: String?,
+                    tableNames: List<String>,
+                ): Map<String, Int> = emptyMap()
+            }
+        val fresh =
+            AndroidPassphraseVault(
+                ApplicationProvider.getApplicationContext(),
+                encryptionProbe = probe,
+                databaseFile = { probeFile },
+            )
+
         assertThat(fresh.isEncryptionEnabled()).isFalse()
         assertThat(fresh.hasPassphraseConfigured()).isFalse()
 
         assertThat(fresh.configurePassphrase(currentPassphrase.toCharArray()))
             .isEqualTo(PassphraseConfigureOutcome.CONFIGURED)
 
-        // Now, and only now, both. The mode flag without material would be a screen promising encryption
-        // the app cannot deliver.
+        // THE DISTINGUISHING CASE: a passphrase is now stored, so the MODE flag says encrypted - and the
+        // FILE says plaintext. The vault must report the FILE. Asserting `true` here (as this test first
+        // did) could not tell the two answers apart, and a mutation that put the mode read back survived
+        // it; this assertion is the one that fails when the member stops asking the file.
+        assertThat(fresh.hasPassphraseConfigured()).isTrue()
+        assertThat(fresh.isEncryptionEnabled()).isFalse()
+
+        // And the file answer follows the file: flip the probe and the vault follows it, with the store
+        // untouched.
+        probe.encrypted = true
         assertThat(fresh.isEncryptionEnabled()).isTrue()
         assertThat(fresh.hasPassphraseConfigured()).isTrue()
     }

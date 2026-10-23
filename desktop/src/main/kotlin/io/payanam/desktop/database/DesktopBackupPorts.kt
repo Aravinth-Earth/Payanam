@@ -2,6 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop.database
 
+import io.payanam.desktop.DesktopAppPaths
+import io.payanam.desktop.DesktopKeyValueEntry
 import io.payanam.domain.port.BackupExecutionResult
 import io.payanam.domain.port.BackupFailureStatus
 import io.payanam.domain.port.BackupStatusSnapshot
@@ -10,25 +12,43 @@ import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.port.DatabaseBackupCoordinator
 import io.payanam.domain.port.formatBackupDisplayTimestamp
 import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.UnifiedLogger
+import java.io.IOException
+import java.io.StringReader
+import java.io.StringWriter
+import java.nio.file.Path
+import java.util.Properties
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlin.coroutines.cancellation.CancellationException
 
 /**
- * The desktop's [BackupStatusStore]: the last backup outcome, held in memory.
+ * The desktop's [BackupStatusStore]: the last backup outcome, persisted across runs.
  *
- * Android's store persists its snapshot in SharedPreferences; the desktop deliberately has no second
- * persistence mechanism (its own settings stores are being retired, and the encrypted database is the
- * only data layer), so persistence for this state is an open item: the snapshot lives for the app's
- * run, which is all the settings screen that renders it needs. When the desktop's periodic backup is
- * wired, the writers below are what it will record through.
+ * Android's store keeps its snapshot in app-private `SharedPreferences`; this is the desktop's
+ * equivalent of that — an owner-only properties file written through [DesktopKeyValueEntry], which is
+ * already how DesktopSecurityStore keeps its own snapshot. It is deliberately NOT a database row: the
+ * screen that renders the last outcome can be reached BEFORE the database is unlocked, and the
+ * encrypted database is not open at that point, so a row could not be read when it is needed.
+ *
+ * It mirrors Android's four operations exactly (`service/BackupStatusStore.kt`): a success CLEARS the
+ * recorded failure and leaves both success keys; a failure writes its three keys and leaves the success
+ * keys alone; a dismiss removes exactly the three failure keys; and a BLANK persisted message loads as
+ * no failure at all — that last rule is the one a look-alike store usually gets wrong.
  */
-internal class DesktopBackupStatusPort : BackupStatusStore {
-    private val _status = MutableStateFlow(BackupStatusSnapshot())
+internal class DesktopBackupStatusPort(
+    preferencesDirectory: Path = DesktopAppPaths.resolvePreferencesDirectory(),
+    private val persistenceEntry: DesktopKeyValueEntry =
+        DesktopKeyValueEntry(backupStatusFileIn(preferencesDirectory)),
+) : BackupStatusStore {
+    private val logger = AppLogger.current
 
-    /** The in-memory snapshot; emits on every recorded outcome. */
+    /** Seeded from a REAL read, so a restart reports the last outcome instead of an empty snapshot. */
+    private val _status = MutableStateFlow(readSnapshot())
+
+    /** The persisted snapshot; emits on every recorded outcome. */
     override val status: StateFlow<BackupStatusSnapshot> = _status.asStateFlow()
 
     /** The shared display format — one implementation, both platforms. */
@@ -37,36 +57,124 @@ internal class DesktopBackupStatusPort : BackupStatusStore {
     /** Records a successful backup, clearing any recorded failure — Android's semantics. */
     fun recordSuccess(recordedAtMillis: Long) {
         val effectiveMillis = recordedAtMillis.takeIf { it > 0L } ?: System.currentTimeMillis()
-        _status.value =
-            BackupStatusSnapshot(
-                lastSuccessAtMillis = effectiveMillis,
-                lastSuccessDisplay = formatBackupDisplayTimestamp(effectiveMillis),
-                latestFailure = null,
-            )
+        val properties = readProperties()
+        properties.setProperty(KEY_SUCCESS_AT_MILLIS, effectiveMillis.toString())
+        properties.setProperty(KEY_SUCCESS_DISPLAY, formatBackupDisplayTimestamp(effectiveMillis))
+        removeFailureKeys(properties)
+        save(properties)
+        _status.value = readSnapshot()
     }
 
     /** Records a failed attempt with its (truncated) message, keeping the last success. */
     fun recordFailure(message: String) {
-        _status.value =
-            _status.value.copy(
-                latestFailure =
-                    BackupFailureStatus(
-                        message = message.take(MESSAGE_LIMIT),
-                        recordedAtDisplay = formatBackupDisplayTimestamp(System.currentTimeMillis()),
-                    ),
-            )
+        val recordedAtMillis = System.currentTimeMillis()
+        val properties = readProperties()
+        properties.setProperty(KEY_FAILURE_AT_MILLIS, recordedAtMillis.toString())
+        properties.setProperty(KEY_FAILURE_DISPLAY, formatBackupDisplayTimestamp(recordedAtMillis))
+        properties.setProperty(KEY_FAILURE_MESSAGE, message.take(MESSAGE_LIMIT))
+        save(properties)
+        _status.value = readSnapshot()
     }
 
     /** Clears the recorded failure so it stops showing. */
     fun dismissLatestFailure() {
-        _status.value = _status.value.copy(latestFailure = null)
+        val properties = readProperties()
+        removeFailureKeys(properties)
+        save(properties)
+        _status.value = readSnapshot()
     }
 
-    private companion object {
+    private fun removeFailureKeys(properties: Properties) {
+        properties.remove(KEY_FAILURE_AT_MILLIS)
+        properties.remove(KEY_FAILURE_DISPLAY)
+        properties.remove(KEY_FAILURE_MESSAGE)
+    }
+
+    /**
+     * Reads the five persisted keys. An absent, unreadable or unparsable entry yields the EMPTY
+     * snapshot rather than throwing: the screen that renders this must render something.
+     */
+    private fun readSnapshot(): BackupStatusSnapshot {
+        val properties = readProperties()
+        val message = properties.getProperty(KEY_FAILURE_MESSAGE).orEmpty()
+        return BackupStatusSnapshot(
+            lastSuccessAtMillis = properties.getProperty(KEY_SUCCESS_AT_MILLIS)?.toLongOrNull() ?: 0L,
+            lastSuccessDisplay = properties.getProperty(KEY_SUCCESS_DISPLAY),
+            latestFailure =
+                message.takeIf { it.isNotBlank() }?.let { recorded ->
+                    BackupFailureStatus(
+                        message = recorded,
+                        recordedAtDisplay = properties.getProperty(KEY_FAILURE_DISPLAY),
+                    )
+                },
+        )
+    }
+
+    private fun readProperties(): Properties {
+        val payload = readEntryOrNull() ?: return Properties()
+        return Properties().also { properties ->
+            if (payload.isNotBlank()) {
+                StringReader(payload).use(properties::load)
+            }
+        }
+    }
+
+    private fun readEntryOrNull(): String? =
+        try {
+            persistenceEntry.readEntry()
+        } catch (error: IOException) {
+            logger.e(
+                SOURCE,
+                "The persisted backup status could not be read; reporting no recorded outcome",
+                error,
+                mapOf("entryKey" to STATE_ENTRY_KEY, "failure" to error::class.simpleName.orEmpty()),
+            )
+            null
+        }
+
+    private fun save(properties: Properties) {
+        val payload =
+            StringWriter().use { writer ->
+                properties.store(writer, "Payanam Backup Status")
+                writer.toString()
+            }
+        try {
+            persistenceEntry.writeEntry(payload)
+        } catch (error: IOException) {
+            logger.e(
+                SOURCE,
+                "The backup status could not be persisted; it will not survive a restart",
+                error,
+                mapOf("entryKey" to STATE_ENTRY_KEY, "failure" to error::class.simpleName.orEmpty()),
+            )
+        }
+    }
+
+    internal companion object {
+        internal const val STATE_ENTRY_KEY = "desktop/backup-status"
+
+        /**
+         * The status file, named for what it holds. The directory is the platform-resolved one, and the
+         * name is stable so a restart finds it — which is the entire point: the in-memory entry did not.
+         */
+        fun backupStatusFileIn(directory: Path): Path = directory.resolve(DESKTOP_BACKUP_STATUS_FILE_NAME)
+
+        private const val SOURCE = "DesktopBackupStatusPort"
+
+        // Android's five keys, spelled identically so both stores describe the same facts.
+        private const val KEY_SUCCESS_AT_MILLIS = "last_backup_success_at_millis"
+        private const val KEY_SUCCESS_DISPLAY = "last_backup_success_display"
+        private const val KEY_FAILURE_AT_MILLIS = "last_backup_failure_at_millis"
+        private const val KEY_FAILURE_DISPLAY = "last_backup_failure_display"
+        private const val KEY_FAILURE_MESSAGE = "last_backup_failure_message"
+
         /** Matches the Android store's truncation of failure messages. */
         private const val MESSAGE_LIMIT = 400
     }
 }
+
+/** The status file's name, beside the database it describes. */
+private const val DESKTOP_BACKUP_STATUS_FILE_NAME = "desktop-backup-status.properties"
 
 /** How many backup directories to keep, and whether to prune the rest at all. */
 internal data class BackupRotationPolicy(

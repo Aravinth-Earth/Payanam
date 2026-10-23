@@ -16,6 +16,7 @@ import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.BackupExecutionResult
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.EncryptedFileClassifier
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
 import kotlinx.coroutines.Dispatchers
@@ -269,7 +270,9 @@ class DatabaseBackupCoordinator @Inject constructor(
     private fun hasStandardSqliteHeader(databaseFile: File): Boolean = try {
         val header = ByteArray(16)
         val bytesRead = databaseFile.inputStream().use { it.read(header) }
-        val sqliteMagic = "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1)
+        // The shared declaration's bytes, not a restated literal: two copies of the magic is how two
+        // files come to disagree about what counts as plaintext.
+        val sqliteMagic = EncryptedFileClassifier.SQLITE_PLAINTEXT_MAGIC
         bytesRead >= sqliteMagic.size && header.copyOf(sqliteMagic.size).contentEquals(sqliteMagic)
     } catch (_: Exception) {
         false

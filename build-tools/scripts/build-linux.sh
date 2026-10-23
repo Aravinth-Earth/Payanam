@@ -351,6 +351,88 @@ if $RUN_TESTS; then
     # classes, commonTest + desktopTest) would otherwise run in no gate at all, so a shared-screen
     # regression there would ship unverified. It is the same JVM as :desktop:test and needs no
     # Android compile.
+    #
+    # ── Added-source-without-test ratchet (issue 631) ───────────────────────────────────────────
+    # No Gradle task can enforce "a new desktop/src/main class ships with a test or a stated
+    # reason": detekt and :desktop:test only ever see the tree as a whole, and jacoco coverage
+    # verification has a floor rather than a per-change rule. So it is enforced here, in the one
+    # gate that runs immediately before the desktop test task, using git + shell only (milliseconds,
+    # no Gradle startup).
+    #
+    # BASELINE, resolved in this order:
+    #   1. $PAYANAM_DESKTOP_TEST_BASELINE - any git ref or SHA. Set it to audit a WIDER range than
+    #      the new work, e.g. PAYANAM_DESKTOP_TEST_BASELINE=origin/dev.
+    #   2. The commit that first added THIS line to this file. Self-describing, and immune to the
+    #      pinning problem of a hardcoded ref that later moves, is deleted, or is not fetched.
+    # Anything else - unset with no marker commit yet, a ref that no longer resolves, a checkout with
+    # no git history at all - makes this a logged no-op. It must never be able to fail a build for a
+    # reason unrelated to the code being built.
+    #
+    # It is a RATCHET, not a cleanup pass. With the default baseline the range is "added since this
+    # check existed", which is empty on a tree that already satisfies it. The pre-existing uncovered
+    # desktop/src/main files (DesktopLogExportActions.kt, DesktopPassphraseSetupViewModel.kt and 12
+    # others) predate the gate and are named in issue 631; they are the backlog's business, not this
+    # check's. Widening the baseline to origin/dev surfaces all 14 today, and that run is a useful
+    # audit - it just does not belong in the build gate, where it would block every build.
+    #
+    # A file is COVERED when <Basename>Test.kt exists anywhere under desktop/src/test. The pairing is
+    # by name, not by mirrored package path: this module's tests do not mirror main's package layout.
+    #
+    # STATED-REASON MARKER: a line matching `// no-test: <reason>` anywhere in the file. Put it in
+    # the file's header comment so the reason sits with the code it excuses.
+    added_main_files() {
+        {
+            git diff --diff-filter=A --name-only "${BASELINE_REF}..HEAD" -- desktop/src/main
+            git diff --cached --diff-filter=A --name-only -- desktop/src/main
+            git ls-files --others --exclude-standard -- desktop/src/main
+        } 2>/dev/null | grep '\.kt$' | sort -u || true
+    }
+
+    BASELINE_MARKER='PAYANAM_DESKTOP_TEST_BASELINE'
+    BASELINE_REF="${PAYANAM_DESKTOP_TEST_BASELINE:-}"
+    BASELINE_SOURCE="env"
+    if [[ -z "$BASELINE_REF" ]]; then
+        BASELINE_REF=$(git log -S"$BASELINE_MARKER" --reverse --format=%H \
+            -- build-tools/scripts/build-linux.sh 2>/dev/null | head -1 || true)
+        BASELINE_SOURCE="this-check's first commit"
+    fi
+
+    if [[ -z "$BASELINE_REF" ]]; then
+        info "  Added-source test ratchet: no baseline (no env var, no marker commit yet) - skipped."
+    elif ! git rev-parse --verify -q "${BASELINE_REF}^{commit}" >/dev/null 2>&1; then
+        info "  Added-source test ratchet: baseline '$BASELINE_REF' does not resolve to a commit - skipped."
+    else
+        ADDED_MAIN=$(added_main_files)
+        ADDED_COUNT=$(printf '%s\n' "$ADDED_MAIN" | grep -c . || true)
+        if [[ "$ADDED_COUNT" -eq 0 ]]; then
+            info "  Added-source test ratchet: no .kt files added under desktop/src/main vs $BASELINE_REF ($BASELINE_SOURCE) - nothing to check."
+        else
+            TEST_BASENAMES=$(find desktop/src/test -type f -name '*Test.kt' -printf '%f\n' 2>/dev/null | sort -u || true)
+            UNCOVERED=()
+            while IFS= read -r added_file; do
+                [[ -n "$added_file" ]] || continue
+                added_name="$(basename "$added_file" .kt)"
+                if printf '%s\n' "$TEST_BASENAMES" | grep -qx -- "${added_name}Test.kt"; then
+                    continue
+                fi
+                if [[ -f "$added_file" ]] && grep -qE '^[[:space:]]*//[[:space:]]*no-test:[[:space:]]*\S' "$added_file"; then
+                    ok "  $added_name.kt - stated reason ('// no-test:')"
+                    continue
+                fi
+                UNCOVERED+=("$added_file")
+            done <<< "$ADDED_MAIN"
+
+            if [[ ${#UNCOVERED[@]} -gt 0 ]]; then
+                log "  ❌ ${#UNCOVERED[@]} added desktop/src/main source(s) with no matching *Test.kt under desktop/src/test:"
+                for offender in "${UNCOVERED[@]}"; do
+                    log "       $offender"
+                done
+                fail "Desktop added-source test ratchet failed. Add a test, or a '// no-test: <reason>' line naming why there is none. To widen or narrow the range: PAYANAM_DESKTOP_TEST_BASELINE=<ref>."
+            fi
+            ok "Added-source test ratchet passed ($ADDED_COUNT added file(s) vs $BASELINE_REF)"
+        fi
+    fi
+
     if ./gradlew :desktop:detekt :desktop:test \
             :core:ui:desktopTest \
             :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification \

@@ -60,7 +60,6 @@ import io.payanam.shared.logging.AppLogger
  */
 @Composable
 fun ImportDatabaseConfirmDialog(
-    showEncryptedModeWarning: Boolean,
     onConfirm: () -> Unit,
     onDismiss: () -> Unit,
 ) {
@@ -85,13 +84,15 @@ fun ImportDatabaseConfirmDialog(
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
-                if (showEncryptedModeWarning) {
-                    Text(
-                        text = strings.settingsImportDialogEncryptedModeHint,
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
+                // The rule, stated unconditionally: with the copy stating the rule rather than the mode,
+                // the clause stops being conditional on a flag. A reader whose database is plaintext gets
+                // the same sentence as one whose database is encrypted - and it is true for both, because
+                // the import refuses anything it cannot detect as encrypted, whatever the local mode is.
+                Text(
+                    text = strings.settingsImportDialogEncryptedModeHint,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
             }
         },
         confirmButton = {

@@ -4,12 +4,14 @@ package io.payanam.desktop.security
 
 import io.payanam.desktop.DesktopPassphraseActionResult
 import io.payanam.desktop.DesktopSecurityStore
+import io.payanam.shared.database.DatabaseEncryptionProbe
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseUpdateOutcome
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.security.SharedPassphraseLockoutPolicy
 import io.payanam.shared.security.SharedPassphrasePolicy
 import io.payanam.shared.security.VaultAvailability
+import java.io.File
 import java.time.Instant
 
 /**
@@ -38,6 +40,15 @@ import java.time.Instant
  */
 internal class DesktopPassphraseVault(
     private val store: DesktopSecurityStore,
+    /**
+     * The probe and the file it should read, so the encryption answer comes from the FILE rather than from a
+     * platform-level assertion. The production vault is built with both; the defaults exist for the many test
+     * constructions that are about the store's lockout or refusal behaviour and have no file to answer about -
+     * for those, "no file to detect" is reported as not encrypted, which is the honest answer and the same one
+     * a plaintext file gets.
+     */
+    private val encryptionProbe: DatabaseEncryptionProbe? = null,
+    private val databaseFile: () -> File? = { null },
 ) : PassphraseVault {
     private companion object {
         /** The contract reports a countdown in seconds; the store persists an epoch in milliseconds. */
@@ -114,13 +125,19 @@ internal class DesktopPassphraseVault(
     }
 
     /**
-     * The desktop's database is always plaintext.
+     * Whether the desktop's database file is detectably encrypted - answered by the FILE, not asserted.
      *
-     * Not a guess: the desktop opens an unencrypted JDBC file, so reporting `true` would be a lie a settings
-     * screen would render as a promise the platform cannot keep. A user who reads "encrypted" on the desktop
-     * and relies on it is worse off than one told the truth.
+     * This used to return a hardcoded `false` under a KDoc claiming "the desktop opens an unencrypted JDBC
+     * file". That premise is false: the desktop opens with a key (`DesktopDatabaseSessionController`
+     * `openAndInstall`), so the old answer was a wrong answer about a file the platform had opened with a key
+     * - the exact defect this reader was rewritten to end. The answer now comes from the same probe every
+     * other file question uses, so a plaintext file still reads `false` (which is what a settings screen must
+     * see) and an encrypted one reads `true` (which is what it must see).
      */
-    override fun isEncryptionEnabled(): Boolean = false
+    override fun isEncryptionEnabled(): Boolean {
+        val file = databaseFile() ?: return false
+        return encryptionProbe?.isDetectablyEncrypted(file) ?: false
+    }
 
     /**
      * Reads the store's own persisted lockout, so the countdown survives a restart and agrees with the

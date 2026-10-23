@@ -35,10 +35,14 @@ import java.util.UUID
  *    `ON DELETE CASCADE` child tables, so porting it verbatim would port a silent data-loss bug.
  *    [writeEntity] uses `ON CONFLICT(id) DO UPDATE` instead, which reaches the same end state without
  *    deleting the row. See [writeEntity] and `TaskRepositoryJvmCascadeDeleteRegressionTest`.
- *  - **The delete writes five child statements Room's `deleteById` does not.** Room turns
- *    `PRAGMA foreign_keys` on and the declared `CASCADE` / `SET NULL` actions fire on their own; this
- *    connection enforces nothing, so [deleteTask] writes the actions out by hand. It is the one method
- *    here whose SQL is deliberately longer than the DAO it was ported from.
+ *  - **The delete writes five child statements Room's `deleteById` does not — and they are now
+ *    redundant.** Room turns `PRAGMA foreign_keys` on and the declared `CASCADE` / `SET NULL` actions
+ *    fire on their own; this connection used to enforce nothing, so [deleteTask] wrote the actions out
+ *    by hand. The opener now turns the pragma on for every open (parity with Room's delegate — see
+ *    `PayanamDatabaseOpenerForeignKeysTest`), so the schema would fire either way and these statements
+ *    no longer decide the outcome. They are kept, deliberately and temporarily, because removing them is
+ *    a behaviour change of its own: they are the desktop-only compensation that ruling 3 retires, and
+ *    they go in their own commit rather than smuggled into the pragma fix.
  *  - **A connected read is a re-query, not an invalidation.** Room re-runs a query when its table changes;
  *    JDBC has no such signal, so [JdbcFlows] re-runs the statement on an interval and emits only when the
  *    result differs. The parameters that a Room query binds once (the `now` of the overdue query, the
@@ -578,54 +582,6 @@ class TaskRepositoryJvm(
             importBatchId,
         )
 
-    private fun ResultSet.readTask(): TaskEntity =
-        TaskEntity(
-            id = getString("id"),
-            title = getString("title"),
-            description = getString("description"),
-            status = getString("status"),
-            dueDate = getString("dueDate"),
-            createdAt = getString("createdAt"),
-            updatedAt = getString("updatedAt"),
-            completedAt = getString("completedAt"),
-            archivedAt = getString("archivedAt"),
-            recurrenceEnabled = getInt("recurrenceEnabled"),
-            recurrenceRule = getString("recurrenceRule"),
-            durationMinutes = getInt("durationMinutes"),
-            impactLevel = getString("impactLevel"),
-            goalAlignment = getString("goalAlignment"),
-            energyLevel = getString("energyLevel"),
-            controlLevel = getString("controlLevel"),
-            lifeIntentionCategory = getString("lifeIntentionCategory"),
-            dimensionId = getString("dimension_id"),
-            dayKey = getString("day_key"),
-            explicitUrgency = getNullableDouble("explicitUrgency"),
-            focusRequired = getNullableDouble("focusRequired"),
-            recurrenceStrategy = getString("recurrenceStrategy"),
-            blockedReason = getString("blockedReason"),
-            completionRate = getNullableDouble("completionRate"),
-            externalDependency = getString("externalDependency"),
-            notificationMode = getString("notificationMode"),
-            customNotificationMinutes = getNullableInt("customNotificationMinutes"),
-            taskScore = getNullableDouble("taskScore"),
-            lastOccurrenceDate = getString("lastOccurrenceDate"),
-            dayBoundaryHour = getInt("dayBoundaryHour"),
-            importSource = getString("import_source"),
-            importId = getString("import_id"),
-            importedAt = getString("imported_at"),
-            importBatchId = getString("import_batch_id"),
-        )
-
-    private fun ResultSet.getNullableInt(column: String): Int? {
-        val value = getInt(column)
-        return if (wasNull()) null else value
-    }
-
-    /** `getDouble` returns 0.0 for SQL NULL, which would invent a score or a completion rate. */
-    private fun ResultSet.getNullableDouble(column: String): Double? {
-        val value = getDouble(column)
-        return if (wasNull()) null else value
-    }
 
     private fun markDirtyForTaskId(
         taskId: String,
@@ -897,4 +853,53 @@ class TaskRepositoryJvm(
             WHERE id = ?
         """
     }
+}
+
+internal fun ResultSet.readTask(): TaskEntity =
+    TaskEntity(
+        id = getString("id"),
+        title = getString("title"),
+        description = getString("description"),
+        status = getString("status"),
+        dueDate = getString("dueDate"),
+        createdAt = getString("createdAt"),
+        updatedAt = getString("updatedAt"),
+        completedAt = getString("completedAt"),
+        archivedAt = getString("archivedAt"),
+        recurrenceEnabled = getInt("recurrenceEnabled"),
+        recurrenceRule = getString("recurrenceRule"),
+        durationMinutes = getInt("durationMinutes"),
+        impactLevel = getString("impactLevel"),
+        goalAlignment = getString("goalAlignment"),
+        energyLevel = getString("energyLevel"),
+        controlLevel = getString("controlLevel"),
+        lifeIntentionCategory = getString("lifeIntentionCategory"),
+        dimensionId = getString("dimension_id"),
+        dayKey = getString("day_key"),
+        explicitUrgency = getNullableDouble("explicitUrgency"),
+        focusRequired = getNullableDouble("focusRequired"),
+        recurrenceStrategy = getString("recurrenceStrategy"),
+        blockedReason = getString("blockedReason"),
+        completionRate = getNullableDouble("completionRate"),
+        externalDependency = getString("externalDependency"),
+        notificationMode = getString("notificationMode"),
+        customNotificationMinutes = getNullableInt("customNotificationMinutes"),
+        taskScore = getNullableDouble("taskScore"),
+        lastOccurrenceDate = getString("lastOccurrenceDate"),
+        dayBoundaryHour = getInt("dayBoundaryHour"),
+        importSource = getString("import_source"),
+        importId = getString("import_id"),
+        importedAt = getString("imported_at"),
+        importBatchId = getString("import_batch_id"),
+    )
+
+private fun ResultSet.getNullableInt(column: String): Int? {
+    val value = getInt(column)
+    return if (wasNull()) null else value
+}
+
+/** `getDouble` returns 0.0 for SQL NULL, which would invent a score or a completion rate. */
+private fun ResultSet.getNullableDouble(column: String): Double? {
+    val value = getDouble(column)
+    return if (wasNull()) null else value
 }

@@ -290,8 +290,9 @@ object ReminderDecider {
         if (ineligible != null) {
             return NotificationDecision.Skip(key, ineligible)
         }
-        val dueAt = facts.overrideDueAt ?: facts.dueAt
-            ?: return NotificationDecision.Skip(key, ReminderSkipReason.NO_DUE_TIME)
+        val dueAt =
+            facts.overrideDueAt ?: facts.dueAt
+                ?: return NotificationDecision.Skip(key, ReminderSkipReason.NO_DUE_TIME)
         // An override REPLACES the computed fire time rather than being measured against it, so a snooze
         // never has the advance subtracted from it a second time.
         val fireAt = facts.overrideFireAt ?: dueAt.minusMinutes(resolveAdvanceMinutes(facts))

@@ -56,7 +56,7 @@ import io.payanam.presentation.lenses.DimensionSplitWindow
 import io.payanam.presentation.notes.NotesViewModel
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.presentation.tasks.TaskFilter
-import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.security.BiometricAvailability
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow

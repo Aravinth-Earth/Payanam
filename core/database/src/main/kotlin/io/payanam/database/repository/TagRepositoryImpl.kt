@@ -4,7 +4,6 @@
 
 package io.payanam.database.repository
 
-import androidx.room.withTransaction
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.NoteTagEntity
 import io.payanam.database.entity.TagEntity
@@ -199,7 +198,7 @@ class TagRepositoryImpl
                     .filter { it.isNotEmpty() }
                     .distinctBy { normalizeTagName(it) }
 
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 clearOwnerTags(ownerId)
                 if (cleanNames.isEmpty()) {
                     logger.d(
@@ -209,7 +208,7 @@ class TagRepositoryImpl
                             "ownerId" to ownerId,
                         ),
                     )
-                    return@withTransaction
+                    return@inTransaction
                 }
                 val now = LocalDateTime.now().format(formatter)
                 val tagIds =

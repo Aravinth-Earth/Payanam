@@ -81,6 +81,11 @@ dependencies {
     // The shared schema contract (version, minimum migratable version, critical-table set) lives here
     // so the desktop can consume the same facts instead of hardcoding its own copies.
     implementation(project(":core:shared"))
+    // The roll-up compute moved into shared code so the desktop can run the same
+    // calculation, and this module is one of its callers. `implementation`, not `api`:
+    // nothing outside this module needs the compute on its own classpath - the desktop
+    // module takes its own edge to it.
+    implementation(project(":core:scoring"))
     
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)

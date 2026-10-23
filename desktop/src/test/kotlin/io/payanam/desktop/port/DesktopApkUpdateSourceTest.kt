@@ -9,6 +9,10 @@ import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
+import io.payanam.shared.updates.ChannelStatus
+import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.resolveUpdateResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Test
 
@@ -66,5 +70,41 @@ class DesktopApkUpdateSourceTest {
         // Real, not fabricated: a sentinel 0 would read as "always out of date" if anything ever compared
         // it. Null would be wrong too, because this build genuinely knows its own number.
         assertThat(source.currentBuildNumber).isNotNull()
+    }
+
+    @Test
+    fun `the desktop declines for a channel state the shared check answers for the other platform`() {
+        // The two halves of the same contract, driven with the SAME channel state.
+        //
+        // This platform has no feed to consult, so its answer is the explicit non-success - never
+        // UpToDate and never a Newer verdict, both of which would be fabricated answers about a channel
+        // nothing here read.
+        runTest {
+            val desktopAnswer = source.isNewerBuildAvailable()
+            assertThat(desktopAnswer).isEqualTo(UpdateAvailability.Inconclusive)
+            assertThat(desktopAnswer).isNotEqualTo(UpdateAvailability.UpToDate)
+            assertThat(desktopAnswer).isNotInstanceOf(UpdateAvailability.Newer::class.java)
+        }
+
+        // And for that same channel state, the answer the Android implementation gives comes from the
+        // SHARED check - one comparison, not one per platform. Up to date, and newer, for the two
+        // states of the same channel.
+        val state =
+            listOf(
+                ChannelStatus(
+                    channel = UpdateChannel.DEV,
+                    buildNumber = 120,
+                    releaseUrl = "https://example.invalid/release",
+                ),
+            )
+        assertThat(resolveUpdateResult(120, UpdateChannel.DEV, state).outcome)
+            .isEqualTo(UpdateOutcome.UP_TO_DATE)
+        assertThat(
+            resolveUpdateResult(
+                120,
+                UpdateChannel.DEV,
+                listOf(state.first().copy(buildNumber = 121)),
+            ).outcome,
+        ).isEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
     }
 }

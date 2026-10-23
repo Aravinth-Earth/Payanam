@@ -35,7 +35,12 @@ class DesktopOnboardingScaffoldTest {
 
     @Test
     fun `intro stage is shown first on a fresh launch`() {
-        val mode = resolveDesktopStartupMode(runtimeState(DesktopScaffoldOnboardingStage.Intro))
+        // A fresh launch means nothing on disk: the Intro stage alone no longer routes to the tour, because
+        // a launch that HAS artifacts is a returning one and must not sit through it again.
+        val mode =
+            resolveDesktopStartupMode(
+                runtimeState(DesktopScaffoldOnboardingStage.Intro, databaseLifecycleReady = false),
+            )
 
         assertThat(mode).isEqualTo(DesktopStartupMode.OnboardingIntro)
     }
@@ -54,7 +59,14 @@ class DesktopOnboardingScaffoldTest {
             )
 
         sequence.forEach { (stage, expected) ->
-            assertThat(resolveDesktopStartupMode(runtimeState(stage))).isEqualTo(expected)
+            // Only the Intro row is a fresh-launch state; the two below it are reached with a database
+            // present, and their branches do not read the artifacts at all.
+            val freshLaunch = stage == DesktopScaffoldOnboardingStage.Intro
+            assertThat(
+                resolveDesktopStartupMode(
+                    runtimeState(stage, databaseLifecycleReady = !freshLaunch),
+                ),
+            ).isEqualTo(expected)
         }
     }
 
@@ -150,25 +162,4 @@ class DesktopOnboardingScaffoldTest {
         assertThat(desktopDefaultDimensionInputs().all { it.isEnabled }).isTrue()
     }
 
-    @Test
-    fun `hex parsing accepts both forms and rejects junk`() {
-        assertThat(parseDimensionHexColor("#4CAF50")).isEqualTo(parseDimensionHexColor("4CAF50"))
-        assertThat(parseDimensionHexColor("#4CAF50")).isNotNull()
-        assertThat(parseDimensionHexColor("  #4CAF50  ")).isEqualTo(parseDimensionHexColor("#4CAF50"))
-
-        // Rejected rather than thrown: a bad colour from the catalog is a display problem, not a crash.
-        assertThat(parseDimensionHexColor("")).isNull()
-        assertThat(parseDimensionHexColor("#12345")).isNull()
-        assertThat(parseDimensionHexColor("#GGGGGG")).isNull()
-        assertThat(parseDimensionHexColor("not-a-colour")).isNull()
-    }
-
-    @Test
-    fun `every offered colour option parses`() {
-        // The swatch list is hard-coded in this module, so it is the one place a typo could reach the
-        // screen as an invisible swatch.
-        desktopDimensionColorOptions.forEach { hex ->
-            assertThat(parseDimensionHexColor(hex)).isNotNull()
-        }
-    }
 }

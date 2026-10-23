@@ -151,10 +151,9 @@ fun DatabasePassphraseSetupScreen(
                 text = strings.dbPassphraseDbSummaryTitle,
                 style = MaterialTheme.typography.titleSmall,
             )
-            Text(
-                text = strings.dbPassphraseDbSummaryStorageMode.formatArgs(strings.dbPassphraseStorageModePlaintext),
-                style = MaterialTheme.typography.bodySmall,
-            )
+            // The storage mode is deliberately NOT shown here. A database that exists at this point is
+            // about to be encrypted, and calling that state "plaintext" describes a transient step as if
+            // it were the product's storage model.
             Text(
                 text = strings.settingsDatabaseSizeValue.formatArgs(uiState.databaseSizeKb),
                 style = MaterialTheme.typography.bodySmall,

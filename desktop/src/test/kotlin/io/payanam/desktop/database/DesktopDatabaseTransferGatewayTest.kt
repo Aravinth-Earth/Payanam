@@ -199,6 +199,29 @@ class DesktopDatabaseTransferGatewayTest {
         }
 
     @Test
+    fun `a plaintext database offered as the source is refused with the live database untouched`(): Unit =
+        runBlocking {
+            writeLive("live-bytes")
+            val source = tempFolder.root.toPath().resolve("plaintext.db")
+            // The real header of an unencrypted SQLite database. The transfer path is one of the paths a
+            // plaintext file can be offered to, and its refusal has to leave the live database exactly as
+            // it was - the distinction between a refusal and a refusal that already half-imported.
+            Files.write(
+                source,
+                "SQLite format 3\u0000".toByteArray(Charsets.ISO_8859_1) + ByteArray(4080),
+            )
+
+            val outcome =
+                gateway(FakeOpener(refusedOutcome(DatabaseBootIssueType.OPEN_FAILED)))
+                    .importFrom(source.toString(), "any".toCharArray())
+
+            assertThat((outcome as TransferOutcome.Refused).reason)
+                .isEqualTo(TransferRefusal.PASSPHRASE_REJECTED)
+            assertThat(String(Files.readAllBytes(live))).isEqualTo("live-bytes")
+            assertThat(incomingLeftover()).isEmpty()
+        }
+
+    @Test
     fun `a schema the build cannot read is reported as incompatible, not as a wrong passphrase`(): Unit =
         runBlocking {
             writeLive("live-bytes")

@@ -40,7 +40,8 @@ class BackupIntervalTest {
     @Test
     fun `scheduling minutes track the key each option persists`() {
         assertThat(BackupInterval.entries.map { it.minutes })
-            .containsExactly(15L, 30L, 60L, 120L, 360L, 720L, 1440L).inOrder()
+            .containsExactly(15L, 30L, 60L, 120L, 360L, 720L, 1440L)
+            .inOrder()
     }
 
     @Test

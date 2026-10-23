@@ -19,7 +19,7 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.updates.UpdateChannel
+import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.security.BiometricAvailability
 import io.payanam.shared.security.BiometricUnavailableReason
 import org.junit.Assert.assertEquals

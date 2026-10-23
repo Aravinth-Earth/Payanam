@@ -548,6 +548,7 @@ fun DatabaseStatsSettingsSection(
  */
 enum class SettingsSection {
     APPEARANCE,
+    DAY_BOUNDARY,
     DEFAULT_LANDING,
     FOCUS_MODE,
     DIMENSIONS,

@@ -48,16 +48,18 @@ class NotificationRepositoryJvm(
             val now = PersistedDateTime.format(LocalDateTime.now())
             // Inserted directly rather than through the text-only helper: isDelivered is an Int column,
             // and going through setString would rely on the driver's implicit text-to-int coercion.
-            session.requireConnection().prepareStatement(INSERT_SQL).use { statement ->
-                statement.setString(COL_ID, id)
-                statement.setString(COL_TASK_ID, taskId)
-                statement.setString(COL_SCHEDULED_AT, PersistedDateTime.format(scheduledAt))
-                statement.setString(COL_NOTIFICATION_TYPE, notificationType)
-                statement.setString(COL_TITLE, title)
-                statement.setString(COL_BODY, body)
-                statement.setInt(COL_IS_DELIVERED, NOT_DELIVERED)
-                statement.setString(COL_CREATED_AT, now)
-                statement.executeUpdate()
+            session.withSerializedAccess { connection ->
+                connection.prepareStatement(INSERT_SQL).use { statement ->
+                    statement.setString(COL_ID, id)
+                    statement.setString(COL_TASK_ID, taskId)
+                    statement.setString(COL_SCHEDULED_AT, PersistedDateTime.format(scheduledAt))
+                    statement.setString(COL_NOTIFICATION_TYPE, notificationType)
+                    statement.setString(COL_TITLE, title)
+                    statement.setString(COL_BODY, body)
+                    statement.setInt(COL_IS_DELIVERED, NOT_DELIVERED)
+                    statement.setString(COL_CREATED_AT, now)
+                    statement.executeUpdate()
+                }
             }
             AppLogger.current.i(
                 SOURCE,

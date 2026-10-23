@@ -115,6 +115,12 @@ object PayanamRoutes {
     /** Focus-mode preset onboarding, shown after database init on first run. */
     const val FOCUS_MODE_SELECTION = "focus_mode_selection"
 
+    /** The first-run tour, rendered by the shared screen. */
+    const val ONBOARDING_INTRO = "onboarding_intro"
+
+    /** The fail-closed security refusal: shown when the passphrase store cannot be read. */
+    const val SECURITY_STATE_UNAVAILABLE = "security_state_unavailable"
+
     /** Create-task form. */
     const val ADD_TASK = "add_task"
 
@@ -240,7 +246,9 @@ fun shouldCaptureReturnRouteForUnlock(route: String): Boolean =
         route != PayanamRoutes.PASSPHRASE_SETUP &&
         route != PayanamRoutes.PASSPHRASE_CHANGE &&
         route != PayanamRoutes.DATABASE_INIT &&
-        route != PayanamRoutes.FOCUS_MODE_SELECTION
+        route != PayanamRoutes.FOCUS_MODE_SELECTION &&
+        route != PayanamRoutes.SECURITY_STATE_UNAVAILABLE &&
+        route != PayanamRoutes.ONBOARDING_INTRO
 
 /**
  * The minimal-mode tab filter, shared so both platforms hide exactly the same tabs.
