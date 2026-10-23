@@ -693,7 +693,12 @@ private fun roundToLensScorePrecision(value: Double): Double = round(value * LEN
 private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
     return object : CartesianValueFormatter {
         /**
-         * Maps a chart x-index to its day label (blank when out of range).
+         * Maps a chart x-index to its day label.
+         *
+         * Never returns a blank string: Vico throws `IllegalStateException` when an axis formatter
+         * returns one, and the item placer does ask for indices past the data once the chart is
+         * scrolled or zoomed past its ends. Falling back to the nearest real label keeps the axis
+         * labelled instead of crashing the screen.
          */
         override fun format(
             context: CartesianMeasuringContext,
@@ -701,7 +706,7 @@ private fun xAxisFormatter(labels: List<String>): CartesianValueFormatter {
             verticalAxisPosition: Axis.Position.Vertical?,
         ): CharSequence {
             val index = value.toInt()
-            return if (index in labels.indices) labels[index] else ""
+            return labels.getOrNull(index) ?: labels.lastOrNull() ?: "\u2014"
         }
     }
 }
