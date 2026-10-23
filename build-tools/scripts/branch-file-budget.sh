@@ -19,7 +19,9 @@ NEED=0
 BASE=""
 OVERRIDE=""
 
+# Print the usage block taken from this script's own header comment.
 usage() { sed -n '5,13p' "$0" | sed 's/^# \{0,1\}//'; }
+# Print the given message to stderr and exit non-zero, so callers can gate on the result.
 die() { echo "branch-file-budget: $1" >&2; exit 2; }
 
 while [[ $# -gt 0 ]]; do
@@ -40,6 +42,19 @@ done
 
 case "$LIMIT" in ''|*[!0-9]*) die "--limit must be a positive integer" ;; esac
 case "$NEED" in ''|*[!0-9]*) die "--need must be a non-negative integer" ;; esac
+
+# Strip leading zeros BEFORE any arithmetic. Bash reads a leading-zero literal as OCTAL, so
+# --limit 0100 would silently mean 64 and --limit 08 would abort with a base error. Every later
+# comparison and subtraction uses these values, so a misread limit misjudges the whole branch.
+LIMIT="${LIMIT#"${LIMIT%%[!0]*}"}"
+NEED="${NEED#"${NEED%%[!0]*}"}"
+LIMIT="${LIMIT:-0}"
+NEED="${NEED:-0}"
+
+# Nine digits keeps every later subtraction and comparison inside the range bash arithmetic holds.
+[[ ${#LIMIT} -le 9 ]] || die "--limit is out of range (max 999999999)"
+[[ ${#NEED} -le 9 ]] || die "--need is out of range (max 999999999)"
+
 [[ "$LIMIT" -gt 0 ]] || die "--limit must be greater than zero"
 [[ -z "$OVERRIDE" || -n "${OVERRIDE//[[:space:]]/}" ]] || die "--override needs a reason"
 
