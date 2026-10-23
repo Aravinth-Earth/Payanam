@@ -433,8 +433,41 @@ if $RUN_TESTS; then
         fi
     fi
 
+    # ── The SHARED modules are named here too, and a ratchet keeps the list honest ────────────────
+    # `:desktop:test` alone verifies the desktop module; the shared modules the desktop consumes
+    # (`core/domain`, `core/shared`, `core/scoring`, `core/presentation`, `core/database-jvm`, ...) were
+    # named by no task in THIS script, so a desktop build could go green while the code both platforms
+    # share was broken. The Android script names them, but a desktop-only run must too - "the desktop
+    # build passed" has to mean the shared code passed.
+    #
+    # The list is explicit so it is auditable; the ratchet below compares it against every module that
+    # HAS a src/test and fails on a gap, so it cannot silently fall behind the tree.
+    SHARED_TEST_TASKS=":core:backup:test :core:database-jvm:test :core:database-model:test :core:domain:test :core:presentation:test :core:scoring:test :core:shared:test :core:strings:test"
+    NAMED_MODULES="desktop core/backup core/database-jvm core/database-model core/domain core/presentation core/scoring core/shared core/strings"
+    # Android-only libraries: their unit tests need the Android plugin and the Android SDK, and this
+    # script is the DESKTOP phase. They are named by build-android.ps1, which every all-platforms run
+    # executes first - so excluding them here is not a gap, it is the correct split.
+    ANDROID_ONLY_MODULES="core/common core/database"
+    MISSING_MODULES=""
+    for module_dir in core/* desktop; do
+        [ -d "$module_dir/src/test" ] || continue
+        module_name="$module_dir"
+        case " $ANDROID_ONLY_MODULES " in
+            *" $module_name "*) continue ;;
+        esac
+        case " $NAMED_MODULES " in
+            *" $module_name "*) ;;
+            *) MISSING_MODULES="$MISSING_MODULES $module_name" ;;
+        esac
+    done
+    if [ -n "$MISSING_MODULES" ]; then
+        fail "Test ratchet: these modules have a src/test but are named by no task:$MISSING_MODULES - add each to SHARED_TEST_TASKS/NAMED_MODULES above, or its tests run in no gate."
+    fi
+    ok "Shared-module test ratchet passed (every module with src/test is named)"
+
     if ./gradlew :desktop:detekt :desktop:test \
             :core:ui:desktopTest \
+            $SHARED_TEST_TASKS \
             :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification \
             $GRADLE_PROPS --no-configuration-cache --console=plain 2>&1; then
         ok "Desktop verification passed (detekt, tests, coverage)"

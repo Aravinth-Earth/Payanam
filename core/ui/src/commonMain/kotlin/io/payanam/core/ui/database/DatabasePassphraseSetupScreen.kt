@@ -15,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -34,6 +33,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.presentation.database.DatabasePassphraseSetupViewModel
@@ -118,10 +118,11 @@ fun DatabasePassphraseSetupScreen(
     var isConfirmPassphraseVisible by rememberSaveable { mutableStateOf(false) }
     var showResetConfirmDialog by rememberSaveable { mutableStateOf(false) }
     Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(PaddingValues(SetupScreenPadding)),
+        modifier =
+            Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(PaddingValues(SetupScreenPadding)),
         verticalArrangement = Arrangement.spacedBy(SetupScreenSpacing),
     ) {
         Text(
@@ -137,12 +138,13 @@ fun DatabasePassphraseSetupScreen(
             style = MaterialTheme.typography.bodyMedium,
         )
         if (uiState.hasExistingLocalDatabase) {
-            val lastUpdated = if (uiState.databaseLastModifiedMs > 0L) {
-                SimpleDateFormat(LAST_UPDATED_PATTERN, Locale.getDefault())
-                    .format(Date(uiState.databaseLastModifiedMs))
-            } else {
-                NO_LAST_UPDATED
-            }
+            val lastUpdated =
+                if (uiState.databaseLastModifiedMs > 0L) {
+                    SimpleDateFormat(LAST_UPDATED_PATTERN, Locale.getDefault())
+                        .format(Date(uiState.databaseLastModifiedMs))
+                } else {
+                    NO_LAST_UPDATED
+                }
             Text(
                 text = strings.dbPassphraseSetupExistingDataMigration,
                 style = MaterialTheme.typography.bodyMedium,
@@ -198,11 +200,12 @@ fun DatabasePassphraseSetupScreen(
                 IconButton(onClick = { isPassphraseVisible = !isPassphraseVisible }) {
                     Icon(
                         imageVector = if (isPassphraseVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = if (isPassphraseVisible) {
-                            strings.dbPassphraseHideToggle
-                        } else {
-                            strings.dbPassphraseShowToggle
-                        },
+                        contentDescription =
+                            if (isPassphraseVisible) {
+                                strings.dbPassphraseHideToggle
+                            } else {
+                                strings.dbPassphraseShowToggle
+                            },
                     )
                 }
             },
@@ -216,20 +219,22 @@ fun DatabasePassphraseSetupScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text(strings.dbPassphraseConfirmLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-            visualTransformation = if (isConfirmPassphraseVisible) {
-                VisualTransformation.None
-            } else {
-                PasswordVisualTransformation()
-            },
+            visualTransformation =
+                if (isConfirmPassphraseVisible) {
+                    VisualTransformation.None
+                } else {
+                    PasswordVisualTransformation()
+                },
             trailingIcon = {
                 IconButton(onClick = { isConfirmPassphraseVisible = !isConfirmPassphraseVisible }) {
                     Icon(
                         imageVector = if (isConfirmPassphraseVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = if (isConfirmPassphraseVisible) {
-                            strings.dbPassphraseHideToggle
-                        } else {
-                            strings.dbPassphraseShowToggle
-                        },
+                        contentDescription =
+                            if (isConfirmPassphraseVisible) {
+                                strings.dbPassphraseHideToggle
+                            } else {
+                                strings.dbPassphraseShowToggle
+                            },
                     )
                 }
             },
@@ -276,21 +281,23 @@ fun DatabasePassphraseSetupScreen(
                 )
             },
             enabled = !uiState.isSaving,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(top = SubmitButtonTopPadding),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .padding(top = SubmitButtonTopPadding),
         ) {
             Text(
-                text = if (uiState.isSaving) {
-                    strings.dbPassphraseSetupSaving
-                } else {
-                    strings.dbPassphraseSetupAction
-                },
+                text =
+                    if (uiState.isSaving) {
+                        strings.dbPassphraseSetupSaving
+                    } else {
+                        strings.dbPassphraseSetupAction
+                    },
             )
         }
     }
     if (showResetConfirmDialog) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { showResetConfirmDialog = false },
             title = { Text(strings.dbPassphraseSetupResetTitle) },
             text = { Text(strings.dbPassphraseSetupResetMessage) },

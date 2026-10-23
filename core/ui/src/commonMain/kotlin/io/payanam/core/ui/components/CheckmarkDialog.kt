@@ -22,7 +22,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Remove
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -66,7 +65,7 @@ fun CheckmarkDialog(
     var selectedStatus by remember { mutableStateOf(currentStatus) }
     var note by remember { mutableStateOf(currentNote) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -264,7 +263,7 @@ fun CheckmarkDialogWithReason(
     var note by remember { mutableStateOf(currentNote) }
     var selectedReason by remember { mutableStateOf(currentReason) }
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(

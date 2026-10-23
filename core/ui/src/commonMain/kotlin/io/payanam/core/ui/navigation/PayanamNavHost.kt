@@ -7,7 +7,6 @@ package io.payanam.core.ui.navigation
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.NavigationBar
@@ -27,6 +26,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.navigation.NavBackStackEntry
 import androidx.navigation.NavController
 import androidx.navigation.NavDestination
@@ -40,6 +40,7 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
@@ -154,6 +155,7 @@ fun PayanamNavHost(
     var pendingTimeQuickStartRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingTimeStopTrackingRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingReturnRouteAfterUnlock by remember { mutableStateOf<String?>(resumeToRouteAfterUnlock) }
+
     /**
      * True while the database-init gate showing is the NEXT STEP OF A RESET rather than a first run.
      *
@@ -477,7 +479,11 @@ fun PayanamNavHost(
                                         contentDescription = null,
                                     )
                                 },
-                                label = { Text(tabLabel) },
+                                // ONE line, ellipsised. The bar has a fixed height, so a label that wraps -
+                                // which a long Tamil word or a large OS text-size setting makes it do - draws
+                                // a second line the bar clips mid-word ("Journ"/"al"). `maxLines = 1` keeps
+                                // the label inside the bar on every language and text scale.
+                                label = { Text(tabLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 alwaysShowLabel = true,
                                 selected = selected,
                                 onClick = {
@@ -502,7 +508,7 @@ fun PayanamNavHost(
             },
         ) { innerPadding ->
             if (!backupFailureMessage.isNullOrBlank() && !shouldShowPassphraseUnlock && currentRoute != PayanamRoutes.PASSPHRASE_UNLOCK) {
-                AlertDialog(
+                PayanamAlertDialog(
                     onDismissRequest = onDismissBackupFailure,
                     title = { Text(strings.backupFailureDialogTitle) },
                     text = {

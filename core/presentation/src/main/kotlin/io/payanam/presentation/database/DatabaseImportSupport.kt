@@ -13,6 +13,7 @@ import io.payanam.shared.logging.CrashBreadcrumbs
 import io.payanam.shared.platform.COPY_NOT_ATTEMPTED
 import io.payanam.shared.platform.DocumentKind
 import io.payanam.shared.platform.DocumentSource
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.io.FileOutputStream
 import java.nio.file.Files
@@ -263,6 +264,8 @@ object DatabaseImportSupport {
                 ),
             )
             verdict.hasPlaintextMagic
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.w(
                 logTag,
@@ -375,6 +378,8 @@ object DatabaseImportSupport {
                         ),
                     )
                     folded
+                } catch (e: CancellationException) {
+                    throw e
                 } catch (e: Exception) {
                     logger.w(
                         logTag,
@@ -416,6 +421,8 @@ object DatabaseImportSupport {
                 )
             }
             checkpointed
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e(logTag, "WAL consolidation failed unexpectedly; leaving DB/WAL/SHM unchanged", e)
             false

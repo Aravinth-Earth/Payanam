@@ -14,7 +14,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.selection.selectable
 import androidx.compose.foundation.selection.selectableGroup
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
@@ -135,7 +134,7 @@ fun StatusNoteDialog(
     var selectedReason by remember { mutableStateOf<SkipReason?>(null) }
     var noteText by remember { mutableStateOf("") }
     var nextDueStrategy by remember { mutableStateOf("planned") } // Default to planned
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -333,7 +332,7 @@ fun QuickCompleteDialog(
 ) {
     val strings = LocalUiStrings.current
     if (!isVisible) return
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locCompleteTask) },
         text = {

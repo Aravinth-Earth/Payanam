@@ -16,7 +16,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -45,14 +44,15 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
-import io.payanam.core.ui.model.DimensionIconCatalog
-import io.payanam.core.ui.preferences.DimensionOption
-import io.payanam.domain.model.Frequency
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.model.DimensionIconCatalog
+import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.model.Frequency
 import java.time.LocalDate
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LifeDimensionDropdown(
@@ -81,9 +81,10 @@ fun LifeDimensionDropdown(
                 }
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -128,10 +129,11 @@ fun ScoringSegmentedRow(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, option ->
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = options.size,
-                    ),
+                    shape =
+                        SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = options.size,
+                        ),
                     onClick = { onSelect(index) },
                     selected = index == selectedIndex,
                 ) {
@@ -152,12 +154,13 @@ fun TimePickerDialog(
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val timePickerState = rememberTimePickerState(
-        initialHour = 9,
-        initialMinute = 0,
-    )
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour = 9,
+            initialMinute = 0,
+        )
 
-    androidx.compose.material3.AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locSelectTime) },
         text = {
@@ -189,17 +192,19 @@ enum class RecurrenceOption {
     MONTHLY,
     YEARLY,
     ;
+
     /**
      * The preset's RRULE string.
      */
-    fun toRRule(): String = when (this) {
-        DAILY -> "FREQ=DAILY;INTERVAL=1"
-        WEEKDAYS -> "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
-        WEEKLY -> "FREQ=WEEKLY;INTERVAL=1"
-        BIWEEKLY -> "FREQ=WEEKLY;INTERVAL=2"
-        MONTHLY -> "FREQ=MONTHLY;INTERVAL=1"
-        YEARLY -> "FREQ=YEARLY;INTERVAL=1"
-    }
+    fun toRRule(): String =
+        when (this) {
+            DAILY -> "FREQ=DAILY;INTERVAL=1"
+            WEEKDAYS -> "FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR"
+            WEEKLY -> "FREQ=WEEKLY;INTERVAL=1"
+            BIWEEKLY -> "FREQ=WEEKLY;INTERVAL=2"
+            MONTHLY -> "FREQ=MONTHLY;INTERVAL=1"
+            YEARLY -> "FREQ=YEARLY;INTERVAL=1"
+        }
 
     companion object {
         /**
@@ -236,17 +241,20 @@ fun EnhancedRecurrencePickerDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val currentConfig = remember(currentRRule) {
-        io.payanam.domain.model.RecurrenceConfig.parse(currentRRule)
-    }
-    val isPresetType = remember(currentConfig) {
-        currentConfig.type == io.payanam.domain.model.RecurrenceType.DAILY ||
-            currentConfig.type == io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY ||
-            (
-                currentConfig.type == io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS &&
-                    currentConfig.weekdays.size == 1
+    val currentConfig =
+        remember(currentRRule) {
+            io.payanam.domain.model.RecurrenceConfig
+                .parse(currentRRule)
+        }
+    val isPresetType =
+        remember(currentConfig) {
+            currentConfig.type == io.payanam.domain.model.RecurrenceType.DAILY ||
+                currentConfig.type == io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY ||
+                (
+                    currentConfig.type == io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS &&
+                        currentConfig.weekdays.size == 1
                 )
-    }
+        }
     var selectionMode by remember {
         mutableStateOf(if (isPresetType) RecurrenceSelectionMode.PRESET else RecurrenceSelectionMode.CUSTOM)
     }
@@ -262,34 +270,37 @@ fun EnhancedRecurrencePickerDialog(
     var intervalDays by remember {
         mutableStateOf(currentConfig.intervalDays.toString())
     }
-    val weekdayLabels = listOf(
-        strings.locWeekdayM,
-        strings.locWeekdayTu,
-        strings.locWeekdayW,
-        strings.locWeekdayTh,
-        strings.locWeekdayF,
-        strings.locWeekdaySa,
-        strings.locWeekdaySu,
-    )
-    val weekdayFullNames = listOf(
-        strings.locMonday,
-        strings.locTuesday,
-        strings.locWednesday,
-        strings.locThursday,
-        strings.locFriday,
-        strings.locSaturday,
-        strings.locSunday,
-    )
+    val weekdayLabels =
+        listOf(
+            strings.locWeekdayM,
+            strings.locWeekdayTu,
+            strings.locWeekdayW,
+            strings.locWeekdayTh,
+            strings.locWeekdayF,
+            strings.locWeekdaySa,
+            strings.locWeekdaySu,
+        )
+    val weekdayFullNames =
+        listOf(
+            strings.locMonday,
+            strings.locTuesday,
+            strings.locWednesday,
+            strings.locThursday,
+            strings.locFriday,
+            strings.locSaturday,
+            strings.locSunday,
+        )
     val presetLabel = strings.locPreset
     val customLabel = strings.locCustom
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locRepeatSchedule) },
         text = {
             Column(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .verticalScroll(rememberScrollState()),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(12.dp),
             ) {
                 Text(
@@ -300,19 +311,22 @@ fun EnhancedRecurrencePickerDialog(
                 SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
                     listOf(presetLabel, customLabel).forEachIndexed { index, label ->
                         SegmentedButton(
-                            shape = SegmentedButtonDefaults.itemShape(
-                                index = index,
-                                count = 2,
-                            ),
+                            shape =
+                                SegmentedButtonDefaults.itemShape(
+                                    index = index,
+                                    count = 2,
+                                ),
                             onClick = {
-                                selectionMode = if (label == presetLabel) {
-                                    RecurrenceSelectionMode.PRESET
-                                } else {
-                                    RecurrenceSelectionMode.CUSTOM
-                                }
+                                selectionMode =
+                                    if (label == presetLabel) {
+                                        RecurrenceSelectionMode.PRESET
+                                    } else {
+                                        RecurrenceSelectionMode.CUSTOM
+                                    }
                             },
-                            selected = (selectionMode == RecurrenceSelectionMode.PRESET && label == presetLabel) ||
-                                (selectionMode == RecurrenceSelectionMode.CUSTOM && label == customLabel),
+                            selected =
+                                (selectionMode == RecurrenceSelectionMode.PRESET && label == presetLabel) ||
+                                    (selectionMode == RecurrenceSelectionMode.CUSTOM && label == customLabel),
                         ) {
                             Text(text = label, style = MaterialTheme.typography.labelSmall)
                         }
@@ -413,7 +427,7 @@ fun EnhancedRecurrencePickerDialog(
                             if (selectedWeekdays.isNotEmpty()) {
                                 val selectedNames = selectedWeekdays.sorted().map { weekdayFullNames[it - 1] }
                                 Text(
-                                    text = strings.locEverySelectedNames.format(selectedNames.joinToString(", "),),
+                                    text = strings.locEverySelectedNames.format(selectedNames.joinToString(", ")),
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                                 )
@@ -491,11 +505,12 @@ fun EnhancedRecurrencePickerDialog(
                                 selected = isSelected,
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS
-                                    selectedWeekdays = if (dayNum in selectedWeekdays) {
-                                        selectedWeekdays - dayNum
-                                    } else {
-                                        selectedWeekdays + dayNum
-                                    }
+                                    selectedWeekdays =
+                                        if (dayNum in selectedWeekdays) {
+                                            selectedWeekdays - dayNum
+                                        } else {
+                                            selectedWeekdays + dayNum
+                                        }
                                 },
                                 label = { Text(label, style = MaterialTheme.typography.labelSmall) },
                                 modifier = Modifier.padding(horizontal = 1.dp),
@@ -505,7 +520,7 @@ fun EnhancedRecurrencePickerDialog(
                     if (selectedWeekdays.isNotEmpty()) {
                         val selectedNames = selectedWeekdays.sorted().map { weekdayFullNames[it - 1] }
                         Text(
-                            text = strings.locEverySelectedNames.format(selectedNames.joinToString(", "),),
+                            text = strings.locEverySelectedNames.format(selectedNames.joinToString(", ")),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
                         )
@@ -524,21 +539,23 @@ fun EnhancedRecurrencePickerDialog(
                         horizontalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
                         listOf(1, 15, 32).forEach { date ->
-                            val dateLabel = when (date) {
-                                32 -> strings.locLast
-                                else -> "${date}${getDaySuffix(date)}"
-                            }
+                            val dateLabel =
+                                when (date) {
+                                    32 -> strings.locLast
+                                    else -> "${date}${getDaySuffix(date)}"
+                                }
                             val isSelected = date in selectedMonthlyDates
 
                             androidx.compose.material3.FilterChip(
                                 selected = isSelected,
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.MONTHLY_DATES
-                                    selectedMonthlyDates = if (date in selectedMonthlyDates) {
-                                        selectedMonthlyDates - date
-                                    } else {
-                                        selectedMonthlyDates + date
-                                    }
+                                    selectedMonthlyDates =
+                                        if (date in selectedMonthlyDates) {
+                                            selectedMonthlyDates - date
+                                        } else {
+                                            selectedMonthlyDates + date
+                                        }
                                 },
                                 label = { Text(dateLabel) },
                             )
@@ -582,17 +599,19 @@ fun EnhancedRecurrencePickerDialog(
                             modifier = Modifier.padding(top = 8.dp),
                         )
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 4.dp),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .padding(top = 4.dp),
                             horizontalArrangement = Arrangement.spacedBy(4.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
                             selectedMonthlyDates.sorted().forEach { date ->
-                                val dateLabel = when (date) {
-                                    32 -> strings.locLast
-                                    else -> "${date}${getDaySuffix(date)}"
-                                }
+                                val dateLabel =
+                                    when (date) {
+                                        32 -> strings.locLast
+                                        else -> "${date}${getDaySuffix(date)}"
+                                    }
                                 androidx.compose.material3.AssistChip(
                                     onClick = {
                                         selectedMonthlyDates = selectedMonthlyDates - date
@@ -602,9 +621,10 @@ fun EnhancedRecurrencePickerDialog(
                                         Icon(
                                             Icons.Filled.Close,
                                             contentDescription = strings.locRemove,
-                                            modifier = Modifier
-                                                .width(16.dp)
-                                                .height(16.dp),
+                                            modifier =
+                                                Modifier
+                                                    .width(16.dp)
+                                                    .height(16.dp),
                                         )
                                     },
                                 )
@@ -648,37 +668,53 @@ fun EnhancedRecurrencePickerDialog(
             }
         },
         confirmButton = {
-            val canConfirm = when (selectedType) {
-                io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS -> selectedWeekdays.isNotEmpty()
-                io.payanam.domain.model.RecurrenceType.MONTHLY_DATES -> selectedMonthlyDates.isNotEmpty()
-                io.payanam.domain.model.RecurrenceType.INTERVAL -> intervalDays.toIntOrNull()?.let { it > 0 } == true
-                else -> true
-            }
+            val canConfirm =
+                when (selectedType) {
+                    io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS -> selectedWeekdays.isNotEmpty()
+                    io.payanam.domain.model.RecurrenceType.MONTHLY_DATES -> selectedMonthlyDates.isNotEmpty()
+                    io.payanam.domain.model.RecurrenceType.INTERVAL -> intervalDays.toIntOrNull()?.let { it > 0 } == true
+                    else -> true
+                }
             TextButton(
                 onClick = {
-                    val config = when (selectedType) {
-                        io.payanam.domain.model.RecurrenceType.DAILY ->
-                            io.payanam.domain.model.RecurrenceConfig.daily()
+                    val config =
+                        when (selectedType) {
+                            io.payanam.domain.model.RecurrenceType.DAILY -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .daily()
+                            }
 
-                        io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY ->
-                            io.payanam.domain.model.RecurrenceConfig.weekdays()
+                            io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .weekdays()
+                            }
 
-                        io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS ->
-                            io.payanam.domain.model.RecurrenceConfig.specificWeekdays(selectedWeekdays)
+                            io.payanam.domain.model.RecurrenceType.SPECIFIC_WEEKDAYS -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .specificWeekdays(selectedWeekdays)
+                            }
 
-                        io.payanam.domain.model.RecurrenceType.MONTHLY_DATES ->
-                            io.payanam.domain.model.RecurrenceConfig.monthlyOnDates(*selectedMonthlyDates.toIntArray())
+                            io.payanam.domain.model.RecurrenceType.MONTHLY_DATES -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .monthlyOnDates(*selectedMonthlyDates.toIntArray())
+                            }
 
-                        io.payanam.domain.model.RecurrenceType.INTERVAL ->
-                            io.payanam.domain.model.RecurrenceConfig.everyNDays(intervalDays.toIntOrNull() ?: 1)
+                            io.payanam.domain.model.RecurrenceType.INTERVAL -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .everyNDays(intervalDays.toIntOrNull() ?: 1)
+                            }
 
-                        io.payanam.domain.model.RecurrenceType.FREQUENCY ->
-                            io.payanam.domain.model.RecurrenceConfig.daily()
+                            io.payanam.domain.model.RecurrenceType.FREQUENCY -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .daily()
+                            }
 
-                        // Default
-                        io.payanam.domain.model.RecurrenceType.YEARLY ->
-                            io.payanam.domain.model.RecurrenceConfig.yearly()
-                    }
+                            // Default
+                            io.payanam.domain.model.RecurrenceType.YEARLY -> {
+                                io.payanam.domain.model.RecurrenceConfig
+                                    .yearly()
+                            }
+                        }
                     val (numerator, denominator) = config.toFrequency()
                     onRRuleSelected(
                         Frequency(

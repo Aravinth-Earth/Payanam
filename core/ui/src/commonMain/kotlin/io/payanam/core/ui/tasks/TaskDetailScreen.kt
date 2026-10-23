@@ -4,8 +4,6 @@
 
 package io.payanam.core.ui.tasks
 
-import io.payanam.core.ui.text.LocalUiStrings
-import io.payanam.shared.logging.AppLogger
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -13,7 +11,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
@@ -32,10 +29,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.RescheduleDialog
 import io.payanam.core.ui.components.StatusAction
 import io.payanam.core.ui.components.StatusNoteDialog
+import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.presentation.tasks.TaskDetailViewModel
+import io.payanam.shared.logging.AppLogger
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -88,9 +88,10 @@ fun TaskDetailScreen(
         when {
             uiState.isLoading -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
                     CircularProgressIndicator()
@@ -99,9 +100,10 @@ fun TaskDetailScreen(
 
             uiState.task == null -> {
                 Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(padding),
+                    modifier =
+                        Modifier
+                            .fillMaxSize()
+                            .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
                     Text(strings.locTaskNotFound)
@@ -183,7 +185,7 @@ fun TaskDetailScreen(
 
         // Delete confirmation dialog
         if (showDeleteDialog) {
-            AlertDialog(
+            PayanamAlertDialog(
                 onDismissRequest = { showDeleteDialog = false },
                 title = { Text(strings.locDeleteTask) },
                 text = { Text(strings.locThisActionCannotBeUndone) },

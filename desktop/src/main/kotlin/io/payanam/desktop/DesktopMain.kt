@@ -394,15 +394,27 @@ internal fun desktopUncaughtExceptionHandler(
  * PHYSICAL pixel count (1080x2400) would be just as wrong in the other direction - a 1080x2400 dp window
  * renders the phone UI at roughly 2.6x scale, i.e. enormous. The logical size is the number that matters.
  *
- * 412x915 dp is Android Studio's "Medium Phone" (1080x2400 at 420dpi) and 411x891 is the M51 the Android
- * app is actually tested on, so this is a standard target rather than an invented one.
+ * 411x891 dp is the viewport the Android app is actually tested on (the M51, and the SM-A176B at its
+ * screen-zoom setting), and the desktop pins to it so the two platforms lay out identically; 412x915 dp
+ * (Android Studio's "Medium Phone") was the earlier target and is 24 dp taller.
  */
-internal const val PHONE_WINDOW_WIDTH_DP = 412
+internal const val PHONE_WINDOW_WIDTH_DP = 411
 
 // `internal` rather than `private` so the tests that render the app in-process can size their surface to the
-// shipped window instead of a copy of it: a test that hardcodes 915 keeps passing when this line changes, which
+// shipped window instead of a copy of it: a test that hardcodes 891 keeps passing when this line changes, which
 // is the one thing a resolution pin must not do. The width above is already `internal` for the same reason.
-internal const val PHONE_WINDOW_HEIGHT_DP = 915
+internal const val PHONE_WINDOW_HEIGHT_DP = 891
+
+/**
+ * The desktop's text scale, as a multiplier on `sp` sizes - the counterpart of Android's `font_scale`.
+ *
+ * Pinned to 0.8 so the desktop renders text at the SAME size the Android app is tested at (the owner's device
+ * runs `font_scale = 0.8`, its smallest). Without this the desktop drew every glyph 25% larger than the phone
+ * at the same dp window, so the two platforms were never laid out under the same text metrics and a
+ * layout comparison measured the difference rather than the app. Applied once at the root
+ * (`desktopRootSurface`), so every shared screen - and the copy inside it - scales together.
+ */
+internal const val DESKTOP_TEXT_SCALE = 0.8f
 
 /**
  * Headroom kept out of the display so the window still fits together with its title bar and the desktop
@@ -427,7 +439,7 @@ private const val WINDOW_HEIGHT_HEADROOM_DP = 80
  * first-run default is still an open design decision; this floor is deliberately
  * compatible with both answers, because the layout is unreadable under the minimum either way.
  */
-private const val MIN_WINDOW_WIDTH_DP = 412
+private const val MIN_WINDOW_WIDTH_DP = PHONE_WINDOW_WIDTH_DP
 private const val MIN_WINDOW_HEIGHT_DP = 480
 
 /**

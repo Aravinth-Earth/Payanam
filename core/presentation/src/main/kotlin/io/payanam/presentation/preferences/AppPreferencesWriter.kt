@@ -8,6 +8,7 @@ import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.settings.FocusModePreset
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 import java.util.Locale
 
@@ -131,6 +132,8 @@ class AppPreferencesWriter(
                 "Dimension label updated in DB-backed catalog",
                 mapOf("dimensionId" to dimensionId),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setDimensionLabel",
@@ -156,6 +159,8 @@ class AppPreferencesWriter(
                 "Dimension label reset to app default in DB-backed catalog",
                 mapOf("dimensionId" to dimensionId),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.resetDimensionLabel",
@@ -185,6 +190,8 @@ class AppPreferencesWriter(
             )
             // L3-only recalc: day scores re-aggregate with the new weights; L1/L2 are untouched.
             scoreRollupTrigger.recalcDayOnly(LocalDate.now())
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setDimensionWeight",
@@ -205,6 +212,8 @@ class AppPreferencesWriter(
                 "Dimension color updated in DB-backed catalog",
                 mapOf("dimensionId" to dimensionId),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setDimensionColor",
@@ -225,6 +234,8 @@ class AppPreferencesWriter(
                 "Dimension icon updated in DB-backed catalog",
                 mapOf("dimensionId" to dimensionId, "iconKey" to iconKey),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setDimensionIcon",
@@ -245,6 +256,8 @@ class AppPreferencesWriter(
                 "Dimension visibility updated in DB-backed catalog",
                 mapOf("dimensionId" to dimensionId, "isVisible" to isVisible),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setDimensionVisibility",
@@ -567,6 +580,8 @@ class AppPreferencesWriter(
                 "Setting updated",
                 mapOf("key" to key, "value" to value),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.setSetting",
@@ -593,6 +608,8 @@ class AppPreferencesWriter(
                 "Setting cleared",
                 mapOf("key" to key),
             )
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             AppLogger.current.e(
                 "AppPreferencesWriter.clearSetting",

@@ -36,6 +36,9 @@ class AssistantReconfigureTest {
 
     private val h = E2eHarness(composeRule, tag = "E2E-ASSISTANT-RECONFIGURE")
 
+    /** Every label below comes from [E2eLabels], so a ta-IN device resolves it too. */
+    private val l: E2eLabels.Labels get() = h.labels
+
     @Before
     fun keepScreenAwake() {
         keepScreenOn(composeRule.activity)
@@ -46,29 +49,29 @@ class AssistantReconfigureTest {
         h.awaitRoot()
 
         // ── the seeded database is closed at launch: the normal unlock gate applies ──
-        if (h.isOnScreen("Unlock")) {
-            h.type("Passphrase", FreshSetup.TEST_DB_PASSPHRASE)
-            h.click("Unlock")
+        if (h.isOnScreen(l.unlock)) {
+            h.type(l.passphraseField, FreshSetup.TEST_DB_PASSPHRASE)
+            h.click(l.unlock)
         }
-        h.assertVisible("Lenses")
+        h.assertVisible(l.lenses)
         h.log("unlock=ok")
 
         h.openAssistant()
 
         // ── 1. the seeded configured state: the chat surface is live ──
-        h.assertVisible(CHAT_INPUT_HINT)
+        h.assertVisible(l.assistantInputHint)
         h.log("configured-chat=ok")
 
         // ── 2. reconfigure from settings (tag, not text: the label carries the model suffix) ──
         h.clickTag("assistant_settings_button")
-        h.assertVisible("Assistant settings")
+        h.assertVisible(l.assistantSettings)
         h.clickTag("assistant_change_provider_button")
 
         // ── 3. the assistant destination resolves to the setup surface; the key is retained ──
-        h.assertVisible("Connect a model provider")
-        h.assertVisible(STORED_KEY_HINT)
-        check(h.isEnabled("Load models")) { "'Load models' must be enabled with a stored key" }
-        h.assertNotVisible(CHAT_INPUT_HINT)
+        h.assertVisible(l.assistantSetupHeadline)
+        h.assertVisible(l.assistantKeyStoredHint)
+        check(h.isEnabled(l.assistantLoadModels)) { "'Load models' must be enabled with a stored key" }
+        h.assertNotVisible(l.assistantInputHint)
         h.assertNotVisible(AssistantSeedRule.SEED_KEY)
         h.log("setup-surface-after-reconfigure=ok")
 
@@ -98,7 +101,5 @@ class AssistantReconfigureTest {
     }
 
     private companion object {
-        const val CHAT_INPUT_HINT = "Ask about your data…"
-        const val STORED_KEY_HINT = "A stored key is in use — paste a new key to replace it."
     }
 }

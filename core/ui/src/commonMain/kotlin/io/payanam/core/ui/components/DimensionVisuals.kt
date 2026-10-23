@@ -31,7 +31,6 @@ import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
 import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -513,7 +512,7 @@ fun DimensionColorPicker(
         )
     }
     if (showDialog) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { showDialog = false },
             title = {
                 Text(text = strings.dbInitDimensionSetupColorLabel)
@@ -613,7 +612,7 @@ fun DimensionIconPicker(
         )
     }
     if (showDialog) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { showDialog = false },
             title = {
                 Text(text = strings.dbInitDimensionSetupIconLabel)

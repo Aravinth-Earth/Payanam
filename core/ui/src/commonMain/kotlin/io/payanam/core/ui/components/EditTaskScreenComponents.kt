@@ -28,10 +28,10 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import io.payanam.core.ui.model.DimensionIconCatalog
-import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.model.DimensionIconCatalog
+import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.tasks.EditTaskInput
@@ -59,13 +59,13 @@ import java.time.LocalDateTime
  * @param level the task's stored `impactLevel`; matching is exact and case-sensitive.
  */
 @OptIn(ExperimentalMaterial3Api::class)
-
-fun resolveImpactIndex(level: String): Int = when (level) {
-    "Critical Impact", "High Impact", "Major Impact" -> 2
-    "Moderate Impact" -> 1
-    "Low Impact", "Minor Impact", "Minimal Impact" -> 0
-    else -> 1
-}
+fun resolveImpactIndex(level: String): Int =
+    when (level) {
+        "Critical Impact", "High Impact", "Major Impact" -> 2
+        "Moderate Impact" -> 1
+        "Low Impact", "Minor Impact", "Minimal Impact" -> 0
+        else -> 1
+    }
 
 /**
  * Maps a task's stored goal alignment onto its index in the edit screen's three-button row.
@@ -83,12 +83,13 @@ fun resolveImpactIndex(level: String): Int = when (level) {
  *
  * @param level the task's stored `goalAlignment`; matching is exact and case-sensitive.
  */
-fun resolveAlignmentIndex(level: String): Int = when (level) {
-    "Perfect Alignment", "Strong Alignment", "High Alignment" -> 2
-    "Moderate Alignment" -> 1
-    "Weak Alignment", "No Alignment", "Low Alignment" -> 0
-    else -> 1
-}
+fun resolveAlignmentIndex(level: String): Int =
+    when (level) {
+        "Perfect Alignment", "Strong Alignment", "High Alignment" -> 2
+        "Moderate Alignment" -> 1
+        "Weak Alignment", "No Alignment", "Low Alignment" -> 0
+        else -> 1
+    }
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -118,9 +119,10 @@ fun EditLifeDimensionDropdown(
                 }
             },
             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
         )
         ExposedDropdownMenu(
             expanded = expanded,
@@ -165,10 +167,11 @@ fun EditScoringSegmentedRow(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             options.forEachIndexed { index, option ->
                 SegmentedButton(
-                    shape = SegmentedButtonDefaults.itemShape(
-                        index = index,
-                        count = options.size,
-                    ),
+                    shape =
+                        SegmentedButtonDefaults.itemShape(
+                            index = index,
+                            count = options.size,
+                        ),
                     onClick = { onSelect(index) },
                     selected = index == selectedIndex,
                 ) {
@@ -191,11 +194,12 @@ fun EditTimePickerDialog(
     onConfirm: (hour: Int, minute: Int) -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialHour,
-        initialMinute = initialMinute,
-    )
-    androidx.compose.material3.AlertDialog(
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour = initialHour,
+            initialMinute = initialMinute,
+        )
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locSelectTime) },
         text = {

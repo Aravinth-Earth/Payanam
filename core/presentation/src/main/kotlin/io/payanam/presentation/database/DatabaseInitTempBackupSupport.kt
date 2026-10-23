@@ -11,6 +11,7 @@ import io.payanam.shared.database.DatabaseBootIssueType
 import io.payanam.shared.database.DatabaseHealthReport
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.CrashBreadcrumbs
+import kotlinx.coroutines.CancellationException
 import java.io.File
 import java.io.IOException
 
@@ -252,6 +253,8 @@ fun dbInitRestoreFromTempBackup(
         )
         tempBackupDir.deleteRecursively()
         restoredCount > 0
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         logger.e("DatabaseInitTempBackupSupport.restoreFromTempBackup", "Restore failed", e)
         CrashBreadcrumbs.record(
@@ -324,6 +327,8 @@ fun dbInitReadInitCompletedFlag(
             mapOf("dbPath" to databaseFile.absolutePath, "value" to result),
         )
         result
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         logger.w(
             "DatabaseInitViewModel.readDatabaseInitCompletedFlag",
@@ -417,6 +422,8 @@ fun dbInitDeleteTempBackup(tempBackupDir: File) {
                 mapOf("dir" to tempBackupDir.absolutePath),
             )
         }
+    } catch (e: CancellationException) {
+        throw e
     } catch (e: Exception) {
         logger.w(
             "DatabaseInitTempBackupSupport.deleteTempBackup",

@@ -12,6 +12,7 @@ import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.shared.updates.resolveUpdateResult
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
@@ -304,6 +305,8 @@ object UpdateChecker {
             } catch (e: IOException) {
                 logger.w("UpdateChecker.check", "IO error", mapOf("exception" to (e.message ?: "unknown")))
                 failureResult(UpdateCheckError.NO_INTERNET)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("UpdateChecker.check", "Unexpected error", e)
                 failureResult(UpdateCheckError.UNKNOWN)

@@ -12,6 +12,7 @@ import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -106,6 +107,8 @@ class EditTaskViewModel(
                         "found" to (task != null),
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("EditTaskViewModel.loadTask", "Error loading task", e)
                 _uiState.update {
@@ -167,6 +170,8 @@ class EditTaskViewModel(
                 if (PlatformFeatureFlags.current.remindersEnabled) {
                     try {
                         notificationScheduler.scheduleForTask(updatedTask)
+                    } catch (e: CancellationException) {
+                        throw e
                     } catch (e: Exception) {
                         logger.e(
                             "EditTaskViewModel.updateTask",
@@ -190,6 +195,8 @@ class EditTaskViewModel(
                     ),
                 )
                 _uiState.update { it.copy(isSaving = false) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "EditTaskViewModel.updateTask",

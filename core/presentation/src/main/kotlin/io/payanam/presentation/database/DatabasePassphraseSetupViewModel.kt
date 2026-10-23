@@ -13,6 +13,7 @@ import io.payanam.shared.security.EncryptionStateCheckpoint
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseVault
 import io.payanam.shared.security.SharedPassphrasePolicy
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -448,6 +449,8 @@ class DatabasePassphraseSetupViewModel(
                 )
                 throw IllegalStateException("Migration count validation failed.")
             }
+        } catch (error: CancellationException) {
+            throw error
         } catch (error: Exception) {
             DatabaseArtifactBackupSupport.restore(backupMappings)
             throw error

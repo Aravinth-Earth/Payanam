@@ -948,6 +948,13 @@ class MainActivity : FragmentActivity() {
         appLanguage: AppLanguageOption,
         effectiveLanguageTag: String,
     ): Boolean {
+        // The JVM default locale is what every SHARED formatter reads for dates, weekday names and the
+        // "last updated" timestamps (`Locale.getDefault()` in the shared screens). It is set on EVERY
+        // application - both API branches and both the SYSTEM and explicit cases - because the pre-33 branch
+        // already did and the 33+ per-app-locale branch did not, so on a modern device whose app language
+        // differs from the system locale the shared screens formatted with the SYSTEM locale while their copy
+        // was the app language. The desktop applies the same rule in its shell root.
+        Locale.setDefault(Locale.forLanguageTag(effectiveLanguageTag))
         if (appLanguage == AppLanguageOption.SYSTEM && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val localeManager = getSystemService(LocaleManager::class.java)
             val hasAppOverride = !localeManager.applicationLocales.isEmpty

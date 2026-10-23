@@ -39,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
@@ -227,7 +228,9 @@ fun AssistantSettingsScreenContent(
             OutlinedTextField(
                 value = uiState.settings.promptAdditions,
                 onValueChange = actions.onPromptAdditionsChange,
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = strings.assistantSettingsPromptTitle },
                 minLines = 3,
                 maxLines = 8,
             )

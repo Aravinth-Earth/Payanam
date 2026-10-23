@@ -34,6 +34,7 @@ import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.security.EncryptionStateCheckpoint
 import io.payanam.shared.security.PassphraseConfigureOutcome
 import io.payanam.shared.security.PassphraseVault
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -436,6 +437,8 @@ class DatabaseInitViewModel(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.checkDatabaseStatus", "Failed to check database", e)
                 _uiState.update {
@@ -667,6 +670,8 @@ class DatabaseInitViewModel(
                 )
                 _uiState.update { it.copy(isCreating = false, awaitingDimensionSetup = false) }
                 onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "DatabaseInitViewModel.completeNewDatabaseDimensionSetup",
@@ -942,6 +947,8 @@ class DatabaseInitViewModel(
                 } else {
                     throw IllegalStateException(strings.settingsImportErrorUnreadableDb)
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "DatabaseInitViewModel.executeImportIO",
@@ -1132,6 +1139,8 @@ class DatabaseInitViewModel(
                 _uiState.update { it.copy(isImporting = false, awaitingImportPassphrase = false) }
                 breadcrumb(stage = "resume_import_success_callback")
                 onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.resumeImportWithPassphrase", "Failed to resume import with passphrase", e)
                 breadcrumb(
@@ -1261,6 +1270,8 @@ class DatabaseInitViewModel(
                 appSettingsRepository.setSetting("database_init_completed", "true")
                 logger.i("DatabaseInitViewModel.continueWithExistingDatabase", "Database init completed flag set")
                 onSuccess()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DatabaseInitViewModel.continueWithExistingDatabase", "Failed to set flag", e)
                 onSuccess() // Still proceed

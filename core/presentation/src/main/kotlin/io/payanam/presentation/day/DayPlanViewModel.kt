@@ -6,6 +6,7 @@ import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.DayPlanTemplateRecord
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -182,6 +183,8 @@ class DayPlanViewModel(
                                 .toString(),
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DayPlanViewModel.loadDayPlan", "Failed to load day plan", e)
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
@@ -243,6 +246,8 @@ class DayPlanViewModel(
                     mapOf("dayKey" to dayKey, "mode" to mode, "templateId" to (templateId ?: "null")),
                 )
                 _uiState.update { it.copy(isLoading = false) }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("DayPlanViewModel.saveDayPlan", "Failed to save day plan", e)
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }
@@ -459,6 +464,8 @@ class DayPlanViewModel(
                     "DayPlanViewModel.saveTemplate",
                     "Failed to save template: ${e.message}",
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 _uiState.update {
                     it.copy(

@@ -3,6 +3,7 @@
 package io.payanam.desktop.database
 
 import io.payanam.desktop.port.DesktopProcessRestartPort
+import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.port.DatabaseSessionManager
 import io.payanam.domain.port.ProcessRestart
 import io.payanam.presentation.database.DatabasePassphraseChangeViewModel
@@ -34,6 +35,15 @@ internal data class DesktopPassphraseChangeCollaborators(
     val vault: PassphraseVault,
     /** The shell's own session controller, so a re-open here installs the data layer the shell reads. */
     val sessionController: DesktopDatabaseSessionController,
+    /**
+     * The same resolver the init gate is handed, so the file this flow rekeys is the file the shell opens.
+     *
+     * A resolver built inside this factory defaults to the operator's own data directory, which is the right
+     * answer in the shipped app and the wrong one anywhere the data directory is not the default - a test
+     * would rekey (or fail to find) a database it never created. Supplied rather than constructed, like every
+     * other collaborator here.
+     */
+    val databasePathResolver: DatabasePathResolver = DesktopDatabasePathResolver(),
 )
 
 /**
@@ -78,7 +88,7 @@ internal fun databasePassphraseChangeViewModel(
         ),
     )
     return passphraseChangeViewModel(
-        databasePathResolver = DesktopDatabasePathResolver(),
+        databasePathResolver = collaborators.databasePathResolver,
         passphraseVault = collaborators.vault,
         rekey = DesktopDatabaseInitPorts.rekey,
         sessionManager = sessionManager,

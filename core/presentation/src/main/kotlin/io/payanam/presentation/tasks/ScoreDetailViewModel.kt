@@ -6,6 +6,7 @@ import io.payanam.domain.model.MetricWindowRow
 import io.payanam.domain.repository.ScoreWindowRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -96,6 +97,8 @@ class ScoreDetailViewModel(
                     "Score detail loaded",
                     mapOf("type" to type.name, "rows" to rows.size),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("ScoreDetailViewModel.load", "Failed to load score detail", e)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }

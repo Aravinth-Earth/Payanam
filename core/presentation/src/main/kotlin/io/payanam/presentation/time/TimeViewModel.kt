@@ -86,6 +86,8 @@ class TimeViewModel(
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TimeViewModel.loadData", "Error loading tasks", e)
             }
@@ -286,6 +288,8 @@ class TimeViewModel(
                     loadEntriesForDate(_uiState.value.selectedDate)
                 }
                 onSuccess?.invoke()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.startTracking",
@@ -345,6 +349,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TimeViewModel.stopTracking", "Failed to stop tracking", e)
                 _uiState.update { it.copy(error = e.message) }
@@ -399,6 +405,8 @@ class TimeViewModel(
                     )
                 timeEntryRepository.updateTimeEntry(entryId, input)
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.updateTimeEntry",
@@ -436,6 +444,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TimeViewModel.deleteTimeEntry", "Failed to delete time entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
@@ -518,6 +528,8 @@ class TimeViewModel(
                     ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e(
                 "TimeViewModel.revertTaskCompletionFromTimeTracking",
@@ -586,6 +598,8 @@ class TimeViewModel(
                 )
                 onCreated?.invoke(created)
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.createManualEntry",
@@ -679,6 +693,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("TimeViewModel.continueEntry", "Failed to continue entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
@@ -751,6 +767,8 @@ class TimeViewModel(
                     cancelOneTimeReminder(task.id, "TimeViewModel.completeTaskWithDetails")
                 }
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.completeTaskWithDetails",
@@ -816,6 +834,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.skipTask",
@@ -881,6 +901,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.missTask",
@@ -912,6 +934,8 @@ class TimeViewModel(
                     ),
                 )
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.archiveTask",
@@ -937,6 +961,8 @@ class TimeViewModel(
                 cancelOneTimeReminder(taskId, "TimeViewModel.deleteTask")
                 taskRepository.deleteTask(taskId)
                 loadEntriesForDate(_uiState.value.selectedDate)
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(
                     "TimeViewModel.deleteTask",
@@ -1015,6 +1041,8 @@ class TimeViewModel(
         }
         try {
             reminderScheduler.scheduleForTask(updatedTask)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e(source, "Failed to schedule next recurring reminder", e, mapOf("taskId" to taskId))
         }
@@ -1026,6 +1054,8 @@ class TimeViewModel(
     ) {
         try {
             reminderScheduler.cancelForTask(taskId)
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e(source, "Failed to cancel one-time reminder", e, mapOf("taskId" to taskId))
         }
@@ -1056,6 +1086,8 @@ class TimeViewModel(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.ENTRIES)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Error loading time entries", e)
@@ -1104,6 +1136,8 @@ class TimeViewModel(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.PLANNED_TASKS)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Failed to load planned tasks", e)
@@ -1146,6 +1180,8 @@ class TimeViewModel(
                         markSelectedDateSectionLoaded(requestId, TimeScreenDateSection.OCCURRENCES)
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 if (e is CancellationException) throw e
                 logger.e("TimeViewModel.loadEntriesForDate", "Failed to load past occurrences", e)

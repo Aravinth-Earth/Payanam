@@ -5,7 +5,6 @@ package io.payanam.core.ui.components
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -46,7 +45,7 @@ fun RescheduleDialog(
     var selectedTime by remember { mutableStateOf(currentDueDate.toLocalTime().withSecond(0).withNano(0)) }
     var showDatePicker by remember { mutableStateOf(false) }
     var showTimePicker by remember { mutableStateOf(false) }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locRescheduleTask) },
         text = {
@@ -76,19 +75,25 @@ fun RescheduleDialog(
         },
     )
     if (showDatePicker) {
-        val datePickerState = rememberDatePickerState(
-            initialSelectedDateMillis = selectedDate.atStartOfDay(ZoneId.systemDefault())
-                .toInstant().toEpochMilli(),
-        )
+        val datePickerState =
+            rememberDatePickerState(
+                initialSelectedDateMillis =
+                    selectedDate
+                        .atStartOfDay(ZoneId.systemDefault())
+                        .toInstant()
+                        .toEpochMilli(),
+            )
         DatePickerDialog(
             onDismissRequest = { showDatePicker = false },
             confirmButton = {
                 TextButton(
                     onClick = {
                         datePickerState.selectedDateMillis?.let { millis ->
-                            selectedDate = Instant.ofEpochMilli(millis)
-                                .atZone(ZoneId.systemDefault())
-                                .toLocalDate()
+                            selectedDate =
+                                Instant
+                                    .ofEpochMilli(millis)
+                                    .atZone(ZoneId.systemDefault())
+                                    .toLocalDate()
                         }
                         showDatePicker = false
                     },
@@ -125,11 +130,12 @@ private fun TimePickerDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime.hour,
-        initialMinute = initialTime.minute,
-    )
-    AlertDialog(
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour = initialTime.hour,
+            initialMinute = initialTime.minute,
+        )
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         confirmButton = {
             TextButton(onClick = {

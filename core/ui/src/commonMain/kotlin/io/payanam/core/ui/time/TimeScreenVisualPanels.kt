@@ -27,6 +27,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.time.TimeTrendStripSummary
 import io.payanam.presentation.time.TimeDimensionDaySummary
@@ -151,6 +152,7 @@ fun TimePerDimensionPanel(
                         .fillMaxWidth()
                         .clip(RoundedCornerShape(6.dp))
                         .background(if (isSelected) selectedItemContainerColor else itemContainerColor)
+                        .testTag("time_dimension_row")
                         .clickable {
                             logger.d(
                                 "TimeScreenVisualPanels.TimePerDimensionPanel",
@@ -499,6 +501,7 @@ private fun CompactDimensionGridTile(
                     MaterialTheme.colorScheme.surfaceContainerLow
                 },
             )
+            .testTag("time_dimension_tile")
             .clickable(onClick = onClick)
             .padding(horizontal = 6.dp, vertical = 4.dp),
         verticalArrangement = Arrangement.spacedBy(3.dp),

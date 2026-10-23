@@ -4,70 +4,14 @@
 
 package io.payanam.core.ui
 
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.CompositionLocalProvider
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.semantics.SemanticsActions
 import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
-import androidx.compose.ui.test.SemanticsMatcher
-import androidx.compose.ui.test.hasScrollAction
-import androidx.compose.ui.test.hasText
 import androidx.compose.ui.test.junit4.createComposeRule
-import androidx.compose.ui.test.onFirst
-import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
-import androidx.compose.ui.test.performScrollToNode
-import io.payanam.core.ui.components.DimensionIconPicker
-import io.payanam.core.ui.lenses.DimensionSplitSection
-import io.payanam.core.ui.onboarding.OnboardingIntroScreen
-import io.payanam.core.ui.notes.NotesScreen
-import io.payanam.core.ui.preferences.AppPreferencesState
-import io.payanam.core.ui.preferences.BackupInterval
-import io.payanam.core.ui.preferences.DimensionPreference
-import io.payanam.core.ui.preferences.LaunchDestination
-import io.payanam.core.ui.settings.DataManagementSettingsSection
-import io.payanam.core.ui.settings.DatabaseSecurityBiometricActions
-import io.payanam.core.ui.settings.ImportEncryptedDbPassphraseDialog
-import io.payanam.core.ui.settings.SettingsAppearanceSection
-import io.payanam.core.ui.settings.SettingsAutoBackupSection
-import io.payanam.core.ui.settings.SettingsAutoTrackingSection
-import io.payanam.core.ui.settings.SettingsDatabaseSecuritySection
-import io.payanam.core.ui.settings.SettingsDefaultLandingSection
-import io.payanam.core.ui.settings.SettingsScreenActions
-import io.payanam.core.ui.settings.SettingsScreenContent
-import io.payanam.core.ui.settings.SettingsTimeInsightsSection
-import io.payanam.core.ui.text.LocalUiStrings
-import io.payanam.core.ui.text.UiLanguage
-import io.payanam.core.ui.text.UiStrings
-import io.payanam.core.ui.time.TimeCalendarView
-import io.payanam.domain.model.Note
-import io.payanam.domain.model.NoteInput
-import io.payanam.domain.model.Tag
-import io.payanam.domain.model.Task
-import io.payanam.domain.model.TaskOccurrence
-import io.payanam.domain.model.TimeEntry
-import io.payanam.domain.repository.NoteRepository
-import io.payanam.domain.repository.TagRepository
-import io.payanam.presentation.lenses.DimensionSplitState
-import io.payanam.presentation.lenses.DimensionSplitWindow
-import io.payanam.presentation.notes.NotesViewModel
-import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.presentation.tasks.TaskFilter
-import io.payanam.shared.updates.UpdateChannel
-import io.payanam.shared.security.BiometricAvailability
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.flowOf
-import org.junit.Rule
-import org.junit.Test
 import java.io.File
-import java.time.LocalDate
-import java.time.LocalDateTime
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue
+import org.junit.Rule
+import org.junit.Test
 
 /**
  * The net that keeps an interactive control in this module from being reachable and anonymous.
@@ -128,7 +72,7 @@ import kotlin.test.assertTrue
  * `.semantics(mergeDescendants = true) { contentDescription = compactLabel }` that
  * TimeScreenTimeline.kt now carries on its clickable block were deleted, that block would have a click
  * action, no description, and no text - the icon cascade inside it passes null descriptions throughout - so
- * [the timeline's clickable blocks are named] would fail. That is the proof that the net bites: the most
+ * the TimeCalendarView fixture would fail. That is the proof that the net bites: the most
  * likely revert of the fix that prompted this file produces a red test, not a silent regression.
  *
  * COVERAGE: WHAT LAYER 1 ACTUALLY ASSERTS. Every screen below asserts the number of interactive nodes it
@@ -167,7 +111,7 @@ import kotlin.test.assertTrue
  *  - `MinimalDataManagementSection` - EXCLUDED as a section: the two buttons it draws are the same two this
  *    file reaches through the full section, and its own fixture path is a separate state.
  *  - `DimensionIconPicker` / `DimensionColorPicker` dialogs - NOT SWEPT: the icon picker's swatch is now NAMED
- *    ([`the dimension icon picker names every swatch it draws`]), but opening either dialog needs the picker's
+ *    (the DimensionIconPicker fixture), but opening either dialog needs the picker's
  *    own `OutlinedButton` to be pressed first, which is inside `DimensionPreferenceCard` - a control this
  *    module's `desktopTest` tree has no fixture that mounts. Both pickers are therefore covered by Layer 2
  *    alone, and the icon swatch's naming rests on that case rather than on a sweep.
@@ -216,351 +160,26 @@ class InteractiveControlNamingTest {
     @get:Rule
     val composeRule = createComposeRule()
 
-    private val strings: UiStrings = UiStrings.of(UiLanguage.ENGLISH)
-
     // -------------------------------------------------------------------------------------------
     // LAYER 1: THE RENDERED SWEEP
     // -------------------------------------------------------------------------------------------
 
     @Test
-    fun `the appearance section names every control it draws`() {
-        // Every option's caption used to be an `R.string` id resolved in the app module, so a section that
-        // still renders can draw the wrong words. The sweep asserts NAMES; the count is asserted too, so a
-        // section that stopped drawing its rows fails here rather than passing on an empty tree.
-        var fontFamilyExpanded = false
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsAppearanceSection(
-                    prefsState = loadedPrefs(),
-                    onAppLanguageChange = {},
-                    onThemeModeChange = {},
-                    onFontFamilyChange = {},
-                    onTimeFormatChange = {},
-                    fontFamilyExpanded = fontFamilyExpanded,
-                    onFontFamilyExpandedChange = { fontFamilyExpanded = it },
-                )
-            }
+    fun `everyInteractiveNodeIsNamed`() {
+        // ONE loop over the shared fixtures rather than fourteen copies of the same three lines: the sweep
+        // renders each screen, lets it settle, and asserts the floor plus the name of every control. The
+        // fixtures, their fakes and the reach steps that put three of them into the state they are measured
+        // in all live in SharedScreenFixtures.kt, so the font-scale readability sweep measures the SAME
+        // screens through the SAME fixtures instead of a second copy of them.
+        sharedScreenFixtures.forEach { fixture ->
+            composeRule.renderScreen(fixture)
+            composeRule.waitForIdle()
+            assertSwept(fixture.name, fixture.minInteractiveControls)
         }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsAppearanceSection", AppearanceSegments)
-    }
-
-    @Test
-    fun `the default landing section names every control it draws`() {
-        // The Tasks destination is chosen because it is the only one that draws the LAYER and STATE rows as
-        // well as the route segments, so this fixture reaches the most controls of the three destinations.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsDefaultLandingSection(
-                    prefsState =
-                        AppPreferencesState(
-                            isLoading = false,
-                            launchDestination = LaunchDestination(route = "tasks", taskFilter = TaskFilter.TODAY),
-                        ),
-                    onLaunchDestinationRouteChange = {},
-                    onLaunchDestinationTimeChange = {},
-                    onLaunchDestinationTasksChange = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsDefaultLandingSection", LandingSegments)
-    }
-
-    @Test
-    fun `every chart visibility switch is named`() {
-        // Each switch here is named by the `.semantics { contentDescription = row.label }` a previous commit
-        // added, which is the reason this screen is sweepable at all. It is therefore the screen whose sweep
-        // would break FIRST if that one modifier were deleted - which is exactly the regression class this
-        // file is for, so the sweep is pointed at it deliberately rather than incidentally.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsTimeInsightsSection(
-                    prefsState =
-                        AppPreferencesState(
-                            chartTimeModuleEnabled = true,
-                            chartTimeScoreCardsEnabled = true,
-                            chartTaskModuleEnabled = true,
-                            chartNoteModuleEnabled = true,
-                        ),
-                    onChartVisibilityChange = { _, _ -> },
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsTimeInsightsSection", ChartSwitches)
-    }
-
-    @Test
-    fun `the data management section names every button it draws`() {
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                DataManagementSettingsSection(
-                    uiState = settingsUiState(),
-                    onExportClick = {},
-                    onImportClick = {},
-                    onImportUhabitsClick = {},
-                    onMapImportedHabitsClick = {},
-                    onChangePassphraseClick = {},
-                    onDeleteAllDataClick = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("DataManagementSettingsSection", DataManagementButtons)
-    }
-
-    @Test
-    fun `the dimension split section names its chip and both shift arrows`() {
-        // Both arrows are decorative icons on their own - two chevrons around a date range - so the
-        // description is the ONLY thing that tells a screen reader what either one does. They are named from
-        // the copy table (proved by value in DimensionSplitSectionSemanticsTest); this case is the version
-        // that would catch a NEW nameless control appearing beside them.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                DimensionSplitSection(
-                    state = splitState(),
-                    onWindowSelect = {},
-                    onShiftLeft = {},
-                    onShiftRight = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("DimensionSplitSection", SplitControls)
-    }
-
-    @Test
-    fun `the onboarding tour names its action and skip buttons`() {
-        // No `CompositionLocalProvider` is needed here: the screen resolves its own copy from the language it
-        // is handed, so the harness measures the shared composable rather than a wrapper, exactly as
-        // OnboardingIntroScreenTest does.
-        composeRule.setContent {
-            OnboardingIntroScreen(
-                language = UiLanguage.ENGLISH,
-                onFinished = {},
-            )
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("OnboardingIntroScreen", OnboardingControls)
-    }
-
-    @Test
-    fun `the notes screen names every control it draws`() {
-        // The real ViewModel over the same fakes NotesScreenTest declares, because a fake ViewModel would be
-        // testing the test. The screen is async, so the render is driven to a settled state before sweeping.
-        val viewModel =
-            NotesViewModel(
-                noteRepository = FakeNoteRepository(listOf(note())),
-                tagRepository = FakeTagRepository(),
-            )
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                NotesScreen(viewModel = viewModel)
-            }
-        }
-        composeRule.waitUntil(timeoutMillis = WAIT_MS) { viewModel.uiState.value.notes.isNotEmpty() }
-
-        assertSwept("NotesScreen", NotesControls)
-    }
-
-    @Test
-    fun `the timeline's clickable blocks are named`() {
-        // The controls the last commit named from scratch, and the only two nodes in this sweep whose entire
-        // content is a decorative icon cascade. Deleting the `.semantics { contentDescription = compactLabel }`
-        // they now carry leaves a clickable node with no description and no text, so this case fails - which
-        // is the concrete proof, stated in the KDoc, that the net bites on the most likely revert.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                TimeCalendarView(
-                    selectedDate = TIMELINE_DAY,
-                    entries = listOf(timelineEntry()),
-                    activeEntry = null,
-                    plannedTasks = emptyList(),
-                    pastOccurrences = listOf(timelineOccurrence()),
-                    taskLookup = mapOf(TIMELINE_TASK_ID to timelineTask()),
-                    hourHeightDp = TIMELINE_HOUR_HEIGHT_DP,
-                    currentTime = TIMELINE_DAY.atTime(20, 0),
-                    scrollState = rememberScrollState(),
-                    use24Hour = true,
-                    highlightedDimensionId = null,
-                    preferences = timelinePreferences(),
-                    onEntryClick = {},
-                    onPlannedTaskClick = {},
-                    onPastOccurrenceClick = { _, _ -> },
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("TimeCalendarView", TimelineBlocks)
-    }
-
-    @Test
-    fun `the auto backup section names both of its switches`() {
-        // Enabled, because the rotation switch only exists once the section is on: sweeping the disabled
-        // state would cover one switch and quietly skip the other, which is the defect this file exists to
-        // catch. The enable toggle and the rotation toggle were both nameless; both now carry their own
-        // visible title, and this case fails if either modifier is deleted.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsAutoBackupSection(
-                    prefsState = backupPrefs(),
-                    onAutoBackupEnabledChange = {},
-                    onAutoBackupIntervalChange = {},
-                    onManualBackupNow = {},
-                    onBackupRotationEnabledChange = {},
-                    onBackupRotationCountChange = {},
-                    onDismissAutoBackupFailure = {},
-                    manualBackupInProgress = false,
-                    intervalExpanded = false,
-                    onIntervalExpandedChange = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsAutoBackupSection", AutoBackupControls)
-    }
-
-    @Test
-    fun `the auto tracking section names its global and per dimension switches`() {
-        // Global ON, because that is the only state in which the per-dimension rows are drawn at all -
-        // `SettingsAutoTrackingSectionTest` pins that visibility rule, and this case depends on it: a floor
-        // met by the global switch alone would leave the per-dimension one unnamed and passing.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsAutoTrackingSection(
-                    prefsState = autoTrackingPrefs(),
-                    onAutoTrackHabitTimeGlobalChange = {},
-                    onAutoTrackDimensionChange = { _, _ -> },
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsAutoTrackingSection", AutoTrackingSwitches)
-    }
-
-    @Test
-    fun `the database security section names the biometric switch`() {
-        // An AVAILABLE sensor, which is the only state that draws the switch at all: a platform with no
-        // identity check renders no biometric row, so a sweep on that state would cover the timeout menu
-        // anchor and nothing else - the screen's nameless control would go unmeasured while the case stayed
-        // green. The timeout's read-only field is named by its own `EditableText`, which the KDoc above
-        // explains is why a read-only anchor counts as named.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsDatabaseSecuritySection(
-                    uiState = settingsUiState(),
-                    onUpdateUnlockTimeout = {},
-                    onDisableBiometricEnabled = {},
-                    onEnableBiometricRequested = { _, onComplete -> onComplete(true) },
-                    biometricActions = availableBiometricActions(),
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("SettingsDatabaseSecuritySection", SecurityControls)
-    }
-
-    @Test
-    fun `the whole settings screen names every control it draws`() {
-        // The screen that INHERITED three nameless switches by composing the sections above, plus one of its
-        // own. It is swept rather than excluded now that all four are named, and the card headers matter as
-        // much as the rows: `SettingsCard`'s header is a `Row.clickable`, and `clickable` merges descendants,
-        // so thirteen headers announce as thirteen controls and each takes its name from the title Text beside
-        // it.
-        //
-        // Debug logging is opened, because a closed card composes no rows and the debug `Switch` is the one
-        // control on this screen that belongs to the screen itself rather than to a section fixture.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                SettingsScreenContent(
-                    prefsState = loadedPrefs(),
-                    uiState = settingsUiState(),
-                    snackbarHostState = SnackbarHostState(),
-                    actions = SettingsScreenActions(),
-                )
-            }
-        }
-        composeRule.waitForIdle()
-        openCard(strings.settingsDebugTitle)
-
-        assertSwept("SettingsScreenContent", SettingsScreenControls)
-    }
-
-    @Test
-    fun `the passphrase gate names its confirming button while verifying`() {
-        // THE state this file used to exclude, and the reason the exclusion was wrong. `isVerifying` is a
-        // plain parameter, not a platform effect, so the state was always reachable - what was missing was a
-        // case. Here the spinner REPLACES the label Text, so the button has no text and, before the fix, no
-        // description either. It is still interactive: Compose publishes `onClick` for a disabled clickable and
-        // marks it `disabled`, which is why this control is in Layer 1's reach and not merely out of date.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                ImportEncryptedDbPassphraseDialog(
-                    passphraseError = null,
-                    isVerifying = true,
-                    onConfirm = {},
-                    onDismiss = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        assertSwept("ImportEncryptedDbPassphraseDialog", VerifyingGateControls)
-    }
-
-    @Test
-    fun `the dimension icon picker names every swatch it draws`() {
-        // The only nameless control left in the module, and the one shape no other case can reach: 353
-        // clickable swatches whose entire content is one decorative glyph each. The picker's own button is
-        // pressed first, which is why this case mounts `DimensionIconPicker` directly - inside
-        // `DimensionPreferenceCard` there is no fixture in this source set that opens the dialog.
-        //
-        // The floor is a SWATCH count, not the picker's button, and it is deliberately far below 353: a lazy
-        // grid composes only the rows the viewport can show, so the exact number is a viewport fact rather
-        // than a property of the screen. What the floor guarantees is that the sweep measured real swatches -
-        // a dialog that failed to open contributes one control and falls below it.
-        composeRule.setContent {
-            CompositionLocalProvider(LocalUiStrings provides strings) {
-                DimensionIconPicker(
-                    selectedIconKey = PICKER_ICON_KEY,
-                    usedIconKeys = emptySet(),
-                    onSelect = {},
-                )
-            }
-        }
-        composeRule.waitForIdle()
-        composeRule.onNodeWithText(strings.dimensionPickerChooseIcon).performClick()
-        composeRule.waitForIdle()
-
-        assertSwept("DimensionIconPicker", IconSwatches)
     }
 
     /**
-     * Opens a [SettingsScreenContent] card by its header, scrolling the screen's own column first.
-     *
-     * The screen is one `verticalScroll` column thirteen cards tall in a 1024x768 viewport, so a lower card
-     * composes but is not where it is drawn - the same fact `SettingsScreenTest` records, and the reason it
-     * scrolls rather than enlarging the window.
-     */
-    private fun openCard(title: String) {
-        composeRule.onAllNodes(hasScrollAction()).onFirst().performScrollToNode(hasText(title))
-        composeRule.onNodeWithText(title).performClick()
-        composeRule.waitForIdle()
-    }
-
-    /**
-     * The sweep itself, written once so the fourteen cases above stay about WHICH screen is covered.
+     * The sweep itself, written once so the loop above stays about WHICH screen is covered.
      *
      * [expected] is asserted as a floor, and the floor is why a sweep that renders nothing fails: a fixture
      * that stops composing contributes zero interactive nodes, which is below every floor in this file. A
@@ -572,7 +191,7 @@ class InteractiveControlNamingTest {
         screen: String,
         expected: Int,
     ) {
-        val interactive = interactiveNodes()
+        val interactive = composeRule.interactiveNodes()
         assertTrue(
             interactive.size >= expected,
             "$screen rendered ${interactive.size} interactive node(s), fewer than the $expected this sweep " +
@@ -585,23 +204,11 @@ class InteractiveControlNamingTest {
             "$screen exposes interactive nodes a screen reader cannot name. Each entry is a control that " +
                 "accepts a press and announces only its ROLE. Fix the control, not this test.",
         )
+        // Layout/geometry: every control is drawn with an area, and no two pressable controls partially
+        // overlap. Shared with both platforms because it reads the shared screens' rendered tree.
+        UiQualityAssertions.assertControlsAreLaidOut(screen, interactive)
+        UiQualityAssertions.assertControlsDoNotOverlap(screen, interactive)
     }
-
-    /**
-     * Every interactive node in the MERGED tree - the nodes a screen reader would walk.
-     *
-     * The matcher is written here rather than taken from the library because the library ships no
-     * "any of these actions" matcher: `hasClickAction()` exists, `hasAnyAction()` does not, so a matcher over
-     * a SET of action keys is the only way to express "interactive" without six separate queries and a
-     * de-duplication step that would double-count a node carrying two actions.
-     */
-    private fun interactiveNodes(): List<SemanticsNode> =
-        composeRule
-            .onAllNodes(
-                SemanticsMatcher("has an action a user or a screen reader can invoke") { node ->
-                    INTERACTIVE_ACTIONS.any { node.config.contains(it) }
-                },
-            ).fetchSemanticsNodes()
 
     /**
      * The name this node would announce.
@@ -637,177 +244,6 @@ class InteractiveControlNamingTest {
         val actions = INTERACTIVE_ACTIONS.filter { config.contains(it) }.map { it.name }
         return "actions=$actions on node #$id"
     }
-
-    /**
-     * A sensor a prompt can be shown for, which is the only state that draws the biometric row.
-     *
-     * Mirrors `SettingsDatabaseSecuritySectionSemanticsTest`'s fake, including the fact that the enable
-     * verification SUCCEEDS there - but that test only ever opens the dialog, while this case leaves the
-     * section alone and measures the row itself. A fake claiming NO sensor would render no switch at all, and
-     * the floor would be met by the timeout field alone.
-     */
-    private fun availableBiometricActions(): DatabaseSecurityBiometricActions =
-        object : DatabaseSecurityBiometricActions {
-            override val availability: BiometricAvailability = BiometricAvailability.Available
-
-            override val canRequestEnable: Boolean = true
-
-            // Never drawn in this state (the section renders it only when the sensor is NOT available), but
-            // the interface has no default, so a fake that omitted it would not compile.
-            override val enrollmentAction: @Composable () -> Unit = {}
-
-            override fun requestEnable(
-                passphrase: String,
-                onComplete: (Boolean) -> Unit,
-            ) {
-                onComplete(true)
-            }
-        }
-
-    /**
-     * Mirrors `SettingsAutoBackupSectionTest.loaded` with the section ENABLED, and rotation on with it.
-     *
-     * `autoBackupLastRun` is left null on purpose: it only decides whether a `Text` line is drawn, and a line
-     * is not an interactive node, so the floor is unaffected either way.
-     */
-    private fun backupPrefs() =
-        AppPreferencesState(
-            isLoading = false,
-            autoBackupEnabled = true,
-            autoBackupInterval = BackupInterval.SIX_HOURS,
-            backupRotationEnabled = true,
-            backupRotationCount = 50,
-        )
-
-    /**
-     * Mirrors `SettingsAutoTrackingSectionTest.state` with global ON and one visible dimension.
-     *
-     * One dimension, not two: the floor below is a count of switches, and a second dimension would make the
-     * number depend on how many rows the fixture happens to declare rather than on the shape being pinned.
-     */
-    private fun autoTrackingPrefs() =
-        AppPreferencesState(
-            isLoading = false,
-            autoTrackHabitTimeGlobal = true,
-            dimensionPreferences =
-                listOf(
-                    DimensionPreference(key = "dim_work", label = "Work", color = Color.Blue, isVisible = true),
-                ),
-        )
-
-    private fun note() =
-        Note(
-            id = NOTE_ID,
-            title = "Learn Kotlin",
-            lifeIntentionCategory = "Learning & Growth",
-            dimensionId = "dim_learning_growth",
-            createdAt = NOTE_STAMP,
-            updatedAt = NOTE_STAMP,
-        )
-
-    private fun timelineTask() =
-        Task(
-            id = TIMELINE_TASK_ID,
-            title = "Morning Run",
-            dueDate = TIMELINE_DAY.atTime(14, 0),
-            createdAt = TIMELINE_DAY.atTime(8, 0),
-            updatedAt = TIMELINE_DAY.atTime(8, 0),
-            durationMinutes = 30,
-            lifeIntentionCategory = TIMELINE_DIMENSION_LABEL,
-            dimensionId = TIMELINE_DIMENSION_ID,
-        )
-
-    private fun timelineEntry() =
-        TimeEntry(
-            id = TIMELINE_ENTRY_ID,
-            lifeIntentionCategory = TIMELINE_DIMENSION_LABEL,
-            taskId = TIMELINE_TASK_ID,
-            startedAt = TIMELINE_DAY.atTime(9, 0),
-            endedAt = TIMELINE_DAY.atTime(10, 20),
-            focusRating = 0.7,
-            createdAt = TIMELINE_DAY.atTime(9, 0),
-            updatedAt = TIMELINE_DAY.atTime(10, 20),
-            dimensionId = TIMELINE_DIMENSION_ID,
-        )
-
-    private fun timelineOccurrence() =
-        TaskOccurrence(
-            id = TIMELINE_OCCURRENCE_ID,
-            taskId = TIMELINE_TASK_ID,
-            // The ISO instant is what places the block on this day, so it carries the hour.
-            occurrenceDate = "${TIMELINE_DAY}T14:00:00",
-            status = "completed",
-        )
-
-    /**
-     * Mirrors `TimeEntryBlockSemanticsTest.preferences`. An entry whose dimension resolved to nothing would be
-     * labelled with an EMPTY string, so the row the label is read from has to be registered - otherwise the
-     * block announces a leading separator and the fixture, not the block, is what the sweep measures.
-     */
-    private fun timelinePreferences() =
-        AppPreferencesState(
-            dimensionPreferences =
-                listOf(
-                    DimensionPreference(
-                        key = TIMELINE_DIMENSION_ID,
-                        label = TIMELINE_DIMENSION_LABEL,
-                        color = Color(0xFF4CAF50),
-                        isVisible = true,
-                    ),
-                ),
-        )
-
-    /**
-     * Mirrors `SettingsScreenTest.prefs`, including its deliberate `isLoading = false`. The default is TRUE so
-     * that no section paints storage values before the first read lands, which means a section rendered with
-     * the default draws one "loading preferences" line and NOTHING else - and every count in this file would
-     * be asserted against an empty tree.
-     */
-    private fun loadedPrefs() =
-        AppPreferencesState(
-            isLoading = false,
-            dimensionPreferences =
-                listOf(
-                    DimensionPreference(
-                        key = "dim_health",
-                        canonicalId = "dim_health",
-                        label = "Health",
-                        color = Color(0xFF4CAF50),
-                        isVisible = true,
-                        iconKey = "heart",
-                        weight = 1.0,
-                        hasCustomLabelOverride = false,
-                    ),
-                ),
-        )
-
-    /** Mirrors `SettingsDataManagementSectionsTest.state`: measured values, not invented ones. */
-    private fun settingsUiState() =
-        SettingsUiState(
-            currentDatabaseSchemaVersion = 12,
-            minimumSupportedSchemaVersion = 5,
-            appVersion = "1.2.3",
-            buildNumber = 42,
-            updateChannel = UpdateChannel.STABLE,
-            // Non-zero so the "map imported habits" row is drawn rather than greyed out; a disabled row still
-            // exposes its click action, but an absent one would be a control this sweep silently skipped.
-            importedUhabitsHabitCount = 3,
-        )
-
-    private fun splitState() =
-        DimensionSplitState(
-            window = DimensionSplitWindow.W1,
-            windowOffset = 0,
-            firstEntryDate = TIMELINE_DAY.minusDays(30),
-            effectiveStart = TIMELINE_DAY,
-            effectiveEnd = TIMELINE_DAY,
-            requestedStart = TIMELINE_DAY,
-            requestedEnd = TIMELINE_DAY,
-            byDimension = mapOf("dim_learning_growth" to 90, null to 10),
-            totalMinutes = 100,
-            canShiftLeft = true,
-            canShiftRight = true,
-        )
 
     // -------------------------------------------------------------------------------------------
     // LAYER 2: THE SOURCE GUARD
@@ -968,103 +404,8 @@ class InteractiveControlNamingTest {
     private fun String.blankOutKeepingNewlines(): String = map { if (it == '\n') '\n' else ' ' }.joinToString("")
 
     private companion object {
-        /**
-         * The actions that make a node INTERACTIVE for the purpose of this rule.
-         *
-         * Deliberately EXCLUDED, and named here so the omission is a stated decision: `SetProgress` (a
-         * `Slider`'s value is announced from its own semantics, and no fixture in this module reaches a
-         * slider) and `ScrollBy` / `ScrollByOffset` / `ScrollToIndex` (a scroll container is not a control the
-         * user presses to reach something).
-         *
-         * A toggle needs no entry of its own: `toggleable` composes a click action with a toggleable state, so
-         * a `Switch` or a `Checkbox` is already caught by `OnClick` below. The names are taken from the shipped
-         * API rather than from memory - two keys that sounded plausible (`ToggleOnOff`, `ClearText`) do not
-         * exist in this version, and asking for them fails the compile rather than the assertion.
-         */
-        val INTERACTIVE_ACTIONS =
-            listOf(
-                SemanticsActions.OnClick,
-                SemanticsActions.OnLongClick,
-                SemanticsActions.SetSelection,
-                SemanticsActions.SetText,
-                SemanticsActions.InsertTextAtCursor,
-            )
-
-        /**
-         * The declared-but-unused imports the compiler would reject are avoided by construction: this file
-         * imports only what it uses, and the floors below are the only numbers a reader has to check.
-         *
-         * THE SIX NEW FLOORS ARE COUNTS, NOT MINIMA I MEASURED. Each is the number of interactive nodes the
-         * case's own fixture is expected to contribute, read off the composable it renders; none has been
-         * observed, because this file has never been executed. Every one is therefore stated as a floor that
-         * the FIRST run either meets or reports, which is the safe direction to be wrong in: too low and the
-         * sweep still measures the controls it is about, too high and the case fails loudly with the real
-         * count in the message rather than passing quietly over a screen that stopped composing. Raise one
-         * to the count the run reports, and record why.
-         */
-        const val AppearanceSegments = 9
-        const val LandingSegments = 3
-        const val ChartSwitches = 7
-        const val DataManagementButtons = 6
-        const val SplitControls = 3
-        const val OnboardingControls = 2
-        const val NotesControls = 3
-        const val TimelineBlocks = 2
-
-        /** Enable toggle + run-now button + interval menu anchor + rotation toggle + rotation-count field. */
-        const val AutoBackupControls = 5
-
-        /** The global toggle + one per-dimension toggle, in the single-dimension fixture above. */
-        const val AutoTrackingSwitches = 2
-
-        /** The read-only unlock-timeout field + the biometric switch. Both exist only with the fake above. */
-        const val SecurityControls = 2
-
-        /**
-         * Twelve card headers, plus the DEBUG card's switch.
-         *
-         * A header is a `Row.clickable` and `clickable` merges descendants, so each is one interactive node
-         * even though it draws two icons and a title. Twelve is what [SettingsScreenActions]' DEFAULTS
-         * produce: `scoreSettingsEnabled = false` withholds the scoring card and `minimalModeEnabled = false`
-         * takes the data-management branch, and `DatabaseStatsSettingsSection` draws the thirteenth card the
-         * screen used to hold inline - so the count is read off the fixture's flags rather than off the
-         * screen's thirteen call sites. Only the debug card is open, so no section contributes rows.
-         */
-        const val SettingsScreenControls = 13
-
-        /** The passphrase field, its reveal toggle, the confirming button and the cancel button. */
-        const val VerifyingGateControls = 4
-
-        /**
-         * Two swatches' worth of floor for a grid that shows a few dozen.
-         *
-         * `LazyVerticalGrid` composes only what fits, so the real count is a viewport fact - the desktop
-         * viewport is 1024x768 and each swatch is 44dp, which is well over two columns and several rows. The
-         * floor's job is to prove the dialog OPENED (a closed one contributes the picker's own single button),
-         * not to pin how many swatches a viewport holds.
-         */
-        const val IconSwatches = 4
-
-        /** A key that really is in [DimensionIconCatalog], so the swatch draws as SELECTED rather than plain. */
-        const val PICKER_ICON_KEY = "work"
-
         /** Below the number of Kotlin files this module's `commonMain` actually holds. */
         const val MinProductionFiles = 50
-
-        const val WAIT_MS = 10_000L
-        const val NOTE_ID = "n1"
-
-        /** A fixed day, so the timeline's arithmetic cannot drift with the clock. */
-        val TIMELINE_DAY: LocalDate = LocalDate.of(2026, 3, 15)
-        val NOTE_STAMP: LocalDateTime = LocalDateTime.of(2026, 3, 15, 10, 0)
-
-        /** 60dp an hour, the shared default: tall enough that an 80-minute block is not a sliver. */
-        const val TIMELINE_HOUR_HEIGHT_DP = 60f
-        const val TIMELINE_TASK_ID = "task-1"
-        const val TIMELINE_ENTRY_ID = "entry-1"
-        const val TIMELINE_OCCURRENCE_ID = "occurrence-1"
-        const val TIMELINE_DIMENSION_ID = "dim_health_wellness"
-        const val TIMELINE_DIMENSION_LABEL = "Health & Wellness"
 
         /** The path [commonMainRoot] falls back to when the repository root cannot be found; never a directory. */
         const val NOTH_A_DIRECTORY = "core/ui/src/commonMain-does-not-exist"
@@ -1162,7 +503,7 @@ class InteractiveControlNamingTest {
          * Every one of these is now covered by a rendered case, which is the point of recording them here: a
          * `.semantics { contentDescription = ... }` deleted from any of them leaves a control that announces
          * only its role, and Layer 2 has no way to notice, because the null-description table does not change
-         * when that modifier is removed. [the dimension icon picker names every swatch it draws] is the one
+         * when that modifier is removed. The DimensionIconPicker fixture is the one
          * that no other case can cover, because opening that dialog needs a control this module's `desktopTest`
          * tree has no fixture that mounts.
          *
@@ -1177,63 +518,4 @@ class InteractiveControlNamingTest {
                 "confirming button. Layer 2 cannot see the loss of any of them - removing one changes no " +
                 "null-description count - so each is held by a rendered case instead."
     }
-}
-
-/** The notes the shared screen lists, as a flow the ViewModel observes; the screen test never writes. */
-private class FakeNoteRepository(
-    initial: List<Note>,
-) : NoteRepository {
-    private val notes = MutableStateFlow(initial)
-
-    override fun getAllNotes(): Flow<List<Note>> = notes
-
-    override fun getNotesByDimension(dimension: String): Flow<List<Note>> = flowOf(emptyList())
-
-    override fun getNotesForDate(date: LocalDate): Flow<List<Note>> = flowOf(emptyList())
-
-    override suspend fun getNoteById(id: String): Note? = notes.value.firstOrNull { it.id == id }
-
-    override suspend fun createNote(input: io.payanam.domain.model.NoteInput): Note =
-        throw UnsupportedOperationException("the naming sweep never writes")
-
-    override suspend fun updateNote(
-        id: String,
-        input: io.payanam.domain.model.NoteInput,
-    ): Note = throw UnsupportedOperationException("the naming sweep never writes")
-
-    override suspend fun deleteNote(id: String) =
-        throw UnsupportedOperationException("the naming sweep never writes")
-}
-
-/** Tag lookups the shared screen performs while rendering; nothing to suggest, nothing attached. */
-private class FakeTagRepository : TagRepository {
-    override fun observeAllTags(): Flow<List<Tag>> = flowOf(emptyList())
-
-    override fun searchTagsByPrefix(
-        query: String,
-        limit: Int,
-    ): Flow<List<Tag>> = flowOf(emptyList())
-
-    override fun observeTagsForTask(taskId: String): Flow<List<Tag>> = flowOf(emptyList())
-
-    override fun observeTagsForNote(noteId: String): Flow<List<Tag>> = flowOf(emptyList())
-
-    override suspend fun getTagNamesForNotes(noteIds: List<String>): Map<String, List<String>> = emptyMap()
-
-    override fun observeTagsForTimeEntry(timeEntryId: String): Flow<List<Tag>> = flowOf(emptyList())
-
-    override suspend fun replaceTaskTags(
-        taskId: String,
-        tagNames: List<String>,
-    ) = throw UnsupportedOperationException("the naming sweep never writes")
-
-    override suspend fun replaceNoteTags(
-        noteId: String,
-        tagNames: List<String>,
-    ) = throw UnsupportedOperationException("the naming sweep never writes")
-
-    override suspend fun replaceTimeEntryTags(
-        timeEntryId: String,
-        tagNames: List<String>,
-    ) = throw UnsupportedOperationException("the naming sweep never writes")
 }

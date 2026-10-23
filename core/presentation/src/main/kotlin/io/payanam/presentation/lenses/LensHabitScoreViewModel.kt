@@ -12,6 +12,7 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.presentation.scoring.ScoreMetricColumn
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -184,6 +185,8 @@ class LensHabitScoreViewModel(
                         "historyKeys" to history.size,
                     ),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensHabitScoreViewModel.loadWindow", "Failed to load score matrix", e)
                 _uiState.update { it.copy(isLoading = false, error = e.message) }

@@ -36,6 +36,9 @@ class WidgetCommandTest {
 
     private val h = E2eHarness(rule, tag = "E2E")
 
+    /** Every label below comes from [E2eLabels], so a ta-IN device resolves it too. */
+    private val l: E2eLabels.Labels get() = h.labels
+
     /** The device sleeps on a short timeout mid-build; a stopped Activity has no Compose tree. */
     @Before
     fun keepScreenAwake() {
@@ -50,12 +53,12 @@ class WidgetCommandTest {
         val setup = FreshSetup(h)
         setup.run()
 
-        h.assertVisible("Set up your life dimensions")
-        h.click("Verify and proceed")
+        h.assertVisible(l.dimensionsTitle)
+        h.click(l.verifyAndProceed)
 
         // The retried command must land on Time and open the start dialog from the command.
-        h.assertVisible("Start Tracking")
-        h.assertVisible("Life Dimension")
+        h.assertVisible(l.startTracking)
+        h.assertVisible(l.lifeDimension)
         assertLogContains("Handled external navigation command")
         assertLogContains("Opened start tracking dialog from external command")
         h.log("quickStartFromWidget=ok")
@@ -63,23 +66,23 @@ class WidgetCommandTest {
 
         // Dismiss the dialog so the bottom navigation is tappable again.
         h.back()
-        h.waitForGone("Life Dimension")
+        h.waitForGone(l.lifeDimension)
 
         // ── part 2: a disabled Time module must not be opened by the command ───────────────────
-        h.clickNav("Settings")
-        h.scrollTo("Focus Mode")
-        h.click("Focus Mode")
-        h.scrollTo("Tab Visibility")
-        h.setChecked("Time", false)
+        h.clickNav(l.settings)
+        h.scrollTo(l.focusMode)
+        h.click(l.focusMode)
+        h.scrollTo(l.tabVisibility)
+        h.setChecked(l.time, false)
 
         fireWidgetQuickStart()
         assertLogContains("External navigation command blocked")
         // Still on Settings: the command was dropped, not navigated.
-        h.assertVisible("Tab Visibility")
+        h.assertVisible(l.tabVisibility)
         h.log("disabledModuleRespected=ok")
 
         // Restore for idempotence.
-        h.setChecked("Time", true)
+        h.setChecked(l.time, true)
     }
 
     /**

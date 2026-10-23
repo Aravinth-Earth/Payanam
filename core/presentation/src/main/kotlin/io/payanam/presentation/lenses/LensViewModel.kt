@@ -275,6 +275,8 @@ class LensViewModel(
             try {
                 lensRepository.markReflectionAddressed(reflectionId, note)
                 loadLensData()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensViewModel.markReflectionAddressed", "Failed to mark reflection addressed", e)
                 _uiState.update {
@@ -299,6 +301,8 @@ class LensViewModel(
                 val dayKey = _uiState.value.selectedDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
                 lensRepository.generateReflectionCards(dayKey)
                 loadLensData()
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensViewModel.regenerateReflections", "Failed to regenerate reflections", e)
                 _uiState.update {
@@ -569,6 +573,8 @@ class LensViewModel(
                 val avgs = lensRepository.getDailyFocusAverages()
                 _uiState.update { it.copy(dailyFocusAverages = avgs) }
                 logger.d("LensViewModel.loadMinimalFocusAverages", "Loaded daily focus averages", mapOf("count" to avgs.size))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensViewModel.loadMinimalFocusAverages", "Failed to load daily focus averages", e)
             }
@@ -583,6 +589,8 @@ class LensViewModel(
                 val stats = lensRepository.getDailyTrackedTimeStats()
                 _uiState.update { it.copy(dailyTrackedTimeStats = stats) }
                 logger.d("LensViewModel.loadDailyTrackedTimeStats", "Loaded daily tracked time stats", mapOf("count" to stats.size))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensViewModel.loadDailyTrackedTimeStats", "Failed to load daily tracked time stats", e)
             }
@@ -597,6 +605,8 @@ class LensViewModel(
                 val stats = lensRepository.getDailyFocusedHoursStats()
                 _uiState.update { it.copy(dailyFocusedHoursStats = stats) }
                 logger.d("LensViewModel.loadDailyFocusedHoursStats", "Loaded daily focused hours stats", mapOf("count" to stats.size))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e("LensViewModel.loadDailyFocusedHoursStats", "Failed to load daily focused hours stats", e)
             }
@@ -744,6 +754,8 @@ class LensViewModel(
                         ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("LensViewModel.loadDimensionSplit", "Failed to load dimension split", e)
             _uiState.update { it.copy(dimensionSplit = it.dimensionSplit.copy(isLoading = false)) }

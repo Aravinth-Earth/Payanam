@@ -35,6 +35,63 @@ class FreshSetup(private val h: E2eHarness) {
         h.log("setup=complete")
     }
 
+    /**
+     * Brings the app to a usable state, provisioning only if it has to.
+     *
+     * [run] requires a clean install, so it can only ever be the FIRST class of an instrumentation
+     * invocation: every later class in the same run sees the app the earlier one provisioned, and a hard
+     * requirement turns that shared state into a failure. That is why the tier used to be invoked one class
+     * at a time, paying a full install and a full setup per class.
+     *
+     * This is the form the FEATURE journeys call. It accepts every state a real run can start in - a clean
+     * install, a returning machine whose session has closed, or an app an earlier class already provisioned -
+     * and never fabricates a first run. A class that is ABOUT the first-run gates keeps calling [run],
+     * because for that class the clean install IS the subject.
+     *
+     * **It probes for the GATES, not for a main screen.** "Is a bottom-nav label on screen" was the first
+     * version of this probe and it was wrong: an earlier class can legitimately leave the app on a sub-screen
+     * (the assistant, a detail view) where no nav label is composed, and that is still a provisioned app -
+     * measured on the device, that probe sent every class after the first into [run] and failed the run.
+     * Asking "is a gate showing" answers the question actually being asked.
+     *
+     * It also completes the mandatory dimension step, which exists only on a first run, so a call site stays
+     * one line.
+     */
+    fun runIfNeeded() {
+        h.awaitRoot()
+        when {
+            // A CLEAN INSTALL, or a reset: the first-run gates are up.
+            h.isAnyOnScreen(*firstRunLabels()) -> {
+                h.log("setup=provisioning")
+                run() // leaves the app on the mandatory dimension step
+                h.scrollTo(l.verifyAndProceed)
+                h.click(l.verifyAndProceed)
+            }
+
+            // A RETURNING machine: the app process was replaced between invocations, so the session is closed
+            // and the unlock gate is up. That is a real user state, and the fixture passphrase opens it - the
+            // same step [UnlockTest] makes, for the same reason.
+            h.isOnScreen(l.unlock) -> {
+                h.log("setup=unlocking")
+                h.type(l.passphraseField, TEST_DB_PASSPHRASE)
+                h.click(l.unlock)
+            }
+
+            // Past every gate already - whatever screen it happens to be on.
+            else -> h.log("setup=reused")
+        }
+
+        // The FOCUS-MODE onboarding gate is the third state, and it arrives AFTER the shell is up rather
+        // than instead of it. On a machine whose focus onboarding is still pending it is what the app opens
+        // ON, and with it up no bottom-nav label is composed - measured on the device: every class logged
+        // `setup=reused` and then every `goToTab` in every class timed out. It is left the way a user leaves
+        // it, with the gate's own skip action.
+        h.answerFocusModeGate({ l.chooseYourFocus }, { l.skipFocusMode }, timeoutMs = 5_000)
+
+        h.awaitIdle()
+        h.log("setup=ready")
+    }
+
     // ── reaching a clean state ───────────────────────────────────────────────────────────────────
 
     /**

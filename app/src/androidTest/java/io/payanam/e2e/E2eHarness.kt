@@ -11,7 +11,12 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.semantics.getOrNull
+import android.content.Context
+import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
+import androidx.compose.ui.test.junit4.AndroidComposeTestRule
+import androidx.test.ext.junit.rules.ActivityScenarioRule
+import io.payanam.MainActivity
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
 import androidx.compose.ui.test.captureToImage
@@ -29,6 +34,7 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextInput
+import androidx.compose.ui.test.performTextReplacement
 import androidx.compose.ui.test.performTouchInput
 import androidx.compose.ui.test.swipeDown
 import androidx.compose.ui.test.swipeUp
@@ -36,6 +42,7 @@ import androidx.test.espresso.Espresso
 import androidx.test.platform.app.InstrumentationRegistry
 import io.payanam.common.logging.UnifiedLogger
 import java.io.File
+import kotlin.math.roundToInt
 
 /**
  * Shared interaction vocabulary for the in-process E2E tiers.
@@ -91,6 +98,16 @@ fun keepScreenOn(activity: Activity) {
  */
 private const val ARRIVAL_WAIT_MS = 15_000L
 
+/**
+ * How long one navigation attempt is given to bring its destination up before the tap is re-issued.
+ *
+ * The app's own startup navigation can override a tap made while it is still in flight (measured
+ * 2026-10-16), which is a race the test loses silently — the tap is accepted, then the startup route
+ * lands on top of it. 10s is far longer than a settled nav swap and short enough that three attempts
+ * still fit inside a run.
+ */
+private const val SETTLE_WAIT_MS = 10_000L
+
 /** Below this height a swipe gesture collapses into a tap. */
 private const val MIN_SWIPE_HEIGHT_PX = 300
 
@@ -107,11 +124,47 @@ class E2eHarness(
      * Every label this class is asked to find comes from here rather than an English literal in a test
      * file, so the tier is not a bet that the device is English. See [E2eLabels].
      *
-     * Resolved from the TARGET app's context, not the instrumentation's: the labels must come from the
-     * same resources the Activity renders with, including any per-app locale override Android has
-     * applied.
+     * Resolved from the ACTIVITY's own context, not the instrumentation's target context. The app
+     * applies its language choice to the activity's BASE context
+     * (`MainActivity.applyLanguagePreference` → `applyLanguageTag`), so the target context keeps the
+     * system locale while the app renders the user's language — the tiers resolved English labels
+     * against a Tamil screen and reported "not on this screen" / "(none) matches" instead of a locale
+     * mismatch. Read lazily, because a journey can change the language mid-run.
      */
-    private val l: E2eLabels.Labels = E2eLabels.of(InstrumentationRegistry.getInstrumentation().targetContext)
+    private val l: E2eLabels.Labels get() = E2eLabels.of(activityContext())
+
+    /** The Activity's context when the rule exposes one; otherwise the target app context. */
+    private fun activityContext(): Context {
+        val androidRule =
+            rule as? AndroidComposeTestRule<ActivityScenarioRule<MainActivity>, MainActivity>
+        return androidRule?.activity
+            ?: InstrumentationRegistry.getInstrumentation().targetContext
+    }
+
+    /**
+     * Names the locale each candidate source reports, at the moment a lookup found nothing.
+     *
+     * Two fixes were tried against a Tamil screen that resolved English labels (reading
+     * `LocaleManager.applicationLocales`, and resolving from the Activity's context) and neither changed a
+     * single test result. A probe beats a third guess: it reports which branch was taken and what every
+     * reachable source actually says, in the same log as the failure.
+     */
+    private fun localeProbe(label: String): String {
+        val target = InstrumentationRegistry.getInstrumentation().targetContext
+        val activity = activityContext()
+        val resolvedFromTarget = E2eLabels.of(target).let { runCatching { it.lenses }.getOrNull() }
+        val resolvedFromActivity = E2eLabels.of(activity).let { runCatching { it.lenses }.getOrNull() }
+        return buildString {
+            append("    locale-probe: label='").append(label).append("'\n")
+            append("      targetTag=").append(E2eLabels.localeTag(target))
+            append(" activityTag=").append(E2eLabels.localeTag(activity)).append('\n')
+            append("      targetConfig=").append(target.resources.configuration.locales)
+            append(" activityConfig=").append(activity.resources.configuration.locales).append('\n')
+            append("      targetActivitySame=").append(target === activity)
+            append(" targetLenses='").append(resolvedFromTarget)
+            append("' activityLenses='").append(resolvedFromActivity).append("'")
+        }
+    }
 
     /** Convenience for call sites that take a plain `String` label. */
     val labels: E2eLabels.Labels get() = l
@@ -169,6 +222,36 @@ class E2eHarness(
      */
     fun labelledExactly(text: String): SemanticsMatcher =
         hasText(text, substring = false) or hasContentDescription(text, substring = false)
+
+    /**
+     * Substring form of [labelled], for a label the app renders with a runtime suffix.
+     *
+     * `labelled`/`labelledExactly` require the WHOLE string, so a filter chip rendered as "All (3)" is
+     * not found by the label "All" — measured on device 2026-10-16, where the Tasks filter chips carry
+     * their count in the same text node. Use this for a control whose copy the app formats with a value
+     * that changes at runtime (filter chips, "… (N)" rows).
+     */
+    fun labelledSubstring(text: String): SemanticsMatcher =
+        hasText(text, substring = true) or hasContentDescription(text, substring = true)
+
+    /**
+     * Taps the first on-screen node whose text/contentDescription CONTAINS [label].
+     *
+     * A positional tap, because the node carrying the composed text is usually a child of the clickable
+     * surface (the same split [click] handles) — the tap lands on the control underneath.
+     */
+    fun clickSubstring(label: String, timeoutMs: Long = 30_000) {
+        rule.waitUntil(timeoutMs) {
+            rule.onAllNodes(labelledSubstring(label)).fetchSemanticsNodes().isNotEmpty()
+        }
+        val target = firstDisplayed(rule.onAllNodes(labelledSubstring(label)))
+        check(target != null) { "no on-screen node containing '$label'\n${diagnose(label)}" }
+        log("substring-tap=$label")
+        target.performTouchInput {
+            down(center)
+            up()
+        }
+    }
 
     /** Presence without waiting. */
     fun exists(label: String): Boolean =
@@ -252,6 +335,24 @@ class E2eHarness(
     }
 
     /**
+     * Blocks until no node carries [label] EXACTLY.
+     *
+     * The counterpart of [waitForGone] for a label that also occurs somewhere that outlives the thing
+     * being waited on. `waitForGone` matches substrings, so it cannot express "the banner is gone" when
+     * the banner's message text is also rendered elsewhere — measured 2026-10-16 on the assistant setup
+     * surface, where `assistant_error_key_rejected` is BOTH the error banner's message and the API-key
+     * field's `supportingText`: dismissing the banner leaves the field's copy in place and the substring
+     * wait can never be satisfied.
+     *
+     * Uses the exact matcher, so a short label cannot be answered by a longer one that contains it.
+     */
+    fun waitForGoneExact(label: String, timeoutMs: Long = 30_000) {
+        rule.waitUntil(timeoutMs) {
+            rule.onAllNodes(labelledExactly(label)).fetchSemanticsNodes().isEmpty()
+        }
+    }
+
+    /**
      * Blocks until ANY of [labels] is on screen; returns the one that arrived.
      *
      * Used where the app offers more than one legal starting point for the same state and the test
@@ -288,6 +389,11 @@ class E2eHarness(
     /** Maestro's `assertVisible` — the label must be present AND on screen. */
     fun assertVisible(label: String, timeoutMs: Long = 30_000) {
         ensurePresent(label)
+        // `ensurePresent` returns EARLY when the node already EXISTS — which is true for every child of a
+        // `verticalScroll` column, composed whether or not it is drawn. So a label that is present but
+        // below the fold would never be scrolled to and this would wait out the timeout with the node in
+        // the tree. Scroll explicitly when it is not on screen, exactly as [click] does.
+        if (!isOnScreen(label)) scrollTo(label)
         rule.waitUntil(timeoutMs) { isOnScreen(label) }
         check(isOnScreen(label)) { "'$label' never became visible\n${diagnose(label)}" }
     }
@@ -296,6 +402,56 @@ class E2eHarness(
     fun assertNotVisible(label: String) {
         check(!exists(label)) { "expected '$label' to be absent, but it is present" }
     }
+
+    /**
+     * [assertVisible] for a label the app formats with a runtime value, matched as a SUBSTRING.
+     *
+     * [assertVisible] goes through the exact [labelled] matcher, so a message rendered with a live value —
+     * the unlock lockout's "… try again in N seconds", a filter chip's "All (3)" — is never found by its
+     * static prefix. Measured 2026-10-16 on the lockout message, whose on-screen text was present while the
+     * exact lookup reported `(none)`.
+     */
+    fun assertVisibleSubstring(label: String, timeoutMs: Long = 30_000) {
+        rule.waitUntil(timeoutMs) { anyDisplayed(rule.onAllNodes(labelledSubstring(label))) }
+        check(anyDisplayed(rule.onAllNodes(labelledSubstring(label)))) {
+            "'$label' never became visible as a substring\n${diagnose(label)}"
+        }
+    }
+
+    /**
+     * Requires the app's OWN session log to carry the structured marker [source] with [message].
+     *
+     * This is the LOG half of cross-platform parity on the ANDROID side: the same marker the desktop
+     * journey asserts, so a behaviour that works on one platform and silently fails on the other shows up as
+     * a missing marker or an extra error line rather than as a difference nobody looked for.
+     *
+     * The Android logger is ASYNC-BUFFERED (a background scope flushes on an interval), so the buffer is
+     * flushed and the file polled rather than read once.
+     */
+    fun assertLogged(source: String, message: String, timeoutMs: Long = 20_000) {
+        val deadline = System.currentTimeMillis() + timeoutMs
+        var text = ""
+        while (System.currentTimeMillis() < deadline) {
+            if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance().flush()
+            text = readSessionLog()
+            if (text.contains("| $source |") && text.contains(message)) {
+                log("logged=$source")
+                return
+            }
+            Thread.sleep(300)
+        }
+        error(
+            "the app session log carries no '$source' marker with '$message' " +
+                "(log length=${text.length}, file=${sessionLogFile()?.absolutePath})",
+        )
+    }
+
+    /** The newest session log file the app has written, or null. */
+    private fun sessionLogFile(): File? =
+        File(activityContext().filesDir, "logs").listFiles()?.maxByOrNull { it.lastModified() }
+
+    private fun readSessionLog(): String =
+        runCatching { sessionLogFile()?.readText().orEmpty() }.getOrDefault("")
 
     // ─────────────────────────────── actions ─────────────────────────────────────────────────────
 
@@ -358,7 +514,7 @@ class E2eHarness(
     fun diagnose(label: String): String {
         fun describe(useUnmerged: Boolean): String {
             val nodes = rule.onAllNodes(labelled(label), useUnmergedTree = useUnmerged).fetchSemanticsNodes()
-            if (nodes.isEmpty()) return "    (none)"
+            if (nodes.isEmpty()) return "    (none)\n" + localeProbe(label)
             return nodes.joinToString("\n") { n ->
                 val click = n.config.getOrNull(SemanticsActions.OnClick) != null
                 val text = n.config.getOrNull(SemanticsProperties.Text)?.joinToString()
@@ -452,6 +608,80 @@ class E2eHarness(
     /** True when the given text is on screen right now (no waiting). */
     fun seesText(text: String): Boolean =
         dumpTexts(limit = 200).any { it.contains(text, ignoreCase = false) }
+
+    // ─────────────────────────────── touch targets ───────────────────────────────────────────────
+
+    /** One pressable control as the sweep measures it: what it says, and how big it is in dp. */
+    data class TouchTarget(
+        val label: String,
+        val widthDp: Float,
+        val heightDp: Float,
+    )
+
+    /**
+     * Every DISPLAYED node a user can press, with its size in dp.
+     *
+     * The MERGED tree is walked, so a `clickable` surface that merges its descendants is measured as the
+     * one control a user actually presses rather than as its child text. Nodes that are composed but
+     * scrolled out of view are skipped - the sweep is about what the user can reach on the screen in
+     * front of them.
+     *
+     * Deliberately EXCLUDED, and named here so the omission is a stated decision rather than a hole:
+     *
+     *  - `Selected` - filter chips, tabs, segmented buttons and nav items carry the selection state.
+     *    Material sizes these below the 44/48dp comfort target on purpose, and a chip is not a control a
+     *    user struggles to hit; including them would make every screen with a chip row fail for a
+     *    non-defect.
+     *  - `ToggleableState` - switches and checkboxes. Same reasoning: the touch surface is the whole row,
+     *    not the 32dp track.
+     *
+     * Everything else - icon buttons, FABs, text buttons, rows, the habit canvas - is measured and must
+     * clear the floor. A zero-area or sub-24dp pressable is the defect this exists to catch: it is
+     * invisible to every other assertion in the tier, because a tap can still land on it by luck.
+     */
+    fun pressableTargets(): List<TouchTarget> {
+        val density = rule.density.density
+        val interactions = rule.onAllNodes(hasClickAction())
+        val count = runCatching { interactions.fetchSemanticsNodes().size }.getOrDefault(0)
+        val targets = mutableListOf<TouchTarget>()
+        for (i in 0 until count) {
+            if (!interactions[i].isDisplayed()) continue
+            val config = interactions[i].fetchSemanticsNode().config
+            if (config.contains(SemanticsProperties.Selected)) continue
+            if (config.contains(SemanticsProperties.ToggleableState)) continue
+            val label = config.getOrNull(SemanticsProperties.Text)?.joinToString()
+                ?: config.getOrNull(SemanticsProperties.ContentDescription)?.joinToString()
+                ?: config.getOrNull(SemanticsProperties.TestTag)
+                ?: "(unlabelled)"
+            val size = interactions[i].fetchSemanticsNode().size
+            targets += TouchTarget(label, size.width / density, size.height / density)
+        }
+        return targets
+    }
+
+    /**
+     * Fails unless every displayed pressable control on [screen] is at least [minSizeDp] in BOTH
+     * dimensions.
+     *
+     * The floor is a named parameter rather than a constant so a screen whose controls are legitimately
+     * tighter can say so at its call site, and the message lists every offender with its measured size so
+     * a failure is a work item rather than a mystery.
+     */
+    fun assertTouchTargets(
+        screen: String,
+        minSizeDp: Float = 24f,
+    ) {
+        val targets = pressableTargets()
+        val tooSmall = targets.filter { it.widthDp < minSizeDp || it.heightDp < minSizeDp }
+        log("touch-targets screen=$screen checked=${targets.size} tooSmall=${tooSmall.size}")
+        check(tooSmall.isEmpty()) {
+            "on '$screen', ${tooSmall.size} of ${targets.size} displayed control(s) are below ${minSizeDp}dp " +
+                "in one dimension:\n" +
+                tooSmall.joinToString("\n") {
+                    "  '${it.label}' ${it.widthDp.roundToInt()}x${it.heightDp.roundToInt()}dp"
+                }
+        }
+    }
 
     /**
      * Reads a switch's on/off state from its accessibility node.
@@ -558,6 +788,50 @@ class E2eHarness(
         val target = firstDisplayed(field)
         check(target != null) { "'$label' has no on-screen text field to type into\n${diagnose(label)}" }
         target.performTextInput(value)
+    }
+
+    /**
+     * Types into a field after REPLACING whatever it already holds.
+     *
+     * [type] appends, which is right for a field the user has not touched. A field that KEEPS its value
+     * after a failed submit — the unlock screen's passphrase field, which clears only on success — would
+     * otherwise accumulate one wrong attempt on top of the last. Measured 2026-10-16 on the unlock gate.
+     */
+    fun replaceType(label: String, value: String, timeoutMs: Long = 30_000) {
+        waitFor(label, timeoutMs)
+        if (!isOnScreen(label)) scrollTo(label)
+        val field = rule.onAllNodes(labelled(label)).filter(hasSetTextAction())
+        val target = firstDisplayed(field)
+        check(target != null) { "'$label' has no on-screen text field to type into\n${diagnose(label)}" }
+        target.performTextReplacement(value)
+    }
+
+    /**
+     * True when some text field carrying [label] holds [expected] as its EDITABLE text.
+     *
+     * `assertTextContains` cannot answer this for a LABELLED field. The field's merged node carries the
+     * LABEL as its `Text` and the value as `EditableText`, and `assertTextContains` reports the label - so an
+     * assertion on the typed value fails against a field that plainly holds it. Measured on the device
+     * 2026-10-17: the assistant's goals field held "Test goals" while `assertTextContains("Test goals")`
+     * reported the label "இலக்குகள்". This reads the property the value actually lives in.
+     *
+     * Polls, because a field backed by the encrypted database can be re-populated a frame after the write.
+     */
+    fun fieldHolds(label: String, expected: String, timeoutMs: Long = 15_000): Boolean =
+        runCatching {
+            rule.waitUntil(timeoutMs) { fieldHoldsNow(label, expected) }
+        }.isSuccess
+
+    /** One reading of [fieldHolds], without waiting - the poll body. */
+    private fun fieldHoldsNow(label: String, expected: String): Boolean {
+        val fields = rule.onAllNodes(labelled(label)).filter(hasSetTextAction())
+        val count = runCatching { fields.fetchSemanticsNodes().size }.getOrDefault(0)
+        for (index in 0 until count) {
+            val node = runCatching { fields[index].fetchSemanticsNode() }.getOrNull() ?: continue
+            val text = node.config.getOrNull(SemanticsProperties.EditableText)?.text.orEmpty()
+            if (text.contains(expected)) return true
+        }
+        return false
     }
 
     /**
@@ -746,14 +1020,65 @@ class E2eHarness(
 
     /** Opens the assistant destination from Lenses (waits out the loading spinner first). */
     fun openAssistant() {
-        goToTab(l.lenses)
-        // Lenses renders a bare spinner while it loads — no scrollable at all, so the honest
-        // readiness signal is the scrollable list itself; only then can the card be searched for.
-        rule.waitUntil(60_000) {
-            rule.onAllNodes(hasScrollAction()).fetchSemanticsNodes().isNotEmpty()
+        // The tab tap is re-issued until the LENSES DESTINATION is actually composed, because a tap is
+        // not proof of a navigation. Measured 2026-10-16 on this device: after unlock the app runs its own
+        // startup navigation, and it can land AFTER the tap and override it — the app log shows
+        // `Navigating to screen route="lenses"` from the tap followed by `destinationChanged route="time"`,
+        // with no `LensViewModel` line at all, so the destination never composed. Retrying on the
+        // destination is what makes this honest: the retry stops the moment Lenses is really up, and the
+        // three attempts cost nothing on the runs where the first tap holds (the common case).
+        var attempts = 0
+        while (attempts < 3 && !exists(l.aiAssistance)) {
+            goToTab(l.lenses)
+            // A bounded settle window per attempt; ONLY the timeout is swallowed, so any other failure
+            // (a broken query, a Compose internal error) still surfaces as itself.
+            try {
+                rule.waitUntil(SETTLE_WAIT_MS) { exists(l.aiAssistance) }
+            } catch (_: ComposeTimeoutException) {
+                // Not up yet; the next attempt re-taps. Logged below so a failure names the retries.
+            }
+            attempts++
         }
+        if (attempts > 1) log("nav-retries=$attempts")
+        // Lenses renders a bare spinner while it loads — no scrollable at all, so the honest
+        // readiness signal is the entry card ITSELF. Lenses composes its whole `verticalScroll` column
+        // at once, so the off-screen title is in the tree as soon as the destination is really up.
+        rule.waitUntil(60_000) { exists(l.aiAssistance) }
         scrollTo(l.aiAssistance)
         assertVisible(l.experimentalChip)
         click(l.assistantOpen)
+        acceptAssistantConsent()
+    }
+
+    /**
+     * Answers the AI Assistance consent gate with its "proceed" answer.
+     *
+     * Reaching the assistant is TWO taps, not one: the Lenses entry card's CTA opens the shared
+     * `AssistantConsentDialog` first, and that dialog's `confirmButton` is what calls
+     * `onOpenAssistant()`. Measured 2026-10-16: with only the card's CTA tapped, both assistant classes
+     * stopped on the dialog — the app log shows `LensesScreen.assistantOpened` and nothing after it, and
+     * the next assertion fails with an EMPTY text dump, because a Dialog owns its own root and
+     * `dumpTexts` walks the one the query did not touch.
+     *
+     * The gate is asked on EVERY entry, not only the first: `assistantConsentVisible` in `LensesScreen`
+     * is a plain `remember`, deliberately not persisted ("the answer is remembered where it actually
+     * matters - the presence of a key, not a local flag"). So this is a step of the entry, never a
+     * first-run special case.
+     *
+     * A no-op when the gate is not up, so it cannot regress a flow that consents somewhere else; when it
+     * IS up the tap is required. The match is exact — the ta copy ("தொடர்") is short enough to occur as a
+     * substring of other words, and a permissive matcher has already regressed a green class once.
+     */
+    private fun acceptAssistantConsent(timeoutMs: Long = 15_000) {
+        val arrived = runCatching {
+            rule.waitUntil(timeoutMs) {
+                rule.onAllNodes(labelledExactly(l.assistantConsentProceed))
+                    .fetchSemanticsNodes().isNotEmpty()
+            }
+        }.isSuccess
+        if (!arrived) return
+        log("assistant-consent=proceed")
+        click(l.assistantConsentProceed)
+        rule.waitForIdle()
     }
 }

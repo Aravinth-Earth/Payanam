@@ -18,6 +18,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -62,6 +63,7 @@ private fun DayMetricChip(chip: DayMetricChipData, modifier: Modifier = Modifier
             .let { base ->
                 if (onClick != null) base.clickable(onClick = onClick) else base
             }
+            .testTag("day_metric_chip")
             .background(
                 color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f),
                 shape = RoundedCornerShape(10.dp),

@@ -7,7 +7,6 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -28,15 +27,17 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
-import io.payanam.core.ui.model.DimensionIconCatalog
-import io.payanam.core.ui.preferences.DimensionOption
-import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.model.DimensionIconCatalog
+import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
+import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.shared.logging.AppLogger
 import java.time.Instant
 import java.time.LocalDate
@@ -59,14 +60,15 @@ fun AddTimeEntryDialog(
     val strings = LocalUiStrings.current
     val logger = remember { AppLogger.current }
     val fallbackDimensionDefinition = DimensionTaxonomyCatalog.WORK_LIVELIHOOD
-    val defaultDimension = dimensionOptions.firstOrNull() ?: DimensionOption(
-        id = fallbackDimensionDefinition.id,
-        canonicalId = fallbackDimensionDefinition.id,
-        label = fallbackDimensionDefinition.fallbackLabel,
-        color = MaterialTheme.colorScheme.primary,
-        isVisible = true,
-        iconKey = fallbackDimensionDefinition.defaultIconKey,
-    )
+    val defaultDimension =
+        dimensionOptions.firstOrNull() ?: DimensionOption(
+            id = fallbackDimensionDefinition.id,
+            canonicalId = fallbackDimensionDefinition.id,
+            label = fallbackDimensionDefinition.fallbackLabel,
+            color = MaterialTheme.colorScheme.primary,
+            isVisible = true,
+            iconKey = fallbackDimensionDefinition.defaultIconKey,
+        )
     var selectedDimension by remember { mutableStateOf(defaultDimension) }
     var selectedTaskId by remember { mutableStateOf<String?>(null) }
     var startDate by remember(initialDate) { mutableStateOf(initialDate) }
@@ -87,7 +89,7 @@ fun AddTimeEntryDialog(
     val selectedLabel = selectedDimension.label
     val canAdd = LocalDateTime.of(startDate, startTime) < LocalDateTime.of(endDate, endTime)
     val filteredTasks = tasks.filter { taskMatchesDimension(it, selectedDimension) }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locAddTimeEntry) },
         text = {
@@ -113,9 +115,11 @@ fun AddTimeEntryDialog(
                             )
                         },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dimensionExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(MenuAnchorType.PrimaryNotEditable)
+                                .testTag("time_entry_dimension_field"),
                     )
                     ExposedDropdownMenu(
                         expanded = dimensionExpanded,
@@ -147,14 +151,16 @@ fun AddTimeEntryDialog(
                         onExpandedChange = { taskExpanded = it },
                     ) {
                         OutlinedTextField(
-                            value = filteredTasks.find { it.id == selectedTaskId }?.title
-                                ?: strings.locNone,
+                            value =
+                                filteredTasks.find { it.id == selectedTaskId }?.title
+                                    ?: strings.locNone,
                             onValueChange = {},
                             readOnly = true,
                             trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(taskExpanded) },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                            modifier =
+                                Modifier
+                                    .fillMaxWidth()
+                                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
                         )
                         ExposedDropdownMenu(
                             expanded = taskExpanded,
@@ -168,16 +174,19 @@ fun AddTimeEntryDialog(
                                 },
                             )
                             filteredTasks.forEach { task ->
-                                val taskType = if (task.recurrenceEnabled) {
-                                    strings.locHabit
-                                } else {
-                                    strings.settingsDatabaseTasks
-                                }
+                                val taskType =
+                                    if (task.recurrenceEnabled) {
+                                        strings.locHabit
+                                    } else {
+                                        strings.settingsDatabaseTasks
+                                    }
                                 DropdownMenuItem(
                                     text = {
                                         Text(
-                                            strings.locTaggedTitle.format(taskType,
-                                                task.title,),
+                                            strings.locTaggedTitle.format(
+                                                taskType,
+                                                task.title,
+                                            ),
                                         )
                                     },
                                     onClick = {
@@ -230,7 +239,7 @@ fun AddTimeEntryDialog(
                     style = MaterialTheme.typography.labelMedium,
                 )
                 Text(
-                    text = strings.locFocusRatingValue.format(String.format(Locale.US, "%.2f", focusRating.toDouble()),),
+                    text = strings.locFocusRatingValue.format(String.format(Locale.US, "%.2f", focusRating.toDouble())),
                     style = MaterialTheme.typography.bodySmall,
                 )
                 Slider(
@@ -345,16 +354,18 @@ fun DatePickerAlertDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val initialMillis = remember(initialDate) {
-        initialDate
-            .atStartOfDay(ZoneId.systemDefault())
-            .toInstant()
-            .toEpochMilli()
-    }
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialMillis,
-    )
-    AlertDialog(
+    val initialMillis =
+        remember(initialDate) {
+            initialDate
+                .atStartOfDay(ZoneId.systemDefault())
+                .toInstant()
+                .toEpochMilli()
+        }
+    val datePickerState =
+        rememberDatePickerState(
+            initialSelectedDateMillis = initialMillis,
+        )
+    PayanamAlertDialog(
         modifier = Modifier.fillMaxWidth(),
         properties = DialogProperties(usePlatformDefaultWidth = false),
         onDismissRequest = onDismiss,
@@ -368,11 +379,13 @@ fun DatePickerAlertDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val selected = datePickerState.selectedDateMillis?.let { millis ->
-                        Instant.ofEpochMilli(millis)
-                            .atZone(ZoneId.systemDefault())
-                            .toLocalDate()
-                    } ?: initialDate
+                    val selected =
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            Instant
+                                .ofEpochMilli(millis)
+                                .atZone(ZoneId.systemDefault())
+                                .toLocalDate()
+                        } ?: initialDate
                     onConfirm(selected)
                 },
             ) {
@@ -395,11 +408,12 @@ fun TimePickerAlertDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    val timePickerState = rememberTimePickerState(
-        initialHour = initialTime.hour,
-        initialMinute = initialTime.minute,
-    )
-    AlertDialog(
+    val timePickerState =
+        rememberTimePickerState(
+            initialHour = initialTime.hour,
+            initialMinute = initialTime.minute,
+        )
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locSelectTime) },
         text = {

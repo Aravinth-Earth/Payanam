@@ -23,6 +23,17 @@ import java.util.Locale
 internal fun desktopUiLanguageForTag(effectiveLanguageTag: String): UiLanguage = UiLanguage.of(effectiveLanguageTag)
 
 /**
+ * The JVM [Locale] the SHARED formatters must format with for [effectiveLanguageTag].
+ *
+ * The shared module deliberately holds no language: its screens format dates, weekday names and "last
+ * updated" timestamps through `Locale.getDefault()` (documented in `DatabaseInitScreen`). Android applies
+ * the app language to that default; the desktop used to leave it at the MACHINE locale, so an English app on
+ * a Tamil machine rendered Tamil dates while the copy around them was English. This is the locale the shell
+ * root installs as the default so both platforms agree.
+ */
+internal fun desktopLocaleForTag(effectiveLanguageTag: String): Locale = Locale.forLanguageTag(effectiveLanguageTag)
+
+/**
  * The language of the MACHINE this process runs on - for the startup GATE only.
  *
  * The gate renders the machine locale in EVERY mode it shows, not only the pre-unlock ones. That is not

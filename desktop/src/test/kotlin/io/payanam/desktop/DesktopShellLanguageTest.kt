@@ -94,6 +94,25 @@ class DesktopShellLanguageTest {
         }
     }
 
+    @Test
+    fun `the shell root installs the row's language as the JVM default locale`() {
+        // The machine locale pinned to the language the row does NOT name, so a machine-locale read cannot
+        // satisfy this on a Tamil host.
+        withJvmLocale(ENGLISH_TAG) {
+            var seen: Locale? = null
+            composeRule.setContent {
+                desktopShellRootSurface(preferences = shellPreferences(AppLanguageOption.TAMIL.key)) { _ ->
+                    // Read the way a SHARED formatter reads it: `ofLocalizedDate`, `SimpleDateFormat(...,
+                    // Locale.getDefault())`, weekday `getDisplayName(..., Locale.getDefault())`.
+                    seen = Locale.getDefault()
+                    Text(text = LocalUiStrings.current.locSearchNotes)
+                }
+            }
+            composeRule.waitForIdle()
+            assertThat(seen?.language).isEqualTo(TAMIL_TAG)
+        }
+    }
+
     /**
      * The preferences [mapAppPreferences] produces for one stored language row - the SAME mapper the
      * preferences source calls, so the row (not a test's opinion of it) decides `effectiveLanguageTag`.

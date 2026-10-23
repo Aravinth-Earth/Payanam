@@ -22,7 +22,6 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -55,6 +54,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.ImportDatabaseFileButton
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.onboarding.OnboardingIntroScreen
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
@@ -153,7 +153,7 @@ fun DatabaseInitScreen(
     // this one, so it keeps the false default.
     var hasFinishedOnboarding by rememberSaveable { mutableStateOf(onboardingIntroAlreadyCompleted) }
     if (uiState.showCreateNewWipeConfirm) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { viewModel.cancelCreateNewWipe() },
             title = { Text(strings.dbInitWipeConfirmTitle) },
             text = { Text(strings.dbInitWipeConfirmCreateNewBody) },
@@ -174,7 +174,7 @@ fun DatabaseInitScreen(
         )
     }
     if (uiState.showImportWipeConfirm) {
-        AlertDialog(
+        PayanamAlertDialog(
             onDismissRequest = { viewModel.cancelImportWipe() },
             title = { Text(strings.dbInitWipeConfirmTitle) },
             text = { Text(strings.dbInitWipeConfirmImportBody) },
@@ -195,7 +195,7 @@ fun DatabaseInitScreen(
         )
     }
     when (uiState.restoreResult) {
-        is RestoreResult.RestoredOk -> AlertDialog(
+        is RestoreResult.RestoredOk -> PayanamAlertDialog(
             onDismissRequest = { viewModel.dismissRestoreResult() },
             title = { Text(strings.dbInitWipeRestoreOkTitle) },
             text = { Text(strings.dbInitWipeRestoreOkBody) },
@@ -206,7 +206,7 @@ fun DatabaseInitScreen(
             },
         )
 
-        is RestoreResult.RestoreFailed -> AlertDialog(
+        is RestoreResult.RestoreFailed -> PayanamAlertDialog(
             onDismissRequest = { viewModel.dismissRestoreResult() },
             title = { Text(strings.dbInitWipeRestoreFailedTitle) },
             text = { Text(strings.dbInitWipeRestoreFailedBody) },

@@ -12,7 +12,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.CircularProgressIndicator
@@ -37,6 +36,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.preferences.DimensionPreference
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
@@ -64,7 +64,7 @@ fun ImportDatabaseConfirmDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.settingsImportDialogTitle) },
         text = {
@@ -125,7 +125,7 @@ fun DeleteAllDataConfirmDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.settingsDeleteDialogTitle) },
         text = {
@@ -171,7 +171,7 @@ fun DeleteExportPromptDialog(
     onDismiss: () -> Unit,
 ) {
     val strings = LocalUiStrings.current
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.settingsDeleteExportPromptTitle) },
         text = {
@@ -218,7 +218,7 @@ fun ImportEncryptedDbPassphraseDialog(
     val strings = LocalUiStrings.current
     var passphrase by remember { mutableStateOf("") }
     var showPassphrase by remember { mutableStateOf(false) }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.dbImportPassphrasePromptTitle) },
         text = {
@@ -334,7 +334,7 @@ fun BulkMapImportedHabitsDialog(
     // an Android library, so naming it here would put :core:common back into the shared UI. The line
     // this writes is the one that identifies which dimension a bulk mapping went to.
     val logger = remember { AppLogger.current }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.settingsBulkMapDialogTitle) },
         text = {

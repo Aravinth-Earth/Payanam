@@ -52,9 +52,13 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.DimensionCompactBadge
+import io.payanam.core.ui.components.DimensionIdentityRow
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.model.DimensionIconCatalog
 import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -64,11 +68,9 @@ import io.payanam.core.ui.preferences.labelFor
 import io.payanam.core.ui.preferences.labelForDimensionId
 import io.payanam.core.ui.preferences.optionsForSelection
 import io.payanam.core.ui.preferences.visibleDimensionOptions
+import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.Note
-import io.payanam.core.ui.components.DimensionCompactBadge
-import io.payanam.core.ui.components.DimensionIdentityRow
-import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.presentation.notes.NotesScreenUiState
 import io.payanam.presentation.notes.NotesViewModel
 import io.payanam.shared.logging.AppLogger
@@ -77,9 +79,7 @@ import java.time.format.FormatStyle
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun NotesScreen(
-    viewModel: NotesViewModel,
-) {
+fun NotesScreen(viewModel: NotesViewModel) {
     val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
     val logger = AppLogger.current
@@ -109,9 +109,10 @@ fun NotesScreen(
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding),
         ) {
             // Search bar
             OutlinedTextField(
@@ -129,17 +130,19 @@ fun NotesScreen(
                         }
                     }
                 },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp, vertical = 8.dp),
                 singleLine = true,
             )
 
             // Dimension filter chips
             LazyRow(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 16.dp),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 item {
@@ -199,21 +202,23 @@ fun NotesScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = if (uiState.notes.isEmpty()) {
-                                    strings.locNoNotesYet
-                                } else {
-                                    strings.locNoMatchingNotes
-                                },
+                                text =
+                                    if (uiState.notes.isEmpty()) {
+                                        strings.locNoNotesYet
+                                    } else {
+                                        strings.locNoMatchingNotes
+                                    },
                                 style = MaterialTheme.typography.titleMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = if (uiState.notes.isEmpty()) {
-                                    strings.locTapAddFirstNote
-                                } else {
-                                    strings.locTryAdjustingSearch
-                                },
+                                text =
+                                    if (uiState.notes.isEmpty()) {
+                                        strings.locTapAddFirstNote
+                                    } else {
+                                        strings.locTryAdjustingSearch
+                                    },
                                 style = MaterialTheme.typography.bodyMedium,
                                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                             )
@@ -224,7 +229,9 @@ fun NotesScreen(
                 else -> {
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
-                        contentPadding = androidx.compose.foundation.layout.PaddingValues(16.dp),
+                        contentPadding =
+                            androidx.compose.foundation.layout
+                                .PaddingValues(16.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp),
                     ) {
                         items(
@@ -285,19 +292,23 @@ private fun NoteCard(
     tags: List<String>,
     onClick: () -> Unit,
 ) {
-    val dateFormatter = remember {
-        DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
-    }
+    val dateFormatter =
+        remember {
+            DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
+        }
     val prefs = LocalAppPreferences.current
     val dimensionColor = prefs.colorForDimensionId(note.dimensionId) ?: prefs.colorFor(note.lifeIntentionCategory)
     val dimensionLabel = prefs.labelForDimensionId(note.dimensionId) ?: prefs.labelFor(note.lifeIntentionCategory)
     Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant,
-        ),
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .testTag("notes_note_card")
+                .clickable { onClick() },
+        colors =
+            CardDefaults.cardColors(
+                containerColor = MaterialTheme.colorScheme.surfaceVariant,
+            ),
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
@@ -382,14 +393,15 @@ private fun NoteDialog(
 ) {
     val strings = LocalUiStrings.current
     val prefs = LocalAppPreferences.current
-    val fallbackDimension = prefs.visibleDimensionOptions().firstOrNull() ?: DimensionOption(
-        id = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
-        label = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.fallbackLabel,
-        color = MaterialTheme.colorScheme.primary,
-        isVisible = true,
-        iconKey = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.defaultIconKey,
-        canonicalId = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
-    )
+    val fallbackDimension =
+        prefs.visibleDimensionOptions().firstOrNull() ?: DimensionOption(
+            id = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
+            label = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.fallbackLabel,
+            color = MaterialTheme.colorScheme.primary,
+            isVisible = true,
+            iconKey = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.defaultIconKey,
+            canonicalId = DimensionTaxonomyCatalog.WORK_LIVELIHOOD.id,
+        )
     var title by remember { mutableStateOf(note?.title ?: "") }
     var details by remember { mutableStateOf(note?.details ?: "") }
     var tagsInput by remember(initialTags) { mutableStateOf(initialTags.joinToString(", ")) }
@@ -401,7 +413,7 @@ private fun NoteDialog(
     }
     val dimensionOptions = prefs.optionsForSelection(selectedDimensionId)
     var dimensionExpanded by remember { mutableStateOf(false) }
-    AlertDialog(
+    PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = {
             Text(
@@ -428,17 +440,18 @@ private fun NoteDialog(
                     value = details,
                     onValueChange = { details = it },
                     label = { Text(strings.locDetailsOptional) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(120.dp),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .height(120.dp),
                     maxLines = 5,
                 )
                 val selectedTags = parseTagsInput(tagsInput)
-                val matchingTagSuggestions = tagSuggestions
-                    .filter { suggestion ->
-                        suggestion.contains(tagsInput.trim(), ignoreCase = true) && suggestion !in selectedTags
-                    }
-                    .take(6)
+                val matchingTagSuggestions =
+                    tagSuggestions
+                        .filter { suggestion ->
+                            suggestion.contains(tagsInput.trim(), ignoreCase = true) && suggestion !in selectedTags
+                        }.take(6)
                 OutlinedTextField(
                     value = tagsInput,
                     onValueChange = { tagsInput = it },
@@ -471,17 +484,20 @@ private fun NoteDialog(
                     expanded = dimensionExpanded,
                     onExpandedChange = { dimensionExpanded = it },
                 ) {
-                    val selectedDimensionLabel = dimensionOptions.firstOrNull { it.id == selectedDimensionId }?.label
-                        ?: prefs.labelForDimensionId(selectedDimensionId)
-                        ?: fallbackDimension.label
+                    val selectedDimensionLabel =
+                        dimensionOptions.firstOrNull { it.id == selectedDimensionId }?.label
+                            ?: prefs.labelForDimensionId(selectedDimensionId)
+                            ?: fallbackDimension.label
                     OutlinedTextField(
                         value = selectedDimensionLabel,
                         onValueChange = {},
                         readOnly = true,
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(dimensionExpanded) },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .menuAnchor(ExposedDropdownMenuAnchorType.PrimaryNotEditable)
+                                .testTag("notes_dimension_picker"),
                     )
                     ExposedDropdownMenu(
                         expanded = dimensionExpanded,
@@ -492,12 +508,13 @@ private fun NoteDialog(
                                 text = {
                                     Row(verticalAlignment = Alignment.CenterVertically) {
                                         Box(
-                                            modifier = Modifier
-                                                .size(12.dp)
-                                                .background(
-                                                    dim.color,
-                                                    CircleShape,
-                                                ),
+                                            modifier =
+                                                Modifier
+                                                    .size(12.dp)
+                                                    .background(
+                                                        dim.color,
+                                                        CircleShape,
+                                                    ),
                                         )
                                         Spacer(Modifier.width(8.dp))
                                         Text(dim.label)
@@ -528,9 +545,10 @@ private fun NoteDialog(
         confirmButton = {
             TextButton(
                 onClick = {
-                    val selectedDimensionLabel = dimensionOptions.firstOrNull { it.id == selectedDimensionId }?.label
-                        ?: prefs.labelForDimensionId(selectedDimensionId)
-                        ?: fallbackDimension.label
+                    val selectedDimensionLabel =
+                        dimensionOptions.firstOrNull { it.id == selectedDimensionId }?.label
+                            ?: prefs.labelForDimensionId(selectedDimensionId)
+                            ?: fallbackDimension.label
                     onSave(
                         title,
                         details.ifBlank { null },
@@ -552,8 +570,9 @@ private fun NoteDialog(
     )
 }
 
-private fun parseTagsInput(rawTags: String): List<String> = rawTags
-    .split(",")
-    .map { it.trim() }
-    .filter { it.isNotEmpty() }
-    .distinct()
+private fun parseTagsInput(rawTags: String): List<String> =
+    rawTags
+        .split(",")
+        .map { it.trim() }
+        .filter { it.isNotEmpty() }
+        .distinct()

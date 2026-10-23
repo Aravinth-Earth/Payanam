@@ -41,6 +41,8 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.unit.Density
 import io.payanam.backup.BackupCoordinatorCore
 import io.payanam.core.ui.day.DayScreen
 import io.payanam.core.ui.day.DayScreenMode
@@ -97,6 +99,7 @@ import java.nio.file.Files
 import java.nio.file.Path
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Locale
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
@@ -642,6 +645,13 @@ internal fun desktopShellRootSurface(
     content: @Composable (UiLanguage) -> Unit,
 ) {
     val language = desktopUiLanguageForTag(preferences.effectiveLanguageTag)
+    // The JVM default locale is what every SHARED formatter reads for dates, weekday names and the "last
+    // updated" timestamps (`Locale.getDefault()` in the shared screens). Android applies the app language to
+    // it; the desktop used to leave it at the MACHINE locale, so an English app on a Tamil machine rendered
+    // Tamil dates. Installed here, once per language change and BEFORE the graph below composes, so no
+    // formatter can read the previous locale for a frame.
+    val locale = desktopLocaleForTag(preferences.effectiveLanguageTag)
+    remember(locale) { Locale.setDefault(locale) }
     desktopRootSurface(
         language = language,
         preferences = preferences,
@@ -760,6 +770,10 @@ internal fun desktopRootSurface(
             // settings - a wrong screen, not a crash. Every entry point therefore states which rows it
             // is holding, and the pre-unlock ones say so by naming the defaults they pass.
             LocalAppPreferences provides preferences,
+            // The desktop's text scale, the counterpart of Android's `font_scale`. Provided at the ROOT so
+            // every shared screen and its copy scale together; without it the desktop drew every glyph 25%
+            // larger than the phone at the same dp window (see [DESKTOP_TEXT_SCALE]).
+            LocalDensity provides Density(LocalDensity.current.density, fontScale = DESKTOP_TEXT_SCALE),
         ) {
             Surface(
                 modifier = Modifier.fillMaxSize(),
