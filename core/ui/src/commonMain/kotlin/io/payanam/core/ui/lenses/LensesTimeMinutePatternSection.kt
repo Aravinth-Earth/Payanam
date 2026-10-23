@@ -1,0 +1,186 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+@file:Suppress("MagicNumber")
+
+package io.payanam.core.ui.lenses
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Text
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.geometry.Size
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.colorForDimensionId
+import io.payanam.presentation.lenses.MinutePatternState
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.shared.logging.AppLogger
+import java.time.format.TextStyle
+import java.util.Locale
+
+private val minutePatternLogger = AppLogger.current
+private const val MINUTE_HEIGHT_DP = 1 // 1dp per minute, 1440dp total
+private const val MP_UNTRACKED_SENTINEL = "__minute_untracked__"
+private val MP_UNTRACKED_COLOR = Color(0xFF9E9E9E).copy(alpha = 0.4f)
+private val MP_UNASSIGNED_COLOR = Color(0xFF9E9E9E)
+
+@Composable
+fun MinutePatternSection(
+    state: MinutePatternState,
+    appPrefs: AppPreferencesState,
+) {
+    val strings = LocalUiStrings.current
+    LaunchedEffect(state.data.days.size) {
+        minutePatternLogger.d(
+            "MinutePatternSection",
+            "Rendered minute pattern",
+            mapOf("days" to state.data.days.size),
+        )
+    }
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        Text(
+            text = strings.locLensMinutePatternTitle,
+            style = MaterialTheme.typography.titleSmall,
+            fontWeight = FontWeight.SemiBold,
+        )
+        if (state.data.days.isEmpty()) {
+            Text(
+                text = strings.locLensMinutePatternNoData,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+        } else {
+            val gridLineColor = MaterialTheme.colorScheme.onSurface
+            val colBoundaryColor = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top,
+            ) {
+                // Fixed Y-axis with hour labels
+                MinutePatternYAxis()
+
+                // 7 day columns, equal weight
+                state.data.days.forEach { day ->
+                    Column(
+                        modifier = Modifier.weight(1f),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                    ) {
+                        // Day-of-week label above column
+                        Text(
+                            text = day.dayOfWeek.getDisplayName(TextStyle.SHORT, Locale.getDefault()),
+                            style = MaterialTheme.typography.labelSmall,
+                            fontSize = 8.sp,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth(),
+                        )
+
+                        // Single Canvas per column: group consecutive same-winner minutes into one rect
+                        Canvas(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height((MINUTE_HEIGHT_DP * 1440).dp),
+                        ) {
+                            val minH = size.height / 1440f
+                            val winners = day.minuteWinners
+                            if (winners.isEmpty()) return@Canvas
+
+                            // Draw color bands (grouped runs of same winner)
+                            var runStart = 0
+                            var runColor = colorForMinuteWinner(winners[0], appPrefs)
+                            for (m in 1 until 1440) {
+                                val c = colorForMinuteWinner(winners[m], appPrefs)
+                                if (c != runColor) {
+                                    drawRect(
+                                        color = runColor,
+                                        topLeft = Offset(0f, runStart * minH),
+                                        size = Size(size.width, (m - runStart) * minH),
+                                    )
+                                    runStart = m
+                                    runColor = c
+                                }
+                            }
+                            drawRect(
+                                color = runColor,
+                                topLeft = Offset(0f, runStart * minH),
+                                size = Size(size.width, (1440 - runStart) * minH),
+                            )
+
+                            // Hour boundary lines (every 60 minutes)
+                            val hourLineColor = gridLineColor.copy(alpha = 0.22f)
+                            for (h in 0..24) {
+                                val lineY = h * 60 * minH
+                                drawLine(
+                                    color = hourLineColor,
+                                    start = Offset(0f, lineY),
+                                    end = Offset(size.width, lineY),
+                                    strokeWidth = 1f,
+                                )
+                            }
+
+                            // Left column boundary
+                            drawLine(
+                                color = colBoundaryColor,
+                                start = Offset(0f, 0f),
+                                end = Offset(0f, size.height),
+                                strokeWidth = 1f,
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun MinutePatternYAxis() {
+    val dayLabelHeightDp = 16
+    val axisHeightDp = (MINUTE_HEIGHT_DP * 1440) + dayLabelHeightDp
+    Box(
+        modifier = Modifier
+            .width(32.dp)
+            .height(axisHeightDp.dp),
+    ) {
+        for (hour in 0 until 24) {
+            val yOffsetDp = dayLabelHeightDp + (hour * 60 * MINUTE_HEIGHT_DP)
+            Text(
+                text = "${hour}h",
+                style = MaterialTheme.typography.labelSmall,
+                fontSize = 8.sp,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                modifier = Modifier
+                    .align(Alignment.TopStart)
+                    .offset(y = yOffsetDp.dp)
+                    .padding(end = 2.dp),
+            )
+        }
+    }
+}
+
+private fun colorForMinuteWinner(winnerId: String?, appPrefs: AppPreferencesState): Color = when {
+    winnerId == MP_UNTRACKED_SENTINEL -> MP_UNTRACKED_COLOR
+    winnerId == null -> MP_UNASSIGNED_COLOR
+    else -> appPrefs.colorForDimensionId(winnerId) ?: MP_UNASSIGNED_COLOR
+}

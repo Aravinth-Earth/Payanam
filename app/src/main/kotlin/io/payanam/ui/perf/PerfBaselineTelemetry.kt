@@ -4,6 +4,7 @@
 
 package io.payanam.ui.perf
 
+import io.payanam.domain.port.PerformanceTracer
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.SideEffect
 import io.payanam.common.logging.UnifiedLogger
@@ -12,7 +13,7 @@ import java.util.concurrent.atomic.AtomicInteger
 
 private const val PERF_SOURCE = "PerfBaseline"
 private const val RECOMPOSITION_LOG_INTERVAL = 25
-object PerfBaselineTelemetry {
+object PerfBaselineTelemetry : PerformanceTracer {
     private val logger = UnifiedLogger.getInstance()
     private val onceEvents = ConcurrentHashMap.newKeySet<String>()
     private val queryCounters = ConcurrentHashMap<String, AtomicInteger>()
@@ -29,10 +30,10 @@ object PerfBaselineTelemetry {
     /**
      * Logs a structured PERF_BASELINE_EVENT line with screen/event/timing data.
      */
-    fun markEvent(
+    override fun markEvent(
         screen: String,
         event: String,
-        data: Map<String, Any?> = emptyMap(),
+        data: Map<String, Any?>,
     ) {
         val payload = data.toMutableMap()
         payload["screen"] = screen
@@ -44,11 +45,11 @@ object PerfBaselineTelemetry {
     /**
      * Like [markEvent] but fires only the first time [key] is seen per run.
      */
-    fun markEventOnce(
+    override fun markEventOnce(
         key: String,
         screen: String,
         event: String,
-        data: Map<String, Any?> = emptyMap(),
+        data: Map<String, Any?>,
     ) {
         if (!onceEvents.add(key)) return
         markEvent(screen = screen, event = event, data = data)
@@ -56,10 +57,10 @@ object PerfBaselineTelemetry {
     /**
      * Adds [amount] to a per-screen query counter and logs the running total.
      */
-    fun incrementQuery(
+    override fun incrementQuery(
         screen: String,
         source: String,
-        amount: Int = 1,
+        amount: Int,
     ): Int {
         val counterKey = "$screen::$source"
         val total = queryCounters.getOrPut(counterKey) { AtomicInteger(0) }.addAndGet(amount)
@@ -79,7 +80,7 @@ object PerfBaselineTelemetry {
      * Counts a recomposition per screen section; logs the first few and then
      * every 25th to keep log volume bounded.
      */
-    fun incrementRecomposition(
+    override fun incrementRecomposition(
         screen: String,
         section: String,
     ): Int {

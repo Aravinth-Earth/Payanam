@@ -2,17 +2,18 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.scoring
 
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.model.ScoringConfig
 import io.payanam.domain.model.Task
+import io.payanam.domain.port.ScoreCalculator
+import io.payanam.shared.logging.AppLogger
 import kotlin.math.pow
 
 /**
  * Elegant Task Scoring Algorithm.
- * 
+ *
  * Port of archive-v0.0.2/src/utils/elegantTaskScoring.ts
- * 
+ *
  * Uses weighted geometric mean of normalized factors:
  * - Life dimension importance
  * - Impact level
@@ -20,10 +21,10 @@ import kotlin.math.pow
  * - Energy level match
  * - Control level
  * - Duration (normalized)
- * 
+ *
  * Supports configurable weights via ScoringConfig.
  */
-object ElegantTaskScoring {
+object ElegantTaskScoring : ScoreCalculator {
 
     // Default weights (used if no config provided)
     private val DEFAULT_CONFIG = ScoringConfig.defaults()
@@ -57,7 +58,7 @@ object ElegantTaskScoring {
     /**
      * Calculate the task score (0..1) using default weights.
      */
-    fun calculateScore(task: Task): Double {
+    override fun calculateScore(task: Task): Double {
         return calculateScore(task, DEFAULT_CONFIG)
     }
     
@@ -65,7 +66,7 @@ object ElegantTaskScoring {
      * Calculate the task score (0..1) using custom config.
      */
     fun calculateScore(task: Task, config: ScoringConfig): Double {
-        val logger = UnifiedLogger.getInstance()
+        val logger = AppLogger.current
         logger.d("ElegantTaskScoring.calculateScore", "Calculating score for task", mapOf(
             "taskId" to task.id
         ))

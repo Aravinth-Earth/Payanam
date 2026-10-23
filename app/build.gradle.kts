@@ -50,7 +50,6 @@ android {
         buildConfigField("boolean", "PLANS_CTA_ENABLED", "true")
         buildConfigField("boolean", "FOCUS_MODE_SETTINGS_ENABLED", "true")
         buildConfigField("boolean", "SCORE_SETTINGS_ENABLED", "true")
-        buildConfigField("boolean", "AI_ASSISTANT", "true")
 
 
 
@@ -202,8 +201,14 @@ dependencies {
     implementation(project(":core:shared"))
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
+    // The shared state layer: the ViewModels move here one feature at a time, and the Android app
+    // consumes them like any other platform.
+    implementation(project(":core:presentation"))
     implementation(project(":core:scoring"))
     implementation(project(":core:common"))
+    // The shared UI layer. Onboarding renders from :core:ui so Android and the desktop draw the
+    // same composable from one definition instead of two copies that drift.
+    implementation(project(":core:ui"))
 
     // Core Android
     implementation(libs.core.ktx)
@@ -248,7 +253,6 @@ dependencies {
     // Vico Charts
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
-    implementation(libs.vico.core)
 
     // Logging
     implementation(libs.timber)

@@ -7,13 +7,29 @@ import android.net.Uri
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import androidx.test.platform.app.InstrumentationRegistry
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
+import io.payanam.core.ui.text.UiLanguage
+import io.payanam.core.ui.text.UiStrings
+import io.payanam.database.security.AndroidEncryptionStateCheckpoint
+import io.payanam.database.security.AndroidPassphraseVault
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.model.ConfiguredLifeDimension
+import io.payanam.domain.port.DatabasePathResolver
 import io.payanam.domain.repository.AppSettingsRepository
-import io.payanam.ui.viewmodel.DatabaseInitViewModel
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.platform.AndroidDocumentSource
+import io.payanam.platform.appDatabaseInitFlagReader
+import io.payanam.platform.appDatabaseInitFlagWriter
+import io.payanam.platform.appDatabaseInitWalConsolidator
+import io.payanam.presentation.database.DatabaseDimensionSetupPersister
+import io.payanam.presentation.database.DatabaseInitViewModel
+import io.payanam.shared.database.DatabaseEncryptionProbe
+import io.payanam.shared.database.DatabaseHealthCheck
+import io.payanam.shared.database.DatabaseHealthReport
+import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.runBlocking
 import org.junit.After
@@ -63,10 +79,22 @@ class ImportSeamTest {
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         viewModel =
             DatabaseInitViewModel(
-                context = context,
                 appSettingsRepository = FakeAppSettingsRepository(),
-                databaseEncryptionManager = encryptionManager,
-                databaseSessionManager = sessionManager,
+                // The test drives the Room session directly for its own setup, so it keeps that type
+                // here and hands the shared port to the ViewModel - which is the only thing that needs it.
+                databaseSessionManager = SharedSessionPort(sessionManager),
+                lifeDimensionCatalogRepository = FakeLifeDimensionCatalogRepository(),
+                strings = UiStrings.of(UiLanguage.ENGLISH),
+                healthCheck = FakeDatabaseHealthCheck(),
+                databasePathResolver = FakeDatabasePathResolver(),
+                encryptionProbe = FakeDatabaseEncryptionProbe(),
+                documentSource = AndroidDocumentSource(context),
+                databaseInitFlagWriter = appDatabaseInitFlagWriter(context),
+                databaseInitFlagReader = appDatabaseInitFlagReader(),
+                databaseInitWalConsolidator = appDatabaseInitWalConsolidator(UnifiedLogger.getInstance()),
+                dimensionSetupPersister = appDatabaseDimensionSetupPersister(),
+                encryptionStateCheckpoint = AndroidEncryptionStateCheckpoint(encryptionManager),
+                passphraseVault = AndroidPassphraseVault(context, encryptionManager),
             )
         fixtureDir =
             File(context.filesDir, FIXTURE_DIR_NAME).apply {
@@ -93,10 +121,14 @@ class ImportSeamTest {
         // the .db alone, so an open-session copy would carry no tables at all.
         sessionManager.closeDatabase()
 
-        val canonicalDb = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val canonicalDb = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         assertTrue(canonicalDb.exists())
         val expectedCounts =
-            DatabaseEncryptionMigrationSupport.readTableCounts(context, canonicalDb, PASSPHRASE, REQUIRED_TABLES)
+            DatabaseEncryptionMigrationSupport.readTableCounts(
+                databaseFile = canonicalDb,
+                passphrase = PASSPHRASE,
+                tableNames = REQUIRED_TABLES,
+            )
 
         val importSource = File(fixtureDir, "renamed-export.db")
         canonicalDb.copyTo(importSource, overwrite = true)
@@ -138,10 +170,9 @@ class ImportSeamTest {
             }
         awaitState("imported row counts") {
             DatabaseEncryptionMigrationSupport.readTableCounts(
-                context,
-                canonicalDb,
-                PASSPHRASE,
-                REQUIRED_TABLES,
+                databaseFile = canonicalDb,
+                passphrase = PASSPHRASE,
+                tableNames = REQUIRED_TABLES,
             ) == expectedAfterImport
         }
         assertTrue(canonicalDb.exists())
@@ -193,5 +224,103 @@ class ImportSeamTest {
         const val POLL_MILLIS = 50L
         val REQUIRED_TABLES =
             listOf("tasks", "time_entries", "notes", "day_journal_entries", "app_settings")
+    }
+
+    /**
+     * A health check for a test that never opens a database.
+     *
+     * Reports "no artifacts" rather than healthy: with no file there is nothing to have checked, and a
+     * fake claiming healthy would assert something the test never measured.
+     */
+    private class FakeDatabaseHealthCheck : DatabaseHealthCheck {
+        override suspend fun check(
+            databaseFile: File,
+            passphrase: String?,
+        ): DatabaseHealthReport = DatabaseHealthReport(
+            isHealthy = false,
+            errorMessage = "No database file in this test",
+        )
+
+        override fun hasArtifacts(databaseFile: java.io.File): Boolean = false
+    }
+
+    /**
+     * An encryption probe for a test that imports no database.
+     *
+     * Reports "not encrypted" and refuses to open, because nothing here is an encrypted file. A fake that
+     * claimed a passphrase worked would assert something the test never measured.
+     */
+    private class FakeDatabaseEncryptionProbe : DatabaseEncryptionProbe {
+        override fun isDetectablyEncrypted(
+            databaseFile: java.io.File,
+            logTag: String,
+        ): Boolean = false
+
+        override fun canOpen(
+            databaseFile: java.io.File,
+            passphrase: String,
+            logTag: String,
+        ): Boolean = false
+
+        override fun ensureEncrypted(
+            databaseFile: java.io.File,
+            passphrase: String,
+            logTag: String,
+        ): Unit = throw UnsupportedOperationException("no re-encryption in this test")
+
+        override fun readTableCounts(
+            databaseFile: java.io.File,
+            passphrase: String?,
+            tableNames: List<String>,
+        ): Map<String, Int> = tableNames.associateWith { 0 }
+    }
+
+    /**
+     * A life-dimension catalog for a test that seeds no dimensions.
+     *
+     * Empty and inert, so the seed path records that it wrote nothing. A fake that reported a row would make
+     * the import's integrity check compare counts against rows the test never created.
+     */
+    private class FakeLifeDimensionCatalogRepository : LifeDimensionCatalogRepository {
+        var replacedWith: List<ConfiguredLifeDimension>? = null
+
+        override fun observeAllDimensions(): Flow<List<ConfiguredLifeDimension>> = flowOf(emptyList())
+
+        override suspend fun replaceAllDimensions(dimensions: List<ConfiguredLifeDimension>): Int {
+            replacedWith = dimensions
+            return dimensions.size
+        }
+
+        override suspend fun updateDimensionLabel(dimensionId: String, label: String) = Unit
+
+        override suspend fun updateDimensionColor(dimensionId: String, colorHex: String) = Unit
+
+        override suspend fun updateDimensionIcon(dimensionId: String, iconKey: String) = Unit
+
+        override suspend fun updateDimensionActiveState(dimensionId: String, isActive: Boolean) = Unit
+
+        override suspend fun updateDimensionWeight(dimensionId: String, weight: Double) = Unit
+    }
+
+    /** The shared port over the Room session the test drives directly. */
+    private class SharedSessionPort(
+        private val delegate: DatabaseSessionManager,
+    ) : io.payanam.domain.port.DatabaseSessionManager {
+        override suspend fun openDatabase(passphrase: String): Result<Unit> = delegate.openDatabase(passphrase)
+
+        override fun closeDatabase() = delegate.closeDatabase()
+
+        override fun requireOpenPassphrase(): String = delegate.requireOpenPassphrase()
+
+        override fun isSessionOpen(): Boolean = delegate.isDbOpen()
+
+        override val sessionOpenState: StateFlow<Boolean> get() = delegate.isOpen
+    }
+
+    /** A path resolver pointing at a path the test never creates. */
+    private class FakeDatabasePathResolver : DatabasePathResolver {
+        override fun databaseDirectory(): String = System.getProperty("java.io.tmpdir") ?: "/tmp"
+
+        override fun databaseFilePath(): String = databaseDirectory() + "/no-such-payanam.db"
     }
 }

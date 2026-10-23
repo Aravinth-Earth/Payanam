@@ -36,6 +36,8 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 import java.time.LocalDateTime
+import io.payanam.domain.lens.decodeUnifiedLensSnapshot
+import io.payanam.domain.lens.encodeUnifiedLensSnapshot
 
 @RunWith(RobolectricTestRunner::class)
 /**

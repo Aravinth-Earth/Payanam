@@ -24,11 +24,10 @@ import androidx.compose.material.icons.filled.Link
 import androidx.compose.material.icons.filled.RadioButtonChecked
 import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
-import androidx.compose.material3.TextButton
-import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -53,19 +52,20 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import io.payanam.presentation.download.DownloadUiState
 import io.payanam.R
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.components.ImportButtonStyle
+import io.payanam.core.ui.components.ImportDatabaseFileButton
+import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.feature.settings.ApkBuildType
-import io.payanam.feature.settings.DownloadUiState
+import io.payanam.feature.settings.SettingsUiState
 import io.payanam.feature.settings.UpdateChannel
 import io.payanam.feature.settings.UpdateCheckError
 import io.payanam.feature.settings.UpdateOutcome
 import io.payanam.feature.settings.buildNumberFromFileName
 import io.payanam.feature.settings.labelResId
 import io.payanam.feature.settings.shippedApkType
-import io.payanam.common.logging.UnifiedLogger
-import io.payanam.feature.settings.SettingsUiState
-import io.payanam.ui.components.ImportButtonStyle
-import io.payanam.ui.components.ImportDatabaseFileButton
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
 
@@ -81,6 +81,7 @@ internal fun DataManagementSettingsSection(
     onChangePassphraseClick: () -> Unit,
     onDeleteAllDataClick: () -> Unit,
 ) {
+    val strings = LocalUiStrings.current
     SettingsCard(
         title = stringResource(id = R.string.settings_data_management_title),
         icon = Icons.Default.CloudUpload,
@@ -123,7 +124,7 @@ internal fun DataManagementSettingsSection(
                 height = null,
                 style = ImportButtonStyle.OUTLINED,
                 icon = Icons.Default.CloudDownload,
-                labelRes = R.string.settings_action_import,
+                label = strings.settingsActionImport,
                 logSource = "SettingsDataManagement.importFileClicked",
                 logContext = "settings data management",
                 // Every busy flag, not just isImporting: while the encrypted-import passphrase
@@ -467,454 +468,471 @@ internal fun AboutSettingsSection(
                 Text(stringResource(id = R.string.settings_update_open_fdroid))
             }
         } else {
-        // Update channel selector
-        Text(
-            text = stringResource(id = R.string.settings_update_channel_label),
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        var channelMenuExpanded by remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = channelMenuExpanded,
-            onExpandedChange = { channelMenuExpanded = it },
-        ) {
-            OutlinedTextField(
-                value = stringResource(id = uiState.updateChannel.labelResId()),
-                onValueChange = {},
-                readOnly = true,
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = channelMenuExpanded) },
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-            )
-            DropdownMenu(
-                expanded = channelMenuExpanded,
-                onDismissRequest = { channelMenuExpanded = false },
-            ) {
-                UpdateChannel.entries.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(stringResource(id = option.labelResId())) },
-                        onClick = {
-                            channelMenuExpanded = false
-                            onUpdateChannelSelected(option)
-                        },
-                    )
-                }
-            }
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // What this channel ships vs what this install runs — always visible,
-        // from the same rule the asset selection uses (the running build type
-        // decides what is downloadable). Static: no network check needed.
-        val runningBuildType = ApkBuildType.running()
-        val channelShipsType = uiState.updateChannel.shippedApkType()
-        Text(
-            text = stringResource(
-                id = R.string.settings_update_channel_ships,
-                stringResource(id = uiState.updateChannel.labelResId()),
-                channelShipsType,
-            ),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        Text(
-            text = stringResource(id = R.string.settings_update_running_build_type, runningBuildType),
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant,
-        )
-        if (channelShipsType != runningBuildType) {
-            // Static mismatch (network-free): this install can never take this
-            // channel's APK. Same message as the post-check mismatch state, so a
-            // release build on a debug-shipping channel never reads "up to date".
+            // Update channel selector
             Text(
-                text = stringResource(id = R.string.settings_update_type_mismatch),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.error,
-            )
-        }
-        Spacer(modifier = Modifier.height(8.dp))
-
-        // Auto-download opt-in + check button
-        Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Checkbox(
-                checked = uiState.autoDownloadEnabled,
-                onCheckedChange = { onAutoDownloadToggled(it) },
-                enabled = !uiState.isCheckingForUpdate,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(id = R.string.settings_update_auto_download),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Checkbox(
-                checked = uiState.promptInstallEnabled,
-                onCheckedChange = { onPromptInstallToggled(it) },
-                enabled = uiState.autoDownloadEnabled && !uiState.isCheckingForUpdate,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(id = R.string.settings_update_prompt_install),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Checkbox(
-                checked = uiState.wifiOnlyEnabled,
-                onCheckedChange = { onWifiOnlyToggled(it) },
-                enabled = !uiState.isCheckingForUpdate,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(id = R.string.settings_update_wifi_only),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Row(
-            verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-            modifier = Modifier.fillMaxWidth(),
-        ) {
-            Checkbox(
-                checked = uiState.autoCheckEnabled,
-                onCheckedChange = { onAutoCheckToggled(it) },
-                enabled = !uiState.isCheckingForUpdate,
-            )
-            Spacer(modifier = Modifier.width(8.dp))
-            Text(
-                text = stringResource(id = R.string.settings_update_auto_check),
-                style = MaterialTheme.typography.bodyMedium,
-                modifier = Modifier.weight(1f),
-            )
-        }
-        Spacer(modifier = Modifier.height(4.dp))
-
-        // Update check
-        // Single state-driven action button (never two actions at once):
-        //   Idle           → Check for update
-        //   Checking       → disabled spinner "Checking…"
-        //   Downloading    → disabled "Downloading… N%"
-        //   Downloaded     → Install now
-        //   Failed         → Retry
-        //   Up to date     → Check for update (re-check allowed, cooldown guards)
-        val buttonLabel: String
-        val buttonEnabled: Boolean
-        val buttonAction: () -> Unit
-        when {
-            uiState.isCheckingForUpdate -> {
-                buttonLabel = stringResource(id = R.string.settings_update_checking)
-                buttonEnabled = false
-                buttonAction = onCheckForUpdate
-            }
-            uiState.downloadState is DownloadUiState.Downloading -> {
-                buttonLabel = stringResource(
-                    id = R.string.settings_update_downloading,
-                    (uiState.downloadState as DownloadUiState.Downloading).progressPercent,
-                )
-                buttonEnabled = false
-                buttonAction = onCheckForUpdate
-            }
-            uiState.downloadState is DownloadUiState.Downloaded -> {
-                buttonLabel = stringResource(id = R.string.settings_update_install_now_button)
-                buttonEnabled = true
-                buttonAction = onInstallNow
-            }
-            uiState.downloadState is DownloadUiState.Failed -> {
-                buttonLabel = stringResource(id = R.string.settings_update_retry_button)
-                buttonEnabled = true
-                buttonAction = onDownloadOrRetry
-            }
-            // Update available but not downloading yet (manual download path).
-            // A stale result (>15 min) reverts to "Check for update" so the
-            // user always has a fresh-check exit from a stale state.
-            uiState.updateCheckResult?.outcome == UpdateOutcome.UPDATE_AVAILABLE && !uiState.autoDownloadEnabled &&
-                !uiState.isUpdateResultStale() -> {
-                buttonLabel = stringResource(id = R.string.settings_update_download_button)
-                buttonEnabled = true
-                buttonAction = onDownloadOrRetry
-            }
-            else -> {
-                buttonLabel = stringResource(id = R.string.settings_update_check_button)
-                buttonEnabled = true
-                buttonAction = onCheckForUpdate
-            }
-        }
-        Button(
-            onClick = {
-                logger.d(
-                    "SettingsScreen.updateButtonTapped",
-                    "Update button tapped",
-                    mapOf(
-                        "label" to buttonLabel,
-                        "action" to when (buttonAction) {
-                            onCheckForUpdate -> "checkForUpdate"
-                            onDownloadOrRetry -> "downloadOrRetry"
-                            onInstallNow -> "installNow"
-                            else -> "unknown"
-                        },
-                        "checking" to uiState.isCheckingForUpdate,
-                        "outcome" to (uiState.updateCheckResult?.outcome?.name ?: "none"),
-                        "autoDownload" to uiState.autoDownloadEnabled,
-                        "downloadState" to uiState.downloadState::class.simpleName,
-                    ),
-                )
-                buttonAction()
-            },
-            modifier = Modifier.fillMaxWidth(),
-            enabled = buttonEnabled,
-        ) {
-            if (uiState.isCheckingForUpdate) {
-                CircularProgressIndicator(
-                    modifier = Modifier.size(16.dp),
-                    strokeWidth = 2.dp,
-                    color = MaterialTheme.colorScheme.onPrimary,
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-            }
-            Text(text = buttonLabel)
-        }
-
-        // Secondary "Check again" affordance: shown whenever a manual download
-        // path is active, so a fresh check is always one tap away.
-        if (buttonAction == onDownloadOrRetry) {
-            TextButton(
-                onClick = {
-                    logger.d("SettingsScreen.updateCheckAgainTapped", "Check again tapped", mapOf("label" to buttonLabel))
-                    onCheckForUpdate()
-                },
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(
-                    text = stringResource(id = R.string.settings_update_check_again_button),
-                    style = MaterialTheme.typography.bodyMedium,
-                )
-            }
-        }
-        val result = uiState.updateCheckResult
-        if (result != null && !uiState.isCheckingForUpdate) {
-            Spacer(modifier = Modifier.height(8.dp))
-            // Exhaustive over UpdateOutcome: "up to date" is only reachable for
-            // a PROVEN up-to-date result — every other state shows its own copy.
-            when (result.outcome) {
-                UpdateOutcome.FAILED -> {
-                    val errorText = when (result.error ?: UpdateCheckError.UNKNOWN) {
-                        UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
-                            stringResource(id = R.string.settings_update_error_network)
-                        UpdateCheckError.RATE_LIMITED ->
-                            stringResource(id = R.string.settings_update_error_rate_limited)
-                        UpdateCheckError.GITHUB_UNAVAILABLE ->
-                            stringResource(id = R.string.settings_update_error_github)
-                        UpdateCheckError.PARSE_ERROR, UpdateCheckError.UNKNOWN ->
-                            stringResource(id = R.string.settings_update_error_parse)
-                    }
-                    Text(
-                        text = errorText,
-                        color = MaterialTheme.colorScheme.error,
-                        style = MaterialTheme.typography.bodySmall,
-                    )
-                }
-                UpdateOutcome.UPDATE_AVAILABLE -> {
-                    Text(
-                        text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
-                        color = MaterialTheme.colorScheme.primary,
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    Spacer(modifier = Modifier.height(4.dp))
-                    OutlinedButton(onClick = {
-                        result.releaseUrl?.let { url ->
-                            runCatching {
-                                context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
-                            }.onFailure { e ->
-                                logger.w("AboutSettingsSection.openRelease", "No browser available for release intent", mapOf("error" to (e.message ?: "unknown")))
-                            }
-                        }
-                    }) {
-                        Text(stringResource(id = R.string.settings_update_view_release))
-                    }
-                }
-                UpdateOutcome.TYPE_MISMATCH -> {
-                    // Fail-closed mismatch: the channel ships no APK for this
-                    // install's build type — must never read "up to date" here.
-                    Text(
-                        text = stringResource(id = R.string.settings_update_type_mismatch),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                    )
-                }
-                UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
-                    Text(
-                        text = stringResource(id = R.string.settings_update_no_releases),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
-                    Text(
-                        text = stringResource(id = R.string.settings_update_error_parse),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-                UpdateOutcome.UP_TO_DATE -> {
-                    Text(
-                        text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    )
-                }
-            }
-        }
-
-        // All-channel status rows (populated from the same list fetch)
-        val statuses = result?.channelStatuses
-        if (statuses != null && statuses.isNotEmpty()) {
-            Spacer(modifier = Modifier.height(12.dp))
-            HorizontalDivider()
-            Spacer(modifier = Modifier.height(8.dp))
-            Text(
-                text = stringResource(id = R.string.settings_update_channel_statuses_title),
+                text = stringResource(id = R.string.settings_update_channel_label),
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            UpdateChannel.entries.forEach { channel ->
-                val status = statuses.firstOrNull { it.channel == channel }
-                val isSelected = channel == uiState.updateChannel
-                Row(
-                    verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+            var channelMenuExpanded by remember { mutableStateOf(false) }
+            ExposedDropdownMenuBox(
+                expanded = channelMenuExpanded,
+                onExpandedChange = { channelMenuExpanded = it },
+            ) {
+                OutlinedTextField(
+                    value = stringResource(id = uiState.updateChannel.labelResId()),
+                    onValueChange = {},
+                    readOnly = true,
+                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = channelMenuExpanded) },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(vertical = 4.dp),
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+                )
+                DropdownMenu(
+                    expanded = channelMenuExpanded,
+                    onDismissRequest = { channelMenuExpanded = false },
                 ) {
-                    Icon(
-                        imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                        contentDescription = null,
-                        tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                        modifier = Modifier.size(16.dp),
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = stringResource(id = channel.labelResId()),
-                        style = MaterialTheme.typography.bodyMedium,
-                        modifier = Modifier.weight(1f),
-                    )
-                    Text(
-                        text = status?.buildNumber?.let { stringResource(id = R.string.settings_update_channel_build, it) }
-                            ?: stringResource(id = R.string.settings_update_channel_no_build),
-                        style = MaterialTheme.typography.bodySmall,
-                        color = if (status?.buildNumber != null) {
-                            MaterialTheme.colorScheme.onSurfaceVariant
-                        } else {
-                            MaterialTheme.colorScheme.outline
-                        },
-                    )
-                }
-            }
-        }
-
-        // Auto-download progress/state
-        when (val dl = uiState.downloadState) {
-            is DownloadUiState.Downloading -> {
-                Spacer(modifier = Modifier.height(12.dp))
-                Column(modifier = Modifier.fillMaxWidth()) {
-                    // Line 1: channel · build label
-                    Text(
-                        text = stringResource(
-                            id = R.string.settings_update_downloading_header,
-                            dl.channelName.ifEmpty { "dev" },
-                            downloadBuildLabel(dl.buildName.ifEmpty { dl.fileName }),
-                        ),
-                        style = MaterialTheme.typography.bodyMedium,
-                    )
-                    // Line 2: full build name (small, muted)
-                    Text(
-                        text = dl.buildName.ifEmpty { dl.fileName },
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis,
-                    )
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
-                        CircularProgressIndicator(
-                            progress = { dl.progressPercent / 100f },
-                            modifier = Modifier.size(20.dp),
-                            strokeWidth = 2.dp,
+                    UpdateChannel.entries.forEach { option ->
+                        DropdownMenuItem(
+                            text = { Text(stringResource(id = option.labelResId())) },
+                            onClick = {
+                                channelMenuExpanded = false
+                                onUpdateChannelSelected(option)
+                            },
                         )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(id = R.string.loc_percent_value, dl.progressPercent),
-                            style = MaterialTheme.typography.bodySmall,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = onCancelDownload) {
-                            Text(
-                                text = stringResource(id = R.string.settings_action_cancel),
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error,
-                            )
-                        }
                     }
                 }
             }
-            is DownloadUiState.Paused -> {
-                Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // What this channel ships vs what this install runs — always visible,
+            // from the same rule the asset selection uses (the running build type
+            // decides what is downloadable). Static: no network check needed.
+            val runningBuildType = ApkBuildType.running()
+            val channelShipsType = uiState.updateChannel.shippedApkType()
+            Text(
+                text = stringResource(
+                    id = R.string.settings_update_channel_ships,
+                    stringResource(id = uiState.updateChannel.labelResId()),
+                    channelShipsType,
+                ),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            Text(
+                text = stringResource(id = R.string.settings_update_running_build_type, runningBuildType),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+            )
+            if (channelShipsType != runningBuildType) {
+                // Static mismatch (network-free): this install can never take this
+                // channel's APK. Same message as the post-check mismatch state, so a
+                // release build on a debug-shipping channel never reads "up to date".
                 Text(
-                    text = stringResource(id = pausedMessageRes(dl.message)),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-            }
-            is DownloadUiState.Downloaded -> {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(id = R.string.settings_update_downloaded),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            is DownloadUiState.Failed -> {
-                Spacer(modifier = Modifier.height(12.dp))
-                Text(
-                    text = stringResource(id = failedMessageRes(dl.message)),
+                    text = stringResource(id = R.string.settings_update_type_mismatch),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.error,
                 )
             }
-            DownloadUiState.Idle -> Unit
-        }
+            Spacer(modifier = Modifier.height(8.dp))
 
-        // Update-install popup (shown when a download finished and prompt-install is ON)
-        val pendingPath = uiState.pendingInstallPath
-        if (pendingPath != null) {
-            AlertDialog(
-                onDismissRequest = onInstallLater,
-                title = { Text(stringResource(id = R.string.settings_update_install_title)) },
-                text = { Text(stringResource(id = R.string.settings_update_install_message)) },
-                confirmButton = {
-                    TextButton(onClick = onInstallNow) {
-                        Text(stringResource(id = R.string.settings_update_install_now))
-                    }
+            // Auto-download opt-in + check button
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Checkbox(
+                    checked = uiState.autoDownloadEnabled,
+                    onCheckedChange = { onAutoDownloadToggled(it) },
+                    enabled = !uiState.isCheckingForUpdate,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_auto_download),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Checkbox(
+                    checked = uiState.promptInstallEnabled,
+                    onCheckedChange = { onPromptInstallToggled(it) },
+                    enabled = uiState.autoDownloadEnabled && !uiState.isCheckingForUpdate,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_prompt_install),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Checkbox(
+                    checked = uiState.wifiOnlyEnabled,
+                    onCheckedChange = { onWifiOnlyToggled(it) },
+                    enabled = !uiState.isCheckingForUpdate,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_wifi_only),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Row(
+                verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                modifier = Modifier.fillMaxWidth(),
+            ) {
+                Checkbox(
+                    checked = uiState.autoCheckEnabled,
+                    onCheckedChange = { onAutoCheckToggled(it) },
+                    enabled = !uiState.isCheckingForUpdate,
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_auto_check),
+                    style = MaterialTheme.typography.bodyMedium,
+                    modifier = Modifier.weight(1f),
+                )
+            }
+            Spacer(modifier = Modifier.height(4.dp))
+
+            // Update check
+            // Single state-driven action button (never two actions at once):
+            //   Idle           → Check for update
+            //   Checking       → disabled spinner "Checking…"
+            //   Downloading    → disabled "Downloading… N%"
+            //   Downloaded     → Install now
+            //   Failed         → Retry
+            //   Up to date     → Check for update (re-check allowed, cooldown guards)
+            val buttonLabel: String
+            val buttonEnabled: Boolean
+            val buttonAction: () -> Unit
+            when {
+                uiState.isCheckingForUpdate -> {
+                    buttonLabel = stringResource(id = R.string.settings_update_checking)
+                    buttonEnabled = false
+                    buttonAction = onCheckForUpdate
+                }
+
+                uiState.downloadState is DownloadUiState.Downloading -> {
+                    buttonLabel = stringResource(
+                        id = R.string.settings_update_downloading,
+                        (uiState.downloadState as DownloadUiState.Downloading).progressPercent,
+                    )
+                    buttonEnabled = false
+                    buttonAction = onCheckForUpdate
+                }
+
+                uiState.downloadState is DownloadUiState.Downloaded -> {
+                    buttonLabel = stringResource(id = R.string.settings_update_install_now_button)
+                    buttonEnabled = true
+                    buttonAction = onInstallNow
+                }
+
+                uiState.downloadState is DownloadUiState.Failed -> {
+                    buttonLabel = stringResource(id = R.string.settings_update_retry_button)
+                    buttonEnabled = true
+                    buttonAction = onDownloadOrRetry
+                }
+
+                // Update available but not downloading yet (manual download path).
+                // A stale result (>15 min) reverts to "Check for update" so the
+                // user always has a fresh-check exit from a stale state.
+                uiState.updateCheckResult?.outcome == UpdateOutcome.UPDATE_AVAILABLE && !uiState.autoDownloadEnabled &&
+                    !uiState.isUpdateResultStale() -> {
+                    buttonLabel = stringResource(id = R.string.settings_update_download_button)
+                    buttonEnabled = true
+                    buttonAction = onDownloadOrRetry
+                }
+
+                else -> {
+                    buttonLabel = stringResource(id = R.string.settings_update_check_button)
+                    buttonEnabled = true
+                    buttonAction = onCheckForUpdate
+                }
+            }
+            Button(
+                onClick = {
+                    logger.d(
+                        "SettingsScreen.updateButtonTapped",
+                        "Update button tapped",
+                        mapOf(
+                            "label" to buttonLabel,
+                            "action" to when (buttonAction) {
+                                onCheckForUpdate -> "checkForUpdate"
+                                onDownloadOrRetry -> "downloadOrRetry"
+                                onInstallNow -> "installNow"
+                                else -> "unknown"
+                            },
+                            "checking" to uiState.isCheckingForUpdate,
+                            "outcome" to (uiState.updateCheckResult?.outcome?.name ?: "none"),
+                            "autoDownload" to uiState.autoDownloadEnabled,
+                            "downloadState" to uiState.downloadState::class.simpleName,
+                        ),
+                    )
+                    buttonAction()
                 },
-                dismissButton = {
-                    TextButton(onClick = onInstallLater) {
-                        Text(stringResource(id = R.string.settings_update_install_later))
+                modifier = Modifier.fillMaxWidth(),
+                enabled = buttonEnabled,
+            ) {
+                if (uiState.isCheckingForUpdate) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(16.dp),
+                        strokeWidth = 2.dp,
+                        color = MaterialTheme.colorScheme.onPrimary,
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                }
+                Text(text = buttonLabel)
+            }
+
+            // Secondary "Check again" affordance: shown whenever a manual download
+            // path is active, so a fresh check is always one tap away.
+            if (buttonAction == onDownloadOrRetry) {
+                TextButton(
+                    onClick = {
+                        logger.d("SettingsScreen.updateCheckAgainTapped", "Check again tapped", mapOf("label" to buttonLabel))
+                        onCheckForUpdate()
+                    },
+                    modifier = Modifier.fillMaxWidth(),
+                ) {
+                    Text(
+                        text = stringResource(id = R.string.settings_update_check_again_button),
+                        style = MaterialTheme.typography.bodyMedium,
+                    )
+                }
+            }
+            val result = uiState.updateCheckResult
+            if (result != null && !uiState.isCheckingForUpdate) {
+                Spacer(modifier = Modifier.height(8.dp))
+                // Exhaustive over UpdateOutcome: "up to date" is only reachable for
+                // a PROVEN up-to-date result — every other state shows its own copy.
+                when (result.outcome) {
+                    UpdateOutcome.FAILED -> {
+                        val errorText = when (result.error ?: UpdateCheckError.UNKNOWN) {
+                            UpdateCheckError.NO_INTERNET, UpdateCheckError.TIMEOUT ->
+                                stringResource(id = R.string.settings_update_error_network)
+
+                            UpdateCheckError.RATE_LIMITED ->
+                                stringResource(id = R.string.settings_update_error_rate_limited)
+
+                            UpdateCheckError.GITHUB_UNAVAILABLE ->
+                                stringResource(id = R.string.settings_update_error_github)
+
+                            UpdateCheckError.PARSE_ERROR, UpdateCheckError.UNKNOWN ->
+                                stringResource(id = R.string.settings_update_error_parse)
+                        }
+                        Text(
+                            text = errorText,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                        )
                     }
-                },
-            )
-        }
+
+                    UpdateOutcome.UPDATE_AVAILABLE -> {
+                        Text(
+                            text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
+                            color = MaterialTheme.colorScheme.primary,
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        OutlinedButton(onClick = {
+                            result.releaseUrl?.let { url ->
+                                runCatching {
+                                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                                }.onFailure { e ->
+                                    logger.w("AboutSettingsSection.openRelease", "No browser available for release intent", mapOf("error" to (e.message ?: "unknown")))
+                                }
+                            }
+                        }) {
+                            Text(stringResource(id = R.string.settings_update_view_release))
+                        }
+                    }
+
+                    UpdateOutcome.TYPE_MISMATCH -> {
+                        // Fail-closed mismatch: the channel ships no APK for this
+                        // install's build type — must never read "up to date" here.
+                        Text(
+                            text = stringResource(id = R.string.settings_update_type_mismatch),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+
+                    UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
+                        Text(
+                            text = stringResource(id = R.string.settings_update_no_releases),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                        Text(
+                            text = stringResource(id = R.string.settings_update_error_parse),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+
+                    UpdateOutcome.UP_TO_DATE -> {
+                        Text(
+                            text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
+
+            // All-channel status rows (populated from the same list fetch)
+            val statuses = result?.channelStatuses
+            if (statuses != null && statuses.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(12.dp))
+                HorizontalDivider()
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = stringResource(id = R.string.settings_update_channel_statuses_title),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                )
+                UpdateChannel.entries.forEach { channel ->
+                    val status = statuses.firstOrNull { it.channel == channel }
+                    val isSelected = channel == uiState.updateChannel
+                    Row(
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 4.dp),
+                    ) {
+                        Icon(
+                            imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
+                            contentDescription = null,
+                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+                            modifier = Modifier.size(16.dp),
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = stringResource(id = channel.labelResId()),
+                            style = MaterialTheme.typography.bodyMedium,
+                            modifier = Modifier.weight(1f),
+                        )
+                        Text(
+                            text = status?.buildNumber?.let { stringResource(id = R.string.settings_update_channel_build, it) }
+                                ?: stringResource(id = R.string.settings_update_channel_no_build),
+                            style = MaterialTheme.typography.bodySmall,
+                            color = if (status?.buildNumber != null) {
+                                MaterialTheme.colorScheme.onSurfaceVariant
+                            } else {
+                                MaterialTheme.colorScheme.outline
+                            },
+                        )
+                    }
+                }
+            }
+
+            // Auto-download progress/state
+            when (val dl = uiState.downloadState) {
+                is DownloadUiState.Downloading -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Column(modifier = Modifier.fillMaxWidth()) {
+                        // Line 1: channel · build label
+                        Text(
+                            text = stringResource(
+                                id = R.string.settings_update_downloading_header,
+                                dl.channelName.ifEmpty { "dev" },
+                                downloadBuildLabel(dl.buildName.ifEmpty { dl.fileName }),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
+                        // Line 2: full build name (small, muted)
+                        Text(
+                            text = dl.buildName.ifEmpty { dl.fileName },
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis,
+                        )
+                        Spacer(modifier = Modifier.height(6.dp))
+                        Row(verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                            CircularProgressIndicator(
+                                progress = { dl.progressPercent / 100f },
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = stringResource(id = R.string.loc_percent_value, dl.progressPercent),
+                                style = MaterialTheme.typography.bodySmall,
+                                modifier = Modifier.weight(1f),
+                            )
+                            TextButton(onClick = onCancelDownload) {
+                                Text(
+                                    text = stringResource(id = R.string.settings_action_cancel),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.error,
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is DownloadUiState.Paused -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(id = pausedMessageRes(dl.message)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
+
+                is DownloadUiState.Downloaded -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(id = R.string.settings_update_downloaded),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary,
+                    )
+                }
+
+                is DownloadUiState.Failed -> {
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = stringResource(id = failedMessageRes(dl.message)),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.error,
+                    )
+                }
+
+                DownloadUiState.Idle -> Unit
+            }
+
+            // Update-install popup (shown when a download finished and prompt-install is ON)
+            val pendingPath = uiState.pendingInstallPath
+            if (pendingPath != null) {
+                AlertDialog(
+                    onDismissRequest = onInstallLater,
+                    title = { Text(stringResource(id = R.string.settings_update_install_title)) },
+                    text = { Text(stringResource(id = R.string.settings_update_install_message)) },
+                    confirmButton = {
+                        TextButton(onClick = onInstallNow) {
+                            Text(stringResource(id = R.string.settings_update_install_now))
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = onInstallLater) {
+                            Text(stringResource(id = R.string.settings_update_install_later))
+                        }
+                    },
+                )
+            }
         } // End if (!isFDroidBuild)
     }
 }

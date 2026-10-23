@@ -1,8 +1,5 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-// One settings surface: the root composable is long by design and the file holds more small
-// composables than the TooManyFunctions threshold (a file-level rule that cannot be scoped to a
-// single function), so both exemptions are deliberate here.
 @file:Suppress("MagicNumber", "LongMethod", "TooManyFunctions")
 
 package io.payanam.feature.assistant.ui
@@ -314,11 +311,11 @@ private fun NumberField(label: String, value: Int, onChange: (Int) -> Unit) {
         // Re-syncs on focus loss so a value the store clamped (or a blank field) shows what is
         // actually stored instead of what was typed.
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .onFocusChanged { state ->
-                    if (!state.isFocused) text = value.toString()
-                },
+        Modifier
+            .fillMaxWidth()
+            .onFocusChanged { state ->
+                if (!state.isFocused) text = value.toString()
+            },
         label = { Text(label) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

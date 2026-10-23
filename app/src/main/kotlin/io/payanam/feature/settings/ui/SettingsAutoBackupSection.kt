@@ -29,12 +29,13 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.settings.autoBackupFailureMessageCard
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.BackupInterval
 import io.payanam.service.AutoBackupWorker
-import io.payanam.ui.viewmodel.AppPreferencesState
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-import io.payanam.ui.viewmodel.BackupInterval
 import io.payanam.ui.viewmodel.labelResId
 
 @OptIn(ExperimentalMaterial3Api::class)

@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.first
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.ZoneId
+import io.payanam.domain.port.TaskReminderScheduler
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.abs
@@ -35,7 +36,7 @@ class NotificationScheduler @Inject constructor(
     @ApplicationContext private val context: Context,
     private val taskRepository: TaskRepository,
     private val notificationRepository: NotificationRepository,
-) {
+) : TaskReminderScheduler {
 
     private val logger = UnifiedLogger.getInstance()
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
@@ -61,7 +62,7 @@ class NotificationScheduler @Inject constructor(
             ),
         )
         eligible.forEach { task ->
-            scheduleForTask(task)
+            scheduleForTask(task, overrideScheduledAt = null, overrideDueAt = null, isSnoozed = false)
         }
     }
     /**
@@ -69,11 +70,11 @@ class NotificationScheduler @Inject constructor(
      * timing from notification mode, persistence, then the alarm itself.
      */
     @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
-    suspend fun scheduleForTask(
+    override suspend fun scheduleForTask(
         task: Task,
-        overrideScheduledAt: LocalDateTime? = null,
-        overrideDueAt: LocalDateTime? = null,
-        isSnoozed: Boolean = false,
+        overrideScheduledAt: LocalDateTime?,
+        overrideDueAt: LocalDateTime?,
+        isSnoozed: Boolean,
     ) {
         if (!FeatureFlags.remindersEnabled) {
             cancelForTask(task.id)
@@ -213,7 +214,7 @@ class NotificationScheduler @Inject constructor(
     /**
      * Cancels all pending alarms and visible notifications for [taskId].
      */
-    suspend fun cancelForTask(taskId: String) {
+    override suspend fun cancelForTask(taskId: String) {
         val notifications = notificationRepository.getNotificationsForTask(taskId)
         notifications.forEach { notification ->
             val intent = Intent(context, TaskReminderReceiver::class.java)

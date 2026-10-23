@@ -8,14 +8,22 @@ import dagger.Provides
 import dagger.hilt.InstallIn
 import dagger.hilt.android.qualifiers.ApplicationContext
 import dagger.hilt.components.SingletonComponent
+import io.payanam.database.backfill.ScoreRollupCascadeService
+import io.payanam.database.event.ScoreChangeEventBus
 import io.payanam.database.repository.LensRepositoryImpl
+import io.payanam.database.security.AndroidForgottenPassphraseReset
+import io.payanam.database.security.AndroidPassphraseVault
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.ScoreChangeStream
+import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.repository.DayPlanRepository
 import io.payanam.domain.repository.LensRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
+import io.payanam.shared.security.ForgottenPassphraseReset
+import io.payanam.shared.security.PassphraseVault
 import javax.inject.Singleton
 
 @Module
@@ -35,6 +43,33 @@ object DatabaseModule {
     fun provideDatabaseEncryptionManager(
         @ApplicationContext context: Context,
     ): DatabaseEncryptionManager = DatabaseEncryptionManager(context)
+
+    @Provides
+    @Singleton
+    /**
+     * Exposes Android's Keystore-backed vault as the shared [PassphraseVault].
+     *
+     * A `@Provides` rather than a `@Binds` for the same reason as [provideRecurrenceManager] above: the
+     * adapter takes the manager as a constructor argument, so the wiring is one line here instead of a
+     * `@Inject` annotation on a class in this module that nothing else needs.
+     */
+    fun providePassphraseVault(
+        @ApplicationContext context: Context,
+        encryptionManager: DatabaseEncryptionManager,
+    ): PassphraseVault = AndroidPassphraseVault(context, encryptionManager)
+
+    @Provides
+    @Singleton
+    /**
+     * Exposes Android's data-deleting recovery path as [ForgottenPassphraseReset].
+     *
+     * Over the SAME vault instance the unlock gate authenticates with, not a second one: the reset clears a
+     * credential, and a credential that some other object still believes in is a reset the app half-performed.
+     */
+    fun provideForgottenPassphraseReset(
+        @ApplicationContext context: Context,
+        vault: PassphraseVault,
+    ): ForgottenPassphraseReset = AndroidForgottenPassphraseReset(context, vault)
 
     @Provides
     @Singleton
@@ -67,4 +102,20 @@ object DatabaseModule {
             taskOccurrenceRepository,
             dayPlanRepository,
         )
+
+    @Provides
+    @Singleton
+    /**
+     * Exposes the score-rollup cascade as the [ScoreRollupTrigger] port, so the
+     * shared state layer can recompute scores without depending on this module.
+     */
+    fun provideScoreRollupTrigger(cascade: ScoreRollupCascadeService): ScoreRollupTrigger = cascade
+
+    @Provides
+    @Singleton
+    /**
+     * Exposes the score-change bus as the [ScoreChangeStream] port, so a shared
+     * ViewModel can refresh derived values without depending on this module.
+     */
+    fun provideScoreChangeStream(bus: ScoreChangeEventBus): ScoreChangeStream = bus
 }

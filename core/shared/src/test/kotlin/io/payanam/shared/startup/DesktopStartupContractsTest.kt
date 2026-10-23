@@ -5,6 +5,7 @@ package io.payanam.shared.startup
 import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import org.junit.Test
+
 class DesktopStartupContractsTest {
     @Test
     fun `startup snapshot flags missing desktop database lifecycle attention`() {
@@ -13,7 +14,6 @@ class DesktopStartupContractsTest {
                 launchRoute = DesktopTopLevelRoute.SETTINGS,
                 paths =
                     DesktopStartupPaths(
-                        settingsFilePath = "C:/Users/test/AppData/Local/Payanam/preferences.properties",
                         appDataRoot = "C:/Users/test/AppData/Local/Payanam",
                         bootstrapFilePath = "C:/Users/test/AppData/Local/Payanam/bootstrap/desktop-bootstrap.properties",
                         securityFilePath = "C:/Users/test/AppData/Local/Payanam/security/desktop-security.properties",
@@ -38,7 +38,6 @@ class DesktopStartupContractsTest {
                 launchRoute = DesktopTopLevelRoute.TIME,
                 paths =
                     DesktopStartupPaths(
-                        settingsFilePath = "settings.properties",
                         appDataRoot = "appData",
                         bootstrapFilePath = "bootstrap.properties",
                         securityFilePath = "security.properties",

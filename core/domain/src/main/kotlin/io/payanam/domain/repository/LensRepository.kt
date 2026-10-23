@@ -2,9 +2,9 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.domain.repository
 
-import io.payanam.common.logging.UnifiedLogger
-import kotlinx.coroutines.flow.Flow
+import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
+import kotlinx.coroutines.flow.Flow
 
 /**
  * Repository for lens calculations (Planning and Reality).
@@ -129,12 +129,10 @@ interface LensRepository {
      * averaged across their calendar-day spans.
      */
     suspend fun getAverageDailyTimeTableData(): AverageDailyTimeTableData? {
-        runCatching { UnifiedLogger.getInstance() }
-            .getOrNull()
-            ?.d(
-                "LensRepository.getAverageDailyTimeTableData",
-                "Average daily time table not implemented",
-            )
+        AppLogger.current.d(
+            "LensRepository.getAverageDailyTimeTableData",
+            "Average daily time table not implemented",
+        )
         return null
     }
 

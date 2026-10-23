@@ -3,12 +3,11 @@
 @file:Suppress("MagicNumber", "UndocumentedPublicProperty")
 
 package io.payanam.ui.viewmodel
+
 import android.content.Context
-import android.content.res.Configuration
 import android.content.res.Resources
-import androidx.compose.runtime.compositionLocalOf
+import androidx.annotation.StringRes
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.toArgb
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import androidx.sqlite.db.SupportSQLiteDatabase
@@ -17,24 +16,36 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.AppLanguageOption
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.BackupInterval
+import io.payanam.core.ui.preferences.FontFamilyOption
+import io.payanam.core.ui.preferences.ThemeModeOption
+import io.payanam.core.ui.preferences.TimeFormatOption
+import io.payanam.core.ui.preferences.colorToStoredHex
+import io.payanam.core.ui.preferences.knownAppOwnedCatalogLabels
+import io.payanam.core.ui.preferences.labelKey
+import io.payanam.core.ui.preferences.localizedCatalogLabel
+import io.payanam.core.ui.preferences.mapAppPreferences
+import io.payanam.core.ui.preferences.normalizeSupportedLanguageTag
+import io.payanam.core.ui.time.MAX_TIME_HOUR_HEIGHT_DP
+import io.payanam.core.ui.time.MIN_TIME_HOUR_HEIGHT_DP
 import io.payanam.database.backfill.ScoreRollupCascadeService
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.LifeDimension
+import io.payanam.domain.port.BackupStatusSnapshot
+import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.presentation.tasks.TaskFilter
 import io.payanam.service.AutoBackupWorker
-import io.payanam.service.BackupStatusSnapshot
 import io.payanam.service.BackupStatusStore
-import io.payanam.service.BackupTrigger
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.settings.FocusModePreset
 import io.payanam.ui.logging.DebugLoggingPrefs
-import io.payanam.ui.model.DimensionIconCatalog
-import io.payanam.ui.model.DimensionIconOption
-import io.payanam.ui.model.DimensionTextCatalog
-import io.payanam.ui.theme.LifeDimensionColors
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -58,451 +69,65 @@ private data class BackupSettingsBundle(
     val backupStatus: BackupStatusSnapshot,
 )
 
-private val appPreferencesLogger
-    get() = if (UnifiedLogger.isInitialized()) UnifiedLogger.getInstance() else null
-private val unresolvedDimensionResolutionKeys = mutableSetOf<String>()
-
-private const val DEFAULT_TIME_HOUR_HEIGHT_DP = 60f
-private const val MIN_TIME_HOUR_HEIGHT_DP = 24f
-private const val MAX_TIME_HOUR_HEIGHT_DP = 2880f
 /**
- * User-selectable UI theme mode (system / light / dark), persisted by [key].
+ * Android's half: the platform's own resource table.
+ *
+ * A `when` rather than a runtime lookup by name, because `getIdentifier` is not compile-checked and is
+ * unreliable once resources are shrunk. A platform mapping is legitimate - a per-platform COPY of the state
+ * would not be.
  */
-enum class ThemeModeOption(val key: String) {
-    SYSTEM("system"),
-    LIGHT("light"),
-    DARK("dark"),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): ThemeModeOption? = entries.find { it.key == key }
-    }
-}
-/**
- * User-selectable font family, persisted by [key] (falls back to nearest known family).
- */
-enum class FontFamilyOption(val key: String) {
-    SANS_SERIF("sans-serif"),
-    MONOSPACE("monospace"),
-    SERIF("serif"),
-    CURSIVE("cursive"),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): FontFamilyOption? = when (key) {
-            "roboto", "nunito", "orbitron", "dosis", "sans-serif" -> SANS_SERIF
-            "ubuntu-mono", "monospace" -> MONOSPACE
-            "libre-baskerville", "serif" -> SERIF
-            "kalam", "cursive" -> CURSIVE
-            else -> entries.find { it.key == key }
-        }
-    }
-}
-/**
- * User-selectable clock format (24h / 12h), persisted by [key].
- */
-enum class TimeFormatOption(val key: String, val use24Hour: Boolean) {
-    TWENTY_FOUR("24h", true),
-    TWELVE("12h", false),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): TimeFormatOption? = entries.find { it.key == key }
-    }
-}
-/**
- * User-selectable app language (system / English / Tamil), persisted by [key].
- */
-enum class AppLanguageOption(val key: String) {
-    SYSTEM("system"),
-    ENGLISH("en"),
-    TAMIL("ta"),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): AppLanguageOption? = entries.find { it.key == key }
-    }
-}
-/**
- * One configured life-dimension row: label/color/visibility/weight plus its canonical id.
- */
-data class DimensionPreference(
-    val key: String,
-    val label: String,
-    val color: Color,
-    val isVisible: Boolean,
-    val id: String = key,
-    val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(key),
-    val hasCustomLabelOverride: Boolean = false,
-    val canonicalId: String = key,
-    val description: String? = null,
-    val weight: Double = 1.0,
-)
-/**
- * A selectable dimension option (defaults + dynamic), with resolved icon + visibility.
- */
-data class DimensionOption(
-    val id: String,
-    val label: String,
-    val color: Color,
-    val isVisible: Boolean,
-    val iconKey: String = DimensionIconCatalog.defaultIconKeyForDimensionId(id),
-    val hasCustomLabelOverride: Boolean = false,
-    val canonicalId: String = id,
-    val description: String? = null,
-    val weight: Double = 1.0,
-)
-/**
- * Remembers which screen (route) opens on launch, with an optional task filter.
- */
-data class LaunchDestination(
-    val route: String = "",
-    val taskFilter: TaskFilter? = null,
-)
-/**
- * Auto-backup cadence options, persisted by [key] with [minutes] for scheduling.
- */
-enum class BackupInterval(val key: String, val minutes: Long) {
-    FIFTEEN_MIN("15m", 15),
-    THIRTY_MIN("30m", 30),
-    SIXTY_MIN("60m", 60),
-    TWO_HOURS("2h", 120),
-    SIX_HOURS("6h", 360),
-    TWELVE_HOURS("12h", 720),
-    DAILY("24h", 1440),
-    ;
-
-    companion object {
-        /**
-         * Resolves the option whose [key] matches, or null when unknown.
-         */
-        fun fromKey(key: String?): BackupInterval? = entries.find { it.key == key }
-    }
-}
-val ThemeModeOption.displayName: String
-    get() = key
-val FontFamilyOption.displayName: String
-    get() = key
-val TimeFormatOption.displayName: String
-    get() = key
-val BackupInterval.displayName: String
-    get() = key
+@get:StringRes
 val ThemeModeOption.labelResId: Int
-    get() = when (this) {
-        ThemeModeOption.SYSTEM -> R.string.settings_option_theme_system
-        ThemeModeOption.LIGHT -> R.string.settings_option_theme_light
-        ThemeModeOption.DARK -> R.string.settings_option_theme_dark
-    }
+    get() = settingsLabelResId(labelKey)
+
+@get:StringRes
 val FontFamilyOption.labelResId: Int
-    get() = when (this) {
-        FontFamilyOption.SANS_SERIF -> R.string.settings_option_font_sans_serif
-        FontFamilyOption.MONOSPACE -> R.string.settings_option_font_monospace
-        FontFamilyOption.SERIF -> R.string.settings_option_font_serif
-        FontFamilyOption.CURSIVE -> R.string.settings_option_font_cursive
-    }
+    get() = settingsLabelResId(labelKey)
+
+@get:StringRes
 val TimeFormatOption.labelResId: Int
-    get() = when (this) {
-        TimeFormatOption.TWENTY_FOUR -> R.string.settings_option_time_format_24h
-        TimeFormatOption.TWELVE -> R.string.settings_option_time_format_12h
-    }
+    get() = settingsLabelResId(labelKey)
+
+@get:StringRes
 val BackupInterval.labelResId: Int
-    get() = when (this) {
-        BackupInterval.FIFTEEN_MIN -> R.string.settings_option_backup_15_min
-        BackupInterval.THIRTY_MIN -> R.string.settings_option_backup_30_min
-        BackupInterval.SIXTY_MIN -> R.string.settings_option_backup_1_hour
-        BackupInterval.TWO_HOURS -> R.string.settings_option_backup_2_hours
-        BackupInterval.SIX_HOURS -> R.string.settings_option_backup_6_hours
-        BackupInterval.TWELVE_HOURS -> R.string.settings_option_backup_12_hours
-        BackupInterval.DAILY -> R.string.settings_option_backup_daily
-    }
-/**
- * Snapshot of every user-facing preference, surfaced to the Settings UI.
- */
-data class AppPreferencesState(
-    val themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
-    val appLanguage: AppLanguageOption = AppLanguageOption.SYSTEM,
-    val effectiveLanguageTag: String = resolveEffectiveLanguageTag(AppLanguageOption.SYSTEM, null),
-    val fontFamily: FontFamilyOption = FontFamilyOption.SANS_SERIF,
-    val timeFormat: TimeFormatOption = TimeFormatOption.TWENTY_FOUR,
-    val timeHourHeightDp: Float = DEFAULT_TIME_HOUR_HEIGHT_DP,
-    val dimensionPreferences: List<DimensionPreference> = emptyList(),
-    val dynamicDimensionOptions: List<DimensionOption> = emptyList(),
-    // Auto-backup settings
-    val autoBackupEnabled: Boolean = false,
-    val autoBackupInterval: BackupInterval = BackupInterval.SIXTY_MIN,
-    val autoBackupLastRun: String? = null,
-    val autoBackupLastErrorMessage: String? = null,
-    val autoBackupLastErrorAt: String? = null,
-    val backupRotationEnabled: Boolean = false,
-    val backupRotationCount: Int = 50,
-    // Day boundary for recurrence (0-5, hour when day "ends" for recurring tasks)
-    val dayBoundaryHour: Int = 0,
-    // Debug logging
-    val debugLoggingEnabled: Boolean = BuildConfig.DEBUG,
-    // Database init completed flag
-    val databaseInitCompleted: Boolean = false,
-    // Auto-tracking habit completion time
-    val autoTrackHabitTimeGlobal: Boolean = false,
-    val autoTrackDimensionPreferences: Map<String, Boolean> = emptyMap(),
-    // Focus Mode
-    val activePreset: FocusModePreset = FocusModePreset.FULL_SUITE,
-    val tabVisibility: Map<String, Boolean> = emptyMap(),
-    val focusModeOnboardingCompleted: Boolean = false,
-    val currentTaskFilter: TaskFilter = TaskFilter.TODAY,
-    // Default launch destination
-    val launchDestination: LaunchDestination = LaunchDestination(),
-    // Insights charts visibility settings
-    val chartTimeModuleEnabled: Boolean = true,
-    val chartTimeOverallSnapshotEnabled: Boolean = false,
-    val chartTimeExecutionDetailsEnabled: Boolean = false,
-    val chartTimeScoreCardsEnabled: Boolean = false,
-    val chartTimeOverallScoreCardEnabled: Boolean = false,
-    val chartTimeDimensionScoreCardsEnabled: Boolean = false,
-    val chartTimeLineGraphsEnabled: Boolean = false,
-    val chartTimeDailyScoreTrendEnabled: Boolean = false,
-    val chartTimeProgressTrendEnabled: Boolean = false,
-    val chartTimeHistoricalRankingEnabled: Boolean = false,
-    val chartTimeMomentumStreakEnabled: Boolean = false,
-    val chartTaskModuleEnabled: Boolean = false,
-    val chartHabitModuleEnabled: Boolean = false,
-    val chartJournalModuleEnabled: Boolean = false,
-    val chartNoteModuleEnabled: Boolean = false,
-    val chartAverageDailyTimeEnabled: Boolean = true,
-    val chartDimSplitEnabled: Boolean = false,
-    val chartDimTrendEnabled: Boolean = false,
-    val chartDailyTimelineEnabled: Boolean = false,
-    val chartWeeklyPatternEnabled: Boolean = false,
-    val chartDailyRhythmEnabled: Boolean = false,
-    val chartWeeklyPatternExclEmpty: Boolean = false,
-    val chartDailyRhythmExclEmpty: Boolean = false,
-    val isLoading: Boolean = true,
-)
-val LocalAppPreferences = compositionLocalOf { AppPreferencesState() }
-/**
- * Resolves the display label for [dimensionName], checking dimension prefs then dynamic options, falling back to the raw name.
- */
-fun AppPreferencesState.labelFor(dimensionName: String): String = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.label
-    ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.label
-    ?: dimensionName
-/**
- * Resolves the display label for a dimension by its [dimensionId], or null.
- */
-fun AppPreferencesState.labelForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.label
-/**
- * Resolves a dimension label: tries the [dimensionId] first, then falls back to looking up [dimensionName] via labelFor.
- */
-fun AppPreferencesState.labelForDimension(dimensionId: String?, dimensionName: String?): String? {
-    val directLabel = labelForDimensionId(dimensionId)
-    if (!directLabel.isNullOrBlank()) {
-        return directLabel
-    }
-    val fallbackName = dimensionName?.trim().orEmpty()
-    if (fallbackName.isBlank()) {
-        return null
-    }
-    return labelFor(fallbackName)
-}
-/**
- * True when [option] matches the given dimension (by id or resolved label).
- */
-fun AppPreferencesState.matchesDimensionOption(
-    option: DimensionOption,
-    dimensionId: String?,
-    dimensionName: String?,
-): Boolean {
-    if (!dimensionId.isNullOrBlank() && option.id == dimensionId) {
-        return true
-    }
-    val normalizedName = dimensionName?.trim().orEmpty()
-    if (normalizedName.isBlank()) {
-        return false
-    }
-    if (normalizedName == option.label) {
-        return true
-    }
-    return labelForDimension(dimensionId, normalizedName) == option.label
-}
-/**
- * Resolves the color for [dimensionName] from prefs/dynamic options, falling back to the canonical dimension color.
- */
-fun AppPreferencesState.colorFor(dimensionName: String): Color = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.color
-    ?: dynamicDimensionOptions.firstOrNull { it.label == dimensionName }?.color
-    ?: LifeDimensionColors.forDimension(dimensionName)
-/**
- * Resolves the color for a dimension by its [dimensionId], or null.
- */
-fun AppPreferencesState.colorForDimensionId(dimensionId: String?): Color? = findDimensionOption(dimensionId)?.color
-/**
- * Resolves the icon key for a dimension by its [dimensionId], or null.
- */
-fun AppPreferencesState.iconKeyForDimensionId(dimensionId: String?): String? = findDimensionOption(dimensionId)?.iconKey
-/**
- * Resolves the icon option for a dimension by its [dimensionId], or null.
- */
-fun AppPreferencesState.iconOptionForDimensionId(dimensionId: String?): DimensionIconOption? = findDimensionOption(dimensionId)?.let { DimensionIconCatalog.resolve(it.iconKey, it.id) }
-/**
- * True when auto-tracking is enabled for [dimensionId] (matching canonical id too).
- */
-fun AppPreferencesState.autoTrackEnabledForDimensionId(dimensionId: String?): Boolean {
-    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return false
-    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
-    return autoTrackDimensionPreferences.entries.firstOrNull { (storedId, _) ->
-        val storedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(storedId)?.id
-        storedId == requestedId ||
-            (!requestedCanonicalId.isNullOrBlank() && storedCanonicalId == requestedCanonicalId)
-    }?.value ?: false
-}
-/**
- * Resolves a dimension color: by [dimensionId] first, then by resolved [dimensionName].
- */
-fun AppPreferencesState.colorForDimension(dimensionId: String?, dimensionName: String?): Color? = colorForDimensionId(dimensionId)
-    ?: dimensionName?.trim()?.takeIf { it.isNotEmpty() }?.let(::colorFor)
-/**
- * True when the dimension [dimensionId] is in the visible set (defaults to visible).
- */
-fun AppPreferencesState.isVisibleDimensionId(dimensionId: String?): Boolean {
-    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return true
-    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
-    return visibleDimensionOptions().any { option ->
-        option.isVisible &&
-            (
-                option.id == requestedId ||
-                    (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
-                )
-    }
-}
-/**
- * True when the named dimension [dimensionName] is visible (defaults to visible).
- */
-fun AppPreferencesState.isVisible(dimensionName: String): Boolean = dimensionPreferences.firstOrNull { it.id == dimensionName || it.canonicalId == dimensionName }?.isVisible ?: true
-/**
- * The task filter to use at launch: the launch-destination filter, or the current one.
- */
-fun AppPreferencesState.effectiveLaunchTaskFilter(): TaskFilter = launchDestination.taskFilter ?: currentTaskFilter
-/**
- * All dimension preferences marked visible.
- */
-fun AppPreferencesState.visibleDimensions(): List<DimensionPreference> = dimensionPreferences.filter { it.isVisible }
-/**
- * Dimension preferences offered for selection: visible ones, plus [selected] even if hidden.
- */
-fun AppPreferencesState.optionsForSelection(selected: LifeDimension?): List<DimensionPreference> {
-    if (selected == null) {
-        return visibleDimensions()
-    }
-    return dimensionPreferences.filter { it.isVisible || it.canonicalId == selected.id || it.id == selected.id }
-}
-/**
- * Merged, de-duplicated, visible dimension options (defaults + dynamic).
- */
-fun AppPreferencesState.visibleDimensionOptions(): List<DimensionOption> {
-    val defaults = dimensionPreferences.map {
-        DimensionOption(
-            id = it.id,
-            canonicalId = it.canonicalId,
-            label = it.label,
-            description = it.description,
-            color = it.color,
-            isVisible = it.isVisible,
-            iconKey = it.iconKey,
-            hasCustomLabelOverride = it.hasCustomLabelOverride,
-        )
-    }
-    return (defaults + dynamicDimensionOptions)
-        .distinctBy { it.id }
-        .filter { it.isVisible }
-}
-/**
- * Dimension options for selection: visible ones, or all when [selectedDimensionId] is blank; [selectedDimensionId] itself is always included.
- */
-fun AppPreferencesState.optionsForSelection(selectedDimensionId: String?): List<DimensionOption> {
-    val defaults = dimensionPreferences.map {
-        DimensionOption(
-            id = it.id,
-            canonicalId = it.canonicalId,
-            label = it.label,
-            description = it.description,
-            color = it.color,
-            isVisible = it.isVisible,
-            iconKey = it.iconKey,
-            hasCustomLabelOverride = it.hasCustomLabelOverride,
-        )
-    }
-    val all = (defaults + dynamicDimensionOptions).distinctBy { it.id }
-    if (selectedDimensionId.isNullOrBlank()) {
-        return all.filter { it.isVisible }
-    }
-    val selectedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(selectedDimensionId)?.id
-    return all.filter { option ->
-        option.isVisible ||
-            option.id == selectedDimensionId ||
-            (!selectedCanonicalId.isNullOrBlank() && option.canonicalId == selectedCanonicalId)
-    }
-}
+    get() = settingsLabelResId(labelKey)
 
-private fun AppPreferencesState.findVisibleDimensionOption(dimensionId: String?): DimensionOption? {
-    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
-    return visibleDimensionOptions().firstOrNull { option ->
-        option.id == requestedId ||
-            (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
-    }
-}
+@get:StringRes
+val AppLanguageOption.labelResId: Int
+    get() = settingsLabelResId(labelKey)
 
-private fun AppPreferencesState.findDimensionOption(dimensionId: String?): DimensionOption? {
-    val requestedId = dimensionId?.trim()?.takeIf { it.isNotEmpty() } ?: return null
-    val requestedCanonicalId = DimensionTaxonomyCatalog.fromCanonicalId(requestedId)?.id
-    val options = dimensionPreferences.map {
-        DimensionOption(
-            id = it.id,
-            canonicalId = it.canonicalId,
-            label = it.label,
-            description = it.description,
-            color = it.color,
-            isVisible = it.isVisible,
-            iconKey = it.iconKey,
-            hasCustomLabelOverride = it.hasCustomLabelOverride,
-        )
-    } + dynamicDimensionOptions
-    val resolved = options
-        .distinctBy { it.id }
-        .firstOrNull { option ->
-            option.id == requestedId ||
-                (!requestedCanonicalId.isNullOrBlank() && option.canonicalId == requestedCanonicalId)
-        }
-    if (resolved == null) {
-        val traceKey = requestedCanonicalId ?: requestedId
-        synchronized(unresolvedDimensionResolutionKeys) {
-            if (unresolvedDimensionResolutionKeys.add(traceKey)) {
-                appPreferencesLogger?.w(
-                    "AppPreferencesState.findDimensionOption",
-                    "Could not resolve dimension option from app preferences state",
-                    mapOf(
-                        "requestedId" to requestedId,
-                        "requestedCanonicalId" to (requestedCanonicalId ?: "null"),
-                        "dimensionPreferenceIds" to dimensionPreferences.joinToString(",") { it.id },
-                        "dynamicOptionIds" to dynamicDimensionOptions.joinToString(",") { it.id },
-                    ),
-                )
-            }
-        }
+/**
+ * Resolves a label key to its string resource.
+ *
+ * Every key the four enums can produce is listed here, and [SettingsLabelKeyTest] asserts that: a missing
+ * entry would otherwise render as an empty label at runtime.
+ */
+@StringRes
+internal fun settingsLabelResId(key: String): Int =
+    when (key) {
+        "settings_option_theme_system" -> R.string.settings_option_theme_system
+        "settings_option_theme_light" -> R.string.settings_option_theme_light
+        "settings_option_theme_dark" -> R.string.settings_option_theme_dark
+        "settings_option_font_sans_serif" -> R.string.settings_option_font_sans_serif
+        "settings_option_font_monospace" -> R.string.settings_option_font_monospace
+        "settings_option_font_serif" -> R.string.settings_option_font_serif
+        "settings_option_font_cursive" -> R.string.settings_option_font_cursive
+        "settings_option_time_format_24h" -> R.string.settings_option_time_format_24h
+        "settings_option_time_format_12h" -> R.string.settings_option_time_format_12h
+        "settings_option_backup_15_min" -> R.string.settings_option_backup_15_min
+        "settings_option_backup_30_min" -> R.string.settings_option_backup_30_min
+        "settings_option_backup_1_hour" -> R.string.settings_option_backup_1_hour
+        "settings_option_backup_2_hours" -> R.string.settings_option_backup_2_hours
+        "settings_option_backup_6_hours" -> R.string.settings_option_backup_6_hours
+        "settings_option_backup_12_hours" -> R.string.settings_option_backup_12_hours
+        "settings_option_backup_daily" -> R.string.settings_option_backup_daily
+        "settings_language_option_system" -> R.string.settings_language_option_system
+        "settings_language_option_english" -> R.string.settings_language_option_english
+        "settings_language_option_tamil" -> R.string.settings_language_option_tamil
+        // Fails loudly rather than silently rendering nothing: an unmapped key is a programming error, and a
+        // blank label is the hardest kind of bug to notice.
+        else -> error("No string resource mapped for label key: $key")
     }
-    return resolved
-}
-
-private fun dimensionSortOrder(dimensionId: String): Int = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.sortOrder ?: Int.MAX_VALUE
 
 @HiltViewModel
 /**
@@ -565,21 +190,23 @@ class AppPreferencesViewModel @Inject constructor(
         val configuredDimensions = bundle.dimensions
         val systemLanguageTag = bundle.systemLanguageTag
         val backupStatus = bundle.backupStatus
-        val themeMode = ThemeModeOption.fromKey(settings[KEY_THEME_MODE]) ?: ThemeModeOption.SYSTEM
-        val appLanguage = AppLanguageOption.fromKey(settings[KEY_APP_LANGUAGE]) ?: AppLanguageOption.SYSTEM
-        val effectiveLanguageTag = resolveEffectiveLanguageTag(appLanguage, systemLanguageTag)
-        val fontFamily = FontFamilyOption.fromKey(settings[KEY_FONT_FAMILY]) ?: FontFamilyOption.SANS_SERIF
-        val timeFormat = TimeFormatOption.fromKey(settings[KEY_TIME_FORMAT]) ?: TimeFormatOption.TWENTY_FOUR
-        val timeHourHeightDp = resolveTimeHourHeightDp(settings)
-        val (dimensionPrefs, dynamicDimensionOptions) = buildDimensionCatalogUiState(
-            dimensions = configuredDimensions,
-            effectiveLanguageTag = effectiveLanguageTag,
+        // The rows -> state mapping lives in :core:ui so both platforms share ONE decision about what each
+        // key means; this function keeps the Android-only parts: the flow, the logging, the logger gate and
+        // the plain-prefs mirror the process-start path reads.
+        val mapped = mapAppPreferences(
+            settings = settings,
+            catalogRows = configuredDimensions,
+            systemLanguageTag = systemLanguageTag,
+            backupStatus = backupStatus,
+            defaultDebugLoggingEnabled = BuildConfig.DEBUG,
         )
+        val dimensionPrefs = mapped.dimensionPreferences
+        val dynamicDimensionOptions = mapped.dynamicDimensionOptions
         val dimensionSettingsLogSignature = buildString {
             append("appLanguage=")
-            append(appLanguage.key)
+            append(mapped.appLanguage.key)
             append("|effectiveLanguageTag=")
-            append(effectiveLanguageTag)
+            append(mapped.effectiveLanguageTag)
             append("|systemLanguageTag=")
             append(systemLanguageTag)
             append("|catalogIds=")
@@ -597,8 +224,8 @@ class AppPreferencesViewModel @Inject constructor(
                     "defaultDimensionCount" to dimensionPrefs.size,
                     "dynamicDimensionCount" to dynamicDimensionOptions.size,
                     "catalogDimensionCount" to configuredDimensions.size,
-                    "appLanguage" to appLanguage.key,
-                    "effectiveLanguageTag" to effectiveLanguageTag,
+                    "appLanguage" to mapped.appLanguage.key,
+                    "effectiveLanguageTag" to mapped.effectiveLanguageTag,
                     "systemLanguageTag" to systemLanguageTag,
                 ),
             )
@@ -622,123 +249,13 @@ class AppPreferencesViewModel @Inject constructor(
             )
             lastLoggedDimensionSettingsSignature = dimensionSettingsLogSignature
         }
-        val autoBackupEnabled = settings[KEY_AUTO_BACKUP_ENABLED]?.toBoolean() ?: false
-        val autoBackupInterval = BackupInterval.fromKey(settings[KEY_AUTO_BACKUP_INTERVAL]) ?: BackupInterval.SIXTY_MIN
-        val autoBackupLastRun = backupStatus.lastSuccessDisplay ?: settings[KEY_AUTO_BACKUP_LAST_RUN]
-        val backupFailureStatus = backupStatus.latestFailure
-        val backupRotationEnabled = settings[KEY_BACKUP_ROTATION_ENABLED]?.toBoolean() ?: false
-        val backupRotationCount = settings[KEY_BACKUP_ROTATION_COUNT]?.toIntOrNull()?.coerceIn(1, 999) ?: 50
-        val dayBoundaryHour = settings[KEY_DAY_BOUNDARY_HOUR]?.toIntOrNull()?.coerceIn(0, 5) ?: 0
-        val debugLoggingEnabled = settings[KEY_DEBUG_LOGGING_ENABLED]?.toBoolean() ?: BuildConfig.DEBUG
-        val databaseInitCompleted = settings[KEY_DATABASE_INIT_COMPLETED]?.toBoolean() ?: false
-        // Auto-tracking habit completion time preferences
-        val autoTrackHabitTimeGlobal = settings[KEY_AUTO_TRACK_HABIT_TIME]?.toBoolean() ?: false
-        val autoTrackDimensionIds = (dimensionPrefs.map { it.id } + dynamicDimensionOptions.map { it.id }).distinct()
-        val autoTrackDimensionPrefs = autoTrackDimensionIds.associateWith { dimensionId ->
-            settings["$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId"]?.toBoolean()
-                ?: autoTrackHabitTimeGlobal
-        }
-        // Focus Mode preferences
-        val activePreset = FocusModePreset.fromPresetId(settings[KEY_ACTIVE_PRESET])
-        val allTabs = listOf("tasks", "habits", "time", "journal", "notes", "lenses", "settings")
-        val tabVisibility = allTabs.associateWith { tabRoute ->
-            if (tabRoute == "settings") {
-                true // Settings tab is always visible
-            } else {
-                settings["$KEY_TAB_VISIBLE_PREFIX$tabRoute"]?.toBoolean()
-                    ?: activePreset.visibleTabs.contains(tabRoute)
-            }
-        }
-        val focusModeOnboardingCompleted = settings[KEY_FOCUS_MODE_ONBOARDING_COMPLETED]?.toBoolean() ?: false
-        val currentTaskFilter = TaskFilter.fromKey(settings[KEY_TASK_FILTER_OPTION])
-        val launchDestinationRoute = settings[KEY_LAUNCH_DESTINATION_ROUTE] ?: "time"
-        val launchDestinationTaskFilter = TaskFilter.fromKey(settings[KEY_LAUNCH_DESTINATION_TASK_FILTER])
-        val launchDestination = LaunchDestination(
-            route = launchDestinationRoute,
-            taskFilter = launchDestinationTaskFilter,
-        )
-        // Insights charts visibility prefs
-        val chartTimeModuleEnabled = settings[KEY_CHART_TIME_MODULE]?.toBoolean() ?: true
-        val chartTimeOverallSnapshotEnabled = settings[KEY_CHART_TIME_OVERALL_SNAPSHOT]?.toBoolean() ?: false
-        val chartTimeExecutionDetailsEnabled = settings[KEY_CHART_TIME_EXECUTION_DETAILS]?.toBoolean() ?: false
-        val chartTimeScoreCardsEnabled = settings[KEY_CHART_TIME_SCORE_CARDS]?.toBoolean() ?: false
-        val chartTimeOverallScoreCardEnabled = settings[KEY_CHART_TIME_OVERALL_SCORE_CARD]?.toBoolean() ?: false
-        val chartTimeDimensionScoreCardsEnabled = settings[KEY_CHART_TIME_DIM_SCORE_CARDS]?.toBoolean() ?: false
-        val chartTimeLineGraphsEnabled = settings[KEY_CHART_TIME_LINE_GRAPHS]?.toBoolean() ?: false
-        val chartTimeDailyScoreTrendEnabled = settings[KEY_CHART_TIME_DAILY_SCORE_TREND]?.toBoolean() ?: false
-        val chartTimeProgressTrendEnabled = settings[KEY_CHART_TIME_PROGRESS_TREND]?.toBoolean() ?: false
-        val chartTimeHistoricalRankingEnabled = settings[KEY_CHART_TIME_HISTORICAL_RANKING]?.toBoolean() ?: false
-        val chartTimeMomentumStreakEnabled = settings[KEY_CHART_TIME_MOMENTUM_STREAK]?.toBoolean() ?: false
-        val chartTaskModuleEnabled = settings[KEY_CHART_TASK_MODULE]?.toBoolean() ?: false
-        val chartHabitModuleEnabled = settings[KEY_CHART_HABIT_MODULE]?.toBoolean() ?: false
-        val chartJournalModuleEnabled = settings[KEY_CHART_JOURNAL_MODULE]?.toBoolean() ?: false
-        val chartNoteModuleEnabled = settings[KEY_CHART_NOTE_MODULE]?.toBoolean() ?: false
-        val chartAverageDailyTimeEnabled = settings[KEY_CHART_AVERAGE_DAILY_TIME]?.toBoolean() ?: true
-        val chartDimSplitEnabled = settings[KEY_CHART_DIM_SPLIT]?.toBoolean() ?: false
-        val chartDimTrendEnabled = settings[KEY_CHART_DIM_TREND]?.toBoolean() ?: false
-        val chartDailyTimelineEnabled = settings[KEY_CHART_DAILY_TIMELINE]?.toBoolean() ?: false
-        val chartWeeklyPatternEnabled = settings[KEY_CHART_WEEKLY_PATTERN]?.toBoolean() ?: false
-        val chartDailyRhythmEnabled = settings[KEY_CHART_DAILY_RHYTHM]?.toBoolean() ?: false
-        val chartWeeklyPatternExclEmpty = settings[KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY]?.toBoolean() ?: false
-        val chartDailyRhythmExclEmpty = settings[KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY]?.toBoolean() ?: false
         // Update UnifiedLogger debug logging + re-sync the plain-prefs mirror so the
         // process-start path honors the stored choice (the DB is the source of truth).
-        io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(debugLoggingEnabled)
-        DebugLoggingPrefs.write(context, debugLoggingEnabled)
-        _uiState.update {
-            it.copy(
-                themeMode = themeMode,
-                appLanguage = appLanguage,
-                effectiveLanguageTag = effectiveLanguageTag,
-                fontFamily = fontFamily,
-                timeFormat = timeFormat,
-                timeHourHeightDp = timeHourHeightDp,
-                dimensionPreferences = dimensionPrefs,
-                dynamicDimensionOptions = dynamicDimensionOptions,
-                autoBackupEnabled = autoBackupEnabled,
-                autoBackupInterval = autoBackupInterval,
-                autoBackupLastRun = autoBackupLastRun,
-                autoBackupLastErrorMessage = backupFailureStatus?.message,
-                autoBackupLastErrorAt = backupFailureStatus?.recordedAtDisplay,
-                backupRotationEnabled = backupRotationEnabled,
-                backupRotationCount = backupRotationCount,
-                dayBoundaryHour = dayBoundaryHour,
-                debugLoggingEnabled = debugLoggingEnabled,
-                databaseInitCompleted = databaseInitCompleted,
-                autoTrackHabitTimeGlobal = autoTrackHabitTimeGlobal,
-                autoTrackDimensionPreferences = autoTrackDimensionPrefs,
-                activePreset = activePreset,
-                tabVisibility = tabVisibility,
-                focusModeOnboardingCompleted = focusModeOnboardingCompleted,
-                currentTaskFilter = currentTaskFilter,
-                launchDestination = launchDestination,
-                chartTimeModuleEnabled = chartTimeModuleEnabled,
-                chartTimeOverallSnapshotEnabled = chartTimeOverallSnapshotEnabled,
-                chartTimeExecutionDetailsEnabled = chartTimeExecutionDetailsEnabled,
-                chartTimeScoreCardsEnabled = chartTimeScoreCardsEnabled,
-                chartTimeOverallScoreCardEnabled = chartTimeOverallScoreCardEnabled,
-                chartTimeDimensionScoreCardsEnabled = chartTimeDimensionScoreCardsEnabled,
-                chartTimeLineGraphsEnabled = chartTimeLineGraphsEnabled,
-                chartTimeDailyScoreTrendEnabled = chartTimeDailyScoreTrendEnabled,
-                chartTimeProgressTrendEnabled = chartTimeProgressTrendEnabled,
-                chartTimeHistoricalRankingEnabled = chartTimeHistoricalRankingEnabled,
-                chartTimeMomentumStreakEnabled = chartTimeMomentumStreakEnabled,
-                chartTaskModuleEnabled = chartTaskModuleEnabled,
-                chartHabitModuleEnabled = chartHabitModuleEnabled,
-                chartJournalModuleEnabled = chartJournalModuleEnabled,
-                chartNoteModuleEnabled = chartNoteModuleEnabled,
-                chartAverageDailyTimeEnabled = chartAverageDailyTimeEnabled,
-                chartDimSplitEnabled = chartDimSplitEnabled,
-                chartDimTrendEnabled = chartDimTrendEnabled,
-                chartDailyTimelineEnabled = chartDailyTimelineEnabled,
-                chartWeeklyPatternEnabled = chartWeeklyPatternEnabled,
-                chartDailyRhythmEnabled = chartDailyRhythmEnabled,
-                chartWeeklyPatternExclEmpty = chartWeeklyPatternExclEmpty,
-                chartDailyRhythmExclEmpty = chartDailyRhythmExclEmpty,
-                isLoading = false,
-            )
-        }
+        io.payanam.common.logging.UnifiedLogger.setDebugLoggingEnabled(mapped.debugLoggingEnabled)
+        DebugLoggingPrefs.write(context, mapped.debugLoggingEnabled)
+        _uiState.update { mapped }
     }
+
     /**
      * Persists the chosen UI theme mode.
      */
@@ -749,7 +266,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the chosen app language.
      */
     fun setAppLanguage(language: AppLanguageOption) {
-        saveSetting(KEY_APP_LANGUAGE, language.key)
+        saveSetting(AppPreferenceKeys.KEY_APP_LANGUAGE, language.key)
     }
     /**
      * Normalizes [languageTag] to a supported tag and updates the runtime system language.
@@ -868,7 +385,7 @@ class AppPreferencesViewModel @Inject constructor(
     fun setDimensionColor(dimensionId: String, color: Color) {
         viewModelScope.launch {
             try {
-                lifeDimensionCatalogRepository.updateDimensionColor(dimensionId, colorToHex(color))
+                lifeDimensionCatalogRepository.updateDimensionColor(dimensionId, colorToStoredHex(color))
                 logger.i(
                     "AppPreferencesViewModel.setDimensionColor",
                     "Dimension color updated in DB-backed catalog",
@@ -1314,7 +831,7 @@ class AppPreferencesViewModel @Inject constructor(
      */
     fun setDayBoundaryHour(hour: Int) {
         val clampedHour = hour.coerceIn(0, 5)
-        saveSetting(KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
+        saveSetting(AppPreferenceKeys.KEY_DAY_BOUNDARY_HOUR, clampedHour.toString())
     }
     /**
      * Persists the debug-logging toggle and applies it live.
@@ -1329,7 +846,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists the global auto-track-habit-time toggle.
      */
     fun setAutoTrackHabitTimeGlobal(enabled: Boolean) {
-        saveSetting(KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
+        saveSetting(AppPreferenceKeys.KEY_AUTO_TRACK_HABIT_TIME, enabled.toString())
         logger.i(
             "AppPreferencesViewModel.setAutoTrackHabitTimeGlobal",
             "Auto-tracking global setting updated",
@@ -1348,7 +865,7 @@ class AppPreferencesViewModel @Inject constructor(
      * Persists auto-track toggle for the dimension (id or [dimension]).
      */
     fun setAutoTrackDimensionPreference(dimensionId: String, enabled: Boolean) {
-        saveSetting("$KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
+        saveSetting("$AppPreferenceKeys.KEY_AUTO_TRACK_DIMENSION_PREFIX$dimensionId", enabled.toString())
         logger.i(
             "AppPreferencesViewModel.setAutoTrackDimensionPreference",
             "Auto-tracking dimension setting updated",
@@ -1427,7 +944,7 @@ class AppPreferencesViewModel @Inject constructor(
         saveSetting(KEY_LAUNCH_DESTINATION_ROUTE, "tasks")
         saveSettingNullable(KEY_LAUNCH_DESTINATION_TASK_FILTER, taskFilter?.key)
         if (taskFilter != null) {
-            saveSetting(KEY_TASK_FILTER_OPTION, taskFilter.key)
+            saveSetting(AppPreferenceKeys.KEY_TASK_FILTER_OPTION, taskFilter.key)
         }
         logger.i(
             "AppPreferencesViewModel.setLaunchDestinationTasks",
@@ -1620,185 +1137,6 @@ class AppPreferencesViewModel @Inject constructor(
             saveSetting(key, value)
         }
     }
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; any repo call can throw
-    private fun parseColor(hex: String): Color {
-        val normalized = hex.removePrefix("#")
-        return try {
-            val colorLong = normalized.toLong(16)
-            if (normalized.length <= 6) {
-                Color((0xFF000000 or colorLong).toInt())
-            } else {
-                Color(colorLong.toInt())
-            }
-        } catch (e: Exception) {
-            logger.w("AppPreferencesViewModel.resolveDimensionColor", "Failed to resolve dimension color, using fallback", mapOf("error" to (e.message ?: "unknown")))
-            LifeDimensionColors.forDimension("Career & Work")
-        }
-    }
-    private fun colorToHex(color: Color): String = "#%08X".format(color.toArgb())
-
-    private fun buildDimensionCatalogUiState(
-        dimensions: List<ConfiguredLifeDimension>,
-        effectiveLanguageTag: String,
-    ): Pair<List<DimensionPreference>, List<DimensionOption>> {
-        val preferredRows = dimensions
-            .filterNot { it.id == DimensionTaxonomyCatalog.UNASSIGNED.id }
-            .groupBy { DimensionTaxonomyCatalog.fromCanonicalId(it.id)?.id ?: it.id }
-            .values
-            .map(::selectPreferredCatalogDimensionRow)
-            .sortedBy { DimensionTaxonomyCatalog.fromCanonicalId(it.id)?.sortOrder ?: it.sortOrder }
-        val builtInPreferences = mutableListOf<DimensionPreference>()
-
-        preferredRows.forEach { dimension ->
-            val option = toDbBackedDimensionOption(
-                dimension = dimension,
-                effectiveLanguageTag = effectiveLanguageTag,
-            )
-            builtInPreferences += DimensionPreference(
-                key = option.canonicalId,
-                id = option.id,
-                canonicalId = option.canonicalId,
-                label = option.label,
-                description = option.description,
-                color = option.color,
-                isVisible = option.isVisible,
-                iconKey = option.iconKey,
-                weight = option.weight,
-                hasCustomLabelOverride = option.hasCustomLabelOverride,
-            )
-        }
-
-        return builtInPreferences.sortedBy { dimensionSortOrder(it.canonicalId) } to emptyList()
-    }
-
-    private fun selectPreferredCatalogDimensionRow(
-        candidates: List<ConfiguredLifeDimension>,
-    ): ConfiguredLifeDimension = candidates.sortedWith(
-        compareByDescending<ConfiguredLifeDimension> { candidate ->
-            val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(candidate.id)?.id
-            when {
-                canonicalId != null && candidate.id == canonicalId -> 3
-
-                canonicalId != null &&
-                    candidate.key == DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.slug -> 2
-
-                candidate.isActive -> 1
-
-                else -> 0
-            }
-        }.thenBy { it.sortOrder },
-    ).first()
-
-    private fun toDbBackedDimensionOption(
-        dimension: ConfiguredLifeDimension,
-        effectiveLanguageTag: String,
-    ): DimensionOption {
-        val canonicalId = DimensionTaxonomyCatalog.fromCanonicalId(dimension.id)?.id
-        val canonicalDefinition = DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)
-        val resolvedColorHex = dimension.colorHex.ifBlank {
-            canonicalDefinition?.defaultColorHex ?: colorToHex(LifeDimensionColors.forDimension("Career & Work"))
-        }
-        val resolvedIconKey = dimension.iconKey?.trim()?.takeIf { it.isNotEmpty() }
-            ?: canonicalDefinition?.defaultIconKey
-            ?: DimensionIconCatalog.defaultIconKeyForDimensionId(dimension.id)
-        return DimensionOption(
-            id = dimension.id,
-            canonicalId = canonicalId ?: dimension.id,
-            label = resolveDbBackedDimensionLabel(
-                dimension = dimension,
-                canonicalId = canonicalId,
-                effectiveLanguageTag = effectiveLanguageTag,
-            ),
-            description = resolveDbBackedDimensionDescription(
-                dimension = dimension,
-                canonicalId = canonicalId,
-                effectiveLanguageTag = effectiveLanguageTag,
-            ),
-            color = parseColor(resolvedColorHex),
-            isVisible = dimension.isActive,
-            iconKey = resolvedIconKey,
-            weight = dimension.weight,
-            hasCustomLabelOverride = canonicalId == null ||
-                hasCustomDbBackedLabel(
-                    canonicalId = canonicalId,
-                    storedLabel = dimension.label,
-                ),
-        )
-    }
-
-    private fun resolveDbBackedDimensionLabel(
-        dimension: ConfiguredLifeDimension,
-        canonicalId: String?,
-        effectiveLanguageTag: String,
-    ): String {
-        val trimmedLabel = dimension.label.trim()
-        if (canonicalId != null && !hasCustomDbBackedLabel(canonicalId, trimmedLabel)) {
-            return localizedCatalogLabel(
-                canonicalId = canonicalId,
-                languageTag = effectiveLanguageTag,
-            ) ?: DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.fallbackLabel
-                ?: trimmedLabel.ifBlank { dimension.id }
-        }
-        return trimmedLabel.ifBlank {
-            localizedCatalogLabel(
-                canonicalId = canonicalId,
-                languageTag = effectiveLanguageTag,
-            ) ?: dimension.id
-        }
-    }
-
-    private fun resolveDbBackedDimensionDescription(
-        dimension: ConfiguredLifeDimension,
-        canonicalId: String?,
-        effectiveLanguageTag: String,
-    ): String? {
-        if (canonicalId != null) {
-            return localizedCatalogDescription(
-                canonicalId = canonicalId,
-                languageTag = effectiveLanguageTag,
-            ) ?: DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)?.fallbackDescription
-                ?: dimension.description?.trim()?.takeIf { it.isNotEmpty() }
-        }
-        return dimension.description?.trim()?.takeIf { it.isNotEmpty() }
-    }
-
-    private fun hasCustomDbBackedLabel(canonicalId: String, storedLabel: String?): Boolean {
-        val trimmedLabel = storedLabel?.trim().orEmpty()
-        if (trimmedLabel.isBlank()) {
-            return false
-        }
-        return trimmedLabel !in knownAppOwnedCatalogLabels(canonicalId)
-    }
-
-    private fun knownAppOwnedCatalogLabels(canonicalId: String): Set<String> {
-        val canonicalDefinition = DimensionTaxonomyCatalog.fromCanonicalId(canonicalId)
-        return buildSet {
-            canonicalDefinition?.fallbackLabel?.let(::add)
-            SUPPORTED_DIMENSION_LOCALE_TAGS
-                .mapNotNull { localeTag -> localizedCatalogLabel(canonicalId, localeTag) }
-                .forEach(::add)
-        }
-    }
-
-    private fun localizedCatalogLabel(canonicalId: String?, languageTag: String?): String? {
-        val resId = DimensionTextCatalog.labelResIdForCanonicalId(canonicalId) ?: return null
-        return localizedStringForLanguageTag(resId, languageTag)
-    }
-
-    private fun localizedCatalogDescription(canonicalId: String?, languageTag: String?): String? {
-        val resId = DimensionTextCatalog.descriptionResIdForCanonicalId(canonicalId) ?: return null
-        return localizedStringForLanguageTag(resId, languageTag)
-    }
-
-    private fun localizedStringForLanguageTag(resId: Int, languageTag: String?): String {
-        if (languageTag.isNullOrBlank()) {
-            return context.getString(resId)
-        }
-        val config = Configuration(context.resources.configuration)
-        config.setLocale(Locale.forLanguageTag(languageTag))
-        return context.createConfigurationContext(config).getString(resId)
-    }
-
     private fun normalizeDimensionLabelForStorage(
         dimensionId: String,
         candidateLabel: String,
@@ -1822,25 +1160,6 @@ class AppPreferencesViewModel @Inject constructor(
 
     private fun defaultStoredLabelForDimension(dimensionId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(dimensionId)?.fallbackLabel ?: dimensionId
 
-    private fun resolveTimeHourHeightDp(settings: Map<String, String?>): Float {
-        val persisted = settings[KEY_TIME_HOUR_HEIGHT_DP]
-            ?.toFloatOrNull()
-            ?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
-        if (persisted != null) {
-            return persisted
-        }
-        return legacyTimeScaleKeyToHourHeightDp(settings[KEY_TIME_SCALE_LEGACY_KEY])
-            ?: DEFAULT_TIME_HOUR_HEIGHT_DP
-    }
-    private fun legacyTimeScaleKeyToHourHeightDp(legacyKey: String?): Float? = when (legacyKey) {
-        "2h" -> 30f
-        "1h" -> 60f
-        "20m" -> 180f
-        "15m" -> 240f
-        "10m" -> 360f
-        "5m" -> 720f
-        else -> null
-    }?.coerceIn(MIN_TIME_HOUR_HEIGHT_DP, MAX_TIME_HOUR_HEIGHT_DP)
     /**
      * Toggles the dimension-split chart.
      */
@@ -1901,84 +1220,51 @@ class AppPreferencesViewModel @Inject constructor(
         @Volatile
         private var lastLoggedDimensionSettingsSignature: String? = null
 
-        private const val KEY_THEME_MODE = "theme_mode"
-        const val KEY_APP_LANGUAGE = "app_language"
-        private const val KEY_FONT_FAMILY = "font_family"
-        private const val KEY_TIME_FORMAT = "time_format"
-        private const val KEY_TIME_HOUR_HEIGHT_DP = "time_hour_height_dp"
-        private const val KEY_TIME_SCALE_LEGACY_KEY = "time_scale"
-        private const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
-        private const val KEY_AUTO_BACKUP_INTERVAL = "auto_backup_interval"
-        private const val KEY_AUTO_BACKUP_LAST_RUN = "auto_backup_last_run"
-        private const val KEY_BACKUP_ROTATION_ENABLED = "backup_rotation_enabled"
-        private const val KEY_BACKUP_ROTATION_COUNT = "backup_rotation_count"
-        private const val KEY_DEBUG_LOGGING_ENABLED = "debug_logging_enabled"
+        private const val KEY_THEME_MODE = AppPreferenceKeys.KEY_THEME_MODE
+        private const val KEY_FONT_FAMILY = AppPreferenceKeys.KEY_FONT_FAMILY
+        private const val KEY_TIME_FORMAT = AppPreferenceKeys.KEY_TIME_FORMAT
+        private const val KEY_TIME_HOUR_HEIGHT_DP = AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP
+        private const val KEY_TIME_SCALE_LEGACY_KEY = AppPreferenceKeys.KEY_TIME_SCALE_LEGACY_KEY
+        private const val KEY_AUTO_BACKUP_ENABLED = AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED
+        private const val KEY_AUTO_BACKUP_INTERVAL = AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL
+        private const val KEY_AUTO_BACKUP_LAST_RUN = AppPreferenceKeys.KEY_AUTO_BACKUP_LAST_RUN
+        private const val KEY_BACKUP_ROTATION_ENABLED = AppPreferenceKeys.KEY_BACKUP_ROTATION_ENABLED
+        private const val KEY_BACKUP_ROTATION_COUNT = AppPreferenceKeys.KEY_BACKUP_ROTATION_COUNT
+        private const val KEY_DEBUG_LOGGING_ENABLED = AppPreferenceKeys.KEY_DEBUG_LOGGING_ENABLED
 
 
 
 
-        private const val KEY_DATABASE_INIT_COMPLETED = "database_init_completed"
-        const val KEY_TASK_SORT_OPTION = "task_sort_option"
-        const val KEY_TASK_FILTER_OPTION = "task_filter_option"
-        const val KEY_HABIT_SORT_OPTION = "habit_sort_option"
-        const val KEY_SHOW_ARCHIVED_HABITS = "show_archived_habits"
-        const val KEY_SHOW_COMPLETED_HABITS = "show_completed_habits"
-        const val KEY_HIDE_ALL_MARKED_TODAY = "hide_all_marked_today"
-        const val KEY_DUE_TODAY_ONLY = "due_today_only"
-        const val KEY_DAY_BOUNDARY_HOUR = "day_boundary_hour"
-        const val KEY_AUTO_TRACK_HABIT_TIME = "auto_track_habit_time_global"
-        const val KEY_AUTO_TRACK_DIMENSION_PREFIX = "auto_track_dimension_"
-        private const val KEY_ACTIVE_PRESET = "focus_mode_active_preset"
-        private const val KEY_TAB_VISIBLE_PREFIX = "tab_visible_"
-        private const val KEY_FOCUS_MODE_ONBOARDING_COMPLETED = "focus_mode_onboarding_completed"
-        private const val KEY_LAUNCH_DESTINATION_ROUTE = "launch_destination_route"
-        private const val KEY_LAUNCH_DESTINATION_TASK_FILTER = "launch_destination_task_filter"
+        private const val KEY_DATABASE_INIT_COMPLETED = AppPreferenceKeys.KEY_DATABASE_INIT_COMPLETED
+        private const val KEY_ACTIVE_PRESET = AppPreferenceKeys.KEY_ACTIVE_PRESET
+        private const val KEY_TAB_VISIBLE_PREFIX = AppPreferenceKeys.KEY_TAB_VISIBLE_PREFIX
+        private const val KEY_FOCUS_MODE_ONBOARDING_COMPLETED = AppPreferenceKeys.KEY_FOCUS_MODE_ONBOARDING_COMPLETED
+        private const val KEY_LAUNCH_DESTINATION_ROUTE = AppPreferenceKeys.KEY_LAUNCH_DESTINATION_ROUTE
+        private const val KEY_LAUNCH_DESTINATION_TASK_FILTER = AppPreferenceKeys.KEY_LAUNCH_DESTINATION_TASK_FILTER
 
         // Insights charts visibility keys
-        private const val KEY_CHART_TIME_MODULE = "chart_time_module_enabled"
-        private const val KEY_CHART_TIME_OVERALL_SNAPSHOT = "chart_time_overall_snapshot_enabled"
-        private const val KEY_CHART_TIME_EXECUTION_DETAILS = "chart_time_execution_details_enabled"
-        private const val KEY_CHART_TIME_SCORE_CARDS = "chart_time_score_cards_enabled"
-        private const val KEY_CHART_TIME_OVERALL_SCORE_CARD = "chart_time_overall_score_card_enabled"
-        private const val KEY_CHART_TIME_DIM_SCORE_CARDS = "chart_time_dimension_score_cards_enabled"
-        private const val KEY_CHART_TIME_LINE_GRAPHS = "chart_time_line_graphs_enabled"
-        private const val KEY_CHART_TIME_DAILY_SCORE_TREND = "chart_time_daily_score_trend_enabled"
-        private const val KEY_CHART_TIME_PROGRESS_TREND = "chart_time_progress_trend_enabled"
-        private const val KEY_CHART_TIME_HISTORICAL_RANKING = "chart_time_historical_ranking_enabled"
-        private const val KEY_CHART_TIME_MOMENTUM_STREAK = "chart_time_momentum_streak_enabled"
-        private const val KEY_CHART_TASK_MODULE = "chart_task_module_enabled"
-        private const val KEY_CHART_HABIT_MODULE = "chart_habit_module_enabled"
-        private const val KEY_CHART_JOURNAL_MODULE = "chart_journal_module_enabled"
-        private const val KEY_CHART_NOTE_MODULE = "chart_note_module_enabled"
-        private const val KEY_CHART_AVERAGE_DAILY_TIME = "chart_average_daily_time_enabled"
-        private const val KEY_CHART_DIM_SPLIT = "chart_dim_split_enabled"
-        private const val KEY_CHART_DIM_TREND = "chart_dim_trend_enabled"
-        private const val KEY_CHART_DAILY_TIMELINE = "chart_daily_timeline_enabled"
-        private const val KEY_CHART_WEEKLY_PATTERN = "chart_weekly_pattern_enabled"
-        private const val KEY_CHART_DAILY_RHYTHM = "chart_daily_rhythm_enabled"
-        private const val KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY = "chart_weekly_pattern_excl_empty"
-        private const val KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY = "chart_daily_rhythm_excl_empty"
-        private val SUPPORTED_DIMENSION_LOCALE_TAGS = listOf("en", "ta")
-    }
-}
-
-internal fun resolveEffectiveLanguageTag(
-    option: AppLanguageOption,
-    systemLanguageTag: String?,
-): String = when (option) {
-    AppLanguageOption.ENGLISH -> AppLanguageOption.ENGLISH.key
-    AppLanguageOption.TAMIL -> AppLanguageOption.TAMIL.key
-    AppLanguageOption.SYSTEM -> normalizeSupportedLanguageTag(systemLanguageTag)
-}
-
-internal fun normalizeSupportedLanguageTag(languageTag: String?): String {
-    val normalized = languageTag
-        ?.trim()
-        ?.lowercase(Locale.ROOT)
-        ?.substringBefore('-')
-    return if (normalized == AppLanguageOption.TAMIL.key) {
-        AppLanguageOption.TAMIL.key
-    } else {
-        AppLanguageOption.ENGLISH.key
+        private const val KEY_CHART_TIME_MODULE = AppPreferenceKeys.KEY_CHART_TIME_MODULE
+        private const val KEY_CHART_TIME_OVERALL_SNAPSHOT = AppPreferenceKeys.KEY_CHART_TIME_OVERALL_SNAPSHOT
+        private const val KEY_CHART_TIME_EXECUTION_DETAILS = AppPreferenceKeys.KEY_CHART_TIME_EXECUTION_DETAILS
+        private const val KEY_CHART_TIME_SCORE_CARDS = AppPreferenceKeys.KEY_CHART_TIME_SCORE_CARDS
+        private const val KEY_CHART_TIME_OVERALL_SCORE_CARD = AppPreferenceKeys.KEY_CHART_TIME_OVERALL_SCORE_CARD
+        private const val KEY_CHART_TIME_DIM_SCORE_CARDS = AppPreferenceKeys.KEY_CHART_TIME_DIM_SCORE_CARDS
+        private const val KEY_CHART_TIME_LINE_GRAPHS = AppPreferenceKeys.KEY_CHART_TIME_LINE_GRAPHS
+        private const val KEY_CHART_TIME_DAILY_SCORE_TREND = AppPreferenceKeys.KEY_CHART_TIME_DAILY_SCORE_TREND
+        private const val KEY_CHART_TIME_PROGRESS_TREND = AppPreferenceKeys.KEY_CHART_TIME_PROGRESS_TREND
+        private const val KEY_CHART_TIME_HISTORICAL_RANKING = AppPreferenceKeys.KEY_CHART_TIME_HISTORICAL_RANKING
+        private const val KEY_CHART_TIME_MOMENTUM_STREAK = AppPreferenceKeys.KEY_CHART_TIME_MOMENTUM_STREAK
+        private const val KEY_CHART_TASK_MODULE = AppPreferenceKeys.KEY_CHART_TASK_MODULE
+        private const val KEY_CHART_HABIT_MODULE = AppPreferenceKeys.KEY_CHART_HABIT_MODULE
+        private const val KEY_CHART_JOURNAL_MODULE = AppPreferenceKeys.KEY_CHART_JOURNAL_MODULE
+        private const val KEY_CHART_NOTE_MODULE = AppPreferenceKeys.KEY_CHART_NOTE_MODULE
+        private const val KEY_CHART_AVERAGE_DAILY_TIME = AppPreferenceKeys.KEY_CHART_AVERAGE_DAILY_TIME
+        private const val KEY_CHART_DIM_SPLIT = AppPreferenceKeys.KEY_CHART_DIM_SPLIT
+        private const val KEY_CHART_DIM_TREND = AppPreferenceKeys.KEY_CHART_DIM_TREND
+        private const val KEY_CHART_DAILY_TIMELINE = AppPreferenceKeys.KEY_CHART_DAILY_TIMELINE
+        private const val KEY_CHART_WEEKLY_PATTERN = AppPreferenceKeys.KEY_CHART_WEEKLY_PATTERN
+        private const val KEY_CHART_DAILY_RHYTHM = AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM
+        private const val KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY = AppPreferenceKeys.KEY_CHART_WEEKLY_PATTERN_EXCL_EMPTY
+        private const val KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY = AppPreferenceKeys.KEY_CHART_DAILY_RHYTHM_EXCL_EMPTY
     }
 }

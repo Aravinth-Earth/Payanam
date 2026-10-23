@@ -14,12 +14,12 @@ import io.payanam.domain.model.TaskInput
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
 import io.payanam.domain.model.TimeEntryInput
+import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
-import io.payanam.notification.NotificationScheduler
 import io.payanam.service.TrackingService
-import io.payanam.usecase.RecurrenceManager
+import io.payanam.scoring.RecurrenceManager
 import io.payanam.usecase.TimeTrackingUseCase
 import io.payanam.widget.TimeTrackingWidgetProvider
 import kotlinx.coroutines.CancellationException
@@ -107,7 +107,7 @@ class TimeViewModel @Inject constructor(
     private val taskRepository: TaskRepository,
     private val taskOccurrenceRepository: TaskOccurrenceRepository,
     private val recurrenceManager: RecurrenceManager,
-    private val notificationScheduler: NotificationScheduler,
+    private val notificationScheduler: TaskReminderScheduler,
     private val timeTrackingUseCase: TimeTrackingUseCase,
 ) : ViewModel() {
     private val logger = UnifiedLogger.getInstance()
@@ -769,7 +769,7 @@ class TimeViewModel @Inject constructor(
                         actualCompletedAt = actualCompletedAt,
                         actualDurationMinutes = actualDurationMinutes,
                     )
-                    recurrenceManager.onTaskCompleted(task, note, null)
+                    recurrenceManager.onTaskCompleted(task, note, null, null)
                     scheduleNextRecurringReminder(task.id, "TimeViewModel.completeTaskWithDetails")
                 } else {
                     taskRepository.completeTask(task.id, note)
@@ -816,7 +816,7 @@ class TimeViewModel @Inject constructor(
                 }
                 if (task.recurrenceEnabled) {
                     recordOccurrence(taskId, task.dueDate?.toLocalDate() ?: LocalDate.now(), "skipped", note)
-                    recurrenceManager.onTaskSkipped(task, note, null)
+                    recurrenceManager.onTaskSkipped(task, note, null, null)
                     scheduleNextRecurringReminder(taskId, "TimeViewModel.skipTask")
                     logger.i(
                         "TimeViewModel.skipTask",
@@ -877,7 +877,7 @@ class TimeViewModel @Inject constructor(
                 }
                 if (task.recurrenceEnabled) {
                     recordOccurrence(taskId, task.dueDate?.toLocalDate() ?: LocalDate.now(), "missed", note)
-                    recurrenceManager.onTaskMissed(task, note, null)
+                    recurrenceManager.onTaskMissed(task, note, null, null)
                     scheduleNextRecurringReminder(taskId, "TimeViewModel.missTask")
                     logger.i(
                         "TimeViewModel.missTask",

@@ -5,7 +5,7 @@ package io.payanam.e2e
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import io.payanam.MainActivity
-import io.payanam.ui.components.IMPORT_DATABASE_FILE_BUTTON_TAG
+import io.payanam.core.ui.components.IMPORT_DATABASE_FILE_BUTTON_TAG
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,7 +24,7 @@ import org.junit.runner.RunWith
  * stops, rather than re-running the per-screen sweep [FullJourneyTest] already covers.
  *
  * SCOPE — a fresh run renders only the no-existing-DB branch of the init screen (1 of its 3
- * [io.payanam.ui.components.ImportDatabaseFileButton] call sites). The other two call sites are NOT exercised by this test. The three "(Folder)" label ids are
+ * [io.payanam.core.ui.components.ImportDatabaseFileButton] call sites). The other two call sites are NOT exercised by this test. The three "(Folder)" label ids are
  * deleted and compiler-enforced; the folder control carried no testTag, so its absence is
  * review-enforced only — a re-added control with a new string id would still compile clean.
  *

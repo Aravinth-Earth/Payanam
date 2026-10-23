@@ -145,14 +145,15 @@
     <string name="settings_import_dialog_warning">⚠️ This will COMPLETELY DELETE your existing database and replace it with the imported one.</string>
     <string name="settings_import_dialog_data_loss">All current tasks, time entries, notes, and settings will be permanently lost.</string>
     <string name="settings_import_dialog_backup_hint">Consider exporting your current data first as a backup.</string>
-    <string name="settings_import_dialog_encrypted_mode_hint">Encrypted mode is active: imported plaintext DB files will be converted to encrypted format before use.</string>
+    <string name="settings_import_dialog_encrypted_mode_hint">Only encrypted Payanam databases can be imported.</string>
     <string name="settings_import_error_source_stream_open">Could not open selected backup source.</string>
     <string name="settings_import_error_select_main_db">Select the main database file (.db), not -wal or -shm.</string>
     <string name="settings_import_error_folder_missing_db">Selected folder does not contain a database file.</string>
     <string name="settings_import_error_folder_multiple_db">Selected folder has multiple .db files. Choose a specific backup folder.</string>
     <string name="settings_import_error_empty_db">Selected database file is empty.</string>
     <string name="settings_import_error_encryption_convert_failed">Imported database could not be converted to encrypted format. Export logs and retry. If it still fails, use reset local data and re-import.</string>
-    <string name="settings_import_error_unreadable_db">The imported database could not be read — it may be encrypted. Export a plaintext backup from the source device, then re-import.</string>
+    <string name="settings_import_error_unreadable_db">The selected file could not be read as a database. Import the encrypted .db file from a Payanam export, and enter the passphrase that export was made with — Payanam never creates a plaintext backup, so there is nothing else to import.</string>
+    <string name="settings_import_error_plaintext_db">This file is an unencrypted database. Payanam only imports encrypted databases — import a .db file from a Payanam export instead.</string>
     <string name="settings_import_error_schema_too_old">Imported database schema %1$d is too old. Minimum supported schema is %2$d.</string>
     <string name="settings_import_error_schema_too_new">Imported database schema %1$d is newer than this app supports (%2$d).</string>
     <string name="settings_import_error_encrypted_different_passphrase">The imported database is encrypted with a different passphrase. Please export an unencrypted backup from the source device and re-import, or reset your local data and set a new passphrase.</string>
@@ -284,14 +285,6 @@
     <string name="db_init_dimension_setup_title">Set up your life dimensions</string>
     <string name="db_init_dimension_setup_desc">This is a required setup for all new databases.</string>
     <string name="db_init_dimension_setup_why_desc">Life dimensions organize your tasks, time logs, and insights. Complete this step before accessing the app.</string>
-    <string name="onboarding_slide1_title">Your Privacy First</string>
-    <string name="onboarding_slide1_desc">All your data stays on this device. We use app-level encryption to keep your life logs secure and personal.</string>
-    <string name="onboarding_slide2_title">Track with Purpose</string>
-    <string name="onboarding_slide2_desc">Payanam helps you bridge the gap between planning and reality. Every entry contributes to your growth score.</string>
-    <string name="onboarding_slide3_title">Dimensions of Life</string>
-    <string name="onboarding_slide3_desc">Organize everything by Life Dimensions. Career, Health, or Learning—you decide what matters most.</string>
-    <string name="onboarding_action_start">Get Started</string>
-    <string name="onboarding_action_skip">Skip Tour</string>
     <string name="db_init_dimension_setup_default_action">Use Defaults</string>
     <string name="db_init_dimension_setup_customize_action">Customize</string>
     <string name="db_init_dimension_setup_default_desc">Default setup uses these starter dimensions and colors. You can still customize later from Settings.</string>
@@ -366,15 +359,7 @@
     <string name="settings_delete_export_prompt_body">All data will be permanently deleted with no recovery. Do you want to export a backup first?</string>
     <string name="settings_delete_export_prompt_yes">Back Up First</string>
     <string name="settings_delete_export_prompt_no">Skip, Delete</string>
-    <string name="db_passphrase_change_title">Change app passphrase</string>
-    <string name="db_passphrase_change_desc">Update your app passphrase. Keep it safe; there is no recovery path.</string>
     <string name="db_passphrase_change_current_label">Current passphrase</string>
-    <string name="db_passphrase_change_new_label">New passphrase</string>
-    <string name="db_passphrase_change_confirm_label">Confirm new passphrase</string>
-    <string name="db_passphrase_change_action">Change passphrase</string>
-    <string name="db_passphrase_change_saving">Updating...</string>
-    <string name="db_passphrase_change_success">Passphrase updated successfully.</string>
-    <string name="db_passphrase_change_error_current_invalid">Current passphrase is incorrect.</string>
     <!-- Language switch -->
     <string name="language_switch_dialog_title">Switch app language?</string>
     <string name="language_switch_dialog_message">System language changed. Switch app language to %1$s?</string>
@@ -588,7 +573,6 @@
     <string name="loc_minutes">Minutes</string>
     <string name="loc_miss">Miss</string>
     <string name="loc_missed">Missed</string>
-    <string name="loc_next">Next</string>
     <string name="loc_next_day">Next day</string>
     <string name="loc_none">None</string>
     <string name="loc_not_filled">Not filled</string>

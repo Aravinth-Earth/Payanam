@@ -46,15 +46,15 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import io.payanam.core.ui.focus.focusModeSettingsContent
+import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.FeatureFlags
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.feature.settings.SettingsViewModel
 import io.payanam.feature.settings.cancelImportPassphrase
 import io.payanam.feature.settings.resumeImportWithPassphrase
-import io.payanam.ui.components.IMPORT_PICKER_MIME
-import io.payanam.ui.components.toDimensionHexString
+import io.payanam.core.ui.components.toDimensionHexString
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,7 +66,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
     val snackbarHostState = remember { SnackbarHostState() }
     val context = activity
     val logger = remember { UnifiedLogger.getInstance() }
-    val encryptionManager = remember(context) { DatabaseEncryptionManager(context) }
+    val encryptionManager = viewModel.databaseEncryptionManager
     val scope = rememberCoroutineScope()
     var expandedSection by remember { mutableStateOf<SettingsSection?>(null) }
     var fontFamilyExpanded by remember { mutableStateOf(false) }
@@ -263,7 +263,7 @@ fun SettingsScreen(viewModel: SettingsViewModel = hiltViewModel(), onNavigateToP
                     )
                     (
                         prefsState.dimensionPreferences.map {
-                            io.payanam.ui.viewmodel.DimensionOption(
+                            io.payanam.core.ui.preferences.DimensionOption(
                                 id = it.id,
                                 canonicalId = it.canonicalId,
                                 label = it.label,

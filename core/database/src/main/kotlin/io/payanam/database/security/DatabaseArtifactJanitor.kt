@@ -7,8 +7,8 @@ package io.payanam.database.security
 
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import java.io.File
+import io.payanam.shared.database.PayanamDatabaseSchema
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
     private val countTables = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes")
@@ -22,7 +22,7 @@ object DatabaseArtifactJanitor {
         context: Context,
         logTag: String = "DatabaseArtifactJanitor.cleanupStaleArtifacts",
     ) {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile ?: return
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile ?: return
         val cacheDir = context.cacheDir
         logger.i(
             logTag,
@@ -37,7 +37,7 @@ object DatabaseArtifactJanitor {
         val tempBackupDir = File(dbDir, "payanam_temp_backup")
         // Recover from temp backup if the primary DB is missing, then clean only truly orphaned temp backups.
         val restoredFromTempBackup = recoverFromTempBackupIfPrimaryMissing(context, tempBackupDir, logTag)
-        val primaryDbExistsAfterRecovery = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).exists()
+        val primaryDbExistsAfterRecovery = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).exists()
         if (tempBackupDir.exists() && !restoredFromTempBackup && primaryDbExistsAfterRecovery) {
             if (tempBackupDir.deleteRecursively()) {
                 deleted++
@@ -59,14 +59,14 @@ object DatabaseArtifactJanitor {
             deleteMatching(dbDir, logTag) { file ->
                 file.name.endsWith(".enc.tmp") ||
                     file.name.contains(".enc.tmp-") ||
-                    file.name == "${PayanamDatabase.DATABASE_NAME}.enc.tmp" ||
-                    file.name == "${PayanamDatabase.DATABASE_NAME}.lck" ||
+                    file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp" ||
+                    file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.lck" ||
                     file.name.contains(".before_import_") ||
                     file.name.contains(".before_encrypt_")
             }
         deleted +=
             deleteMatching(cacheDir, logTag) { file ->
-                file.name.startsWith("${PayanamDatabase.DATABASE_NAME}.") &&
+                file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.") &&
                     (file.name.contains(".enc.tmp") || file.name.endsWith(".lck") || file.name.endsWith(".bak"))
             }
         deleted += pruneCorruptSnapshots(dbDir)
@@ -89,7 +89,7 @@ object DatabaseArtifactJanitor {
         context: Context,
         logTag: String,
     ): Boolean {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (!dbFile.exists()) {
             logger.d(logTag, "Skipping richer-corrupt recovery: primary DB file missing")
             return false
@@ -116,7 +116,7 @@ object DatabaseArtifactJanitor {
         val candidateBases =
             dbDir.listFiles().orEmpty().filter {
                 it.isFile &&
-                    it.name.startsWith("${PayanamDatabase.DATABASE_NAME}.corrupt") &&
+                    it.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.corrupt") &&
                     !it.name.endsWith("-wal") &&
                     !it.name.endsWith("-shm") &&
                     !it.name.endsWith("-journal")
@@ -194,7 +194,6 @@ object DatabaseArtifactJanitor {
     ): Int {
         val counts =
             DatabaseEncryptionMigrationSupport.readTableCounts(
-                context = context,
                 databaseFile = databaseFile,
                 passphrase = passphrase,
                 tableNames = countTables,
@@ -283,7 +282,7 @@ object DatabaseArtifactJanitor {
         if (!dbDir.exists() || !dbDir.isDirectory) return 0
         val corruptFiles =
             dbDir.listFiles().orEmpty().filter {
-                it.isFile && it.name.startsWith("${PayanamDatabase.DATABASE_NAME}.corrupt")
+                it.isFile && it.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.corrupt")
             }
         if (corruptFiles.size <= 3) {
             logger.d(
@@ -325,7 +324,7 @@ object DatabaseArtifactJanitor {
         tempBackupDir: File,
         logTag: String,
     ): Boolean {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (dbFile.exists() || !tempBackupDir.exists()) {
             logger.d(
                 logTag,
@@ -334,7 +333,7 @@ object DatabaseArtifactJanitor {
             )
             return false
         }
-        val backupDb = File(tempBackupDir, PayanamDatabase.DATABASE_NAME)
+        val backupDb = File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME)
         if (!backupDb.exists()) {
             logger.w(
                 logTag,
@@ -347,8 +346,8 @@ object DatabaseArtifactJanitor {
         return runCatching {
             backupDb.copyTo(dbFile, overwrite = true)
             listOf("wal", "shm", "journal").forEach { suffix ->
-                val src = File(tempBackupDir, "${PayanamDatabase.DATABASE_NAME}-$suffix")
-                val dst = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-$suffix")
+                val src = File(tempBackupDir, "${PayanamDatabaseSchema.DATABASE_NAME}-$suffix")
+                val dst = File(dbDir, "${PayanamDatabaseSchema.DATABASE_NAME}-$suffix")
                 if (src.exists()) {
                     src.copyTo(dst, overwrite = true)
                 } else if (dst.exists()) {

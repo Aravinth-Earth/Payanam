@@ -4,6 +4,7 @@ package io.payanam.shared.security
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
+
 class PassphraseContractsTest {
     @Test
     fun `validate rejects passphrase shorter than minimum`() {

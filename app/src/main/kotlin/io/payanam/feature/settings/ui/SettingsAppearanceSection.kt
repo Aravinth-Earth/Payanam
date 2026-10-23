@@ -25,13 +25,15 @@ import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.AppLanguageOption
-import io.payanam.ui.viewmodel.AppPreferencesState
+import io.payanam.core.ui.preferences.AppLanguageOption
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.FontFamilyOption
+import io.payanam.core.ui.preferences.ThemeModeOption
+import io.payanam.core.ui.preferences.TimeFormatOption
+import io.payanam.core.ui.preferences.labelKey
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-import io.payanam.ui.viewmodel.FontFamilyOption
-import io.payanam.ui.viewmodel.ThemeModeOption
-import io.payanam.ui.viewmodel.TimeFormatOption
 import io.payanam.ui.viewmodel.labelResId
+import io.payanam.ui.viewmodel.settingsLabelResId
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -66,12 +68,12 @@ internal fun settingsAppearanceSection(
                     },
                     selected = prefsState.appLanguage == option,
                 ) {
-                    val labelRes = when (option) {
-                        AppLanguageOption.SYSTEM -> R.string.settings_language_option_system
-                        AppLanguageOption.ENGLISH -> R.string.settings_language_option_english
-                        AppLanguageOption.TAMIL -> R.string.settings_language_option_tamil
-                    }
-                    Text(text = stringResource(id = labelRes), style = MaterialTheme.typography.labelSmall)
+                    // By key, not by a resource id chosen here: the key is what travels with the enum when it
+                    // moves to the shared module, so this call site does not change again.
+                    Text(
+                        text = stringResource(id = settingsLabelResId(option.labelKey)),
+                        style = MaterialTheme.typography.labelSmall,
+                    )
                 }
             }
         }

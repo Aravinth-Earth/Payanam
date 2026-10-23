@@ -48,16 +48,16 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.payanam.presentation.settings.DatabaseArtifactUiModel
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.model.DimensionIconCatalog
+import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.domain.model.DimensionTaxonomyCatalog
-import io.payanam.feature.settings.DatabaseArtifactUiModel
-import io.payanam.ui.components.DimensionBadgeLabelRow
-import io.payanam.ui.components.DimensionColorPicker
-import io.payanam.ui.components.DimensionIconPicker
-import io.payanam.ui.components.toDimensionHexString
-import io.payanam.ui.model.DimensionIconCatalog
-import io.payanam.ui.viewmodel.DimensionOption
+import io.payanam.core.ui.components.DimensionBadgeLabelRow
+import io.payanam.core.ui.components.DimensionColorPicker
+import io.payanam.core.ui.components.DimensionIconPicker
+import io.payanam.core.ui.components.toDimensionHexString
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -182,7 +182,7 @@ internal fun DimensionPreferenceCard(
                 DimensionColorPicker(
                     selectedColorHex = preference.color.toDimensionHexString(),
                     usedColorHexes = usedColorHexes,
-                    onSelect = { colorHex -> onColorSelected(io.payanam.ui.components.colorFromHex(colorHex)) },
+                    onSelect = { colorHex -> onColorSelected(io.payanam.core.ui.components.colorFromHex(colorHex)) },
                 )
                 DimensionIconPicker(
                     selectedIconKey = preference.iconKey,

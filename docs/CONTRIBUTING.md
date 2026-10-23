@@ -1,5 +1,5 @@
 # Contributing to Payanam
-Last Updated: 2026-08-22
+Last Updated: 2026-09-19
 
 Payanam is a local-first, FOSS (AGPL-3.0) project. Contributions are welcome — this
 guide keeps the codebase consistent and the quality gates green for everyone.
@@ -86,7 +86,15 @@ baseline** — if you legitimately remove a violation, regenerate it:
 ## Code style
 
 - Kotlin formatting is enforced by Spotless (ktlint). Run `./gradlew spotlessApply`
-  to auto-format.
+  to auto-format a module you changed.
+- The build gate also runs a **spotless ratchet** (`build-tools/scripts/spotless-ratchet.ps1`),
+  which fails when a `.kt` file *changed in your working tree* is unformatted. Pre-existing
+  drift elsewhere is ignored, so you are only on the hook for files you touch.
+- **Known limitation:** a repo-wide `./gradlew spotlessApply` currently fails and writes
+  nothing, because `core/database` and `app` contain unfixable `ktlint(standard:kdoc)` errors
+  ("A KDoc is not allowed inside 'modifier_list'"). Format only the module you touched
+  (`./gradlew :<module>:spotlessApply`), and note that `spotlessApply` can delete comments —
+  read every removed line before committing.
 - Keep numeric literals in scoring/config logic as named constants where the
   value's meaning isn't obvious (detekt `MagicNumber` rule).
 - Every source file must carry the AGPL SPDX header (Spotless enforces this).

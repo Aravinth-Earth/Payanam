@@ -5,6 +5,8 @@ package io.payanam.ui.screens
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.time.canSaveEditedTimeEntry
+import io.payanam.core.ui.time.shouldOpenEditDialogEndDatePicker
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test

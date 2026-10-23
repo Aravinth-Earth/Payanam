@@ -40,6 +40,15 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.UUID
 import javax.inject.Inject
+import io.payanam.domain.lens.DailyStatsCalculator
+import io.payanam.domain.lens.buildDimensionTrendBlocks
+import io.payanam.domain.lens.buildHeatmapDays
+import io.payanam.domain.lens.buildMinutePatternData
+import io.payanam.domain.lens.buildWeekGridData
+import io.payanam.domain.lens.computeDayCoverageScore
+import io.payanam.domain.lens.computePlanCompletenessScore
+import io.payanam.domain.lens.computePlanStructureScore
+import io.payanam.domain.lens.dayBoundedDurationMinutes
 
 private const val MINUTES_PER_DAY = 24 * 60
 
@@ -766,70 +775,9 @@ class LensRepositoryImpl
         }
     }
 
-internal fun computePlanCompletenessScore(
-    totalPlannedMinutes: Int,
-    hasBudgetAllocations: Boolean,
-    plannedTaskCount: Int,
-    hasPlannedHabits: Boolean,
-): Float {
-    val structureScore =
-        computePlanStructureScore(
-            hasBudgetAllocations = hasBudgetAllocations,
-            plannedTaskCount = plannedTaskCount,
-            hasPlannedHabits = hasPlannedHabits,
-        )
-    val dayCoverageScore = computeDayCoverageScore(totalPlannedMinutes)
-    return (structureScore * dayCoverageScore).coerceIn(0f, 1f)
-}
-
-internal fun dayBoundedDurationMinutes(
-    startedAt: LocalDateTime,
-    endedAt: LocalDateTime?,
-    day: LocalDate,
-    now: LocalDateTime = LocalDateTime.now(),
-): Int {
-    val dayStart = day.atStartOfDay()
-    val dayEndExclusive = dayStart.plusDays(1)
-    val effectiveEnd = endedAt ?: now
-    val clippedStart = maxOf(startedAt, dayStart)
-    val clippedEnd = minOf(effectiveEnd, dayEndExclusive)
-    if (!clippedEnd.isAfter(clippedStart)) {
-        return 0
-    }
-    return Duration
-        .between(clippedStart, clippedEnd)
-        .toMinutes()
-        .toInt()
-        .coerceAtLeast(0)
-}
-
 private fun determinePriority(taskScore: Double): String =
     when {
         taskScore >= 80.0 -> "High"
         taskScore >= 50.0 -> "Medium"
         else -> "Low"
     }
-
-internal fun computePlanStructureScore(
-    hasBudgetAllocations: Boolean,
-    plannedTaskCount: Int,
-    hasPlannedHabits: Boolean,
-): Float {
-    var score = 0f
-    if (hasBudgetAllocations) {
-        score += 0.4f
-    }
-    if (plannedTaskCount > 0) {
-        score += 0.4f * (plannedTaskCount.coerceAtMost(5) / 5f)
-    }
-    if (hasPlannedHabits) {
-        score += 0.2f
-    }
-    return score
-}
-
-internal fun computeDayCoverageScore(totalPlannedMinutes: Int): Float {
-    if (totalPlannedMinutes <= 0) return 0f
-    val deviationMinutes = kotlin.math.abs(totalPlannedMinutes - MINUTES_PER_DAY).toFloat()
-    return (1f - (deviationMinutes / MINUTES_PER_DAY)).coerceIn(0f, 1f)
-}

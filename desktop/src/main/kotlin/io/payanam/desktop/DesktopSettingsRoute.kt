@@ -34,9 +34,24 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import io.payanam.shared.settings.DesktopSettingsSnapshot
+import io.payanam.core.ui.preferences.AppLanguageOption
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.TimeFormatOption
+import io.payanam.core.ui.preferences.ThemeModeOption
+import io.payanam.core.ui.preferences.displayName
+import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.presentation.tasks.TaskFilter
+import io.payanam.shared.settings.DesktopLanguage
+import io.payanam.shared.settings.DesktopLaunchTaskFilter
+import io.payanam.shared.settings.DesktopThemeMode
 import io.payanam.shared.settings.DesktopTopLevelRoute
 import io.payanam.shared.settings.SettingsFoundationSnapshot
+
+/**
+ * The desktop-scoped scoring-model row. Declared, not shared: Android has no named scoring model (its
+ * `ScoringConfig` row holds weights), so this value is the desktop's own - see the plan's Amendment.
+ */
+internal const val DESKTOP_SCORING_MODEL_KEY = "scoring_model"
 
 internal enum class DesktopSettingsSection(
     val title: String,
@@ -58,41 +73,38 @@ internal enum class DesktopSettingsSection(
 }
 
 internal data class DesktopDataManagementCallbacks(
-    val onExportLocalState: () -> DesktopDataHandoffSnapshot,
-    val onImportLocalState: () -> DesktopDataHandoffSnapshot,
+    /** Picks a destination and writes a copy of the encrypted database there. */
+    val onExportDatabase: () -> Unit,
+    /** Picks a source, verifies it, and replaces the live database with it. */
+    val onImportDatabase: () -> Unit,
+    /** What the last transfer produced, or null before one has run. */
+    val status: String? = null,
 )
 
 @Suppress("LongMethod", "CyclomaticComplexMethod")
 @Composable
 internal fun desktopSettingsRoute(
     snapshot: SettingsFoundationSnapshot,
-    desktopSettings: DesktopSettingsSnapshot,
+    preferences: AppPreferencesState,
+    unlockTimeoutMinutes: Int,
+    scoringModel: String,
+    writeFailure: String?,
     lifecycleState: DesktopLifecycleState,
-    onSettingsChanged: (DesktopSettingsSnapshot) -> Unit,
+    onSettingChanged: (String, String?) -> Unit,
     dataManagementCallbacks: DesktopDataManagementCallbacks,
     initialSection: DesktopSettingsSection = DesktopSettingsSection.APPEARANCE,
 ) {
     var expandedSection by remember(initialSection) { mutableStateOf<DesktopSettingsSection?>(initialSection) }
-    var desktopFocusModeEnabled by remember { mutableStateOf(true) }
-    var desktopHabitTrackingEnabled by remember { mutableStateOf(false) }
-    var desktopTimeInsightsEnabled by remember { mutableStateOf(true) }
-    var desktopAutoBackupEnabled by remember { mutableStateOf(false) }
-    var desktopBackupFrequency by remember { mutableStateOf("Daily") }
-    var desktopBackupRetention by remember { mutableStateOf("Keep last 5 backups") }
-    var desktopScoringModel by remember { mutableStateOf("Balanced") }
-    var desktopBiometricEnabled by remember { mutableStateOf(false) }
-    var desktopUnlockTimeout by remember { mutableStateOf("15 minutes") }
-    var desktopExportMode by remember { mutableStateOf("Encrypted DB") }
-    var desktopImportSource by remember { mutableStateOf("Encrypted DB handoff") }
-    var desktopHandoffStatus by remember { mutableStateOf<String?>(null) }
-    var includeTasks by remember { mutableStateOf(true) }
-    var includeTimeEntries by remember { mutableStateOf(true) }
-    var includeNotes by remember { mutableStateOf(true) }
 
     desktopSettingsOverviewCard(
-        settings = desktopSettings,
+        preferences = preferences,
         expandedSection = expandedSection,
     )
+    // Its own slot, above every section: a write that did not land is the one thing a user must not have to
+    // go looking for. Cleared by the next successful write, never by navigation.
+    writeFailure?.let { message ->
+        desktopInfoCard(title = "Setting not saved", body = message)
+    }
 
     DesktopSettingsSection.entries.forEach { section ->
         desktopSettingsAccordionCard(
@@ -107,25 +119,40 @@ internal fun desktopSettingsRoute(
                     desktopSectionSupportText(
                         "Match the Android appearance section, but keep the desktop layout denser and quicker to scan.",
                     )
+                    // The SHARED enums are the selection and the write; the label lookup is the desktop's
+                    // (`ThemeModeOption.displayName` is its storage key, not a label). Declared: the shared
+                    // option labels still live in the app module's resources, so moving them into `:core:ui`
+                    // is what lets these label enums go.
                     desktopOptionGroup(
                         label = "Theme mode",
                         options =
-                            io.payanam.shared.settings.DesktopThemeMode.entries.map { mode ->
+                            ThemeModeOption.entries.map { mode ->
                                 DesktopSettingsOption(
-                                    label = mode.displayName,
-                                    selected = desktopSettings.themeMode == mode,
-                                    onSelect = { onSettingsChanged(desktopSettings.copy(themeMode = mode)) },
+                                    label = DesktopThemeMode.fromStorageKey(mode.key).displayName,
+                                    selected = preferences.themeMode == mode,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_THEME_MODE, mode.key) },
                                 )
                             },
                     )
                     desktopOptionGroup(
                         label = "Language",
                         options =
-                            io.payanam.shared.settings.DesktopLanguage.entries.map { language ->
+                            AppLanguageOption.entries.map { language ->
                                 DesktopSettingsOption(
-                                    label = language.displayName,
-                                    selected = desktopSettings.language == language,
-                                    onSelect = { onSettingsChanged(desktopSettings.copy(language = language)) },
+                                    label = DesktopLanguage.fromStorageKey(language.key).displayName,
+                                    selected = preferences.appLanguage == language,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_APP_LANGUAGE, language.key) },
+                                )
+                            },
+                    )
+                    desktopOptionGroup(
+                        label = "Time format",
+                        options =
+                            TimeFormatOption.entries.map { format ->
+                                DesktopSettingsOption(
+                                    label = if (format.use24Hour) "24-hour clock" else "12-hour clock",
+                                    selected = preferences.timeFormat == format,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_TIME_FORMAT, format.key) },
                                 )
                             },
                     )
@@ -135,9 +162,11 @@ internal fun desktopSettingsRoute(
                     desktopSectionSupportText(
                         "Keep the same mental model as Android: one clear first screen, with no extra explanation around it.",
                     )
+                    // `tabVisibility` + `launchDestination` ARE the shared state (D4: no desktop divergence).
                     val launchRouteOptions =
                         DesktopTopLevelRoute.entries.filter { route ->
-                            route == desktopSettings.launchRoute || desktopSettings.isRouteVisible(route)
+                            route.storageKey == preferences.launchDestination.route ||
+                                preferences.tabVisibility[route.storageKey] == true
                         }
                     desktopOptionGroup(
                         label = "Launch surface",
@@ -145,8 +174,23 @@ internal fun desktopSettingsRoute(
                             launchRouteOptions.map { route ->
                                 DesktopSettingsOption(
                                     label = route.displayName,
-                                    selected = desktopSettings.launchRoute == route,
-                                    onSelect = { onSettingsChanged(desktopSettings.copy(launchRoute = route)) },
+                                    selected = preferences.launchDestination.route == route.storageKey,
+                                    onSelect = {
+                                        onSettingChanged(AppPreferenceKeys.KEY_LAUNCH_DESTINATION_ROUTE, route.storageKey)
+                                    },
+                                )
+                            },
+                    )
+                    desktopOptionGroup(
+                        label = "Launch task filter",
+                        options =
+                            TaskFilter.entries.map { filter ->
+                                DesktopSettingsOption(
+                                    label = DesktopLaunchTaskFilter.fromStorageKey(filter.key).displayName,
+                                    selected = preferences.launchDestination.taskFilter == filter,
+                                    onSelect = {
+                                        onSettingChanged(AppPreferenceKeys.KEY_LAUNCH_DESTINATION_TASK_FILTER, filter.key)
+                                    },
                                 )
                             },
                     )
@@ -154,22 +198,18 @@ internal fun desktopSettingsRoute(
 
                 DesktopSettingsSection.FOCUS_MODE -> {
                     desktopSectionSupportText("This section works best as quick visibility control, not as a separate feature explainer.")
-                    desktopToggleRow(
-                        label = "Enable focused navigation preset",
-                        enabled = desktopFocusModeEnabled,
-                        onToggle = { desktopFocusModeEnabled = !desktopFocusModeEnabled },
-                    )
+                    // The coarse "enable preset" toggle is GONE (D2): Android has no such row, and the
+                    // preset's own effect is the per-tab rows below, which are real `tab_visible_*` rows.
                     DesktopTopLevelRoute.entries.forEach { route ->
                         if (route != DesktopTopLevelRoute.SETTINGS) {
+                            val visible = preferences.tabVisibility[route.storageKey] == true
                             desktopToggleRow(
                                 label = "Show ${route.displayName}",
-                                enabled = desktopSettings.isRouteVisible(route),
+                                enabled = visible,
                                 onToggle = {
-                                    onSettingsChanged(
-                                        desktopSettings.copy(
-                                            routeVisibility =
-                                                desktopSettings.routeVisibility + (route to !desktopSettings.isRouteVisible(route)),
-                                        ),
+                                    onSettingChanged(
+                                        "${AppPreferenceKeys.KEY_TAB_VISIBLE_PREFIX}${route.storageKey}",
+                                        (!visible).toString(),
                                     )
                                 },
                             )
@@ -192,73 +232,93 @@ internal fun desktopSettingsRoute(
                 }
 
                 DesktopSettingsSection.AUTO_TRACK_HABIT_TIME -> {
+                    // The coarse "habit timing shell" toggle and its derived "timing preset" mirror are GONE
+                    // (D2): Android's row is `auto_track_habit_time`, which is what this now writes. The
+                    // per-dimension rows are Android's too, and the desktop renders no dimension surface yet
+                    // - a declared divergence, not a second control.
                     desktopToggleRow(
-                        label = "Enable habit timing shell",
-                        enabled = desktopHabitTrackingEnabled,
-                        onToggle = { desktopHabitTrackingEnabled = !desktopHabitTrackingEnabled },
-                    )
-                    desktopOptionGroup(
-                        label = "Timing preset",
-                        options =
-                            listOf("Follow task board", "Manual review").map { option ->
-                                DesktopSettingsOption(
-                                    label = option,
-                                    selected =
-                                        if (desktopHabitTrackingEnabled) {
-                                            option == "Follow task board"
-                                        } else {
-                                            option == "Manual review"
-                                        },
-                                    onSelect = { desktopHabitTrackingEnabled = option == "Follow task board" },
-                                )
-                            },
+                        label = "Auto-track habit completion time",
+                        enabled = preferences.autoTrackHabitTimeGlobal,
+                        onToggle = {
+                            onSettingChanged(
+                                AppPreferenceKeys.KEY_AUTO_TRACK_HABIT_TIME,
+                                (!preferences.autoTrackHabitTimeGlobal).toString(),
+                            )
+                        },
                     )
                 }
 
                 DesktopSettingsSection.TIME_INSIGHTS -> {
-                    desktopToggleRow(
-                        label = "Enable time insight summaries",
-                        enabled = desktopTimeInsightsEnabled,
-                        onToggle = { desktopTimeInsightsEnabled = !desktopTimeInsightsEnabled },
-                    )
-                    desktopOptionGroup(
-                        label = "Insight density",
-                        options =
-                            listOf("Balanced", "Minimal").map { option ->
-                                DesktopSettingsOption(
-                                    label = option,
-                                    selected = if (desktopTimeInsightsEnabled) option == "Balanced" else option == "Minimal",
-                                    onSelect = { desktopTimeInsightsEnabled = option == "Balanced" },
-                                )
-                            },
+                    // The coarse summary toggle and its "insight density" mirror are GONE (D2): Android has
+                    // no such rows. Android's real surface here is one key per chart, and rendering those 23
+                    // rows is deliberately NOT part of this change - named as a follow-up rather than
+                    // quietly leaving a control that writes nothing.
+                    desktopSectionSupportText(
+                        "Android controls this section one chart at a time. The desktop's chart rows are not " +
+                            "rendered yet, so nothing here writes a value Android would read.",
                     )
                 }
 
                 DesktopSettingsSection.AUTO_BACKUP -> {
                     desktopToggleRow(
                         label = "Enable automatic backup",
-                        enabled = desktopAutoBackupEnabled,
-                        onToggle = { desktopAutoBackupEnabled = !desktopAutoBackupEnabled },
+                        enabled = preferences.autoBackupEnabled,
+                        onToggle = {
+                            onSettingChanged(
+                                AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED,
+                                (!preferences.autoBackupEnabled).toString(),
+                            )
+                        },
                     )
+                    // These keys are Android's BackupInterval.key values VERBATIM
+                    // (AppPreferencesViewModel.kt:177-185: 15m/30m/60m/2h/6h/12h/24h). A value written
+                    // by the desktop must be readable by Android, so this is a parity contract rather
+                    // than a display choice - do NOT invent keys like the fabricated "daily"/"weekly".
                     desktopOptionGroup(
                         label = "Backup frequency",
                         options =
-                            listOf("Daily", "Weekly", "Monthly").map { option ->
+                            listOf(
+                                "Every 15 minutes" to "15m",
+                                "Every 30 minutes" to "30m",
+                                "Hourly" to "60m",
+                                "Every 2 hours" to "2h",
+                                "Every 6 hours" to "6h",
+                                "Every 12 hours" to "12h",
+                                "Daily" to "24h",
+                            ).map { (label, key) ->
                                 DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopBackupFrequency == option,
-                                    onSelect = { desktopBackupFrequency = option },
+                                    label = label,
+                                    selected = preferences.autoBackupInterval.key == key,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL, key) },
                                 )
                             },
                     )
+                    desktopToggleRow(
+                        label = "Rotate old backups",
+                        enabled = preferences.backupRotationEnabled,
+                        onToggle = {
+                            onSettingChanged(
+                                AppPreferenceKeys.KEY_BACKUP_ROTATION_ENABLED,
+                                (!preferences.backupRotationEnabled).toString(),
+                            )
+                        },
+                    )
+                    // 50 must stay in this list: it is Android's backupRotationCount default
+                    // (AppPreferencesViewModel.kt:249), so omitting it would leave this control unable
+                    // to display the persisted value on a fresh install.
                     desktopOptionGroup(
                         label = "Retention",
                         options =
-                            listOf("Keep last 5 backups", "Keep last 10 backups", "Keep last 30 backups").map { option ->
+                            listOf(
+                                "Keep last 5 backups" to 5,
+                                "Keep last 10 backups" to 10,
+                                "Keep last 30 backups" to 30,
+                                "Keep last 50 backups" to 50,
+                            ).map { (label, count) ->
                                 DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopBackupRetention == option,
-                                    onSelect = { desktopBackupRetention = option },
+                                    label = label,
+                                    selected = preferences.backupRotationCount == count,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_BACKUP_ROTATION_COUNT, count.toString()) },
                                 )
                             },
                     )
@@ -266,14 +326,18 @@ internal fun desktopSettingsRoute(
                 }
 
                 DesktopSettingsSection.SCORING -> {
+                    // A DECLARED desktop-only row (see the plan's Amendment): Android has no named scoring
+                    // model - its `ScoringConfig` row holds weights, and its settings screen opens a
+                    // weight-tuning view - so this picker keeps its own `scoring_model` row rather than
+                    // pretending to be a preference Android reads.
                     desktopOptionGroup(
                         label = "Scoring model",
                         options =
-                            listOf("Balanced", "Strict", "Flexible").map { option ->
+                            listOf("Balanced" to "balanced", "Strict" to "strict", "Flexible" to "flexible").map { (label, key) ->
                                 DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopScoringModel == option,
-                                    onSelect = { desktopScoringModel = option },
+                                    label = label,
+                                    selected = scoringModel == key,
+                                    onSelect = { onSettingChanged(DESKTOP_SCORING_MODEL_KEY, key) },
                                 )
                             },
                     )
@@ -281,12 +345,15 @@ internal fun desktopSettingsRoute(
                 }
 
                 DesktopSettingsSection.DEBUG -> {
+                    // Android's `debug_logging_enabled` row, and the desktop logger's gate follows it
+                    // (Step 3) - so this control now moves something, instead of only recording a value.
                     desktopToggleRow(
-                        label = "Enable session logging",
-                        enabled = desktopSettings.sessionLoggingEnabled,
+                        label = "Enable debug logging",
+                        enabled = preferences.debugLoggingEnabled,
                         onToggle = {
-                            onSettingsChanged(
-                                desktopSettings.copy(sessionLoggingEnabled = !desktopSettings.sessionLoggingEnabled),
+                            onSettingChanged(
+                                AppPreferenceKeys.KEY_DEBUG_LOGGING_ENABLED,
+                                (!preferences.debugLoggingEnabled).toString(),
                             )
                         },
                     )
@@ -309,19 +376,37 @@ internal fun desktopSettingsRoute(
                     desktopOptionGroup(
                         label = "Unlock timeout",
                         options =
-                            listOf("15 minutes", "30 minutes", "1 hour").map { option ->
+                            // Android's nine choices, not four: Android can store any of 1..240, so a
+                            // narrower list here means a timeout chosen on the phone is not merely
+                            // unselected on the desktop - it is unselectable, and the first interaction
+                            // would silently replace it with a value from this list.
+                            listOf(
+                                "1 minute" to 1,
+                                "2 minutes" to 2,
+                                "5 minutes" to 5,
+                                "10 minutes" to 10,
+                                "15 minutes" to 15,
+                                "30 minutes" to 30,
+                                "1 hour" to 60,
+                                "2 hours" to 120,
+                                "4 hours" to 240,
+                            ).map { (label, minutes) ->
                                 DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopUnlockTimeout == option,
-                                    onSelect = { desktopUnlockTimeout = option },
+                                    label = label,
+                                    selected = unlockTimeoutMinutes == minutes,
+                                    onSelect = { onSettingChanged(AppPreferenceKeys.KEY_SESSION_TIMEOUT_MINUTES, minutes.toString()) },
                                 )
                             },
                     )
                     desktopToggleRow(
-                        label = "Enable biometric unlock",
-                        enabled = desktopBiometricEnabled,
-                        onToggle = { desktopBiometricEnabled = !desktopBiometricEnabled },
+                        label = "Biometric unlock",
+                        enabled = false,
+                        onToggle = { },
+                        // Android-only capability: visible for section parity, but genuinely
+                        // non-interactive (see desktopToggleRow) and never persisted.
+                        interactive = false,
                     )
+                    desktopSectionSupportText("Available on Android only")
                 }
 
                 DesktopSettingsSection.DATABASE -> {
@@ -342,64 +427,32 @@ internal fun desktopSettingsRoute(
                         title = "Desktop database state",
                         body =
                             "Path: ${lifecycleState.databaseFilePath}\n" +
-                                "Initialized: ${lifecycleState.bootstrapSnapshot.databaseLifecycleReady}\n" +
+                                "Present: ${lifecycleState.databaseExists} (${lifecycleState.databaseSizeKb} KB)\n" +
                                 "Desktop settings, security, journal, notes, and task board state now live inside this database.",
                     )
                 }
 
                 DesktopSettingsSection.DATA_MANAGEMENT -> {
-                    desktopOptionGroup(
-                        label = "Export mode",
-                        options =
-                            listOf("Encrypted DB", "Plaintext DB (one-time)").map { option ->
-                                DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopExportMode == option,
-                                    onSelect = { desktopExportMode = option },
-                                )
-                            },
-                    )
-                    desktopOptionGroup(
-                        label = "Import source",
-                        options =
-                            listOf("Encrypted DB handoff", "Plaintext DB (legacy bridge)").map { option ->
-                                DesktopSettingsOption(
-                                    label = option,
-                                    selected = desktopImportSource == option,
-                                    onSelect = { desktopImportSource = option },
-                                )
-                            },
-                    )
-                    desktopToggleRow(
-                        label = "Include tasks",
-                        enabled = includeTasks,
-                        onToggle = { includeTasks = !includeTasks },
-                    )
-                    desktopToggleRow(
-                        label = "Include time entries",
-                        enabled = includeTimeEntries,
-                        onToggle = { includeTimeEntries = !includeTimeEntries },
-                    )
-                    desktopToggleRow(
-                        label = "Include notes",
-                        enabled = includeNotes,
-                        onToggle = { includeNotes = !includeNotes },
-                    )
-                    desktopSectionSupportText("Keep the Android action grouping, but let the desktop controls stay compact and direct.")
-                    desktopActionRow(
-                        label = "Local handoff export",
-                        actionLabel = "Create bundle",
-                        onClick = {
-                            desktopHandoffStatus = "Exported to ${dataManagementCallbacks.onExportLocalState().exportFilePath}"
-                        },
+                    desktopSectionSupportText(
+                        "The encrypted database file is the whole export: the same file the Android app " +
+                            "opens, so one copy carries your data between the two apps.",
                     )
                     desktopActionRow(
-                        label = "Local handoff import",
-                        actionLabel = "Restore latest bundle",
-                        onClick = {
-                            desktopHandoffStatus = "Imported from ${dataManagementCallbacks.onImportLocalState().exportFilePath}"
-                        },
+                        label = "Database export",
+                        actionLabel = "Export database",
+                        onClick = { dataManagementCallbacks.onExportDatabase() },
                     )
+                    desktopActionRow(
+                        label = "Database import",
+                        actionLabel = "Import database",
+                        onClick = { dataManagementCallbacks.onImportDatabase() },
+                    )
+                    dataManagementCallbacks.status?.let { message ->
+                        desktopInfoCard(
+                            title = "Transfer status",
+                            body = message,
+                        )
+                    }
                     desktopInfoCard(
                         title = "Local-first status",
                         body =
@@ -407,12 +460,6 @@ internal fun desktopSettingsRoute(
                                 "App data root: ${DesktopAppPaths.resolveRootDirectory()}\n" +
                                 "Exports: ${lifecycleState.exportDirectoryPath}",
                     )
-                    desktopHandoffStatus?.let { message ->
-                        desktopInfoCard(
-                            title = "Handoff status",
-                            body = message,
-                        )
-                    }
                 }
 
                 DesktopSettingsSection.ABOUT -> {
@@ -440,7 +487,7 @@ internal fun desktopSettingsRoute(
 
 @Composable
 private fun desktopSettingsOverviewCard(
-    settings: DesktopSettingsSnapshot,
+    preferences: AppPreferencesState,
     expandedSection: DesktopSettingsSection?,
 ) {
     Card(
@@ -455,7 +502,8 @@ private fun desktopSettingsOverviewCard(
                     .semantics {
                         contentDescription = "Desktop settings overview"
                         stateDescription =
-                            "Expanded section ${expandedSection?.title ?: "none"}; launch route ${settings.launchRoute.displayName}"
+                            "Expanded section ${expandedSection?.title ?: "none"}; launch route " +
+                                DesktopTopLevelRoute.fromStorageKey(preferences.launchDestination.route).displayName
                     }.padding(22.dp),
             verticalArrangement = Arrangement.spacedBy(10.dp),
         ) {
@@ -472,9 +520,9 @@ private fun desktopSettingsOverviewCard(
             )
             Text(
                 text =
-                    "Current setup: ${settings.themeMode.displayName} theme, " +
-                        "${settings.language.displayName} language, " +
-                        "${settings.launchRoute.displayName} launch route",
+                    "Current setup: ${preferences.themeMode.displayName} theme, " +
+                        "${DesktopLanguage.fromStorageKey(preferences.appLanguage.key).displayName} language, " +
+                        "${DesktopTopLevelRoute.fromStorageKey(preferences.launchDestination.route).displayName} launch route",
                 style = MaterialTheme.typography.body2,
                 color = desktopMutedTextColor(),
             )
@@ -550,6 +598,10 @@ private data class DesktopSettingsOption(
     val label: String,
     val selected: Boolean,
     val onSelect: () -> Unit,
+    // Whether the chip is clickable. Display-only groups derive their `selected` value from an
+    // adjacent toggle and have nothing to write, so they pass false rather than rendering as
+    // clickable controls that do nothing when pressed.
+    val interactive: Boolean = true,
 )
 
 @Composable
@@ -597,8 +649,13 @@ private fun desktopOptionGroup(
                                         } else {
                                             "${option.label} not selected"
                                         }
-                                }.clickable(onClick = option.onSelect)
-                                .padding(horizontal = 14.dp, vertical = 10.dp),
+                                }.then(
+                                    if (option.interactive) {
+                                        Modifier.clickable(onClick = option.onSelect)
+                                    } else {
+                                        Modifier
+                                    },
+                                ).padding(horizontal = 14.dp, vertical = 10.dp),
                         style = MaterialTheme.typography.body2,
                         fontWeight = FontWeight.SemiBold,
                     )

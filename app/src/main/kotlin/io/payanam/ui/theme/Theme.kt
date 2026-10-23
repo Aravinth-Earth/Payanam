@@ -2,78 +2,41 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.ui.theme
 
-import android.os.Build
 import androidx.compose.foundation.isSystemInDarkTheme
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.darkColorScheme
-import androidx.compose.material3.dynamicDarkColorScheme
-import androidx.compose.material3.dynamicLightColorScheme
-import androidx.compose.material3.lightColorScheme
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.ui.platform.LocalContext
-import io.payanam.common.logging.UnifiedLogger
-import io.payanam.ui.viewmodel.FontFamilyOption
-import io.payanam.ui.viewmodel.ThemeModeOption
+import io.payanam.core.ui.preferences.FontFamilyOption
+import io.payanam.core.ui.preferences.ThemeModeOption
+import io.payanam.core.ui.theme.PayanamTheme
 
-private val DarkColorScheme = darkColorScheme(
-    primary = Purple80,
-    secondary = PurpleGrey80,
-    tertiary = Pink80,
-)
-
-private val LightColorScheme = lightColorScheme(
-    primary = Purple40,
-    secondary = PurpleGrey40,
-    tertiary = Pink40,
-)
-
-private val logger = UnifiedLogger.getInstance()
-private var lastThemeSignature: String? = null
-
+/**
+ * Android's entry point to the shared theme.
+ *
+ * Everything visual comes from `:core:ui` — the palette, the Material 3 schemes and the dynamic-colour seam.
+ * What stays here is the one thing the shared module cannot know: how to read the user's preference enum and
+ * the system's dark-mode signal, and which typeface the font-family preference selects.
+ *
+ * The preference enums stay in the app module for now. They move with the preferences state they belong to,
+ * and until then this function is the single place that translates them into the neutral inputs the shared
+ * theme takes — so there is no second theme, only one translation at the platform edge.
+ */
 @Composable
 fun PayanamTheme(
     themeMode: ThemeModeOption = ThemeModeOption.SYSTEM,
     fontFamily: FontFamilyOption = FontFamilyOption.SANS_SERIF,
-    // Dynamic color is available on Android 12+
     dynamicColor: Boolean = true,
     content: @Composable () -> Unit,
 ) {
-    val darkTheme = when (themeMode) {
-        ThemeModeOption.DARK -> true
-        ThemeModeOption.LIGHT -> false
-        ThemeModeOption.SYSTEM -> isSystemInDarkTheme()
-    }
-    val colorScheme = when {
-        dynamicColor && Build.VERSION.SDK_INT >= Build.VERSION_CODES.S -> {
-            val context = LocalContext.current
-            if (darkTheme) dynamicDarkColorScheme(context) else dynamicLightColorScheme(context)
+    // SYSTEM resolves against the platform's own signal: Android's dark-mode setting.
+    val darkTheme =
+        when (themeMode) {
+            ThemeModeOption.DARK -> true
+            ThemeModeOption.LIGHT -> false
+            ThemeModeOption.SYSTEM -> isSystemInDarkTheme()
         }
-
-        darkTheme -> DarkColorScheme
-
-        else -> LightColorScheme
-    }
-    val typography = buildTypography(fontFamily)
-    LaunchedEffect(themeMode, fontFamily, darkTheme, dynamicColor) {
-        val signature = "${themeMode.key}:${fontFamily.key}:$darkTheme:$dynamicColor"
-        if (lastThemeSignature != signature) {
-            logger.i(
-                "Theme.PayanamTheme",
-                "Applied app theme preferences",
-                mapOf(
-                    "themeMode" to themeMode.key,
-                    "fontFamily" to fontFamily.key,
-                    "darkTheme" to darkTheme,
-                    "dynamicColor" to dynamicColor,
-                ),
-            )
-            lastThemeSignature = signature
-        }
-    }
-    MaterialTheme(
-        colorScheme = colorScheme,
-        typography = typography,
+    PayanamTheme(
+        darkTheme = darkTheme,
+        dynamicColor = dynamicColor,
+        typography = buildTypography(fontFamily),
         content = content,
     )
 }
