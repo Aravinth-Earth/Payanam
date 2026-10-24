@@ -186,32 +186,6 @@ class DesktopAssistantDestinationWiringTest {
     }
 
     /**
-     * "Change provider" persists a pending setup, and the model stops surfacing until setup completes.
-     *
-     * Reached from the settings editor's own row, so on the desktop it is only real if the shared
-     * ViewModel's flag reached the desktop store. The model suppression is asserted through `refresh`,
-     * because that is the path the chat screen fires on entry and it is where the contract lives: a stored
-     * model must never appear before the user finishes setting the provider up again.
-     */
-    @Test
-    fun `a pending reconfigure is persisted and suppresses the stored model`() {
-        openSession()
-        val viewModel = requireNotNull(collaborators().viewModelOrNull())
-
-        // ONE write, deliberately. The claim is that this desktop surface's "change provider" reaches the
-        // desktop STORE - the row is the evidence and nothing else in this case depends on a second write
-        // landing first. The save path (key + model in one transaction) is the store's own test's business.
-        viewModel.changeProvider()
-        awaitRow(KEY_SETUP_REQUIRED)
-
-        assertThat(rows()[KEY_SETUP_REQUIRED]).isEqualTo(TRUE_TEXT)
-
-        // The row IS the claim: a pending reconfigure reached the desktop store through the shared view
-        // model. What the chat surface then renders from it is the shared screen's own tests.
-        assertThat(rows()[KEY_SETUP_REQUIRED]).isEqualTo(TRUE_TEXT)
-    }
-
-    /**
      * No open session means no store - and the destinations render rather than crash.
      *
      * The refusal is the honest shape: `AssistantConfigurationStoreJvm` needs a session, "no session yet"
@@ -312,10 +286,8 @@ class DesktopAssistantDestinationWiringTest {
         const val KEY_API_KEY = "assistant.api_key"
         const val KEY_MODEL = "assistant.model"
         const val KEY_CHIPS = "assistant.chips"
-        const val KEY_SETUP_REQUIRED = "assistant.setup_required"
 
         /** How the store writes a boolean: `Boolean.toString()`. */
-        const val TRUE_TEXT = "true"
         const val FALSE_TEXT = "false"
 
         /**

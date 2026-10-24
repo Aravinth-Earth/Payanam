@@ -277,19 +277,34 @@ object E2eLabels {
         val assistantSetupHeadline: String get() = shared.assistantSetupHeadline
         val assistantApiKey: String get() = shared.assistantKeyLabel
         val assistantLoadModels: String get() = shared.assistantKeyLoadModels
-        val assistantAdvanced: String get() = shared.assistantAdvancedEntry
         val assistantNoModel: String get() = shared.assistantNoModel
-        val assistantChangeProvider: String get() = shared.assistantChangeProvider
         val assistantGotIt: String get() = shared.assistantNoticeOk
 
+        /** The setup surface's caption: why the feature is optional and where the key is stored. */
+        val assistantSetupCaption: String get() = shared.assistantSetupCaption
+
         /**
-         * The ERROR banner's own dismiss control.
+         * The unconfigured chat surface's one route into the settings editor.
          *
-         * Not the notice's "Got it": the banner carries `assistant_error_dismiss` ("Dismiss" / "மூடு"),
-         * a different string. Measured 2026-10-16 — the test dismissed the banner with the notice label
-         * and the lookup found nothing while the banner was plainly on screen.
+         * Setup moved off the chat screen, so this button is now the entry a fresh install has: the
+         * settings destination is reachable only through it (no key) or through the top-bar gear
+         * ([io.payanam.core.ui.assistant.ASSISTANT_SETTINGS_BUTTON], a testTag, because the gear is an
+         * icon with no user-facing label of its own).
          */
-        val assistantErrorDismiss: String get() = shared.assistantErrorDismiss
+        val assistantSetupPointer: String get() = shared.assistantSetupPointer
+
+        /** The connection section's own copy: where the model runs, and the two backend choices. */
+        val assistantProviderWhere: String get() = shared.assistantProviderWhere
+        val assistantProviderLocal: String get() = shared.assistantProviderLocal
+        val assistantProviderCloud: String get() = shared.assistantProviderCloud
+
+        /**
+         * The key-removal confirmation: raised when saving an endpoint change would present the stored
+         * key to a different provider or address.
+         */
+        val assistantKeyRemovalTitle: String get() = shared.assistantKeyRemovalTitle
+        val assistantKeyRemovalBody: String get() = shared.assistantKeyRemovalBody
+        val assistantKeyRemovalConfirm: String get() = shared.assistantKeyRemovalConfirm
 
         // ── update channel: ANDROID-ONLY copy ──────────────────────────────────────────────────────
         // The in-app updater exists only on Android, so these two strings have no shared counterpart —
@@ -300,7 +315,6 @@ object E2eLabels {
 
         // ── assistant setup + insights surfaces (shared copy) ──────────────────────────────────────
         val assistantModelPick: String get() = shared.assistantModelPick
-        val assistantLoadingModels: String get() = shared.assistantLoadingModels
         val assistantRemoveKey: String get() = shared.assistantRemoveKey
         val assistantSaveStart: String get() = shared.assistantSaveStart
         val assistantNoticeTitle: String get() = shared.assistantNoticeTitle
@@ -310,7 +324,6 @@ object E2eLabels {
         // ── surfaces the fresh-install journey classes reach (shared copy) ─────────────────────────
         val assistantInputHint: String get() = shared.assistantInputHint
         val assistantKeyStoredHint: String get() = shared.assistantKeyStoredHint
-        val assistantErrorKeyRejected: String get() = shared.assistantErrorKeyRejected
         val importAction: String get() = shared.settingsActionImport
         val exportAction: String get() = shared.settingsActionExport
         val insightsChartsVisibility: String get() = shared.settingsInsightsChartsVisibilityTitle

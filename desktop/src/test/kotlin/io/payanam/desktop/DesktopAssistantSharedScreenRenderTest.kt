@@ -28,6 +28,7 @@ import io.payanam.domain.assistant.AssistantBusy
 import io.payanam.domain.assistant.AssistantChatMessage
 import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.presentation.assistant.AssistantUiState
 import org.junit.Rule
@@ -71,23 +72,35 @@ class DesktopAssistantSharedScreenRenderTest {
 
     private val strings = UiStrings.of(UiLanguage.ENGLISH)
 
+    /**
+     * The unconfigured chat screen is a POINTER to settings, not a place to configure anything.
+     *
+     * Setup used to be carried by this screen as its own key and model form, which meant two surfaces
+     * could configure the same connection and only one of them had the provider, the address and the
+     * Verify check. That form is gone: `SetupRequiredContent` says what is missing and offers ONE button
+     * into the settings editor, which owns the connection fields. This case is the two-sided claim -
+     * the headline, the caption and that single pointer button are present, and the controls that belong
+     * to the settings editor's connection section ("API key", "Load models") are NOT drawn here, so setup
+     * cannot quietly reappear on chat. Every string asserted is the screen's OWN copy from the shared
+     * table, so a label swapped for a literal would fail here.
+     */
     @Test
-    fun `the chat screen composes its setup form over a hand-built state with no store`() {
+    fun `the unconfigured chat screen points at settings instead of carrying a setup form`() {
         // `loading = false` with no key and no model is the state the ViewModel publishes for a user who
-        // has never configured the feature: `isConfigured` is false, so `SetupContent` is the branch that
-        // composes. Every string asserted below is the screen's OWN copy from the shared table, so a label
-        // swapped for a literal would fail here.
+        // has never configured the feature: `isConfigured` is false, so `SetupRequiredContent` composes.
         renderAssistant(uiState = AssistantUiState(loading = false, hasKey = false))
 
         composeRule.onNodeWithText(strings.assistantTitle).assertExists()
         composeRule.onNodeWithText(strings.assistantSetupHeadline).assertExists()
         composeRule.onNodeWithText(strings.assistantSetupCaption).assertExists()
-        // The offline note and the key field are the two things this branch is FOR, so an assertion on the
-        // headline alone could pass against a setup form with no key entry at all.
-        composeRule.onNodeWithText(strings.assistantSetupOfflineNote).assertExists()
-        composeRule.onNodeWithText(strings.assistantKeyLabel).assertExists()
-        // The advanced-settings entry, whose absence would make the settings editor unreachable from chat.
-        composeRule.onNodeWithText(strings.assistantAdvancedEntry).assertExists()
+        // EXACTLY one node, so this is a claim about the single pointer button rather than about the
+        // copy appearing somewhere: a second control here would be a second way into configuration.
+        composeRule.onAllNodesWithText(strings.assistantSetupPointer).assertCountEquals(1)
+        // The two controls that moved to the settings editor and must not be duplicated back onto chat.
+        // `assistant_key_label` carries the same text as `assistant_api_key` ("API key"), and the settings
+        // field uses the latter, so the field's own label is what is asserted absent.
+        composeRule.onAllNodesWithText(strings.assistantApiKey).assertCountEquals(0)
+        composeRule.onAllNodesWithText(strings.assistantKeyLoadModels).assertCountEquals(0)
     }
 
     /**
@@ -246,24 +259,47 @@ class DesktopAssistantSharedScreenRenderTest {
     }
 
     /**
-     * The settings screen with NOTHING configured renders the unconfigured half of itself.
+     * The settings screen renders the CONNECTION section - the one place the assistant is configured.
      *
-     * This is the branch a desktop destination would hit first, because a fresh install has no key and no
-     * model: `isConfigured` is false, so the "no model selected" line appears and the change-provider row
-     * does NOT carry a model suffix. Asserting the row's plain form is what proves the screen read the
-     * state rather than rendering a default-constructed one - a screen that ignored `hasKey` would still
-     * show the title and every section title.
+     * This replaces an assertion on "Change provider", which was a row on this screen and disappeared with
+     * the chat-surface form: the section is what is left, and it is now the only surface that can name a
+     * host for the stored key. So the claim is about real controls, not about the screen composing:
+     * `assistantProviderWhere` and one radio row per `AssistantBackend` entry (labels from a `when`, so a
+     * missing branch would render an empty row rather than fail a compile), then the provider field and
+     * the address field below them.
+     *
+     * The state is a chosen provider with NO key and NO model, which is a real moment in setup: the fields
+     * below the backend choice only render once a provider exists (`ConnectionSection` returns early when
+     * `uiState.provider` is null, because there is nothing to check an address or a key against), and the
+     * unconfigured lines are asserted alongside so this cannot pass on a default-constructed state.
      */
     @Test
-    fun `the settings screen renders its unconfigured half for a state with no key and no model`() {
-        renderSettings(uiState = AssistantUiState(loading = false, hasKey = false))
+    fun `the settings screen renders the connection section's backend choices and provider fields`() {
+        renderSettings(
+            uiState =
+                AssistantUiState(
+                    loading = false,
+                    hasKey = false,
+                    // Chosen but not saved. The backend radios hold no state of their own - they read the
+                    // chosen provider's group - so this one field is what makes the rest of the section
+                    // render at all.
+                    provider = AssistantProvider.OLLAMA,
+                ),
+        )
 
-        // The row with no model appended, which is the whole difference between the two states.
-        composeRule.onAllNodesWithText(strings.assistantChangeProvider).assertCountEquals(1)
+        // Where the model runs: the section title and both backend labels.
+        composeRule.onNodeWithText(strings.assistantProviderWhere).assertExists()
+        composeRule.onNodeWithText(strings.assistantProviderLocal).assertExists()
+        composeRule.onNodeWithText(strings.assistantProviderCloud).assertExists()
+        // The provider dropdown's own label, and the address field - located by the `contentDescription`
+        // the screen puts on it, which is a stable hook rather than a second copy of the label.
+        composeRule.onNodeWithText(strings.assistantProvider).assertExists()
+        // Located by its visible label: the field no longer repeats it as a content description, which
+        // made a screen reader announce "Address, Address".
+        composeRule.onNodeWithText(strings.assistantAddress).assertExists()
+        // The unconfigured half still reads the state rather than a default: "no model selected yet" present,
+        // and the key-removal row, which is gated on `hasKey`, absent.
         composeRule.onNodeWithText(strings.assistantNoModel).assertExists()
-        // Key removal is conditional on `hasKey`, so its absence is the assertion that this branch is the
-        // unconfigured one. `assertCountEquals(0)` rather than "does not exist" so a screen that rendered the
-        // button with no action would be caught.
         composeRule.onAllNodesWithText(strings.assistantRemoveKey).assertCountEquals(0)
     }
 

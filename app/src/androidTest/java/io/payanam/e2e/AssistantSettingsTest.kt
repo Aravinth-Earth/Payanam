@@ -19,14 +19,15 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The AI Assistance **settings surface** (Advanced settings): length presets, suggestion-chips and
- * show-method switches, the numeric caps (max rows / rounds / history depth), the About-me fields,
- * and the System-prompt additions editor.
+ * The AI Assistance **settings surface** (the assistant's own settings destination): the connection
+ * (where the model runs, the provider, its address and key, the model, Verify), length presets,
+ * suggestion-chips and show-method switches, the numeric caps (max rows / rounds / history depth), the
+ * About-me fields, and the System-prompt additions editor.
  *
  * Why these assertions exist:
  *
- *  - **the settings surface is reachable without a provider key** — the Advanced-settings entry on
- *    the setup surface opens it, and every control there is usable before any key is stored;
+ *  - **the settings surface is reachable without a provider key** — the setup pointer on the chat
+ *    surface opens it, and every control there is usable before any key is stored;
  *  - **the length presets are radio buttons** — each must be selectable in turn, not just present;
  *  - **the switches must actually flip** — reading the state before and after the tap catches a
  *    toggle that silently does nothing;
@@ -61,8 +62,19 @@ class AssistantSettingsTest {
 
         h.openAssistant()
 
-        // ── reach the settings surface via the Advanced-settings entry ──
-        h.click(l.ui.assistantAdvancedEntry)
+        // ── reach the settings surface from the chat surface ──
+        // Two entries on purpose, because this class shares the installed app with the others in the
+        // same invocation: an assistant with no provider key offers the setup pointer, and one that
+        // already has a key offers the top-bar gear instead. Both land on the same destination, and
+        // the pointer is the one that exists on a fresh install - so it is preferred, and the gear is
+        // the fallback a seeded configured assistant needs.
+        if (h.exists(l.ui.assistantSetupPointer)) {
+            h.click(l.ui.assistantSetupPointer)
+            h.log("settings-entry=pointer")
+        } else {
+            h.clickTag("assistant_settings_button")
+            h.log("settings-entry=gear")
+        }
         h.assertVisible(l.ui.assistantSettingsTitle)
         h.log("settings-surface=ok")
 

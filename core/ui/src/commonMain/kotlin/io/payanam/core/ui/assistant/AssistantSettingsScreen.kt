@@ -49,7 +49,6 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.onFocusChanged
-import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
@@ -148,26 +147,6 @@ fun AssistantSettingsScreenContent(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            TextButton(
-                onClick = {
-                    AppLogger.current.i(
-                        "AssistantSettingsScreen",
-                        "Provider change requested from settings",
-                    )
-                    actions.onChangeProviderRequested()
-                    actions.onNavigateBack()
-                },
-                modifier = Modifier.testTag(ASSISTANT_CHANGE_PROVIDER_BUTTON),
-            ) {
-                Text(
-                    strings.assistantChangeProvider +
-                        if (isConfigured(uiState)) {
-                            " · " + uiState.settings.model
-                        } else {
-                            ""
-                        },
-                )
-            }
             if (!isConfigured(uiState)) {
                 Text(
                     text = strings.assistantNoModel,
@@ -419,9 +398,9 @@ private fun ConnectionSection(
         value = uiState.baseUrl,
         onValueChange = actions.onBaseUrlChange,
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = strings.assistantAddress },
+            Modifier.fillMaxWidth(),
+        // No contentDescription: the visible label names the field, and repeating it made a screen
+        // reader announce "Address, Address".
         label = { Text(strings.assistantAddress) },
         supportingText = { Text(strings.assistantAddressHint) },
         singleLine = true,
@@ -435,9 +414,7 @@ private fun ConnectionSection(
         value = uiState.keyDraft,
         onValueChange = actions.onKeyChange,
         modifier =
-            Modifier
-                .fillMaxWidth()
-                .semantics { contentDescription = strings.assistantApiKey },
+            Modifier.fillMaxWidth(),
         label = { Text(strings.assistantApiKey) },
         singleLine = true,
         visualTransformation = PasswordVisualTransformation(),
@@ -500,9 +477,7 @@ private fun ConnectionSection(
             value = uiState.settings.model,
             onValueChange = actions.onSelectModel,
             modifier =
-                Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = strings.assistantModelManual },
+                Modifier.fillMaxWidth(),
             label = { Text(strings.assistantModelManual) },
             singleLine = true,
         )
@@ -790,9 +765,6 @@ private fun AboutField(
         maxLines = 3,
     )
 }
-
-/** The provider-change row. Stable so a test need not repeat the literal. */
-const val ASSISTANT_CHANGE_PROVIDER_BUTTON: String = "assistant_change_provider_button"
 
 /**
  * How many digits a numeric cap will accept as it is typed.

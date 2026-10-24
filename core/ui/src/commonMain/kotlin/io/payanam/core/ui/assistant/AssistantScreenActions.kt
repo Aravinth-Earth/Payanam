@@ -10,15 +10,18 @@ import io.payanam.domain.assistant.AssistantProvider
 /**
  * Everything the assistant chat screen can do, named once.
  *
- * WHY A HOLDER: the screen drives three states (loading, the key setup form, the chat) and eight
- * controls, and each of them is a write the platform owns. Threading them as parameters would put eight
- * lambdas on the signature of a screen a third destination will later want, and every one of them
+ * WHY A HOLDER: the screen drives two states (loading, the chat) and the handful of controls each of
+ * them shows, and each of them is a write the platform owns. Threading them as parameters would put that
+ * many lambdas on the signature of a screen a third destination will later want, and every one of them
  * defaults to a no-op - which is precisely how a control ends up rendering as if it worked while
  * reaching nothing. Naming them here means a caller either wires a write or sees it unwired.
  *
- * The three lifecycle members are separated from the five data members on purpose: [onScreenEntered] and
- * [onNavigatedBack] fire on a screen event, while the rest are a control reporting a value, so a reader
- * can tell which callbacks exist to keep the screen in step with storage.
+ * The lifecycle members are separated from the data members on purpose: [onScreenEntered],
+ * [onNavigateBack] and [onOpenSettings] fire on a screen event, while the rest are a control reporting a
+ * value, so a reader can tell which callbacks exist to keep the screen in step with storage.
+ *
+ * There are deliberately no configuration writes here. Setup is the settings editor's job
+ * ([AssistantSettingsScreenActions]), and this surface only says so and points at it.
  */
 class AssistantScreenActions(
     /**
@@ -30,11 +33,13 @@ class AssistantScreenActions(
      */
     val onScreenEntered: () -> Unit = {},
     val onNavigateBack: () -> Unit = {},
+    /**
+     * Opens the settings editor, which owns the provider, address, key and model.
+     *
+     * It is the ONLY route into setup now that the chat surface has no setup form of its own, and the
+     * gear in the top bar is the same destination reached from a second place - not a second route.
+     */
     val onOpenSettings: () -> Unit = {},
-    val onKeyChange: (String) -> Unit = {},
-    val onLoadModels: () -> Unit = {},
-    val onSelectModel: (String) -> Unit = {},
-    val onSaveAndStart: () -> Unit = {},
     val onSendQuestion: (String) -> Unit = {},
     val onDismissError: () -> Unit = {},
     val onAcknowledgeNotice: () -> Unit = {},
@@ -58,12 +63,6 @@ class AssistantSettingsScreenActions
         val onScreenEntered: () -> Unit = {},
         val onFlushRequested: () -> Unit = {},
         val onNavigateBack: () -> Unit = {},
-        /**
-         * Starts the key replacement flow, which stores the reconfigure flag and clears the model. The
-         * screen then navigates back itself, because the destination that takes the new key is the chat
-         * screen - asking the platform to navigate would put the destination's identity in two places.
-         */
-        val onChangeProviderRequested: () -> Unit = {},
         /** Removes the stored key, the model and the reconfigure flag in one transaction. */
         val onRemoveKeyRequested: () -> Unit = {},
         val onLengthChange: (AssistantLength) -> Unit = {},

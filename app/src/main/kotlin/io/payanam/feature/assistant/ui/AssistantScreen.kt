@@ -72,10 +72,6 @@ fun AssistantScreen(
             onScreenEntered = viewModel::refresh,
             onNavigateBack = onNavigateBack,
             onOpenSettings = onOpenSettings,
-            onKeyChange = viewModel::updateKeyDraft,
-            onLoadModels = viewModel::loadModels,
-            onSelectModel = viewModel::selectModel,
-            onSaveAndStart = viewModel::saveAndStart,
             onSendQuestion = viewModel::send,
             onDismissError = viewModel::dismissError,
             onAcknowledgeNotice = viewModel::acknowledgeNotice,
@@ -100,7 +96,6 @@ fun AssistantSettingsScreen(onNavigateBack: () -> Unit = {}) {
         AssistantSettingsScreenActions(
             onFlushRequested = viewModel::flushSettings,
             onNavigateBack = onNavigateBack,
-            onChangeProviderRequested = viewModel::changeProvider,
             onRemoveKeyRequested = viewModel::removeProviderKey,
             onLengthChange = { preset -> viewModel.updateSettings { it.copy(length = preset) } },
             onChipsEnabledChange = { value -> viewModel.updateSettings { it.copy(chipsEnabled = value) } },

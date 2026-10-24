@@ -31,8 +31,6 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.Visibility
-import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
@@ -65,8 +63,6 @@ import androidx.compose.ui.text.SpanStyle
 import androidx.compose.ui.text.buildAnnotatedString
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.withStyle
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
@@ -83,12 +79,19 @@ import io.payanam.presentation.assistant.AssistantUiState
 import io.payanam.shared.logging.AppLogger
 
 /**
- * The assistant chat surface: the key setup form when no key is stored, the conversation once one is.
+ * The assistant chat surface: a pointer to settings when nothing is configured, the conversation once
+ * something is.
  *
- * ## WHAT MOVED HERE AND WHY IT IS STILL ONE SCREEN
+ * ## SETUP LIVES IN SETTINGS, CHAT LIVES HERE
  *
- * The three states are driven by [AssistantUiState], which the shared ViewModel already produces, and
- * every control reports through [AssistantScreenActions] rather than touching a store. The alternative -
+ * This screen used to carry its own key/model setup form as well as the chat, which meant two surfaces
+ * could configure the same connection and only one of them had the provider, address and Verify check.
+ * The setup form is gone: when the assistant is not configured this screen says so and offers one button
+ * into the settings editor, which owns the connection fields. Nothing is configured from here any more,
+ * so the two places cannot drift.
+ *
+ * The states are driven by [AssistantUiState], which the shared ViewModel already produces, and every
+ * control reports through [AssistantScreenActions] rather than touching a store. The alternative -
  * three separate destinations - would mean re-deciding "is this a setup screen or a chat screen?" on
  * each platform, and the answer depends on stored state that only the shared ViewModel knows.
  *
@@ -175,16 +178,10 @@ fun AssistantScreenContent(
             }
 
             !isConfigured(uiState) -> {
-                SetupContent(
-                    uiState = uiState,
+                SetupRequiredContent(
                     strings = strings,
                     modifier = Modifier.fillMaxSize().padding(padding).imePadding(),
-                    onKeyChange = actions.onKeyChange,
-                    onLoadModels = actions.onLoadModels,
-                    onSelectModel = actions.onSelectModel,
-                    onSaveAndStart = actions.onSaveAndStart,
                     onOpenSettings = actions.onOpenSettings,
-                    onDismissError = actions.onDismissError,
                 )
             }
 
@@ -218,22 +215,23 @@ fun AssistantScreenContent(
     }
 }
 
+/**
+ * What the surface says while the assistant cannot open: setup happens in settings, not here.
+ *
+ * The button label is [UiStrings.assistantSettingsTitle], the title of the destination it opens, so the
+ * control names exactly the screen the user will land on. There is no dedicated "set this up in
+ * settings" string in the table yet; see the report for why no existing line was reused verbatim.
+ */
 @Composable
-private fun SetupContent(
-    uiState: AssistantUiState,
+private fun SetupRequiredContent(
     strings: UiStrings,
     modifier: Modifier,
-    onKeyChange: (String) -> Unit,
-    onLoadModels: () -> Unit,
-    onSelectModel: (String) -> Unit,
-    onSaveAndStart: () -> Unit,
     onOpenSettings: () -> Unit,
-    onDismissError: () -> Unit,
 ) {
-    var keyVisible by rememberSaveable { mutableStateOf(false) }
-    var pickerOpen by rememberSaveable { mutableStateOf(false) }
     Column(
-        modifier = modifier.verticalScroll(rememberScrollState()).padding(16.dp),
+        // Scrollable rather than centred: at a 200% font scale the caption alone can run past a short
+        // phone's height, and a non-scrolling Column would clip it with no way to reach the rest.
+        modifier = modifier.verticalScroll(rememberScrollState()).padding(24.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
         Text(strings.assistantSetupHeadline, style = MaterialTheme.typography.titleLarge)
@@ -242,117 +240,17 @@ private fun SetupContent(
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant,
         )
-        Text(
-            text = strings.assistantSetupOfflineNote,
-            style = MaterialTheme.typography.labelMedium,
-            color = MaterialTheme.colorScheme.primary,
-        )
-        val storedKeyHint = uiState.hasKey && uiState.keyDraft.isBlank()
-        OutlinedTextField(
-            value = uiState.keyDraft,
-            onValueChange = onKeyChange,
-            modifier = Modifier.fillMaxWidth(),
-            label = { Text(strings.assistantKeyLabel) },
-            placeholder =
-                if (storedKeyHint) {
-                    null
-                } else {
-                    { Text(strings.assistantKeyHint) }
-                },
-            singleLine = true,
-            visualTransformation = if (keyVisible) VisualTransformation.None else PasswordVisualTransformation(),
-            isError = uiState.keyInvalid,
-            supportingText =
-                if (uiState.keyInvalid) {
-                    { Text(strings.assistantErrorKeyRejected) }
-                } else if (storedKeyHint) {
-                    { Text(strings.assistantKeyStoredHint) }
-                } else {
-                    null
-                },
-            trailingIcon = {
-                IconButton(onClick = { keyVisible = !keyVisible }) {
-                    Icon(
-                        imageVector = if (keyVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility,
-                        contentDescription = if (keyVisible) strings.assistantKeyHide else strings.assistantKeyShow,
-                    )
-                }
-            },
-        )
         Button(
-            onClick = onLoadModels,
-            enabled = (uiState.keyDraft.isNotBlank() || uiState.hasKey) && !uiState.modelsLoading,
+            onClick = {
+                // Same log line the top-bar gear writes: both routes land on the same destination, and
+                // nothing here may ever carry the key.
+                AppLogger.current.d("AssistantScreen", "Settings opened from setup prompt")
+                onOpenSettings()
+            },
             modifier = Modifier.fillMaxWidth(),
         ) {
-            if (uiState.modelsLoading) {
-                CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(strings.assistantLoadingModels)
-            } else {
-                Text(strings.assistantKeyLoadModels)
-            }
+            Text(strings.assistantSetupPointer)
         }
-        if (uiState.modelOptions.isNotEmpty()) {
-            Text(strings.assistantModelLabel, style = MaterialTheme.typography.titleSmall)
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = RoundedCornerShape(8.dp),
-                color = MaterialTheme.colorScheme.surfaceVariant,
-                onClick = { pickerOpen = true },
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Text(uiState.settings.model.ifEmpty { strings.assistantNoModel })
-                    Text(strings.assistantModelPick, style = MaterialTheme.typography.labelSmall)
-                }
-            }
-            Button(
-                onClick = onSaveAndStart,
-                enabled = uiState.settings.model.isNotEmpty(),
-                modifier = Modifier.fillMaxWidth(),
-            ) {
-                Text(strings.assistantSaveStart)
-            }
-        }
-        uiState.error?.let { kind ->
-            ErrorBanner(
-                kind = kind,
-                detail = uiState.errorDetail,
-                strings = strings,
-                onDismiss = onDismissError,
-            )
-        }
-        TextButton(onClick = onOpenSettings) {
-            Text(strings.assistantAdvancedEntry)
-        }
-    }
-    if (pickerOpen) {
-        PayanamAlertDialog(
-            onDismissRequest = { pickerOpen = false },
-            title = { Text(strings.assistantModelLabel) },
-            text = {
-                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
-                    uiState.modelOptions.forEach { model ->
-                        TextButton(
-                            onClick = {
-                                onSelectModel(model)
-                                pickerOpen = false
-                            },
-                        ) {
-                            Text(model)
-                        }
-                    }
-                }
-            },
-            confirmButton = {
-                TextButton(onClick = { pickerOpen = false }) {
-                    Text(strings.locBack)
-                }
-            },
-        )
     }
 }
 

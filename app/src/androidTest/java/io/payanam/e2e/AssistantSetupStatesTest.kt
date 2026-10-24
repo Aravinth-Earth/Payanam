@@ -11,20 +11,26 @@ import org.junit.Test
 import org.junit.runner.RunWith
 
 /**
- * The AI Assistance **setup surface with no provider key**: the entry exists, the disclosure is
- * acknowledged exactly once, an invalid key is rejected without ever unlocking the chat surface,
- * and the loader never lies about being busy.
+ * The assistant **with no provider key**: the chat surface says setup happens in settings and offers
+ * one pointer there, the disclosure is acknowledged exactly once, and the key/model fields live in the
+ * settings editor rather than on the chat surface.
  *
  * Why these assertions exist (each one is a bug that shipped once):
  *
- *  - **the model list is unauthenticated** — the provider returns its catalogue for a bogus key, so
- *    "Load models" must prove the key with a real chat call before anything is selectable;
- *  - **a rejected key once left the spinner running forever** — after the error banner appears the
- *    button must be back to "Load models", not stuck on "Loading models…";
+ *  - **two surfaces could configure the same connection** — the chat screen used to carry its own key
+ *    and model form beside the settings editor, and only one of them had the provider, address and
+ *    Verify check. The chat surface must now carry NO configuration control at all, so the two places
+ *    cannot drift again: one pointer, and the key field and "Load models" only in settings;
  *  - **a stale model name once survived key removal** — with no key the settings screen must say
  *    "No model selected yet" and never show a remembered model id;
+ *  - **"Remove key" must not appear when no key is stored** — the control only renders while one is;
  *  - **the chat surface must be unreachable without a validated key** — no input row, no model
- *    picker, no "Save & start chatting".
+ *    picker, no "Save & start", on the chat destination or after a visit to settings.
+ *
+ * WHAT IS NO LONGER PROVEN HERE: the invalid-key leg (paste a bad key → the loader resets → the chat
+ * stays locked) drove the form that no longer exists. The equivalent now lives one destination over and
+ * is covered by the ViewModel tests (`AssistantViewModelTest`, the models-loading and key-rejected
+ * cases), which do not need a live provider.
  *
  * SHARED ROUTE: it calls [FreshSetup.runIfNeeded], so it provisions on a clean install and REUSES the
  * app an earlier class in the same invocation provisioned - one install and one setup for the whole
@@ -58,49 +64,52 @@ class AssistantSetupStatesTest {
         h.waitForGone(l.assistantNoticeTitle)
         h.log("notice-acknowledged=ok")
 
-        // ── 2. the setup surface, and everything that must NOT exist yet ──
+        // ── 2. the setup surface: a headline, a caption, and EXACTLY ONE pointer into settings ──
         h.assertVisible(l.assistantSetupHeadline)
-        h.assertVisible(l.assistantApiKey)
-        h.assertVisible(l.assistantLoadModels)
-        h.assertVisible(l.assistantAdvanced)
-        h.assertNotVisible(l.assistantInputHint)
+        h.assertVisible(l.ui.assistantSetupCaption)
+        h.assertVisible(l.ui.assistantSetupPointer)
+        check(h.count(l.ui.assistantSetupPointer) == 1) {
+            "the setup surface must offer one pointer into settings, found ${h.count(l.ui.assistantSetupPointer)}\n" +
+                h.diagnose(l.ui.assistantSetupPointer)
+        }
+        // Nothing on THIS surface configures anything any more — every field below is the settings
+        // editor's, and a second copy here is the drift this change removed.
+        h.assertNotVisible(l.assistantApiKey)
+        h.assertNotVisible(l.assistantLoadModels)
         h.assertNotVisible(l.assistantModelPick)
         h.assertNotVisible(l.assistantSaveStart)
+        h.assertNotVisible(l.assistantInputHint)
         h.log("setup-surface=ok")
 
-        // ── 3. an invalid key: rejected, chat stays locked, loader resets ──
-        h.type(l.assistantApiKey, INVALID_KEY)
-        h.click(l.assistantLoadModels)
-        // existence first — the banner sits near the bottom and may be below the fold
-        rule.waitUntil(90_000) { h.exists(l.assistantErrorKeyRejected) }
-        h.scrollTo(l.assistantErrorKeyRejected)
-        h.assertVisible(l.assistantErrorKeyRejected)
-        h.waitForGone(l.assistantLoadingModels)
-        check(h.find(l.assistantLoadModels)) { "the button never returned to its idle label — stuck on loading" }
-        h.assertNotVisible(l.assistantModelPick)
-        h.assertNotVisible(l.assistantSaveStart)
-        h.assertNotVisible(l.assistantInputHint)
-        h.log("invalid-key-rejected=ok")
-
-        // The error banner dismisses through its OWN control, not through the notice's "Got it" —
-        // `assistant_error_dismiss` is a different string (measured 2026-10-16). The dismissal is proven
-        // on that control's own label: the banner's MESSAGE text is also the API-key field's
-        // `supportingText`, which outlives the banner, so waiting for the message to go can never be
-        // satisfied (measured: 30s timeout while the banner was already gone).
-        h.click(l.assistantErrorDismiss)
-        h.waitForGoneExact(l.assistantErrorDismiss)
-        h.log("error-dismissed=ok")
-
-        // ── 4. advanced settings with no key: no stale model, no Remove key ──
-        h.click(l.assistantAdvanced)
+        // ── 3. the pointer opens the settings editor, which owns the connection ──
+        h.click(l.ui.assistantSetupPointer)
         h.assertVisible(l.assistantSettings)
+        h.assertVisible(l.ui.assistantProviderWhere)
+        h.assertVisible(l.ui.assistantProviderLocal)
+        h.assertVisible(l.ui.assistantProviderCloud)
         h.assertVisible(l.assistantNoModel)
-        h.assertVisible(l.assistantChangeProvider)
         h.assertNotVisible(STALE_MODEL)
         h.assertNotVisible(l.assistantRemoveKey)
-        h.back()
+        h.log("settings-entry=ok")
 
-        // ── 5. leaving and returning: notice stays acknowledged, key was never persisted ──
+        // ── 4. the key field and "Load models" live HERE, below the "where does it run" choice ──
+        // (the connection fields are deliberately not rendered until a backend exists: there is no
+        // address to prefill and nothing to key a request to before that)
+        h.click(l.ui.assistantProviderLocal)
+        h.assertVisible(l.assistantApiKey)
+        h.assertVisible(l.assistantLoadModels)
+        h.assertNotVisible(l.assistantRemoveKey)
+        h.log("connection-fields=ok")
+
+        // ── 5. back on the chat surface: still unconfigured, and still no configuration control ──
+        h.back()
+        h.assertVisible(l.assistantSetupHeadline)
+        h.assertNotVisible(l.assistantApiKey)
+        h.assertNotVisible(l.assistantLoadModels)
+        h.assertNotVisible(l.assistantInputHint)
+        h.log("chat-still-unconfigured=ok")
+
+        // ── 6. leaving and returning: notice stays acknowledged, key was never persisted ──
         h.back()
         h.assertVisible(l.lenses)
         h.openAssistant()
@@ -113,9 +122,6 @@ class AssistantSetupStatesTest {
     }
 
     private companion object {
-        /** Shaped like a real key but deliberately not one. */
-        const val INVALID_KEY = "sk-payanam-e2e-not-a-real-key"
-
         /** The model id that used to be effectively pre-selected and lingered after removal. */
         const val STALE_MODEL = "deepseek-v4.1-flash"
     }

@@ -621,39 +621,6 @@ class AssistantViewModel(
         }
     }
 
-    /**
-     * Reconfigures the provider: flags a pending setup (persisted so the assistant
-     * destination re-reads it on entry and resolves to the setup surface) and clears the
-     * in-memory model selection. The stored key is kept — "Remove key" is the destructive
-     * path — and neutral writers never touch the model row.
-     */
-    fun changeProvider() {
-        // Cancel any in-flight debounced neutral save so the reconfigure write below is the
-        // last persistence to land; neutral saves cannot touch the model row anyway.
-        saveJob?.cancel()
-        _uiState.update {
-            it.copy(
-                modelOptions = emptyList(),
-                settings = it.settings.copy(model = ""),
-                error = null,
-                failure = null,
-                verified = false,
-            )
-        }
-        scope.launch {
-            withContext(NonCancellable) {
-                // runCatching sits INSIDE NonCancellable: a throw must never reach the
-                // default handler, and the write must outlive the navigation pop.
-                runCatching { settingsStore.beginReconfigure() }
-                    .onSuccess {
-                        logger.i("AssistantViewModel.changeProvider", "Reconfigure requested; chat disabled until Save & start")
-                    }.onFailure { error ->
-                        logger.e("AssistantViewModel.changeProvider", "Reconfigure persist failed", error)
-                    }
-            }
-        }
-    }
-
     /** Applies [transform] to settings immediately and persists after a short debounce. */
     fun updateSettings(transform: (AssistantSettings) -> AssistantSettings) {
         val updated = transform(_uiState.value.settings).sanitized()

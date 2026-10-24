@@ -1,6 +1,6 @@
 # Payanam (பயணம்)
 
-Last Updated: 2026-09-30
+Last Updated: 2026-10-24
 
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
@@ -77,14 +77,22 @@ Payanam is offline by design. It has no servers, no accounts, no analytics, and 
 
 **Fail-closed security state.** If the desktop app cannot read its stored passphrase configuration, it refuses to start rather than continuing, because it cannot tell a fresh install apart from a damaged one. The recovery it offers clears only the passphrase and its lockout state — your tasks, journal, notes and settings are not touched.
 
-**AI Assistance — optional, BYOK (bring your own key).** A chat screen (Lenses → AI Assistance) where you connect your own model provider key and ask questions about your tracked data. The rules:
+**AI Assistance — optional, BYOK (bring your own key).** A chat screen (Lenses → AI Assistance) for asking questions about your tracked data. You configure the
+provider in the assistant's own settings: a hosted provider with your own key, or a model server running
+on your own machine. The rules:
 
-- **Opt-in and off by default.** If you never open it and add a key, it never runs and no network call is ever made on its behalf.
-- **You bring your own key** — your key is stored only inside the app's encrypted database, never in plain text.
+- **Opt-in and off by default.** If you never set it up, it never runs and no network call is ever made on its behalf.
+- **You bring your own key** where the provider needs one, and it is stored only inside the app's encrypted database, never in plain text. A model server on your own machine can need no key at all.
 - **Minimum data only.** When — and only when — you ask a question, your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints) and the recent part of this conversation — plus your prompt additions and About-me values, if you set them — are sent to the model provider you chose; the answer is generated there. Nothing else of yours is sent. Your database is never uploaded.
 - **AI answers are statistical.** They can be wrong, and a model's reading is not human or professional judgement — verify the numbers, treat suggestions as hints.
 - **Fully reversible.** Remove the key at any time and the feature is off again.
-- **Third-party service.** The optional connection uses OpenCode Zen. Your key and your usage are governed by [OpenCode's Terms of Service](https://opencode.ai/legal/terms-of-service); Payanam is not affiliated with OpenCode.
+- **Current maturity.** One active conversation at a time, with no saved chat history — leaving the
+  assistant ends the conversation and you start fresh. The provider, address, key and limits are
+  stored with your data and travel with an export.
+- **You choose the provider.** The connection goes to whichever endpoint you configure — a hosted
+  provider you have a key for, or a model server on your own machine, in which case nothing leaves your
+  network. Your key and your usage are governed by that service's own terms. Payanam is not affiliated
+  with, and does not endorse, any of them.
 
 ---
 
@@ -148,7 +156,9 @@ Windows users can also use `.\build-tools\scripts\build-android.ps1` for the ful
 Inspiration from [uHabits](https://github.com/iSoron/uhabits), [SATT](https://github.com/Razeeman/Android-SimpleTimeTracker), and [Google Stitch](https://stitch.google.com).  
 Third-party libraries: AndroidX, Kotlin & kotlinx (Coroutines, Serialization), Jetpack Compose + Material3, Hilt (Dagger), Room, [SQLCipher](https://www.zetetic.net/sqlcipher/) (database encryption), [Vico Charts](https://github.com/patrykandpatrick/vico), Timber, WorkManager.  
 Quality tooling: [detekt](https://detekt.dev), [Spotless](https://github.com/diffplug/spotless) + [ktlint](https://ktlint.github.io), JUnit, [Robolectric](https://robolectric.org), [Mockito](https://site.mockito.org), [Truth](https://truth.dev), Espresso.  
-Optional AI gateway: [OpenCode Zen](https://opencode.ai/zen) — the BYOK provider the optional AI Assistance feature talks to. Payanam is not affiliated with OpenCode.
+Optional AI connection: any OpenAI-compatible endpoint you configure yourself — a hosted provider such as
+[OpenCode](https://opencode.ai), OpenRouter, OpenAI or Anthropic, or a model server you run locally such as
+Ollama or LM Studio. Those names belong to their owners, and Payanam is not affiliated with any of them.
 
 ---
 

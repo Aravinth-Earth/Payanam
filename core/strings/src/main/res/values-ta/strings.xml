@@ -212,6 +212,7 @@
     <string name="assistant_settings_show_method">Method-ஐ காட்டு (tables + period)</string>
     <string name="assistant_settings_title">Assistant அமைப்புகள்</string>
     <string name="assistant_setup_caption">முழுவதும் optional. இதற்கு network தேவையில்லை — நீங்கள் இதை set up செய்யாத வரை உங்கள் data எதுவும் எங்கும் அனுப்பப்படாது. Key இந்த app-ன் encrypted database-லே மட்டும் சேமிக்கப்படும்.</string>
+    <string name="assistant_setup_pointer">Assistant-ஐ அமைப்புகளில் set up செய்யுங்கள்</string>
     <string name="assistant_setup_headline">Model provider-ஐ இணைக்கவும்</string>
     <string name="assistant_setup_offline_note">Servers இல்லை, telemetry இல்லை: இந்த screen-ஐ நீங்கள் பயன்படுத்தவில்லை என்றால், எதுவும் உங்கள் device-ஐ விட்டு வெளியே போகாது.</string>
     <string name="assistant_title">AI உதவியாளர்</string>

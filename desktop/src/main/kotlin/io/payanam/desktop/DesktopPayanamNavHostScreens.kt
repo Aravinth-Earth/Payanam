@@ -902,10 +902,6 @@ internal class DesktopPayanamNavHostScreens(
                         logger.i("PayanamNavHost", "Opening assistant settings")
                         nav.openAssistantSettings()
                     },
-                    onKeyChange = { text -> assistantCollaborators.viewModelOrNull()?.updateKeyDraft(text) },
-                    onLoadModels = { assistantCollaborators.viewModelOrNull()?.loadModels() },
-                    onSelectModel = { model -> assistantCollaborators.viewModelOrNull()?.selectModel(model) },
-                    onSaveAndStart = { assistantCollaborators.viewModelOrNull()?.saveAndStart() },
                     onSendQuestion = { question -> assistantCollaborators.viewModelOrNull()?.send(question) },
                     onDismissError = { assistantCollaborators.viewModelOrNull()?.dismissError() },
                     onAcknowledgeNotice = { assistantCollaborators.viewModelOrNull()?.acknowledgeNotice() },
@@ -931,7 +927,6 @@ internal class DesktopPayanamNavHostScreens(
                     onScreenEntered = { assistantCollaborators.viewModelOrNull()?.refresh() },
                     onFlushRequested = { assistantCollaborators.viewModelOrNull()?.flushSettings() },
                     onNavigateBack = { nav.goBack() },
-                    onChangeProviderRequested = { assistantCollaborators.viewModelOrNull()?.changeProvider() },
                     onRemoveKeyRequested = { assistantCollaborators.viewModelOrNull()?.removeProviderKey() },
                     onLengthChange = { preset ->
                         assistantCollaborators.viewModelOrNull()?.updateSettings { it.copy(length = preset) }

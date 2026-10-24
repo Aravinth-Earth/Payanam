@@ -212,6 +212,7 @@
     <string name="assistant_settings_show_method">Show method (tables + period)</string>
     <string name="assistant_settings_title">Assistant settings</string>
     <string name="assistant_setup_caption">Entirely optional. Payanam needs no network for this — nothing of yours is sent anywhere unless you set this up. The key is stored only in this app\'s encrypted database.</string>
+    <string name="assistant_setup_pointer">Set up the assistant in settings</string>
     <string name="assistant_setup_headline">Connect a model provider</string>
     <string name="assistant_setup_offline_note">No servers, no telemetry: if you never use this screen, no data ever leaves your device.</string>
     <string name="assistant_title">AI Assistance</string>

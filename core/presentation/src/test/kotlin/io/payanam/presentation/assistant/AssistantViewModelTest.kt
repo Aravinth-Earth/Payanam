@@ -666,33 +666,6 @@ class AssistantViewModelTest {
         }
 
     @Test
-    fun `changeProvider flags a pending setup and blanks the model without removing the key`() =
-        runTest(dispatcher) {
-            configured()
-            val viewModel = newViewModel()
-            advanceUntilIdle()
-            viewModel.changeProvider()
-            advanceUntilIdle()
-            assertThat(store.reconfigured).isTrue()
-            val state = viewModel.uiState.value
-            assertThat(state.settings.model).isEmpty()
-            assertThat(state.modelOptions).isEmpty()
-            assertThat(state.hasKey).isTrue()
-        }
-
-    @Test
-    fun `a failed reconfigure persist leaves the flag unpersisted and the model still cleared`() =
-        runTest(dispatcher) {
-            store.beginReconfigureFailure = IllegalStateException("session closed")
-            val viewModel = newViewModel()
-            advanceUntilIdle()
-            viewModel.changeProvider()
-            advanceUntilIdle()
-            assertThat(store.reconfigured).isFalse()
-            assertThat(viewModel.uiState.value.settings.model).isEmpty()
-        }
-
-    @Test
     fun `removeProviderKey clears the stored configuration and the chat history`() =
         runTest(dispatcher) {
             configured()
