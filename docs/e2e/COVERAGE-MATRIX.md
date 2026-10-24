@@ -1,6 +1,6 @@
 # Payanam On-Device UI Coverage Matrix
 
-Last Updated: 2026-10-16
+Last Updated: 2026-10-25
 
 Purpose: a single, element-level map of every interactive surface in the app, with what an AI
 agent can drive **on a real Android device today**, what needs a one-line selector added first, and
@@ -230,7 +230,7 @@ clock), taps are selector-based, and **no agent pushes** — all work stays loca
 | H25 | Data Management | Import (single-file) | testTag `import_database_file_button` / `settingsActionImport` | 🔒 B (SAF source) | Surface (presence) | Manual (seam: ImportSeamTest) |
 | H26 | Data Management | Import uHabits / Map imported habits | `settingsActionImportUhabits` / `settingsActionMapImportedHabits` | 📦 D | None | `SettingsImportTest` |
 | H27 | Data Management | Update Passphrase entry | `settingsActionChangePassphrase` | ✅ A | Surface | `PassphraseChangeTest` |
-| H28 | Data Management | Delete All Data + confirm (+ back-up-first prompt) | `settingsActionDeleteAllData` / `settingsDeleteExportPrompt*` | 🔒 B (kills process) | None | Out of scope (see §12) |
+| H28 | Data Management | Delete All Data + confirm (+ back-up-first prompt) | `settingsActionDeleteAllData` / `settingsDeleteExportPrompt*` | 🔒 B (kills process) | None | Out of scope (see §11) |
 | H29 | Debug | Enable Debug Logging switch | `settingsDebugEnable` | ✅ A | None | `SettingsDebugTest` |
 | H30 | Debug | Export current / all logs; habit diagnostics | `settingsActionExportLatestLog` / `settingsActionExportAllLogs` / `settingsActionRunHabitScoreDiagnostics` | ✅ A | Surface (current-session export) | `SettingsDebugTest` |
 | H31 | About | View on GitHub / Open F-Droid | `settingsActionViewOnGithub` / `settingsUpdateOpenFdroid` | 🔒 B (external) | None | Manual |
@@ -238,23 +238,7 @@ clock), taps are selector-based, and **no agent pushes** — all work stays loca
 | H33 | About | Auto-download / prompt-install / wifi-only / auto-check checkboxes | sibling labels | 🏷️ L | None | `UpdatePrefsTest` |
 | H34 | About | Check/Download/Install update actions | `settingsUpdate*Button` | 🔒 B (network + installer) | None | Out of scope |
 
-## 11. Assistant
-
-| ID | Screen | Element / flow | Selector | Gate | Coverage | Suggested class |
-|---|---|---|---|---|---|---|
-| I1 | AssistantScreen | Notice OK | `assistantNoticeOk` | ✅ A | Covered | — |
-| I2 | AssistantScreen | API key field + show/hide | `assistantKeyLabel` / `assistantKeyShow` / `assistantKeyHide` | ✅ A | Surface | `AssistantSetupTest` |
-| I3 | AssistantScreen | Load models → rejected-key error | `assistantKeyLoadModels` / `assistantErrorKeyRejected` | ✅ A | Covered | — |
-| I4 | AssistantScreen | Model picker + options + Save & start | `assistantModelPick` / `assistantSaveStart` | ✅ A | Surface | `AssistantSetupTest` |
-| I5 | AssistantScreen | Advanced settings entry | `assistantAdvancedEntry` | ✅ A | Surface | `AssistantSetupTest` |
-| I6 | AssistantScreen | Chat input + Send + suggestion chips | `assistantInputHint` / `assistantSend` / chip text | 📦 D (needs valid key) | None | Manual/seeded |
-| I7 | AssistantSettingsScreen | Length presets / chips / show-method switches | `assistantLength*` / `assistantSettingsChips` / `assistantSettingsShowMethod` | ✅ A | None | `AssistantSettingsTest` |
-| I8 | AssistantSettingsScreen | Max rows / rounds / history number fields | `assistantSettingsMaxRows` / `…Rounds` / `…History` | ✅ A | None | `AssistantSettingsTest` |
-| I9 | AssistantSettingsScreen | Prompt additions field | no label | 🏷️ L | None | `AssistantSettingsTest` |
-| I10 | AssistantSettingsScreen | About-me fields (Goals/Wants/Needs/Strengths/Focus/Note) | `assistantAbout*` | ✅ A | None | `AssistantSettingsTest` |
-| I11 | AssistantSettingsScreen | Change provider / Remove key | testTag `assistant_change_provider_button` / `assistantRemoveKey` | ✅ A | Covered (reconfigure) | — |
-
-## 12. Blocked / out of scope (with reason)
+## 11. Blocked / out of scope (with reason)
 
 | Surface | Reason | Workaround |
 |---|---|---|
@@ -268,7 +252,7 @@ clock), taps are selector-based, and **no agent pushes** — all work stays loca
 | Lock screen after session timeout | One instrumentation run = one process, so the session never closes | `UnlockTest` as its own invocation |
 | System dark-mode follow / rotation / system font scale | Device-level settings, no adb | Font-scale sweeps via a large-scale device run of `FullJourneyTest` |
 
-## 13. Selector gaps to close first (app-side one-liners)
+## 12. Selector gaps to close first (app-side one-liners)
 
 These are interactive elements with no addressable node. Each needs a `Modifier.testTag(...)` or
 `Modifier.semantics { contentDescription = … }` on the clickable node before it can be driven
@@ -287,10 +271,9 @@ reliably (and before the **C** rows above can become **A**).
 | Notes note card / dimension picker | `notes/NotesScreen.kt` | `testTag` / `contentDescription` |
 | Settings: dimension name field, weight slider, backup interval anchor, rotation count, unlock-timeout anchor, update-channel anchor | `settings/*`, `components/DimensionVisuals.kt` | `contentDescription` = the row's label |
 | Update checkboxes (4) | `app/.../settings/ui/SettingsDataSections.kt` | merge the sibling `Text` into the checkbox semantics |
-| Assistant prompt-additions field | `assistant/AssistantSettingsScreen.kt` | `contentDescription` = `assistantSettingsPromptTitle` |
 | CompletionDialog override checkboxes | `components/CompletionDialog.kt` | merge sibling text into the checkbox |
 
-## 14. Suggested new classes (priority order)
+## 13. Suggested new classes (priority order)
 
 Each is one fresh-install invocation (or a provisioned run where noted), modelled on the existing
 classes. Ordered by coverage value. **Status** marks what is implemented and green on the device
@@ -306,16 +289,15 @@ classes. Ordered by coverage value. **Status** marks what is implemented and gre
 8. `SettingsTogglesTest` — auto-backup, auto-track, day boundary, debug logging, security timeout, scoring-config save (closes H13–H22, H29). **DONE — green.** Biometric row not exercised.
 9. `FocusModeTest` — focus-mode presets + tab-visibility switches (closes H7). **DONE — green.**
 10. `LensesDataTest` — seeded task, Lenses module cards, habit-score drill-in (closes G2, G3, G6). **DONE — green.**
-11. `AssistantSettingsTest` — length presets, number caps, about-me, prompt (closes I7–I10). **DONE — green** (first run hit a Compose teardown flake; second run green). The chips/show-method switches are NOT covered (see findings).
-12. `UnlockNegativeTest` — wrong passphrase + lockout (closes A16–A17). **DONE — green.** Runs as its OWN invocation against a provisioned install (the lock gate needs a process with a configured passphrase and no open session): provision with a fresh-setup class kept installed, then run this class. Asserts attempt 1 and 2 render the "wrong passphrase" copy and attempt 3 renders the shared policy's first lockout (30s).
-13. `TouchTargetSweepTest` — a cross-cutting ergonomics sweep, not an element-coverage class: on Lenses, Tasks, Time and Settings it asserts every DISPLAYED pressable node is at least 24dp in both dimensions, excluding chips/tabs/segmented/nav (`Selected`) and switches/checkboxes (`ToggleableState`). **DONE — green** (Lenses 16, Tasks 2, Time 17, Settings 9 measured controls, 0 below the floor). The collector lives in `E2eHarness.pressableTargets()` / `assertTouchTargets()`.
-14. `TasksDetailsTest` — Add Task deep controls: reminder Custom + lead minutes, one scoring row moved, all four explicit property fields, tag editor, and the recurrence picker (Preset→Daily) saved as a habit (closes B11–B12 partial, B14–B17). **DONE — green.**
-15. `HabitsFilterSortTest` — Habits sort menu (Name A→Z), filter menu (Due today only, a multi-toggle dismissed with Back), and search (query filters one of two habits out, clear restores both) (closes C8). **DONE — green.**
-16. `TimeGapDayPlanTest` — the untracked-gap block opens the assign modal, and the day-plan dialog moves to Custom mode and saves (closes D14, D17). **DONE — green.** Device finding: the day-plan dialog's mode FilterChips report ZERO bounds in the dialog window (a click must go through the semantics action, not a tap).
-17. `JournalPerDimensionTest` — an overall reflection write with the app's own saved indicator, and a per-dimension card expand/collapse revealing its prompts (closes E2, E3, E6). **DONE — green.**
-18. `NotesTagsDimensionTest` — add a note with a tag and a CHANGED life dimension, save, and reopen: the dimension picker shows the chosen dimension (closes F7, F8). **DONE — green.** OPEN QUESTION: the tag did not reliably come back on reopen in one run (`NotesViewModel.createNote` writes the note and its tags as TWO repository calls, so a reopen can read before the second lands) — the tag is asserted as TYPED, not as persisted.
-19. `LensesChartsTest` — seeds a time entry and a habit, opens Lenses, and asserts the Time module's "Average daily time" section (G4). **DONE — green.** G5 (the matrix metric dropdown) is SKIPPED when the Habits chart module is off — it is off by default, so covering G5 needs the chart flag enabled first.
-20. `SettingsBackupRunTest` — enable Auto-Backup, press "Run Backup Now", and assert the card's "Last backup: …" line (closes H18). **DONE — green.** The rest of the Settings group (biometric, delete-all, export/import) is blocked in §12 and named as such.
+11. `UnlockNegativeTest` — wrong passphrase + lockout (closes A16–A17). **DONE — green.** Runs as its OWN invocation against a provisioned install (the lock gate needs a process with a configured passphrase and no open session): provision with a fresh-setup class kept installed, then run this class. Asserts attempt 1 and 2 render the "wrong passphrase" copy and attempt 3 renders the shared policy's first lockout (30s).
+12. `TouchTargetSweepTest` — a cross-cutting ergonomics sweep, not an element-coverage class: on Lenses, Tasks, Time and Settings it asserts every DISPLAYED pressable node is at least 24dp in both dimensions, excluding chips/tabs/segmented/nav (`Selected`) and switches/checkboxes (`ToggleableState`). **DONE — green** (Lenses 16, Tasks 2, Time 17, Settings 9 measured controls, 0 below the floor). The collector lives in `E2eHarness.pressableTargets()` / `assertTouchTargets()`.
+13. `TasksDetailsTest` — Add Task deep controls: reminder Custom + lead minutes, one scoring row moved, all four explicit property fields, tag editor, and the recurrence picker (Preset→Daily) saved as a habit (closes B11–B12 partial, B14–B17). **DONE — green.**
+14. `HabitsFilterSortTest` — Habits sort menu (Name A→Z), filter menu (Due today only, a multi-toggle dismissed with Back), and search (query filters one of two habits out, clear restores both) (closes C8). **DONE — green.**
+15. `TimeGapDayPlanTest` — the untracked-gap block opens the assign modal, and the day-plan dialog moves to Custom mode and saves (closes D14, D17). **DONE — green.** Device finding: the day-plan dialog's mode FilterChips report ZERO bounds in the dialog window (a click must go through the semantics action, not a tap).
+16. `JournalPerDimensionTest` — an overall reflection write with the app's own saved indicator, and a per-dimension card expand/collapse revealing its prompts (closes E2, E3, E6). **DONE — green.**
+17. `NotesTagsDimensionTest` — add a note with a tag and a CHANGED life dimension, save, and reopen: the dimension picker shows the chosen dimension (closes F7, F8). **DONE — green.** OPEN QUESTION: the tag did not reliably come back on reopen in one run (`NotesViewModel.createNote` writes the note and its tags as TWO repository calls, so a reopen can read before the second lands) — the tag is asserted as TYPED, not as persisted.
+18. `LensesChartsTest` — seeds a time entry and a habit, opens Lenses, and asserts the Time module's "Average daily time" section (G4). **DONE — green.** G5 (the matrix metric dropdown) is SKIPPED when the Habits chart module is off — it is off by default, so covering G5 needs the chart flag enabled first.
+19. `SettingsBackupRunTest` — enable Auto-Backup, press "Run Backup Now", and assert the card's "Last backup: …" line (closes H18). **DONE — green.** The rest of the Settings group (biometric, delete-all, export/import) is blocked in §11 and named as such.
 
 ### Device findings from the first batch (worth knowing)
 
@@ -327,15 +309,14 @@ classes. Ordered by coverage value. **Status** marks what is implemented and gre
 - The time-entry modal's dimension field lives in a **collapsible CONTEXT section** and is opened by the Add-Time-Entry FAB via `TimeBlockModalDialog` (tag `time_entry_dimension_field`), not `TimeScreenEntryDialogs`.
 - Text fields expose `EditableText`, which the harness's text matchers do not match; use `assertTextContains` for a field's content.
 - The Journal top-bar "Today" button was not present in the semantics tree while a previous day was shown — date navigation is asserted via previous/next instead.
-- A bottom-nav label (e.g. "Lenses") is present on EVERY screen, so asserting it does not prove the destination — assert a screen-specific label (e.g. the AI Assistance card) or the FAB.
-- The assistant settings `SwitchRow` merges its label but **not** `ToggleableState` onto the merged node (`state=null`), so the harness's switch lookup cannot find it — it needs a testTag on the `Switch`.
+- A bottom-nav label (e.g. "Lenses") is present on EVERY screen, so asserting it does not prove the destination — assert a screen-specific label (e.g. `locPerDimension` on Lenses) or the FAB.
 - The dimension-setup duplicate-name error banner does **not** clear after the duplicate is fixed, so a pass/fail on it is unreliable.
 - A Compose `SlotTable` teardown crash (`ArrayIndexOutOfBoundsException` in `WrappedComposition.dispose`) can fail an otherwise-green run — re-run before treating it as a test failure.
 - `NotesViewModel.createNote` writes the note and then its tags as two repository calls, so a note reopened in the same instant can show no tags. Measured 2026-10-16 while driving `NotesTagsDimensionTest`.
 
 ### Desktop counterpart — parity inventory
 
-Last Updated: 2026-10-17
+Last Updated: 2026-10-25
 
 The desktop's in-process journeys live in `desktop/src/test/kotlin/io/payanam/desktop/` and share one
 harness (`DesktopAppJourneyHarness`). They run under `:desktop:test` with **no device and no Xvfb** over the
@@ -343,8 +324,8 @@ shared screens and a real encrypted database created by the production create pa
 
 **The harness drives the shell's own session.** `installProductionFixtureLayer` goes through the shell's
 `DesktopDatabaseSessionController.openAndInstall`, exactly as `DesktopApp` does, so the controller HOLDS the
-passphrase the assistant's read-only port and the passphrase-change flow read. A fixture that installed the
-data layer directly left the controller with no passphrase, which is what made those surfaces undrivable.
+passphrase that the passphrase-change flow reads. A fixture that installed the data layer directly left the
+controller with no passphrase, which is what made that surface undrivable.
 The vault is built with the encryption probe the change flow gates on, and the database file lives in the
 data root beside the security directory, so the path the controller opens is the path the init flow's
 `DesktopDatabasePathResolver` resolves.
@@ -366,7 +347,6 @@ data root beside the security directory, so the path the controller opens is the
 | `DesktopScoringConfigJourneyTest` | Settings → Configure Scoring → move a weight → Save → back on Settings |
 | `DesktopDayPlanJourneyTest` | Time → day-plan CTA → Custom mode → Save |
 | `DesktopSettingsSectionsJourneyTest` | Insights-Charts-Visibility (open + press a switch) and Life-Dimensions (open the editor) |
-| `DesktopAssistantJourneyTest` | Lenses → entry card → consent gate → Proceed, destination opened proven by the log |
 | `DesktopUnlockNegativeJourneyTest` | a wrong passphrase is refused twice, then the third locks out |
 | `DesktopPassphraseChangeJourneyTest` | Settings → change → the database is REKEYED: the new passphrase opens it and the old one does not |
 
@@ -390,10 +370,8 @@ skipped unless pointed at one:
 **Named gaps (not implied).** The desktop has NO journey for:
 - **Import / export through the picker** — the picker is an AWT file dialog; the Android seam is covered by
   `ImportSeamTest`, and the desktop's import is covered up to the picker by `DesktopImportLoopHarnessTest`.
-- **The assistant's response body** — the consent gate and destination are covered, but a stored key needs a
-  session the refusing-controller path did not have; now that the controller opens, this is the next seam.
 
-And two harness limitations cap what Settings/Focus/Assistant can assert: the harness passes a **static**
+And two harness limitations cap what Settings/Focus can assert: the harness passes a **static**
 `AppPreferencesState` and a **static** startup state, so a toggle's effect and a gate's advance cannot be
 observed in-process.
 
@@ -404,7 +382,7 @@ relaunch succeeds and the user never sees it; `DesktopPassphraseChangeJourneyTes
 FILE's verdict rather than the success copy, and the refusal path's user-visible behaviour is a named gap.
 
 
-## 15. Coverage snapshot
+## 14. Coverage snapshot
 
 | Module | Interactive elements (approx.) | Covered | Surface | None |
 |---|---|---|---|---|
@@ -416,6 +394,5 @@ FILE's verdict rather than the success copy, and the refusal path's user-visible
 | Notes | 8 | 1 | 1 | 6 |
 | Lenses | 10 | 1 | 1 | 8 |
 | Settings | 34 | 4 | 8 | 22 |
-| Assistant | 11 | 4 | 3 | 4 |
 
-Excluded from counts: elements classified 🔒 **B** in §12, which no on-device tier can reach.
+Excluded from counts: elements classified 🔒 **B** in §11, which no on-device tier can reach.
