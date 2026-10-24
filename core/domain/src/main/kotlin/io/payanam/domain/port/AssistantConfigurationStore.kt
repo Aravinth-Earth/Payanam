@@ -2,6 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.domain.port
 
+import io.payanam.domain.assistant.AssistantConnection
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 
 /**
@@ -11,7 +13,7 @@ import io.payanam.domain.assistant.AssistantSettings
  * WHY THIS EXISTS: the assistant screen's state cannot be shared while the thing that STORES that state
  * cannot be named by shared code. The store is an Android type today - the Android platform's transaction helper, an
  * `app_settings` DAO, the Keyguard-closed session handle - and all three of those are the platform's, not
- * the screen's. The screen needs six operations and one value from it; this interface is exactly those,
+ * the screen's. The screen needs seven operations and one value from it; this interface is exactly those,
  * so a platform that cannot store a key must say so by refusing rather than by pretending a session began.
  *
  * THE SINGLE-WRITER DISCIPLINE IS PART OF THE CONTRACT, not of an implementation: the key row belongs to
@@ -38,10 +40,30 @@ interface AssistantConfigurationStore {
      */
     suspend fun saveAll(apiKey: String?, settings: AssistantSettings)
 
+    /**
+     * Stores the chosen [provider] and its [baseUrl] in one write, and nothing else.
+     *
+     * This is the writer that answers "which endpoint", and only that: the model row stays with
+     * [saveAll], the key with [saveAll]/[clearProviderConfiguration], and the pending-setup flag with
+     * [beginReconfigure]/[saveAll]. A connection write therefore cannot resurrect a model the user
+     * removed or drop the stored credential.
+     *
+     * The two values are written as a PAIR because one row without the other describes no endpoint at
+     * all. [baseUrl] is stored as given — it is the user's own address, so it is never normalised or
+     * replaced with a provider default here.
+     */
+    suspend fun saveConnection(
+        provider: AssistantProvider,
+        baseUrl: String,
+    )
+
     /** Records that the first-run notice has been seen. This is the only writer of the notice row. */
     suspend fun markNoticeShown()
 
-    /** Removes the key, the model row and the pending-setup flag in one write. */
+    /**
+     * Removes the key, the model row, the stored provider and address, and the pending-setup flag in
+     * one write.
+     */
     suspend fun clearProviderConfiguration()
 
     /**
@@ -79,6 +101,17 @@ interface AssistantConfigurationStore {
         const val KEY_ABOUT_NOTE = "assistant.about_note"
         const val KEY_NOTICE_SHOWN = "assistant.notice_shown"
         const val KEY_SETUP_REQUIRED = "assistant.setup_required"
+
+        /**
+         * Which provider the endpoint belongs to, as an [AssistantProvider] entry `name`.
+         *
+         * Added after the first shipped builds, so its ABSENCE is a normal state and not a corruption:
+         * see [StoredAssistantConfig.connection] for what an absent value has to mean.
+         */
+        const val KEY_PROVIDER = "assistant.provider"
+
+        /** The endpoint root for [KEY_PROVIDER]; absent on an install that predates the provider list. */
+        const val KEY_BASE_URL = "assistant.base_url"
     }
 }
 
@@ -87,12 +120,20 @@ interface AssistantConfigurationStore {
  *
  * [toString] is overridden because this value can be logged by a caller that has not been careful: it
  * carries the provider key, so the rendered form leaves the key out entirely rather than shortening it.
+ *
+ * [connection]'s DEFAULT IS THE UPGRADE RULE, not an arbitrary value: the provider and address rows did
+ * not exist in the builds before them, so a caller that loads nothing gets exactly the endpoint those
+ * builds used — [AssistantProvider.OPENCODE] at its own default address. Both stores apply that same
+ * rule when the rows are absent, and this default keeps a construction site that omits the value from
+ * inventing a different endpoint.
  */
 data class StoredAssistantConfig(
     val apiKey: String,
     val settings: AssistantSettings,
     val setupRequired: Boolean,
+    val connection: AssistantConnection = AssistantConnection(provider = AssistantProvider.OPENCODE),
 ) {
     override fun toString(): String =
-        "StoredAssistantConfig(apiKey=<redacted>, settings=$settings, setupRequired=$setupRequired)"
+        "StoredAssistantConfig(apiKey=<redacted>, settings=$settings, " +
+            "setupRequired=$setupRequired, connection=$connection)"
 }

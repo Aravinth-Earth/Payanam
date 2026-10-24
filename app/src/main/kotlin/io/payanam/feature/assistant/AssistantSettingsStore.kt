@@ -6,8 +6,10 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.assistant.AssistantAboutMe
+import io.payanam.domain.assistant.AssistantConnection
 import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.domain.assistant.AssistantStoredValue
 import io.payanam.domain.port.AssistantConfigurationStore
@@ -33,12 +35,14 @@ internal const val STORED_SETTING_ROWS = 13
  *
  * The key value is never logged: only its length and a short SHA-256 fingerprint.
  *
- * Two rows follow a single-writer discipline: the model row is written only by [saveAll],
+ * The configuration rows follow a single-writer discipline: the model row is written only by [saveAll],
  * and the reconfigure flag (`KEY_SETUP_REQUIRED`) only by [beginReconfigure] (set) and
- * [saveAll]/[clearProviderConfiguration] (clear). Neutral writers ([save] and dispose/
- * onCleared flushes) write neither, so they can never resurrect a model or clear a pending
- * reconfigure. A pending flag rides database backups like any other row; recovery is the
- * normal setup path (the stored key keeps "Load models" usable).
+ * [saveAll]/[clearProviderConfiguration] (clear). The endpoint rows (`KEY_PROVIDER`,
+ * `KEY_BASE_URL`) likewise belong to [saveConnection] alone. Neutral writers ([save] and
+ * dispose/onCleared flushes) write none of these, so they can never resurrect a model, drop
+ * the chosen provider, or clear a pending reconfigure. A pending flag rides database backups
+ * like any other row; recovery is the normal setup path (the stored key keeps "Load models"
+ * usable).
  */
 @Singleton
 class AssistantSettingsStore
@@ -58,10 +62,12 @@ constructor(
         // Fail-closed: an unreadable row loads as true (into the setup surface), not false.
         val setupRequired = if (setupRequiredField.usable) setupRequiredField.value else true
         if (!setupRequiredField.usable) reportUnreadableStoredRow(KEY_SETUP_REQUIRED)
+        val settings = loadSettings()
         StoredAssistantConfig(
             apiKey = read(KEY_API_KEY) ?: "",
-            settings = loadSettings(),
+            settings = settings,
             setupRequired = setupRequired,
+            connection = loadConnection(settings.model),
         )
     }.also { config ->
         logger.d(
@@ -109,6 +115,36 @@ constructor(
             ),
             noticeShown = read(KEY_NOTICE_SHOWN)?.toBooleanStrictOrNull() ?: false,
         ).sanitized()
+    }
+
+    /**
+     * Reads the stored endpoint as one [AssistantConnection], with the model the caller already loaded.
+     *
+     * THE UPGRADE RULE, implemented here and identically in the desktop store: an install that predates
+     * the provider list has NEITHER row stored, and that user must keep exactly the endpoint they already
+     * had. So an ABSENT provider reads as [AssistantProvider.OPENCODE] and an absent address as that
+     * provider's own default — the gateway this app used before the list existed. Nothing changes for
+     * them and no migration is written.
+     *
+     * Strict in one direction only: a stored provider that names no enum entry (written by a newer
+     * build, or a corrupted row) also falls back to [AssistantProvider.OPENCODE] rather than throwing,
+     * and is reported through [reportUnreadableStoredRow] so the fallback is never silent.
+     *
+     * A blank stored address is treated as absent, because blank is what the two custom providers start
+     * with and their default is null anyway — so the rule never invents an address the user did not choose.
+     */
+    private suspend fun loadConnection(model: String): AssistantConnection {
+        val storedProvider = read(KEY_PROVIDER)
+        val matched = storedProvider?.let { stored -> AssistantProvider.entries.firstOrNull { it.name == stored } }
+        // Absent is the ordinary upgrade case and says nothing; present-but-unmatched is a real anomaly.
+        if (storedProvider != null && matched == null) reportUnreadableStoredRow(KEY_PROVIDER)
+        val provider = matched ?: AssistantProvider.OPENCODE
+        val storedBaseUrl = read(KEY_BASE_URL)
+        return AssistantConnection(
+            provider = provider,
+            baseUrl = if (storedBaseUrl.isNullOrBlank()) provider.defaultBaseUrl.orEmpty() else storedBaseUrl,
+            model = model,
+        )
     }
 
     /**
@@ -165,10 +201,34 @@ constructor(
     }
 
     /**
+     * Stores which endpoint the assistant talks to — the provider and its address — in ONE
+     * transaction, and writes nothing else: not the key, not the model row, not either flag.
+     *
+     * The pair is written together because a provider without its address (or an address without
+     * its provider) describes no endpoint at all. The address is logged neither in full, only
+     * whether one was stored: it can name a host on the user's own network.
+     */
+    override suspend fun saveConnection(
+        provider: AssistantProvider,
+        baseUrl: String,
+    ) {
+        sessionManager.inTransaction {
+            write(KEY_PROVIDER, provider.name)
+            write(KEY_BASE_URL, baseUrl)
+        }
+        logger.i(
+            "AssistantSettingsStore.saveConnection",
+            "Provider and endpoint saved",
+            mapOf("provider" to provider.name, "addressStored" to baseUrl.isNotBlank()),
+        )
+    }
+
+    /**
      * Writes the neutral settings rows; callers must already hold the transaction.
-     * Deliberately EXCLUDES the model row (single-writer: [saveAll]) and the reconfigure
-     * flag ([writeSetupRequired]) so neutral writers (debounced saves, dispose/onCleared
-     * flushes) can never resurrect a model or clear the flag.
+     * Deliberately EXCLUDES the model row (single-writer: [saveAll]), the endpoint rows
+     * (single-writer: [saveConnection]) and the reconfigure flag ([writeSetupRequired]) so
+     * neutral writers (debounced saves, dispose/onCleared flushes) can never resurrect a model,
+     * drop the chosen provider, or clear the flag.
      */
     private suspend fun writeAll(clean: AssistantSettings) {
         write(KEY_LENGTH, clean.length.name)
@@ -193,18 +253,24 @@ constructor(
     }
 
     /**
-     * Removes the stored provider configuration — key, model and the reconfigure flag —
-     * in ONE transaction (used by "Remove key" / replacing the provider).
+     * Removes the stored provider configuration — key, model, the provider, its address and the
+     * reconfigure flag — in ONE transaction (used by "Remove key" / replacing the provider).
+     *
+     * The provider and address rows are deleted with the rest ON PURPOSE: leaving them behind would
+     * let a later load read an endpoint from a configuration the user just removed. Deleted, they are
+     * absent, which loads as the pre-upgrade default rather than as a stale choice.
      */
     override suspend fun clearProviderConfiguration() {
         sessionManager.inTransaction {
             delete(KEY_API_KEY)
             delete(KEY_SETUP_REQUIRED)
             delete(KEY_MODEL)
+            delete(KEY_PROVIDER)
+            delete(KEY_BASE_URL)
         }
         logger.i(
             "AssistantSettingsStore.clearProviderConfiguration",
-            "Provider configuration cleared (key, model, reconfigure flag)",
+            "Provider configuration cleared (key, model, endpoint, reconfigure flag)",
         )
     }
 
@@ -239,6 +305,8 @@ constructor(
         private const val FINGERPRINT_BYTES = 4
         private const val KEY_API_KEY = AssistantConfigurationStore.KEY_API_KEY
         private const val KEY_MODEL = AssistantConfigurationStore.KEY_MODEL
+        private const val KEY_PROVIDER = AssistantConfigurationStore.KEY_PROVIDER
+        private const val KEY_BASE_URL = AssistantConfigurationStore.KEY_BASE_URL
         private const val KEY_LENGTH = AssistantConfigurationStore.KEY_LENGTH
         private const val KEY_MAX_ROWS = AssistantConfigurationStore.KEY_MAX_ROWS
         private const val KEY_ROUNDS = AssistantConfigurationStore.KEY_ROUNDS

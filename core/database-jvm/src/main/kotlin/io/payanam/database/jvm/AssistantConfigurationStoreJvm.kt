@@ -3,7 +3,9 @@
 package io.payanam.database.jvm
 
 import io.payanam.domain.assistant.AssistantAboutMe
+import io.payanam.domain.assistant.AssistantConnection
 import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.domain.assistant.AssistantStoredValue
 import io.payanam.domain.port.AssistantConfigurationStore
@@ -23,25 +25,20 @@ import java.time.Instant
  * nested call instead of committing early, so [saveAll] and [clearProviderConfiguration] keep the
  * all-or-nothing property the Android versions have.
  *
- * **THE SINGLE-WRITER DISCIPLINE IS PRESERVED, not approximated.** [save] writes only the fourteen
- * neutral rows (NEUTRAL_SETTING_ROWS): never the key, never the model row, never the pending-setup
- * flag. So a neutral writer cannot resurrect a model the user removed or silently clear a pending
- * reconfigure — the failure the port's KDoc names as the reason this interface exists.
+ * **THE SINGLE-WRITER DISCIPLINE IS PRESERVED, not approximated.** [save] writes only the thirteen
+ * neutral rows (NEUTRAL_SETTING_ROWS): never the key, never the model row, never the endpoint rows,
+ * never the pending-setup flag. So a neutral writer cannot resurrect a model the user removed, drop
+ * the provider they chose, or silently clear a pending reconfigure — the failure the port's KDoc names
+ * as the reason this interface exists. [saveConnection] is the only writer of `KEY_PROVIDER` and
+ * `KEY_BASE_URL`, and [markNoticeShown] of the notice row.
  *
- * ## The storage keys are re-declared here, and that is the drift-prone choice
+ * ## The storage keys
  *
- * [AssistantConfigurationStore] names the rows but not their string values, and the Android
- * implementation keeps its `KEY_*` constants private to its own companion object. The alternative —
- * moving them onto the shared type beside the port, so both implementations read one declaration — is
- * the choice that stops the two implementations drifting apart, and it is the one this port should
- * eventually get. **It is not done here**: the Android file would have to be edited to read the shared
- * constants, and this port may only add files. Re-declaring the seventeen literals is therefore a
- * deliberate, bounded duplication: it is cheap here (a constant either matches or the store reads
- * nothing) and it is caught the moment it does not, because
- * `AssistantConfigurationStoreJvmTest` asserts the complete stored key set against literal strings and
- * every read in these tests is asserted by literal key. The drift risk is the row it shares with the
- * Android file, and the test is the detector, not the design. Moving the constants onto the port is a
- * follow-up in one place: `AssistantSettingsStore`'s companion plus this one.
+ * The literals live on [AssistantConfigurationStore]'s companion, so both platforms read one
+ * declaration; each implementation re-declares them as private aliases. That only shortens the names —
+ * a mismatched alias reads as an absent row, which looks like a first run rather than like a bug, so
+ * `AssistantConfigurationStoreJvmTest` asserts the stored key set against literal strings and every
+ * read in those tests is asserted by literal key. The test is the detector, not the design.
  *
  * ## Single-writer discipline
  *
@@ -69,8 +66,8 @@ class AssistantConfigurationStoreJvm(
     private val logger = AppLogger.current
 
     /**
-     * Reads the key, the settings and the pending-setup flag in ONE transaction, so the returned
-     * [StoredAssistantConfig] is a single consistent snapshot rather than three independent reads.
+     * Reads the key, the settings, the endpoint and the pending-setup flag in ONE transaction, so the
+     * returned [StoredAssistantConfig] is a single consistent snapshot rather than four independent reads.
      *
      * An absent key row and an empty key row both load as `""`, which is what the snapshot's non-null
      * key promises. The flag's `?: false` is the fail-open case named in this class's KDoc.
@@ -84,10 +81,12 @@ class AssistantConfigurationStoreJvm(
                     // Fail-closed: an unreadable row loads as true (into the setup surface), not false.
                     val setupRequired = if (setupRequiredField.usable) setupRequiredField.value else true
                     if (!setupRequiredField.usable) reportUnreadableStoredRow(KEY_SETUP_REQUIRED)
+                    val settings = loadSettings()
                     StoredAssistantConfig(
                         apiKey = read(KEY_API_KEY) ?: "",
-                        settings = loadSettings(),
+                        settings = settings,
                         setupRequired = setupRequired,
+                        connection = loadConnection(settings.model),
                     )
                 }
             logger.d(
@@ -111,7 +110,7 @@ class AssistantConfigurationStoreJvm(
 
     /**
      * Stores the neutral setting rows in one transaction — and, by NEUTRAL_SETTING_ROWS, nothing else:
-     * no key, no model row, no pending-setup flag.
+     * no key, no model row, no endpoint rows, no pending-setup flag.
      */
     override suspend fun save(settings: AssistantSettings) {
         JdbcFlows.onIo {
@@ -151,6 +150,31 @@ class AssistantConfigurationStoreJvm(
     }
 
     /**
+     * Stores the provider and its address in one transaction, and writes nothing else: no key, no
+     * model row, no pending-setup flag.
+     *
+     * The two rows are written together because a provider without an address — or an address with
+     * no provider — describes no endpoint. The address is not logged: it can name a host on the
+     * user's own network, so only whether one was stored is recorded.
+     */
+    override suspend fun saveConnection(
+        provider: AssistantProvider,
+        baseUrl: String,
+    ) {
+        JdbcFlows.onIo {
+            JdbcQueries.transaction(session) {
+                write(KEY_PROVIDER, provider.name)
+                write(KEY_BASE_URL, baseUrl)
+            }
+            logger.i(
+                SOURCE,
+                "Assistant provider and endpoint saved",
+                mapOf("provider" to provider.name, "addressStored" to baseUrl.isNotBlank()),
+            )
+        }
+    }
+
+    /**
      * Records that the first-run notice has been seen. This is the ONLY writer of the notice row;
      * [save] does not write it.
      */
@@ -162,9 +186,12 @@ class AssistantConfigurationStoreJvm(
     }
 
     /**
-     * Removes the stored provider configuration — key, pending-setup flag and model row — in ONE
-     * transaction, leaving the neutral settings alone so the user keeps their prompt additions and
-     * "about me" text across a key change.
+     * Removes the stored provider configuration — key, pending-setup flag, model row, and the
+     * provider and address rows — in ONE transaction, leaving the neutral settings alone so the user
+     * keeps their prompt additions and "about me" text across a key change.
+     *
+     * The endpoint rows go too, not only the key and model: a "clear" that left a stale address
+     * behind would hand the next configuration a host the user had already removed.
      */
     override suspend fun clearProviderConfiguration() {
         JdbcFlows.onIo {
@@ -172,8 +199,10 @@ class AssistantConfigurationStoreJvm(
                 delete(KEY_API_KEY)
                 delete(KEY_SETUP_REQUIRED)
                 delete(KEY_MODEL)
+                delete(KEY_PROVIDER)
+                delete(KEY_BASE_URL)
             }
-            logger.i(SOURCE, "Provider configuration cleared (key, model, reconfigure flag)")
+            logger.i(SOURCE, "Provider configuration cleared (key, model, endpoint, reconfigure flag)")
         }
     }
 
@@ -222,6 +251,34 @@ class AssistantConfigurationStoreJvm(
     }
 
     /**
+     * Reads the stored endpoint as one [AssistantConnection], with the model the caller already loaded.
+     *
+     * THE UPGRADE RULE, implemented here and identically in the Android store: an install written by a
+     * build that predates the provider list has NEITHER row, and that user must keep exactly the endpoint
+     * they already had. So an ABSENT provider reads as [AssistantProvider.OPENCODE] and an absent address
+     * as that provider's own default — the gateway those builds used. No migration is needed and nothing
+     * changes for them.
+     *
+     * Strict in one direction only: a provider row that names no enum entry (a newer build wrote it, or
+     * the row is corrupt) also falls back to [AssistantProvider.OPENCODE] instead of throwing, and is
+     * reported through [reportUnreadableStoredRow] so the fallback is never silent. A blank address is
+     * treated as absent; the two custom providers have a null default, so this never invents one.
+     */
+    private fun loadConnection(model: String): AssistantConnection {
+        val storedProvider = read(KEY_PROVIDER)
+        val matched = storedProvider?.let { stored -> AssistantProvider.entries.firstOrNull { it.name == stored } }
+        // Absent is the ordinary upgrade case and says nothing; present-but-unmatched is a real anomaly.
+        if (storedProvider != null && matched == null) reportUnreadableStoredRow(KEY_PROVIDER)
+        val provider = matched ?: AssistantProvider.OPENCODE
+        val storedBaseUrl = read(KEY_BASE_URL)
+        return AssistantConnection(
+            provider = provider,
+            baseUrl = if (storedBaseUrl.isNullOrBlank()) provider.defaultBaseUrl.orEmpty() else storedBaseUrl,
+            model = model,
+        )
+    }
+
+    /**
      * Says WHICH stored row could not be read. The value itself is never logged, and the row is not
      * rewritten: the stored text is the only record of what the user chose.
      */
@@ -236,8 +293,9 @@ class AssistantConfigurationStoreJvm(
     /**
      * Writes the neutral settings rows; the caller must already hold the transaction.
      *
-     * Deliberately EXCLUDES the model row (single-writer: [saveAll]) and the pending-setup flag
-     * ([writeSetupRequired]) so a neutral writer can never resurrect a model or clear the flag.
+     * Deliberately EXCLUDES the model row (single-writer: [saveAll]), the endpoint rows (single-writer:
+     * [saveConnection]) and the pending-setup flag ([writeSetupRequired]) so a neutral writer can never
+     * resurrect a model, drop the chosen provider, or clear the flag.
      */
     private fun writeNeutralSettings(clean: AssistantSettings) {
         write(KEY_LENGTH, clean.length.name)
@@ -290,6 +348,8 @@ class AssistantConfigurationStoreJvm(
 
         private const val KEY_API_KEY = AssistantConfigurationStore.KEY_API_KEY
         private const val KEY_MODEL = AssistantConfigurationStore.KEY_MODEL
+        private const val KEY_PROVIDER = AssistantConfigurationStore.KEY_PROVIDER
+        private const val KEY_BASE_URL = AssistantConfigurationStore.KEY_BASE_URL
         private const val KEY_LENGTH = AssistantConfigurationStore.KEY_LENGTH
         private const val KEY_MAX_ROWS = AssistantConfigurationStore.KEY_MAX_ROWS
         private const val KEY_ROUNDS = AssistantConfigurationStore.KEY_ROUNDS

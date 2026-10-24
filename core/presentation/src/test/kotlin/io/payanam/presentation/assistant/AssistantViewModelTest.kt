@@ -6,6 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.assistant.AssistantChatMessage
 import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantErrorKind
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.domain.assistant.HttpResult
 import io.payanam.domain.assistant.HttpTransport
@@ -85,6 +86,14 @@ class AssistantViewModelTest {
             saveAllFailure?.let { throw it }
             savedAllKeys += apiKey
             saved += settings
+        }
+
+        override suspend fun saveConnection(
+            provider: AssistantProvider,
+            baseUrl: String,
+        ) {
+            // No ViewModel path stores a connection yet, so this fake records nothing; the settings
+            // phase adds the assertions when the screen starts calling it.
         }
 
         override suspend fun markNoticeShown() {
