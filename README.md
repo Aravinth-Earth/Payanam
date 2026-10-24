@@ -11,7 +11,7 @@ Last Updated: 2026-10-25
 [![🧪 Beta](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?include_prereleases&filter=beta*&label=Beta&color=blue&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 [![✅ Stable](https://img.shields.io/badge/%E2%9C%85-Stable-green?style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 
-Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking, no telemetry — and no network call ever carries your data. The only network call the app makes is an optional update check against GitHub, which sends none of your data.
+Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking, no telemetry — and no network call ever carries your data. The only network traffic the app can generate is an optional update check that contacts GitHub and sends nothing but the app's build number, and, on Android only and only when you accept an update, the download of a GitHub release asset; build metadata is not user data, and nothing about you or your usage is ever sent.
 
 See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 

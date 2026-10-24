@@ -2,6 +2,10 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.e2e
 
+import androidx.compose.ui.semantics.SemanticsActions
+import androidx.compose.ui.semantics.getOrNull
+import androidx.compose.ui.test.hasText
+import androidx.compose.ui.test.isDisplayed
 import androidx.compose.ui.test.junit4.createAndroidComposeRule
 import androidx.compose.ui.test.onAllNodesWithTag
 import androidx.compose.ui.test.onFirst
@@ -55,16 +59,51 @@ class LensesChartsTest {
         seedHabit()
 
         h.goToTab(l.lenses)
-        // The Time module card's CTA (`locGoToTime`, "Go to Time") is drawn by `LensesScreen` alone and
-        // present whether that card is expanded or not. The bottom-nav "Lenses" label is NOT used: it is
-        // present on every screen, so it proves nothing about the destination.
-        h.assertVisible(l.ui.locGoToTime)
+        assertLensesDestination()
         h.capture("lenses-charts")
 
         timeAverageDailySection()
         scoreMetricDropdown()
         h.log("lenses-charts=done")
     }
+
+    /**
+     * Proves the app is on the Lenses destination using copy the bottom bar cannot draw.
+     *
+     * Neither obvious marker survives. The bottom-nav "Lenses" label is drawn on EVERY screen, so it
+     * proves nothing about the destination. The Time module card's CTA (`locGoToTime`, "Go to Time") is
+     * composed only INSIDE that card, which `LensesScreen` renders behind `chartTimeModuleEnabled`
+     * (`LensesScreen.kt:350,358`) — with that insight switched off the CTA is gone, and the failure would
+     * land before the chart-off paths this test exists to cover.
+     *
+     * `LensesScreen` also draws its OWN top-bar title from `locLenses`, in the `Scaffold(topBar = …)`
+     * argument (`LensesScreen.kt:205-212`). That is unconditional on this screen: it is outside every
+     * preference check, above the `uiState.isLoading` early return (`LensesScreen.kt:214-224`) and
+     * outside `ModuleSections` entirely, so no chart flag, no minimal-mode flag and no load state can
+     * remove it.
+     *
+     * The bottom bar's copy of the same word carries it too, so the marker additionally requires the
+     * node to be NON-pressable: the nav item merges its label into its own clickable node, so within the
+     * merged semantics tree only the screen's title is an exact `locLenses` text with no click action —
+     * which is what makes this specific to the Lenses destination.
+     */
+    private fun assertLensesDestination() {
+        rule.waitUntil(DESTINATION_WAIT_MS) { lensesTitleIsOnScreen() }
+        check(lensesTitleIsOnScreen()) {
+            "the Lenses screen's own title is not on screen — the app is not on the Lenses destination\n${h.diagnose(l.lenses)}"
+        }
+        h.log("lenses=destination")
+    }
+
+    /** One reading of the marker above: an exact `l.lenses` text node that is on screen and not pressable. */
+    private fun lensesTitleIsOnScreen(): Boolean = runCatching {
+        val nodes = rule.onAllNodes(hasText(l.lenses, substring = false))
+        val count = nodes.fetchSemanticsNodes().size
+        (0 until count).any { index ->
+            val node = nodes[index]
+            node.isDisplayed() && node.fetchSemanticsNode().config.getOrNull(SemanticsActions.OnClick) == null
+        }
+    }.getOrDefault(false)
 
     /** A manual time entry, so the Time module's charts have a data point. */
     private fun seedTimeEntry() {
@@ -127,5 +166,8 @@ class LensesChartsTest {
 
         /** Data the test types in, not app copy. */
         const val HABIT_TITLE = "Lenses Habit"
+
+        /** Long enough for the destination's own title to be drawn; a condition wait returns at once. */
+        const val DESTINATION_WAIT_MS = 30_000L
     }
 }
