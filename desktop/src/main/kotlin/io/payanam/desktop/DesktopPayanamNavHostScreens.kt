@@ -984,6 +984,22 @@ internal class DesktopPayanamNavHostScreens(
                             it.copy(aboutMe = it.aboutMe.copy(note = text))
                         }
                     },
+                    // The connection the editor now owns, wired to the same shared ViewModel members the
+                    // setup form on the chat surface calls. `viewModelOrNull()` is null on the pre-unlock
+                    // half of a launch, where the screen renders its own default state and there is
+                    // nothing to write to - the same rule every callback above follows.
+                    onProviderSelected = { provider ->
+                        assistantCollaborators.viewModelOrNull()?.selectProvider(provider)
+                    },
+                    onBaseUrlChange = { text -> assistantCollaborators.viewModelOrNull()?.updateBaseUrl(text) },
+                    onKeyChange = { text -> assistantCollaborators.viewModelOrNull()?.updateKeyDraft(text) },
+                    onLoadModels = { assistantCollaborators.viewModelOrNull()?.loadModels() },
+                    onSelectModel = { model -> assistantCollaborators.viewModelOrNull()?.selectModel(model) },
+                    onVerifyConnection = { assistantCollaborators.viewModelOrNull()?.verifyConnection() },
+                    onDismissError = { assistantCollaborators.viewModelOrNull()?.dismissError() },
+                    onSaveAndStart = { assistantCollaborators.viewModelOrNull()?.saveAndStart() },
+                    onKeyRemovalConfirm = { assistantCollaborators.viewModelOrNull()?.confirmKeyRemoval() },
+                    onKeyRemovalCancel = { assistantCollaborators.viewModelOrNull()?.cancelKeyRemoval() },
                 ),
         )
     }

@@ -12,6 +12,7 @@ package io.payanam.presentation.assistant
 import io.payanam.domain.assistant.AssistantBusy
 import io.payanam.domain.assistant.AssistantChatMessage
 import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantError
 import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantHttpException
 import io.payanam.domain.assistant.AssistantProtocol
@@ -80,6 +81,19 @@ data class AssistantUiState(
     val messages: List<AssistantChatMessage> = emptyList(),
     val busy: AssistantBusy? = null,
     val error: AssistantErrorKind? = null,
+    /**
+     * The precise classification of that same failure, when the client could supply one.
+     *
+     * [error] is the older, coarser vocabulary and stays exactly as it was, because the screen's
+     * banner reads it. It cannot tell a rate limit from a timeout from a provider outage, so this
+     * field carries the truthful [AssistantError] behind the kind — including its [AssistantError.httpStatus]
+     * — and the screen can say which of those actually happened.
+     *
+     * Null means "nothing finer is known": either no failure at all, or a failure raised before the
+     * client classified (or one that never came from an endpoint, such as a locked database). A
+     * consumer must therefore treat null as "fall back to [error]", never as "no error".
+     */
+    val failure: AssistantError? = null,
     /** Provider-side error text for the banner — redacted (submitted-key echoes) and truncated like the log. */
     val errorDetail: String? = null,
     val noticeVisible: Boolean = false,
@@ -172,6 +186,7 @@ class AssistantViewModel(
                         baseUrl = connection.baseUrl,
                         verifying = false,
                         verified = false,
+                        failure = null,
                         keyRemovalPending = false,
                         settings = settings,
                         noticeVisible = !settings.noticeShown,
@@ -197,7 +212,7 @@ class AssistantViewModel(
                 }
             } catch (closed: IllegalStateException) {
                 handleDbClosed("AssistantViewModel.refresh", closed, resetKey = false)
-                _uiState.update { it.copy(loading = false, hasKey = false, provider = null, baseUrl = "") }
+                _uiState.update { it.copy(loading = false, hasKey = false, provider = null, baseUrl = "", failure = null) }
             }
         }
     }
@@ -216,6 +231,10 @@ class AssistantViewModel(
     /**
      * Validates the pasted key with a real chat call, then loads the selectable models.
      * A key rejection is surfaced as [AssistantErrorKind.KEY_REJECTED].
+     *
+     * A KEY IS REQUIRED ONLY WHERE THE PROVIDER REQUIRES ONE: [AssistantProvider.requiresKey] is the
+     * single authority here too, so a local server that answers with no credential can list its models
+     * instead of being stopped before the first call.
      */
     fun loadModels() {
         scope.launch {
@@ -228,11 +247,16 @@ class AssistantViewModel(
             // models without re-pasting a key the app already holds. The value stays a
             // LOCAL val — it never enters keyDraft/uiState/error payloads.
             val key = resolveKey()
-            if (key.isEmpty()) {
+            // A KEY IS REQUIRED ONLY WHERE THE PROVIDER REQUIRES ONE — the same rule
+            // verifyConnection and saveAndStart already apply. A local server (Ollama, LM Studio,
+            // the user's own custom local) answers with no credential at all and still serves a
+            // model list, so gating on `key.isEmpty()` alone made its list unreachable.
+            val provider = _uiState.value.provider
+            if (key.isEmpty() && provider?.requiresKey != false) {
                 logger.d("AssistantViewModel.loadModels", "Load models skipped: no key available", mapOf("source" to source))
                 return@launch
             }
-            _uiState.update { it.copy(modelsLoading = true, error = null, keyInvalid = false) }
+            _uiState.update { it.copy(modelsLoading = true, error = null, failure = null, keyInvalid = false) }
             val logData = mutableMapOf<String, Any?>("keyLength" to key.length, "source" to source)
             if (usedDraft) logData["fingerprint"] = settingsStore.fingerprint(key)
             logger.i("AssistantViewModel.loadModels", "Validating key and loading models", logData)
@@ -242,7 +266,7 @@ class AssistantViewModel(
                 if (models.isEmpty()) {
                     logger.w("AssistantViewModel.loadModels", "Provider returned an empty model list")
                     _uiState.update {
-                        it.copy(modelsLoading = false, error = AssistantErrorKind.SERVER, errorDetail = null)
+                        it.copy(modelsLoading = false, error = AssistantErrorKind.SERVER, errorDetail = null, failure = null)
                     }
                     return@launch
                 }
@@ -330,13 +354,16 @@ class AssistantViewModel(
      * the same `error`/`errorDetail`/`keyInvalid` banner every other provider failure lands in — no
      * second verification mechanism exists. The client is built for the address being checked, so this
      * verifies the host on screen and not the one the app shipped with.
+     *
+     * AN EMPTY MODEL LIST IS A CONNECTED ENDPOINT, not a failure: an endpoint that cannot list models
+     * at all has no other way to report that it answered.
      */
     fun verifyConnection() {
         val state = _uiState.value
         val provider = state.provider
         if (provider == null) {
             logger.w("AssistantViewModel.verifyConnection", "Verification skipped: no provider chosen")
-            _uiState.update { it.copy(verified = false, error = AssistantErrorKind.SERVER, errorDetail = null) }
+            _uiState.update { it.copy(verified = false, error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
             return
         }
         val key = resolveKey()
@@ -347,13 +374,26 @@ class AssistantViewModel(
                 mapOf("provider" to provider.name),
             )
             _uiState.update {
-                it.copy(verified = false, error = AssistantErrorKind.KEY_REJECTED, errorDetail = null, keyInvalid = true)
+                it.copy(
+                    verified = false,
+                    error = AssistantErrorKind.KEY_REJECTED,
+                    errorDetail = null,
+                    failure = null,
+                    keyInvalid = true,
+                )
             }
             return
         }
         val address = state.baseUrl
         _uiState.update {
-            it.copy(verifying = true, verified = false, error = null, errorDetail = null, keyInvalid = false)
+            it.copy(
+                verifying = true,
+                verified = false,
+                error = null,
+                errorDetail = null,
+                failure = null,
+                keyInvalid = false,
+            )
         }
         logger.i(
             "AssistantViewModel.verifyConnection",
@@ -370,8 +410,18 @@ class AssistantViewModel(
                 val endpoint = endpointClient(address)
                 val models = withContext(ioDispatcher) { endpoint.fetchModels(key, sessionId) }
                 if (models.isEmpty()) {
-                    logger.w("AssistantViewModel.verifyConnection", "Provider returned an empty model list")
-                    _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+                    // AN EMPTY LIST IS A CONNECTION, NOT A FAILURE. Some endpoints cannot list their
+                    // models at all — Claude's OpenAI-compatible surface answers an empty list however
+                    // healthy it is — so treating that as a server failure reported a working endpoint
+                    // as broken and hid the real instruction: type the model name. There is no id to
+                    // round-trip with, so verification stops here, the list stays empty, and whatever
+                    // model the user typed is left exactly as typed.
+                    logger.i(
+                        "AssistantViewModel.verifyConnection",
+                        "Endpoint answered but reported no models; treated as connected",
+                        mapOf("provider" to provider.name),
+                    )
+                    _uiState.update { it.copy(modelOptions = emptyList(), verified = true, failure = null) }
                     return@launch
                 }
                 // A real chat call is the only honest check (the model list is unauthenticated).
@@ -401,7 +451,7 @@ class AssistantViewModel(
                 throw error
             } catch (error: Exception) {
                 logger.e("AssistantViewModel.verifyConnection", "Verification failed unexpectedly", error)
-                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
             } finally {
                 // The spinner must stop on EVERY path, including a rejected key or a refused address.
                 _uiState.update { it.copy(verifying = false) }
@@ -436,19 +486,19 @@ class AssistantViewModel(
                 .isEmpty()
         ) {
             logger.w("AssistantViewModel.saveAndStart", "Save attempted without a selected model")
-            _uiState.update { it.copy(error = AssistantErrorKind.NO_MODEL) }
+            _uiState.update { it.copy(error = AssistantErrorKind.NO_MODEL, failure = null) }
             return
         }
         if (provider == null) {
             logger.w("AssistantViewModel.saveAndStart", "Save attempted without a chosen provider")
-            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
             return
         }
         if (state.baseUrl.isBlank()) {
             // An endpoint with no address is not an endpoint: storing one would leave a configuration
             // that can never answer. The two custom providers start blank, so this is reachable.
             logger.w("AssistantViewModel.saveAndStart", "Save attempted without an endpoint address")
-            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
             return
         }
         if (needsKeyRemovalConfirmation()) {
@@ -566,7 +616,7 @@ class AssistantViewModel(
                 throw error
             } catch (error: Exception) {
                 logger.e("AssistantViewModel.saveAndStart", "Connection persist failed", error)
-                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
             }
         }
     }
@@ -586,6 +636,7 @@ class AssistantViewModel(
                 modelOptions = emptyList(),
                 settings = it.settings.copy(model = ""),
                 error = null,
+                failure = null,
                 verified = false,
             )
         }
@@ -626,7 +677,7 @@ class AssistantViewModel(
 
     /** Dismisses the error banner. */
     fun dismissError() {
-        _uiState.update { it.copy(error = null, errorDetail = null) }
+        _uiState.update { it.copy(error = null, errorDetail = null, failure = null) }
     }
 
     /** Marks the first-run notice as seen. */
@@ -657,11 +708,11 @@ class AssistantViewModel(
         // so "no stored key" is only fatal where the provider demands one. No provider chosen yet is not
         // a chat surface either, so that case keeps the existing refusal.
         if (!state.hasKey && state.provider?.requiresKey != false) {
-            _uiState.update { it.copy(error = AssistantErrorKind.KEY_REJECTED) }
+            _uiState.update { it.copy(error = AssistantErrorKind.KEY_REJECTED, failure = null) }
             return
         }
         if (state.settings.model.isEmpty()) {
-            _uiState.update { it.copy(error = AssistantErrorKind.NO_MODEL) }
+            _uiState.update { it.copy(error = AssistantErrorKind.NO_MODEL, failure = null) }
             return
         }
         _uiState.update {
@@ -674,6 +725,7 @@ class AssistantViewModel(
                             id = ++messageSeq,
                         ),
                 error = null,
+                failure = null,
             )
         }
         scope.launch { runTurn(text) }
@@ -827,7 +879,7 @@ class AssistantViewModel(
             // Turn-level safety net: the screen must never crash; every failure ends in a
             // user-visible error kind and the throwable is logged in full.
             logger.e("AssistantTurn.error", "Turn failed unexpectedly", error)
-            _uiState.update { it.copy(busy = null, error = AssistantErrorKind.SERVER, errorDetail = null) }
+            _uiState.update { it.copy(busy = null, error = AssistantErrorKind.SERVER, errorDetail = null, failure = null) }
         }
     }
 
@@ -931,11 +983,12 @@ class AssistantViewModel(
                         messages = emptyList(),
                         settings = it.settings.copy(model = ""),
                         error = null,
+                        failure = null,
                     )
                 }
                 logger.i("AssistantViewModel.removeProviderKey", "Provider key removed; assistant disabled")
             } else {
-                _uiState.update { it.copy(error = AssistantErrorKind.DB_LOCKED) }
+                _uiState.update { it.copy(error = AssistantErrorKind.DB_LOCKED, failure = null) }
             }
         }
     }
@@ -952,7 +1005,9 @@ class AssistantViewModel(
     ) {
         logger.e(tag, "DB session closed", closed)
         if (resetKey) apiKey = ""
-        _uiState.update { it.copy(busy = null, error = AssistantErrorKind.DB_LOCKED) }
+        // A locked database is not a connection failure, so there is no [AssistantError] for it:
+        // the coarse kind is the whole story and a finer value would misdescribe it.
+        _uiState.update { it.copy(busy = null, error = AssistantErrorKind.DB_LOCKED, failure = null) }
     }
 
     /** Best-effort settings persist; true when the write landed. Failure is logged, never silently dropped. */
@@ -997,12 +1052,23 @@ class AssistantViewModel(
             "$tag.http",
             "Provider error",
             error,
-            mapOf("kind" to http.kind.name, "detailChars" to http.detail.length, "detail" to safeDetail),
+            mapOf(
+                "kind" to http.kind.name,
+                // The precise classification and its status, so the local trace says which failure
+                // this really was even though the banner still carries the coarse kind.
+                "reason" to (http.error?.reason ?: "-"),
+                "httpStatus" to (http.error?.httpStatus ?: "-"),
+                "detailChars" to http.detail.length,
+                "detail" to safeDetail,
+            ),
         )
         _uiState.update {
             it.copy(
                 busy = null,
                 error = http.kind,
+                // The truthful classification the client already made, carried through instead of
+                // being thrown away here. Null only for an exception built before the field existed.
+                failure = http.error,
                 // Provider-side failures carry the provider's own words — redacted and
                 // truncated exactly like the log channel, so the screen cannot echo the key.
                 errorDetail = if (rejected) null else safeDetail,
@@ -1016,7 +1082,11 @@ class AssistantViewModel(
         io: IOException,
     ) {
         logger.e("$tag.io", "Network failure", io)
-        _uiState.update { it.copy(busy = null, error = AssistantErrorKind.NETWORK) }
+        // An IO failure never reached an HTTP answer, so it is a transport failure by definition —
+        // no status exists to record, which is the case [AssistantError.Transport] describes.
+        _uiState.update {
+            it.copy(busy = null, error = AssistantErrorKind.NETWORK, failure = AssistantError.Transport())
+        }
     }
 
     /**

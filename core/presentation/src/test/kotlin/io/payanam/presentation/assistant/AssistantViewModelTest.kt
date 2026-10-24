@@ -6,6 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.assistant.AssistantChatMessage
 import io.payanam.domain.assistant.AssistantConnection
 import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantError
 import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
@@ -521,6 +522,41 @@ class AssistantViewModelTest {
         }
 
     @Test
+    fun `a 429 is carried through as a rate limit, not just a server error`() =
+        runTest(dispatcher) {
+            // The model list succeeds; the chat round-trip is what the endpoint rate-limits.
+            transport.postStatus = 429
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.updateKeyDraft("sk-secret")
+            viewModel.loadModels()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            // The fine classification survives into the state, status and all.
+            assertThat(state.failure).isInstanceOf(AssistantError.RateLimit::class.java)
+            assertThat(state.failure?.reason).isEqualTo(AssistantError.REASON_RATE_LIMIT)
+            assertThat(state.failure?.httpStatus).isEqualTo(429)
+            // The coarse kind is untouched: every non-401 status still reads as SERVER for the banner.
+            assertThat(state.error).isEqualTo(AssistantErrorKind.SERVER)
+        }
+
+    @Test
+    fun `a 404 is carried through as a missing model, not just a server error`() =
+        runTest(dispatcher) {
+            transport.postStatus = 404
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.updateKeyDraft("sk-secret")
+            viewModel.loadModels()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            assertThat(state.failure).isInstanceOf(AssistantError.ModelNotFound::class.java)
+            assertThat(state.failure?.reason).isEqualTo(AssistantError.REASON_MODEL_NOT_FOUND)
+            assertThat(state.failure?.httpStatus).isEqualTo(404)
+            assertThat(state.error).isEqualTo(AssistantErrorKind.SERVER)
+        }
+
+    @Test
     fun `an empty model list is a server error, not a silent empty picker`() =
         runTest(dispatcher) {
             configured(model = "")
@@ -542,6 +578,36 @@ class AssistantViewModelTest {
             advanceUntilIdle()
             assertThat(transport.postBodies).isEmpty()
             assertThat(viewModel.uiState.value.modelsLoading).isFalse()
+        }
+
+    @Test
+    fun `a provider that needs no key can list its models`() =
+        runTest(dispatcher) {
+            val address = "http://localhost:11434/v1"
+            store.config =
+                StoredAssistantConfig(
+                    apiKey = "",
+                    settings = AssistantSettings(model = "m1"),
+                    setupRequired = false,
+                    connection =
+                        AssistantConnection(
+                            provider = AssistantProvider.OLLAMA,
+                            baseUrl = address,
+                            model = "m1",
+                        ),
+                )
+            val viewModel = newViewModel { url -> ScriptedAddressClient(OpenAiCompatibleClient(transport, url)) }
+            advanceUntilIdle()
+            viewModel.loadModels()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            // The list is fetched, and the key check behind it is the real chat call, not a skip.
+            assertThat(state.modelOptions).containsExactly("m1", "m2").inOrder()
+            assertThat(state.error).isNull()
+            assertThat(state.modelsLoading).isFalse()
+            assertThat(transport.postUrls).contains("$address/chat/completions")
+            // No credential is presented, because this provider needs none.
+            assertThat(transport.postKeys.single()).isEqualTo("Bearer ")
         }
 
     // ------------------------------------------------------------------ save, reconfigure, key removal
@@ -738,7 +804,7 @@ class AssistantViewModelTest {
         }
 
     @Test
-    fun `dismissError clears both the kind and the provider detail`() =
+    fun `dismissError clears the kind, the provider detail and the fine classification`() =
         runTest(dispatcher) {
             transport.postStatus = 403
             val viewModel = newViewModel()
@@ -747,9 +813,13 @@ class AssistantViewModelTest {
             viewModel.loadModels()
             advanceUntilIdle()
             assertThat(viewModel.uiState.value.error).isNotNull()
+            assertThat(viewModel.uiState.value.failure).isNotNull()
             viewModel.dismissError()
             assertThat(viewModel.uiState.value.error).isNull()
             assertThat(viewModel.uiState.value.errorDetail).isNull()
+            // The fine field goes with the coarse one: a banner that is gone cannot leave a
+            // precise reason behind for the next screen state to inherit.
+            assertThat(viewModel.uiState.value.failure).isNull()
         }
 
     // ------------------------------------------------------------------ the turn loop over the ports
@@ -988,6 +1058,13 @@ class AssistantViewModelTest {
             failing.send("hello")
             advanceUntilIdle()
             assertThat(failing.uiState.value.error).isEqualTo(AssistantErrorKind.NETWORK)
+            // The transport failure is recorded finely too: an IO failure never had a status, so the
+            // case is Transport and not something invented from a message string.
+            assertThat(failing.uiState.value.failure).isInstanceOf(AssistantError.Transport::class.java)
+            assertThat(
+                failing.uiState.value.failure
+                    ?.httpStatus,
+            ).isNull()
             assertThat(failing.uiState.value.busy).isNull()
         }
 
@@ -1136,6 +1213,25 @@ class AssistantViewModelTest {
             val state = viewModel.uiState.value
             assertThat(state.verified).isFalse()
             assertThat(state.error).isEqualTo(AssistantErrorKind.KEY_REJECTED)
+        }
+
+    @Test
+    fun `an endpoint that lists no models is verified, with the list left empty`() =
+        runTest(dispatcher) {
+            // The Claude case: the endpoint answers, but cannot list its models at all. That is a
+            // connection, not a failure — the screen asks for a model name instead of reporting an error.
+            storedOpenCode()
+            transport.modelsBody = """{"data":[]}"""
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.verifyConnection()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            assertThat(state.verified).isTrue()
+            assertThat(state.modelOptions).isEmpty()
+            assertThat(state.error).isNull()
+            assertThat(state.failure).isNull()
+            assertThat(state.verifying).isFalse()
         }
 
     @Test

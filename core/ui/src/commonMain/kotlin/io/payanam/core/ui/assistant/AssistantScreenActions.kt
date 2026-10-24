@@ -5,6 +5,7 @@
 package io.payanam.core.ui.assistant
 
 import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantProvider
 
 /**
  * Everything the assistant chat screen can do, named once.
@@ -78,4 +79,18 @@ class AssistantSettingsScreenActions
         val onAboutStrengthsChange: (String) -> Unit = {},
         val onAboutFocusAreasChange: (String) -> Unit = {},
         val onAboutNoteChange: (String) -> Unit = {},
+        // --- the connection: where the model runs, and how to reach it -------------------------
+        /** Chooses the provider; the address follows its default unless the user typed their own. */
+        val onProviderSelected: (AssistantProvider) -> Unit = {},
+        val onBaseUrlChange: (String) -> Unit = {},
+        val onKeyChange: (String) -> Unit = {},
+        val onLoadModels: () -> Unit = {},
+        val onSelectModel: (String) -> Unit = {},
+        /** Checks the provider, address, key and model currently on screen, not the saved ones. */
+        val onVerifyConnection: () -> Unit = {},
+        val onDismissError: () -> Unit = {},
+        /** The only path that stores the endpoint, the key and the settings. */
+        val onSaveAndStart: () -> Unit = {},
+        val onKeyRemovalConfirm: () -> Unit = {},
+        val onKeyRemovalCancel: () -> Unit = {},
     )

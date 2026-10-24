@@ -7,23 +7,34 @@ package io.payanam.core.ui.assistant
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.material3.Button
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.RadioButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -44,19 +55,26 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontFamily
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
+import io.payanam.domain.assistant.AssistantBackend
 import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantError
+import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSystemPrompt
 import io.payanam.presentation.assistant.AssistantUiState
 import io.payanam.shared.logging.AppLogger
 
 /**
- * Advanced settings for the assistant: response length, chips, the method line, the numeric caps, the
- * System-prompt additions editor (built-in shown locked), and the structured About-me notes.
+ * Advanced settings for the assistant: the connection (where the model runs, the provider, its address
+ * and key, the model, and a Verify check), response length, chips, the method line, the numeric caps,
+ * the System-prompt additions editor (built-in shown locked), and the structured About-me notes.
  *
  * ## WHAT THIS SCREEN OWNS AND WHAT IT DOES NOT
  *
@@ -111,12 +129,13 @@ fun AssistantSettingsScreenContent(
         },
     ) { padding ->
         Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-                .imePadding()
-                .verticalScroll(rememberScrollState())
-                .padding(16.dp),
+            modifier =
+                Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .imePadding()
+                    .verticalScroll(rememberScrollState())
+                    .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
             Text(
@@ -170,6 +189,8 @@ fun AssistantSettingsScreenContent(
                     Text(strings.assistantRemoveKey)
                 }
             }
+
+            ConnectionSection(uiState = uiState, actions = actions, strings = strings)
 
             SectionTitle(strings.assistantSettingsLengthTitle)
             AssistantLength.entries.forEach { preset ->
@@ -228,17 +249,19 @@ fun AssistantSettingsScreenContent(
             OutlinedTextField(
                 value = uiState.settings.promptAdditions,
                 onValueChange = actions.onPromptAdditionsChange,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = strings.assistantSettingsPromptTitle },
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = strings.assistantSettingsPromptTitle },
                 minLines = 3,
                 maxLines = 8,
             )
             Text(
-                text = strings.assistantSettingsPromptBudget.formatArgs(
-                    uiState.settings.promptAdditions.length,
-                    AssistantDefaults.MAX_PROMPT_ADDITIONS,
-                ),
+                text =
+                    strings.assistantSettingsPromptBudget.formatArgs(
+                        uiState.settings.promptAdditions.length,
+                        AssistantDefaults.MAX_PROMPT_ADDITIONS,
+                    ),
                 style = MaterialTheme.typography.labelSmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
@@ -306,6 +329,387 @@ fun AssistantSettingsScreenContent(
 }
 
 /**
+ * The connection: where the model runs, which provider, its address, its key, the model, and whether
+ * that combination actually answers.
+ *
+ * IT IS A SECTION AND NOT A DESTINATION. The settings editor is where a user already looks when the
+ * assistant refuses to start, so the thing that was missing (which host, which model) belongs beside
+ * the caps and the prompt, not behind a second screen. Every field is a callback, so nothing here can
+ * write a value the ViewModel does not own, and the one save button is the only path that persists the
+ * quartet - the screen never writes storage itself.
+ *
+ * NOTHING BELOW THE BACKEND CHOICE RENDERS UNTIL A PROVIDER EXISTS. The backend choice has no state of
+ * its own: the ViewModel stores the provider and the provider already knows its backend, so "where does
+ * it run" is answered by reading the chosen provider's group. Until one is chosen there is no default
+ * address to prefill, no `requiresKey` to ask, and no model list to key a request to, so the fields
+ * would be asking for values with nothing to check them against.
+ */
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ConnectionSection(
+    uiState: AssistantUiState,
+    actions: AssistantSettingsScreenActions,
+    strings: UiStrings,
+) {
+    var modelPickerOpen by rememberSaveable { mutableStateOf(false) }
+    var providerExpanded by remember { mutableStateOf(false) }
+
+    SectionTitle(strings.assistantProviderWhere)
+    // Each backend is a radio over the PROVIDER's own group, not a second stored field: re-tapping the
+    // group the current provider already belongs to is a no-op, so a user whose provider is OLLAMA
+    // cannot lose it by tapping "On this device". Tapping the OTHER group selects that group's first
+    // provider in declaration order, which the dropdown below can then refine - the ViewModel's own
+    // `selectProvider` decides what that does to the address.
+    AssistantBackend.entries.forEach { backend ->
+        val firstInGroup = AssistantProvider.forBackend(backend).firstOrNull()
+        Row(
+            modifier = Modifier.semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = uiState.provider?.backend == backend,
+                onClick = {
+                    if (firstInGroup != null && uiState.provider?.backend != backend) {
+                        AppLogger.current.d(
+                            "AssistantSettingsScreen",
+                            "Backend chosen",
+                            mapOf("backend" to backend.name, "provider" to firstInGroup.name),
+                        )
+                        actions.onProviderSelected(firstInGroup)
+                    }
+                },
+            )
+            Text(text = backendLabel(backend, strings))
+        }
+    }
+
+    val provider = uiState.provider ?: return
+    ExposedDropdownMenuBox(
+        expanded = providerExpanded,
+        onExpandedChange = { providerExpanded = it },
+    ) {
+        OutlinedTextField(
+            value = providerLabel(provider, strings),
+            onValueChange = {},
+            readOnly = true,
+            label = { Text(strings.assistantProvider) },
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = providerExpanded) },
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable),
+        )
+        ExposedDropdownMenu(
+            expanded = providerExpanded,
+            onDismissRequest = { providerExpanded = false },
+        ) {
+            AssistantProvider.forBackend(provider.backend).forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(providerLabel(option, strings)) },
+                    onClick = {
+                        if (option != provider) actions.onProviderSelected(option)
+                        providerExpanded = false
+                    },
+                )
+            }
+        }
+    }
+
+    OutlinedTextField(
+        value = uiState.baseUrl,
+        onValueChange = actions.onBaseUrlChange,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = strings.assistantAddress },
+        label = { Text(strings.assistantAddress) },
+        supportingText = { Text(strings.assistantAddressHint) },
+        singleLine = true,
+        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri),
+    )
+
+    // Always masked, with no reveal toggle: a stored key is never rendered, and this editor is not the
+    // place to inspect one. The chat surface is where a key is pasted and can be eyeballed.
+    val storedKeyHint = uiState.hasKey && uiState.keyDraft.isBlank()
+    OutlinedTextField(
+        value = uiState.keyDraft,
+        onValueChange = actions.onKeyChange,
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = strings.assistantApiKey },
+        label = { Text(strings.assistantApiKey) },
+        singleLine = true,
+        visualTransformation = PasswordVisualTransformation(),
+        isError = uiState.keyInvalid,
+        supportingText = {
+            Text(
+                when {
+                    // A rejected key is the one state that must outrank "already stored": the chip that
+                    // says a key is in use would otherwise sit beside an error saying it was refused.
+                    uiState.keyInvalid -> strings.assistantErrorKeyRejected
+
+                    !provider.requiresKey -> strings.assistantApiKeyOptional
+
+                    storedKeyHint -> strings.assistantKeyStoredHint
+
+                    else -> strings.assistantKeyHint
+                },
+            )
+        },
+    )
+
+    Button(
+        onClick = actions.onLoadModels,
+        // A provider that needs no key must still be able to list its models: the button used to
+        // require a key here while verification next to it did not.
+        enabled =
+            (uiState.keyDraft.isNotBlank() || uiState.hasKey || !provider.requiresKey) &&
+                !uiState.modelsLoading,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (uiState.modelsLoading) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(strings.assistantLoadingModels)
+        } else {
+            Text(strings.assistantKeyLoadModels)
+        }
+    }
+    if (uiState.modelOptions.isNotEmpty()) {
+        Text(strings.assistantModelLabel, style = MaterialTheme.typography.titleSmall)
+        Surface(
+            modifier = Modifier.fillMaxWidth(),
+            shape = RoundedCornerShape(8.dp),
+            color = MaterialTheme.colorScheme.surfaceVariant,
+            onClick = { modelPickerOpen = true },
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth().padding(14.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(uiState.settings.model.ifEmpty { strings.assistantNoModel })
+                Text(strings.assistantModelPick, style = MaterialTheme.typography.labelSmall)
+            }
+        }
+    } else {
+        // The fallback for an endpoint that lists no models - and the only input there is while a load
+        // is running or after it failed. Typed exactly as entered: the store is the one that normalises.
+        OutlinedTextField(
+            value = uiState.settings.model,
+            onValueChange = actions.onSelectModel,
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .semantics { contentDescription = strings.assistantModelManual },
+            label = { Text(strings.assistantModelManual) },
+            singleLine = true,
+        )
+    }
+
+    Button(
+        onClick = actions.onVerifyConnection,
+        enabled = !uiState.verifying,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        if (uiState.verifying) {
+            CircularProgressIndicator(modifier = Modifier.size(18.dp), strokeWidth = 2.dp)
+            Spacer(modifier = Modifier.width(8.dp))
+        }
+        Text(strings.assistantVerify)
+    }
+    if (uiState.verified) {
+        Text(
+            text =
+                if (uiState.modelOptions.isEmpty()) {
+                    // Verified, but the endpoint listed nothing — Claude's compatibility layer cannot
+                    // list models at all, so this is a usable setup with a name still to be typed.
+                    strings.assistantVerifyNoModels
+                } else {
+                    strings.assistantVerifySuccess.formatArgs(uiState.modelOptions.size)
+                },
+            style = MaterialTheme.typography.labelMedium,
+            color = MaterialTheme.colorScheme.primary,
+        )
+    }
+    uiState.error?.let { kind ->
+        Row(
+            modifier = Modifier.fillMaxWidth().semantics(mergeDescendants = true) {},
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(
+                text = connectionFailureText(uiState.failure, kind, strings),
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.error,
+            )
+            TextButton(onClick = actions.onDismissError) {
+                Text(strings.assistantErrorDismiss)
+            }
+        }
+    }
+
+    // The only writer of the provider/address/key/model quartet. Without it the fields above would
+    // collect edits nothing persists, and the key-removal confirmation could never be raised.
+    Button(
+        onClick = actions.onSaveAndStart,
+        enabled = uiState.settings.model.isNotEmpty() && !uiState.verifying,
+        modifier = Modifier.fillMaxWidth(),
+    ) {
+        Text(strings.assistantSaveStart)
+    }
+
+    if (modelPickerOpen) {
+        PayanamAlertDialog(
+            onDismissRequest = { modelPickerOpen = false },
+            title = { Text(strings.assistantModelLabel) },
+            text = {
+                Column(modifier = Modifier.verticalScroll(rememberScrollState())) {
+                    uiState.modelOptions.forEach { model ->
+                        TextButton(
+                            onClick = {
+                                actions.onSelectModel(model)
+                                modelPickerOpen = false
+                            },
+                        ) {
+                            Text(model)
+                        }
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { modelPickerOpen = false }) {
+                    Text(strings.locBack)
+                }
+            },
+        )
+    }
+    if (uiState.keyRemovalPending) {
+        PayanamAlertDialog(
+            onDismissRequest = actions.onKeyRemovalCancel,
+            title = { Text(strings.assistantKeyRemovalTitle) },
+            text = { Text(strings.assistantKeyRemovalBody) },
+            confirmButton = {
+                TextButton(onClick = actions.onKeyRemovalConfirm) {
+                    Text(strings.assistantKeyRemovalConfirm)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = actions.onKeyRemovalCancel) {
+                    Text(strings.assistantKeyRemovalCancel)
+                }
+            },
+        )
+    }
+}
+
+/**
+ * The label for one backend group.
+ *
+ * A `when` on the enum rather than a name lookup, so a third backend added to the domain is a compile
+ * error here rather than a radio button with no text next to it.
+ */
+private fun backendLabel(
+    backend: AssistantBackend,
+    strings: UiStrings,
+): String =
+    when (backend) {
+        AssistantBackend.LOCAL -> strings.assistantProviderLocal
+        AssistantBackend.CLOUD -> strings.assistantProviderCloud
+    }
+
+/**
+ * The product name of one provider.
+ *
+ * These are BRAND NAMES, so they are not string resources: "OpenRouter" is spelled the same in every
+ * language and translating it would misname a service. The two "your own endpoint" entries have no
+ * brand at all, so those are the one place the copy comes from the string table. A `when` rather than
+ * a `name` lookup, for the same reason [backendLabel] is one.
+ */
+private fun providerLabel(
+    provider: AssistantProvider,
+    strings: UiStrings,
+): String =
+    when (provider) {
+        AssistantProvider.OLLAMA -> PROVIDER_NAME_OLLAMA
+        AssistantProvider.LM_STUDIO -> PROVIDER_NAME_LM_STUDIO
+        AssistantProvider.CUSTOM_LOCAL -> strings.assistantProviderCustom
+        AssistantProvider.OPENCODE -> PROVIDER_NAME_OPENCODE
+        AssistantProvider.OPENROUTER -> PROVIDER_NAME_OPENROUTER
+        AssistantProvider.OPENAI -> PROVIDER_NAME_OPENAI
+        AssistantProvider.CLAUDE -> PROVIDER_NAME_CLAUDE
+        AssistantProvider.CUSTOM_CLOUD -> strings.assistantProviderCustom
+    }
+
+/**
+ * The failure line for one error kind, in the words the user needs to act on it.
+ *
+ * The ViewModel keeps both the coarse kind and, where the client classified one, the fine failure. The
+ * fine case wins because it is what lets a rate limit, a timeout, a context overflow and a refused
+ * request each say their own thing instead of all reading as "the provider had a problem".
+ * [AssistantErrorKind.SERVER] carries the provider's own words in `errorDetail` on the chat surface;
+ * here it is the canned server line, because the detail may quote the endpoint and this editor is
+ * where the endpoint is being configured.
+ */
+private fun connectionFailureText(
+    failure: AssistantError?,
+    kind: AssistantErrorKind,
+    strings: UiStrings,
+): String =
+    when (failure) {
+        is AssistantError.Auth -> {
+            strings.assistantErrorAuth
+        }
+
+        is AssistantError.Transport -> {
+            strings.assistantErrorTransport
+        }
+
+        is AssistantError.Timeout -> {
+            strings.assistantErrorTimeout
+        }
+
+        is AssistantError.RateLimit -> {
+            strings.assistantErrorRateLimit
+        }
+
+        is AssistantError.Server -> {
+            strings.assistantErrorServer
+        }
+
+        is AssistantError.ModelNotFound -> {
+            strings.assistantErrorModelMissing
+        }
+
+        is AssistantError.ContextOverflow -> {
+            strings.assistantErrorContext
+        }
+
+        is AssistantError.InvalidRequest -> {
+            strings.assistantErrorInvalid
+        }
+
+        null -> {
+            when (kind) {
+                AssistantErrorKind.KEY_REJECTED -> strings.assistantErrorAuth
+                AssistantErrorKind.NETWORK -> strings.assistantErrorTransport
+                AssistantErrorKind.SERVER -> strings.assistantErrorServer
+                AssistantErrorKind.NO_MODEL -> strings.assistantErrorModelMissing
+                AssistantErrorKind.DB_LOCKED -> strings.assistantErrorDbClosed
+            }
+        }
+    }
+
+/** Brand names, not copy: see [providerLabel]. */
+private const val PROVIDER_NAME_OLLAMA: String = "Ollama"
+private const val PROVIDER_NAME_LM_STUDIO: String = "LM Studio"
+private const val PROVIDER_NAME_OPENCODE: String = "OpenCode"
+private const val PROVIDER_NAME_OPENROUTER: String = "OpenRouter"
+private const val PROVIDER_NAME_OPENAI: String = "OpenAI"
+private const val PROVIDER_NAME_CLAUDE: String = "Claude"
+
+/**
  * The copy for one length preset.
  *
  * A `when` on the enum rather than a name lookup, so a fourth preset added to the domain is a compile
@@ -360,11 +764,11 @@ private fun NumberField(
         // Re-syncs on focus loss so a value the store clamped (or a blank field) shows what is
         // actually stored instead of what was typed.
         modifier =
-        Modifier
-            .fillMaxWidth()
-            .onFocusChanged { state ->
-                if (!state.isFocused) text = value.toString()
-            },
+            Modifier
+                .fillMaxWidth()
+                .onFocusChanged { state ->
+                    if (!state.isFocused) text = value.toString()
+                },
         label = { Text(label) },
         singleLine = true,
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),

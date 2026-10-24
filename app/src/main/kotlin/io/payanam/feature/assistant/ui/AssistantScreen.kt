@@ -127,6 +127,18 @@ fun AssistantSettingsScreen(onNavigateBack: () -> Unit = {}) {
             onAboutNoteChange = { text ->
                 viewModel.updateSettings { it.copy(aboutMe = it.aboutMe.copy(note = text)) }
             },
+            // The connection the editor now owns. Every one of these is a ViewModel member that already
+            // existed for the setup form on the chat screen - the fields moved, the writes did not.
+            onProviderSelected = viewModel::selectProvider,
+            onBaseUrlChange = viewModel::updateBaseUrl,
+            onKeyChange = viewModel::updateKeyDraft,
+            onLoadModels = viewModel::loadModels,
+            onSelectModel = viewModel::selectModel,
+            onVerifyConnection = viewModel::verifyConnection,
+            onDismissError = viewModel::dismissError,
+            onSaveAndStart = viewModel::saveAndStart,
+            onKeyRemovalConfirm = viewModel::confirmKeyRemoval,
+            onKeyRemovalCancel = viewModel::cancelKeyRemoval,
         ),
     )
 }
