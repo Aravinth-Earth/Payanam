@@ -17,8 +17,8 @@ import org.junit.runner.RunWith
  * In-process E2E for the Lenses tab after seeding minimal data (one completed task).
  *
  * Flow: FreshSetup → proceed past dimension setup → create + complete one task → open Lenses →
- * assert the Per Dimension header → expand the Tasks module card and assert its CTA → exercise the
- * habit-score matrix (if rendered) → assert the AI Assistance entry card.
+ * prove the destination through the Time module card's own CTA → expand the Tasks module card and
+ * assert its CTA → exercise the habit-score matrix (if rendered).
  *
  * Every label is read from [E2eLabels] so the test runs in whatever locale the app is in.
  * Module cards are gated by chart-visibility preferences; this test asserts a card only when its
@@ -60,21 +60,16 @@ class LensesDataTest {
         h.log("lenses=open")
 
         // ── assert we are on the Lenses destination ─────────────────────────────────────────────
-        // The AI Assistance card is always rendered on Lenses and is Lenses-specific. The bottom-nav
-        // "Lenses" label is NOT used: it is present on every screen, so it proves nothing.
-        h.assertVisible(l.ui.assistantTitle)
-        h.log("lenses=open")
+        // The Time module card's CTA (`locGoToTime`, "Go to Time") is drawn by `LensesScreen` alone and is
+        // Lenses-specific. The bottom-nav "Lenses" label is NOT used: it is present on every screen, so it
+        // proves nothing.
+        h.assertVisible(l.ui.locGoToTime)
 
         // ── expand Tasks module card (if the chart flag is on) ──────────────────────────────────
         expandTasksModuleCard()
 
         // ── exercise the habit-score matrix (if the Habits module card is on) ───────────────────
         exerciseHabitScoreMatrix()
-
-        // ── assert AI Assistance entry card ─────────────────────────────────────────────────────
-        h.scrollTo(l.ui.assistantTitle)
-        h.assertVisible(l.ui.assistantTitle)
-        h.log("assistant=visible")
     }
 
     /**

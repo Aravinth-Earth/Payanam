@@ -32,7 +32,6 @@ import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.DesktopDatabaseEncryptionProbe
 import io.payanam.database.jvm.PayanamDatabaseOpener
 import io.payanam.database.jvm.PayanamDatabaseSession
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
@@ -565,9 +564,9 @@ abstract class DesktopAppJourneyHarness {
      */
     protected fun installProductionFixtureLayer() {
         // The controller OPENS (or creates) the database at its own path and installs the layer, exactly as
-        // `DesktopApp` does - so it HOLDS the passphrase the assistant's read-only port and the
-        // passphrase-change flow need. A fixture that installed the layer directly left the controller with
-        // no passphrase, which is why those surfaces could not be driven.
+        // `DesktopApp` does - so it HOLDS the passphrase the passphrase-change flow needs. A fixture that
+        // installed the layer directly left the controller with no passphrase, which is why that surface
+        // could not be driven.
         val result = runBlocking { sessionController.openAndInstall(passphrase.toCharArray()) }
         check(result is DatabaseOpenResult.Opened) { "the fixture open refused: $result" }
         session = result.session
@@ -625,10 +624,9 @@ abstract class DesktopAppJourneyHarness {
     private val sessionController: DesktopDatabaseSessionController by lazy {
         DesktopDatabaseSessionController(
             databaseFilePath = { databaseFile.absolutePath },
-            // A REAL open, because the journeys that need the passphrase - the assistant's read-only port
-            // and the passphrase-change flow - read it from the controller, and a refusing controller left
-            // them with nothing. The fixture creates the file if it is absent, so this is only ever asked
-            // for an existing one.
+            // A REAL open, because the journeys that need the passphrase - the passphrase-change flow -
+            // read it from the controller, and a refusing controller left them with nothing. The fixture
+            // creates the file if it is absent, so this is only ever asked for an existing one.
             open = { path, passphrase -> PayanamDatabaseOpener.open(Path.of(path), passphrase.concatToString()) },
             logger = sessionLogger,
         )
@@ -671,11 +669,6 @@ abstract class DesktopAppJourneyHarness {
                     preferences = preferences,
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
-                ),
-            assistantCollaborators =
-                DesktopAssistantCollaborators(
-                    sessionController = sessionController,
-                    databaseFile = databaseFile.toPath(),
                 ),
         )
 }

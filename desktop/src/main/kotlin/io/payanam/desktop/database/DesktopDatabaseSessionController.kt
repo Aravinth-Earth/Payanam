@@ -2,7 +2,6 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop.database
 
-import io.payanam.database.jvm.AssistantConfigurationStoreJvm
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
 import io.payanam.desktop.DesktopDatabaseCreateOutcome
@@ -307,34 +306,6 @@ internal class DesktopDatabaseSessionController(
      * reads through, and handing it out would invite a caller to keep a reference across a close.
      */
     fun checkpoint(): FoldReport? = session?.checkpoint()
-
-    /**
-     * The assistant's stored configuration, over THIS session, or null when nothing is open.
-     *
-     * A session-BOUND store handed out by the one owner of the session, rather than the session itself.
-     * [AssistantConfigurationStoreJvm] needs a `PayanamDatabaseSession` and there is exactly one in this
-     * process, so this is the only place the store can be built from the connection the shell already
-     * has open: a store built anywhere else would hold a SECOND writable connection to the same file,
-     * contending with every repository poll, and its writes would land outside the session the import
-     * path has to fold before it can replace the file.
-     *
-     * Null rather than an error because "no session yet" is a normal state on this platform - it is the
-     * pre-unlock half of every launch - and the assistant's own screen reports it as its `DB_LOCKED`
-     * state. A caller that needs the store before a session exists has to say what it will do instead,
-     * which is exactly the decision this return type forces.
-     */
-    fun assistantConfigurationStore(): AssistantConfigurationStoreJvm? =
-        session
-            ?.takeIf { it.isOpen }
-            ?.let { AssistantConfigurationStoreJvm(it) }
-            .also { store ->
-                if (store == null) {
-                    logger.d(
-                        source = "DesktopDatabaseSessionController.assistantConfigurationStore",
-                        message = "No open session, so there is no assistant configuration store yet",
-                    )
-                }
-            }
 
     /**
      * Opens the database with [passphrase] and installs the layer, CREATING it when there is no file yet.

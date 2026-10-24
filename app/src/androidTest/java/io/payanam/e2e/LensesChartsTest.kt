@@ -55,7 +55,10 @@ class LensesChartsTest {
         seedHabit()
 
         h.goToTab(l.lenses)
-        h.assertVisible(l.ui.assistantTitle)
+        // The Time module card's CTA (`locGoToTime`, "Go to Time") is drawn by `LensesScreen` alone and
+        // present whether that card is expanded or not. The bottom-nav "Lenses" label is NOT used: it is
+        // present on every screen, so it proves nothing about the destination.
+        h.assertVisible(l.ui.locGoToTime)
         h.capture("lenses-charts")
 
         timeAverageDailySection()

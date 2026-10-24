@@ -136,12 +136,6 @@ object PayanamRoutes {
     /** Scoring configuration. */
     const val SCORING_CONFIG = "scoring_config"
 
-    /** AI assistant. */
-    const val ASSISTANT = "assistant"
-
-    /** AI assistant settings. */
-    const val ASSISTANT_SETTINGS = "assistant_settings"
-
     /** Builds the concrete task-detail route for [taskId]. */
     fun taskDetail(taskId: String) = "task_detail/$taskId"
 
@@ -196,8 +190,6 @@ object PayanamNavRoutePolicy {
             "task_detail",
             "edit_task",
             "scoring_config",
-            "assistant",
-            "assistant_settings",
         )
 
     /** Bottom-navigation tabs that stay visible in minimal mode. */

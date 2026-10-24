@@ -46,8 +46,6 @@ import io.payanam.core.ui.updates.PreUnlockUpdateSection
 import io.payanam.core.ui.updates.PreUnlockUpdateUiState
 import io.payanam.di.PassphraseUnlockEntryPoint
 import io.payanam.di.UnavailableBiometricUnlockPrompt
-import io.payanam.feature.assistant.ui.AssistantScreen
-import io.payanam.feature.assistant.ui.AssistantSettingsScreen
 import io.payanam.feature.settings.ui.SettingsScreen
 import io.payanam.platform.AndroidBiometricUnlockPrompt
 import io.payanam.platform.AndroidOnboardingMarker
@@ -542,10 +540,6 @@ internal class AndroidPayanamNavHostScreens(
                 logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
                 nav.openScoreDetail(type, key)
             },
-            onOpenAssistant = {
-                logger.i("PayanamNavHost", "Opening AI assistant from lenses", mapOf())
-                nav.openAssistant()
-            },
         )
     }
 
@@ -644,24 +638,6 @@ internal class AndroidPayanamNavHostScreens(
             viewModel = retainSharedViewModel(key = "scoring_config", onRelease = { it.dispose() }) {
                 scoringConfigViewModel()
             },
-            onNavigateBack = { nav.goBack() },
-        )
-    }
-
-    @Composable
-    override fun assistant(nav: PayanamNavActions) {
-        AssistantScreen(
-            onNavigateBack = { nav.goBack() },
-            onOpenSettings = {
-                logger.i("PayanamNavHost", "Opening assistant settings", mapOf())
-                nav.openAssistantSettings()
-            },
-        )
-    }
-
-    @Composable
-    override fun assistantSettings(nav: PayanamNavActions) {
-        AssistantSettingsScreen(
             onNavigateBack = { nav.goBack() },
         )
     }

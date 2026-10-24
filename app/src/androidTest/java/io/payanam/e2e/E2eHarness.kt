@@ -12,7 +12,6 @@ import androidx.compose.ui.semantics.SemanticsNode
 import androidx.compose.ui.semantics.SemanticsProperties
 import androidx.compose.ui.semantics.getOrNull
 import androidx.compose.ui.state.ToggleableState
-import androidx.compose.ui.test.ComposeTimeoutException
 import androidx.compose.ui.test.SemanticsMatcher
 import androidx.compose.ui.test.SemanticsNodeInteraction
 import androidx.compose.ui.test.SemanticsNodeInteractionCollection
@@ -97,16 +96,6 @@ fun keepScreenOn(activity: Activity) {
  * the cold case honest.
  */
 private const val ARRIVAL_WAIT_MS = 15_000L
-
-/**
- * How long one navigation attempt is given to bring its destination up before the tap is re-issued.
- *
- * The app's own startup navigation can override a tap made while it is still in flight (measured
- * 2026-10-16), which is a race the test loses silently — the tap is accepted, then the startup route
- * lands on top of it. 10s is far longer than a settled nav swap and short enough that three attempts
- * still fit inside a run.
- */
-private const val SETTLE_WAIT_MS = 10_000L
 
 /** Below this height a swipe gesture collapses into a tap. */
 private const val MIN_SWIPE_HEIGHT_PX = 300
@@ -1039,69 +1028,5 @@ class E2eHarness(
         clickNav(name)
         rule.waitForIdle()
         log("nav=$name")
-    }
-
-    /** Opens the assistant destination from Lenses (waits out the loading spinner first). */
-    fun openAssistant() {
-        // The tab tap is re-issued until the LENSES DESTINATION is actually composed, because a tap is
-        // not proof of a navigation. Measured 2026-10-16 on this device: after unlock the app runs its own
-        // startup navigation, and it can land AFTER the tap and override it — the app log shows
-        // `Navigating to screen route="lenses"` from the tap followed by `destinationChanged route="time"`,
-        // with no `LensViewModel` line at all, so the destination never composed. Retrying on the
-        // destination is what makes this honest: the retry stops the moment Lenses is really up, and the
-        // three attempts cost nothing on the runs where the first tap holds (the common case).
-        var attempts = 0
-        while (attempts < 3 && !exists(l.aiAssistance)) {
-            goToTab(l.lenses)
-            // A bounded settle window per attempt; ONLY the timeout is swallowed, so any other failure
-            // (a broken query, a Compose internal error) still surfaces as itself.
-            try {
-                rule.waitUntil(SETTLE_WAIT_MS) { exists(l.aiAssistance) }
-            } catch (_: ComposeTimeoutException) {
-                // Not up yet; the next attempt re-taps. Logged below so a failure names the retries.
-            }
-            attempts++
-        }
-        if (attempts > 1) log("nav-retries=$attempts")
-        // Lenses renders a bare spinner while it loads — no scrollable at all, so the honest
-        // readiness signal is the entry card ITSELF. Lenses composes its whole `verticalScroll` column
-        // at once, so the off-screen title is in the tree as soon as the destination is really up.
-        rule.waitUntil(60_000) { exists(l.aiAssistance) }
-        scrollTo(l.aiAssistance)
-        assertVisible(l.experimentalChip)
-        click(l.assistantOpen)
-        acceptAssistantConsent()
-    }
-
-    /**
-     * Answers the AI Assistance consent gate with its "proceed" answer.
-     *
-     * Reaching the assistant is TWO taps, not one: the Lenses entry card's CTA opens the shared
-     * `AssistantConsentDialog` first, and that dialog's `confirmButton` is what calls
-     * `onOpenAssistant()`. Measured 2026-10-16: with only the card's CTA tapped, both assistant classes
-     * stopped on the dialog — the app log shows `LensesScreen.assistantOpened` and nothing after it, and
-     * the next assertion fails with an EMPTY text dump, because a Dialog owns its own root and
-     * `dumpTexts` walks the one the query did not touch.
-     *
-     * The gate is asked on EVERY entry, not only the first: `assistantConsentVisible` in `LensesScreen`
-     * is a plain `remember`, deliberately not persisted ("the answer is remembered where it actually
-     * matters - the presence of a key, not a local flag"). So this is a step of the entry, never a
-     * first-run special case.
-     *
-     * A no-op when the gate is not up, so it cannot regress a flow that consents somewhere else; when it
-     * IS up the tap is required. The match is exact — the ta copy ("தொடர்") is short enough to occur as a
-     * substring of other words, and a permissive matcher has already regressed a green class once.
-     */
-    private fun acceptAssistantConsent(timeoutMs: Long = 15_000) {
-        val arrived = runCatching {
-            rule.waitUntil(timeoutMs) {
-                rule.onAllNodes(labelledExactly(l.assistantConsentProceed))
-                    .fetchSemanticsNodes().isNotEmpty()
-            }
-        }.isSuccess
-        if (!arrived) return
-        log("assistant-consent=proceed")
-        click(l.assistantConsentProceed)
-        rule.waitForIdle()
     }
 }

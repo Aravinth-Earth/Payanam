@@ -895,15 +895,6 @@ fun PayanamNavHost(
                 composable(PayanamRoutes.SCORING_CONFIG) {
                     screens.scoringConfig(nav = navActions)
                 }
-                // Unconditional: the assistant is a permanent capability, not a build-time option. The
-                // destinations always exist, so the entry card's tap and any future external navigation
-                // always resolve to a real screen.
-                composable(PayanamRoutes.ASSISTANT) {
-                    screens.assistant(nav = navActions)
-                }
-                composable(PayanamRoutes.ASSISTANT_SETTINGS) {
-                    screens.assistantSettings(nav = navActions)
-                }
             }
         }
     }

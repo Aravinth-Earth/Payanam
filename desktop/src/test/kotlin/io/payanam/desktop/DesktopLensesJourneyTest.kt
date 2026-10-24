@@ -20,15 +20,14 @@ import org.junit.Test
  * **The gap this closes.** Nothing on the desktop ever opened Lenses over DATA. The screen renders
  * (`DesktopNavHostDestinationRenderTest`) and the section components carry their own unit tests, but
  * the journey Android proves - seed a tracked time entry through the real UI, open Lenses, and see the
- * AI Assistance card, the Time module's average-daily section, and the habit-score matrix all reach
- * the real encrypted database - had no desktop twin. A Lenses screen whose sections rendered empty, or
- * whose matrix trigger was unreachable, would look identical to a working one without this drive.
+ * Time module's average-daily section and the habit-score matrix reach the real encrypted database - had
+ * no desktop twin. A Lenses screen whose sections rendered empty, or whose matrix trigger was
+ * unreachable, would look identical to a working one without this drive.
  *
  * **The journey.** One manual time entry is seeded through the Time screen's Add FAB and modal (the
- * same path `DesktopTimeEntryJourneyTest` drives), then Lenses is opened and asserted in order: the AI
- * Assistance card (unconditional), the Time module's average-daily section (the seeded entry is what
- * makes it a real claim), and - only when the Habits chart module is on - the matrix's metric
- * dropdown trigger.
+ * same path `DesktopTimeEntryJourneyTest` drives), then Lenses is opened and asserted in order: the Time
+ * module's average-daily section (the seeded entry is what makes it a real claim), and - only when the
+ * Habits chart module is on - the matrix's metric dropdown trigger.
  *
  * **Why the habit-score matrix is allowed to be absent.** `chartHabitModuleEnabled` defaults to
  * FALSE, so on a freshly seeded fixture the matrix legitimately does not render and this step frames
@@ -77,16 +76,18 @@ class DesktopLensesJourneyTest : DesktopAppJourneyHarness() {
             onAllNodesWithText(PayanamTab.Lenses.title(strings)).onFirst().performClick()
             waitForIdle()
 
-            // The AI Assistance card is unconditional: the entry is always offered.
-            awaitNodeWithText(strings.assistantTitle)
-            frame("02-lenses-ai-assistance", "the Lenses screen with the AI Assistance card", copy = strings.assistantTitle)
-
             // The Time module's average-daily section: the module card is expanded by default, but the
-            // screen is a long scroll, so the section is scrolled into view before it is asserted.
+            // screen is a long scroll, so the section is scrolled into view before it is asserted. The
+            // wait below is the settle point the screen's asynchronous state read needs - `LensesScreen`
+            // draws a spinner until that read completes, and the assertion on the section's copy is what
+            // proves the body composed over the seeded entry.
+            waitUntil(timeoutMillis = UI_STATE_TIMEOUT_MS) {
+                onAllNodesWithText(strings.locLensTimeAverageDailyTitle).fetchSemanticsNodes().isNotEmpty()
+            }
             onAllNodesWithText(strings.locLensTimeAverageDailyTitle).onFirst().performScrollTo()
             awaitNodeWithText(strings.locLensTimeAverageDailyTitle)
             frame(
-                "03-lenses-average-daily",
+                "02-lenses-average-daily",
                 "the Time module's average-daily section with data",
                 copy = strings.locLensTimeAverageDailyTitle,
             )
@@ -109,10 +110,10 @@ class DesktopLensesJourneyTest : DesktopAppJourneyHarness() {
                 waitUntil(timeoutMillis = UI_STATE_TIMEOUT_MS) {
                     onAllNodesWithText(metricTriggerPrefix, substring = true).fetchSemanticsNodes().isNotEmpty()
                 }
-                frame("04-lenses-matrix-trigger", "the habit-score matrix's metric dropdown trigger", copy = metricTriggerPrefix)
+                frame("03-lenses-matrix-trigger", "the habit-score matrix's metric dropdown trigger", copy = metricTriggerPrefix)
             } else {
                 frame(
-                    "04-lenses-matrix-absent",
+                    "03-lenses-matrix-absent",
                     "the Lenses screen without the habit-score matrix (the Habits chart module is off by default)",
                     copy = "lenses_matrix_row absent - the Habits chart module is off by default",
                 )
