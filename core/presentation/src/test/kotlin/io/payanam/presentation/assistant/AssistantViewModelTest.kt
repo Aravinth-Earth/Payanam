@@ -9,8 +9,11 @@ import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
+import io.payanam.domain.assistant.ChatReply
+import io.payanam.domain.assistant.ChatTurn
 import io.payanam.domain.assistant.HttpResult
 import io.payanam.domain.assistant.HttpTransport
+import io.payanam.domain.assistant.OpenAiCompatibleClient
 import io.payanam.domain.assistant.OpenCodeGoClient
 import io.payanam.domain.port.AssistantConfigurationStore
 import io.payanam.domain.port.DatabaseSchemaReader
@@ -150,6 +153,9 @@ class AssistantViewModelTest {
         val postBodies = mutableListOf<String>()
         val postKeys = mutableListOf<String>()
 
+        /** The address each POST went to, so "the host on screen was called" is assertable. */
+        val postUrls = mutableListOf<String>()
+
         /** Chat POSTs only, so a count is not inflated by key validation. */
         var chatPosts = 0
 
@@ -176,6 +182,7 @@ class AssistantViewModelTest {
         ): HttpResult {
             postBodies += body
             postKeys += headers["Authorization"].orEmpty()
+            postUrls += url
             if (postStatus != 200) return HttpResult(postStatus, """{"error":"nope"}""")
             if (url.endsWith("/models")) return HttpResult(modelsStatus, modelsBody)
             val content = chatBodies.removeFirstOrNull() ?: "done"
@@ -269,6 +276,37 @@ class AssistantViewModelTest {
         fun lastSystemPrompt(): String = decoded(0).substringAfter("\"content\":\"").substringBefore("\",\"role\"")
     }
 
+    /**
+     * The client for one arbitrary address, driven by the scripted transport instead of a socket.
+     *
+     * Production builds exactly this [OpenAiCompatibleClient] for a non-shipped address, over the
+     * dependency-free transport; only the transport differs here, so the request shape and the URLs
+     * under test are the production ones.
+     */
+    private class ScriptedAddressClient(
+        private val client: OpenAiCompatibleClient,
+    ) : AssistantEndpointClient {
+        override fun fetchModels(
+            key: String,
+            session: String,
+        ): List<String> = client.fetchModels(key, session)
+
+        override fun validateKey(
+            key: String,
+            session: String,
+            model: String,
+        ) {
+            client.validateKey(key, session, model)
+        }
+
+        override fun chat(
+            key: String,
+            session: String,
+            model: String,
+            messages: List<ChatTurn>,
+        ): ChatReply = client.chat(key, session, model, messages)
+    }
+
     private lateinit var log: RecordingLogger
     private lateinit var store: FakeStore
     private lateinit var schema: FakeSchema
@@ -345,6 +383,23 @@ class AssistantViewModelTest {
     }
 
     private fun newViewModel() = AssistantViewModel(store, schema, query, client, CoroutineScope(dispatcher), dispatcher)
+
+    /**
+     * The same ViewModel with the endpoint-client factory supplied.
+     *
+     * Needed only by the cases about an address that is not the shipped one: production builds that
+     * client over a real transport, so a test cannot reach it without this seam.
+     */
+    private fun newViewModel(endpointClientFactory: (String) -> AssistantEndpointClient) =
+        AssistantViewModel(
+            store,
+            schema,
+            query,
+            client,
+            CoroutineScope(dispatcher),
+            dispatcher,
+            endpointClientFactory,
+        )
 
     private fun rows(
         columns: List<String>,
@@ -1151,6 +1206,7 @@ class AssistantViewModelTest {
     @Test
     fun `a provider that needs no key saves and chats without one`() =
         runTest(dispatcher) {
+            val address = "http://localhost:11434/v1"
             store.config =
                 StoredAssistantConfig(
                     apiKey = "",
@@ -1159,11 +1215,14 @@ class AssistantViewModelTest {
                     connection =
                         AssistantConnection(
                             provider = AssistantProvider.OLLAMA,
-                            baseUrl = "http://localhost:11434/v1",
+                            baseUrl = address,
                             model = "m1",
                         ),
                 )
-            val viewModel = newViewModel()
+            // The address is not the shipped one, so the ViewModel asks the factory for its client; this
+            // factory answers with one over the scripted transport, so the turn is answered here instead
+            // of reaching a socket.
+            val viewModel = newViewModel { url -> ScriptedAddressClient(OpenAiCompatibleClient(transport, url)) }
             advanceUntilIdle()
             // A local server answers with no credential at all, so this is a finished setup.
             assertThat(viewModel.uiState.value.isConfigured).isTrue()
@@ -1171,14 +1230,23 @@ class AssistantViewModelTest {
             viewModel.saveAndStart()
             advanceUntilIdle()
             assertThat(store.savedConnections)
-                .containsExactly(AssistantProvider.OLLAMA to "http://localhost:11434/v1")
+                .containsExactly(AssistantProvider.OLLAMA to address)
 
-            // A custom address is served by the ViewModel's own transport, not the injected one, so
-            // this asserts the KEY GATE is passed: the turn reaches the network and fails there,
-            // instead of being refused for a missing key it does not need.
+            transport.chatBodies.addLast("three tasks are open")
             viewModel.send("hello")
             advanceUntilIdle()
-            assertThat(viewModel.uiState.value.error).isEqualTo(AssistantErrorKind.NETWORK)
+
+            // A custom address is served by the ViewModel's own client, not the injected one, so the
+            // question reaches the address on screen and its answer lands in the chat: the key gate is
+            // passed and the turn completed, with nothing sent as a credential.
+            assertThat(viewModel.uiState.value.error).isNull()
+            assertThat(transport.postUrls).containsExactly("$address/chat/completions")
+            assertThat(transport.chatPosts).isEqualTo(1)
+            assertThat(transport.postKeys.single()).isEqualTo("Bearer ")
+            val reply =
+                viewModel.uiState.value.messages
+                    .last { it.role == AssistantChatMessage.ROLE_ASSISTANT }
+            assertThat(reply.text).isEqualTo("three tasks are open")
         }
 
     private class UnreachableTransport : HttpTransport {
