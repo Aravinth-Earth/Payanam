@@ -6,6 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.assistant.AssistantAboutMe
 import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantLength
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.UnifiedLogger
@@ -348,6 +349,94 @@ class AssistantConfigurationStoreJvmTest {
         }
     }
 
+    // --- saveConnection ---------------------------------------------------------------------------
+
+    @Test
+    fun `an install with neither endpoint row loads the gateway it already used`() {
+        runBlocking {
+            val connection = store().loadConfig().connection
+
+            // THE UPGRADE GUARANTEE, the one case that must never regress: the endpoint rows did not
+            // exist in the builds before them, so an install holding neither must read back as exactly
+            // the endpoint those builds used.
+            assertThat(connection.provider).isEqualTo(AssistantProvider.OPENCODE)
+            assertThat(connection.baseUrl).isEqualTo(AssistantDefaults.BASE_URL)
+            // Absence is benign — not an unreadable row — and the reader wrote nothing back.
+            assertThat(recordingLogger.warnings).isEmpty()
+            assertThat(rows()).isEmpty()
+        }
+    }
+
+    @Test
+    fun `a saved provider and address load back as stored`() {
+        runBlocking {
+            store().saveConnection(AssistantProvider.OPENROUTER, "https://openrouter.ai/api/v1")
+
+            val connection = store().loadConfig().connection
+
+            assertThat(connection.provider).isEqualTo(AssistantProvider.OPENROUTER)
+            assertThat(connection.baseUrl).isEqualTo("https://openrouter.ai/api/v1")
+            // The row holds the enum NAME, which is the storage format both platforms share.
+            assertThat(raw("assistant.provider")).isEqualTo("OPENROUTER")
+            assertThat(raw("assistant.base_url")).isEqualTo("https://openrouter.ai/api/v1")
+        }
+    }
+
+    @Test
+    fun `a custom address is kept verbatim and not replaced by a provider default`() {
+        runBlocking {
+            // A trailing slash AND a non-default port: neither is normalised, and the provider has no
+            // default of its own that could stand in for it.
+            store().saveConnection(AssistantProvider.CUSTOM_LOCAL, "http://192.168.1.20:8080/v1/")
+
+            val connection = store().loadConfig().connection
+
+            assertThat(connection.provider).isEqualTo(AssistantProvider.CUSTOM_LOCAL)
+            assertThat(connection.baseUrl).isEqualTo("http://192.168.1.20:8080/v1/")
+            assertThat(raw("assistant.base_url")).isEqualTo("http://192.168.1.20:8080/v1/")
+        }
+    }
+
+    @Test
+    fun `an unrecognised stored provider falls back to the gateway and is reported`() {
+        runBlocking {
+            seedRaw("assistant.provider", "GEMINI")
+
+            val config = store().loadConfig()
+
+            // Unmatched is not absent: the fallback is the same endpoint, but it must be LOUD, because
+            // a name this build does not know means a row it cannot honour.
+            assertThat(config.connection.provider).isEqualTo(AssistantProvider.OPENCODE)
+            assertThat(config.connection.baseUrl).isEqualTo(AssistantDefaults.BASE_URL)
+            val warnedKeys = recordingLogger.warnings.map { it.data["key"]?.toString() }
+            assertThat(warnedKeys).containsExactly("assistant.provider")
+            // Left in storage: the stored text is the only evidence of what was chosen.
+            assertThat(raw("assistant.provider")).isEqualTo("GEMINI")
+            assertThat(recordingLogger.text).doesNotContain("GEMINI")
+        }
+    }
+
+    @Test
+    fun `saveConnection writes only the provider and address rows`() {
+        runBlocking {
+            store().saveAll("secret-key", defaults().copy(model = "gpt-x", maxRows = 250))
+            store().beginReconfigure()
+
+            store().saveConnection(AssistantProvider.CUSTOM_CLOUD, "https://example.invalid/v1")
+
+            // Sixteen rows from saveAll + beginReconfigure, two more from the connection write.
+            assertThat(rows().size).isEqualTo(18)
+            assertThat(raw("assistant.provider")).isEqualTo("CUSTOM_CLOUD")
+            assertThat(raw("assistant.base_url")).isEqualTo("https://example.invalid/v1")
+            // The rows other writers own are untouched: not the key, not the model, not any limit,
+            // and not the pending flag.
+            assertThat(raw("assistant.api_key")).isEqualTo("secret-key")
+            assertThat(raw("assistant.model")).isEqualTo("gpt-x")
+            assertThat(raw("assistant.max_rows")).isEqualTo("250")
+            assertThat(raw("assistant.setup_required")).isEqualTo("true")
+        }
+    }
+
     // --- markNoticeShown --------------------------------------------------------------------------
 
     @Test
@@ -368,16 +457,21 @@ class AssistantConfigurationStoreJvmTest {
     // --- clearProviderConfiguration ---------------------------------------------------------------
 
     @Test
-    fun `clearProviderConfiguration removes the key the model and the flag and keeps the neutral rows`() {
+    fun `clearProviderConfiguration removes the key the model the endpoint and the flag and keeps the neutral rows`() {
         runBlocking {
             store().saveAll("secret-key", defaults().copy(model = "gpt-x", promptAdditions = "keep me"))
             store().beginReconfigure()
+            store().saveConnection(AssistantProvider.OPENROUTER, "https://openrouter.ai/api/v1")
 
             store().clearProviderConfiguration()
 
             assertThat(hasRow("assistant.api_key")).isFalse()
             assertThat(hasRow("assistant.model")).isFalse()
             assertThat(hasRow("assistant.setup_required")).isFalse()
+            // The endpoint rows go as a PAIR: leaving either behind would hand the next configuration
+            // a host the user had already removed.
+            assertThat(hasRow("assistant.provider")).isFalse()
+            assertThat(hasRow("assistant.base_url")).isFalse()
             // The neutral settings survive a key change: the user's own text is not the provider's.
             assertThat(raw("assistant.prompt_additions")).isEqualTo("keep me")
             assertThat(rows().size).isEqualTo(13)

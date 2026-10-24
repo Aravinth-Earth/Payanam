@@ -10,6 +10,8 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.entity.AppSettingEntity
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.assistant.AssistantDefaults
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.domain.assistant.AssistantStoredValue
 import kotlinx.coroutines.runBlocking
@@ -98,13 +100,67 @@ class AssistantSettingsStoreTest {
     }
 
     @Test
-    fun `clearProviderConfiguration deletes key, model and flag in one transaction`() = runBlocking {
+    fun `clearProviderConfiguration deletes key, model, flag, provider and address in one transaction`() = runBlocking {
         seedConfigured()
         store.beginReconfigure()
+        store.saveConnection(AssistantProvider.OPENROUTER, "https://openrouter.ai/api/v1")
         store.clearProviderConfiguration()
         assertNull(raw("assistant.api_key"))
         assertNull(raw("assistant.model"))
         assertNull(raw("assistant.setup_required"))
+        // The endpoint pair goes too: a stale address would hand the next configuration a host the
+        // user had already removed.
+        assertNull(raw("assistant.provider"))
+        assertNull(raw("assistant.base_url"))
+    }
+
+    // --- the stored endpoint ---------------------------------------------------------------------
+
+    @Test
+    fun `an install with neither endpoint row loads the endpoint it already used`() = runBlocking {
+        // THE UPGRADE GUARANTEE: builds before the provider list stored neither row, and that user
+        // must keep exactly the endpoint they already had.
+        val connection = store.loadConfig().connection
+        assertEquals(AssistantProvider.OPENCODE, connection.provider)
+        assertEquals(AssistantDefaults.BASE_URL, connection.baseUrl)
+        // The upgrade path invents nothing and writes nothing: neither endpoint row appears.
+        assertNull(raw("assistant.provider"))
+        assertNull(raw("assistant.base_url"))
+    }
+
+    @Test
+    fun `a saved provider and address load back as stored`() = runBlocking {
+        store.saveConnection(AssistantProvider.OPENROUTER, "https://openrouter.ai/api/v1")
+        val connection = store.loadConfig().connection
+        assertEquals(AssistantProvider.OPENROUTER, connection.provider)
+        assertEquals("https://openrouter.ai/api/v1", connection.baseUrl)
+        assertEquals("the row holds the enum name", "OPENROUTER", raw("assistant.provider"))
+    }
+
+    @Test
+    fun `a custom address is kept verbatim and not replaced by a provider default`() = runBlocking {
+        // A trailing slash AND a non-default port: neither is normalised, and this provider has no
+        // default that could stand in for the address the user typed.
+        store.saveConnection(AssistantProvider.CUSTOM_LOCAL, "http://192.168.1.20:8080/v1/")
+        val connection = store.loadConfig().connection
+        assertEquals(AssistantProvider.CUSTOM_LOCAL, connection.provider)
+        assertEquals("http://192.168.1.20:8080/v1/", connection.baseUrl)
+        assertEquals("http://192.168.1.20:8080/v1/", raw("assistant.base_url"))
+    }
+
+    @Test
+    fun `an unrecognised stored provider falls back to the gateway and is reported`() = runBlocking {
+        seedConfigured()
+        seedRaw("assistant.provider", "GEMINI")
+        val marker = markLog()
+        val connection = store.loadConfig().connection
+        assertEquals(AssistantProvider.OPENCODE, connection.provider)
+        assertEquals(AssistantDefaults.BASE_URL, connection.baseUrl)
+        assertEquals("the stored text is left in place", "GEMINI", raw("assistant.provider"))
+        // Unmatched is not absent: the fallback must never be silent.
+        val warnings = waitForLogAfter(marker) { text -> text.contains("unreadable") }
+        assertTrue("the provider fallback must reach the log", warnings.contains("assistant.provider"))
+        assertFalse("the stored VALUE must never be logged", warnings.contains("GEMINI"))
     }
 
     @Test
@@ -138,8 +194,9 @@ class AssistantSettingsStoreTest {
     fun `an unreadable stored row is REPORTED with its key in the log`() = runBlocking {
         seedConfigured()
         seedRaw("assistant.max_rows", "not-a-number")
+        val marker = markLog()
         store.loadConfig()
-        val warnings = waitForLog { text -> text.contains("unreadable") }
+        val warnings = waitForLogAfter(marker) { text -> text.contains("unreadable") }
         assertTrue("an unreadable stored row must reach the log", warnings.contains("assistant.max_rows"))
         assertFalse(
             "the stored VALUE must never be logged",
@@ -150,8 +207,9 @@ class AssistantSettingsStoreTest {
     @Test
     fun `a missing stored row is NOT reported as unreadable`() = runBlocking {
         seedConfigured()
+        val marker = markLog()
         store.loadConfig()
-        val warnings = waitForLog { text -> text.contains("unreadable") }
+        val warnings = waitForLogAfter(marker) { text -> text.contains("unreadable") }
         assertFalse(
             "a first run is benign and must not be reported",
             warnings.contains("unreadable"),
@@ -159,20 +217,37 @@ class AssistantSettingsStoreTest {
     }
 
     /**
-     * Reads the logger's session file until [predicate] holds.
+     * Writes a marker line and returns its text, so an assertion can ignore everything before it.
      *
-     * A WARN is only buffered until the logger's own threshold is reached, so each poll asks it to
-     * flush and then gives its coroutine a moment — without the flush a single warning never
-     * reaches the file and this would assert against an empty log for the wrong reason.
+     * The logger is a process-wide singleton: its recent lines carry whatever the earlier tests in
+     * this class wrote. A predicate over the whole buffer can therefore be satisfied by a STALE line
+     * from another test, which made these assertions depend on test order — a new test that reported
+     * an unreadable provider row was enough to break an older test about an unreadable max-rows row.
      */
-    private fun waitForLog(predicate: (String) -> Boolean): String {
+    private fun markLog(): String {
+        val marker = "test-marker-${System.nanoTime()}"
+        UnifiedLogger.getInstance().i("AssistantSettingsStoreTest", marker, emptyMap())
+        return marker
+    }
+
+    /** Polls the log until [predicate] holds for the text written after [marker]. */
+    private fun waitForLogAfter(
+        marker: String,
+        predicate: (String) -> Boolean,
+    ): String {
         repeat(40) {
             UnifiedLogger.getInstance().flush()
-            val text = UnifiedLogger.getInstance().getRecentLogs(400)
-            if (predicate(text)) return text
+            val after = logsAfter(marker)
+            if (predicate(after)) return after
             Thread.sleep(50)
         }
-        return UnifiedLogger.getInstance().getRecentLogs(400)
+        return logsAfter(marker)
+    }
+
+    private fun logsAfter(marker: String): String {
+        val text = UnifiedLogger.getInstance().getRecentLogs(400)
+        val index = text.lastIndexOf(marker)
+        return if (index >= 0) text.substring(index + marker.length) else ""
     }
 
     /** Writes a row straight through the DAO, bypassing the sanitizing writer. */

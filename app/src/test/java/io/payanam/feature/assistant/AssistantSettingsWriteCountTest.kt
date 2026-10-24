@@ -9,6 +9,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
@@ -64,6 +65,25 @@ class AssistantSettingsWriteCountTest {
             "the save log quotes STORED_SETTING_ROWS; it must equal the rows a save writes",
             STORED_SETTING_ROWS,
             db.appSettingsDao().getAllSettings().first().size,
+        )
+    }
+
+    @Test
+    fun `saveConnection writes the provider and address rows and nothing else`() = runBlocking {
+        store.saveAll("test-key-1", AssistantSettings(model = "m1", maxRows = 250))
+        val before = db.appSettingsDao().getAllSettings().first().associate { it.key to it.value }
+
+        store.saveConnection(AssistantProvider.OPENAI, "https://api.openai.com/v1")
+
+        val after = db.appSettingsDao().getAllSettings().first().associate { it.key to it.value }
+        assertEquals("exactly the two endpoint rows are added", before.size + 2, after.size)
+        assertEquals("OPENAI", after["assistant.provider"])
+        assertEquals("https://api.openai.com/v1", after["assistant.base_url"])
+        // The single-writer discipline: the key, the model, every limit and the flag are untouched.
+        assertEquals(
+            "the connection write must not touch any other row",
+            before,
+            after - setOf("assistant.provider", "assistant.base_url"),
         )
     }
 }
