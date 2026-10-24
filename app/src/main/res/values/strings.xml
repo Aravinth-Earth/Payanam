@@ -1264,7 +1264,7 @@
     <string name="assistant_error_dismiss">Dismiss</string>
     <string name="assistant_error_no_model">No model selected — open settings and pick one.</string>
     <string name="assistant_error_network">Network problem — check your connection and retry.</string>
-    <string name="assistant_error_server">The provider returned an error. Try again shortly.</string>
+    <string name="assistant_error_server">The provider had a problem on its side. Try again shortly.</string>
     <string name="assistant_error_db_closed">Your data is locked — unlock and try again.</string>
     <string name="assistant_input_hint">Ask about your data…</string>
     <string name="assistant_send">Send</string>
@@ -1275,7 +1275,7 @@
     <string name="assistant_receipt">%1$s · %2$d queries · %3$d rows</string>
     <string name="assistant_ai_generated">AI-generated</string>
     <string name="assistant_notice_title">About AI answers</string>
-    <string name="assistant_notice_body">AI Assistance is entirely optional. Payanam has no servers and no telemetry — if you never use this feature, none of your data is sent anywhere, and the app stays fully functional offline. When you choose to use it, you bring your own model key (BYOK): what is sent to the model provider you selected is your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints), and the recent part of this conversation — plus your prompt additions and About-me values, if you set them. Nothing else of yours is sent. The answer is generated there. This is a statistical AI system, not a human judgement — answers can be wrong; verify the numbers and treat readings as hints, not verdicts. Only continue if you are comfortable sending that content to that provider. Removing the key switches everything back off. Third-party service: OpenCode Zen. Your key and usage are governed by OpenCode\'s Terms of Service. Payanam is not affiliated with OpenCode.</string>
+    <string name="assistant_notice_body">AI Assistance is entirely optional. Payanam has no servers and no telemetry — if you never use this feature, none of your data is sent anywhere, and the app stays fully functional offline. When you choose to use it, you bring your own model key (BYOK): what is sent to the model provider you selected is your question, the read-only data rows needed to answer it, the database schema (your table definitions — names, columns, types, constraints), and the recent part of this conversation — plus your prompt additions and About-me values, if you set them. Nothing else of yours is sent. The answer is generated there. This is a statistical AI system, not a human judgement — answers can be wrong; verify the numbers and treat readings as hints, not verdicts. Only continue if you are comfortable sending that content to that provider. Removing the key switches everything back off. Third-party service: whichever one you chose. Your key and usage are governed by that service\'s Terms of Service. Payanam is not affiliated with it.</string>
     <string name="assistant_notice_ok">Got it</string>
     <string name="assistant_empty_hint">Try one of these</string>
     <string name="assistant_empty_prompt">Ask a question about your data. Suggestion chips are turned off in settings.</string>
