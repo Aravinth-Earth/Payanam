@@ -149,17 +149,21 @@ class AssistantSettingsStoreTest {
     }
 
     @Test
-    fun `an unrecognised stored provider falls back to the gateway and is reported`() = runBlocking {
+    fun `an unrecognised stored provider leaves the assistant unset up and is reported`() = runBlocking {
         seedConfigured()
         seedRaw("assistant.provider", "GEMINI")
         val marker = markLog()
-        val connection = store.loadConfig().connection
-        assertEquals(AssistantProvider.OPENCODE, connection.provider)
-        assertEquals(AssistantDefaults.BASE_URL, connection.baseUrl)
+        val config = store.loadConfig()
+        // A name this build cannot match means we cannot say which host the stored key was entered
+        // for, so nothing from that configuration is used: no provider, no address, no key.
+        assertNull(config.connection.provider)
+        assertEquals("the address is not guessed either", "", config.connection.baseUrl)
+        assertEquals("the stored key is never offered as usable", "", config.apiKey)
+        assertTrue("the user must choose again", config.setupRequired)
         assertEquals("the stored text is left in place", "GEMINI", raw("assistant.provider"))
-        // Unmatched is not absent: the fallback must never be silent.
+        // Unmatched is not absent: refusing must never be silent.
         val warnings = waitForLogAfter(marker) { text -> text.contains("unreadable") }
-        assertTrue("the provider fallback must reach the log", warnings.contains("assistant.provider"))
+        assertTrue("the refusal must reach the log", warnings.contains("assistant.provider"))
         assertFalse("the stored VALUE must never be logged", warnings.contains("GEMINI"))
     }
 

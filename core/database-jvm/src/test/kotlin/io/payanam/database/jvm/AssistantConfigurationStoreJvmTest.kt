@@ -398,16 +398,19 @@ class AssistantConfigurationStoreJvmTest {
     }
 
     @Test
-    fun `an unrecognised stored provider falls back to the gateway and is reported`() {
+    fun `an unrecognised stored provider leaves the assistant unset up and is reported`() {
         runBlocking {
             seedRaw("assistant.provider", "GEMINI")
 
             val config = store().loadConfig()
 
-            // Unmatched is not absent: the fallback is the same endpoint, but it must be LOUD, because
-            // a name this build does not know means a row it cannot honour.
-            assertThat(config.connection.provider).isEqualTo(AssistantProvider.OPENCODE)
-            assertThat(config.connection.baseUrl).isEqualTo(AssistantDefaults.BASE_URL)
+            // A name this build cannot match means we cannot say which host the stored key was
+            // entered for, so nothing from that configuration is used: no provider, no address, no
+            // key. Treating it as "not set up yet" is the only answer that guesses nothing.
+            assertThat(config.connection.provider).isNull()
+            assertThat(config.connection.baseUrl).isEmpty()
+            assertThat(config.apiKey).isEmpty()
+            assertThat(config.setupRequired).isTrue()
             val warnedKeys = recordingLogger.warnings.map { it.data["key"]?.toString() }
             assertThat(warnedKeys).containsExactly("assistant.provider")
             // Left in storage: the stored text is the only evidence of what was chosen.

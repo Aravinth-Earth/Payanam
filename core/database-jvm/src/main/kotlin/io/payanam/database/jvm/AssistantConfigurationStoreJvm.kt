@@ -82,12 +82,34 @@ class AssistantConfigurationStoreJvm(
                     val setupRequired = if (setupRequiredField.usable) setupRequiredField.value else true
                     if (!setupRequiredField.usable) reportUnreadableStoredRow(KEY_SETUP_REQUIRED)
                     val settings = loadSettings()
-                    StoredAssistantConfig(
-                        apiKey = read(KEY_API_KEY) ?: "",
-                        settings = settings,
-                        setupRequired = setupRequired,
-                        connection = loadConnection(settings.model),
-                    )
+                    when (val endpoint = loadConnection(settings.model)) {
+                        is StoredEndpoint.Unrecognised -> {
+                            // The stored provider names no provider we know, so none of this
+                            // configuration can be trusted: the stored address may belong to a host
+                            // the stored key was never entered for. Load the state a not-yet-set-up
+                            // install has instead of guessing, and leave every row in storage
+                            // untouched - the stored text is the only evidence of what the user chose.
+                            StoredAssistantConfig(
+                                // Not deleted, but never offered as usable for a host we cannot name.
+                                apiKey = "",
+                                settings = settings,
+                                // Forced, whatever the stored flag says: the user has to choose again.
+                                setupRequired = true,
+                                // No provider and no address: which host the stored address described
+                                // is unknown, so substituting a default is the same guess in another shape.
+                                connection = AssistantConnection(provider = null, baseUrl = "", model = settings.model),
+                            )
+                        }
+
+                        is StoredEndpoint.Resolved -> {
+                            StoredAssistantConfig(
+                                apiKey = read(KEY_API_KEY) ?: "",
+                                settings = settings,
+                                setupRequired = setupRequired,
+                                connection = endpoint.connection,
+                            )
+                        }
+                    }
                 }
             logger.d(
                 SOURCE,
@@ -251,30 +273,56 @@ class AssistantConfigurationStoreJvm(
     }
 
     /**
-     * Reads the stored endpoint as one [AssistantConnection], with the model the caller already loaded.
+     * Reads the stored endpoint, telling the three cases apart that `KEY_PROVIDER` can be in. Identical in
+     * shape and behaviour to the Android store's reader.
      *
-     * THE UPGRADE RULE, implemented here and identically in the Android store: an install written by a
-     * build that predates the provider list has NEITHER row, and that user must keep exactly the endpoint
-     * they already had. So an ABSENT provider reads as [AssistantProvider.OPENCODE] and an absent address
-     * as that provider's own default — the gateway those builds used. No migration is needed and nothing
-     * changes for them.
+     * THE UPGRADE RULE (absent row): an install written by a build that predates the provider list has
+     * NEITHER row, and that user must keep exactly the endpoint they already had — [AssistantProvider.OPENCODE]
+     * at its own default address, the gateway those builds used. Nothing changes for them, no migration is
+     * written, and nothing is reported: this is not a fault.
      *
-     * Strict in one direction only: a provider row that names no enum entry (a newer build wrote it, or
-     * the row is corrupt) also falls back to [AssistantProvider.OPENCODE] instead of throwing, and is
-     * reported through [reportUnreadableStoredRow] so the fallback is never silent. A blank address is
-     * treated as absent; the two custom providers have a null default, so this never invents one.
+     * THE ANOMALY (row present, name unrecognised): a newer build wrote it, or the row is corrupt. Nothing
+     * can be inferred from it — not the provider, and so not which host the stored address belonged to — so
+     * this returns [StoredEndpoint.Unrecognised] and no connection at all, rather than pairing a name with
+     * an address. It is reported through [reportUnreadableStoredRow] with the key only, never the stored
+     * value, and the rows are left exactly as they are.
+     *
+     * A blank stored address is treated as absent; the two custom providers have a null default, so this
+     * never invents one.
      */
-    private fun loadConnection(model: String): AssistantConnection {
+    private fun loadConnection(model: String): StoredEndpoint {
         val storedProvider = read(KEY_PROVIDER)
-        val matched = storedProvider?.let { stored -> AssistantProvider.entries.firstOrNull { it.name == stored } }
-        // Absent is the ordinary upgrade case and says nothing; present-but-unmatched is a real anomaly.
-        if (storedProvider != null && matched == null) reportUnreadableStoredRow(KEY_PROVIDER)
-        val provider = matched ?: AssistantProvider.OPENCODE
+        if (storedProvider == null) {
+            // ABSENT and PRESENT-BUT-UNRECOGNISED are different states, and the branches below are kept
+            // separate on purpose. Do NOT collapse them into one `?: AssistantProvider.OPENCODE`: absent
+            // means "the endpoint those builds used, and the stored key belongs to it"; unrecognised
+            // means "we cannot say which host that key was for".
+            val storedBaseUrl = read(KEY_BASE_URL)
+            val provider = AssistantProvider.OPENCODE
+            return StoredEndpoint.Resolved(
+                AssistantConnection(
+                    provider = provider,
+                    baseUrl = if (storedBaseUrl.isNullOrBlank()) provider.defaultBaseUrl.orEmpty() else storedBaseUrl,
+                    model = model,
+                ),
+            )
+        }
+
+        val matched = AssistantProvider.entries.firstOrNull { it.name == storedProvider }
+        if (matched == null) {
+            // The address row is deliberately NOT read here: without a provider we cannot tell which
+            // host it named, and returning it would be the guess this branch exists to refuse.
+            reportUnreadableStoredRow(KEY_PROVIDER)
+            return StoredEndpoint.Unrecognised
+        }
+
         val storedBaseUrl = read(KEY_BASE_URL)
-        return AssistantConnection(
-            provider = provider,
-            baseUrl = if (storedBaseUrl.isNullOrBlank()) provider.defaultBaseUrl.orEmpty() else storedBaseUrl,
-            model = model,
+        return StoredEndpoint.Resolved(
+            AssistantConnection(
+                provider = matched,
+                baseUrl = if (storedBaseUrl.isNullOrBlank()) matched.defaultBaseUrl.orEmpty() else storedBaseUrl,
+                model = model,
+            ),
         )
     }
 
@@ -376,4 +424,28 @@ class AssistantConfigurationStoreJvm(
         /** Verbatim from `AppSettingsDao.deleteSetting`. */
         const val DELETE_SETTING_SQL = "DELETE FROM app_settings WHERE `key` = ?"
     }
+}
+
+/**
+ * What reading `assistant.provider` + `assistant.base_url` produced — the three states this store has to
+ * tell apart, made into a type so they cannot be collapsed back together.
+ *
+ * [Resolved] covers the two cases where an endpoint can honestly be named: the row names a recognised
+ * [AssistantProvider], or the row is ABSENT (the ordinary upgrade from a build that predates the provider
+ * list, where the stored key does belong to the default gateway).
+ *
+ * [Unrecognised] is the third case and carries NO connection on purpose: the name is PRESENT but matches
+ * no entry, so which host the stored address described is unknowable, and handing back any provider — or
+ * any address — would present the stored credential to a host it may never have been entered for. That is
+ * the defect this type exists to make unrepresentable, so a caller is forced to decide what a
+ * configuration that cannot be trusted looks like instead of inheriting a plausible default.
+ */
+private sealed interface StoredEndpoint {
+    /** A provider that can be named, with the address that belongs to it. */
+    class Resolved(
+        val connection: AssistantConnection,
+    ) : StoredEndpoint
+
+    /** The provider row is PRESENT but names no [AssistantProvider] entry: an anomaly, never an upgrade. */
+    data object Unrecognised : StoredEndpoint
 }
