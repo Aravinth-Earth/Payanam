@@ -4,6 +4,8 @@
 
 package io.payanam.core.ui.assistant
 
+import androidx.compose.ui.semantics.selected
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,6 +14,7 @@ import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.imePadding
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -134,6 +137,10 @@ fun AssistantSettingsScreenContent(
                     .padding(padding)
                     .imePadding()
                     .verticalScroll(rememberScrollState())
+                    // The last control on this page (Verify, and its success line) sits below the fold on a
+                    // phone, and the navigation bar drew over it: the text was in the tree and unreadable on
+                    // screen. Reserve the bar's inset instead of assuming the scaffold already did.
+                    .navigationBarsPadding()
                     .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(14.dp),
         ) {
@@ -147,7 +154,9 @@ fun AssistantSettingsScreenContent(
                 style = MaterialTheme.typography.labelMedium,
                 color = MaterialTheme.colorScheme.primary,
             )
-            if (!isConfigured(uiState)) {
+            // Keyed on the model alone: this line says "no model selected yet", and it used to appear
+            // beside a model that WAS selected but whose key was still an unsaved draft.
+            if (uiState.settings.model.isEmpty()) {
                 Text(
                     text = strings.assistantNoModel,
                     style = MaterialTheme.typography.labelMedium,
@@ -341,13 +350,15 @@ private fun ConnectionSection(
     // `selectProvider` decides what that does to the address.
     AssistantBackend.entries.forEach { backend ->
         val firstInGroup = AssistantProvider.forBackend(backend).firstOrNull()
+        // The WHOLE row is the control, not just the circle: tapping the words "On this device" used
+        // to do nothing, which left a touch target the size of a radio button and made the local
+        // option feel inert. `onClick = null` on the RadioButton keeps one gesture and one label for
+        // accessibility instead of two nested click targets.
         Row(
-            modifier = Modifier.semantics(mergeDescendants = true) {},
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            RadioButton(
-                selected = uiState.provider?.backend == backend,
-                onClick = {
+            modifier =
+            Modifier
+                .fillMaxWidth()
+                .selectableRow(selected = uiState.provider?.backend == backend) {
                     if (firstInGroup != null && uiState.provider?.backend != backend) {
                         AppLogger.current.d(
                             "AssistantSettingsScreen",
@@ -357,6 +368,11 @@ private fun ConnectionSection(
                         actions.onProviderSelected(firstInGroup)
                     }
                 },
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            RadioButton(
+                selected = uiState.provider?.backend == backend,
+                onClick = null,
             )
             Text(text = backendLabel(backend, strings))
         }
@@ -429,6 +445,10 @@ private fun ConnectionSection(
                     !provider.requiresKey -> strings.assistantApiKeyOptional
 
                     storedKeyHint -> strings.assistantKeyStoredHint
+
+                    // A draft that is already typed is not something to paste: saying so beside a filled
+                    // field reads as if nothing was entered.
+                    uiState.keyDraft.isNotBlank() -> strings.assistantKeyStoredHint
 
                     else -> strings.assistantKeyHint
                 },
@@ -777,4 +797,22 @@ private fun AboutField(
 private const val NUMBER_FIELD_DIGIT_LIMIT: Int = 5
 
 /** The same configured-ness the chat surface opens on, recomputed for the reason given there. */
-private fun isConfigured(uiState: AssistantUiState): Boolean = uiState.hasKey && uiState.settings.model.isNotEmpty()
+
+/**
+ * Whether the assistant can be used: a model is chosen, and a key exists where the provider needs one.
+ *
+ * The provider decides, not the key alone: a model server on the user's own machine answers with no
+ * credential, so demanding a key here would leave a finished local setup stuck on the setup pointer.
+ * Mirrors `AssistantUiState.isConfigured` in the presentation module, which this module cannot import.
+ */
+private fun isConfigured(uiState: AssistantUiState): Boolean =
+    (uiState.hasKey || uiState.provider?.requiresKey == false) && uiState.settings.model.isNotEmpty()
+
+/** Makes a whole row behave as one selectable control, so its label is part of the target. */
+private fun Modifier.selectableRow(
+    selected: Boolean,
+    onClick: () -> Unit,
+): Modifier =
+    this
+        .semantics(mergeDescendants = true) { this.selected = selected }
+        .clickable(onClick = onClick)

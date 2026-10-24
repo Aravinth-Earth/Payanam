@@ -573,11 +573,11 @@ internal fun ErrorBanner(
 const val ASSISTANT_SETTINGS_BUTTON: String = "assistant_settings_button"
 
 /**
- * Whether the chat surface can open at all: a stored key AND a chosen model.
+ * Whether the assistant can be used: a model is chosen, and a key exists where the provider needs one.
  *
- * Deliberately recomputed here rather than imported from the ViewModel file: the extension's receiver is
- * a type in `:core:presentation`, and this module already depends on that module, so the import would
- * work - but the rule the screen renders on is a rule about the SCREEN, and a screen whose "can I open?"
- * test lives in a ViewModel file has to be read before it can be trusted.
+ * The provider decides, not the key alone: a model server on the user's own machine answers with no
+ * credential, so demanding a key here would leave a finished local setup stuck on the setup pointer.
+ * Mirrors `AssistantUiState.isConfigured` in the presentation module, which this module cannot import.
  */
-private fun isConfigured(uiState: AssistantUiState): Boolean = uiState.hasKey && uiState.settings.model.isNotEmpty()
+private fun isConfigured(uiState: AssistantUiState): Boolean =
+    (uiState.hasKey || uiState.provider?.requiresKey == false) && uiState.settings.model.isNotEmpty()
