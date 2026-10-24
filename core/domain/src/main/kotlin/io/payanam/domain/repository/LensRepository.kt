@@ -3,16 +3,17 @@
 package io.payanam.domain.repository
 
 import io.payanam.shared.logging.AppLogger
-import java.time.LocalDate
 import kotlinx.coroutines.flow.Flow
+import java.time.LocalDate
 
 // Repository for lens calculations (Planning and Reality).
 // Provides data aggregation and gap detection for lens views.
-@Suppress("TooManyFunctions")
+
 /**
  * Aggregates per-day planning + reality data for the lens views (time
  * tracking, adherence, focus gaps, behavioral patterns).
  */
+@Suppress("TooManyFunctions")
 interface LensRepository {
     /**
      * First calendar day that has any tracked time entry, or null.
@@ -72,7 +73,10 @@ interface LensRepository {
      * @param id The reflection ID
      * @param note Optional user note
      */
-    suspend fun markReflectionAddressed(id: String, note: String?)
+    suspend fun markReflectionAddressed(
+        id: String,
+        note: String?,
+    )
 
     /**
      * Calculate plan completeness score (0.0 to 1.0).
@@ -139,7 +143,10 @@ interface LensRepository {
      * Entries that span midnight are split to their respective day boundaries.
      * A null key represents entries with no dimension assigned (unassigned time).
      */
-    suspend fun getDimensionSplitForRange(start: LocalDate, end: LocalDate): Map<String?, Int> = emptyMap()
+    suspend fun getDimensionSplitForRange(
+        start: LocalDate,
+        end: LocalDate,
+    ): Map<String?, Int> = emptyMap()
 
     /**
      * Returns dimension time split blocks for the stacked proportional bar trend chart.
@@ -174,7 +181,7 @@ data class DimensionTrendBlock(
     val startDate: LocalDate,
     val endDate: LocalDate,
     val byDimension: Map<String?, Int>,
-    val totalPossibleMinutes: Int
+    val totalPossibleMinutes: Int,
 )
 
 /**
@@ -183,7 +190,7 @@ data class DimensionTrendBlock(
 data class HeatmapEntrySegment(
     val startMinute: Int,
     val durationMinutes: Int,
-    val dimensionId: String?
+    val dimensionId: String?,
 )
 
 /**
@@ -191,7 +198,7 @@ data class HeatmapEntrySegment(
  */
 data class HeatmapDayData(
     val dayKey: String,
-    val segments: List<HeatmapEntrySegment>
+    val segments: List<HeatmapEntrySegment>,
 )
 
 /**
@@ -199,7 +206,7 @@ data class HeatmapDayData(
  */
 data class UnifiedLensSnapshot(
     val planning: PlanningLensData,
-    val reality: RealityLensData
+    val reality: RealityLensData,
 )
 
 /**
@@ -208,12 +215,15 @@ data class UnifiedLensSnapshot(
 data class PlanningLensData(
     val dayKey: String,
     val totalPlannedMinutes: Int,
-    val plannedTimeByDimension: Map<String, Int>, // dimensionId -> minutes (from tasks/habits)
-    val budgetAllocationsByDimension: Map<String, Int>, // dimensionId -> budget minutes (from day plan)
+    // dimensionId -> minutes (from tasks/habits)
+    val plannedTimeByDimension: Map<String, Int>,
+    // dimensionId -> budget minutes (from day plan)
+    val budgetAllocationsByDimension: Map<String, Int>,
     val plannedTasks: List<TaskPlanItem>,
     val plannedHabits: List<HabitPlanItem>,
     val timeGoals: List<TimeGoalItem>,
-    val planCompletenessScore: Float // 0.0 to 1.0
+    // 0.0 to 1.0
+    val planCompletenessScore: Float,
 )
 
 /**
@@ -222,18 +232,26 @@ data class PlanningLensData(
 data class RealityLensData(
     val dayKey: String,
     val totalActualMinutes: Int,
-    val actualTimeByDimension: Map<String, Int>, // dimensionId -> minutes
-    val budgetAllocationsByDimension: Map<String, Int>, // dimensionId -> budget minutes (from day plan)
+    // dimensionId -> minutes
+    val actualTimeByDimension: Map<String, Int>,
+    // dimensionId -> budget minutes (from day plan)
+    val budgetAllocationsByDimension: Map<String, Int>,
     val completedTasks: List<TaskRealityItem>,
     val completedHabits: List<HabitRealityItem>,
     val untrackedMinutes: Int,
-    val focusGapMinutes: Int, // Planned focus - actual focus
-    val adherenceScore: Float, // 0.0 to 1.0
-    val supplementalActualMinutes: Int = 0, // occurrence-based minutes not represented by time entries
+    // Planned focus - actual focus
+    val focusGapMinutes: Int,
+    // 0.0 to 1.0
+    val adherenceScore: Float,
+    // occurrence-based minutes not represented by time entries
+    val supplementalActualMinutes: Int = 0,
     val supplementalActualByDimension: Map<String, Int> = emptyMap(),
-    val actualTimeOnlyMinutes: Int = 0, // time-entry minutes not linked to task/habit
-    val actualTaskMinutes: Int = 0, // time-entry minutes linked to one-time tasks
-    val actualHabitMinutes: Int = 0 // recurring-habit minutes (entry-linked + supplemental occurrences)
+    // time-entry minutes not linked to task/habit
+    val actualTimeOnlyMinutes: Int = 0,
+    // time-entry minutes linked to one-time tasks
+    val actualTaskMinutes: Int = 0,
+    // recurring-habit minutes (entry-linked + supplemental occurrences)
+    val actualHabitMinutes: Int = 0,
 )
 
 /**
@@ -245,7 +263,7 @@ data class TaskPlanItem(
     val dimensionId: String?,
     val estimatedMinutes: Int,
     val dueDate: String,
-    val priority: String
+    val priority: String,
 )
 
 /**
@@ -257,8 +275,10 @@ data class TaskRealityItem(
     val dimensionId: String?,
     val actualMinutes: Int?,
     val completedAt: String?,
-    val status: String, // completed | skipped | missed
-    val adherenceGap: Int? // estimated - actual minutes
+    // completed | skipped | missed
+    val status: String,
+    // estimated - actual minutes
+    val adherenceGap: Int?,
 )
 
 /**
@@ -269,7 +289,7 @@ data class HabitPlanItem(
     val title: String,
     val dimensionId: String?,
     val estimatedMinutes: Int,
-    val recurrenceRule: String
+    val recurrenceRule: String,
 )
 
 /**
@@ -281,7 +301,8 @@ data class HabitRealityItem(
     val dimensionId: String?,
     val actualMinutes: Int?,
     val completedAt: String?,
-    val status: String // completed | skipped | missed
+    // completed | skipped | missed
+    val status: String,
 )
 
 /**
@@ -292,7 +313,7 @@ data class TimeGoalItem(
     val dimensionId: String?,
     val dimensionLabel: String,
     val targetMinutes: Int,
-    val isActive: Boolean
+    val isActive: Boolean,
 )
 
 /**
@@ -301,7 +322,10 @@ data class TimeGoalItem(
  * @property dayKey ISO date key for the day.
  * @property avgFocus Average focus rating for the day, or null if unavailable.
  */
-data class DailyFocusStat(val dayKey: String, val avgFocus: Double?)
+data class DailyFocusStat(
+    val dayKey: String,
+    val avgFocus: Double?,
+)
 
 /**
  * Per-day tracked time percentage (0.0 to 100.0).
@@ -310,7 +334,10 @@ data class DailyFocusStat(val dayKey: String, val avgFocus: Double?)
  * @property dayKey ISO date key for the day.
  * @property trackedPercent Percentage of the day spent in tracked activities.
  */
-data class DailyTrackedTimeStat(val dayKey: String, val trackedPercent: Double)
+data class DailyTrackedTimeStat(
+    val dayKey: String,
+    val trackedPercent: Double,
+)
 
 /**
  * Per-day focused hours (0.0 to 24.0).
@@ -320,7 +347,10 @@ data class DailyTrackedTimeStat(val dayKey: String, val trackedPercent: Double)
  * @property dayKey ISO date key for the day.
  * @property focusedHours Total focused hours logged for the day.
  */
-data class DailyFocusedHoursStat(val dayKey: String, val focusedHours: Double)
+data class DailyFocusedHoursStat(
+    val dayKey: String,
+    val focusedHours: Double,
+)
 
 /**
  * Lens reflection record (gap detection).
@@ -329,14 +359,15 @@ data class LensReflectionRecord(
     val id: String,
     val dayKey: String,
     val dimensionId: String?,
-    val reflectionType: String, // untracked_time | missed_task | missed_habit | focus_gap | dimension_gap
+    // untracked_time | missed_task | missed_habit | focus_gap | dimension_gap
+    val reflectionType: String,
     val title: String,
     val description: String?,
     val gapMinutes: Int?,
     val relatedEntityId: String?,
     val isAddressed: Boolean,
     val userNote: String?,
-    val createdAt: String
+    val createdAt: String,
 )
 
 /**
@@ -346,7 +377,7 @@ data class LensReflectionRecord(
  */
 data class SlotEntry(
     val dimensionId: String?,
-    val proportion: Float
+    val proportion: Float,
 )
 
 /**
@@ -355,7 +386,7 @@ data class SlotEntry(
 data class WeekGridSlot(
     val rank1: SlotEntry?,
     val rank2: SlotEntry?,
-    val rank3: SlotEntry?
+    val rank3: SlotEntry?,
 ) {
     companion object {
         val EMPTY = WeekGridSlot(null, null, null)
@@ -367,14 +398,14 @@ data class WeekGridSlot(
  */
 data class WeekGridDay(
     val dayOfWeek: java.time.DayOfWeek,
-    val slots: List<WeekGridSlot>
+    val slots: List<WeekGridSlot>,
 )
 
 /**
  * Full 7-column × 48-row weekly behavioral pattern grid.
  */
 data class WeekGridData(
-    val days: List<WeekGridDay>
+    val days: List<WeekGridDay>,
 )
 
 /**
@@ -384,12 +415,12 @@ data class WeekGridData(
  */
 data class MinutePatternDay(
     val dayOfWeek: java.time.DayOfWeek,
-    val minuteWinners: List<String?>
+    val minuteWinners: List<String?>,
 )
 
 /**
  * Full 7-column × 1440-row minute-level behavioral pattern grid.
  */
 data class MinutePatternData(
-    val days: List<MinutePatternDay>
+    val days: List<MinutePatternDay>,
 )
