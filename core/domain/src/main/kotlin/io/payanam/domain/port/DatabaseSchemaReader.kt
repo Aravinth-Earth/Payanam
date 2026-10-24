@@ -3,7 +3,7 @@
 package io.payanam.domain.port
 
 /**
- * Reads the live schema — the `CREATE TABLE` text of every user table — for the assistant's prompt.
+ * Reads the live schema — the `CREATE TABLE` text of every user table — for a schema-aware client.
  *
  * ## Why this is a port with NO SQL argument
  *

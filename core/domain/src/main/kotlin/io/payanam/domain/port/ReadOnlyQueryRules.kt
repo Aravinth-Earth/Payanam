@@ -26,7 +26,7 @@ package io.payanam.domain.port
  *
  * The desktop's leading-keyword allow-list is not shared, and Android does not get one. The desktop
  * keeps its own `SELECT`/`VALUES`/`EXPLAIN` set, deliberately without `WITH`, because SQLite permits
- * `WITH ... INSERT`; Android keeps none, because the shared [io.payanam.domain.assistant.ReadOnlySqlGuard]
+ * `WITH ... INSERT`; Android keeps none, because the shared [io.payanam.domain.query.ReadOnlySqlGuard]
  * runs before either port and admits `^(select|with)\b` on both, so Android accepts a leading
  * `WITH ... SELECT` today and a shared allow-list would newly refuse a statement that works. What
  * differs between the platforms is how each is defended, not what it may read.
@@ -42,7 +42,7 @@ object ReadOnlyQueryRules {
      * no user data and changes between releases.
      *
      * The text below is carried over byte-for-byte from both implementations it replaces. This is the
-     * statement a model is shown, so an edit here is a change to what the assistant knows about the
+     * statement a model is shown, so an edit here is a change to what a client knows about the
      * user's database, not a cleanup.
      */
     const val SCHEMA_QUERY =

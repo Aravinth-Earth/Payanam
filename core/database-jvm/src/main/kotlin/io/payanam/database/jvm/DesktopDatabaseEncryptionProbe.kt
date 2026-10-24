@@ -230,7 +230,7 @@ class DesktopDatabaseEncryptionProbe : DatabaseEncryptionProbe, DatabaseRekey {
      *
      * **THE BUSY TIMEOUT IS NOT OPTIONAL HERE, and it is not an optimisation.** A rekey takes an EXCLUSIVE
      * lock on the file, and the rekey runs while other connections may still be settling - the app's own
-     * session, the assistant's reader, a health check. Without a timeout this driver refuses the lock
+     * session, the shared read-only reader, a health check. Without a timeout this driver refuses the lock
      * INSTANTLY, and it DROPS the SQLite return code on the way out (`safeExec` -> `NativeBridge.exec` ->
      * `pop`), so the refused COMMIT is invisible: the statement returns as if it had worked, the file is
      * left half-rekeyed, and the shared gate then reports a file that was never rekeyed. The same wait

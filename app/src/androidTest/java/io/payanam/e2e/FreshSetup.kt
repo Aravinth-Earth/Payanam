@@ -50,7 +50,7 @@ class FreshSetup(private val h: E2eHarness) {
      *
      * **It probes for the GATES, not for a main screen.** "Is a bottom-nav label on screen" was the first
      * version of this probe and it was wrong: an earlier class can legitimately leave the app on a sub-screen
-     * (the assistant, a detail view) where no nav label is composed, and that is still a provisioned app -
+     * (a detail view) where no nav label is composed, and that is still a provisioned app -
      * measured on the device, that probe sent every class after the first into [run] and failed the run.
      * Asking "is a gate showing" answers the question actually being asked.
      *

@@ -73,7 +73,7 @@ dependencies {
     // in this module changed.
     //
     // `api`, not `implementation`: the app module legitimately uses io.payanam.database.entity.*
-    // types directly (AssistantSettingsStore, UhabitsImporter, ...). While those classes were this
+    // types directly (UhabitsImporter, the import/export path, ...). While those classes were this
     // module's own source they were visible to consumers automatically; moving them out means this
     // edge must be exported or the app loses them off its compile classpath.
     api(project(":core:database-model"))

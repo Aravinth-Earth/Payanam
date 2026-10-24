@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-package io.payanam.feature.assistant
+package io.payanam.feature.query
 
 import android.content.Context
 import androidx.room.Room
@@ -26,7 +26,7 @@ import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 
 /**
- * Exercises [AndroidReadOnlyAssistantReads] against a REAL Room database (in memory).
+ * Exercises [AndroidReadOnlyDatabaseReads] against a REAL Room database (in memory).
  *
  * ## WHY A REAL DATABASE AND NOT A MOCK CURSOR
  *
@@ -48,9 +48,9 @@ import org.robolectric.RobolectricTestRunner
  * confidently wrong answer rather than an error.
  */
 @RunWith(RobolectricTestRunner::class)
-class AndroidReadOnlyAssistantReadsTest {
+class AndroidReadOnlyDatabaseReadsTest {
     private lateinit var db: PayanamDatabase
-    private lateinit var reads: AndroidReadOnlyAssistantReads
+    private lateinit var reads: AndroidReadOnlyDatabaseReads
 
     @Before
     fun setup() {
@@ -62,7 +62,7 @@ class AndroidReadOnlyAssistantReadsTest {
                 .fallbackToDestructiveMigration()
                 .allowMainThreadQueries()
                 .build()
-        reads = AndroidReadOnlyAssistantReads(sessionManagerReturning(db))
+        reads = AndroidReadOnlyDatabaseReads(sessionManagerReturning(db))
     }
 
     @After
@@ -91,16 +91,16 @@ class AndroidReadOnlyAssistantReadsTest {
 
     @Test
     fun `query returns the requested columns and rows`() = runBlocking {
-        seedSettingsRow("assistant.model", "m1")
-        seedSettingsRow("assistant.length", "BALANCED")
+        seedSettingsRow("fixture.model", "m1")
+        seedSettingsRow("fixture.length", "BALANCED")
 
         val outcome = reads.query("SELECT key, value FROM app_settings ORDER BY key", maxRows = 10)
 
         val rows = outcome as ReadOnlyQueryOutcome.Rows
         assertEquals(listOf("key", "value"), rows.columns)
         assertEquals(2, rows.rows.size)
-        assertEquals(listOf("assistant.length", "BALANCED"), rows.rows[0])
-        assertEquals(listOf("assistant.model", "m1"), rows.rows[1])
+        assertEquals(listOf("fixture.length", "BALANCED"), rows.rows[0])
+        assertEquals(listOf("fixture.model", "m1"), rows.rows[1])
         assertFalse("a read that returned every row must not claim truncation", rows.truncated)
     }
 
@@ -202,7 +202,7 @@ class AndroidReadOnlyAssistantReadsTest {
 
     @Test
     fun `a closed session escapes a query as a throw rather than a refusal`() {
-        val closedReads = AndroidReadOnlyAssistantReads(closedSessionManager())
+        val closedReads = AndroidReadOnlyDatabaseReads(closedSessionManager())
 
         val thrown = runCatching { closedReads.query("SELECT 1", maxRows = 1) }.exceptionOrNull()
 
@@ -214,7 +214,7 @@ class AndroidReadOnlyAssistantReadsTest {
 
     @Test
     fun `a closed session escapes a schema read as a throw rather than a refusal`() {
-        val closedReads = AndroidReadOnlyAssistantReads(closedSessionManager())
+        val closedReads = AndroidReadOnlyDatabaseReads(closedSessionManager())
 
         val thrown = runCatching { closedReads.readSchema() }.exceptionOrNull()
 
@@ -223,7 +223,7 @@ class AndroidReadOnlyAssistantReadsTest {
 
     @Test
     fun `readSchema hides the table holding the provider key`() = runBlocking {
-        seedSettingsRow("assistant.api_key", SECRET)
+        seedSettingsRow("fixture.secret", SECRET)
 
         val result = reads.readSchema() as DatabaseSchemaResult.Tables
 

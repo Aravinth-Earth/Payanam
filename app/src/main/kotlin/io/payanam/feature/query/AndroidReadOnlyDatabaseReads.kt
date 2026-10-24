@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-package io.payanam.feature.assistant
+package io.payanam.feature.query
 
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
@@ -15,7 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 
 /**
- * Android's answer to the assistant's two read-only ports, over Room's own handle.
+ * Android's answer to the two read-only ports, over Room's own handle.
  *
  * ## WHERE THE READ-ONLY GUARANTEE COMES FROM HERE
  *
@@ -34,10 +34,10 @@ import javax.inject.Singleton
  * THE SESSION CLOSE IS NOT A REFUSAL TO HIDE: [DatabaseSessionManager.requireDatabase] throws
  * [IllegalStateException] when the database is locked, and that throw is deliberately allowed to escape
  * rather than being converted into a [ReadOnlyQueryOutcome.Refused]. The screen renders "data locked" for
- * it, and a model told `DATABASE_NOT_OPEN` would answer a question about a database nobody can open.
+ * it, and a client told `DATABASE_NOT_OPEN` would answer a question about a database nobody can open.
  */
 @Singleton
-class AndroidReadOnlyAssistantReads
+class AndroidReadOnlyDatabaseReads
 @Inject
 constructor(
     private val sessionManager: DatabaseSessionManager,
@@ -45,9 +45,9 @@ constructor(
     DatabaseSchemaReader {
     private val logger = UnifiedLogger.getInstance()
 
-    // Broad on purpose: a read that fails for ANY reason - bad SQL, a table a model guessed, a bind
+    // Broad on purpose: a read that fails for ANY reason - bad SQL, a table a caller guessed, a bind
     // type mismatch - must reach the caller as a structured refusal. Letting one escape would take the
-    // whole assistant turn down instead of answering "I could not read that". IllegalStateException, the
+    // whole read down instead of answering "I could not read that". IllegalStateException, the
     // closed session, is rethrown just above and is deliberately NOT covered.
     @Suppress("TooGenericExceptionCaught")
     override fun query(
@@ -77,7 +77,7 @@ constructor(
         } catch (closed: IllegalStateException) {
             throw closed
         } catch (error: Exception) {
-            logger.e("AssistantDbQuery.query", "Read-only query failed", error)
+            logger.e("AndroidReadOnlyDatabaseReads.query", "Read-only query failed", error)
             ReadOnlyQueryOutcome.Refused(
                 ReadOnlyRefusal.EXECUTION_FAILED,
                 "${error.javaClass.simpleName}: ${error.message}",
@@ -85,8 +85,8 @@ constructor(
         }
     }
 
-    // Same reason as query() above: the schema read is the assistant's other window into the database,
-    // and any failure in it has to become a refusal rather than an exception out of a chat turn.
+    // Same reason as query() above: the schema read is the second window into the database, and any
+    // failure in it has to become a refusal rather than an exception out of a read.
     @Suppress("TooGenericExceptionCaught")
     override fun readSchema(): DatabaseSchemaResult {
         val database = sessionManager.requireDatabase()
@@ -103,7 +103,7 @@ constructor(
         } catch (closed: IllegalStateException) {
             throw closed
         } catch (error: Exception) {
-            logger.e("AssistantDbQuery.readSchema", "Schema read failed", error)
+            logger.e("AndroidReadOnlyDatabaseReads.readSchema", "Schema read failed", error)
             DatabaseSchemaResult.Refused(
                 ReadOnlyRefusal.EXECUTION_FAILED,
                 "${error.javaClass.simpleName}: ${error.message}",

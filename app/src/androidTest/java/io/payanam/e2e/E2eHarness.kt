@@ -330,10 +330,9 @@ class E2eHarness(
      *
      * The counterpart of [waitForGone] for a label that also occurs somewhere that outlives the thing
      * being waited on. `waitForGone` matches substrings, so it cannot express "the banner is gone" when
-     * the banner's message text is also rendered elsewhere — measured 2026-10-16 on the assistant setup
-     * surface, where `assistant_error_key_rejected` is BOTH the error banner's message and the API-key
-     * field's `supportingText`: dismissing the banner leaves the field's copy in place and the substring
-     * wait can never be satisfied.
+     * the banner's message text is also rendered elsewhere — measured 2026-10-16 on a form whose error
+     * banner and field supporting text carried the same sentence: dismissing the banner left the field's
+     * copy in place and the substring wait could never be satisfied.
      *
      * Uses the exact matcher, so a short label cannot be answered by a longer one that contains it.
      */
@@ -799,8 +798,8 @@ class E2eHarness(
      * `assertTextContains` cannot answer this for a LABELLED field. The field's merged node carries the
      * LABEL as its `Text` and the value as `EditableText`, and `assertTextContains` reports the label - so an
      * assertion on the typed value fails against a field that plainly holds it. Measured on the device
-     * 2026-10-17: the assistant's goals field held "Test goals" while `assertTextContains("Test goals")`
-     * reported the label "இலக்குகள்". This reads the property the value actually lives in.
+     * 2026-10-17: a field held "Test goals" while `assertTextContains("Test goals")` reported its label
+     * "இலக்குகள்". This reads the property the value actually lives in.
      *
      * Polls, because a field backed by the encrypted database can be re-populated a frame after the write.
      */
