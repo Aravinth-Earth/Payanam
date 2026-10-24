@@ -15,13 +15,16 @@ import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantHttpException
 import io.payanam.domain.assistant.AssistantProtocol
+import io.payanam.domain.assistant.AssistantProvider
 import io.payanam.domain.assistant.AssistantSettings
 import io.payanam.domain.assistant.AssistantSystemPrompt
 import io.payanam.domain.assistant.ChatReply
 import io.payanam.domain.assistant.ChatTurn
 import io.payanam.domain.assistant.GuardResult
+import io.payanam.domain.assistant.OpenAiCompatibleClient
 import io.payanam.domain.assistant.OpenCodeGoClient
 import io.payanam.domain.assistant.ReadOnlySqlGuard
+import io.payanam.domain.assistant.UrlConnectionTransport
 import io.payanam.domain.port.AssistantConfigurationStore
 import io.payanam.domain.port.DatabaseSchemaReader
 import io.payanam.domain.port.DatabaseSchemaResult
@@ -53,6 +56,22 @@ data class AssistantUiState(
     val loading: Boolean = true,
     /** True while a stored key exists — including during a pending reconfigure (setup shown, chat disabled). */
     val hasKey: Boolean = false,
+    /**
+     * The provider the assistant is set up for, or null when none is chosen — including the load where a
+     * stored provider name could not be recognised, since no host can be named for the stored key.
+     */
+    val provider: AssistantProvider? = null,
+    /** The endpoint address as it is shown in the address field, exactly as it was typed or loaded. */
+    val baseUrl: String = "",
+    /** True while the entered provider + address + key + model is being checked against the real endpoint. */
+    val verifying: Boolean = false,
+    /** True once the last verification succeeded; any edit to what was checked clears it. */
+    val verified: Boolean = false,
+    /**
+     * True when saving the entered endpoint would drop the stored key and the user has to confirm first.
+     * Nothing has been written and no key has been removed while this is true.
+     */
+    val keyRemovalPending: Boolean = false,
     val keyDraft: String = "",
     val keyInvalid: Boolean = false,
     val modelsLoading: Boolean = false,
@@ -84,10 +103,25 @@ class AssistantViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
     /** Dispatcher for the blocking work - the socket reads and the database statements. */
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    /**
+     * Builds the client for one endpoint address.
+     *
+     * The default answers the address this app shipped with using [client] — the transport the platform
+     * supplied, and the one every test drives — and any other address with a client of its own, because a
+     * client that carries its own base URL can only ever reach the one endpoint it was built for. A
+     * parameter so a test can verify an address without a socket.
+     */
+    private val endpointClientFactory: (String) -> AssistantEndpointClient = { baseUrl ->
+        endpointClientFor(client, baseUrl)
+    },
 ) {
     private val logger = AppLogger.current
     private val sessionId = UUID.randomUUID().toString()
     private var apiKey = ""
+
+    /** The endpoint as it was last loaded or stored, so an edited one can be compared and reverted. */
+    private var persistedProvider: AssistantProvider? = null
+    private var persistedBaseUrl = ""
     private val conversation = mutableListOf<ChatTurn>()
     private var saveJob: Job? = null
     private var messageSeq = 0L
@@ -104,25 +138,41 @@ class AssistantViewModel(
         refresh()
     }
 
-    /** Loads the stored key + settings + reconfigure flag (DB must be open). */
+    /** Loads the stored key + settings + endpoint + reconfigure flag (DB must be open). */
     fun refresh() {
         scope.launch {
             try {
                 val config = settingsStore.loadConfig()
-                // No key ⇒ no model; a pending reconfigure ⇒ no model either: the stored
-                // model must never surface before the user completes setup again
-                // ("Save & start" / key removal are the only paths that clear the flag).
+                // The stored endpoint, carried into the state rather than discarded: the screen shows the
+                // provider and the address the assistant will actually talk to. On the load where the
+                // stored provider name could not be recognised the store reports no provider, no address
+                // and no key, so the screen reads as unconfigured through `hasKey` alone — no special
+                // case is needed here.
+                val connection = config.connection
+                // No key ⇒ no model, EXCEPT where the provider does not need one: a local server
+                // answers with no credential, so an empty key there is a finished setup and not a
+                // missing one. A pending reconfigure ⇒ no model either: the stored model must never
+                // surface before the user completes setup again ("Save & start" / key removal are
+                // the only paths that clear the flag).
+                val keyMissing = config.apiKey.isEmpty() && connection.provider?.requiresKey != false
                 val settings =
-                    if (config.apiKey.isEmpty() || config.setupRequired) {
+                    if (keyMissing || config.setupRequired) {
                         config.settings.copy(model = "")
                     } else {
                         config.settings
                     }
                 apiKey = config.apiKey
+                persistedProvider = connection.provider
+                persistedBaseUrl = connection.baseUrl
                 _uiState.update {
                     it.copy(
                         loading = false,
                         hasKey = config.apiKey.isNotEmpty(),
+                        provider = connection.provider,
+                        baseUrl = connection.baseUrl,
+                        verifying = false,
+                        verified = false,
+                        keyRemovalPending = false,
                         settings = settings,
                         noticeVisible = !settings.noticeShown,
                     )
@@ -132,6 +182,8 @@ class AssistantViewModel(
                     "Assistant state loaded",
                     mapOf(
                         "hasKey" to config.apiKey.isNotEmpty(),
+                        "provider" to (connection.provider?.name ?: "-"),
+                        "addressStored" to connection.baseUrl.isNotBlank(),
                         "model" to settings.model,
                         "setupRequired" to config.setupRequired,
                     ),
@@ -145,7 +197,7 @@ class AssistantViewModel(
                 }
             } catch (closed: IllegalStateException) {
                 handleDbClosed("AssistantViewModel.refresh", closed, resetKey = false)
-                _uiState.update { it.copy(loading = false, hasKey = false) }
+                _uiState.update { it.copy(loading = false, hasKey = false, provider = null, baseUrl = "") }
             }
         }
     }
@@ -185,7 +237,8 @@ class AssistantViewModel(
             if (usedDraft) logData["fingerprint"] = settingsStore.fingerprint(key)
             logger.i("AssistantViewModel.loadModels", "Validating key and loading models", logData)
             try {
-                val models = withContext(ioDispatcher) { client.fetchModels(key, sessionId) }
+                val endpoint = endpointClient(_uiState.value.baseUrl)
+                val models = withContext(ioDispatcher) { endpoint.fetchModels(key, sessionId) }
                 if (models.isEmpty()) {
                     logger.w("AssistantViewModel.loadModels", "Provider returned an empty model list")
                     _uiState.update {
@@ -194,7 +247,7 @@ class AssistantViewModel(
                     return@launch
                 }
                 // A real chat call is the only honest key check (the model list is unauthenticated).
-                withContext(ioDispatcher) { client.validateKey(key, sessionId, models.first()) }
+                withContext(ioDispatcher) { endpoint.validateKey(key, sessionId, models.first()) }
                 logger.i("AssistantViewModel.loadModels", "Key validated with a real chat call")
                 _uiState.update { state ->
                     state.copy(
@@ -231,39 +284,289 @@ class AssistantViewModel(
         updateSettings { it.copy(model = model) }
     }
 
-    /** Persists key + settings and switches to the chat surface (requires a picked model). */
-    fun saveAndStart() {
+    /**
+     * Chooses the provider the endpoint belongs to.
+     *
+     * The address follows the new provider's own default unless the user has typed an address of their
+     * own, which is never overwritten. The two custom providers have no default, so they start blank
+     * rather than borrowing another provider's address — an unfinished setup must fail as unfinished
+     * instead of calling a host the user never chose.
+     */
+    fun selectProvider(provider: AssistantProvider) {
+        val state = _uiState.value
+        val typedOwnAddress =
+            state.baseUrl.isNotBlank() && state.baseUrl != state.provider?.defaultBaseUrl.orEmpty()
+        val nextAddress = if (typedOwnAddress) state.baseUrl else provider.defaultBaseUrl.orEmpty()
+        _uiState.update {
+            it.copy(
+                provider = provider,
+                baseUrl = nextAddress,
+                verified = false,
+                keyInvalid = false,
+            )
+        }
+        logger.i(
+            "AssistantViewModel.selectProvider",
+            "Provider chosen",
+            mapOf(
+                "provider" to provider.name,
+                "addressFromDefault" to !typedOwnAddress,
+                "addressStored" to nextAddress.isNotBlank(),
+            ),
+        )
+    }
+
+    /** Tracks the address as typed, verbatim — it is neither normalised nor persisted here. */
+    fun updateBaseUrl(text: String) {
+        _uiState.update { it.copy(baseUrl = text, verified = false) }
+    }
+
+    /**
+     * Checks the entered provider + address + key + model against the real endpoint, using the two calls
+     * the app already makes: the model list, then one minimal chat round-trip (the model list alone is
+     * unauthenticated, so it can never prove the key).
+     *
+     * Loading is [AssistantUiState.verifying], success is [AssistantUiState.verified], and a failure is
+     * the same `error`/`errorDetail`/`keyInvalid` banner every other provider failure lands in — no
+     * second verification mechanism exists. The client is built for the address being checked, so this
+     * verifies the host on screen and not the one the app shipped with.
+     */
+    fun verifyConnection() {
+        val state = _uiState.value
+        val provider = state.provider
+        if (provider == null) {
+            logger.w("AssistantViewModel.verifyConnection", "Verification skipped: no provider chosen")
+            _uiState.update { it.copy(verified = false, error = AssistantErrorKind.SERVER, errorDetail = null) }
+            return
+        }
         val key = resolveKey()
-        if (key.isEmpty()) return
-        if (_uiState.value.settings.model
+        if (key.isEmpty() && provider.requiresKey) {
+            logger.d(
+                "AssistantViewModel.verifyConnection",
+                "Verification skipped: this provider needs a key and none is available",
+                mapOf("provider" to provider.name),
+            )
+            _uiState.update {
+                it.copy(verified = false, error = AssistantErrorKind.KEY_REJECTED, errorDetail = null, keyInvalid = true)
+            }
+            return
+        }
+        val address = state.baseUrl
+        _uiState.update {
+            it.copy(verifying = true, verified = false, error = null, errorDetail = null, keyInvalid = false)
+        }
+        logger.i(
+            "AssistantViewModel.verifyConnection",
+            "Verifying the entered endpoint",
+            mapOf(
+                "provider" to provider.name,
+                "addressStored" to address.isNotBlank(),
+                "keyLength" to key.length,
+                "keyRequired" to provider.requiresKey,
+            ),
+        )
+        scope.launch {
+            try {
+                val endpoint = endpointClient(address)
+                val models = withContext(ioDispatcher) { endpoint.fetchModels(key, sessionId) }
+                if (models.isEmpty()) {
+                    logger.w("AssistantViewModel.verifyConnection", "Provider returned an empty model list")
+                    _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+                    return@launch
+                }
+                // A real chat call is the only honest check (the model list is unauthenticated).
+                val model = state.settings.model.takeIf { it in models } ?: models.first()
+                withContext(ioDispatcher) { endpoint.validateKey(key, sessionId, model) }
+                logger.i(
+                    "AssistantViewModel.verifyConnection",
+                    "Entered endpoint verified with a real chat call",
+                    mapOf("models" to models.size),
+                )
+                _uiState.update {
+                    it.copy(
+                        modelOptions = models,
+                        verified = true,
+                        settings =
+                            it.settings.copy(
+                                // Never auto-select: the user picks the model.
+                                model = it.settings.model.takeIf { picked -> picked in models } ?: "",
+                            ),
+                    )
+                }
+            } catch (http: AssistantHttpException) {
+                handleHttpError("AssistantViewModel.verifyConnection", http, key)
+            } catch (io: IOException) {
+                handleIoError("AssistantViewModel.verifyConnection", io)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                logger.e("AssistantViewModel.verifyConnection", "Verification failed unexpectedly", error)
+                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+            } finally {
+                // The spinner must stop on EVERY path, including a rejected key or a refused address.
+                _uiState.update { it.copy(verifying = false) }
+            }
+        }
+    }
+
+    /**
+     * Persists the endpoint, the key and the settings, and switches to the chat surface (requires a
+     * picked model and a chosen provider).
+     *
+     * A KEY IS REQUIRED ONLY WHERE THE PROVIDER REQUIRES ONE. [AssistantProvider.requiresKey] is the
+     * single authority: a local server ([AssistantProvider.OLLAMA], [AssistantProvider.LM_STUDIO], the
+     * user's own [AssistantProvider.CUSTOM_LOCAL] or a self-hosted [AssistantProvider.CUSTOM_CLOUD])
+     * answers with no credential at all, so a blank key there is a finished setup and not a missing one.
+     * A provider that does require a key keeps the existing gate, including writing nothing at all
+     * while no key is available.
+     *
+     * The endpoint is written by [AssistantConfigurationStore.saveConnection] and the key + settings by
+     * [AssistantConfigurationStore.saveAll], always from this one call site and in that order, so a
+     * provider change and its key can never be written by two different paths. The endpoint goes first
+     * because it can fail on its own: if it does, no key is written for a host that was never stored.
+     */
+    fun saveAndStart() {
+        val state = _uiState.value
+        val provider = state.provider
+        val key = resolveKey()
+        // A provider not chosen yet says nothing about whether a key is needed, so that case is left to
+        // the provider check below instead of being silently mistaken for a missing key.
+        if (key.isEmpty() && provider?.requiresKey != false) return
+        if (state.settings.model
                 .isEmpty()
         ) {
             logger.w("AssistantViewModel.saveAndStart", "Save attempted without a selected model")
             _uiState.update { it.copy(error = AssistantErrorKind.NO_MODEL) }
             return
         }
+        if (provider == null) {
+            logger.w("AssistantViewModel.saveAndStart", "Save attempted without a chosen provider")
+            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+            return
+        }
+        if (state.baseUrl.isBlank()) {
+            // An endpoint with no address is not an endpoint: storing one would leave a configuration
+            // that can never answer. The two custom providers start blank, so this is reachable.
+            logger.w("AssistantViewModel.saveAndStart", "Save attempted without an endpoint address")
+            _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
+            return
+        }
+        if (needsKeyRemovalConfirmation()) {
+            // Nothing is written here: the screen shows the confirmation and only the confirm action below
+            // removes the stored key.
+            logger.i(
+                "AssistantViewModel.saveAndStart",
+                "Endpoint change would drop the stored key; waiting for confirmation",
+                mapOf("provider" to provider.name, "addressStored" to state.baseUrl.isNotBlank()),
+            )
+            _uiState.update { it.copy(keyRemovalPending = true) }
+            return
+        }
+        persistEndpoint(provider, state.baseUrl.trim(), key, dropStoredKey = false)
+    }
+
+    /**
+     * The user accepted the key removal, so the endpoint change proceeds and the old key is dropped.
+     * This is the only path where a save removes a key.
+     */
+    fun confirmKeyRemoval() {
+        val state = _uiState.value
+        if (!state.keyRemovalPending) return
+        val provider = state.provider
+        val key = resolveKey()
+        _uiState.update { it.copy(keyRemovalPending = false) }
+        if (provider == null || (key.isEmpty() && provider.requiresKey)) {
+            logger.w("AssistantViewModel.confirmKeyRemoval", "Key removal confirmed with nothing to save")
+            return
+        }
+        persistEndpoint(provider, state.baseUrl.trim(), key, dropStoredKey = true)
+    }
+
+    /** Abandons the endpoint change: the entered provider and address go back to the stored ones. */
+    fun cancelKeyRemoval() {
+        _uiState.update {
+            it.copy(
+                provider = persistedProvider,
+                baseUrl = persistedBaseUrl,
+                keyRemovalPending = false,
+                verified = false,
+            )
+        }
+        logger.i("AssistantViewModel.cancelKeyRemoval", "Endpoint change abandoned; stored endpoint restored")
+    }
+
+    /**
+     * True when saving what is on screen would present a key the user has not re-entered to a different
+     * endpoint. A newly typed key is not the stored one, so it needs no confirmation, and a model change
+     * alone never raises this because the model is not part of the endpoint.
+     */
+    private fun needsKeyRemovalConfirmation(): Boolean {
+        val state = _uiState.value
+        if (!state.hasKey || state.keyDraft.isNotBlank()) return false
+        return endpointChanged(state.provider, state.baseUrl)
+    }
+
+    /** Whether this endpoint is a different one from the stored pair, compared as the user sees it. */
+    private fun endpointChanged(
+        provider: AssistantProvider?,
+        baseUrl: String,
+    ): Boolean = provider != persistedProvider || normaliseAddress(baseUrl) != normaliseAddress(persistedBaseUrl)
+
+    /** The comparison form of an address: the client trims and drops trailing slashes, so equals compares equal. */
+    private fun normaliseAddress(address: String): String = address.trim().trimEnd('/')
+
+    /**
+     * Writes the endpoint and then the key + settings.
+     *
+     * There is no single-transaction alternative in the store contract for the removal case: the only
+     * writer that removes a key is [AssistantConfigurationStore.clearProviderConfiguration], which also
+     * drops the endpoint, the model and the setup flag, so the endpoint and the settings are written
+     * straight after it. Passing a null key to `saveAll` then means "keep what is stored" — which is
+     * nothing — so the removed key cannot come back.
+     */
+    private fun persistEndpoint(
+        provider: AssistantProvider,
+        baseUrl: String,
+        key: String,
+        dropStoredKey: Boolean,
+    ) {
+        val settings = _uiState.value.settings
         scope.launch {
             try {
-                val settings = _uiState.value.settings
-                // Key + settings persist in ONE transaction; a partial write here would leave a
-                // stored key with a stale/empty model across the next launch.
-                settingsStore.saveAll(if (key != apiKey) key else null, settings)
-                apiKey = key
+                if (dropStoredKey) settingsStore.clearProviderConfiguration()
+                settingsStore.saveConnection(provider, baseUrl)
+                // Key + settings persist in ONE call; a partial write here would leave a stored key with a
+                // stale/empty model across the next launch.
+                settingsStore.saveAll(if (dropStoredKey) null else key.takeIf { it != apiKey }, settings)
+                apiKey = if (dropStoredKey) "" else key
+                persistedProvider = provider
+                persistedBaseUrl = baseUrl
                 _uiState.update {
                     it.copy(
-                        hasKey = true,
+                        hasKey = apiKey.isNotEmpty(),
                         keyInvalid = false,
                         keyDraft = "",
+                        keyRemovalPending = false,
                     )
                 }
                 logger.i(
                     "AssistantViewModel.saveAndStart",
                     "Assistant configured and ready",
-                    mapOf("model" to settings.model),
+                    mapOf(
+                        "model" to settings.model,
+                        "provider" to provider.name,
+                        "addressStored" to baseUrl.isNotBlank(),
+                        "keyDropped" to dropStoredKey,
+                    ),
                 )
             } catch (closed: IllegalStateException) {
                 apiKey = ""
                 handleDbClosed("AssistantViewModel.saveAndStart", closed, resetKey = false)
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                logger.e("AssistantViewModel.saveAndStart", "Connection persist failed", error)
+                _uiState.update { it.copy(error = AssistantErrorKind.SERVER, errorDetail = null) }
             }
         }
     }
@@ -283,6 +586,7 @@ class AssistantViewModel(
                 modelOptions = emptyList(),
                 settings = it.settings.copy(model = ""),
                 error = null,
+                verified = false,
             )
         }
         scope.launch {
@@ -349,7 +653,10 @@ class AssistantViewModel(
         val text = question.trim()
         if (text.isEmpty() || _uiState.value.busy != null) return
         val state = _uiState.value
-        if (!state.hasKey) {
+        // The chosen provider decides whether a key is needed: a local server answers with no credential,
+        // so "no stored key" is only fatal where the provider demands one. No provider chosen yet is not
+        // a chat surface either, so that case keeps the existing refusal.
+        if (!state.hasKey && state.provider?.requiresKey != false) {
             _uiState.update { it.copy(error = AssistantErrorKind.KEY_REJECTED) }
             return
         }
@@ -539,11 +846,20 @@ class AssistantViewModel(
     /**
      * Runs one chat call on the IO dispatcher — the transport blocks on a socket, so it
      * must never run on the main thread (NetworkOnMainThreadException otherwise).
+     *
+     * It goes to the address the assistant is configured for, not to a compiled-in one: verifying an
+     * endpoint and then asking the question at a different host would make the check meaningless.
      */
     private suspend fun callChat(
         model: String,
         messages: List<ChatTurn>,
-    ): ChatReply = withContext(ioDispatcher) { client.chat(apiKey, sessionId, model, messages) }
+    ): ChatReply =
+        withContext(ioDispatcher) {
+            endpointClient(_uiState.value.baseUrl).chat(apiKey, sessionId, model, messages)
+        }
+
+    /** The client for one endpoint address, so every call reaches the host the user actually entered. */
+    private fun endpointClient(baseUrl: String): AssistantEndpointClient = endpointClientFactory(baseUrl)
 
     /** Logs one provider reply with its token/finish accounting — used by all three call sites. */
     private fun logModelReply(
@@ -599,10 +915,17 @@ class AssistantViewModel(
                 }
             if (removed) {
                 apiKey = ""
+                persistedProvider = null
+                persistedBaseUrl = ""
                 conversation.clear()
                 _uiState.update {
                     it.copy(
                         hasKey = false,
+                        provider = null,
+                        baseUrl = "",
+                        verifying = false,
+                        verified = false,
+                        keyRemovalPending = false,
                         keyDraft = "",
                         keyInvalid = false,
                         messages = emptyList(),
@@ -803,7 +1126,7 @@ class AssistantViewModel(
  * is a ViewModel type a shared module cannot name.
  */
 val AssistantUiState.isConfigured: Boolean
-    get() = hasKey && settings.model.isNotEmpty()
+    get() = (hasKey || provider?.requiresKey == false) && settings.model.isNotEmpty()
 
 /** One answered statement, as the turn loop needs it: rows returned, and the text the model reads. */
 private data class ToolResult(
@@ -833,3 +1156,100 @@ fun assistantViewModel(
         client = client,
         scope = scope,
     )
+
+/**
+ * What the ViewModel needs from one configured endpoint: list the models it serves, prove the credential,
+ * and run a turn. It is the same three operations [OpenCodeGoClient] offers, named once so a client built
+ * for an arbitrary address can stand in for it.
+ */
+interface AssistantEndpointClient {
+    /** The model ids this endpoint serves, excluding train-on-data families. */
+    fun fetchModels(
+        key: String,
+        session: String,
+    ): List<String>
+
+    /** Proves [key] with one minimal chat round-trip on [model]. */
+    fun validateKey(
+        key: String,
+        session: String,
+        model: String,
+    )
+
+    /** Runs one chat completion turn. */
+    fun chat(
+        key: String,
+        session: String,
+        model: String,
+        messages: List<ChatTurn>,
+    ): ChatReply
+}
+
+/** The shipped endpoint's client, exactly as the platform supplied it. */
+private class InjectedEndpointClient(
+    private val client: OpenCodeGoClient,
+) : AssistantEndpointClient {
+    override fun fetchModels(
+        key: String,
+        session: String,
+    ): List<String> = client.fetchModels(key, session)
+
+    override fun validateKey(
+        key: String,
+        session: String,
+        model: String,
+    ) {
+        client.validateKey(key, session, model)
+    }
+
+    override fun chat(
+        key: String,
+        session: String,
+        model: String,
+        messages: List<ChatTurn>,
+    ): ChatReply = client.chat(key, session, model, messages)
+}
+
+/** A client built for one arbitrary address the user entered. */
+private class AddressEndpointClient(
+    private val client: OpenAiCompatibleClient,
+) : AssistantEndpointClient {
+    override fun fetchModels(
+        key: String,
+        session: String,
+    ): List<String> = client.fetchModels(key, session)
+
+    override fun validateKey(
+        key: String,
+        session: String,
+        model: String,
+    ) {
+        client.validateKey(key, session, model)
+    }
+
+    override fun chat(
+        key: String,
+        session: String,
+        model: String,
+        messages: List<ChatTurn>,
+    ): ChatReply = client.chat(key, session, model, messages)
+}
+
+/**
+ * The client for one endpoint address.
+ *
+ * The address this app shipped with keeps using [injected], so the behaviour, the transport and
+ * every existing test of that endpoint are untouched. Any other address gets an
+ * [OpenAiCompatibleClient] of its own over the same dependency-free transport, because the shipped client
+ * carries its own base URL — reusing it there would check, or ask, the wrong host while reporting success
+ * for the one on screen.
+ */
+private fun endpointClientFor(
+    injected: OpenCodeGoClient,
+    baseUrl: String,
+): AssistantEndpointClient =
+    if (baseUrl.trim().trimEnd('/') == AssistantDefaults.BASE_URL) {
+        InjectedEndpointClient(injected)
+    } else {
+        AddressEndpointClient(OpenAiCompatibleClient(UrlConnectionTransport(), baseUrl))
+    }

@@ -4,6 +4,7 @@ package io.payanam.presentation.assistant
 
 import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.assistant.AssistantChatMessage
+import io.payanam.domain.assistant.AssistantConnection
 import io.payanam.domain.assistant.AssistantDefaults
 import io.payanam.domain.assistant.AssistantErrorKind
 import io.payanam.domain.assistant.AssistantProvider
@@ -54,9 +55,15 @@ class AssistantViewModelTest {
         var config = StoredAssistantConfig("", AssistantSettings(), false)
         val saved = mutableListOf<AssistantSettings>()
         val savedAllKeys = mutableListOf<String?>()
+
+        /** Every connection write, as the pair the ViewModel asked for — so "what was written" is assertable. */
+        val savedConnections = mutableListOf<Pair<AssistantProvider, String>>()
         var reconfigured = false
         var noticeAcknowledged = false
         var cleared = false
+
+        /** Counted separately from [cleared] so "the key was dropped" is distinct from "a connection was written". */
+        var clearCount = 0
         var loadFailure: Throwable? = null
         var saveFailure: Throwable? = null
         var saveAllFailure: Throwable? = null
@@ -92,8 +99,7 @@ class AssistantViewModelTest {
             provider: AssistantProvider,
             baseUrl: String,
         ) {
-            // No ViewModel path stores a connection yet, so this fake records nothing; the settings
-            // phase adds the assertions when the screen starts calling it.
+            savedConnections += provider to baseUrl
         }
 
         override suspend fun markNoticeShown() {
@@ -104,6 +110,7 @@ class AssistantViewModelTest {
         override suspend fun clearProviderConfiguration() {
             clearFailure?.let { throw it }
             cleared = true
+            clearCount++
         }
 
         override fun fingerprint(value: String): String = if (value.isEmpty()) "-" else "fp"
@@ -971,6 +978,207 @@ class AssistantViewModelTest {
                     .last { it.role == AssistantChatMessage.ROLE_ASSISTANT }
             assertThat(reply.text).isEqualTo("the first half and the second half")
             assertThat(transport.servedFinishes).containsExactly("length", "stop").inOrder()
+        }
+
+    // ---------------------------------------------------------------- endpoint configuration
+
+    /** The endpoint every existing install has: the gateway, with a stored key. */
+    private fun storedOpenCode(
+        key: String = "stored-key",
+        model: String = "m1",
+    ) {
+        store.config =
+            StoredAssistantConfig(
+                apiKey = key,
+                settings = AssistantSettings(model = model),
+                setupRequired = false,
+                connection =
+                    AssistantConnection(
+                        provider = AssistantProvider.OPENCODE,
+                        baseUrl = AssistantDefaults.BASE_URL,
+                        model = model,
+                    ),
+            )
+    }
+
+    @Test
+    fun `refresh loads the stored provider and address`() =
+        runTest(dispatcher) {
+            store.config =
+                StoredAssistantConfig(
+                    apiKey = "stored-key",
+                    settings = AssistantSettings(model = "m1"),
+                    setupRequired = false,
+                    connection =
+                        AssistantConnection(
+                            provider = AssistantProvider.OPENROUTER,
+                            baseUrl = "https://openrouter.ai/api/v1",
+                            model = "m1",
+                        ),
+                )
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            assertThat(state.provider).isEqualTo(AssistantProvider.OPENROUTER)
+            assertThat(state.baseUrl).isEqualTo("https://openrouter.ai/api/v1")
+        }
+
+    @Test
+    fun `a stored connection with no provider reads as unconfigured`() =
+        runTest(dispatcher) {
+            // What the store returns when the provider row named nothing it recognised: no provider,
+            // no address, no key. Nothing here may be treated as a usable endpoint.
+            store.config =
+                StoredAssistantConfig(
+                    apiKey = "",
+                    settings = AssistantSettings(model = "m1"),
+                    setupRequired = true,
+                    connection = AssistantConnection(provider = null, baseUrl = "", model = "m1"),
+                )
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            assertThat(state.provider).isNull()
+            assertThat(state.baseUrl).isEmpty()
+            assertThat(state.isConfigured).isFalse()
+        }
+
+    @Test
+    fun `choosing a provider fills its default address and a custom one starts blank`() =
+        runTest(dispatcher) {
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.selectProvider(AssistantProvider.OPENROUTER)
+            assertThat(viewModel.uiState.value.baseUrl).isEqualTo("https://openrouter.ai/api/v1")
+            viewModel.selectProvider(AssistantProvider.CUSTOM_LOCAL)
+            assertThat(viewModel.uiState.value.baseUrl).isEmpty()
+        }
+
+    @Test
+    fun `an edited address is kept verbatim and clears the previous verification`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.verifyConnection()
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.verified).isTrue()
+            viewModel.updateBaseUrl("  http://192.168.1.20:8080/v1/  ")
+            assertThat(viewModel.uiState.value.baseUrl).isEqualTo("  http://192.168.1.20:8080/v1/  ")
+            assertThat(viewModel.uiState.value.verified).isFalse()
+        }
+
+    @Test
+    fun `a failed verification is reported and leaves the endpoint unverified`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            // The model list is the first call verification makes; a rejected key stops it there.
+            transport.modelsStatus = 401
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.verifyConnection()
+            advanceUntilIdle()
+            val state = viewModel.uiState.value
+            assertThat(state.verified).isFalse()
+            assertThat(state.error).isEqualTo(AssistantErrorKind.KEY_REJECTED)
+        }
+
+    @Test
+    fun `changing the provider with a stored key asks before removing it`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.selectProvider(AssistantProvider.OPENROUTER)
+            viewModel.saveAndStart()
+            advanceUntilIdle()
+            // Nothing is written and nothing is removed until the user says so.
+            assertThat(viewModel.uiState.value.keyRemovalPending).isTrue()
+            assertThat(store.savedConnections).isEmpty()
+            assertThat(store.clearCount).isEqualTo(0)
+        }
+
+    @Test
+    fun `confirming the removal drops the key and stores the new endpoint`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.selectProvider(AssistantProvider.OPENROUTER)
+            viewModel.saveAndStart()
+            advanceUntilIdle()
+            viewModel.confirmKeyRemoval()
+            advanceUntilIdle()
+            assertThat(store.clearCount).isEqualTo(1)
+            assertThat(store.savedConnections)
+                .containsExactly(AssistantProvider.OPENROUTER to "https://openrouter.ai/api/v1")
+            assertThat(viewModel.uiState.value.hasKey).isFalse()
+        }
+
+    @Test
+    fun `cancelling the removal stores nothing and restores the stored endpoint`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.selectProvider(AssistantProvider.OPENROUTER)
+            viewModel.saveAndStart()
+            advanceUntilIdle()
+            viewModel.cancelKeyRemoval()
+            val state = viewModel.uiState.value
+            assertThat(state.provider).isEqualTo(AssistantProvider.OPENCODE)
+            assertThat(state.baseUrl).isEqualTo(AssistantDefaults.BASE_URL)
+            assertThat(state.keyRemovalPending).isFalse()
+            assertThat(store.savedConnections).isEmpty()
+            assertThat(store.clearCount).isEqualTo(0)
+        }
+
+    @Test
+    fun `changing only the model never asks to remove the key`() =
+        runTest(dispatcher) {
+            storedOpenCode()
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            viewModel.selectModel("m2")
+            viewModel.saveAndStart()
+            advanceUntilIdle()
+            // The key belongs to an address, not to a model, so this is not an endpoint change.
+            assertThat(viewModel.uiState.value.keyRemovalPending).isFalse()
+            assertThat(store.clearCount).isEqualTo(0)
+            assertThat(store.savedConnections).hasSize(1)
+        }
+
+    @Test
+    fun `a provider that needs no key saves and chats without one`() =
+        runTest(dispatcher) {
+            store.config =
+                StoredAssistantConfig(
+                    apiKey = "",
+                    settings = AssistantSettings(model = "m1"),
+                    setupRequired = false,
+                    connection =
+                        AssistantConnection(
+                            provider = AssistantProvider.OLLAMA,
+                            baseUrl = "http://localhost:11434/v1",
+                            model = "m1",
+                        ),
+                )
+            val viewModel = newViewModel()
+            advanceUntilIdle()
+            // A local server answers with no credential at all, so this is a finished setup.
+            assertThat(viewModel.uiState.value.isConfigured).isTrue()
+
+            viewModel.saveAndStart()
+            advanceUntilIdle()
+            assertThat(store.savedConnections)
+                .containsExactly(AssistantProvider.OLLAMA to "http://localhost:11434/v1")
+
+            // A custom address is served by the ViewModel's own transport, not the injected one, so
+            // this asserts the KEY GATE is passed: the turn reaches the network and fails there,
+            // instead of being refused for a missing key it does not need.
+            viewModel.send("hello")
+            advanceUntilIdle()
+            assertThat(viewModel.uiState.value.error).isEqualTo(AssistantErrorKind.NETWORK)
         }
 
     private class UnreachableTransport : HttpTransport {
