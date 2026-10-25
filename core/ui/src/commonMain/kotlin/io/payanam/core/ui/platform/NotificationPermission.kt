@@ -63,6 +63,11 @@ interface NotificationPermission {
      * exist yet (Android below 13). On Android the answer arrives asynchronously; the [state] changes
      * when it does.
      *
+     * The platform may also refuse to ask any more: Android answers a request silently once the user has
+     * refused the dialog for good. That is not a no-op a caller has to detect - the Android side decides
+     * with [notificationPermissionAsk], and routes the call to the system settings screen, the only
+     * control that can still change the answer.
+     *
      * ASK AFTER, NEVER BLOCK:
      *
      * This seam is for asking AFTER the user has already committed the action that would notify - a
@@ -89,8 +94,11 @@ interface NotificationPermission {
      * WHY A CALLER CANNOT TELL THE TWO APART:
      *
      * `shouldShowRequestPermissionRationale` does not distinguish "never asked" from "permanently
-     * denied" - it answers false for both - so no read can say which case this is. The UI therefore
-     * offers settings as the fallback unconditionally, rather than guessing which one it is in.
+     * denied" - it answers false for both - so no single read can say which case this is. The UI
+     * therefore offers settings as the fallback unconditionally, rather than guessing which one it is in.
+     * (The Android request path narrows it with one extra fact it owns itself - whether it has already
+     * launched the dialog - which is what [notificationPermissionAsk] uses; that still cannot be turned
+     * into a read on the caller's side, so the offer here stays unconditional.)
      *
      * A no-op where the platform has no such screen (the desktop).
      */

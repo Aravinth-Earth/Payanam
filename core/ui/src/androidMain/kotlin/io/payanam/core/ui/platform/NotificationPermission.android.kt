@@ -3,7 +3,9 @@
 package io.payanam.core.ui.platform
 
 import android.Manifest
+import android.app.Activity
 import android.content.Context
+import android.content.ContextWrapper
 import android.content.Intent
 import android.os.Build
 import android.provider.Settings
@@ -14,6 +16,7 @@ import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalContext
+import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.platform.SupportState
@@ -58,9 +61,19 @@ private const val SOURCE = "NotificationPermission"
 @Composable
 actual fun rememberNotificationPermission(): NotificationPermission {
     val context = LocalContext.current
+    // The host activity, for `shouldShowRequestPermissionRationale` - an Activity method, not a Context
+    // one. Resolved by walking the context's wrappers rather than through a composition local: a preview,
+    // a tooling host and a `ContextThemeWrapper` all compose this too, and the walk answers "no activity"
+    // for them instead of throwing. Keyed on the context, like the state below.
+    val activity = remember(context) { context.findActivity() }
     // Keyed on the context so a new Activity re-reads the platform instead of inheriting an answer
     // that belonged to the previous one.
     val stateHolder = remember(context) { mutableStateOf(notificationSupportState(context)) }
+    // Whether THIS handle has already launched the dialog. In memory only, and deliberately not a stored
+    // preference: it covers the one fact Android will not report - "never asked" and "asked and refused
+    // for good" both answer `false` to `shouldShowRequestPermissionRationale`. See
+    // [notificationPermissionAsk] for why the platform's own answers carry every other case.
+    val hasAskedHolder = remember(context) { mutableStateOf(false) }
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),
@@ -79,15 +92,46 @@ actual fun rememberNotificationPermission(): NotificationPermission {
                 mapOf("state" to platformState.name),
             )
         }
-    return remember(stateHolder, launcher) {
+    return remember(stateHolder, launcher, activity, hasAskedHolder) {
         AndroidNotificationPermission(
             stateHolder = stateHolder,
             requestAction = {
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU &&
-                    stateHolder.value == SupportState.DECLINES
-                ) {
-                    AppLogger.current.d(SOURCE, "Requesting the notification permission")
-                    launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                // Both signals are read AT THE MOMENT OF ASKING, never at composition time: the rationale
+                // flag flips the instant the user answers the dialog, so a value captured when the screen
+                // was built would be the answer to the previous question. The state is re-read for the
+                // same reason - the user may have flipped the switch in system settings since this handle
+                // was made, and if they did there is nothing left to ask for.
+                val currentState = notificationSupportState(context)
+                stateHolder.value = currentState
+                val rationale = shouldShowNotificationRationale(activity)
+                val decision =
+                    notificationPermissionAsk(
+                        sdkInt = Build.VERSION.SDK_INT,
+                        state = currentState,
+                        shouldShowRequestPermissionRationale = rationale,
+                        alreadyAskedInThisSession = hasAskedHolder.value,
+                    )
+                when (decision) {
+                    NotificationPermissionAsk.ASK -> {
+                        hasAskedHolder.value = true
+                        AppLogger.current.d(SOURCE, "Requesting the notification permission")
+                        launcher.launch(Manifest.permission.POST_NOTIFICATIONS)
+                    }
+
+                    NotificationPermissionAsk.SETTINGS_ONLY -> {
+                        // The platform has stopped offering its dialog after a permanent refusal, so a
+                        // request now would be answered silently and the button would read as broken. The
+                        // system switch is the only control that can still change the answer.
+                        AppLogger.current.i(
+                            SOURCE,
+                            "The notification permission can no longer be requested; opening the settings screen",
+                        )
+                        openNotificationSettings(context)
+                    }
+
+                    NotificationPermissionAsk.NONE -> {
+                        Unit
+                    }
                 }
             },
             openSettingsAction = {
@@ -116,6 +160,42 @@ private class AndroidNotificationPermission(
     override fun openSettings() {
         openSettingsAction()
     }
+}
+
+/**
+ * The Activity this context belongs to, if any.
+ *
+ * WHY THE WALK AND NOT A COMPOSITION LOCAL: this seam is composed by previews and by hosts that are not
+ * activities, and the question is only meaningful when there IS an activity. A walk answers `null` for
+ * every other host, which the caller reads as "no rationale signal" - the safe direction - while a
+ * composition local that is absent throws during composition.
+ */
+private fun Context.findActivity(): Activity? {
+    var current: Context? = this
+    while (current is ContextWrapper) {
+        if (current is Activity) return current
+        current = current.baseContext
+    }
+    return null
+}
+
+/**
+ * The platform's own "would the permission dialog still appear?" answer.
+ *
+ * False where the question does not apply - below Android 13 there is no such permission, so asking an OS
+ * that has never heard of it is a read with no meaning.
+ *
+ * False for a missing activity too, and that direction is deliberate: `false` means "no evidence one way
+ * or the other", which the policy reads as "not asked yet, so ask" - the harmless direction. Guessing
+ * "permanently refused" from an absent activity would send the user to system settings for nothing.
+ */
+private fun shouldShowNotificationRationale(activity: Activity?): Boolean {
+    if (activity == null) return false
+    if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) return false
+    return ActivityCompat.shouldShowRequestPermissionRationale(
+        activity,
+        Manifest.permission.POST_NOTIFICATIONS,
+    )
 }
 
 /**
