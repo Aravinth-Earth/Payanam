@@ -635,12 +635,23 @@ object DatabaseEncryptionMigrationSupport {
     private fun escapeSql(value: String): String = value.replace("'", "''")
 
     // Writes database_init_completed = true directly into app_settings, bypassing Room.
-    // Uses SQLCipher if passphrase non-null, plain SQLite otherwise.
+    // SQLCipher only: a keyless open would CREATE a plaintext database (see below).
 
     /**
      * Writes `database_init_completed = true` directly into the app_settings
-     * table (bypassing Room), using SQLCipher when [passphrase] is set or plain
-     * SQLite otherwise — so the app knows first-run init finished.
+     * table (bypassing Room), using SQLCipher under [passphrase] — so the app
+     * knows first-run init finished.
+     *
+     * **A null passphrase is REFUSED, not answered with a plaintext write.** The branch that used to sit
+     * here opened the file with the framework `SQLiteDatabase` and `OPEN_READWRITE`, and that call CREATES
+     * the database when the path is absent — so a caller that reached this with no key would leave a
+     * PLAINTEXT Payanam database on disk, which is the one artefact this build must never produce. There is
+     * also no legitimate caller: the only path into this function is `DatabaseInitViewModel`'s
+     * `markDatabaseInitCompletedDirect`, which is called from `resumeImportWithPassphrase` with a
+     * `String` passphrase the user has already unlocked the file with. A caller that somehow arrives without
+     * one has a bug, and a refusal it can report is better than a silent plaintext file it cannot.
+     *
+     * @throws IllegalStateException when [passphrase] is null.
      */
     fun markDatabaseInitCompleted(
         context: Context,
@@ -648,19 +659,24 @@ object DatabaseEncryptionMigrationSupport {
         passphrase: String?,
         logTag: String = "DatabaseEncryptionMigrationSupport",
     ) {
+        if (passphrase == null) {
+            logger.e(
+                logTag,
+                "Refused to write database_init_completed without a passphrase: a keyless open would create a plaintext database",
+                null,
+                mapOf("file" to databaseFile.name),
+            )
+            throw IllegalStateException("Refusing to write database_init_completed without a passphrase.")
+        }
         val updatedAt =
             java.time.LocalDateTime
                 .now()
                 .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         val sql = "INSERT OR REPLACE INTO app_settings(`key`, value, updatedAt) VALUES (?, ?, ?)"
         val args = arrayOf("database_init_completed", "true", updatedAt)
-        if (passphrase != null) {
-            System.loadLibrary("sqlcipher")
-            SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE, null).use { db ->
-                db.execSQL(sql, args)
-            }
-        } else {
-            SQLiteDatabase.openDatabase(databaseFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db -> db.execSQL(sql, args) }
+        System.loadLibrary("sqlcipher")
+        SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE, null).use { db ->
+            db.execSQL(sql, args)
         }
         logger.i(logTag, "Database init completed flag written directly to DB")
     }

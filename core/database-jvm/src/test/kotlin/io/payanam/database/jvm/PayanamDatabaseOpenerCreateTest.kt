@@ -5,6 +5,7 @@ package io.payanam.database.jvm
 import com.google.common.truth.Truth.assertThat
 import io.payanam.database.jvm.schema.PayanamDatabaseSchemaDdl
 import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.database.EncryptedFileClassifier
 import io.payanam.shared.database.PayanamDatabaseSchema
 import org.junit.Assume.assumeTrue
 import org.junit.Rule
@@ -94,7 +95,16 @@ class PayanamDatabaseOpenerCreateTest {
             .isEqualTo(PayanamDatabaseSchemaDdl.IDENTITY_HASH)
     }
 
-    /** The database is ENCRYPTED, not merely created: a wrong key cannot read it. */
+    /**
+     * The database is ENCRYPTED, not merely created: a wrong key cannot read it, and the file's own header
+     * is not a plaintext SQLite one.
+     *
+     * The header verdict is the SHARED classifier's rather than a byte comparison repeated here. A restated
+     * magic is how Android's and the desktop's "is this file encrypted?" answers drifted apart once already,
+     * and a test that hand-rolls its own comparison can keep passing while the classifier — which is what
+     * every production probe actually asks — starts answering differently. Asking it here means a create
+     * that ever produced a plaintext file fails through the same rule the app would use to notice.
+     */
     @Test
     fun theCreatedDatabaseIsEncryptedWithThePassphrase() {
         val path = freshTarget("encrypted.db")
@@ -103,9 +113,18 @@ class PayanamDatabaseOpenerCreateTest {
 
         assertThat(PayanamDatabaseOpener.verifyPassphrase(path, passphrase)).isTrue()
         assertThat(PayanamDatabaseOpener.verifyPassphrase(path, "definitely-not-the-passphrase")).isFalse()
-        // And the bytes are not a plaintext SQLite file, which a "no key" reader would otherwise accept.
-        val header = String(Files.readAllBytes(path).copyOfRange(0, 16), Charsets.ISO_8859_1)
-        assertThat(header).doesNotContain("SQLite format 3")
+        // The first-run file is the one artefact that must never be readable without the key, so its header
+        // is classified the way every production probe classifies a file it has been handed.
+        val bytes = Files.readAllBytes(path)
+        val verdict =
+            EncryptedFileClassifier.classify(
+                // Zero-padded, deliberately: a file too short to hold a header is answered TOO_SHORT by the
+                // classifier's own length rule, so the padding can never make a short file look encrypted.
+                header = bytes.copyOf(EncryptedFileClassifier.MINIMUM_PROBE_BYTES),
+                totalLength = bytes.size.toLong(),
+            )
+        assertThat(verdict.isEncrypted).isTrue()
+        assertThat(verdict.reason).isEqualTo(EncryptedFileClassifier.Reason.NO_MAGIC)
     }
 
     /** The file the create moved into place is a single self-contained file — no sidecar left behind. */

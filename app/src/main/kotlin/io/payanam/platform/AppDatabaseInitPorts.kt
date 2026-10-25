@@ -46,20 +46,33 @@ fun appDatabaseInitFlagWriter(context: Context): DatabaseInitFlagWriter = Databa
  * [FrameworkSQLiteOpenHelperFactory] rather than the platform's direct open API:
  * the framework helper is the same path Room uses, so the file is opened with the same
  * configuration the app's own database layer expects.
+ *
+ * **This reader NEVER CREATES the file, and that is a correctness property rather than a tidy-up.**
+ * `readableDatabase` on a path that does not exist CREATES it — and a file created by the framework
+ * helper is a PLAINTEXT SQLite database, which is precisely the artefact this encrypted-only build must
+ * never leave on disk. Since a file that is not there cannot carry a legacy `app_settings` row either,
+ * the absence check loses no information: an absent (or zero-length) file answers `null`, which is the
+ * same answer this reader already gives for a missing key. A zero-length file is refused for the same
+ * reason — SQLite treats an empty file as a brand-new database and would write the plaintext header into
+ * it, turning a failed `touch` into a plaintext database.
  */
 fun appDatabaseInitFlagReader(context: Context): DatabaseInitFlagReader = DatabaseInitFlagReader { file, key ->
-    val helper = FrameworkSQLiteOpenHelperFactory().create(
-        SupportSQLiteOpenHelper.Configuration.builder(context)
-            .name(file.absolutePath)
-            .callback(object : SupportSQLiteOpenHelper.Callback(1) {
-                override fun onCreate(db: SupportSQLiteDatabase) {}
-                override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
-            })
-            .build(),
-    )
-    helper.readableDatabase.use { db ->
-        db.query("SELECT value FROM app_settings WHERE key = ? LIMIT 1", arrayOf(key)).use { c ->
-            if (c.moveToFirst()) c.getString(0) else null
+    if (!file.exists() || file.length() == 0L) {
+        null
+    } else {
+        val helper = FrameworkSQLiteOpenHelperFactory().create(
+            SupportSQLiteOpenHelper.Configuration.builder(context)
+                .name(file.absolutePath)
+                .callback(object : SupportSQLiteOpenHelper.Callback(1) {
+                    override fun onCreate(db: SupportSQLiteDatabase) {}
+                    override fun onUpgrade(db: SupportSQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+                })
+                .build(),
+        )
+        helper.readableDatabase.use { db ->
+            db.query("SELECT value FROM app_settings WHERE key = ? LIMIT 1", arrayOf(key)).use { c ->
+                if (c.moveToFirst()) c.getString(0) else null
+            }
         }
     }
 }
