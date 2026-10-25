@@ -10,6 +10,15 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
+// The declared version, parsed once by the root build script from gradle/version.properties and shared
+// with `:app` through the `payanamVersion*` extra properties. This is what the product version surfaces
+// report; the build number below still names artefacts.
+val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+
+// The versionName-equivalent for this module: Gradle's own project version, so the module metadata
+// carries the same dotted version the installers do instead of "unspecified".
+version = declaredVersionName
+
 kotlin {
     jvmToolchain(17)
 }
@@ -266,14 +275,13 @@ compose.desktop {
             // F-Droid listing uses - not "PayanamDesktop", which leaked a technical qualifier into the
             // window title, the app grid and the binary path.
             packageName = "Payanam"
-            // Bare build number, no "0.1." prefix - the same scheme Android already uses for
-            // versionName/versionCode, and the same number the .deb FILENAME has always carried
-            // (Payanam_Linux_<build>_<stamp>.deb). The prefix only ever survived inside the package
-            // metadata, so `dpkg -l payanam` showed 0.1.64-1 while the file said 64.
-            //
-            // Safe to drop: dpkg compares 64-1 > 0.1.64-1, so upgrades move forward cleanly (checked with
-            // `dpkg --compare-versions`), and nothing parses the prefix.
-            packageVersion = "${buildNumber}"
+            // The DECLARED version - the same "1.0.0" the Android app reports as versionName - not the
+            // build number. The number still names the artefact (Payanam_Linux_<build>_<stamp>.deb), but
+            // a package version that moved with every single build said nothing about what changed, and
+            // it is the number a user sees in `dpkg -l`. Existing installs carry 0.1.<build>-1, and
+            // dpkg compares 1.0.0-1 > 0.1.<build>-1, so they upgrade forward cleanly
+            // (checked with `dpkg --compare-versions`).
+            packageVersion = declaredVersionName
             vendor = "Aravinth-Earth"
             description = "Navigate your life journey across dimensions privately."
             // Icon comes from the shared brand assets (assets/branding), the same file Android's
@@ -296,21 +304,21 @@ compose.desktop {
                 perUserInstall = true
                 upgradeUuid = "0f9f504f-1be8-42d7-a8a7-72fd1d067d7e"
                 iconFile.set(rootProject.file("assets/branding/payanam-icon.ico"))
-                // Windows is the ONE place a bare build number cannot be used, and this is a hard
-                // toolchain constraint rather than a preference. Setting nativeDistributions.packageVersion
-                // to a single component fails the build at CONFIGURATION time (so it fails on Linux too,
-                // even though these installers are only built on Windows):
+                // Exe/MSI require a three-component version at CONFIGURATION time - a single component
+                // fails the build on every host, Linux included:
                 //
                 //   * Illegal version for 'Exe': '65' is not a valid version.
                 //       * Correct format: 'MAJOR.MINOR.BUILD'  (MAJOR<=255, MINOR<=255, BUILD<=65535)
                 //
-                // So the build number is carried as the BUILD component with the leading components
-                // pinned to 0 - the least version that satisfies the format, and nothing but the build
-                // number is informative. Note BUILD is capped at 65535; the counter is ~2500.
-                // No Windows installer has ever shipped (only linux-x64 has been built), so moving off
-                // the old 0.1.<build> shape cannot present an MSI with a downgrade.
-                msiPackageVersion = "0.0.${buildNumber}"
-                exePackageVersion = "0.0.${buildNumber}"
+                // The declared version supplies all three components, so the Windows installers now carry
+                // the same "1.0.0" as the deb and the Android app. That is also an increase over the old
+                // 0.0.<build> shape, so no MSI can present a downgrade; and no Windows installer has ever
+                // shipped (only linux-x64 has been built), so there is nothing installed to upgrade from.
+                // The root loader caps every segment at 999: inside the BUILD limit, but looser than the
+                // 255 cap on MAJOR/MINOR - a version with major or minor above 255 would be refused by
+                // jpackage here. 1.0.0 is inside all three limits.
+                msiPackageVersion = declaredVersionName
+                exePackageVersion = declaredVersionName
             }
         }
         // ProGuard runs for the release distribution and STAYS enabled - the point of the rules

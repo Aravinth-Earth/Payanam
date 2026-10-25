@@ -16,6 +16,149 @@ plugins {
     alias(libs.plugins.spotless) apply false
 }
 
+// ---------------------------------------------------------------------------------------------
+// Declared version: the single source of truth for the app's version name and version code.
+//
+// The values live in `gradle/version.properties` as two literal lines, because F-Droid's build recipe
+// greps that file directly (`versionCode=` followed by digits) and cannot evaluate arithmetic. The
+// file is parsed ONCE, here: `:app` and `:desktop` read the resolved values through the
+// `payanamVersion*` extra properties, so neither module owns a copy of the parse and the two can
+// never disagree. Nothing should edit those lines by hand - `./gradlew bumpVersion -Pto=X.Y.Z`
+// rewrites both and recomputes the code from the name.
+// ---------------------------------------------------------------------------------------------
+val versionPropertiesFile = file("gradle/version.properties")
+
+/** Reads [versionPropertiesFile] as (name, code), failing loudly when the file or a key is missing. */
+fun readDeclaredVersion(): Pair<String, Int> {
+    check(versionPropertiesFile.isFile) {
+        "Declared version file is missing: ${versionPropertiesFile.path}. Restore " +
+            "gradle/version.properties with exactly two lines, 'version=<major.minor.patch>' and " +
+            "'versionCode=<integer>'."
+    }
+    val properties = java.util.Properties().apply { versionPropertiesFile.inputStream().use(::load) }
+    val name = properties.getProperty("version")?.trim().orEmpty()
+    check(name.isNotEmpty()) {
+        "${versionPropertiesFile.path} declares no 'version'. Expected the literal line 'version=1.0.0'."
+    }
+    val codeText = properties.getProperty("versionCode")?.trim().orEmpty()
+    check(codeText.isNotEmpty()) {
+        "${versionPropertiesFile.path} declares no 'versionCode'. Expected the literal line " +
+            "'versionCode=1000000'; F-Droid's recipe greps this key and cannot evaluate arithmetic."
+    }
+    val code = codeText.toIntOrNull()
+    check(code != null) {
+        "${versionPropertiesFile.path} declares a non-numeric versionCode '$codeText'. It must be a " +
+            "literal integer, because F-Droid's recipe cannot evaluate arithmetic."
+    }
+    return name to code
+}
+
+/**
+ * Packs a dotted [version] into an integer: `major * 1_000_000 + minor * 1_000 + patch`.
+ *
+ * Missing trailing segments count as 0, so "2" and "2.0.0" pack alike. Every segment is capped at 999,
+ * which is what stops two different versions packing to the same code.
+ */
+fun packed(version: String): Int {
+    val segments = version.split(".")
+    require(segments.size <= 3) {
+        "Version '$version' has ${segments.size} segments; at most three (major.minor.patch) fit a versionCode."
+    }
+    val numbers =
+        segments.map { segment ->
+            requireNotNull(segment.toIntOrNull()) {
+                "Version '$version' has a non-numeric segment '$segment'. Only digits separated by dots are allowed."
+            }
+        }
+    val padded = numbers + List(3 - numbers.size) { 0 }
+    padded.forEachIndexed { index, value ->
+        require(value in 0..999) {
+            "Version '$version' has segment ${index + 1} = $value; each segment must be 0..999 so distinct " +
+                "versions cannot pack to the same versionCode."
+        }
+    }
+    return padded[0] * 1_000_000 + padded[1] * 1_000 + padded[2]
+}
+
+val declaredVersion = readDeclaredVersion()
+val declaredVersionName: String = declaredVersion.first
+val declaredVersionCode: Int = declaredVersion.second
+val declaredPackedVersionCode: Int = packed(declaredVersionName)
+
+// Plain values only, on purpose: a function or a lambda cannot cross a build-script boundary without
+// buildSrc, and a captured lambda is not configuration-cache serialisable. That also decides the shape
+// of `bumpVersion` below - it resolves everything it needs while configuring, so its action never has
+// to call back into this script.
+extra["payanamVersionName"] = declaredVersionName
+extra["payanamVersionCode"] = declaredVersionCode
+extra["payanamPackedVersionCode"] = declaredPackedVersionCode
+
+// `./gradlew bumpVersion -Pto=1.1.0` rewrites both lines and recomputes the code from the new name.
+// It refuses a missing, malformed, or non-increasing target: Android will not install an APK whose
+// versionCode does not increase, so a downgrade or a no-op would produce an artefact nobody can
+// install over the previous one.
+val bumpTargetName: String? = providers.gradleProperty("to").orNull?.trim()?.takeIf { it.isNotEmpty() }
+val bumpTargetCode: Int? = bumpTargetName?.let { target -> runCatching { packed(target) }.getOrNull() }
+
+tasks.register("bumpVersion") {
+    group = "versioning"
+    description = "Declares a new version: ./gradlew bumpVersion -Pto=<major.minor.patch>"
+    val propertiesFile = versionPropertiesFile
+    val targetName = bumpTargetName
+    val targetCode = bumpTargetCode
+    // Deliberately declares no outputs: a task with nothing to compare against is never up to date, and
+    // a bump request is an explicit act rather than something to be skipped as a cache hit.
+    doLast {
+        if (targetName == null) {
+            throw GradleException("bumpVersion needs a target version: ./gradlew bumpVersion -Pto=1.1.0")
+        }
+        if (targetCode == null) {
+            throw GradleException(
+                "bumpVersion refuses '$targetName': it is not a version. Expected up to three " +
+                    "dot-separated numbers, each 0-999, for example 1.1.0.",
+            )
+        }
+        val lines = propertiesFile.readLines()
+        fun declaredValue(key: String): String? =
+            lines.firstOrNull { it.trimStart().startsWith("$key=") }?.substringAfter("=")?.trim()
+
+        val currentName = declaredValue("version").orEmpty()
+        val currentCodeText = declaredValue("versionCode").orEmpty()
+        if (currentName.isEmpty() || currentCodeText.isEmpty()) {
+            throw GradleException(
+                "${propertiesFile.path} must declare both 'version=' and 'versionCode=' before it can be bumped.",
+            )
+        }
+        val currentCode =
+            currentCodeText.toIntOrNull()
+                ?: throw GradleException(
+                    "${propertiesFile.path} declares a non-numeric versionCode '$currentCodeText'.",
+                )
+        if (targetCode <= currentCode) {
+            throw GradleException(
+                "bumpVersion refuses '$targetName' (versionCode $targetCode): it is not greater than the " +
+                    "declared $currentName (versionCode $currentCode). Android refuses to install an APK " +
+                    "whose versionCode does not increase, so a downgrade or a no-op bump is not allowed.",
+            )
+        }
+        // Line-for-line rewrite so the file keeps whatever else it carries, and the two keys keep the
+        // literal `key=value` shape F-Droid greps.
+        val rewritten =
+            lines.map { line ->
+                when {
+                    line.trimStart().startsWith("version=") -> "version=$targetName"
+                    line.trimStart().startsWith("versionCode=") -> "versionCode=$targetCode"
+                    else -> line
+                }
+            }
+        propertiesFile.writeText(rewritten.joinToString("\n", postfix = "\n"))
+        logger.lifecycle(
+            "Declared version bumped: $currentName ($currentCode) -> $targetName ($targetCode) " +
+                "in ${propertiesFile.path}",
+        )
+    }
+}
+
 tasks.register("clean", Delete::class) {
     delete(rootProject.layout.buildDirectory)
 }

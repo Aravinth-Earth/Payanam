@@ -31,27 +31,25 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
-// The version comes from the build script's `-PbuildNumber` flag - the same property the desktop module
-// reads - so the number the gate prints, the number in the APK filename and the number the installed app
-// reports are one number. It used to be hardcoded, which meant a build script could print "Build #2028"
-// and hand over an APK that told the user it was 1825.
-//
-// With no flag (a bare `./gradlew assembleDebug`) it falls back to the tracked build counter, which is
-// where the script's own buildNumber comes from, so the value is never a guess and never stale.
-val buildNumber: Int =
-    (project.findProperty("buildNumber") as String?)?.toIntOrNull()
-        ?: run {
-            val counterFile = rootProject.file("build-tools/tracking/build-counter.json")
-            check(counterFile.exists()) { "Build counter missing: ${counterFile.path}" }
-            val counterJson = counterFile.readText()
-            val androidBlock =
-                requireNotNull(
-                    Regex("\"android\"\\s*:\\s*\\{([^}]*)\\}").find(counterJson)?.groupValues?.get(1),
-                ) { "No android block in ${counterFile.path}; cannot resolve the app version." }
-            requireNotNull(
-                Regex("\"builds\"\\s*:\\s*(\\d+)").find(androidBlock)?.groupValues?.get(1)?.toIntOrNull(),
-            ) { "No android.builds value in ${counterFile.path}; cannot resolve the app version." }
-        }
+// The version comes from the declared source of truth, `gradle/version.properties`: the root build
+// script parses that file once and both this module and `:desktop` read the same parse, so the two can
+// never disagree. A bare `./gradlew assembleDebug` therefore needs nothing but the file - no
+// `-PbuildNumber` flag and no counter read. The counter still names artefacts; it no longer decides
+// what version the app reports.
+val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
+val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
+
+// Drift assert, i.e. `require(versionCode == packed(version))` with the packing done once in the root
+// loader. Hand-editing `version=` without its matching `versionCode=` would otherwise ship an APK whose
+// code silently disagrees with its name, and the two would stay out of step until an install failed.
+require(declaredVersionCode == declaredPackedVersionCode) {
+    "Declared version drift in gradle/version.properties: version=$declaredVersionName packs to " +
+        "versionCode $declaredPackedVersionCode, but the file declares versionCode " +
+        "$declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version> to rewrite both lines " +
+        "together; if the file is edited by hand instead, the versionCode must be " +
+        "$declaredPackedVersionCode."
+}
 
 // F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
 // the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
@@ -66,8 +64,8 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = buildNumber
-          versionName = buildNumber.toString()
+          versionCode = declaredVersionCode
+          versionName = declaredVersionName
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
