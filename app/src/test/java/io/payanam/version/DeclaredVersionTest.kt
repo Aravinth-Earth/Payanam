@@ -70,6 +70,12 @@ class DeclaredVersionTest {
     }
 
     @Test
+    fun packingStaysWithinTheAndroidVersionCodeLimit() {
+        // Android's maximum is 2,100,000,000; the 0..999 segment cap bounds the result well below it.
+        assertEquals(999_999_999, packed("999.999.999"))
+    }
+
+    @Test
     fun appModuleVersionsFromTheDeclaredFileAndNotTheBuildCounter() {
         val appBuild = repoRoot().resolve("app/build.gradle.kts").toFile().readText()
         assertTrue(
