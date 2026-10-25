@@ -83,6 +83,10 @@ enum class NotificationPermissionAsk {
  * It IS held in saved instance state, though, so an Activity recreation (a rotation) keeps it while the
  * screen is merely rebuilt. Without that, rotating after a permanent refusal would pass `false` again and
  * turn the settings redirect back into a request the platform answers silently.
+ *
+ * Saved state is restored after a SYSTEM-INITIATED process death too, so this flag is not strictly
+ * process-local: it survives the system killing the app in the background and restoring it. What it does
+ * not survive is a fresh launch, which is the property that keeps it out of stored preferences.
  */
 fun notificationPermissionAsk(
     sdkInt: Int,

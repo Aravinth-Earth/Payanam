@@ -71,11 +71,13 @@ actual fun rememberNotificationPermission(): NotificationPermission {
     // that belonged to the previous one.
     val stateHolder = remember(context) { mutableStateOf(notificationSupportState(context)) }
     // Whether THIS handle has already launched the dialog. Saved INSTANCE state, not a stored preference:
-    // it must survive an Activity recreation (a rotation after a permanent refusal would otherwise reset
-    // it and turn "open settings" back into a request the platform ignores), but it must not outlive the
-    // process. It covers the one fact Android will not report - "never asked" and "asked and refused for
-    // good" both answer `false` to `shouldShowRequestPermissionRationale`. See
-    // [notificationPermissionAsk] for why the platform's own answers carry every other case.
+    // a rotation after a permanent refusal would otherwise reset it and turn "open settings" back into a
+    // request the platform ignores. Saved state is restored across an Activity recreation AND across a
+    // system-initiated process death, so this is not strictly process-local; what it is not is a preference
+    // that survives a fresh launch, which is the distinction that matters here. It covers the one fact
+    // Android will not report - "never asked" and "asked and refused for good" both answer `false` to
+    // `shouldShowRequestPermissionRationale`. See [notificationPermissionAsk] for why the platform's own
+    // answers carry every other case.
     val hasAskedHolder = rememberSaveable(context) { mutableStateOf(false) }
     val launcher =
         rememberLauncherForActivityResult(
