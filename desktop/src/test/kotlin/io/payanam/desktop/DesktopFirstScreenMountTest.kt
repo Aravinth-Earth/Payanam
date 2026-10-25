@@ -13,7 +13,6 @@ import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopBootstrapDataLayer
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
@@ -254,19 +253,14 @@ class DesktopFirstScreenMountTest {
                     sessionController = sessionController,
                 ),
             language = UiLanguage.ENGLISH,
-            // This file mounts the FIRST screen, so the settings and assistant destinations are not composed.
-            // Their holders are supplied with the values the SHELL would pass, over this test's own files, so
-            // nothing here can read the host's real state even if a later change mounts them.
+            // This file mounts the FIRST screen, so the settings destination is not composed. Its holder is
+            // supplied with the values the SHELL would pass, over this test's own files, so nothing here can
+            // read the host's real state even if a later change mounts it.
             settingsCollaborators =
                 DesktopSettingsCollaborators(
                     preferences = AppPreferencesState(),
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
-                ),
-            assistantCollaborators =
-                DesktopAssistantCollaborators(
-                    sessionController = sessionController,
-                    databaseFile = databaseFile.toPath(),
                 ),
         )
 

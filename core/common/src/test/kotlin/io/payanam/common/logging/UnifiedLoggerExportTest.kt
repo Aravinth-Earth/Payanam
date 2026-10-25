@@ -81,10 +81,20 @@ class UnifiedLoggerExportTest {
     @Test
     fun exportAllLogs_retainsOnlyNewestExports() =
         runTest {
-            // Seed the real export dir with 25 fake artifacts (older timestamps).
+            // Seed the real export dir with 25 fake artifacts, pinning each file's mtime so the prune
+            // key is unambiguous. `cleanupOldExports` sorts by lastModified at millisecond resolution;
+            // writing 25 tiny files in a burst leaves most of them in the same millisecond, and the
+            // prune then drops whichever tied files directory order happens to return first. That made
+            // this assertion depend on the filesystem rather than on the retention rule.
             val dir = exportDir()
+            val base =
+                System.currentTimeMillis() -
+                    java.util.concurrent.TimeUnit.HOURS
+                        .toMillis(2)
             repeat(25) { index ->
-                File(dir, "payanam_1_20260810-${String.format(java.util.Locale.US, "%02d", index)}00.zip").writeText("x")
+                val seed = File(dir, "payanam_1_20260810-${String.format(java.util.Locale.US, "%02d", index)}00.zip")
+                seed.writeText("x")
+                check(seed.setLastModified(base + index * 1000L)) { "could not pin mtime on $seed" }
             }
 
             // A real export triggers cleanupOldExports(keepLast = 20).
@@ -94,6 +104,8 @@ class UnifiedLoggerExportTest {
             assertThat(remaining.size).isAtMost(20)
             assertThat(remaining).contains(zip)
             assertThat(remaining.map { it.name }).doesNotContain("payanam_1_20260810-0000.zip")
+            assertThat(remaining.map { it.name }).doesNotContain("payanam_1_20260810-0400.zip")
+            assertThat(remaining.map { it.name }).contains("payanam_1_20260810-2400.zip")
         }
 
     @Test

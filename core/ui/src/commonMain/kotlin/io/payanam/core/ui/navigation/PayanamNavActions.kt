@@ -107,16 +107,6 @@ class PayanamNavActions internal constructor(
         navigateToRoute(PayanamRoutes.SCORING_CONFIG)
     }
 
-    /** Opens the AI assistant. */
-    fun openAssistant() {
-        navigateToRoute(PayanamRoutes.ASSISTANT)
-    }
-
-    /** Opens the AI assistant's settings. */
-    fun openAssistantSettings() {
-        navigateToRoute(PayanamRoutes.ASSISTANT_SETTINGS)
-    }
-
     /** Opens the passphrase-change form. */
     fun openPassphraseChange() {
         navigateToRoute(PayanamRoutes.PASSPHRASE_CHANGE)

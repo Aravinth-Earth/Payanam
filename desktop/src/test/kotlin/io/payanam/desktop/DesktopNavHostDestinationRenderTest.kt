@@ -24,7 +24,6 @@ import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseSession
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitPorts
 import io.payanam.desktop.database.DesktopDatabasePathResolver
@@ -112,8 +111,8 @@ import java.util.Properties
  *    injected lambda, which is why `DesktopDatabasePathResolver` takes a directory lambda at all.
  *
  * **What it does NOT claim.** It renders the three gate bodies that are wired. It says nothing about
- * `passphraseSetup`, `passphraseChange`, `time`, `settings`, `assistant` and `assistantSettings`, which
- * still call `desktopDestinationNotMigrated` on purpose - `DesktopNavHostParityTest` and that function's own
+ * `passphraseSetup`, `passphraseChange`, `time` and `settings`, which still call
+ * `desktopDestinationNotMigrated` on purpose - `DesktopNavHostParityTest` and that function's own
  * KDoc own those gaps. Nor does it exercise the callback flows (`onUnlocked`, `onDatabaseReady`): the graph
  * owns those, and a body that never fires them here cannot be distinguished from one that fires them.
  */
@@ -667,14 +666,6 @@ class DesktopNavHostDestinationRenderTest {
                     preferences = AppPreferencesState(),
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
-                ),
-            // Over this fixture's own controller and database file, never the host's. The controller here
-            // refuses every open, so the holder reports no store and the assistant routes - which this file
-            // does not mount - would render the shared screens over their own default state.
-            assistantCollaborators =
-                DesktopAssistantCollaborators(
-                    sessionController = sessionController,
-                    databaseFile = databaseFile.toPath(),
                 ),
         )
 

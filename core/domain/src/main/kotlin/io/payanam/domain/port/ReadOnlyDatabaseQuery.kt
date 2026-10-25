@@ -7,7 +7,7 @@ package io.payanam.domain.port
  *
  * ## What this port is for
  *
- * The assistant answers questions by running SQL the model wrote. That string is UNTRUSTED INPUT: it
+ * A client answers questions by running SQL it wrote. That string is UNTRUSTED INPUT: it
  * arrives from a remote model, so the only safe assumption about it is that it will eventually contain
  * something hostile. This port is the seam that holds the database on the far side of that boundary, and
  * its entire reason to exist is that the answer must be structurally incapable of being a write.

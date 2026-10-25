@@ -5,7 +5,6 @@
 package io.payanam.core.ui.lenses
 
 import io.payanam.core.ui.flags.LocalFeatureFlags
-import io.payanam.core.ui.assistant.AssistantConsentDialog
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.logging.AppLogger
@@ -13,7 +12,6 @@ import io.payanam.presentation.lenses.LensHabitScoreViewModel
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.fillMaxSize
@@ -30,7 +28,6 @@ import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -84,16 +81,11 @@ fun LensesScreen(
     onOpenJournal: () -> Unit = {},
     onOpenNotes: () -> Unit = {},
     onOpenScoreDetail: (type: String, key: String) -> Unit = { _, _ -> },
-    onOpenAssistant: () -> Unit = {},
 ) {
     val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
     val logger = remember { AppLogger.current }
     val screenScrollState = rememberScrollState()
-    // Ephemeral, deliberately NOT persisted: the gate is asked on the way IN, and the answer is
-    // remembered where it actually matters - the presence of a key, not a local flag. A remembered
-    // "don't ask again" would outlive the key it was given alongside.
-    var assistantConsentVisible by remember { mutableStateOf(false) }
     var timeExpanded by rememberSaveable { mutableStateOf(true) }
     var tasksExpanded by rememberSaveable { mutableStateOf(false) }
     var habitsExpanded by rememberSaveable { mutableStateOf(false) }
@@ -299,57 +291,6 @@ fun LensesScreen(
                 onDimensionSplitShiftRight = { viewModel.shiftDimensionSplitRight() },
                 onDimensionTrendWindowSelect = { viewModel.selectDimensionTrendWindow(it) },
             )
-            // Unconditional: the entry is always offered. Access itself is gated one level down, by the
-            // opt-in consent the user has to accept before anything leaves the device.
-            AssistantEntryCard(
-                onOpen = {
-                    logger.d("LensesScreen.assistantOpened", "AI Assistance entry tapped")
-                    assistantConsentVisible = true
-                },
-            )
-        }
-    }
-    if (assistantConsentVisible) {
-        AssistantConsentDialog(
-            onProceed = {
-                assistantConsentVisible = false
-                onOpenAssistant()
-            },
-            onCancel = {
-                // Back to exactly where the user was: the same Lenses screen, same scroll position.
-                // Nothing is stored and nothing is set up, so cancelling costs the user nothing and
-                // leaves no trace to clean up.
-                assistantConsentVisible = false
-            },
-        )
-    }
-}
-
-@Composable
-private fun AssistantEntryCard(onOpen: () -> Unit) {
-    val strings = LocalUiStrings.current
-    Card(modifier = Modifier.fillMaxWidth()) {
-        Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = strings.assistantTitle,
-                    fontWeight = FontWeight.SemiBold,
-                    modifier = Modifier.weight(1f),
-                )
-                Text(
-                    text = strings.assistantChipExperimental,
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.primary,
-                )
-            }
-            Text(
-                text = strings.assistantEntrySubtitle,
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            TextButton(onClick = onOpen, modifier = Modifier.align(Alignment.End)) {
-                Text(strings.assistantEntryCta)
-            }
         }
     }
 }

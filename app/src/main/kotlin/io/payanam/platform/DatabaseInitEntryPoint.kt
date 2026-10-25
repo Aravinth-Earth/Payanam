@@ -6,12 +6,8 @@ import dagger.hilt.EntryPoint
 import dagger.hilt.InstallIn
 import dagger.hilt.components.SingletonComponent
 import io.payanam.core.ui.text.UiStrings
-import io.payanam.domain.assistant.OpenCodeGoClient
-import io.payanam.domain.port.AssistantConfigurationStore
 import io.payanam.domain.port.DatabasePathResolver
-import io.payanam.domain.port.DatabaseSchemaReader
 import io.payanam.domain.port.DatabaseSessionManager
-import io.payanam.domain.port.ReadOnlyDatabaseQuery
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
 import io.payanam.presentation.database.DatabaseDimensionSetupPersister
@@ -75,30 +71,6 @@ interface DatabaseInitEntryPoint {
 
     /** The generated copy table for the language in force. */
     fun uiStrings(): UiStrings
-}
-
-/**
- * Hilt entry point for the assistant screen's collaborators.
- *
- * A fourth sibling for the reason the other three exist: the assistant's state is a SHARED class
- * (`:core:presentation`) now, so it cannot be a `@HiltViewModel` and `hiltViewModel()` cannot build it. The
- * four things it needs are the encrypted settings store, the two read-only ports, and the provider client
- * — every one of them already bound as a singleton, so this only names them.
- */
-@EntryPoint
-@InstallIn(SingletonComponent::class)
-interface AssistantEntryPoint {
-    /** The encrypted `app_settings` store, behind the shared [AssistantConfigurationStore] contract. */
-    fun assistantSettingsStore(): AssistantConfigurationStore
-
-    /** The one statement a model-authored query may run, over Room's read-only handle. */
-    fun assistantReadOnlyQuery(): ReadOnlyDatabaseQuery
-
-    /** The live schema reader, which takes no SQL and therefore cannot be handed a model's. */
-    fun assistantSchemaReader(): DatabaseSchemaReader
-
-    /** The OpenCode Go chat client, bound to the provided transport. */
-    fun openCodeGoClient(): OpenCodeGoClient
 }
 
 /**

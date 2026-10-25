@@ -1,6 +1,6 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
-package io.payanam.domain.assistant
+package io.payanam.domain.query
 
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
@@ -78,7 +78,7 @@ class ReadOnlySqlGuardTest {
         assertTrue(ReadOnlySqlGuard.sanitize("SELECT value FROM app_settings", 500) is GuardResult.Rejected)
         assertTrue(
             ReadOnlySqlGuard.sanitize(
-                "SELECT value FROM \"app_settings\" WHERE key = 'assistant.api_key'",
+                "SELECT value FROM \"app_settings\" WHERE key = 'fixture.secret'",
                 500,
             ) is GuardResult.Rejected,
         )

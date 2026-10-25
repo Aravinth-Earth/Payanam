@@ -251,9 +251,7 @@ class DesktopNavHostParityTest {
          * without deleting it here fails `the recorded gap list is still accurate`, which is the intended
          * prompt to update the doc in the same commit.
          *
-         * Seven were closed on 2026-09-26 - the backup-failure banner, return-route-after-unlock, and the
-         * whole `aiAssistantEnabled` build flag, which is DELETED rather than wired: AI Assistance is a
-         * permanent capability in both apps, so the desktop no longer hard-codes a value that can disagree.
+         * Seven were closed on 2026-09-26 - the backup-failure banner and return-route-after-unlock.
          * `onPassphraseUnlocked` was closed on 2026-10-03, when the mount site began supplying it: the graph
          * no longer takes its `= {}` default there. That leaves two, both features that silently do not work
          * on the desktop: no external navigation, and the consumed-callback that has to land with it.
@@ -269,9 +267,7 @@ class DesktopNavHostParityTest {
          *
          * Empty. `minimalModeEnabled` WAS here - the desktop hard-coded `false` against Android's build
          * constant - and now reads `PlatformFeatureFlags.current.minimalModeEnabled`, the same holder
-         * `PayanamApp.onCreate` installs, so there is no literal left to record. `aiAssistantEnabled` was
-         * here before it and is gone entirely: the assistant is always available, so there is no value to
-         * disagree about.
+         * `PayanamApp.onCreate` installs, so there is no literal left to record.
          *
          * Asserted as an EXACT match, so an entry that stops being a literal fails here until it is
          * removed, and a newly literal one fails until it is recorded. Fix and record move together.

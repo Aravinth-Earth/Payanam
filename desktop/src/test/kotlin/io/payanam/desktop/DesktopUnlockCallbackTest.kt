@@ -14,7 +14,6 @@ import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.theme.PayanamTheme
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseOpenerAdapter
 import io.payanam.desktop.database.DesktopDatabasePathResolver
@@ -337,11 +336,6 @@ class DesktopUnlockCallbackTest {
                     preferences = AppPreferencesState(),
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile,
-                ),
-            assistantCollaborators =
-                DesktopAssistantCollaborators(
-                    sessionController = sessionController,
-                    databaseFile = databaseFile.toPath(),
                 ),
         )
 

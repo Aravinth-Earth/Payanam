@@ -33,8 +33,6 @@ dependencies {
     // consumers, so :core:shared is `api` rather than `implementation`.
     api(project(":core:shared"))
     implementation(libs.coroutines.core)
-    // The assistant message protocol and the OpenCode Go client parse provider JSON.
-    implementation(libs.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)

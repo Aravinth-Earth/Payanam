@@ -14,8 +14,7 @@ import java.io.File
  *
  * **The claim this file makes today, in full.** Every route the rail can offer RENDERS, including the
  * `Time` route a fresh install opens on by default. This used to be false for `Time` and `Settings`;
- * `Settings` was wired first, and `ASSISTANT` / `ASSISTANT_SETTINGS` were then the last two destinations
- * in the module still throwing by name. All four now render shared screens.
+ * `Settings` was wired first, and both now render shared screens.
  *
  * The chain is production code end to end, and each link is load-bearing for the claim:
  *  - `mapAppPreferences` reads an absent `launch_destination_route` row as `DEFAULT_LAUNCH_ROUTE`
@@ -56,11 +55,8 @@ class DesktopTopLevelDestinationRenderabilityTest {
      * matters more than the other destinations because `settings` is also the documented fallback when every
      * other route is hidden (`DesktopNavigationModel`), so it was one rail click from a crash.
      *
-     * Nothing is missing from this record any more. It used to hold nothing while `ASSISTANT` and
-     * `ASSISTANT_SETTINGS` still threw, because they are not rail routes - they are reached from inside a
-     * screen - so they were out of this file's scope and the record read as "empty" while two destinations
-     * were genuinely unwired. `DesktopNavHostSharedScreenRenderTest` now walks both assistant routes as
-     * rendered destinations, so "absent from this record" means one thing only: it renders.
+     * Nothing is missing from this record any more: absent from it means one thing only, that the route
+     * renders.
      *
      * The assertion below is an EXACT match, so this list going empty is a claim that would be contradicted
      * the moment a rail route started throwing again - which is the direction that matters.

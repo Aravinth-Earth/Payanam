@@ -2,7 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 @file:Suppress("MagicNumber")
 
-package io.payanam.domain.assistant
+package io.payanam.domain.query
 
 /** Outcome of [ReadOnlySqlGuard.sanitize]. */
 sealed interface GuardResult {
@@ -18,11 +18,11 @@ sealed interface GuardResult {
 }
 
 /**
- * Code-level read-only enforcement for model-generated SQL — the POC guard ported
- * (poc/llm-spike/assistant_harness.py `guard()`) and hardened.
+ * Code-level read-only enforcement for client-supplied SQL — the POC guard, hardened.
  *
- * Safety never depends on the prompt: this object is the only path from a model reply to
- * the database, and it refuses anything that is not a single SELECT/WITH statement.
+ * Safety never depends on the caller's good behaviour: this object is the only path from
+ * untrusted SQL text to the database, and it refuses anything that is not a single
+ * SELECT/WITH statement.
  * Scans run on a copy of the statement whose string-literal contents are blanked out, so
  * user data values inside quotes (`LIKE '%delete%'`, `'a -- b'`) can neither trip a false
  * rejection nor hide a real keyword. A second variant unwraps identifier quoting
@@ -49,9 +49,9 @@ object ReadOnlySqlGuard {
     private val hasLimit = Regex("\\blimit\\b", RegexOption.IGNORE_CASE)
 
     /**
-     * The settings table holds app-internal values, above all the assistant's own API key row
-     * (`assistant.api_key`). It is refused on the RAW statement text so quoted or bracketed
-     * spellings cannot slip past the literal-stripping scan.
+     * The settings table holds app-internal values, above all the row that stores a credential.
+     * It is refused on the RAW statement text so quoted or bracketed spellings cannot slip past
+     * the literal-stripping scan.
      */
     private val forbiddenTable = Regex("app_settings", RegexOption.IGNORE_CASE)
 

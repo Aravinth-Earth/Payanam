@@ -151,12 +151,4 @@ interface PayanamNavHostScreens {
     /** The scoring configuration screen. */
     @Composable
     fun scoringConfig(nav: PayanamNavActions)
-
-    /** The AI assistant. */
-    @Composable
-    fun assistant(nav: PayanamNavActions)
-
-    /** The AI assistant's settings. */
-    @Composable
-    fun assistantSettings(nav: PayanamNavActions)
 }

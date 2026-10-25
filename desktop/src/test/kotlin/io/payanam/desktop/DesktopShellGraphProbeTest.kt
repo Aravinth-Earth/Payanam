@@ -457,12 +457,6 @@ class DesktopShellGraphProbeTest {
         @Composable
         override fun scoringConfig(nav: PayanamNavActions) = body(SCORING_CONFIG)
 
-        @Composable
-        override fun assistant(nav: PayanamNavActions) = body(ASSISTANT)
-
-        @Composable
-        override fun assistantSettings(nav: PayanamNavActions) = body(ASSISTANT_SETTINGS)
-
         companion object {
             // Distinct literal tags rather than the shared route table: a fixture that read its own
             // expectations from production constants could not notice those constants changing.
@@ -487,8 +481,6 @@ class DesktopShellGraphProbeTest {
             const val EDIT_TASK = "route:edit-task"
             const val SCORE_DETAIL = "route:score-detail"
             const val SCORING_CONFIG = "route:scoring-config"
-            const val ASSISTANT = "route:assistant"
-            const val ASSISTANT_SETTINGS = "route:assistant-settings"
         }
     }
 

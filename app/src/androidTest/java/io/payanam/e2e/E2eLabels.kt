@@ -244,12 +244,6 @@ object E2eLabels {
         // ── colour picker (localized swatch labels; contentDescription, per SPEC.md) ─────────────────
         val deepPurple500: String get() = res(R.string.dimension_color_deep_purple_500)
 
-        // ── assistant ───────────────────────────────────────────────────────────────────────────────
-        val aiAssistance: String get() = shared.assistantTitle
-        val experimentalChip: String get() = shared.assistantChipExperimental
-        val assistantOpen: String get() = shared.assistantEntryCta
-        val assistantConsentProceed: String get() = shared.assistantConsentProceed
-
         // ── focus-mode onboarding gate ───────────────────────────────────────────────────────────────
         // A startup GATE, not a screen the journey navigates to: it is evaluated when the ACTIVITY starts, so a
         // database whose focus-mode onboarding was never completed is asked to choose a mode on the next launch.
@@ -272,25 +266,6 @@ object E2eLabels {
         // ── dimensions ─────────────────────────────────────────────────────────────────────────────
         val lifeDimension: String get() = shared.locLifeDimension
 
-        // ── assistant surfaces ─────────────────────────────────────────────────────────────────────
-        val assistantSettings: String get() = shared.assistantSettingsTitle
-        val assistantSetupHeadline: String get() = shared.assistantSetupHeadline
-        val assistantApiKey: String get() = shared.assistantKeyLabel
-        val assistantLoadModels: String get() = shared.assistantKeyLoadModels
-        val assistantAdvanced: String get() = shared.assistantAdvancedEntry
-        val assistantNoModel: String get() = shared.assistantNoModel
-        val assistantChangeProvider: String get() = shared.assistantChangeProvider
-        val assistantGotIt: String get() = shared.assistantNoticeOk
-
-        /**
-         * The ERROR banner's own dismiss control.
-         *
-         * Not the notice's "Got it": the banner carries `assistant_error_dismiss` ("Dismiss" / "மூடு"),
-         * a different string. Measured 2026-10-16 — the test dismissed the banner with the notice label
-         * and the lookup found nothing while the banner was plainly on screen.
-         */
-        val assistantErrorDismiss: String get() = shared.assistantErrorDismiss
-
         // ── update channel: ANDROID-ONLY copy ──────────────────────────────────────────────────────
         // The in-app updater exists only on Android, so these two strings have no shared counterpart —
         // they are resolved from this module's own resources rather than from [shared]. Reading them
@@ -298,19 +273,11 @@ object E2eLabels {
         val updateChannelDev: String get() = res(io.payanam.R.string.settings_update_channel_dev)
         val updateChannelBeta: String get() = res(io.payanam.R.string.settings_update_channel_beta)
 
-        // ── assistant setup + insights surfaces (shared copy) ──────────────────────────────────────
-        val assistantModelPick: String get() = shared.assistantModelPick
-        val assistantLoadingModels: String get() = shared.assistantLoadingModels
-        val assistantRemoveKey: String get() = shared.assistantRemoveKey
-        val assistantSaveStart: String get() = shared.assistantSaveStart
-        val assistantNoticeTitle: String get() = shared.assistantNoticeTitle
+        // ── insights surfaces (shared copy) ────────────────────────────────────────────────────────
         val insightsDailyScoreTrend: String get() = shared.settingsInsightsTimeDailyScoreTrendTitle
         val insightsOverallScoreCard: String get() = shared.settingsInsightsTimeOverallScoreCardTitle
 
         // ── surfaces the fresh-install journey classes reach (shared copy) ─────────────────────────
-        val assistantInputHint: String get() = shared.assistantInputHint
-        val assistantKeyStoredHint: String get() = shared.assistantKeyStoredHint
-        val assistantErrorKeyRejected: String get() = shared.assistantErrorKeyRejected
         val importAction: String get() = shared.settingsActionImport
         val exportAction: String get() = shared.settingsActionExport
         val insightsChartsVisibility: String get() = shared.settingsInsightsChartsVisibilityTitle

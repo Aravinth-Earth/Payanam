@@ -8,7 +8,6 @@ import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
-import androidx.compose.ui.test.performClick
 import com.google.common.truth.Truth.assertThat
 import io.payanam.core.ui.navigation.PayanamNavHost
 import io.payanam.core.ui.navigation.PayanamNavHostScreens
@@ -23,7 +22,6 @@ import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.jvm.DatabaseOpenResult
 import io.payanam.database.jvm.PayanamDatabaseOpener
 import io.payanam.database.jvm.PayanamDatabaseSession
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabasePathResolver
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -121,15 +119,6 @@ import java.time.Instant
  * DISCRIMINATES the mode, which is the only thing that distinguishes them:
  * `locSortTasks` renders in the top bar's actions for `TASKS_ONLY` and `locSearchHabits` for
  * `HABITS_ONLY` (`TasksScreenParts.kt`), and each is a `contentDescription` on an icon no bar label uses.
- *
- * **THE TWO ASSISTANT DESTINATIONS ARE IN THIS WALK, not recorded residue.** `assistant` and
- * `assistantSettings` used to call `desktopDestinationNotMigrated("AI assistant", "V4")` and were named in
- * [RECORDED_THROW_SITES] so the gap could not vanish silently. Both now render the SHARED screens
- * (`AssistantScreenContent`, `AssistantSettingsScreenContent`) over the SHARED `AssistantViewModel` and the
- * desktop configuration store, so they are ordinary rows in [wiredChildRoutes] - reached from INSIDE the
- * Lenses screen, which is why the rail-scoped `DesktopTopLevelDestinationRenderabilityTest` never had to
- * record them. The residue map is asserted EXACTLY, so this file fails the moment a destination starts
- * throwing again, and fails if a row here is added without accounting for it in the partition below.
  *
  * **What it does NOT claim.** That a destination's copy proves its whole body is correct - a screen could
  * render a top bar and fail below it, and `DesktopShellRenderProbeTest` owns the constraint half of that
@@ -246,49 +235,6 @@ class DesktopNavHostSharedScreenRenderTest {
     }
 
     /**
-     * The consent gate opens on the way IN, through the entry the desktop actually ships.
-     *
-     * The Lenses entry is the only door to the assistant on this platform, and it is guarded: the entry card
-     * raises the shared consent dialog, and only the dialog's Proceed calls the navigation that opens the
-     * assistant. This case walks that door in the real graph - the Lenses destination is entered by
-     * `landingRoute`, the entry card is clicked by its own copy, and the assertion is the shared dialog's
-     * title, which nothing else in the tree draws.
-     *
-     * A regression this detects: the dialog call being replaced by a direct `onOpenAssistant()`, or the
-     * entry being rewired to navigate first - either would leave the dialog's copy absent while every other
-     * case in this file stays green, because the assistant destination itself still renders.
-     */
-    @Test
-    fun `choosing the Lenses entry opens the consent gate before the assistant destination`() {
-        val screens = desktopNavHostScreens()
-        composeRule.setContent {
-            PayanamTheme(darkTheme = false) {
-                PayanamNavHost(
-                    screens = screens,
-                    language = UiLanguage.ENGLISH,
-                    minimalModeEnabled = false,
-                    landingRoute = PayanamTab.Lenses.route,
-                    isLandingReady = true,
-                )
-            }
-        }
-        composeRule.waitForIdle()
-
-        // The entry card draws only after the screen's own state read completes - the same race the
-        // destination walk absorbs with `awaitCopy`, so the click waits for the card's copy to exist.
-        composeRule.waitUntil(TIMEOUT_MILLIS) {
-            composeRule.onAllNodesWithText(strings.assistantEntryCta).fetchSemanticsNodes().isNotEmpty()
-        }
-        // The card's own action is its CTA button - the title text is not clickable.
-        composeRule.onNodeWithText(strings.assistantEntryCta).performClick()
-
-        // The dialog, not the destination: this title is drawn by the shared consent dialog alone, and the
-        // Proceed button proves the gate is actionable rather than a dead surface.
-        composeRule.onNodeWithText(strings.assistantConsentTitle).assertExists()
-        composeRule.onNodeWithText(strings.assistantConsentProceed).assertExists()
-    }
-
-    /**
      * The walk covers the whole wired surface, and says so out loud rather than leaving it to be believed.
      *
      * This is the check that makes the two cases above mean what their names claim. It partitions the seam -
@@ -306,7 +252,8 @@ class DesktopNavHostSharedScreenRenderTest {
      * The five startup gates are the fourth partition and are NOT re-rendered here: they are mounted and
      * asserted, one at a time, by `DesktopNavHostDestinationRenderTest`, which owns their fixtures because
      * each gate is reached by raising a gate FLAG rather than by naming a route. Naming that file here is
-     * what keeps "19 methods, 17 rendering, 2 recorded residue" an audited partition rather than a hope.
+     * what keeps "19 methods, 12 rendered here, 7 owned by the graph as gates, no residue" an audited
+     * partition rather than a hope.
      */
     @Test
     fun `every shared screen method is rendered here, rendered as a gate destination by the graph, or a recorded throw site`() {
@@ -326,8 +273,8 @@ class DesktopNavHostSharedScreenRenderTest {
         val notImplemented = (renderedHere + recorded + gates) - implemented
         assertThat(notImplemented).isEmpty()
 
-        // The residue, EXACTLY as the source has it - so wiring the assistant fails here until the record
-        // is updated in the same commit that wires it.
+        // The residue, EXACTLY as the source has it - so a destination that starts throwing fails here
+        // until the record is updated in the same commit that changes it.
         assertThat(desktopThrowSites()).isEqualTo(RECORDED_THROW_SITES)
     }
 
@@ -427,16 +374,17 @@ class DesktopNavHostSharedScreenRenderTest {
                 // screen's own loading branch - so it is present in every state it has. This is the Journal
                 // destination (`DayScreenMode.JOURNAL_ONLY`).
                 WiredDestination(PayanamTab.Journal.route, "journal", CopiedBy.CONTENT_DESCRIPTION, strings.locPreviousDay),
-                // `assistantTitle` -> "AI Assistance": `LensesScreen`'s assistant entry card. Chosen over the
-                // screen's own top-bar title, which is "Lenses" - the Lenses TAB's label, and therefore drawn
-                // by the bottom bar whether or not any body composed.
-                WiredDestination(PayanamTab.Lenses.route, "lenses", CopiedBy.TEXT, strings.assistantTitle),
+                // `locGoToTime` -> "Go to Time": the Time module card's CTA, drawn by `LensesScreen` alone
+                // and present whether that card is expanded or not. Chosen over the screen's own top-bar
+                // title, which is "Lenses" - the Lenses TAB's label, and therefore drawn by the bottom bar
+                // whether or not any body composed.
+                WiredDestination(PayanamTab.Lenses.route, "lenses", CopiedBy.TEXT, strings.locGoToTime),
                 // `settingsAppearanceTitle` -> "Appearance": the settings screen's own first card, against
                 // the "Settings" label the bar draws.
                 WiredDestination(PayanamTab.Settings.route, "settings", CopiedBy.TEXT, strings.settingsAppearanceTitle),
             )
 
-    /** The seven non-rail routes the desktop wires, with the copy that proves each rendered. */
+    /** The five non-rail routes the desktop wires, with the copy that proves each rendered. */
     private val wiredChildRoutes: List<WiredDestination>
         get() =
             listOf(
@@ -472,22 +420,6 @@ class DesktopNavHostSharedScreenRenderTest {
                 // `settingsScoringTitle` -> "Scoring Configuration": the scoring screen's top-bar title,
                 // which renders before its own loading branch.
                 WiredDestination(PayanamRoutes.SCORING_CONFIG, "scoringConfig", CopiedBy.TEXT, strings.settingsScoringTitle),
-                // `assistantTitle` -> "AI Assistance": the chat screen's TOP-BAR title, rendered by
-                // `AssistantScreenContent` above every branch of its state - including the loading branch,
-                // which is what this fixture's session-less controller produces. The Lenses screen also draws
-                // this string on its entry card, but the Lenses screen is not composed on this route, so
-                // nothing else in the tree can produce it.
-                WiredDestination(PayanamRoutes.ASSISTANT, "assistant", CopiedBy.TEXT, strings.assistantTitle),
-                // `assistantSettingsSavedNote`: the settings editor's first row. Its top-bar title is
-                // `assistantSettingsTitle`, which is ALSO the settings screen's own title - and the graph's
-                // bottom bar draws that label for the Settings tab - so this row names a line only the
-                // assistant editor renders, for the same reason the class KDoc gives for every other row.
-                WiredDestination(
-                    PayanamRoutes.ASSISTANT_SETTINGS,
-                    "assistantSettings",
-                    CopiedBy.TEXT,
-                    strings.assistantSettingsSavedNote,
-                ),
             )
 
     /**
@@ -543,18 +475,6 @@ class DesktopNavHostSharedScreenRenderTest {
                     // The shell's own derive-and-clamp answer, not the shared state's own default of ten.
                     unlockTimeoutMinutes = 120,
                     databaseFile = databaseFile.toFile(),
-                ),
-            // Over the SAME controller and the SAME file the rest of this fixture builds, so the assistant's
-            // store runs over this test's own database rather than resolving the host's real one. Its
-            // controller REFUSES every open (see [sessionController]), so `viewModelOrNull()` legitimately
-            // returns null here and the destinations render over the shared screen's own default state -
-            // which is the state `AssistantViewModel` publishes before its first `refresh()`, and the state
-            // a user sees for the frames before a store answers. The walk's assertions are deliberately
-            // copy that renders ABOVE that state.
-            assistantCollaborators =
-                DesktopAssistantCollaborators(
-                    sessionController = sessionController,
-                    databaseFile = databaseFile,
                 ),
         )
 
@@ -668,15 +588,11 @@ class DesktopNavHostSharedScreenRenderTest {
          * The wired destinations that still throw by name, and why - KNOWN RESIDUE, recorded so it fails
          * when it is fixed rather than being quietly excluded.
          *
-         * EMPTY. Both assistant destinations now render the SHARED screens over the SHARED ViewModel and
-         * the desktop configuration store, so neither throws any more - and they are reached from INSIDE
-         * the Lenses screen rather than from the rail, which is why the rail-scoped
-         * `DesktopTopLevelDestinationRenderabilityTest` never had to record them.
+         * EMPTY. Every destination the desktop implements now renders a shared screen, so none throws.
          *
          * This is asserted as an EXACT map rather than as a subset, so all three directions fail: a newly
          * throwing destination, a fixed one whose record was not updated (the fix landed undocumented), and
-         * a stale row naming a method that no longer exists. An assistant destination added to the walk
-         * below is claimed by it, so its coverage is no longer a recorded gap.
+         * a stale row naming a method that no longer exists.
          */
         val RECORDED_THROW_SITES: Map<String, String> = emptyMap()
 

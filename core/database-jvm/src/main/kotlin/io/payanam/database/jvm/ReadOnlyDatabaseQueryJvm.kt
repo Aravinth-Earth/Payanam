@@ -43,7 +43,7 @@ import java.sql.SQLException
  * WHY A SEPARATE HANDLE RATHER THAN THE LIVE SESSION'S CONNECTION: the live session is read-write by
  * design — it is the app's own working database — so pinning `query_only` on it would break the app. The
  * cost is one extra open (SQLCipher derives the key per open, ~100-300 ms) paid once, lazily, on the
- * first assistant query rather than per statement.
+ * first read rather than per statement.
  *
  * WHAT THIS COSTS, STATED PLAINLY: [PayanamDatabaseOpener.open] refuses a file with a `-wal`/`-shm`/
  * `-journal` beside it, because a read-only handle applies `query_only` after connecting. So while the

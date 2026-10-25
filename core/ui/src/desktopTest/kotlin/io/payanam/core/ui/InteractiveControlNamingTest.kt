@@ -123,7 +123,7 @@ import org.junit.Test
  *    whose control loses its label rather than merely lacking a description.
  *  - `LensesScreen` and its twelve sections, `TasksScreen`, `TaskDetailScreen`, `AddTaskScreen`,
  *    `EditTaskScreen`, `ScoreDetailScreen`, `DayScreen`, `FocusModeSelectionScreen`, `DayPlanTemplateScreen`,
- *    `AssistantScreen`, `AssistantSettingsScreen`, `ScoringConfigScreen`, `DatabaseInitScreen` and the rest of
+ *    `ScoringConfigScreen`, `DatabaseInitScreen` and the rest of
  *    the database-gate screens, `PayanamNavHost` - NOT SWEPT: this module's `desktopTest` tree has no fixture
  *    that can put them on screen, so there is nothing to reuse. They are covered by Layer 2 only, and only to
  *    the extent of the shape Layer 2 can see (see ITS LIMIT).

@@ -55,7 +55,6 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
-import io.payanam.desktop.database.DesktopAssistantCollaborators
 import io.payanam.desktop.database.DesktopDatabaseInitCollaborators
 import io.payanam.desktop.database.DesktopDatabaseOpenerAdapter
 import io.payanam.desktop.database.DesktopDatabaseSessionController
@@ -518,20 +517,6 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                     )
                 },
             settingsCollaborators = settingsCollaborators,
-            // The assistant routes' collaborators. Keyed on the session controller and NOT on the
-            // database file path, because the holder keeps ONE ViewModel across both routes and a key
-            // that changed on every recomposition would replace it mid-conversation.
-            assistantCollaborators =
-                remember(databaseSessionController) {
-                    DesktopAssistantCollaborators(
-                        // The shell's OWN session controller, so the store reads and writes through the
-                        // session every other desktop screen reads - not a second connection to the same file.
-                        sessionController = databaseSessionController,
-                        // The SAME file that controller opens, which is what the read-only ports open their
-                        // own verified handle against.
-                        databaseFile = desktopDatabaseFilePath(),
-                    )
-                },
         )
     }
 }
@@ -578,11 +563,6 @@ private fun desktopShellSurface(
      * shell's database file, none of which `desktopShellSurface` can reach.
      */
     settingsCollaborators: DesktopSettingsCollaborators,
-    /**
-     * The assistant routes' collaborators, threaded for the same reason as the other four: they read and
-     * write the shell's own database rows, and the two routes must share one ViewModel.
-     */
-    assistantCollaborators: DesktopAssistantCollaborators,
 ) {
     desktopShellRootSurface(
         preferences = state.preferences,
@@ -614,7 +594,6 @@ private fun desktopShellSurface(
                     passphraseUnlockCollaborators = passphraseUnlockCollaborators,
                     passphraseChangeCollaborators = passphraseChangeCollaborators,
                     settingsCollaborators = settingsCollaborators,
-                    assistantCollaborators = assistantCollaborators,
                 )
             }
         }
@@ -824,8 +803,6 @@ private fun desktopContentPane(
     passphraseChangeCollaborators: DesktopPassphraseChangeCollaborators,
     /** The settings screen's collaborators, threaded for the same reason as the passphrase-change screen's. */
     settingsCollaborators: DesktopSettingsCollaborators,
-    /** The assistant routes' collaborators, threaded for the same reason as the settings screen's. */
-    assistantCollaborators: DesktopAssistantCollaborators,
 ) {
     // The desktop adds NO chrome of its own around the shared graph: no header above it and no inset around
     // it. The shared screens already render their own header, so the desktop's was a second, stale copy on
@@ -863,7 +840,6 @@ private fun desktopContentPane(
                 passphraseChangeCollaborators,
                 language,
                 settingsCollaborators,
-                assistantCollaborators,
                 callbacks.onDatabaseResetObserved,
             ) {
                 DesktopPayanamNavHostScreens(
@@ -872,7 +848,6 @@ private fun desktopContentPane(
                     passphraseChangeCollaborators = passphraseChangeCollaborators,
                     language = language,
                     settingsCollaborators = settingsCollaborators,
-                    assistantCollaborators = assistantCollaborators,
                     // The shell's own reaction to a reset: without it the startup decision is read from
                     // facts the reset has invalidated, which is how the graph ended up composing the app
                     // route with no data layer installed.

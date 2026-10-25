@@ -113,13 +113,11 @@ object LogSanitizer {
         )
 
     /**
-     * A bare provider key, without `key=` context: the app's optional assistant sends the user's key
-     * to the provider as `Authorization: Bearer <key>` (`OpenCodeGoClient.headers`,
-     * `core/domain/src/main/kotlin/io/payanam/domain/assistant/OpenCodeGoClient.kt:167`), and the
-     * key fixtures in this repo are `sk-…` (`AssistantViewModelTest`). The app checks no prefix of
-     * its own — `AssistantViewModel` accepts any pasted key — so this covers the `sk-` family that
-     * the provider actually issues rather than a prefix the app enforces, and requires 16+ trailing
-     * characters so a stray `sk-` in prose cannot match.
+     * A bare provider key, without `key=` context: a credential a provider issues as a bearer token,
+     * sent as `Authorization: Bearer <key>`. The app enforces no prefix of its own — a key is
+     * accepted as pasted, whatever it starts with — so this covers the `sk-` family that providers
+     * actually issue rather than a prefix the app checks, and it requires 16+ trailing characters so
+     * a stray `sk-` in prose cannot match. `LogSanitizerTest` holds the fixtures for this rule.
      */
     private val bareProviderKeyRegex =
         Regex(
