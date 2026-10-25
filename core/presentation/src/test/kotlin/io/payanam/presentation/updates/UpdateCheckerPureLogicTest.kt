@@ -5,12 +5,13 @@ package io.payanam.presentation.updates
 import com.google.common.truth.Truth.assertThat
 import io.payanam.shared.updates.ChannelStatus
 import io.payanam.shared.updates.UpdateChannel
-import org.json.JSONArray
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import org.junit.Test
 
 /** A GitHub release asset URL in the shape GitHub serves it; the policy pins scheme, host and path. */
-private fun assetUrl(fileName: String): String =
-    "https://github.com/Aravinth-Earth/Payanam/releases/download/test/$fileName"
+private fun assetUrl(fileName: String): String = "https://github.com/Aravinth-Earth/Payanam/releases/download/test/$fileName"
 
 /** The dev-channel APK the fixture release ships, as a real download URL. */
 private const val DEV_APK_URL =
@@ -50,11 +51,16 @@ private val RELEASE_LIST_JSON =
     """.trimIndent()
 
 /** Build an assets array from `(name, download url)` pairs. */
-private fun assetsOf(vararg entries: Pair<String, String>): JSONArray =
-    JSONArray(
-        entries
-            .map { (name, url) -> """{"name": "$name", "browser_download_url": "$url"}""" }
-            .toString(),
+private fun assetsOf(vararg entries: Pair<String, String>): JsonArray =
+    JsonArray(
+        entries.map { (name, url) ->
+            JsonObject(
+                mapOf(
+                    "name" to JsonPrimitive(name),
+                    "browser_download_url" to JsonPrimitive(url),
+                ),
+            )
+        },
     )
 
 /**
@@ -137,7 +143,7 @@ class UpdateCheckerPureLogicTest {
         val untyped = assetsOf("payanam-1.0.0.apk" to assetUrl("legacy.apk"))
         val checksumOnly = assetsOf("payanam_1.0.0_debug_arm64-v8a.apk.sha256" to assetUrl("dbg.apk.sha256"))
 
-        for (assets in listOf(null, JSONArray("[]"), untyped, checksumOnly)) {
+        for (assets in listOf(null, JsonArray(emptyList()), untyped, checksumOnly)) {
             val selection = selectApkAssets(assets, expectedType = "debug")
 
             assertThat(selection.apkUrl).isNull()
@@ -196,6 +202,35 @@ class UpdateCheckerPureLogicTest {
         assertThat(statuses.single().buildNumber).isEqualTo(4)
         assertThat(statuses.single().typeMismatch).isTrue()
         assertThat(statuses.single().apkDownloadUrl).isNull()
+    }
+
+    @Test
+    fun `null scalars and non-array assets read the way the previous parser read them`() {
+        val body =
+            """
+            [
+              {"tag_name": "dev-v12", "name": null, "html_url": null, "assets": {}},
+              {"tag_name": "beta-v5", "name": "Payanam #5", "assets": "not-an-array"},
+              {"tag_name": 123, "name": "Payanam #7", "assets": []}
+            ]
+            """.trimIndent()
+
+        val statuses = requireNotNull(parseReleases(body, runningType = "debug"))
+
+        // A numeric tag is coerced to its text ("123") and then refused as a channel tag, exactly as
+        // before; an explicit null name falls back to the tag and an explicit null url to "".
+        assertThat(statuses.map { it.channel }).containsExactly(UpdateChannel.DEV, UpdateChannel.BETA).inOrder()
+        val dev = statuses.first()
+        assertThat(dev.buildNumber).isNull()
+        assertThat(dev.releaseUrl).isEqualTo("")
+        assertThat(dev.typeMismatch).isTrue()
+
+        // `assets` shaped as an object, or as a string, is no asset list: the release is still
+        // reported and fails closed rather than disappearing from the scan.
+        val beta = statuses.last()
+        assertThat(beta.buildNumber).isEqualTo(5)
+        assertThat(beta.apkDownloadUrl).isNull()
+        assertThat(beta.typeMismatch).isTrue()
     }
 
     @Test
