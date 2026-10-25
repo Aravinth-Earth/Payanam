@@ -2,26 +2,47 @@
 <!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-    The only supported way to move Payanam to a new device is the app's own
-    export and import during onboarding, which the user drives with their
-    passphrase. The OS-level copy routes below are excluded so that the
-    encrypted database never travels by a path the app does not control.
+    Nothing the app stores travels through Android cloud backup or device-to-device
+    transfer. Data moves to another device only by the app's own export and import,
+    which the user drives with their passphrase.
 
-    The passphrase preferences are excluded too, and that matters more than the
-    database does: they hold the verifier and its salt, so carrying them beside
-    the ciphertext would hand over a passphrase-checking bundle in one package.
+    Every backup domain is excluded, not just the database and the preferences. The
+    database and the passphrase preferences matter most, because they are the unlock
+    path: the preferences hold the verifier and its salt, and while neither can produce
+    the database key, they still describe how the database is unlocked and have no
+    business leaving the device. The session logs and the stored files are the user's
+    data too. A log that describes data the rest of the backup does not carry is still
+    a copy of the user's activity leaving the device by a path the app does not control.
+
+    Path "." means the domain's whole tree. There is deliberately no <include> element
+    anywhere in this file: on this platform an <include> inverts the policy to "back up
+    only these files" and would silently re-enable everything it does not name.
 
     Excluded explicitly rather than left to android:allowBackup="false", because
-    whether that attribute alone blocks device-to-device transfer varies by
-    Android version and by the manufacturer's migration tool.
+    whether that attribute alone blocks device-to-device transfer varies by Android
+    version and by the manufacturer's migration tool.
 -->
 <data-extraction-rules>
     <cloud-backup>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </cloud-backup>
     <device-transfer>
+        <exclude domain="root" path="." />
+        <exclude domain="file" path="." />
         <exclude domain="database" path="." />
         <exclude domain="sharedpref" path="." />
+        <exclude domain="external" path="." />
+        <exclude domain="device_root" path="." />
+        <exclude domain="device_file" path="." />
+        <exclude domain="device_database" path="." />
+        <exclude domain="device_sharedpref" path="." />
     </device-transfer>
 </data-extraction-rules>

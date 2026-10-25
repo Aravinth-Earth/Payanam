@@ -2,15 +2,26 @@
 <!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
 <!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
 <!--
-    Pre-Android-12 counterpart of data_extraction_rules.xml, and it states the
-    same thing: the database and the passphrase preferences are excluded from
-    OS-level backup and transfer. Migration happens through the app's own
+    Pre-Android-12 counterpart of data_extraction_rules.xml, and it states the same
+    thing: no backup domain is backed up or transferred, so nothing the app stores
+    leaves the device through the platform. Migration happens through the app's own
     export and import, not through the platform copying our files.
+
+    Path "." means the domain's whole tree. There is deliberately no <include> element
+    anywhere in this file: on this platform an <include> inverts the policy to "back up
+    only these files" and would silently re-enable everything it does not name.
 
     Kept explicit rather than relying on android:allowBackup="false", so the
     declaration does not silently disagree with the manifest.
 -->
 <full-backup-content>
+    <exclude domain="root" path="." />
+    <exclude domain="file" path="." />
     <exclude domain="database" path="." />
     <exclude domain="sharedpref" path="." />
+    <exclude domain="external" path="." />
+    <exclude domain="device_root" path="." />
+    <exclude domain="device_file" path="." />
+    <exclude domain="device_database" path="." />
+    <exclude domain="device_sharedpref" path="." />
 </full-backup-content>

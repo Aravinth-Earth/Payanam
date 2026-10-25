@@ -1,5 +1,5 @@
 # Installing Payanam (Sideload Guide)
-Last Updated: 2026-09-13
+Last Updated: 2026-10-25
 
 This guide covers how to download, verify, and install Payanam on your Android device.
 
@@ -68,6 +68,16 @@ Android blocks sideloaded apps by default. Enable it once:
 2. Open the APK file from your phone's file manager
 3. Tap **Install** when prompted
 4. Tap **Open** once installation completes
+
+## Moving to a new device
+
+Your data lives on your phone. Payanam tells Android not to back it up and not to transfer it during a device-to-device move, so a new phone — or a phone restored from a backup — starts empty.
+
+To move your data across:
+
+1. On the **old** device, open **Settings → Data Management** and export your data. The export is encrypted.
+2. Copy that exported file to the new device (USB, cable, or any file-transfer method you like).
+3. On the **new** device, open **Settings → Data Management** and import it, entering the passphrase the export was made with.
 
 ## Notes
 
