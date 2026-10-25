@@ -75,9 +75,11 @@ Your data lives on your phone. Payanam tells Android not to back it up and not t
 
 To move your data across:
 
-1. On the **old** device, open **Settings → Data Management** and export your data. The export is encrypted.
+1. On the **old** device, open **Settings → Data Management** and export your data. The export is encrypted, and it contains your database — habits, tasks, journal, time entries and settings.
 2. Copy that exported file to the new device (USB, cable, or any file-transfer method you like).
-3. On the **new** device, open **Settings → Data Management** and import it, entering the passphrase the export was made with.
+3. On the **new** device, the app opens its setup screen because no database exists yet. Choose **Import** there and enter the passphrase the export was made with.
+
+Session logs are **not** part of the export: they are diagnostics, they stay on the device that wrote them, and they are never needed to restore your data.
 
 ## Notes
 
