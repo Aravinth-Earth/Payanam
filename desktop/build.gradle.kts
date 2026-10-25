@@ -10,13 +10,9 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
-// The declared version, parsed once by the root build script from gradle/version.properties and shared
-// with `:app` through the `payanamVersion*` extra properties. This is what the product version surfaces
-// report; the build number below still names artefacts.
+// Declared version, shared with :app through the payanamVersion* extra properties.
 val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
 
-// The versionName-equivalent for this module: Gradle's own project version, so the module metadata
-// carries the same dotted version the installers do instead of "unspecified".
 version = declaredVersionName
 
 kotlin {
@@ -275,12 +271,7 @@ compose.desktop {
             // F-Droid listing uses - not "PayanamDesktop", which leaked a technical qualifier into the
             // window title, the app grid and the binary path.
             packageName = "Payanam"
-            // The DECLARED version - the same "1.0.0" the Android app reports as versionName - not the
-            // build number. The number still names the artefact (Payanam_Linux_<build>_<stamp>.deb), but
-            // a package version that moved with every single build said nothing about what changed, and
-            // it is the number a user sees in `dpkg -l`. Existing installs carry 0.1.<build>-1, and
-            // dpkg compares 1.0.0-1 > 0.1.<build>-1, so they upgrade forward cleanly
-            // (checked with `dpkg --compare-versions`).
+            // Declared version. Must stay 3-component: Exe/MSI reject anything else at configuration time.
             packageVersion = declaredVersionName
             vendor = "Aravinth-Earth"
             description = "Navigate your life journey across dimensions privately."
@@ -304,19 +295,8 @@ compose.desktop {
                 perUserInstall = true
                 upgradeUuid = "0f9f504f-1be8-42d7-a8a7-72fd1d067d7e"
                 iconFile.set(rootProject.file("assets/branding/payanam-icon.ico"))
-                // Exe/MSI require a three-component version at CONFIGURATION time - a single component
-                // fails the build on every host, Linux included:
-                //
-                //   * Illegal version for 'Exe': '65' is not a valid version.
-                //       * Correct format: 'MAJOR.MINOR.BUILD'  (MAJOR<=255, MINOR<=255, BUILD<=65535)
-                //
-                // The declared version supplies all three components, so the Windows installers now carry
-                // the same "1.0.0" as the deb and the Android app. That is also an increase over the old
-                // 0.0.<build> shape, so no MSI can present a downgrade; and no Windows installer has ever
-                // shipped (only linux-x64 has been built), so there is nothing installed to upgrade from.
-                // The root loader caps every segment at 999: inside the BUILD limit, but looser than the
-                // 255 cap on MAJOR/MINOR - a version with major or minor above 255 would be refused by
-                // jpackage here. 1.0.0 is inside all three limits.
+                // Exe/MSI require MAJOR.MINOR.BUILD (MAJOR, MINOR <= 255; BUILD <= 65535) at configuration
+                // time, so the declared version must stay below those caps.
                 msiPackageVersion = declaredVersionName
                 exePackageVersion = declaredVersionName
             }

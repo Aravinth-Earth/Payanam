@@ -12,20 +12,7 @@ import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
 
-/**
- * Pins the declared-version contract in `gradle/version.properties`.
- *
- * Three separate things can rot without anyone noticing until an install is refused:
- *  - the `versionCode` line stops being a literal number (F-Droid's recipe greps that key and cannot
- *    evaluate arithmetic, so a computed value would silently give the recipe nothing to read);
- *  - the code stops matching the name, because someone edited one of the two lines by hand;
- *  - the app module goes back to taking its version from the build counter, which would make a bare
- *    `./gradlew assembleDebug` depend on a file that only the build scripts maintain.
- *
- * The packing below is re-implemented here rather than imported from the build script on purpose: a
- * test that calls the implementation it is checking proves nothing about that implementation, and the
- * build script's own value is not on the unit-test classpath anyway.
- */
+/** Pins `gradle/version.properties`: literal keys, and a versionCode that agrees with the version name. */
 class DeclaredVersionTest {
 
     @Test
@@ -106,10 +93,7 @@ class DeclaredVersionTest {
         )
     }
 
-    /**
-     * The packing rule, implemented here rather than imported: `major*1_000_000 + minor*1_000 + patch`,
-     * with each segment capped at 999 so two distinct versions cannot pack to the same code.
-     */
+    /** major * 1_000_000 + minor * 1_000 + patch. Re-implemented here, not imported. */
     private fun packed(version: String): Int {
         val segments = version.split('.')
         require(segments.size <= 3) {

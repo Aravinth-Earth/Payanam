@@ -16,19 +16,10 @@ plugins {
     alias(libs.plugins.spotless) apply false
 }
 
-// ---------------------------------------------------------------------------------------------
-// Declared version: the single source of truth for the app's version name and version code.
-//
-// The values live in `gradle/version.properties` as two literal lines, because F-Droid's build recipe
-// greps that file directly (`versionCode=` followed by digits) and cannot evaluate arithmetic. The
-// file is parsed ONCE, here: `:app` and `:desktop` read the resolved values through the
-// `payanamVersion*` extra properties, so neither module owns a copy of the parse and the two can
-// never disagree. Nothing should edit those lines by hand - `./gradlew bumpVersion -Pto=X.Y.Z`
-// rewrites both and recomputes the code from the name.
-// ---------------------------------------------------------------------------------------------
+// Declared version: gradle/version.properties is the only source. Parsed once here; modules read it
+// through the payanamVersion* extra properties.
 val versionPropertiesFile = file("gradle/version.properties")
 
-/** Reads [versionPropertiesFile] as (name, code), failing loudly when the file or a key is missing. */
 fun readDeclaredVersion(): Pair<String, Int> {
     check(versionPropertiesFile.isFile) {
         "Declared version file is missing: ${versionPropertiesFile.path}. Restore " +
@@ -53,12 +44,7 @@ fun readDeclaredVersion(): Pair<String, Int> {
     return name to code
 }
 
-/**
- * Packs a dotted [version] into an integer: `major * 1_000_000 + minor * 1_000 + patch`.
- *
- * Missing trailing segments count as 0, so "2" and "2.0.0" pack alike. Every segment is capped at 999,
- * which is what stops two different versions packing to the same code.
- */
+/** major * 1_000_000 + minor * 1_000 + patch; missing segments count as 0, each segment 0..999. */
 fun packed(version: String): Int {
     val segments = version.split(".")
     require(segments.size <= 3) {
@@ -85,18 +71,13 @@ val declaredVersionName: String = declaredVersion.first
 val declaredVersionCode: Int = declaredVersion.second
 val declaredPackedVersionCode: Int = packed(declaredVersionName)
 
-// Plain values only, on purpose: a function or a lambda cannot cross a build-script boundary without
-// buildSrc, and a captured lambda is not configuration-cache serialisable. That also decides the shape
-// of `bumpVersion` below - it resolves everything it needs while configuring, so its action never has
-// to call back into this script.
+// Plain values: a lambda cannot cross a build-script boundary, and a captured one is not
+// configuration-cache serialisable.
 extra["payanamVersionName"] = declaredVersionName
 extra["payanamVersionCode"] = declaredVersionCode
 extra["payanamPackedVersionCode"] = declaredPackedVersionCode
 
-// `./gradlew bumpVersion -Pto=1.1.0` rewrites both lines and recomputes the code from the new name.
-// It refuses a missing, malformed, or non-increasing target: Android will not install an APK whose
-// versionCode does not increase, so a downgrade or a no-op would produce an artefact nobody can
-// install over the previous one.
+// ./gradlew bumpVersion -Pto=1.1.0 rewrites both lines; a non-increasing target is refused.
 val bumpTargetName: String? = providers.gradleProperty("to").orNull?.trim()?.takeIf { it.isNotEmpty() }
 val bumpTargetCode: Int? = bumpTargetName?.let { target -> runCatching { packed(target) }.getOrNull() }
 
@@ -106,8 +87,6 @@ tasks.register("bumpVersion") {
     val propertiesFile = versionPropertiesFile
     val targetName = bumpTargetName
     val targetCode = bumpTargetCode
-    // Deliberately declares no outputs: a task with nothing to compare against is never up to date, and
-    // a bump request is an explicit act rather than something to be skipped as a cache hit.
     doLast {
         if (targetName == null) {
             throw GradleException("bumpVersion needs a target version: ./gradlew bumpVersion -Pto=1.1.0")

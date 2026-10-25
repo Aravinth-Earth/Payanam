@@ -31,24 +31,14 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
-// The version comes from the declared source of truth, `gradle/version.properties`: the root build
-// script parses that file once and both this module and `:desktop` read the same parse, so the two can
-// never disagree. A bare `./gradlew assembleDebug` therefore needs nothing but the file - no
-// `-PbuildNumber` flag and no counter read. The counter still names artefacts; it no longer decides
-// what version the app reports.
+// Declared version from gradle/version.properties, parsed once in the root build script.
 val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
 val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
 val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
 
-// Drift assert, i.e. `require(versionCode == packed(version))` with the packing done once in the root
-// loader. Hand-editing `version=` without its matching `versionCode=` would otherwise ship an APK whose
-// code silently disagrees with its name, and the two would stay out of step until an install failed.
 require(declaredVersionCode == declaredPackedVersionCode) {
-    "Declared version drift in gradle/version.properties: version=$declaredVersionName packs to " +
-        "versionCode $declaredPackedVersionCode, but the file declares versionCode " +
-        "$declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version> to rewrite both lines " +
-        "together; if the file is edited by hand instead, the versionCode must be " +
-        "$declaredPackedVersionCode."
+    "Declared version drift: version=$declaredVersionName packs to versionCode $declaredPackedVersionCode, " +
+        "but the file declares $declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version>."
 }
 
 // F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
