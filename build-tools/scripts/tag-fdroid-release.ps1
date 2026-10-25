@@ -97,7 +97,12 @@ if ($originDev -ne $commit) {
     Refuse "Refusing: HEAD ($head) differs from origin/dev." "Push dev first: F-Droid clones this commit from GitHub, so an unpushed tag publishes nothing."
 }
 
-$dirty = @(git status --porcelain 2>$null) -join "`n"
+$statusLines = @(git status --porcelain 2>$null)
+$statusExit = $LASTEXITCODE
+if ($statusExit -ne 0) {
+    Refuse "Refusing: could not read the working-tree status (git exit $statusExit)." "A release needs a readable tree; fix git before tagging."
+}
+$dirty = $statusLines -join "`n"
 if (-not [string]::IsNullOrWhiteSpace($dirty)) {
     Refuse "Refusing: the working tree has uncommitted changes." "Commit or stash before tagging; a release must be reproducible from the tag."
 }

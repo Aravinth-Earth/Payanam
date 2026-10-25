@@ -15,6 +15,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
@@ -69,11 +70,13 @@ actual fun rememberNotificationPermission(): NotificationPermission {
     // Keyed on the context so a new Activity re-reads the platform instead of inheriting an answer
     // that belonged to the previous one.
     val stateHolder = remember(context) { mutableStateOf(notificationSupportState(context)) }
-    // Whether THIS handle has already launched the dialog. In memory only, and deliberately not a stored
-    // preference: it covers the one fact Android will not report - "never asked" and "asked and refused
-    // for good" both answer `false` to `shouldShowRequestPermissionRationale`. See
+    // Whether THIS handle has already launched the dialog. Saved INSTANCE state, not a stored preference:
+    // it must survive an Activity recreation (a rotation after a permanent refusal would otherwise reset
+    // it and turn "open settings" back into a request the platform ignores), but it must not outlive the
+    // process. It covers the one fact Android will not report - "never asked" and "asked and refused for
+    // good" both answer `false` to `shouldShowRequestPermissionRationale`. See
     // [notificationPermissionAsk] for why the platform's own answers carry every other case.
-    val hasAskedHolder = remember(context) { mutableStateOf(false) }
+    val hasAskedHolder = rememberSaveable(context) { mutableStateOf(false) }
     val launcher =
         rememberLauncherForActivityResult(
             contract = ActivityResultContracts.RequestPermission(),

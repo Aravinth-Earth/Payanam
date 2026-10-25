@@ -79,6 +79,10 @@ enum class NotificationPermissionAsk {
  * the cost of that is a request the platform answers instantly and silently, after which the flag is set
  * and the next tap routes to settings. A persisted flag would instead have to be versioned, cleared and
  * migrated, for a decision that only matters inside one screen.
+ *
+ * It IS held in saved instance state, though, so an Activity recreation (a rotation) keeps it while the
+ * screen is merely rebuilt. Without that, rotating after a permanent refusal would pass `false` again and
+ * turn the settings redirect back into a request the platform answers silently.
  */
 fun notificationPermissionAsk(
     sdkInt: Int,
