@@ -77,14 +77,30 @@ function Get-AndroidBuilds {
     return [int]$counter.android.builds
 }
 
-# ── 1. The tag must sit on the branch the F-Droid recipe is built from ──────
+# ── 1. The tag must point at a commit F-Droid can clone ────────────────────
+# The recipe pins a commit and clones it from GitHub, so what a tag needs is a pushed
+# commit on the single release line, not the name of a separate branch. These checks are
+# what make the tag safe to publish:
+#   - on `dev`, the one line both channels ship from;
+#   - HEAD equal to origin/dev, so the tagged commit exists on GitHub;
+#   - a clean tree, so untagged edits cannot slip into a release.
 $branch = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
-if ($branch -ne "fdroid-release") {
-    Refuse "Refusing: on branch '$branch', expected 'fdroid-release'." "The tag must point at a commit of the branch the recipe builds."
+if ($branch -ne "dev") {
+    Refuse "Refusing: on branch '$branch', expected 'dev'." "The tag must point at a commit of the release line, which is 'dev'."
 }
 $commit = (git rev-parse HEAD 2>$null).Trim()
-$head   = (git rev-parse --short HEAD 2>$null).Trim()
+$head = (git rev-parse --short HEAD 2>$null).Trim()
 if ([string]::IsNullOrWhiteSpace($commit)) { Refuse "Could not resolve HEAD. Refusing to tag." }
+
+$originDev = (git rev-parse origin/dev 2>$null).Trim()
+if ($originDev -ne $commit) {
+    Refuse "Refusing: HEAD ($head) differs from origin/dev." "Push dev first: F-Droid clones this commit from GitHub, so an unpushed tag publishes nothing."
+}
+
+$dirty = @(git status --porcelain 2>$null) -join "`n"
+if (-not [string]::IsNullOrWhiteSpace($dirty)) {
+    Refuse "Refusing: the working tree has uncommitted changes." "Commit or stash before tagging; a release must be reproducible from the tag."
+}
 
 # ── 2. The version code ─────────────────────────────────────────────────────
 # app/build.gradle.kts carries no literal number: it computes one
