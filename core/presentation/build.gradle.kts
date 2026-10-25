@@ -59,9 +59,12 @@ dependencies {
     // types (a `UiStrings` field, or a message built from one) to whoever renders it.
     api(project(":core:strings"))
     implementation(libs.coroutines.core)
-    // org.json: the Android platform ships it; a plain JVM module declares it. Used by UpdateChecker's
-    // release parsing, which moved here from :app.
-    implementation(libs.org.json)
+    // kotlinx.serialization: UpdateChecker reads the GitHub releases body with it. `:core:shared`
+    // already puts this library in the app, so this edge adds nothing to the APK. It replaces
+    // org.json, whose jar shipped under the JSON License (non-free) for a body that needs only
+    // tree accessors - and which was only ever declared here because this is a plain JVM module,
+    // not because the platform's own org.json was reachable.
+    implementation(libs.serialization.json)
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)

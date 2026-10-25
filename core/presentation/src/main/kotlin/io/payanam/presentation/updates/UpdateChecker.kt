@@ -15,9 +15,11 @@ import io.payanam.shared.updates.resolveUpdateResult
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import org.json.JSONArray
-import org.json.JSONException
-import org.json.JSONObject
+import kotlinx.serialization.json.Json
+import kotlinx.serialization.json.JsonArray
+import kotlinx.serialization.json.JsonNull
+import kotlinx.serialization.json.JsonObject
+import kotlinx.serialization.json.JsonPrimitive
 import java.io.ByteArrayOutputStream
 import java.io.IOException
 import java.io.InputStream
@@ -56,6 +58,58 @@ private val ARTIFACT_TYPE_REGEX = Regex("""_(debug|release)_""")
  *  Lazy so pure helpers (parseReleases et al.) stay usable in plain JVM tests
  *  without UnifiedLogger.initialize(). */
 private val logger: UnifiedLogger by lazy { AppLogger.current }
+
+/*
+ * Release-body reader.
+ *
+ * kotlinx.serialization, not org.json: the two read this body the same way, but the org.json jar
+ * ships under the JSON License and had no business being in the APK when Serialization is already
+ * there through `:core:shared`.
+ *
+ * Tree access, not `@Serializable` DTOs, on purpose. A DTO decodes the whole array in one step, so
+ * one malformed element fails the entire page; the release list is a list of independent entries and
+ * a bad one must be skipped, not made fatal (see [parseReleases]). The `opt*` accessors below keep
+ * the exact reading rules the org.json version had.
+ */
+
+/**
+ * The parser for the releases list body.
+ *
+ * `isLenient` tolerates the small deviations a proxy or a future GitHub tweak could introduce,
+ * where org.json also tolerated them. `ignoreUnknownKeys` has no effect on tree parsing - there is
+ * no descriptor to check keys against - and is set so this reader is configured exactly like the
+ * shared backup reader.
+ */
+private val RELEASE_JSON =
+    Json {
+        isLenient = true
+        ignoreUnknownKeys = true
+    }
+
+/**
+ * `JSONObject.optString(key, fallback)` with the same answers the org.json reader gave:
+ *
+ * - a missing key and an explicit `null` both return [fallback] (org.json's `NULL` sentinel
+ *   compared equal to a missing key, and `optString` answered the fallback for both);
+ * - a non-string scalar is coerced to its literal text, so `{"tag_name": 123}` reads as `"123"`
+ *   and is then refused by [channelFromTag] - not skipped as an unreadable object;
+ * - an object or array value returns [fallback]. org.json stringified those to JSON text, which no
+ *   caller here can use; refusing them is the one deliberate tightening.
+ */
+private fun JsonObject.optString(
+    key: String,
+    fallback: String,
+): String {
+    val element = this[key] ?: return fallback
+    if (element is JsonNull) return fallback
+    return (element as? JsonPrimitive)?.content ?: fallback
+}
+
+/**
+ * `JSONObject.optJSONArray(key)`: the value only when it is an array. Absent, explicit `null`
+ * and any other shape (an object, a string) all read as null.
+ */
+private fun JsonObject.optArray(key: String): JsonArray? = this[key] as? JsonArray
 
 /*
  * Trusted-URL policy.
@@ -231,11 +285,12 @@ internal enum class NextPageDecision {
  * refusing to follow an untrusted URL must never let a truncated scan produce a
  * "no release" or "up to date" verdict, so the caller keeps `scanComplete` false.
  */
-internal fun nextPageDecision(nextUrl: String?): NextPageDecision = when {
-    nextUrl == null -> NextPageDecision.END_OF_LIST
-    isTrustedReleasesApiUrl(nextUrl) -> NextPageDecision.CONTINUE
-    else -> NextPageDecision.REFUSED
-}
+internal fun nextPageDecision(nextUrl: String?): NextPageDecision =
+    when {
+        nextUrl == null -> NextPageDecision.END_OF_LIST
+        isTrustedReleasesApiUrl(nextUrl) -> NextPageDecision.CONTINUE
+        else -> NextPageDecision.REFUSED
+    }
 
 /** Outcome of the type-aware asset selection within one release. */
 data class ApkAssetSelection(
@@ -263,13 +318,15 @@ data class ApkAssetSelection(
  * downstream that becomes [UpdateOutcome.TYPE_MISMATCH], never just a null URL.
  */
 fun selectApkAssets(
-    assets: JSONArray?,
+    assets: JsonArray?,
     expectedType: String,
 ): ApkAssetSelection {
     if (assets == null) return ApkAssetSelection(typeMismatch = true)
     val entries = mutableListOf<Pair<String, String>>()
-    for (a in 0 until assets.length()) {
-        val asset = assets.optJSONObject(a) ?: continue
+    for (element in assets) {
+        // A non-object entry is skipped, and the rest of the list is still read: one malformed
+        // asset must never hide the APK next to it.
+        val asset = element as? JsonObject ?: continue
         val name = asset.optString("name", "")
         if (name.isNotEmpty()) {
             entries.add(name to asset.optString("browser_download_url", ""))
@@ -375,21 +432,31 @@ private fun logFailClosedSelection(
  * array at all (the caller fails closed as a parse error); a valid empty
  * array returns an empty list.
  */
-@Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
+@Suppress("TooGenericExceptionCaught") // Intentional: the whole read fails closed as PARSE_ERROR
 fun parseReleases(
     body: String,
     runningType: String,
 ): List<ChannelStatus>? {
     val releases =
         try {
-            JSONArray(body)
-        } catch (e: JSONException) {
+            RELEASE_JSON.parseToJsonElement(body) as? JsonArray
+        } catch (e: Exception) {
+            // Deliberately broad, and deliberately HERE: any unreadable body is a PARSE_ERROR, and
+            // letting the exception escape would surface it as UNKNOWN from `check` instead.
             logger.w("UpdateChecker.parseReleases", "Failed to parse release JSON", mapOf("error" to (e.message ?: "unknown")))
             return null
         }
+    if (releases == null) {
+        // Readable JSON that is not an array (an object, a bare string, a number) is not a release
+        // list either - same fail-closed answer, still PARSE_ERROR at the caller.
+        logger.w("UpdateChecker.parseReleases", "Release body is not a JSON array", mapOf("bodyLength" to body.length))
+        return null
+    }
     val statuses = mutableListOf<ChannelStatus>()
-    for (i in 0 until releases.length()) {
-        val release = releases.optJSONObject(i) ?: continue
+    for (element in releases) {
+        // One bad element is skipped and the rest of the array is still read; decoding the array
+        // as a whole would have made that element fatal for the page.
+        val release = element as? JsonObject ?: continue
         val tagName = release.optString("tag_name", "")
         val channel = channelFromTag(tagName) ?: continue
         val htmlUrl = release.optString("html_url", "")
@@ -399,7 +466,7 @@ fun parseReleases(
         // Type-aware selection: the running build type decides which asset is
         // downloadable. No match ⇒ fail closed (no URL, verdict false) —
         // never a silent skip that later reads as "up to date".
-        val selection = selectApkAssets(release.optJSONArray("assets"), runningType)
+        val selection = selectApkAssets(release.optArray("assets"), runningType)
         if (selection.typeMismatch) {
             logFailClosedSelection(channel, buildNumber, runningType, selection.assetTypesSeen)
         }
@@ -504,11 +571,15 @@ object UpdateChecker {
                                 break
                             }
                             when (nextPageDecision(fetched.nextUrl)) {
-                                NextPageDecision.CONTINUE -> url = fetched.nextUrl
+                                NextPageDecision.CONTINUE -> {
+                                    url = fetched.nextUrl
+                                }
+
                                 NextPageDecision.END_OF_LIST -> {
                                     url = null
                                     scanComplete = true
                                 }
+
                                 NextPageDecision.REFUSED -> {
                                     // Stop, but the walk did not reach the end of the list, so
                                     // scanComplete stays false: no verdict is derived from it.

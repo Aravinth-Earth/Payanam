@@ -23,8 +23,10 @@ import org.robolectric.RobolectricTestRunner
 import java.io.File
 
 /**
- * parseReleases tests need real org.json (Robolectric provides it);
- * plain JVM stubs org.json with "not mocked" throws.
+ * parseReleases reads the release body with kotlinx.serialization, which `:core:presentation`
+ * already ships, so the parse tests no longer depend on a real org.json implementation.
+ * Robolectric stays because the rest of this class (AutoDownloadManager, the downloads-dir scan)
+ * needs a real Context.
  */
 @RunWith(RobolectricTestRunner::class)
 class UpdateCheckerParseTest {
