@@ -266,9 +266,11 @@ class DesktopBackupRotationWiringTest {
         // after a success. A "fix" that wrote somewhere easier, or renamed the folder to dodge the
         // recursive delete, fails here.
         assertThat(hoistedBackupBody).contains("backupDirectory = DesktopAppPaths.resolveDatabaseDirectory()")
-        // The session folder name still comes from the desktop's own backup timestamp rule, so the
-        // artifact keeps its auto_bk_ identity (the session-DIR shape is the expected parity change).
-        assertThat(hoistedBackupBody).contains("\"auto_bk_\" + LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)")
+        // The session folder name still comes from the desktop's own backup timestamp rule, now through
+        // the shared generated-name helper, so the artifact keeps its auto_bk_ identity. Asserted as
+        // SOURCE TEXT - this test reads DesktopApp.kt.
+        assertThat(hoistedBackupBody).contains("autoBackupDirName(")
+        assertThat(hoistedBackupBody).contains("LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)")
         // Rotation stays INSIDE the success branch: recordSuccess then cleanup, failure branch clean.
         val recordSuccessIndex = coreSource.indexOf("recordSuccess(recordedAtMillis)")
         val cleanupIndex = coreSource.indexOf("cleanupOldBackups(backupRootDir")

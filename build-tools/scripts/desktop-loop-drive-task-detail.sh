@@ -220,8 +220,9 @@ _APP_R=${_rest%%,*}; _rest=${_rest#*,}
 _APP_B=${_rest%,*}
 _APP_W=$((_APP_R - _APP_X)); _APP_H=$((_APP_B - _APP_Y))
 FAB_X=$((_APP_X + _APP_W * 82 / 100)); FAB_Y=$((_APP_Y + _APP_H * 81 / 100))
-LOG=$(ls -t /home/cawax/Documents/Payanam-debug/logs/payanam_desktop_*.log 2>/dev/null | head -1)
-[[ -n "$LOG" ]] || die "STEP 4: no payanam_desktop_*.log found - cannot assert the FAB via the app's own log"
+# Session log: payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log
+LOG=$(ls -t /home/cawax/Documents/Payanam-debug/logs/payanam_*_*_*_*.log 2>/dev/null | head -1)
+[[ -n "$LOG" ]] || die "STEP 4: no payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log found - cannot assert the FAB via the app's own log"
 click "$FAB_X" "$FAB_Y" 3 "tap the Add Task FAB (geometry 82%/81%)"
 grep -aq "Add task FAB clicked" "$LOG" || die "STEP 4: the app log does NOT contain 'Add task FAB clicked' - the FAB click did not register"
 say "STEP 4: FAB confirmed by the app's own log"

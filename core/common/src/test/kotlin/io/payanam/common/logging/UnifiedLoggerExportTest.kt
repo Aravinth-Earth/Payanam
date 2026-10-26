@@ -28,7 +28,7 @@ class UnifiedLoggerExportTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         if (!UnifiedLogger.isInitialized()) {
-            UnifiedLogger.initialize(context, "test", 1)
+            UnifiedLogger.initialize(context, "test", "testsha")
         }
         logger = UnifiedLogger.getInstance()
         val currentLogFile = File(logger.getCurrentLogPath())
@@ -91,8 +91,9 @@ class UnifiedLoggerExportTest {
                 System.currentTimeMillis() -
                     java.util.concurrent.TimeUnit.HOURS
                         .toMillis(2)
+            val seedPrefix = "payanam_logs_android_1.0.0_testsha_debug_20260810_"
             repeat(25) { index ->
-                val seed = File(dir, "payanam_1_20260810-${String.format(java.util.Locale.US, "%02d", index)}00.zip")
+                val seed = File(dir, "$seedPrefix${String.format(java.util.Locale.US, "%02d", index)}00.zip")
                 seed.writeText("x")
                 check(seed.setLastModified(base + index * 1000L)) { "could not pin mtime on $seed" }
             }
@@ -103,9 +104,9 @@ class UnifiedLoggerExportTest {
             val remaining = dir.listFiles()!!.filter { it.name.endsWith(".zip") }
             assertThat(remaining.size).isAtMost(20)
             assertThat(remaining).contains(zip)
-            assertThat(remaining.map { it.name }).doesNotContain("payanam_1_20260810-0000.zip")
-            assertThat(remaining.map { it.name }).doesNotContain("payanam_1_20260810-0400.zip")
-            assertThat(remaining.map { it.name }).contains("payanam_1_20260810-2400.zip")
+            assertThat(remaining.map { it.name }).doesNotContain("${seedPrefix}0000.zip")
+            assertThat(remaining.map { it.name }).doesNotContain("${seedPrefix}0400.zip")
+            assertThat(remaining.map { it.name }).contains("${seedPrefix}2400.zip")
         }
 
     @Test

@@ -21,7 +21,7 @@ class FileLoggerTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         // Initialize logger for testing
-        FileLogger.initialize(context, "test", 1)
+        FileLogger.initialize(context, "test", "testsha")
         logger = FileLogger.getInstance()
     }
 

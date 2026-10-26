@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # ============================================================================
 #  Payanam Desktop Build Script — Linux (Compose JVM)
-#  Artifact: output/debs/Payanam_Linux_<version>_<sha>_<yyyyMMdd_HHmmss>.deb
+#  Artifact: output/debs/Payanam_linux_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.deb
 #            output/debs/<same name>.deb.sha256
 #            (flat folder, mirroring Android's output/apks layout)
 #  Retention: keep the newest 5 .debs total, delete older; each .deb's .sha256 rides with it.
@@ -43,6 +43,9 @@ fail() { log "  ❌ $*"; exit 1; }
 
 datetime_stamp() { date '+%Y%m%d_%H%M%S'; }
 local_datetime() { date '+%Y-%m-%dT%H:%M:%S%z'; }
+
+# shellcheck source=/dev/null
+. "$SCRIPT_DIR/lib/naming.sh"
 
 # Write JSON file preserving formatting
 json_write() {
@@ -198,7 +201,7 @@ SHORT_SHA=$(git rev-parse --short HEAD 2>/dev/null || true)
 
 DATE_TIME_STAMP=$(datetime_stamp)
 GRADLE_PROPS="-PbuildPlatform=Linux -PbuildTimestamp=${DATE_TIME_STAMP} -PbuildShortSha=${SHORT_SHA} -PbuildType=${BUILD_TYPE}"
-BUILD_NAME="Payanam_Linux_${PAYANAM_VERSION}_${SHORT_SHA}_${DATE_TIME_STAMP}"
+BUILD_NAME="$(payanam_generated_name "Payanam" "Linux" "$PAYANAM_VERSION" "$SHORT_SHA" "$BUILD_TYPE" "$DATE_TIME_STAMP")"
 
 info "Version: $PAYANAM_VERSION (sha $SHORT_SHA)"
 info "Build Name: $BUILD_NAME"
@@ -381,7 +384,7 @@ DEB_OUTPUT_DIR="output/debs"
 mkdir -p "$DEB_OUTPUT_DIR"
 
 # jpackage renders the package as payanam_<packageVersion>-1_amd64.deb, a string Gradle config cannot
-# reshape, so the file is renamed to Payanam_Linux_<version>_<sha>_<yyyyMMdd_HHmmss>.deb.
+# reshape, so the file is renamed to Payanam_linux_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.deb.
 #
 # The Debian control fields (Package:, Version:) are NOT touched - renaming a .deb does not change what
 # dpkg installs or upgrades.
@@ -448,7 +451,7 @@ else
         info "  (jpackage source: $(basename "$DEB_SOURCE"))"
         # Checksum sidecar, paired with the .deb the same way Android pairs .apk with .apk.sha256.
         # UPPERCASE hex, two-space separator, bare filename; `sha256sum -c` accepts either case.
-        # (`443186189D81D530...E13C  Payanam_Android_<version>_<sha>_<type>_<stamp>.apk`)
+        # (`443186189D81D530...E13C  Payanam_android_<version>_<sha>_<type>_<stamp>.apk`)
         (
             cd "$DEB_OUTPUT_DIR" &&
                 sha256sum "${BUILD_NAME}.deb" | awk '{ print toupper($1) "  " $2 }' > "${BUILD_NAME}.deb.sha256"

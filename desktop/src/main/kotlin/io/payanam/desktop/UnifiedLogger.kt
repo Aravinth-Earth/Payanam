@@ -4,6 +4,8 @@ package io.payanam.desktop
 
 import io.payanam.shared.logging.ErrorPayload
 import io.payanam.shared.logging.LogSanitizer
+import io.payanam.shared.logging.logExportName
+import io.payanam.shared.logging.sessionLogName
 import java.io.File
 import java.io.IOException
 import java.nio.charset.StandardCharsets
@@ -193,7 +195,15 @@ class UnifiedLogger private constructor(
         val logsDirectory = getLogPath().parent ?: return null
         return runCatching {
             val stamp = fileTimestampFormatter().format(clock().atZone(ZoneId.systemDefault()))
-            val target = logsDirectory.resolve("payanam_desktop_all_logs_$stamp.zip")
+            val target = logsDirectory.resolve(
+                logExportName(
+                    DesktopBuildInfo.PLATFORM,
+                    DesktopBuildInfo.VERSION_NAME,
+                    DesktopBuildInfo.BUILD_SHORT_SHA,
+                    DesktopBuildInfo.IS_DEBUG_BUILD,
+                    stamp,
+                ),
+            )
             ZipOutputStream(Files.newOutputStream(target)).use { zip ->
                 Files.list(logsDirectory).use { entries ->
                     entries
@@ -239,7 +249,7 @@ class UnifiedLogger private constructor(
                 buildString {
                     append("Payanam Unified Log | Platform: ")
                     append(DesktopBuildInfo.PLATFORM)
-                    append(" | Build: ")
+                    append(" | Version: ")
                     append(DesktopBuildInfo.VERSION_DISPLAY_NAME)
                     append(" | Session: ")
                     append(sessionFormatter().format(openedAt.atZone(ZoneId.systemDefault())))
@@ -385,9 +395,13 @@ class UnifiedLogger private constructor(
             Files.createDirectories(logsDirectory)
             pruneOldLogs(logsDirectory)
             val now = clock()
-            val fileName = "payanam_desktop_${DesktopBuildInfo.VERSION_CODE}_${fileTimestampFormatter().format(
-                now.atZone(ZoneId.systemDefault()),
-            )}.log"
+            val fileName = sessionLogName(
+                DesktopBuildInfo.PLATFORM,
+                DesktopBuildInfo.VERSION_NAME,
+                DesktopBuildInfo.BUILD_SHORT_SHA,
+                DesktopBuildInfo.IS_DEBUG_BUILD,
+                fileTimestampFormatter().format(now.atZone(ZoneId.systemDefault())),
+            )
             val logFile = logsDirectory.resolve(fileName)
             return UnifiedLogger(
                 logFilePath = logFile,
@@ -407,7 +421,7 @@ class UnifiedLogger private constructor(
             }
         }
 
-        private fun fileTimestampFormatter(): DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+        private fun fileTimestampFormatter(): DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
 
         private fun sessionFormatter(): DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
 

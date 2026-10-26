@@ -3,6 +3,7 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.logging.osToken
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -36,9 +37,14 @@ class UnifiedLoggerTest {
 
         val logContents = Files.readString(logger.getLogPath())
 
-        assertThat(logger.getLogPath().fileName.toString()).contains("payanam_desktop_${DesktopBuildInfo.VERSION_CODE}")
+        val buildType = if (DesktopBuildInfo.IS_DEBUG_BUILD) "debug" else "release"
+        val expectedPrefix =
+            "payanam_${osToken(DesktopBuildInfo.PLATFORM)}_${DesktopBuildInfo.VERSION_NAME}_" +
+                "${DesktopBuildInfo.BUILD_SHORT_SHA}_${buildType}_"
+        assertThat(logger.getLogPath().fileName.toString()).startsWith(expectedPrefix)
+        assertThat(logger.getLogPath().fileName.toString()).endsWith(".log")
         assertThat(logContents).contains("Payanam Unified Log | Platform: ${DesktopBuildInfo.PLATFORM}")
-        assertThat(logContents).contains("Build: ${DesktopBuildInfo.VERSION_DISPLAY_NAME}")
+        assertThat(logContents).contains("Version: ${DesktopBuildInfo.VERSION_DISPLAY_NAME}")
         assertThat(logContents).contains("Session:")
         assertThat(logContents).contains("OS: ${System.getProperty("os.name")}")
         assertThat(logContents).contains("Format: timestamp | level | n | thread=<name> | source | message | [data]")
@@ -258,7 +264,7 @@ class UnifiedLoggerTest {
             Files.setLastModifiedTime(file, FileTime.from(base.plusSeconds(index.toLong())))
         }
         // An exported archive is not a session log, so the prune must leave it alone.
-        val archive = logsDirectory.resolve("payanam_desktop_all_logs_20260301-000000.zip")
+        val archive = logsDirectory.resolve("payanam_logs_${osToken(DesktopBuildInfo.PLATFORM)}_fixture.zip")
         Files.writeString(archive, "archive")
 
         val logger =

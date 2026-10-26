@@ -186,7 +186,7 @@ tasks.named("check") {
 }
 
 // ── Build info generation (matches Android's BuildConfig pattern) ──────────
-// Build scripts pass -PbuildPlatform=Linux|Windows -PbuildTimestamp=... -PbuildType=debug|release.
+// Build scripts pass -PbuildPlatform=Linux|Windows|macOS -PbuildTimestamp=... -PbuildType=debug|release.
 // Version and sha come from the root extra properties; this task generates DesktopBuildInfo.kt.
 val buildPlatform: String = project.findProperty("buildPlatform")?.toString() ?: ""
 val buildTimestamp: String = project.findProperty("buildTimestamp")?.toString() ?: ""
@@ -206,10 +206,17 @@ tasks.register("generateBuildInfo") {
     doLast {
         val osName = System.getProperty("os.name").lowercase()
         val platform = buildPlatform.ifBlank {
-            if (osName.contains("linux")) "Linux" else "Windows"
+            when {
+                osName.contains("linux") -> "Linux"
+                osName.contains("mac") || osName.contains("darwin") -> "macOS"
+                osName.contains("windows") -> "Windows"
+                else -> error("Unsupported desktop OS for a generated name: ${System.getProperty("os.name")}")
+            }
         }
+        val platformToken = platform.lowercase()
         val timestamp = buildTimestamp.ifBlank { "00000000_000000" }
         val isDebugBuild = buildType.equals("debug", ignoreCase = true)
+        val typeToken = if (isDebugBuild) "debug" else "release"
 
         val dir = outputDir.get().asFile.resolve("io/payanam/desktop")
         dir.mkdirs()
@@ -224,7 +231,7 @@ object DesktopBuildInfo {
     const val BUILD_SHORT_SHA = "$declaredShortSha"
     const val BUILD_TIMESTAMP = "$timestamp"
     const val VERSION_DISPLAY_NAME = "$declaredVersionName ($declaredShortSha)"
-    const val BUILD_NAME = "Payanam_${platform}_${declaredVersionName}_${declaredShortSha}_$timestamp"
+    const val BUILD_NAME = "Payanam_${platformToken}_${declaredVersionName}_${declaredShortSha}_${typeToken}_$timestamp"
     /**
      * Whether this build was produced as a debug build (`-PbuildType=debug`).
      *

@@ -82,6 +82,7 @@ import io.payanam.presentation.notes.notesViewModel
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
+import io.payanam.shared.logging.autoBackupDirName
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
@@ -1044,7 +1045,13 @@ private suspend fun runScheduledDesktopBackup(
                 logger = sessionLogger,
                 backupDirectory = DesktopAppPaths.resolveDatabaseDirectory().toFile(),
                 sessionFolderName = {
-                    "auto_bk_" + LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
+                    autoBackupDirName(
+                        DesktopBuildInfo.PLATFORM,
+                        DesktopBuildInfo.VERSION_NAME,
+                        DesktopBuildInfo.BUILD_SHORT_SHA,
+                        DesktopBuildInfo.IS_DEBUG_BUILD,
+                        LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP),
+                    )
                 },
                 destinationFileName = PayanamDatabaseSchema.DATABASE_NAME,
                 rotationRows = backupRows,

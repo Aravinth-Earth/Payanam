@@ -3,8 +3,10 @@
 package io.payanam.common.logging
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Environment
 import io.payanam.shared.concurrent.appCoroutineScope
+import io.payanam.shared.logging.sessionLogName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.sync.Mutex
@@ -33,7 +35,7 @@ private data class LogEntry(
  * FileLogger - Kotlin implementation matching v0.0.2 UnifiedLoggerAndroid
  *
  * Features:
- * - Auto-creates log files per session: payanam-log-android_{version}_{buildNum}_{timestamp}.log
+ * - Auto-creates log files per session: payanam_{os}_{version}_{sha}_{debug|release}_{timestamp}.log
  * - Writes to Documents/payanam/logs/
  * - Persistent, viewable, exportable logs
  * - No dependency on adb logcat
@@ -43,7 +45,7 @@ private data class LogEntry(
 class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     private val context: Context,
     private val versionName: String,
-    private val buildNumber: Int,
+    private val buildShortSha: String,
 ) {
     private val logDir: File
     private val logFile: File
@@ -51,6 +53,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
     private val logBuffer = mutableListOf<String>()
     private val mutex = Mutex()
     private val scope = appCoroutineScope("FileLogger", Dispatchers.IO)
+    private val debugBuild: Boolean = (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private var stepCounter = 1
 
     init {
@@ -61,9 +64,9 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
             logDir.mkdirs()
         }
 
-        // Create log file: payanam-log-android_{version}_{buildNum}_{timestamp}.log
-        val timestamp = SimpleDateFormat("yyyy-MM-dd-HH-mm-ss-SSS", Locale.US).format(Date())
-        val fileName = "payanam-log-android_${versionName}_${buildNumber}_$timestamp.log"
+        // Create log file: payanam_{os}_{version}_{sha}_{debug|release}_{timestamp}.log
+        val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+        val fileName = sessionLogName("android", versionName, buildShortSha, debugBuild, timestamp)
         logFile = File(logDir, fileName)
 
         // Write session header
@@ -71,8 +74,7 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
             buildString {
                 appendLine("=".repeat(HEADER_LINE_LENGTH))
                 appendLine("Payanam Android Log Session")
-                appendLine("Version: $versionName")
-                appendLine("Build: $buildNumber")
+                appendLine("Version: $versionName ($buildShortSha)")
                 appendLine("Session Start: ${SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS Z", Locale.US).format(Date())}")
                 appendLine("Device: ${android.os.Build.MODEL} (${android.os.Build.VERSION.RELEASE})")
                 appendLine("Log File: ${logFile.absolutePath}")
@@ -349,10 +351,10 @@ class FileLogger private constructor( // detekt:ignore:TooManyFunctions
         fun initialize(
             context: Context,
             versionName: String,
-            buildNumber: Int,
+            buildShortSha: String,
         ): FileLogger =
             instance ?: synchronized(this) {
-                instance ?: FileLogger(context, versionName, buildNumber).also {
+                instance ?: FileLogger(context, versionName, buildShortSha).also {
                     instance = it
                 }
             }

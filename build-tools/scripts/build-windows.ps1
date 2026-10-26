@@ -1,5 +1,5 @@
 # Desktop Build Script for Payanam Windows app
-# Artefact: output/windows/Payanam_Windows_<version>_<sha>_<yyyyMMdd_HHmmss>/
+# Artefact: output/windows/Payanam_windows_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>/
 
 param(
     [switch]$Release,
@@ -14,6 +14,8 @@ $MaxWindowsSmokeArtifacts = 2
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
 Set-Location $projectRoot
+
+. "$scriptDir/lib/naming.ps1"
 
 function Write-LogWithTime
 {
@@ -799,19 +801,20 @@ function Invoke-DesktopSmokePack
         throw "Desktop session log does not match the expected build name $BuildName."
     }
     # The artefact name carries <version>_<sha>; the session log must carry the same pair.
-    $artifactIdentity = [regex]::Match($BuildName, '^Payanam_Windows_([^_]+)_([^_]+)_\d{8}_\d{6}$')
+    $artifactIdentity = [regex]::Match($BuildName, '^Payanam_windows_([^_]+)_([^_]+)_(debug|release)_\d{8}_\d{6}$')
     if (-not $artifactIdentity.Success)
     {
         throw "Could not extract version and sha from $BuildName."
     }
     $expectedVersion = $artifactIdentity.Groups[1].Value
     $expectedSha = $artifactIdentity.Groups[2].Value
+    $expectedPlatform = ($BuildName -split '_')[1].ToLowerInvariant()
     if (($logContents -notmatch [regex]::Escape($expectedVersion)) -or ($logContents -notmatch [regex]::Escape($expectedSha)))
     {
         throw "Desktop session log does not carry version $expectedVersion and sha $expectedSha."
     }
     $observedLogName = Split-Path -Leaf $logSourcePath
-    $expectedLogNamePattern = '^payanam_' + [regex]::Escape($expectedVersion) + '_' + [regex]::Escape($expectedSha) + '_(debug|release)_\d{8}_\d{6}\.log$'
+    $expectedLogNamePattern = '^payanam_' + [regex]::Escape($expectedPlatform) + '_' + [regex]::Escape($expectedVersion) + '_' + [regex]::Escape($expectedSha) + '_(debug|release)_\d{8}_\d{6}\.log$'
     if ($observedLogName -notmatch $expectedLogNamePattern)
     {
         throw "Desktop session log name '$observedLogName' does not carry version $expectedVersion and sha $expectedSha."
@@ -945,7 +948,7 @@ try
 }
 
 $dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Windows_$($payanamVersion)_$($shortSha)_$dateTimeStamp"
+$buildName = Get-PayanamGeneratedName -Prefix "Payanam" -Platform "Windows" -Version $payanamVersion -Sha $shortSha -Type $buildType -Timestamp $dateTimeStamp
 $gradleProps = "-PbuildPlatform=Windows -PbuildTimestamp=$dateTimeStamp -PbuildShortSha=$shortSha -PbuildType=$buildType"
 
 Write-LogWithTime "" "White"

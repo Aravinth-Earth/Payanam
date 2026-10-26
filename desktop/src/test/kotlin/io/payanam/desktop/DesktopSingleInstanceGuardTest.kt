@@ -3,6 +3,7 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.logging.osToken
 import org.junit.Test
 import java.nio.file.Files
 
@@ -30,7 +31,7 @@ class DesktopSingleInstanceGuardTest {
         assertThat(secondAcquire).isInstanceOf(DesktopSingleInstanceAcquireResult.AlreadyRunning::class.java)
         val alreadyRunning = (secondAcquire as DesktopSingleInstanceAcquireResult.AlreadyRunning).details
         assertThat(alreadyRunning.processId).isEqualTo(41234L)
-        assertThat(alreadyRunning.buildName).contains("Payanam_${DesktopBuildInfo.PLATFORM}_")
+        assertThat(alreadyRunning.buildName).contains("Payanam_${osToken(DesktopBuildInfo.PLATFORM)}_")
         assertThat(alreadyRunning.versionDisplayName).contains(DesktopBuildInfo.VERSION_DISPLAY_NAME.substringBefore(" "))
         assertThat(alreadyRunning.acquiredAt).isNotNull()
         assertThat(alreadyRunning.executablePath).isNotNull()

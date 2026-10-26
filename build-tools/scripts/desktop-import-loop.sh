@@ -100,12 +100,12 @@ else
         exit 1
     fi
     # The build log must carry the published artefact line; the naming check fails the loop without it.
-    grep -aE "Desktop verification passed|Published DEB: output/debs/Payanam_Linux_" \
+    grep -aE "Desktop verification passed|Published DEB: output/debs/Payanam_linux_" \
         "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" |
         tail -2 | tee -a "$VERDICT_LOG"
-    grep -aqF "Published DEB: output/debs/Payanam_Linux_" \
+    grep -aqF "Published DEB: output/debs/Payanam_linux_" \
         "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" ||
-        { verdict "LOOP-FAILED: the build log names no Payanam_Linux_<version>_<sha>_<stamp>.deb"; exit 1; }
+        { verdict "LOOP-FAILED: the build log names no Payanam_linux_<version>_<sha>_<type>_<stamp>.deb"; exit 1; }
 fi
 
 # ---------------------------------------------------------------- step 2: launch
@@ -122,7 +122,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
         if [[ -n "$REUSE_DEB" ]]; then
             DEB="$REUSE_DEB"
         else
-            DEB="$(ls -t "$REPO_ROOT"/output/debs/Payanam_Linux_*.deb 2>/dev/null | head -1 || true)"
+            DEB="$(ls -t "$REPO_ROOT"/output/debs/Payanam_linux_*.deb 2>/dev/null | head -1 || true)"
         fi
         if [[ -z "$DEB" ]]; then
             LAUNCH_OK="blocked: no .deb in output/debs"
@@ -157,7 +157,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                     # pipe on the first line, sort takes SIGPIPE and reports non-zero, and a bare
                     # assignment would abort the whole run over a successful find.
                     candidate="$(find "$DATA_ROOT/Documents/$root_name/logs" -maxdepth 1 -type f \
-                        -name 'payanam_desktop_*.log' ! -name 'payanam_desktop_latest_export.log' \
+                        -name 'payanam_*.log' ! -name 'payanam_desktop_latest_export.log' \
                         -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)"
                     [[ -n "$candidate" ]] || continue
                     if [[ -z "$APP_LOG" || "$candidate" -nt "$APP_LOG" ]]; then
@@ -167,7 +167,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                 # Nothing in the app's own layout: fall back to a sweep of the whole isolated data root,
                 # which cannot miss an unexpected layout but is also why the rule above is tried first.
                 if [[ -z "$APP_LOG" ]]; then
-                    APP_LOG="$(find "$DATA_ROOT" -type f -name 'payanam_desktop_*.log' \
+                    APP_LOG="$(find "$DATA_ROOT" -type f -name 'payanam_*.log' \
                         ! -name 'payanam_desktop_latest_export.log' -printf '%T@ %p\n' 2>/dev/null \
                         | sort -rn | head -1 | cut -d' ' -f2- || true)"
                 fi

@@ -13,6 +13,7 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
+import io.payanam.shared.logging.osToken
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -145,7 +146,7 @@ class DesktopLogExportActionsTest {
         assertThat(logText()).contains("outcome=\"exported\"")
         val archives = logsDirectory.listFiles().orEmpty().filter { it.name.endsWith(".zip") }
         assertThat(archives).hasSize(1)
-        assertThat(archives.single().name).startsWith("payanam_desktop_all_logs_")
+        assertThat(archives.single().name).startsWith("payanam_logs_${osToken(DesktopBuildInfo.PLATFORM)}_")
         // The archive is a copy: the session log it was made from is still there, append-only.
         assertThat(
             logsDirectory

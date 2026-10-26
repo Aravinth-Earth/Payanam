@@ -71,7 +71,7 @@ class PayanamApp : Application() {
      */
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
-        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
     }
 
     /**
@@ -83,7 +83,7 @@ class PayanamApp : Application() {
         super.onCreate()
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
-        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
         // Hand the real logger to the platform-neutral modules (core/domain, core/scoring). They
         // cannot reach this Android singleton, so they read AppLogger.current instead. Without this
         // call they would log to the no-op default and every diagnostic from those modules would be

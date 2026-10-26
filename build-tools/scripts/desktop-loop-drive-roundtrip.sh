@@ -302,7 +302,8 @@ shot 08-add-task
 LOG=""
 for _log_dir in "$HOME/Documents/Payanam-debug/logs" "$HOME/Documents/Payanam/logs" \
                 "$HOME/.local/share/Payanam-debug/logs" "$HOME/.local/share/Payanam/logs"; do
-    _candidate=$(ls -t "$_log_dir"/payanam_desktop_*.log 2>/dev/null | head -1)
+    # Session log: payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log
+    _candidate=$(ls -t "$_log_dir"/payanam_*_*_*_*.log 2>/dev/null | head -1)
     [[ -n "$_candidate" ]] || continue
     if [[ -z "$LOG" || "$_candidate" -nt "$LOG" ]]; then
         LOG="$_candidate"
@@ -310,9 +311,9 @@ for _log_dir in "$HOME/Documents/Payanam-debug/logs" "$HOME/Documents/Payanam/lo
 done
 
 if [[ -z "$LOG" || ! -f "$LOG" ]]; then
-    die "PHASE 3: could not locate the app log. Searched \$HOME/Documents/{Payanam-debug,Payanam}/logs and \$HOME/.local/share/{Payanam-debug,Payanam}/logs for payanam_desktop_*.log. Cannot assert the FAB click. Stopping."
+    die "PHASE 3: could not locate the app log. Searched \$HOME/Documents/{Payanam-debug,Payanam}/logs and \$HOME/.local/share/{Payanam-debug,Payanam}/logs for payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log. Cannot assert the FAB click. Stopping."
 fi
-say "PHASE 3: using app log $LOG (newest payanam_desktop_*.log)"
+say "PHASE 3: using app log $LOG (newest payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log)"
 
 if grep -q 'Add task FAB clicked' "$LOG"; then
     say "PHASE 3: app log confirms FAB click — found 'Add task FAB clicked' in $LOG"
