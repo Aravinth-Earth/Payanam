@@ -44,7 +44,7 @@ class UnifiedLoggerExportTest {
         ShadowLog.clear()
     }
 
-    /** The export dir used by the logger (Environment.DOCUMENTS + payanam/exported-logs). */
+    /** The export dir used by the logger (Environment.DOCUMENTS + Payanam/exported-logs). */
     private suspend fun exportDir(): File {
         val zip = logger.exportAllLogs()!!
         return zip.parentFile!!

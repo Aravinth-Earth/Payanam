@@ -2102,7 +2102,7 @@ if (-not $installRequested)
                         Write-LogWithTime "" "White"
                         Write-LogWithTime "  📋 For debugging:" "Cyan"
                         Write-LogWithTime "  - Use Settings > Data Management > Export Latest Log" "Yellow"
-                        Write-LogWithTime "  - Or export all logs to Documents/payanam/exported-logs/" "Yellow"
+                        Write-LogWithTime "  - Or export all logs to Documents/Payanam/exported-logs/" "Yellow"
                         Exit-WithCleanup 1
                     }
 

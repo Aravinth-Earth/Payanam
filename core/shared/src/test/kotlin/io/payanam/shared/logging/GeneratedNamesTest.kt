@@ -21,6 +21,7 @@ class GeneratedNamesTest {
                 "log export" to "payanam_logs_android_1.0.0_abc1234_debug_20261026_101500.zip",
                 "db export" to "payanam_backup_encrypted_android_1.0.0_abc1234_debug_20261026_101500.db",
                 "auto backup" to "auto_bk_android_1.0.0_abc1234_debug_20261026_101500",
+                "auto backup file" to "auto_bk_android_1.0.0_abc1234_debug_20261026_101500.db",
             )
         val actual =
             mapOf(
@@ -29,6 +30,7 @@ class GeneratedNamesTest {
                 "log export" to logExportName(platform, version, sha, debugBuild, timestamp),
                 "db export" to dbExportName(platform, version, sha, debugBuild, timestamp),
                 "auto backup" to autoBackupDirName(platform, version, sha, debugBuild, timestamp),
+                "auto backup file" to autoBackupFileName(platform, version, sha, debugBuild, timestamp),
             )
         expected.forEach { (kind, name) -> assertThat(actual[kind]).isEqualTo(name) }
     }

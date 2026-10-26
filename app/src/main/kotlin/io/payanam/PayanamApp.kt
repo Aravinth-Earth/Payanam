@@ -333,7 +333,7 @@ class PayanamApp : Application() {
                 ),
             )
             // Auto-export the full log ZIP on crash — lands in
-            // Documents/payanam[-debug]/exported-logs/ so it is reachable via the
+            // Documents/Payanam[-debug]/exported-logs/ so it is reachable via the
             // Files app even when the app itself cannot start (crash loop).
             // Best-effort on a separate thread with a hard cap; never blocks.
             val exportThread = Thread {

@@ -48,4 +48,13 @@ fun autoBackupDirName(
     timestamp: String,
 ): String = generatedName("auto_bk", platform, version, sha, buildType(debugBuild), timestamp)
 
+/** A backup written as one flat file rather than a directory: the directory name plus its extension. */
+fun autoBackupFileName(
+    platform: String,
+    version: String,
+    sha: String,
+    debugBuild: Boolean,
+    timestamp: String,
+): String = autoBackupDirName(platform, version, sha, debugBuild, timestamp) + ".db"
+
 private fun buildType(debugBuild: Boolean): String = if (debugBuild) "debug" else "release"

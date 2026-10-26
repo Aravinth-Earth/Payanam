@@ -1062,8 +1062,9 @@ for dir in "${LOG_DIRS[@]}"; do
     # -newermt on the launch stamp, not ls -t, so yesterday's log can never be reported as today's.
     # The 5s slack absorbs second-granularity stamps: the log file is opened a moment after the
     # launcher forks, and "newest file, any age" was how the wrong file got picked in the first place.
-    # The exported copy is excluded: it is a bundle the operator copied out, not this session's log.
-    candidate=$(find "$dir" -maxdepth 1 -name 'payanam_*.log' ! -name 'payanam_desktop_latest_export.log' \
+    # An exported copy carries an ordinary session-log name, so this sweep can select it; that copy is
+    # this session's log as of the export.
+    candidate=$(find "$dir" -maxdepth 1 -name 'payanam_*.log' \
         -newermt "@$((LOOP_LAUNCHED_AT - 5))" -printf '%T@ %p\n' 2>/dev/null \
         | sort -rn | head -1 | cut -d' ' -f2-)
     [[ -n "$candidate" ]] || continue

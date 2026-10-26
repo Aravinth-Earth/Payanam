@@ -60,7 +60,7 @@ class ManualScheduledBackupParityTest {
                 DesktopDatabaseBackupPort(
                     statusStore = statusStore,
                     performBackup = {
-                        val stamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now())
+                        val stamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(LocalDateTime.now())
                         val destPath = currentDestDir.toPath().resolve(scheduledBackupArtifactName(stamp))
                         Files.copy(sourceDb, destPath, StandardCopyOption.REPLACE_EXISTING)
                         destPath.toString()
@@ -84,7 +84,7 @@ class ManualScheduledBackupParityTest {
             assertThat(manualFile.exists()).isTrue()
             assertThat(autoFile.exists()).isTrue()
 
-            // Same naming pattern: auto_bk_ stamp .db
+            // Same naming pattern: auto_bk_<os>_<version>_<sha>_<type>_<stamp>.db
             assertThat(manualFile.name).startsWith("auto_bk_")
             assertThat(manualFile.name).endsWith(".db")
             assertThat(autoFile.name).startsWith("auto_bk_")
@@ -125,7 +125,7 @@ class ManualScheduledBackupParityTest {
                 DesktopDatabaseBackupPort(
                     statusStore = statusStore,
                     performBackup = {
-                        val stamp = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss").format(LocalDateTime.now())
+                        val stamp = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss").format(LocalDateTime.now())
                         val destPath = backupDir.toPath().resolve(scheduledBackupArtifactName(stamp))
                         Files.copy(sourceDb, destPath, StandardCopyOption.REPLACE_EXISTING)
                         destPath.toString()

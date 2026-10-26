@@ -368,7 +368,7 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
@@ -422,7 +422,7 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }

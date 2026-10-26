@@ -135,7 +135,7 @@
     <string name="settings_action_dismiss_error_message">செய்தியை மூடு</string>
     <string name="settings_action_configure_scoring">மதிப்பெண் எடைகளை அமை</string>
     <string name="settings_action_view_on_github">GitHub-ல் பார்</string>
-    <string name="settings_data_management_help">ஏற்றுமதி முழு குறியாக்கப்பட்ட தரவுத்தள காப்புப்பிரதியை உருவாக்கும். இறக்குமதி முன்பு ஏற்றுமதி செய்யப்பட்ட காப்புப்பிரதி அல்லது ஆதரிக்கப்படும் பழைய தரவுத்தளத்திலிருந்து உள்ளூர் செயலி தரவை முழுமையாக மாற்றும். பிழைத்திருத்தத்திற்காக பதிவு ஏற்றுமதி கோப்புகள் Documents/payanam/exported-logs/ இல் சேமிக்கப்படும்.</string>
+    <string name="settings_data_management_help">ஏற்றுமதி முழு குறியாக்கப்பட்ட தரவுத்தள காப்புப்பிரதியை உருவாக்கும். இறக்குமதி முன்பு ஏற்றுமதி செய்யப்பட்ட காப்புப்பிரதி அல்லது ஆதரிக்கப்படும் பழைய தரவுத்தளத்திலிருந்து உள்ளூர் செயலி தரவை முழுமையாக மாற்றும். பிழைத்திருத்தத்திற்காக பதிவு ஏற்றுமதி கோப்புகள் Documents/Payanam/exported-logs/ இல் சேமிக்கப்படும்.</string>
     <string name="settings_imported_habits_count">இறக்குமதி செய்யப்பட்ட uHabits பழக்கங்கள்: %1$d</string>
     <string name="settings_bulk_map_dialog_title">இறக்குமதி பழக்கங்களை மொத்தமாக ஒதுக்கு</string>
     <string name="settings_bulk_map_dialog_message">அனைத்து இறக்குமதி uHabits பழக்கங்களுக்கும் ஒதுக்க ஒரு வாழ்க்கை பரிமாணத்தைத் தேர்ந்தெடுக்கவும்.</string>

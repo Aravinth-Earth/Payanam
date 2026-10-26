@@ -26,9 +26,6 @@ import java.util.zip.ZipOutputStream
  */
 private const val DEBUG_LOGGING_ENV_VAR = "PAYANAM_DEBUG_LOGGING"
 
-/** Stable name for the copy written by [UnifiedLogger.exportLatestLog]. */
-private const val LATEST_EXPORT_FILE_NAME = "payanam_desktop_latest_export.log"
-
 /**
  * Default for [UnifiedLogger.Companion.initialize]'s debug gate. Read once here rather than inside
  * the logger so the value is fixed for the session and recorded in the header.
@@ -164,7 +161,8 @@ class UnifiedLogger private constructor(
     fun getLogPath(): Path = logFilePath
 
     /**
-     * Copies this session's log file to a stable sibling export path and returns it.
+     * Copies this session's log file to a sibling copy carrying the shared session-log name and
+     * returns it.
      *
      * The desktop writes plain files into a plain directory, so export is a copy - there is no SAF
      * picker and no R class to route a content URI through. The original log is never moved or
@@ -179,7 +177,18 @@ class UnifiedLogger private constructor(
             if (!Files.isRegularFile(source)) {
                 return@runCatching null
             }
-            val target = source.resolveSibling(LATEST_EXPORT_FILE_NAME)
+            // Stamped at the export instant, so the copy is a session-log name of its own. A copy
+            // whose name resolves to the source is a no-op in `Files.copy`, not a truncation.
+            val target =
+                source.resolveSibling(
+                    sessionLogName(
+                        DesktopBuildInfo.PLATFORM,
+                        DesktopBuildInfo.VERSION_NAME,
+                        DesktopBuildInfo.BUILD_SHORT_SHA,
+                        DesktopBuildInfo.IS_DEBUG_BUILD,
+                        fileTimestampFormatter().format(clock().atZone(ZoneId.systemDefault())),
+                    ),
+                )
             Files.copy(source, target, StandardCopyOption.REPLACE_EXISTING)
             target.toFile()
         }.getOrNull()
@@ -195,15 +204,16 @@ class UnifiedLogger private constructor(
         val logsDirectory = getLogPath().parent ?: return null
         return runCatching {
             val stamp = fileTimestampFormatter().format(clock().atZone(ZoneId.systemDefault()))
-            val target = logsDirectory.resolve(
-                logExportName(
-                    DesktopBuildInfo.PLATFORM,
-                    DesktopBuildInfo.VERSION_NAME,
-                    DesktopBuildInfo.BUILD_SHORT_SHA,
-                    DesktopBuildInfo.IS_DEBUG_BUILD,
-                    stamp,
-                ),
-            )
+            val target =
+                logsDirectory.resolve(
+                    logExportName(
+                        DesktopBuildInfo.PLATFORM,
+                        DesktopBuildInfo.VERSION_NAME,
+                        DesktopBuildInfo.BUILD_SHORT_SHA,
+                        DesktopBuildInfo.IS_DEBUG_BUILD,
+                        stamp,
+                    ),
+                )
             ZipOutputStream(Files.newOutputStream(target)).use { zip ->
                 Files.list(logsDirectory).use { entries ->
                     entries
@@ -395,13 +405,14 @@ class UnifiedLogger private constructor(
             Files.createDirectories(logsDirectory)
             pruneOldLogs(logsDirectory)
             val now = clock()
-            val fileName = sessionLogName(
-                DesktopBuildInfo.PLATFORM,
-                DesktopBuildInfo.VERSION_NAME,
-                DesktopBuildInfo.BUILD_SHORT_SHA,
-                DesktopBuildInfo.IS_DEBUG_BUILD,
-                fileTimestampFormatter().format(now.atZone(ZoneId.systemDefault())),
-            )
+            val fileName =
+                sessionLogName(
+                    DesktopBuildInfo.PLATFORM,
+                    DesktopBuildInfo.VERSION_NAME,
+                    DesktopBuildInfo.BUILD_SHORT_SHA,
+                    DesktopBuildInfo.IS_DEBUG_BUILD,
+                    fileTimestampFormatter().format(now.atZone(ZoneId.systemDefault())),
+                )
             val logFile = logsDirectory.resolve(fileName)
             return UnifiedLogger(
                 logFilePath = logFile,

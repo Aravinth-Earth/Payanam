@@ -157,7 +157,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                     # pipe on the first line, sort takes SIGPIPE and reports non-zero, and a bare
                     # assignment would abort the whole run over a successful find.
                     candidate="$(find "$DATA_ROOT/Documents/$root_name/logs" -maxdepth 1 -type f \
-                        -name 'payanam_*.log' ! -name 'payanam_desktop_latest_export.log' \
+                        -name 'payanam_*.log' \
                         -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2- || true)"
                     [[ -n "$candidate" ]] || continue
                     if [[ -z "$APP_LOG" || "$candidate" -nt "$APP_LOG" ]]; then
@@ -168,7 +168,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                 # which cannot miss an unexpected layout but is also why the rule above is tried first.
                 if [[ -z "$APP_LOG" ]]; then
                     APP_LOG="$(find "$DATA_ROOT" -type f -name 'payanam_*.log' \
-                        ! -name 'payanam_desktop_latest_export.log' -printf '%T@ %p\n' 2>/dev/null \
+                        -printf '%T@ %p\n' 2>/dev/null \
                         | sort -rn | head -1 | cut -d' ' -f2- || true)"
                 fi
                 if [[ -n "$APP_LOG" ]]; then

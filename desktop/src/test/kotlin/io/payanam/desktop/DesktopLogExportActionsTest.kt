@@ -48,15 +48,19 @@ class DesktopLogExportActionsTest {
 
     private lateinit var logsDirectory: File
 
+    /** The logger's frozen clock; a test that exports moves it past the session's own stamp. */
+    private var clockNow: Instant = Instant.parse("2026-03-04T05:06:07Z")
+
     @Before
     fun setUp() {
         // The memoized singleton, so both hooks are needed: one to point it at this test's directory and
         // one to keep a leaked instance from pointing later classes at a deleted TemporaryFolder.
         UnifiedLogger.resetForTests()
         logsDirectory = temporaryFolder.newFolder("logs")
+        clockNow = Instant.parse("2026-03-04T05:06:07Z")
         UnifiedLogger.initialize(
             logsDirectory = logsDirectory.toPath(),
-            clock = { Instant.parse("2026-03-04T05:06:07Z") },
+            clock = { clockNow },
             debugEnabled = true,
         )
     }
@@ -104,10 +108,11 @@ class DesktopLogExportActionsTest {
         // The export copies THIS session's log, so one line must exist first or the outcome is the
         // failure arm - which is its own case below.
         UnifiedLogger.getInstance().i("test", "seed the session log")
+        // A later instant than the session's own, so the copy gets a name of its own to be written at.
+        clockNow = Instant.parse("2026-03-04T05:07:09Z")
 
         composeRule.onNodeWithText(strings.settingsActionExportLatestLog).performClick()
 
-        val artifact = logsDirectory.resolve("payanam_desktop_latest_export.log")
         composeRule.waitUntil(timeoutMillis = 10_000) {
             logText().contains("action=\"exportLatestLog\"")
         }
@@ -116,6 +121,24 @@ class DesktopLogExportActionsTest {
         }
         val text = logText()
         assertThat(text).contains("outcome=\"exported\"")
+        // The copy carries an ordinary session-log name, so it is found as the one .log file that is
+        // not this session's own.
+        val sessionName =
+            UnifiedLogger
+                .getInstance()
+                .getLogPath()
+                .fileName
+                .toString()
+        val artifacts =
+            logsDirectory
+                .listFiles()
+                .orEmpty()
+                .filter { it.name.endsWith(".log") && it.name != sessionName }
+        assertThat(artifacts).hasSize(1)
+        val artifact = artifacts.single()
+        assertThat(artifact.name)
+            .startsWith("payanam_${osToken(DesktopBuildInfo.PLATFORM)}_${DesktopBuildInfo.VERSION_NAME}_")
+        assertThat(artifact.name).endsWith(".log")
         // The fileName VALUE is the shared LogSanitizer's business - it redacts path-like data values, which
         // is exactly why the absolute-path invariant below holds - so the arm is asserted through `outcome`,
         // which the sanitizer leaves alone.
@@ -164,6 +187,8 @@ class DesktopLogExportActionsTest {
     fun `an export that cannot write its target logs the failure arm rather than a silent nothing`() {
         render()
         UnifiedLogger.getInstance().i("test", "seed the session log")
+        // A later instant, or the copy would resolve to the session log and never reach the directory.
+        clockNow = Instant.parse("2026-03-04T05:07:09Z")
 
         // The export copies into the SAME directory; a directory that refuses new files makes the copy fail
         // while the open session log keeps accepting appends through its existing handle - the exact split
