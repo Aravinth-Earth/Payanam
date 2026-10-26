@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.database.jvm
 
+import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.Flow
@@ -30,6 +31,9 @@ internal object JdbcFlows {
     /** One second: fast enough to feel live, slow enough that an idle screen is not a busy loop. */
     const val DEFAULT_POLL_INTERVAL_MS: Long = 1_000L
 
+    /** Log-source tag for the single line a closed stream produces. */
+    private const val SOURCE = "JdbcFlows"
+
     /**
      * Emits [read]'s value immediately, then again whenever it changes.
      *
@@ -38,6 +42,8 @@ internal object JdbcFlows {
      *
      * Only equal values are suppressed; a change back to a previously-seen value IS emitted, because the
      * UI has to be told about it.
+     *
+     * A session that closes under the subscription COMPLETES the stream; see the catch below.
      */
     fun <T> observe(
         pollIntervalMs: Long = DEFAULT_POLL_INTERVAL_MS,
@@ -47,7 +53,19 @@ internal object JdbcFlows {
             var hasEmitted = false
             var last: T? = null
             while (true) {
-                val value = withContext(Dispatchers.IO) { read() }
+                val value =
+                    try {
+                        withContext(Dispatchers.IO) { read() }
+                    } catch (closed: PayanamDatabaseSessionClosedException) {
+                        // Closed session = normal end of stream: its owner is gone and this handle never reopens.
+                        // Only this type is caught; any other IllegalStateException still reaches the collector.
+                        AppLogger.current.d(
+                            SOURCE,
+                            "Observation stream ended because the session was closed",
+                            mapOf("reason" to closed.message),
+                        )
+                        return@flow
+                    }
                 if (!hasEmitted || value != last) {
                     hasEmitted = true
                     last = value

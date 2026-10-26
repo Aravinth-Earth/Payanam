@@ -261,6 +261,12 @@ class DesktopSettingsDestinationRenderTest {
 
     @After
     fun tearDown() {
+        // END THE COMPOSITION FIRST: the settings destination's ViewModels own `Dispatchers.Default` scopes
+        // created inside `desktopRetained`, unreachable from here, so replacing the content with an empty one
+        // is what disposes them - and `waitForIdle` applies it while the session is still open. Closing the
+        // session first leaves collectors reading a closed connection.
+        composeRule.setContent { }
+        composeRule.waitForIdle()
         LocalDataLayer.resetForTests()
         sessionLogger.close()
         UnifiedLogger.resetForTests()

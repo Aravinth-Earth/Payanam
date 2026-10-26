@@ -239,6 +239,11 @@ class DesktopNavHostDestinationRenderTest {
         // victim moves from run to run. Joining before the session closes is what stops one test's failure
         // from being charged to an unrelated one.
         runBlocking { setupViewModelScope?.coroutineContext?.get(Job)?.cancelAndJoin() }
+        // Then the composition's own ViewModels, the same way and for the same reason: the shared screens
+        // retain theirs inside `desktopRetained`, so replacing the content with an empty one is the only
+        // cancel path, and `waitForIdle` applies the disposal while the session is still open.
+        composeRule.setContent { }
+        composeRule.waitForIdle()
         // Both holders are reset in BOTH directions for the reason `LocalDataLayer.resetForTests` documents:
         // the `@Before` guard stops this class asserting on state leaked out of an earlier one, and the
         // `@After` guard stops it leaking onward. A failing assertion aborts the test body before it can
