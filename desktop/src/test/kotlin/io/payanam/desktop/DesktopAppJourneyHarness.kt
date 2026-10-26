@@ -68,6 +68,9 @@ import java.util.Properties
 /** Long enough for a real dispatcher hop on a loaded CI box, short enough to fail rather than hang. */
 private const val JOURNEY_TIMEOUT_MS = 10_000L
 
+/** The re-read cadence both fixtures install: the shipped 1 s poll spends most of a wait budget on hops. */
+private const val JOURNEY_POLL_INTERVAL_MS = 10L
+
 /**
  * The shared in-process harness the desktop's JOURNEY tests mount through.
  *
@@ -544,7 +547,7 @@ abstract class DesktopAppJourneyHarness {
         }
         session = PayanamDatabaseSession.forGeneratedFixture(connection, schemaVersion = 21)
         LocalDataLayer.resetForTests()
-        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = 10L))
+        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = JOURNEY_POLL_INTERVAL_MS))
     }
 
     /**
@@ -570,6 +573,9 @@ abstract class DesktopAppJourneyHarness {
         val result = runBlocking { sessionController.openAndInstall(passphrase.toCharArray()) }
         check(result is DatabaseOpenResult.Opened) { "the fixture open refused: $result" }
         session = result.session
+        // `openAndInstall` builds its layer at the shipped 1 s poll, and one wait spans several database
+        // hops. Re-installed over the SAME session: same repositories, only the re-read interval changes.
+        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = JOURNEY_POLL_INTERVAL_MS))
         session.withSerializedAccess { connection -> seedCanonicalDimensions(connection) }
     }
 
