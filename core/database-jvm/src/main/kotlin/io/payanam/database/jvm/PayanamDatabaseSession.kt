@@ -9,6 +9,9 @@ import io.payanam.shared.logging.AppLogger
 import java.sql.Connection
 import java.sql.SQLException
 
+/** The one message a closed-session failure carries, so the type and the text cannot drift apart. */
+private const val SESSION_CLOSED_MESSAGE = "PayanamDatabaseSession is closed"
+
 /**
  * An open handle to the encrypted Payanam database.
  *
@@ -60,7 +63,7 @@ class PayanamDatabaseSession internal constructor(
      */
     @Synchronized
     fun requireConnection(): Connection {
-        check(!closed) { "PayanamDatabaseSession is closed" }
+        if (closed) throw PayanamDatabaseSessionClosedException()
         return connection
     }
 
@@ -82,7 +85,7 @@ class PayanamDatabaseSession internal constructor(
      */
     @Synchronized
     fun <T> withSerializedAccess(block: (Connection) -> T): T {
-        check(!closed) { "PayanamDatabaseSession is closed" }
+        if (closed) throw PayanamDatabaseSessionClosedException()
         return block(connection)
     }
 
@@ -129,7 +132,7 @@ class PayanamDatabaseSession internal constructor(
      */
     @Synchronized
     fun checkpoint(): FoldReport {
-        check(!closed) { "PayanamDatabaseSession is closed" }
+        if (closed) throw PayanamDatabaseSessionClosedException()
         val row =
             JdbcQueries.read(this, WalCheckpointRule.FOLD_STATEMENT, emptyArray()) { resultSet ->
                 if (resultSet.next()) {
@@ -156,3 +159,13 @@ class PayanamDatabaseSession internal constructor(
         return row
     }
 }
+
+/**
+ * Thrown when a session's connection is used after [PayanamDatabaseSession.close].
+ *
+ * An [IllegalStateException], which is what this condition has always been reported as, so every existing
+ * caller keeps its contract. The distinct TYPE is what lets the polling observation stream tell a session
+ * that ended under it — a normal end of subscription — from any other state failure, which must still reach
+ * its caller. Constructed only by [PayanamDatabaseSession].
+ */
+class PayanamDatabaseSessionClosedException internal constructor() : IllegalStateException(SESSION_CLOSED_MESSAGE)

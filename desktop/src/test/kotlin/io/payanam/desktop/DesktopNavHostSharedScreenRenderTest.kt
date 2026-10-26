@@ -199,6 +199,12 @@ class DesktopNavHostSharedScreenRenderTest {
 
     @After
     fun tearDown() {
+        // END THE COMPOSITION FIRST. Every screen's shared ViewModel owns a `Dispatchers.Default` scope built
+        // inside `desktopRetained`, so nothing outside the composition can reach it - replacing the content
+        // with an empty one disposes those ViewModels, and `waitForIdle` applies that disposal while the
+        // session is still open. Closing the session first would leave collectors reading a closed connection.
+        composeRule.setContent { }
+        composeRule.waitForIdle()
         // Reset in BOTH directions, for the reason `LocalDataLayer.resetForTests` documents: the `@Before`
         // guard stops this class asserting on state leaked out of an earlier one, and the `@After` guard
         // stops it leaking onward. A failing assertion aborts the test body before it can close the logger,
