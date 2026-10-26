@@ -184,8 +184,8 @@ tasks.register("coverageCheck") {
 // literal or a trailing comment also counts; whole-line comments are skipped.
 // ---------------------------------------------------------------------------------------------
 // Repo-relative paths that ARE the logging implementation, so every pattern is allowed in them:
-// the sink cannot route its own emission through itself, and FileLogger's stderr fires only after
-// a write has already failed. Two files, deliberately by name - not the whole `logging/` package.
+// the sink cannot route its own emission through itself. One file, deliberately by name - not the
+// whole `logging/` package.
 //
 // All of the values below are declared INSIDE the task action rather than at script scope: a
 // script-scope `val` captured by a task action pins a reference to the whole build script, which
@@ -216,7 +216,6 @@ tasks.register("verifyNoDirectLogging") {
         val exemptFiles =
             setOf(
                 "core/common/src/main/kotlin/io/payanam/common/logging/UnifiedLogger.kt",
-                "core/common/src/main/kotlin/io/payanam/common/logging/FileLogger.kt",
             )
         val exemptLines =
             mapOf(

@@ -518,24 +518,6 @@ function Invoke-DeviceSmokePack
         throw "Smoke logcat indicates a potential fatal runtime signal for package $PackageName. See $logcatPath"
     }
 
-    $latestInAppPath = adb shell "ls -t /storage/emulated/0/Documents/payanam/logs/payanam-unified*.log 2>/dev/null | head -1" 2>&1
-    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($latestInAppPath))
-    {
-        $latestInAppPath = $latestInAppPath.Trim()
-        $pulledLogPath = Join-Path $smokeDir "inapp-unified-log.txt"
-        $pullResult = adb pull $latestInAppPath $pulledLogPath 2>&1
-        if ($LASTEXITCODE -eq 0)
-        {
-            Write-LogWithTime "Saved in-app unified log snapshot: $pulledLogPath" "DarkGray"
-        } else
-        {
-            Write-LogWithTime "  ⚠️ Unable to pull in-app unified log snapshot: $pullResult" "Yellow"
-        }
-    } else
-    {
-        Write-LogWithTime "  ⚠️ No in-app unified log file found to pull." "Yellow"
-    }
-
     Write-LogWithTime "✅ Device smoke pack passed." "Green"
 }
 
