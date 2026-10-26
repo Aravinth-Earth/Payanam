@@ -1,5 +1,5 @@
 # Android build script for Kotlin + Compose.
-# Artefact: Payanam_Android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.apk
+# Artefact: Payanam_android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.apk
 # Migrated from Capacitor/TypeScript to pure Kotlin
 
 param(
@@ -36,6 +36,7 @@ function Write-LogWithTime
 # Shared release-security helpers (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
 # Dot-sourced here AND in publish-release.ps1 — single implementation, never copied.
 . "$PSScriptRoot/release-security.ps1"
+. "$PSScriptRoot/lib/naming.ps1"
 
 function Get-DateTimeStamp
 {
@@ -56,9 +57,9 @@ function Get-BuildArtifactMetadata
     # Mapping sidecars keep a ".mapping" BaseName suffix that the name standard does not carry.
     $artifactStem = $artifactName -replace '\.mapping$', ''
     $timestamp = ""
-    # Name standard only: Payanam_Android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.
+    # Name standard only: Payanam_android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.
     # Unparsed names (legacy/unrecognized) get an empty Timestamp, so they are the first retention candidates.
-    if ($artifactStem -match '^Payanam_Android_([^_]+)_([^_]+)_(debug|release)_(\d{8}_\d{6})$')
+    if ($artifactStem -match '^Payanam_android_([^_]+)_([^_]+)_(debug|release)_(\d{8}_\d{6})$')
     {
         $timestamp = $Matches[4]
     }
@@ -1205,6 +1206,218 @@ function Test-CriticalLoggingCoverageContract
     return $true
 }
 
+# Reads an exact byte range from a seekable stream; a short read means the file changed mid-check.
+function Read-ApkByteRange
+{
+    param(
+        [System.IO.FileStream]$Stream,
+        [long]$Offset,
+        [int]$Count
+    )
+
+    $buffer = [byte[]]::new($Count)
+    $Stream.Seek($Offset, [System.IO.SeekOrigin]::Begin) | Out-Null
+    $read = 0
+    while ($read -lt $Count)
+    {
+        $chunk = $Stream.Read($buffer, $read, $Count - $read)
+        if ($chunk -le 0)
+        {
+            throw "Short read at offset $Offset ($read of $Count bytes)"
+        }
+        $read += $chunk
+    }
+
+    return , $buffer
+}
+
+# Sums each entry's declared local-header footprint and compares the total with the file size; the
+# residue is bytes no central-directory entry and no declared APK region accounts for.
+function Test-ApkArchiveFootprint
+{
+    param(
+        [string]$ApkPath,
+        [long]$MaxUnreferencedBytes = 4096
+    )
+
+    if (-not (Test-Path -LiteralPath $ApkPath))
+    {
+        Write-LogWithTime "  ❌ APK footprint guard: file not found: $ApkPath" "Red"
+        return $false
+    }
+
+    $sourcePath = (Get-Item -LiteralPath $ApkPath).FullName
+    $stream = [System.IO.FileStream]::new(
+        $sourcePath,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    try
+    {
+        $fileSize = $stream.Length
+
+        # The end-of-central-directory record sits behind a comment of up to 65535 bytes.
+        $tailLength = [int][System.Math]::Min([long]65557, $fileSize)
+        $tail = Read-ApkByteRange -Stream $stream -Offset ($fileSize - $tailLength) -Count $tailLength
+        $eocdIndex = -1
+        for ($i = $tailLength - 22; $i -ge 0; $i--)
+        {
+            if ($tail[$i] -ne 0x50 -or $tail[$i + 1] -ne 0x4B -or $tail[$i + 2] -ne 0x05 -or $tail[$i + 3] -ne 0x06)
+            {
+                continue
+            }
+            if (($i + 22 + [System.BitConverter]::ToUInt16($tail, $i + 20)) -le $tailLength)
+            {
+                $eocdIndex = $i
+                break
+            }
+        }
+        if ($eocdIndex -lt 0)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: no end-of-central-directory record in $ApkPath" "Red"
+            return $false
+        }
+
+        $eocdSize = 22 + [System.BitConverter]::ToUInt16($tail, $eocdIndex + 20)
+        $entryCount = [int][System.BitConverter]::ToUInt16($tail, $eocdIndex + 10)
+        $centralDirectorySize = [long][System.BitConverter]::ToUInt32($tail, $eocdIndex + 12)
+        $centralDirectoryOffset = [long][System.BitConverter]::ToUInt32($tail, $eocdIndex + 16)
+
+        # ZIP64 keeps these three values in a separate record this guard does not read.
+        if ($entryCount -eq 0xFFFF -or $centralDirectorySize -eq 0xFFFFFFFF -or $centralDirectoryOffset -eq 0xFFFFFFFF)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: ZIP64 archive, not supported: $ApkPath" "Red"
+            return $false
+        }
+        if ($centralDirectorySize -gt [int]::MaxValue -or (($centralDirectoryOffset + $centralDirectorySize) -gt $fileSize))
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: central directory lies outside the file: $ApkPath" "Red"
+            return $false
+        }
+
+        $centralDirectory = Read-ApkByteRange -Stream $stream -Offset $centralDirectoryOffset -Count ([int]$centralDirectorySize)
+        $entries = [System.Collections.Generic.List[object]]::new()
+        $position = 0
+        while ($position + 46 -le $centralDirectory.Length)
+        {
+            if ([System.BitConverter]::ToUInt32($centralDirectory, $position) -ne 0x02014b50)
+            {
+                break
+            }
+            $nameLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 28)
+            $extraLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 30)
+            $commentLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 32)
+            $entries.Add([PSCustomObject]@{
+                    Name = [System.Text.Encoding]::UTF8.GetString($centralDirectory, $position + 46, $nameLength)
+                    Offset = [long][System.BitConverter]::ToUInt32($centralDirectory, $position + 42)
+                    CompressedSize = [long][System.BitConverter]::ToUInt32($centralDirectory, $position + 20)
+                })
+            $position += 46 + $nameLength + $extraLength + $commentLength
+        }
+        if ($entries.Count -ne $entryCount)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: found $($entries.Count) of $entryCount central-directory records" "Red"
+            return $false
+        }
+
+        $header = [byte[]]::new(30)
+        $declaredBytes = 0L
+        $declaredEnd = 0L
+        foreach ($entry in $entries)
+        {
+            $stream.Seek($entry.Offset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $read = 0
+            while ($read -lt 30)
+            {
+                $chunk = $stream.Read($header, $read, 30 - $read)
+                if ($chunk -le 0)
+                {
+                    Write-LogWithTime "  ❌ APK footprint guard: local header of '$($entry.Name)' is truncated at offset $($entry.Offset)" "Red"
+                    return $false
+                }
+                $read += $chunk
+            }
+            if ([System.BitConverter]::ToUInt32($header, 0) -ne 0x04034b50)
+            {
+                Write-LogWithTime "  ❌ APK footprint guard: '$($entry.Name)' has no local file header at offset $($entry.Offset)" "Red"
+                return $false
+            }
+            # Name and extra lengths come from the local header: zipalign pads the local extra field.
+            $localFootprint = [long](30 + [System.BitConverter]::ToUInt16($header, 26) + [System.BitConverter]::ToUInt16($header, 28))
+            $entry | Add-Member -NotePropertyName Footprint -NotePropertyValue ($localFootprint + $entry.CompressedSize)
+            $declaredBytes += $entry.Footprint
+            if (($entry.Offset + $entry.Footprint) -gt $declaredEnd)
+            {
+                $declaredEnd = $entry.Offset + $entry.Footprint
+            }
+        }
+
+        # The APK signing block sits between the last entry and the central directory and is not a ZIP
+        # entry; it counts as accounted-for bytes when its magic and size land clear of the last entry.
+        $signingBlockSize = 0L
+        if ($centralDirectoryOffset -ge 32)
+        {
+            $blockTail = Read-ApkByteRange -Stream $stream -Offset ($centralDirectoryOffset - 24) -Count 24
+            if ([System.Text.Encoding]::ASCII.GetString($blockTail, 8, 16) -eq "APK Sig Block 42")
+            {
+                $reportedSize = [long][System.BitConverter]::ToUInt64($blockTail, 0) + 8
+                if ($reportedSize -le $centralDirectoryOffset -and ($centralDirectoryOffset - $reportedSize) -ge $declaredEnd)
+                {
+                    $signingBlockSize = $reportedSize
+                }
+            }
+        }
+
+        $unreferencedBytes = $fileSize - $declaredBytes - $signingBlockSize - $centralDirectorySize - $eocdSize
+
+        # First offset covered by no entry, and the two entries the region falls between.
+        $coveredEnd = 0L
+        $previousName = "<start of archive>"
+        $gapStart = -1L
+        $gapAfterEntry = $null
+        $gapBeforeEntry = $null
+        foreach ($entry in ($entries | Sort-Object Offset))
+        {
+            if ($entry.Offset -gt $coveredEnd -and $gapStart -lt 0)
+            {
+                $gapStart = $coveredEnd
+                $gapAfterEntry = $previousName
+                $gapBeforeEntry = $entry.Name
+            }
+            if (($entry.Offset + $entry.Footprint) -gt $coveredEnd)
+            {
+                $coveredEnd = $entry.Offset + $entry.Footprint
+                $previousName = $entry.Name
+            }
+        }
+        if ($gapStart -lt 0 -and (($declaredEnd + $signingBlockSize) -lt $centralDirectoryOffset))
+        {
+            $gapStart = $declaredEnd
+            $gapAfterEntry = $previousName
+            $gapBeforeEntry = "the central directory"
+        }
+
+        if ($unreferencedBytes -gt $MaxUnreferencedBytes)
+        {
+            $unreferencedMiB = [math]::Round($unreferencedBytes / 1MB, 2)
+            Write-LogWithTime "  ❌ APK holds $unreferencedBytes unreferenced bytes ($unreferencedMiB MiB; limit $MaxUnreferencedBytes): $ApkPath" "Red"
+            if ($gapStart -ge 0)
+            {
+                Write-LogWithTime "     Orphaned region starts at offset $gapStart, immediately after entry '$gapAfterEntry' and before '$gapBeforeEntry'." "Red"
+            }
+            Write-LogWithTime "     Delete app/build/outputs/apk and rebuild so the APK is written fresh instead of patched." "Yellow"
+            return $false
+        }
+
+        Write-LogWithTime "  ℹ️ APK footprint: $($entries.Count) entries, $declaredBytes declared bytes, $signingBlockSize signing-block bytes, $centralDirectorySize central-directory bytes, $unreferencedBytes unreferenced bytes" "DarkGray"
+        return $true
+    } finally
+    {
+        $stream.Dispose()
+    }
+}
+
 Write-LogWithTime "========================================" "Cyan"
 Write-LogWithTime "  Payanam Android Build (Kotlin/Compose)" "Cyan"
 Write-LogWithTime "========================================" "Cyan"
@@ -1395,7 +1608,7 @@ try
 }
 
 $dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Android_$($payanamVersion)_$($shortSha)_$($buildType)_$dateTimeStamp"
+$buildName = Get-PayanamGeneratedName -Prefix "Payanam" -Platform "Android" -Version $payanamVersion -Sha $shortSha -Type $buildType -Timestamp $dateTimeStamp
 $gradleProps = "-PbuildPlatform=Android -PbuildTimestamp=$dateTimeStamp -PbuildShortSha=$shortSha"
 Write-LogWithTime "  ✅ Version $payanamVersion, sha $shortSha" "Green"
 Write-LogWithTime "Build Name: $buildName" "Cyan"
@@ -1690,6 +1903,23 @@ if ($Arm64Only)
     $gradleTask += " -Parm64Only=true"
     Write-LogWithTime "Arm64-only: arm64-v8a ABI only (opt-in; default builds all ABIs)" "Yellow"
 }
+
+# AGP patches an existing APK in place, and a patched entry can leave the bytes it replaced orphaned.
+# Clearing only this directory forces a new APK file; app/build and the mapping intermediates stay.
+$apkOutputsDir = "app/build/outputs/apk"
+if (Test-Path -LiteralPath $apkOutputsDir)
+{
+    try
+    {
+        Remove-Item -LiteralPath $apkOutputsDir -Recurse -Force -ErrorAction Stop
+        Write-LogWithTime "Cleared $apkOutputsDir so the APK is written fresh, not patched." "DarkGray"
+    } catch
+    {
+        Write-LogWithTime "  ❌ Could not clear $apkOutputsDir : $($_.Exception.Message)" "Red"
+        Exit-WithCleanup 1
+    }
+}
+
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
 # In-process test mode builds unminified: a minified debug build breaks the androidTest APK.
@@ -1698,6 +1928,7 @@ if ($RunInProcess.IsPresent -and $gradleTask -eq "assembleDebug")
     $gradleTask = "$gradleTask -Ppayanam.noMinify=true"
     Write-LogWithTime "In-process mode: assembling unminified debug (minification breaks the androidTest APK)." "Yellow"
 }
+
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask $gradleProps" -StepLabel "APK assembly"
 if ($buildRun.ExitCode -ne 0)
 {
@@ -1730,6 +1961,13 @@ if (-not (Test-Path $apkSourcePath))
     Write-LogWithTime "❌ APK not found at: $apkSourcePath" "Red"
     Exit-WithCleanup 1
 }
+
+Write-LogWithTime "Checking APK archive footprint (no unreferenced bytes)..." "Cyan"
+if (-not (Test-ApkArchiveFootprint -ApkPath $apkSourcePath))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ APK archive footprint guard passed" "Green"
 
 # Copy to output with build name
 if (-not (Test-Path "output/apks"))
