@@ -570,12 +570,16 @@ abstract class DesktopAppJourneyHarness {
         // `DesktopApp` does - so it HOLDS the passphrase the passphrase-change flow needs. A fixture that
         // installed the layer directly left the controller with no passphrase, which is why that surface
         // could not be driven.
-        val result = runBlocking { sessionController.openAndInstall(passphrase.toCharArray()) }
+        // One layer per session, so the only observing repositories are the ones the controller owns.
+        val result =
+            runBlocking {
+                sessionController.openAndInstall(
+                    passphrase = passphrase.toCharArray(),
+                    pollIntervalMs = JOURNEY_POLL_INTERVAL_MS,
+                )
+            }
         check(result is DatabaseOpenResult.Opened) { "the fixture open refused: $result" }
         session = result.session
-        // `openAndInstall` builds its layer at the shipped 1 s poll, and one wait spans several database
-        // hops. Re-installed over the SAME session: same repositories, only the re-read interval changes.
-        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = JOURNEY_POLL_INTERVAL_MS))
         session.withSerializedAccess { connection -> seedCanonicalDimensions(connection) }
     }
 
