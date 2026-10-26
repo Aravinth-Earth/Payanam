@@ -82,6 +82,7 @@ import io.payanam.presentation.notes.notesViewModel
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
+import io.payanam.shared.logging.autoBackupDirName
 import io.payanam.shared.platform.DocumentSource
 import io.payanam.shared.settings.DesktopSettingsSnapshot
 import io.payanam.shared.settings.DesktopTopLevelRoute
@@ -963,8 +964,8 @@ internal fun desktopScheduledBackupDestination(databaseDirectory: Path = Desktop
     // scheduler logs it, which is the honest answer - a backup that has nowhere to go did not happen.
     Files.createDirectories(databaseDirectory)
     val stamp = LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
-    // The NAME comes from the shared prefix the rotation matcher prunes with, so an artifact this
-    // app writes is one rotation can recognise; a name assembled only here would be invisible to it.
+    // The NAME comes from the shared backup name builder, so an artifact this app writes carries the
+    // version, sha and build type Android's backup does and rotation recognises it.
     val plain = databaseDirectory.resolve(scheduledBackupArtifactName(stamp))
     if (!Files.exists(plain)) return plain
     // A SECOND run inside the same second would otherwise name the same file, and the export copies
@@ -987,7 +988,7 @@ internal fun desktopScheduledBackupDestination(databaseDirectory: Path = Desktop
  * chronological order. Resolution to the SECOND is not uniqueness on its own - a second run in the
  * same second repeats the stamp, and [desktopScheduledBackupDestination] disambiguates those.
  */
-private val BACKUP_FILE_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd-HHmmss")
+private val BACKUP_FILE_TIMESTAMP: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss")
 
 /**
  * The dispatcher the backup's file work is done on - deliberately NOT the caller's.
@@ -1044,7 +1045,13 @@ private suspend fun runScheduledDesktopBackup(
                 logger = sessionLogger,
                 backupDirectory = DesktopAppPaths.resolveDatabaseDirectory().toFile(),
                 sessionFolderName = {
-                    "auto_bk_" + LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP)
+                    autoBackupDirName(
+                        DesktopBuildInfo.PLATFORM,
+                        DesktopBuildInfo.VERSION_NAME,
+                        DesktopBuildInfo.BUILD_SHORT_SHA,
+                        DesktopBuildInfo.IS_DEBUG_BUILD,
+                        LocalDateTime.now().format(BACKUP_FILE_TIMESTAMP),
+                    )
                 },
                 destinationFileName = PayanamDatabaseSchema.DATABASE_NAME,
                 rotationRows = backupRows,

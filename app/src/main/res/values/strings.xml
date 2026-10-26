@@ -135,7 +135,7 @@
     <string name="settings_action_dismiss_error_message">Dismiss Message</string>
     <string name="settings_action_configure_scoring">Configure Scoring Weights</string>
     <string name="settings_action_view_on_github">View on GitHub</string>
-    <string name="settings_data_management_help">Export creates a full encrypted database backup. Import fully replaces local app data from a previously exported backup or a supported legacy database. Log exports save log files to Documents/payanam/exported-logs/ for debugging.</string>
+    <string name="settings_data_management_help">Export creates a full encrypted database backup. Import fully replaces local app data from a previously exported backup or a supported legacy database. Log exports save log files to Documents/Payanam/exported-logs/ for debugging.</string>
     <string name="settings_imported_habits_count">Imported uHabits habits: %1$d</string>
     <string name="settings_bulk_map_dialog_title">Bulk Map Imported Habits</string>
     <string name="settings_bulk_map_dialog_message">Select a life dimension to assign to all imported uHabits habits.</string>

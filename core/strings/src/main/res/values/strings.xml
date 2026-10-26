@@ -783,7 +783,7 @@
     <string name="settings_bulk_map_dialog_message">Select a life dimension to assign to all imported uHabits habits.</string>
     <string name="settings_bulk_map_dialog_title">Bulk Map Imported Habits</string>
     <string name="settings_bulk_map_dimension_selected">✓ %1$s</string>
-    <string name="settings_data_management_help">Export creates a full encrypted database backup. Import fully replaces local app data from a previously exported backup or a supported legacy database. Log exports save log files to Documents/payanam/exported-logs/ for debugging.</string>
+    <string name="settings_data_management_help">Export creates a full encrypted database backup. Import fully replaces local app data from a previously exported backup or a supported legacy database. Log exports save log files to Documents/Payanam/exported-logs/ for debugging.</string>
     <string name="settings_data_management_title">Data Management</string>
     <string name="settings_database_clean_stale">Clean Stale Files</string>
     <string name="settings_database_current_schema">Current Schema</string>

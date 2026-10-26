@@ -1,22 +1,18 @@
-# Android Build Script for Kotlin + Compose
-# Format: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss> (e.g. Payanam_Android_1607_debug_20260912_143000.apk)
+# Android build script for Kotlin + Compose.
+# Artefact: Payanam_android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.apk
 # Migrated from Capacitor/TypeScript to pure Kotlin
 
 param(
-    [switch]$Clean,
-    # -Install opts in to installing the built APK on the connected device. It is OFF by
-    # default (a plain run builds and stops), so no attached phone is updated by accident.
-    [switch]$Install,
-    [switch]$CleanInstall,
-    [switch]$SkipTests,
-    [switch]$SkipGuardrails,
+    # -InstallApk <upgrade|clean> installs the built APK: 'upgrade' installs in place,
+    # 'clean' uninstalls first. It runs no verification, smoke pack, tests or log pulls.
+    [ValidateSet('upgrade', 'clean')]
+    [string]$InstallApk,
+    # -SmokePack runs the device smoke pack after an -InstallApk install. Requires -InstallApk.
+    [switch]$SmokePack,
+    # -RunInProcess runs the device-run androidTest tier. Independent of -InstallApk.
     [switch]$RunInProcess,
-    [switch]$KeepDaemons,
     [switch]$Release,
-    [switch]$Publish,
-    [switch]$Arm64Only,
-    [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
-    [string]$OutputDir = "output/apks"
+    [switch]$Arm64Only
 )
 
 $ErrorActionPreference = "Stop"
@@ -40,219 +36,11 @@ function Write-LogWithTime
 # Shared release-security helpers (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
 # Dot-sourced here AND in publish-release.ps1 — single implementation, never copied.
 . "$PSScriptRoot/release-security.ps1"
+. "$PSScriptRoot/lib/naming.ps1"
 
 function Get-DateTimeStamp
 {
     return (Get-Date -Format "yyyyMMdd_HHmmss")
-}
-
-function Get-LocalDateTime
-{
-    $now = Get-Date
-    $offsetMinutes = [System.TimeZoneInfo]::Local.GetUtcOffset($now).TotalMinutes
-    $offsetHours = [int][math]::Floor([math]::Abs($offsetMinutes) / 60)
-    $offsetMins = [int]([math]::Abs($offsetMinutes) % 60)
-    $offsetSign = if ($offsetMinutes -ge 0)
-    { "+"
-    } else
-    { "-"
-    }
-    $offsetString = "$offsetSign$($offsetHours.ToString('D2')):$($offsetMins.ToString('D2'))"
-    return $now.ToString("yyyy-MM-ddTHH:mm:ss") + $offsetString
-}
-
-function Format-CanonicalJson
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Json,
-        [int]$IndentSize = 2
-    )
-
-    $builder = [System.Text.StringBuilder]::new()
-    $indentLevel = 0
-    $inString = $false
-    $isEscaped = $false
-    $indentUnit = " " * $IndentSize
-
-    foreach ($char in $Json.ToCharArray())
-    {
-        if ($inString)
-        {
-            [void]$builder.Append($char)
-            if ($isEscaped)
-            {
-                $isEscaped = $false
-            } elseif ($char -eq '\')
-            {
-                $isEscaped = $true
-            } elseif ($char -eq '"')
-            {
-                $inString = $false
-            }
-            continue
-        }
-
-        switch ($char)
-        {
-            '"'
-            {
-                $inString = $true
-                [void]$builder.Append($char)
-            }
-            '{'
-            {
-                [void]$builder.Append($char)
-                $indentLevel++
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            '['
-            {
-                [void]$builder.Append($char)
-                $indentLevel++
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            '}'
-            {
-                $indentLevel--
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-                [void]$builder.Append($char)
-            }
-            ']'
-            {
-                $indentLevel--
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-                [void]$builder.Append($char)
-            }
-            ','
-            {
-                [void]$builder.Append($char)
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            ':'
-            {
-                [void]$builder.Append(": ")
-            }
-            default
-            {
-                [void]$builder.Append($char)
-            }
-        }
-    }
-
-    return $builder.ToString()
-}
-
-function Write-CanonicalJsonFile
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-        [Parameter(Mandatory = $true)]
-        [object]$InputObject
-    )
-
-    $resolvedPath = if ([System.IO.Path]::IsPathRooted($Path))
-    {
-        $Path
-    } else
-    {
-        Join-Path $projectRoot $Path
-    }
-    $compressedJson = $InputObject | ConvertTo-Json -Depth 10 -Compress
-    $formattedJson = Format-CanonicalJson -Json $compressedJson
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::WriteAllText($resolvedPath, "$formattedJson`n", $utf8NoBom)
-}
-
-function ConvertTo-DateTimeOffsetOrNull
-{
-    param([string]$Text)
-    if ([string]::IsNullOrWhiteSpace($Text))
-    {
-        return $null
-    }
-    try
-    {
-        return [DateTimeOffset]::Parse($Text, [System.Globalization.CultureInfo]::InvariantCulture)
-    } catch
-    {
-        return $null
-    }
-}
-
-function Get-HoursSinceTimestamp
-{
-    param([string]$IsoDateTime)
-    $parsed = ConvertTo-DateTimeOffsetOrNull -Text $IsoDateTime
-    if ($null -eq $parsed)
-    {
-        return [double]::PositiveInfinity
-    }
-    $now = [DateTimeOffset]::Now
-    return [math]::Max(0.0, ($now - $parsed).TotalHours)
-}
-
-function Resolve-BuildProfile
-{
-    param(
-        [string]$RequestedProfile,
-        [pscustomobject]$CounterState,
-        [pscustomobject]$PolicyState
-    )
-
-    if ($RequestedProfile -ne "auto")
-    {
-        return [PSCustomObject]@{
-            Profile = $RequestedProfile
-            Reason = "explicit"
-        }
-    }
-
-    if ($null -eq $PolicyState -or $null -eq $PolicyState.autoProfile)
-    {
-        return [PSCustomObject]@{
-            Profile = "quick"
-            Reason = "auto_policy_missing_default_quick"
-        }
-    }
-
-    if (-not $PolicyState.autoProfile.enabled)
-    {
-        return [PSCustomObject]@{
-            Profile = "quick"
-            Reason = "auto_disabled_default_quick"
-        }
-    }
-
-    $fullEveryHours = [double]$PolicyState.autoProfile.fullEveryHours
-    $normalEveryHours = [double]$PolicyState.autoProfile.normalEveryHours
-    $hoursSinceFull = Get-HoursSinceTimestamp -IsoDateTime $CounterState.android.lastFull
-    $hoursSinceNormal = Get-HoursSinceTimestamp -IsoDateTime $CounterState.android.lastNormal
-
-    if ($hoursSinceFull -ge $fullEveryHours)
-    {
-        return [PSCustomObject]@{
-            Profile = "full"
-            Reason = "hours_since_full=$([math]::Round($hoursSinceFull, 2)) >= $fullEveryHours"
-        }
-    }
-    if ($hoursSinceNormal -ge $normalEveryHours)
-    {
-        return [PSCustomObject]@{
-            Profile = "normal"
-            Reason = "hours_since_normal=$([math]::Round($hoursSinceNormal, 2)) >= $normalEveryHours"
-        }
-    }
-    return [PSCustomObject]@{
-        Profile = "quick"
-        Reason = "within_thresholds_full=$([math]::Round($hoursSinceFull, 2))h normal=$([math]::Round($hoursSinceNormal, 2))h"
-    }
 }
 
 function Get-BuildArtifactMetadata
@@ -266,21 +54,20 @@ function Get-BuildArtifactMetadata
     } else
     { $Item.BaseName
     }
-    $buildNumber = -1
+    # Mapping sidecars keep a ".mapping" BaseName suffix that the name standard does not carry.
+    $artifactStem = $artifactName -replace '\.mapping$', ''
     $timestamp = ""
-    # Current name standard only: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>.
-    # Unparsed names (legacy/unrecognized) stay BuildNumber=-1 -> first retention candidates;
-    # retention stays non-throwing by design (cycle-3 amendment 1).
-    if ($artifactName -match '^Payanam_Android_(\d+)_(debug|release)_(\d{8}_\d{6})$')
+    # Name standard only: Payanam_android_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.
+    # Unparsed names (legacy/unrecognized) get an empty Timestamp, so they are the first retention candidates.
+    if ($artifactStem -match '^Payanam_android_([^_]+)_([^_]+)_(debug|release)_(\d{8}_\d{6})$')
     {
-        $buildNumber = [int]$Matches[1]
-        $timestamp = $Matches[3]
+        $timestamp = $Matches[4]
     }
 
     return [PSCustomObject]@{
         Item = $Item
         ArtifactName = $artifactName
-        BuildNumber = $buildNumber
+        ArtifactStem = $artifactStem
         Timestamp = $timestamp
         LastWriteUtc = $Item.LastWriteTimeUtc
     }
@@ -322,10 +109,10 @@ function Invoke-BuildArtifactRetention
     }
 
     $metadata = $items | ForEach-Object { Get-BuildArtifactMetadata -Item $_ }
-    $protected = $metadata | Where-Object { $_.ArtifactName -eq $CurrentBuildName }
-    $candidates = $metadata | Where-Object { $_.ArtifactName -ne $CurrentBuildName }
+    $protected = $metadata | Where-Object { $_.ArtifactStem -eq $CurrentBuildName }
+    $candidates = $metadata | Where-Object { $_.ArtifactStem -ne $CurrentBuildName }
+    # Newest name timestamp first; LastWriteUtc breaks ties and orders unparsed names last.
     $orderedCandidates = $candidates | Sort-Object `
-    @{ Expression = "BuildNumber"; Descending = $true }, `
     @{ Expression = "Timestamp"; Descending = $true }, `
     @{ Expression = "LastWriteUtc"; Descending = $true }
 
@@ -393,13 +180,7 @@ function Remove-OrphanedArtifactChecksums
 
 function Invoke-DaemonCleanup
 {
-    if ($KeepDaemons)
-    {
-        Write-LogWithTime "Keeping Gradle/Kotlin daemons alive (-KeepDaemons)." "Yellow"
-        return
-    }
-
-    Write-LogWithTime "Low-memory default: stopping Gradle/Kotlin daemons..." "Yellow"
+    Write-LogWithTime "Stopping Gradle/Kotlin daemons..." "Yellow"
     try
     {
         if ($IsWindows) {
@@ -735,24 +516,6 @@ function Invoke-DeviceSmokePack
     if ($fatalDetected)
     {
         throw "Smoke logcat indicates a potential fatal runtime signal for package $PackageName. See $logcatPath"
-    }
-
-    $latestInAppPath = adb shell "ls -t /storage/emulated/0/Documents/payanam/logs/payanam-unified*.log 2>/dev/null | head -1" 2>&1
-    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($latestInAppPath))
-    {
-        $latestInAppPath = $latestInAppPath.Trim()
-        $pulledLogPath = Join-Path $smokeDir "inapp-unified-log.txt"
-        $pullResult = adb pull $latestInAppPath $pulledLogPath 2>&1
-        if ($LASTEXITCODE -eq 0)
-        {
-            Write-LogWithTime "Saved in-app unified log snapshot: $pulledLogPath" "DarkGray"
-        } else
-        {
-            Write-LogWithTime "  ⚠️ Unable to pull in-app unified log snapshot: $pullResult" "Yellow"
-        }
-    } else
-    {
-        Write-LogWithTime "  ⚠️ No in-app unified log file found to pull." "Yellow"
     }
 
     Write-LogWithTime "✅ Device smoke pack passed." "Green"
@@ -1425,6 +1188,218 @@ function Test-CriticalLoggingCoverageContract
     return $true
 }
 
+# Reads an exact byte range from a seekable stream; a short read means the file changed mid-check.
+function Read-ApkByteRange
+{
+    param(
+        [System.IO.FileStream]$Stream,
+        [long]$Offset,
+        [int]$Count
+    )
+
+    $buffer = [byte[]]::new($Count)
+    $Stream.Seek($Offset, [System.IO.SeekOrigin]::Begin) | Out-Null
+    $read = 0
+    while ($read -lt $Count)
+    {
+        $chunk = $Stream.Read($buffer, $read, $Count - $read)
+        if ($chunk -le 0)
+        {
+            throw "Short read at offset $Offset ($read of $Count bytes)"
+        }
+        $read += $chunk
+    }
+
+    return , $buffer
+}
+
+# Sums each entry's declared local-header footprint and compares the total with the file size; the
+# residue is bytes no central-directory entry and no declared APK region accounts for.
+function Test-ApkArchiveFootprint
+{
+    param(
+        [string]$ApkPath,
+        [long]$MaxUnreferencedBytes = 4096
+    )
+
+    if (-not (Test-Path -LiteralPath $ApkPath))
+    {
+        Write-LogWithTime "  ❌ APK footprint guard: file not found: $ApkPath" "Red"
+        return $false
+    }
+
+    $sourcePath = (Get-Item -LiteralPath $ApkPath).FullName
+    $stream = [System.IO.FileStream]::new(
+        $sourcePath,
+        [System.IO.FileMode]::Open,
+        [System.IO.FileAccess]::Read,
+        [System.IO.FileShare]::Read
+    )
+    try
+    {
+        $fileSize = $stream.Length
+
+        # The end-of-central-directory record sits behind a comment of up to 65535 bytes.
+        $tailLength = [int][System.Math]::Min([long]65557, $fileSize)
+        $tail = Read-ApkByteRange -Stream $stream -Offset ($fileSize - $tailLength) -Count $tailLength
+        $eocdIndex = -1
+        for ($i = $tailLength - 22; $i -ge 0; $i--)
+        {
+            if ($tail[$i] -ne 0x50 -or $tail[$i + 1] -ne 0x4B -or $tail[$i + 2] -ne 0x05 -or $tail[$i + 3] -ne 0x06)
+            {
+                continue
+            }
+            if (($i + 22 + [System.BitConverter]::ToUInt16($tail, $i + 20)) -le $tailLength)
+            {
+                $eocdIndex = $i
+                break
+            }
+        }
+        if ($eocdIndex -lt 0)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: no end-of-central-directory record in $ApkPath" "Red"
+            return $false
+        }
+
+        $eocdSize = 22 + [System.BitConverter]::ToUInt16($tail, $eocdIndex + 20)
+        $entryCount = [int][System.BitConverter]::ToUInt16($tail, $eocdIndex + 10)
+        $centralDirectorySize = [long][System.BitConverter]::ToUInt32($tail, $eocdIndex + 12)
+        $centralDirectoryOffset = [long][System.BitConverter]::ToUInt32($tail, $eocdIndex + 16)
+
+        # ZIP64 keeps these three values in a separate record this guard does not read.
+        if ($entryCount -eq 0xFFFF -or $centralDirectorySize -eq 0xFFFFFFFF -or $centralDirectoryOffset -eq 0xFFFFFFFF)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: ZIP64 archive, not supported: $ApkPath" "Red"
+            return $false
+        }
+        if ($centralDirectorySize -gt [int]::MaxValue -or (($centralDirectoryOffset + $centralDirectorySize) -gt $fileSize))
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: central directory lies outside the file: $ApkPath" "Red"
+            return $false
+        }
+
+        $centralDirectory = Read-ApkByteRange -Stream $stream -Offset $centralDirectoryOffset -Count ([int]$centralDirectorySize)
+        $entries = [System.Collections.Generic.List[object]]::new()
+        $position = 0
+        while ($position + 46 -le $centralDirectory.Length)
+        {
+            if ([System.BitConverter]::ToUInt32($centralDirectory, $position) -ne 0x02014b50)
+            {
+                break
+            }
+            $nameLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 28)
+            $extraLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 30)
+            $commentLength = [int][System.BitConverter]::ToUInt16($centralDirectory, $position + 32)
+            $entries.Add([PSCustomObject]@{
+                    Name = [System.Text.Encoding]::UTF8.GetString($centralDirectory, $position + 46, $nameLength)
+                    Offset = [long][System.BitConverter]::ToUInt32($centralDirectory, $position + 42)
+                    CompressedSize = [long][System.BitConverter]::ToUInt32($centralDirectory, $position + 20)
+                })
+            $position += 46 + $nameLength + $extraLength + $commentLength
+        }
+        if ($entries.Count -ne $entryCount)
+        {
+            Write-LogWithTime "  ❌ APK footprint guard: found $($entries.Count) of $entryCount central-directory records" "Red"
+            return $false
+        }
+
+        $header = [byte[]]::new(30)
+        $declaredBytes = 0L
+        $declaredEnd = 0L
+        foreach ($entry in $entries)
+        {
+            $stream.Seek($entry.Offset, [System.IO.SeekOrigin]::Begin) | Out-Null
+            $read = 0
+            while ($read -lt 30)
+            {
+                $chunk = $stream.Read($header, $read, 30 - $read)
+                if ($chunk -le 0)
+                {
+                    Write-LogWithTime "  ❌ APK footprint guard: local header of '$($entry.Name)' is truncated at offset $($entry.Offset)" "Red"
+                    return $false
+                }
+                $read += $chunk
+            }
+            if ([System.BitConverter]::ToUInt32($header, 0) -ne 0x04034b50)
+            {
+                Write-LogWithTime "  ❌ APK footprint guard: '$($entry.Name)' has no local file header at offset $($entry.Offset)" "Red"
+                return $false
+            }
+            # Name and extra lengths come from the local header: zipalign pads the local extra field.
+            $localFootprint = [long](30 + [System.BitConverter]::ToUInt16($header, 26) + [System.BitConverter]::ToUInt16($header, 28))
+            $entry | Add-Member -NotePropertyName Footprint -NotePropertyValue ($localFootprint + $entry.CompressedSize)
+            $declaredBytes += $entry.Footprint
+            if (($entry.Offset + $entry.Footprint) -gt $declaredEnd)
+            {
+                $declaredEnd = $entry.Offset + $entry.Footprint
+            }
+        }
+
+        # The APK signing block sits between the last entry and the central directory and is not a ZIP
+        # entry; it counts as accounted-for bytes when its magic and size land clear of the last entry.
+        $signingBlockSize = 0L
+        if ($centralDirectoryOffset -ge 32)
+        {
+            $blockTail = Read-ApkByteRange -Stream $stream -Offset ($centralDirectoryOffset - 24) -Count 24
+            if ([System.Text.Encoding]::ASCII.GetString($blockTail, 8, 16) -eq "APK Sig Block 42")
+            {
+                $reportedSize = [long][System.BitConverter]::ToUInt64($blockTail, 0) + 8
+                if ($reportedSize -le $centralDirectoryOffset -and ($centralDirectoryOffset - $reportedSize) -ge $declaredEnd)
+                {
+                    $signingBlockSize = $reportedSize
+                }
+            }
+        }
+
+        $unreferencedBytes = $fileSize - $declaredBytes - $signingBlockSize - $centralDirectorySize - $eocdSize
+
+        # First offset covered by no entry, and the two entries the region falls between.
+        $coveredEnd = 0L
+        $previousName = "<start of archive>"
+        $gapStart = -1L
+        $gapAfterEntry = $null
+        $gapBeforeEntry = $null
+        foreach ($entry in ($entries | Sort-Object Offset))
+        {
+            if ($entry.Offset -gt $coveredEnd -and $gapStart -lt 0)
+            {
+                $gapStart = $coveredEnd
+                $gapAfterEntry = $previousName
+                $gapBeforeEntry = $entry.Name
+            }
+            if (($entry.Offset + $entry.Footprint) -gt $coveredEnd)
+            {
+                $coveredEnd = $entry.Offset + $entry.Footprint
+                $previousName = $entry.Name
+            }
+        }
+        if ($gapStart -lt 0 -and (($declaredEnd + $signingBlockSize) -lt $centralDirectoryOffset))
+        {
+            $gapStart = $declaredEnd
+            $gapAfterEntry = $previousName
+            $gapBeforeEntry = "the central directory"
+        }
+
+        if ($unreferencedBytes -gt $MaxUnreferencedBytes)
+        {
+            $unreferencedMiB = [math]::Round($unreferencedBytes / 1MB, 2)
+            Write-LogWithTime "  ❌ APK holds $unreferencedBytes unreferenced bytes ($unreferencedMiB MiB; limit $MaxUnreferencedBytes): $ApkPath" "Red"
+            if ($gapStart -ge 0)
+            {
+                Write-LogWithTime "     Orphaned region starts at offset $gapStart, immediately after entry '$gapAfterEntry' and before '$gapBeforeEntry'." "Red"
+            }
+            Write-LogWithTime "     Delete app/build/outputs/apk and rebuild so the APK is written fresh instead of patched." "Yellow"
+            return $false
+        }
+
+        Write-LogWithTime "  ℹ️ APK footprint: $($entries.Count) entries, $declaredBytes declared bytes, $signingBlockSize signing-block bytes, $centralDirectorySize central-directory bytes, $unreferencedBytes unreferenced bytes" "DarkGray"
+        return $true
+    } finally
+    {
+        $stream.Dispose()
+    }
+}
+
 Write-LogWithTime "========================================" "Cyan"
 Write-LogWithTime "  Payanam Android Build (Kotlin/Compose)" "Cyan"
 Write-LogWithTime "========================================" "Cyan"
@@ -1435,111 +1410,18 @@ $buildType = if ($Release)
 { "debug"
 }
 Write-LogWithTime "Build Type: $buildType" "Yellow"
+Write-LogWithTime "Daemon policy: STOP after build" "Yellow"
 
-if ($Clean)
+# Install is OPT-IN and value-driven: absent -InstallApk nothing probes for a device.
+$installRequested = $PSBoundParameters.ContainsKey('InstallApk')
+$runDeviceSmoke = $SmokePack.IsPresent
+if ($runDeviceSmoke -and -not $installRequested)
 {
-    Write-LogWithTime "Clean mode: will remove previous builds" "Yellow"
-}
-if ($CleanInstall)
-{
-    Write-LogWithTime "Clean install: will uninstall before installing" "Yellow"
-}
-if ($KeepDaemons)
-{
-    Write-LogWithTime "Daemon policy: KEEP alive (-KeepDaemons)" "Yellow"
-} else
-{
-    Write-LogWithTime "Daemon policy: STOP after build (default low-memory mode)" "Yellow"
+    Write-LogWithTime "-SmokePack needs an install: pass -InstallApk upgrade or -InstallApk clean." "Red"
+    Exit-WithCleanup 1
 }
 
-$counterPath = "build-tools/tracking/build-counter.json"
-$policyPath = "build-tools/config/build-profile-policy.json"
-if (-not (Test-Path $counterPath))
-{
-    throw "Build counter file not found: $counterPath"
-}
-$counter = Get-Content $counterPath -Raw | ConvertFrom-Json
-# Ensure android section exists (backward compat with old flat JSON)
-if (-not (Get-Member -InputObject $counter -Name "android" -MemberType NoteProperty))
-{
-    $counter | Add-Member -MemberType NoteProperty -Name "android" -Value ([PSCustomObject]@{ builds = 0; lastQuick = ""; lastNormal = ""; lastFull = "" })
-}
-
-$profilePolicy = $null
-if (Test-Path $policyPath)
-{
-    $profilePolicy = Get-Content $policyPath -Raw | ConvertFrom-Json
-} else
-{
-    Write-LogWithTime "  ⚠️ Profile policy file not found at $policyPath, using quick defaults for auto." "Yellow"
-}
-$resolvedProfile = Resolve-BuildProfile -RequestedProfile $Profile -CounterState $counter -PolicyState $profilePolicy
-$effectiveProfile = $resolvedProfile.Profile
-Write-LogWithTime "Build Profile: $effectiveProfile (requested=$Profile, reason=$($resolvedProfile.Reason))" "Yellow"
-
-$runUnitTests = $false
-$runRegressionTests = $false
-$runCoverage = $false
-$runStaticAnalysis = $false
-$runPostInstallVerification = $false
-$runDeviceSmoke = $false
-# Device install is OPT-IN: a plain run builds the APK and stops, so an attached phone is
-# never updated by accident. -Install opts in explicitly. -RunInProcess and -CleanInstall
-# also imply it, because the in-process test tier runs from inside the POST-INSTALL
-# VERIFICATION block (no install means no device to verify) and -CleanInstall literally
-# means "install fresh". No profile — including 'full' — enables an install on its own.
-$runDeviceInstall = ($Install.IsPresent -or $RunInProcess.IsPresent -or $CleanInstall.IsPresent)
-$runAndroidGuardrails = $true
-switch ($effectiveProfile)
-{
-    "quick"
-    {
-        # Static guardrails (file length, import count, strings dedupe,
-        # security/logging contracts) are cheap file scans and always run —
-        # they catch structural regressions even on fast iteration builds.
-        # Only expensive verification (tests/coverage/smoke) stays profile-gated.
-        $runPostInstallVerification = $false
-    }
-    "normal"
-    {
-        $runUnitTests = $true
-        $runRegressionTests = $true
-        $runStaticAnalysis = $true
-        $runPostInstallVerification = $false
-    }
-    "full"
-    {
-        $runUnitTests = $true
-        $runRegressionTests = $true
-        $runCoverage = $true
-        $runStaticAnalysis = $true
-        $runPostInstallVerification = $true
-        $runDeviceSmoke = $true
-    }
-}
-
-Write-LogWithTime "Device install: $(if ($runDeviceInstall) { 'enabled' } else { 'disabled' })" "Yellow"
-Write-LogWithTime "Android guardrails: $(if ($runAndroidGuardrails) { 'enabled' } else { 'disabled' })" "Yellow"
-
-if ($RunInProcess.IsPresent)
-{
-    # The in-process tier runs from inside the post-install verification block, so an explicit
-    # flag must open that path too. Flag-only by design: no profile enables it, including 'full'.
-    # -RunInProcess also implies the device install (set with $runDeviceInstall above), because
-    # this block only runs after a successful install.
-    $runPostInstallVerification = $true
-}
-
-if ($SkipTests)
-{
-    $runUnitTests = $false
-    $runRegressionTests = $false
-    $runCoverage = $false
-}
-if ($SkipGuardrails)
-{
-    $runAndroidGuardrails = $false
-}
+Write-LogWithTime "Device install: $(if ($installRequested) { $InstallApk } else { 'none (pass -InstallApk upgrade|clean)' })" "Yellow"
 
 # ============================================
 # PREFLIGHT CHECKS
@@ -1670,415 +1552,312 @@ if ($missingPaths.Count -gt 0)
 }
 Write-LogWithTime "  ✅ All core source files present" "Green"
 
-if ($runAndroidGuardrails)
+# Declared version and artefact identity. gradle/version.properties is the only version source.
+Write-LogWithTime "Reading declared version..." "Cyan"
+$versionPropertiesPath = "gradle/version.properties"
+if (-not (Test-Path $versionPropertiesPath))
 {
-    Write-LogWithTime "Checking Android guardrails (always-on static checks)... " "Cyan"
-    $moduleLineLimits = @{
-        "app/src/main/kotlin" = 9700
-        "core/common/src/main/kotlin" = 9400
-        "core/database/src/main/kotlin" = 9650
-        "core/domain/src/main/kotlin" = 9300
-        "core/scoring/src/main/kotlin" = 9350
-        # New JVM data-layer modules. Caps are initial generous bounds in the same spirit as the
-        # existing entries (core/domain is 2,913 lines against a 9,300 cap), not tight limits:
-        # core/database-model is 1,586 lines today, core/database-jvm 403 and about to grow as the 15
-        # repository interfaces are implemented.
-        "core/database-model/src/main/kotlin" = 4000
-        "core/database-jvm/src/main/kotlin" = 8000
-        # The shared UI layer. This one is DELIBERATELY large: it is where the whole shared UI is
-        # heading (~50,700 lines of screens and view models), so the cap is a loose sanity bound
-        # rather than a size target. 248 lines today.
-        "core/ui/src/commonMain/kotlin" = 60000
-    }
-    $warningRatio = 0.70
-    $lengthViolations = @()
-    $lengthWarnings = @()
-    $importWarnings = @()
-    $importViolations = @()
-    $importWarningThreshold = 70
-    $importHardLimit = 100
-    foreach ($modulePath in $moduleLineLimits.Keys)
+    Write-LogWithTime "  ❌ $versionPropertiesPath not found - the version has one declared source." "Red"
+    Exit-WithCleanup 1
+}
+$versionProperties = @{}
+foreach ($versionLine in Get-Content $versionPropertiesPath)
+{
+    if ($versionLine -match '^\s*([A-Za-z][A-Za-z0-9_.]*)\s*=\s*(.+?)\s*$')
     {
-        if (-not (Test-Path $modulePath))
+        $versionProperties[$Matches[1]] = $Matches[2]
+    }
+}
+$payanamVersion = $versionProperties["version"]
+if ([string]::IsNullOrWhiteSpace($payanamVersion))
+{
+    Write-LogWithTime "  ❌ version= is missing from $versionPropertiesPath" "Red"
+    Exit-WithCleanup 1
+}
+
+# Short sha for the artefact name; 'nogit' keeps source-tarball and extracted-zip builds working.
+$shortSha = "nogit"
+try
+{
+    $shaProbe = git rev-parse --short HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($shaProbe))
+    {
+        $shortSha = $shaProbe.Trim()
+    }
+} catch
+{
+    $shortSha = "nogit"
+}
+
+$dateTimeStamp = Get-DateTimeStamp
+$buildName = Get-PayanamGeneratedName -Prefix "Payanam" -Platform "Android" -Version $payanamVersion -Sha $shortSha -Type $buildType -Timestamp $dateTimeStamp
+$gradleProps = "-PbuildPlatform=Android -PbuildTimestamp=$dateTimeStamp -PbuildShortSha=$shortSha"
+Write-LogWithTime "  ✅ Version $payanamVersion, sha $shortSha" "Green"
+Write-LogWithTime "Build Name: $buildName" "Cyan"
+
+Write-LogWithTime "Checking Android guardrails (always-on static checks)... " "Cyan"
+$moduleLineLimits = @{
+    "app/src/main/kotlin" = 9700
+    "core/common/src/main/kotlin" = 9400
+    "core/database/src/main/kotlin" = 9650
+    "core/domain/src/main/kotlin" = 9300
+    "core/scoring/src/main/kotlin" = 9350
+    # New JVM data-layer modules. Caps are initial generous bounds in the same spirit as the
+    # existing entries (core/domain is 2,913 lines against a 9,300 cap), not tight limits:
+    # core/database-model is 1,586 lines today, core/database-jvm 403 and about to grow as the 15
+    # repository interfaces are implemented.
+    "core/database-model/src/main/kotlin" = 4000
+    "core/database-jvm/src/main/kotlin" = 8000
+    # The shared UI layer. This one is DELIBERATELY large: it is where the whole shared UI is
+    # heading (~50,700 lines of screens and view models), so the cap is a loose sanity bound
+    # rather than a size target. 248 lines today.
+    "core/ui/src/commonMain/kotlin" = 60000
+}
+$warningRatio = 0.70
+$lengthViolations = @()
+$lengthWarnings = @()
+$importWarnings = @()
+$importViolations = @()
+$importWarningThreshold = 70
+$importHardLimit = 100
+foreach ($modulePath in $moduleLineLimits.Keys)
+{
+    if (-not (Test-Path $modulePath))
+    {
+        continue
+    }
+    $lineLimit = $moduleLineLimits[$modulePath]
+    $kotlinFiles = Get-ChildItem -Path $modulePath -Recurse -Filter *.kt
+    foreach ($file in $kotlinFiles)
+    {
+        $lineCount = (Get-Content $file.FullName).Count
+        $warningLimit = [int][math]::Floor($lineLimit * $warningRatio)
+        $importCount = (Get-Content $file.FullName | Where-Object { $_ -match '^import\s+' }).Count
+
+        if ($lineCount -gt $warningLimit -and $lineCount -le $lineLimit)
         {
-            continue
+            $relativePath = Resolve-Path -Relative $file.FullName
+            $lengthWarnings += [PSCustomObject]@{
+                Path = $relativePath
+                Lines = $lineCount
+                WarningLimit = $warningLimit
+                Limit = $lineLimit
+            }
         }
-        $lineLimit = $moduleLineLimits[$modulePath]
-        $kotlinFiles = Get-ChildItem -Path $modulePath -Recurse -Filter *.kt
-        foreach ($file in $kotlinFiles)
+
+        if ($lineCount -gt $lineLimit)
         {
-            $lineCount = (Get-Content $file.FullName).Count
-            $warningLimit = [int][math]::Floor($lineLimit * $warningRatio)
-            $importCount = (Get-Content $file.FullName | Where-Object { $_ -match '^import\s+' }).Count
-
-            if ($lineCount -gt $warningLimit -and $lineCount -le $lineLimit)
-            {
-                $relativePath = Resolve-Path -Relative $file.FullName
-                $lengthWarnings += [PSCustomObject]@{
-                    Path = $relativePath
-                    Lines = $lineCount
-                    WarningLimit = $warningLimit
-                    Limit = $lineLimit
-                }
-            }
-
-            if ($lineCount -gt $lineLimit)
-            {
-                $relativePath = Resolve-Path -Relative $file.FullName
-                $lengthViolations += [PSCustomObject]@{
-                    Path = $relativePath
-                    Lines = $lineCount
-                    Limit = $lineLimit
-                    Module = $modulePath
-                }
-            }
-
-            if ($importCount -gt $importWarningThreshold -and $importCount -le $importHardLimit)
-            {
-                $relativePath = Resolve-Path -Relative $file.FullName
-                $importWarnings += [PSCustomObject]@{
-                    Path = $relativePath
-                    Imports = $importCount
-                    WarningLimit = $importWarningThreshold
-                    Limit = $importHardLimit
-                }
-            }
-
-            if ($importCount -gt $importHardLimit)
-            {
-                $relativePath = Resolve-Path -Relative $file.FullName
-                $importViolations += [PSCustomObject]@{
-                    Path = $relativePath
-                    Imports = $importCount
-                    Limit = $importHardLimit
-                }
+            $relativePath = Resolve-Path -Relative $file.FullName
+            $lengthViolations += [PSCustomObject]@{
+                Path = $relativePath
+                Lines = $lineCount
+                Limit = $lineLimit
+                Module = $modulePath
             }
         }
-    }
-    if ($lengthWarnings.Count -gt 0)
-    {
-        Write-LogWithTime "  ⚠️ File length warnings (approaching module limits):" "Yellow"
-        $lengthWarnings | Sort-Object Lines -Descending | Select-Object -First 10 | ForEach-Object {
-            Write-LogWithTime "     - $($_.Path) : $($_.Lines) lines (warn: $($_.WarningLimit), limit: $($_.Limit))" "Yellow"
-        }
-    }
-    if ($lengthViolations.Count -gt 0)
-    {
-        Write-LogWithTime "  ❌ File length guard failed. Oversized Kotlin files detected:" "Red"
-        $lengthViolations | Sort-Object Lines -Descending | ForEach-Object {
-            Write-LogWithTime "     - $($_.Path) : $($_.Lines) lines (limit: $($_.Limit))" "Red"
-        }
-        Write-LogWithTime "  Reduce file size or adjust agreed module limits before building." "Yellow"
-        Exit-WithCleanup 1
-    }
-    if ($importWarnings.Count -gt 0)
-    {
-        Write-LogWithTime "  ⚠️ High import-count warnings:" "Yellow"
-        $importWarnings | Sort-Object Imports -Descending | Select-Object -First 10 | ForEach-Object {
-            Write-LogWithTime "     - $($_.Path) : $($_.Imports) imports (warn: $($_.WarningLimit), limit: $($_.Limit))" "Yellow"
-        }
-    }
-    if ($importViolations.Count -gt 0)
-    {
-        Write-LogWithTime "  ❌ Import-count guard failed:" "Red"
-        $importViolations | Sort-Object Imports -Descending | ForEach-Object {
-            Write-LogWithTime "     - $($_.Path) : $($_.Imports) imports (limit: $($_.Limit))" "Red"
-        }
-        Write-LogWithTime "  Split the file or remove unused imports before building." "Yellow"
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ File length guard passed" "Green"
 
-    Write-LogWithTime "Checking localized strings duplicate guard..." "Cyan"
-    if (-not (Test-LocalizedStringDuplicates))
-    {
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ Localized strings duplicate guard passed" "Green"
-
-    Write-LogWithTime "Checking string parity (EN <-> TA keys, app <-> core/strings values)..." "Cyan"
-    if (-not (Test-StringParity))
-    {
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ String parity guard passed" "Green"
-
-    Write-LogWithTime "Checking DB auth flow security contract..." "Cyan"
-    if (-not (Test-DbAuthFlowSecurityContract))
-    {
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ DB auth flow security contract passed" "Green"
-
-    if ($runUnitTests)
-    {
-        # The contract above is only worth having if its rules can FAIL. A guard that has never failed is an
-        # untested assertion, and this repository has already shipped two checks that reported green while
-        # covering nothing. Gated with the test tier: it is verification, not iteration.
-        Write-LogWithTime "Falsifying DB auth flow security contract (every rule must be able to fail)..." "Cyan"
-        & pwsh -NoProfile -File (Join-Path $PSScriptRoot "db-flow-guard-falsify.ps1") -SpecPath (Join-Path $projectRoot "docs/db/db-flow-boot-entry-flows.json")
-        if ($LASTEXITCODE -ne 0)
+        if ($importCount -gt $importWarningThreshold -and $importCount -le $importHardLimit)
         {
-            Write-LogWithTime "  ❌ DB auth flow security contract is not falsifiable - a rule that cannot fail proves nothing" "Red"
-            Exit-WithCleanup 1
+            $relativePath = Resolve-Path -Relative $file.FullName
+            $importWarnings += [PSCustomObject]@{
+                Path = $relativePath
+                Imports = $importCount
+                WarningLimit = $importWarningThreshold
+                Limit = $importHardLimit
+            }
         }
-        Write-LogWithTime "  ✅ DB auth flow security contract falsification passed" "Green"
-    }
 
-    Write-LogWithTime "Checking critical logging coverage contract..." "Cyan"
-    if (-not (Test-CriticalLoggingCoverageContract))
-    {
-        Exit-WithCleanup 1
+        if ($importCount -gt $importHardLimit)
+        {
+            $relativePath = Resolve-Path -Relative $file.FullName
+            $importViolations += [PSCustomObject]@{
+                Path = $relativePath
+                Imports = $importCount
+                Limit = $importHardLimit
+            }
+        }
     }
-    Write-LogWithTime "  ✅ Critical logging coverage contract passed" "Green"
-
-    Write-LogWithTime "Checking AppLogger install contract..." "Cyan"
-    if (-not (Test-AppLoggerInstallContract))
-    {
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ AppLogger install contract passed" "Green"
-} else
+}
+if ($lengthWarnings.Count -gt 0)
 {
-    Write-LogWithTime "Skipping Android guardrails (explicit -SkipGuardrails)." "Yellow"
+    Write-LogWithTime "  ⚠️ File length warnings (approaching module limits):" "Yellow"
+    $lengthWarnings | Sort-Object Lines -Descending | Select-Object -First 10 | ForEach-Object {
+        Write-LogWithTime "     - $($_.Path) : $($_.Lines) lines (warn: $($_.WarningLimit), limit: $($_.Limit))" "Yellow"
+    }
+}
+if ($lengthViolations.Count -gt 0)
+{
+    Write-LogWithTime "  ❌ File length guard failed. Oversized Kotlin files detected:" "Red"
+    $lengthViolations | Sort-Object Lines -Descending | ForEach-Object {
+        Write-LogWithTime "     - $($_.Path) : $($_.Lines) lines (limit: $($_.Limit))" "Red"
+    }
+    Write-LogWithTime "  Reduce file size or adjust agreed module limits before building." "Yellow"
+    Exit-WithCleanup 1
+}
+if ($importWarnings.Count -gt 0)
+{
+    Write-LogWithTime "  ⚠️ High import-count warnings:" "Yellow"
+    $importWarnings | Sort-Object Imports -Descending | Select-Object -First 10 | ForEach-Object {
+        Write-LogWithTime "     - $($_.Path) : $($_.Imports) imports (warn: $($_.WarningLimit), limit: $($_.Limit))" "Yellow"
+    }
+}
+if ($importViolations.Count -gt 0)
+{
+    Write-LogWithTime "  ❌ Import-count guard failed:" "Red"
+    $importViolations | Sort-Object Imports -Descending | ForEach-Object {
+        Write-LogWithTime "     - $($_.Path) : $($_.Imports) imports (limit: $($_.Limit))" "Red"
+    }
+    Write-LogWithTime "  Split the file or remove unused imports before building." "Yellow"
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ File length guard passed" "Green"
+
+Write-LogWithTime "Checking localized strings duplicate guard..." "Cyan"
+if (-not (Test-LocalizedStringDuplicates))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ Localized strings duplicate guard passed" "Green"
+
+Write-LogWithTime "Checking string parity (EN <-> TA keys, app <-> core/strings values)..." "Cyan"
+if (-not (Test-StringParity))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ String parity guard passed" "Green"
+
+Write-LogWithTime "Checking DB auth flow security contract..." "Cyan"
+if (-not (Test-DbAuthFlowSecurityContract))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ DB auth flow security contract passed" "Green"
+
+# The contract above is only worth having if its rules can FAIL: every rule is mutated and must fail.
+Write-LogWithTime "Falsifying DB auth flow security contract (every rule must be able to fail)..." "Cyan"
+& pwsh -NoProfile -File (Join-Path $PSScriptRoot "db-flow-guard-falsify.ps1") -SpecPath (Join-Path $projectRoot "docs/db/db-flow-boot-entry-flows.json")
+if ($LASTEXITCODE -ne 0)
+{
+    Write-LogWithTime "  ❌ DB auth flow security contract is not falsifiable - a rule that cannot fail proves nothing" "Red"
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ DB auth flow security contract falsification passed" "Green"
+
+Write-LogWithTime "Checking critical logging coverage contract..." "Cyan"
+if (-not (Test-CriticalLoggingCoverageContract))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ Critical logging coverage contract passed" "Green"
+
+Write-LogWithTime "Checking AppLogger install contract..." "Cyan"
+if (-not (Test-AppLoggerInstallContract))
+{
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ AppLogger install contract passed" "Green"
+
+# Check 5: Unit tests
+# ── The task list is EXPLICIT, and it must name every module that has tests ─────────────────
+# Named explicitly rather than derived because a derived list hides what runs. The cost is that a
+# module can be added and never named - which is how :core:presentation (1194 tests, the largest
+# module in the repo), :core:strings (11) and :core:backup (14) came to run in NO gate at all.
+# The ratchet below compares this list against the modules that HAVE a test source set and fails on
+# a gap, so the list cannot silently fall behind the tree again.
+$testTaskList = @(
+    ":app:testDebugUnitTest",
+    ":core:backup:test",
+    ":core:common:testDebugUnitTest",
+    ":core:database:testDebugUnitTest",
+    ":core:database-model:test",
+    ":core:database-jvm:test",
+    ":core:domain:test",
+    ":core:presentation:test",
+    ":core:scoring:test",
+    ":core:shared:test",
+    ":core:strings:test"
+    # :core:ui is deliberately NOT named above. It is Kotlin Multiplatform with no withHostTest {},
+    # so it has no Android host-test task (testDebugUnitTest does not exist in that project). Its
+    # commonTest suite runs in the desktop phase via :core:ui:desktopTest, and because it has no
+    # src/test directory the ratchet below does not require it to be named here.
+)
+$testModuleDirs = @(
+    "app", "core/backup", "core/common", "core/database", "core/database-jvm", "core/domain",
+    "core/presentation", "core/scoring", "core/shared", "core/strings"
+)
+$missingTestModules = @()
+foreach ($moduleDir in $testModuleDirs)
+{
+    if (-not (Test-Path (Join-Path $moduleDir "src/test"))) { continue }
+    $named = $false
+    foreach ($task in $testTaskList) { if ($task -like ":$($moduleDir -replace '/', ':'):*") { $named = $true; break } }
+    if (-not $named) { $missingTestModules += $moduleDir }
+}
+if ($missingTestModules.Count -gt 0)
+{
+    Write-LogWithTime "  ❌ Test ratchet: these modules have a src/test but are named by no task: $($missingTestModules -join ', ')" "Red"
+    Write-LogWithTime "     Add each to `$testTaskList above - a module whose tests run in no gate ships unverified." "Red"
+    Exit-WithCleanup 1
 }
 
-# Check 5: Unit tests (profile + optional skip)
-if ($runUnitTests)
+Write-LogWithTime "Running unit tests..." "Cyan"
+$testRun = Invoke-GradleStreaming -GradleArgs "$($testTaskList -join ' ') $gradleProps" -StepLabel "Unit tests"
+if ($testRun.ExitCode -ne 0)
 {
-    # ── The task list is EXPLICIT, and it must name every module that has tests ─────────────────
-    # Named explicitly rather than derived because a derived list hides what runs. The cost is that a
-    # module can be added and never named - which is how :core:presentation (1194 tests, the largest
-    # module in the repo), :core:strings (11) and :core:backup (14) came to run in NO gate at all.
-    # The ratchet below compares this list against the modules that HAVE a test source set and fails on
-    # a gap, so the list cannot silently fall behind the tree again.
-    $testTaskList = @(
-        ":app:testDebugUnitTest",
-        ":core:backup:test",
-        ":core:common:testDebugUnitTest",
-        ":core:database:testDebugUnitTest",
-        ":core:database-model:test",
-        ":core:database-jvm:test",
-        ":core:domain:test",
-        ":core:presentation:test",
-        ":core:scoring:test",
-        ":core:shared:test",
-        ":core:strings:test"
-        # :core:ui is deliberately NOT named above. It is Kotlin Multiplatform with no withHostTest {},
-        # so it has no Android host-test task (testDebugUnitTest does not exist in that project). Its
-        # commonTest suite runs in the desktop phase via :core:ui:desktopTest, and because it has no
-        # src/test directory the ratchet below does not require it to be named here.
-    )
-    $testModuleDirs = @(
-        "app", "core/backup", "core/common", "core/database", "core/database-jvm", "core/domain",
-        "core/presentation", "core/scoring", "core/shared", "core/strings"
-    )
-    $missingTestModules = @()
-    foreach ($moduleDir in $testModuleDirs)
-    {
-        if (-not (Test-Path (Join-Path $moduleDir "src/test"))) { continue }
-        $named = $false
-        foreach ($task in $testTaskList) { if ($task -like ":$($moduleDir -replace '/', ':'):*") { $named = $true; break } }
-        if (-not $named) { $missingTestModules += $moduleDir }
-    }
-    if ($missingTestModules.Count -gt 0)
-    {
-        Write-LogWithTime "  ❌ Test ratchet: these modules have a src/test but are named by no task: $($missingTestModules -join ', ')" "Red"
-        Write-LogWithTime "     Add each to `$testTaskList above - a module whose tests run in no gate ships unverified." "Red"
-        Exit-WithCleanup 1
-    }
+    Write-LogWithTime "  ❌ Unit tests failed!" "Red"
+    $testRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ Unit tests passed" "Green"
 
-    Write-LogWithTime "Running unit tests..." "Cyan"
-    $testRun = Invoke-GradleStreaming -GradleArgs "$($testTaskList -join ' ') $gradleProps" -StepLabel "Unit tests"
-    if ($testRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "  ❌ Unit tests failed!" "Red"
-        $testRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ Unit tests passed" "Green"
-} else
+Write-LogWithTime "Running coverage check..." "Cyan"
+$coverageRun = Invoke-GradleStreaming -GradleArgs "coverageCheck $gradleProps" -StepLabel "Coverage"
+if ($coverageRun.ExitCode -ne 0)
 {
-    Write-LogWithTime "  ⚠️ Skipping unit tests (profile/flag)" "Yellow"
+    # FATAL. This previously warned and continued ("non-fatal on first public setup"), which let a
+    # coverage floor sit below the real ratio indefinitely: core/domain was 0.95 against 0.78
+    # measured, core/scoring 0.95 against 0.91, core/shared 0.94 against 0.93 - all failing
+    # silently. A check that cannot fail is not a check.
+    #
+    # CAVEAT - this enforcement is only real for the JVM modules (core/shared, core/domain,
+    # core/scoring, desktop). The two android.library modules still pass VACUOUSLY: core/common
+    # (floor 0.95) and core/database (floor 0.50). Proven for core/common by forcing its floor to
+    # 1.00 - unsatisfiable by real code - and watching it BUILD SUCCESSFUL. Their classDirectories
+    # resolve empty, the same AGP-path defect the core/domain promotion exposed. Making those two
+    # real is its own task; do not read a green coverage check as covering all six modules.
+    Write-LogWithTime "  ❌ Coverage check failed - a module is below its floor. Fix before building." "Red"
+    $coverageRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+    Exit-WithCleanup 1
+} else {
+    Write-LogWithTime "  ✅ Coverage check passed" "Green"
 }
 
-if ($runRegressionTests)
+# Check 6: Static analysis (lint, detekt). FATAL: detekt enforces a KDoc baseline.
+Write-LogWithTime "Running static analysis..." "Cyan"
+$staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck $gradleProps" -StepLabel "Static analysis"
+if ($staticRun.ExitCode -ne 0)
 {
-    Write-LogWithTime "Running regression lock tests..." "Cyan"
-    $regressionRun = Invoke-GradleStreaming -GradleArgs ":app:testDebugUnitTest --tests `"*RegressionTest*`" $gradleProps" -StepLabel "Regression tests"
-    if ($regressionRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "  ❌ Regression lock tests failed!" "Red"
-        $regressionRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "  ✅ Regression lock tests passed" "Green"
-} else
-{
-    Write-LogWithTime "  ⚠️ Skipping regression lock tests (profile/flag)" "Yellow"
+    Write-LogWithTime "  ❌ Static analysis failed (detekt/lint regression). Fix before building." "Red"
+    Exit-WithCleanup 1
+} else {
+    Write-LogWithTime "  ✅ Static analysis passed" "Green"
 }
 
-if ($runCoverage)
+# Spotless ratchet — blocks NEW formatting drift while the ~216 files of pre-existing drift stay
+# untouched (see spotless-ratchet.ps1 for why this is a ratchet rather than a plain spotlessCheck).
+# Invoked as a child process: the script does Set-Location, which must not leak into this session.
+Write-LogWithTime "Running spotless ratchet..." "Cyan"
+$ratchetOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "spotless-ratchet.ps1") 2>&1
+$ratchetOutput | ForEach-Object { Write-Host "    $_" }
+if ($LASTEXITCODE -ne 0)
 {
-    Write-LogWithTime "Running coverage check..." "Cyan"
-    $coverageRun = Invoke-GradleStreaming -GradleArgs "coverageCheck $gradleProps" -StepLabel "Coverage"
-    if ($coverageRun.ExitCode -ne 0)
-    {
-        # FATAL. This previously warned and continued ("non-fatal on first public setup"), which let a
-        # coverage floor sit below the real ratio indefinitely: core/domain was 0.95 against 0.78
-        # measured, core/scoring 0.95 against 0.91, core/shared 0.94 against 0.93 - all failing
-        # silently. A check that cannot fail is not a check.
-        #
-        # CAVEAT - this enforcement is only real for the JVM modules (core/shared, core/domain,
-        # core/scoring, desktop). The two android.library modules still pass VACUOUSLY: core/common
-        # (floor 0.95) and core/database (floor 0.50). Proven for core/common by forcing its floor to
-        # 1.00 - unsatisfiable by real code - and watching it BUILD SUCCESSFUL. Their classDirectories
-        # resolve empty, the same AGP-path defect the core/domain promotion exposed. Making those two
-        # real is its own task; do not read a green coverage check as covering all six modules.
-        Write-LogWithTime "  ❌ Coverage check failed - a module is below its floor. Fix before building." "Red"
-        $coverageRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-        Exit-WithCleanup 1
-    } else {
-        Write-LogWithTime "  ✅ Coverage check passed" "Green"
-    }
-} else
-{
-    Write-LogWithTime "  ⚠️ Skipping coverage check (profile/flag)" "Yellow"
-}
-
-# Check 6: Static analysis (lint, detekt)
-# FATAL on normal/full (where $runStaticAnalysis is true) — detekt now enforces
-# a KDoc baseline, so a regression must block the build. quick profile never
-# reaches this block, so its fast-iteration path is unchanged.
-if ($runStaticAnalysis)
-{
-    Write-LogWithTime "Running static analysis..." "Cyan"
-    $staticRun = Invoke-GradleStreaming -GradleArgs "staticAnalysisCheck $gradleProps" -StepLabel "Static analysis"
-    if ($staticRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "  ❌ Static analysis failed (detekt/lint regression). Fix before building." "Red"
-        Exit-WithCleanup 1
-    } else {
-        Write-LogWithTime "  ✅ Static analysis passed" "Green"
-    }
-
-    # Spotless ratchet — blocks NEW formatting drift while the ~216 files of pre-existing drift stay
-    # untouched (see spotless-ratchet.ps1 for why this is a ratchet rather than a plain spotlessCheck).
-    # Invoked as a child process: the script does Set-Location, which must not leak into this session.
-    Write-LogWithTime "Running spotless ratchet..." "Cyan"
-    $ratchetOutput = & pwsh -NoProfile -File (Join-Path $PSScriptRoot "spotless-ratchet.ps1") 2>&1
-    $ratchetOutput | ForEach-Object { Write-Host "    $_" }
-    if ($LASTEXITCODE -ne 0)
-    {
-        Write-LogWithTime "  ❌ Spotless ratchet failed — changed .kt files are unformatted. Fix before building." "Red"
-        Exit-WithCleanup 1
-    } else {
-        Write-LogWithTime "  ✅ Spotless ratchet passed" "Green"
-    }
-} else
-{
-    Write-LogWithTime "  ⚠️ Skipping static analysis (profile/flag)" "Yellow"
+    Write-LogWithTime "  ❌ Spotless ratchet failed — changed .kt files are unformatted. Fix before building." "Red"
+    Exit-WithCleanup 1
+} else {
+    Write-LogWithTime "  ✅ Spotless ratchet passed" "Green"
 }
 
 Write-LogWithTime "✅ All preflight checks passed!" "Green"
-
-# ============================================
-# BUILD COUNTER UPDATE
-# ============================================
-Write-LogWithTime "" "White"
-Write-LogWithTime "=== BUILD COUNTER ===" "Magenta"
-
-$counter.totalBuilds++
-$counter.android.builds++
-$counter.lastBuildDate = Get-LocalDateTime
-switch ($effectiveProfile)
-{
-    "quick"
-    {
-        $counter.android.lastQuick = $counter.lastBuildDate
-    }
-    "normal"
-    { $counter.android.lastQuick = $counter.lastBuildDate
-        $counter.android.lastNormal = $counter.lastBuildDate
-    }
-    "full"
-    {
-        $counter.android.lastQuick = $counter.lastBuildDate
-        $counter.android.lastNormal = $counter.lastBuildDate
-        $counter.android.lastFull = $counter.lastBuildDate
-    }
-}
-
-$buildNumber = $counter.android.builds
-Write-LogWithTime "Build #$buildNumber (Total: $($counter.totalBuilds))" "Cyan"
-
-# ── Build counter integrity guard ───────────────────────────────────────
-# Invariant: totalBuilds must equal androidBuilds + windowsBuilds + linuxBuilds.
-$expectedTotal = [int]$counter.android.builds + [int]$counter.windows.builds + [int]$counter.linux.builds
-# file is the only manual-edit-prone artifact in incremental builds, so a drift
-# here means a previous run left it inconsistent. We do NOT auto-fix — a human
-# must correct build-counter.json by hand before the build can proceed.
-if ([int]$counter.totalBuilds -ne $expectedTotal) {
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "  ❌ BUILD COUNTER INTEGRITY CHECK FAILED" "Red"
-    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != android ($($counter.android.builds)) + windows ($($counter.windows.builds)) + linux ($($counter.linux.builds)) = $expectedTotal" "Red"
-    Write-LogWithTime "  Fix build-counter.json manually before the build can proceed." "Yellow"
-    Write-LogWithTime "  Build aborted — no counter file written, no APK produced." "Red"
-    exit 1
-} else {
-    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows + linux = $expectedTotal)" "Green"
-}
-
-# Save counter
-Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
-Write-LogWithTime "Build counter saved" "Green"
-
-# Generate build name — type token comes from -Release: release when set, else debug.
-# Standard: Payanam_Android_<build>_<debug|release>_<yyyyMMdd_HHmmss>
-$buildTypeToken = if ($Release) { "release" } else { "debug" }
-$dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
-Write-LogWithTime "Build Name: $buildName" "Cyan"
-
-# Update version code — pass via -P flags (matches desktop pattern)
-$buildTypeToken = if ($Release) { "release" } else { "debug" }
-$dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Android_$($buildNumber)_$($buildTypeToken)_$dateTimeStamp"
-Write-LogWithTime "Build Name: $buildName" "Cyan"
-
-# Gradle properties for build info generation (matches desktop pattern)
-$gradleProps = "-PbuildNumber=$buildNumber -PbuildPlatform=Android -PbuildTimestamp=$dateTimeStamp -PbuildTotalBuilds=$overallBuildNumber"
-
-# ============================================
-# CLEAN (if requested)
-# ============================================
-if ($Clean)
-{
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== CLEANING ===" "Magenta"
-
-    Write-LogWithTime "Stopping Gradle daemons..." "Yellow"
-    if ($IsWindows) {
-        cmd /c ".\gradlew.bat --stop 2>nul" | Out-Null
-    } else {
-        ./gradlew --stop 2>/dev/null | Out-Null
-    }
-    Start-Sleep -Seconds 2
-
-    if (Test-Path "app/build")
-    {
-        Write-LogWithTime "Removing app/build..." "Yellow"
-        Remove-Item -Recurse -Force "app/build" -ErrorAction SilentlyContinue
-    }
-
-    Write-LogWithTime "Running Gradle clean..." "Yellow"
-    $cleanRun = Invoke-GradleStreaming -GradleArgs "clean $gradleProps" -StepLabel "Clean"
-    if ($cleanRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "  ⚠️ Gradle clean had issues" "Yellow"
-    }
-    Write-LogWithTime "✅ Clean completed" "Green"
-}
 
 # ============================================
 # BUILD APK
@@ -2106,6 +1885,23 @@ if ($Arm64Only)
     $gradleTask += " -Parm64Only=true"
     Write-LogWithTime "Arm64-only: arm64-v8a ABI only (opt-in; default builds all ABIs)" "Yellow"
 }
+
+# AGP patches an existing APK in place, and a patched entry can leave the bytes it replaced orphaned.
+# Clearing only this directory forces a new APK file; app/build and the mapping intermediates stay.
+$apkOutputsDir = "app/build/outputs/apk"
+if (Test-Path -LiteralPath $apkOutputsDir)
+{
+    try
+    {
+        Remove-Item -LiteralPath $apkOutputsDir -Recurse -Force -ErrorAction Stop
+        Write-LogWithTime "Cleared $apkOutputsDir so the APK is written fresh, not patched." "DarkGray"
+    } catch
+    {
+        Write-LogWithTime "  ❌ Could not clear $apkOutputsDir : $($_.Exception.Message)" "Red"
+        Exit-WithCleanup 1
+    }
+}
+
 Write-LogWithTime "Running: gradlew $gradleTask" "Cyan"
 
 # In-process test mode builds unminified: a minified debug build breaks the androidTest APK.
@@ -2114,6 +1910,7 @@ if ($RunInProcess.IsPresent -and $gradleTask -eq "assembleDebug")
     $gradleTask = "$gradleTask -Ppayanam.noMinify=true"
     Write-LogWithTime "In-process mode: assembling unminified debug (minification breaks the androidTest APK)." "Yellow"
 }
+
 $buildRun = Invoke-GradleStreaming -GradleArgs "$gradleTask $gradleProps" -StepLabel "APK assembly"
 if ($buildRun.ExitCode -ne 0)
 {
@@ -2147,58 +1944,34 @@ if (-not (Test-Path $apkSourcePath))
     Exit-WithCleanup 1
 }
 
-# Copy to output with build name
-if (-not (Test-Path $OutputDir))
+Write-LogWithTime "Checking APK archive footprint (no unreferenced bytes)..." "Cyan"
+if (-not (Test-ApkArchiveFootprint -ApkPath $apkSourcePath))
 {
-    New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+    Exit-WithCleanup 1
+}
+Write-LogWithTime "  ✅ APK archive footprint guard passed" "Green"
+
+# Copy to output with build name
+if (-not (Test-Path "output/apks"))
+{
+    New-Item -ItemType Directory -Path "output/apks" -Force | Out-Null
 }
 $apkFinalName = "$buildName.apk"
-$apkFinalPath = Join-Path $OutputDir $apkFinalName
+$apkFinalPath = Join-Path "output/apks" $apkFinalName
 Copy-Item $apkSourcePath $apkFinalPath -Force
 
 $apkSize = [math]::Round((Get-Item $apkFinalPath).Length / 1MB, 2)
 Write-LogWithTime "APK: $apkFinalPath ($apkSize MB)" "Cyan"
 
-# Checksum sidecar, written HERE (by the build) rather than at publish time.
-# The publish step now VERIFIES this instead of generating it, so there is exactly one place that
-# hashes the artifact: the step that produced it. A checksum generated by the publisher only proves
-# the publisher hashed something - it cannot detect an APK swapped or altered between build and
-# publish, which is the case worth failing on.
-#
-# Format is unchanged from what publish-release.ps1 always uploaded - uppercase hex, two spaces,
-# bare filename - so the published asset is byte-compatible with every existing release.
+# Checksum sidecar written by the build itself; publish-release.ps1 verifies it instead of generating it.
+# Format: uppercase hex, two spaces, bare filename.
 $apkHash = (Get-FileHash -Path $apkFinalPath -Algorithm SHA256).Hash.ToUpper()
 Set-Content -Path "$apkFinalPath.sha256" -Value "$apkHash  $apkFinalName" -Encoding UTF8
 Write-LogWithTime "SHA256: $apkHash" "Cyan"
 if ($Release)
 {
-    # Fail-closed on the build path: a release artefact that cannot be verified is not a
-    # verified artefact, so an APK that cannot be checked must fail the build instead of
-    # passing through as if it had been checked. The publish path
-    # (publish-release.ps1, beta/stable) verifies with -FailClosed as well.
+    # Fail closed: a release artefact that cannot be verified fails the build.
     Invoke-ReleaseSecurityVerification -ApkPath $apkFinalPath -FailClosed
-}
-
-# ── Publish to channel (default OFF; -Publish opts in) ────────────────────────
-# Local iteration builds never publish: the home loop is edit → build → -Install →
-# test → logs → repeat (the install step is opt-in; a plain run builds and stops),
-# and publish happens only AFTER the tested code is committed
-# (publish-release.ps1 -ApkPath <tested.apk>, no rebuild).
-# -Publish makes THIS build go to the channel too; branch guards inside
-# publish-release.ps1 (feature/* → dev, dev → beta, main → stable) still apply.
-if ($Publish)
-{
-    Write-LogWithTime "Publishing APK to channel (auto-detect from branch)..." "Magenta"
-    & "$PSScriptRoot/publish-release.ps1" -ApkPath $apkFinalPath
-    if ($LASTEXITCODE -ne 0)
-    {
-        Write-LogWithTime "❌ Publish failed!" "Red"
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "✅ Published to channel." "Green"
-} else
-{
-    Write-LogWithTime "Skipping channel publish (local-only build; use -Publish to ship)." "Yellow"
 }
 
 # Preserve R8 mapping file for stack-trace retrace:
@@ -2213,7 +1986,7 @@ if ($Publish)
     if ($mappingSourcePath)
     {
         $mappingFinalName = "$buildName.mapping.txt"
-        $mappingFinalPath = Join-Path $OutputDir $mappingFinalName
+        $mappingFinalPath = Join-Path "output/apks" $mappingFinalName
         Copy-Item $mappingSourcePath $mappingFinalPath -Force
         Write-LogWithTime "Mapping: $mappingFinalPath (for stack-trace retrace)" "Cyan"
     }
@@ -2224,34 +1997,28 @@ if ($Publish)
 }
 
 # ============================================
-# INSTALL TO DEVICE
+# INSTALL TO DEVICE (-InstallApk <upgrade|clean>)
 # ============================================
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== DEVICE INSTALLATION ===" "Magenta"
 
-# The installed package name is derived ONCE here and reused for the presence check, the
-# uninstall, the install and post-install verification. It must mirror app/build.gradle.kts:
-# the debug build type sets applicationIdSuffix = ".debug", so a debug build installs as
-# io.payanam.debug while a release build installs as io.payanam. Uninstalling or probing the
-# other package would target a different app (and destroy its data).
-# Note: the broadcast action io.payanam.PING and the activity class io.payanam.MainActivity
-# are NOT package names and intentionally stay untouched.
+# The installed package name mirrors app/build.gradle.kts: the debug build type sets
+# applicationIdSuffix = ".debug", so a debug build installs as io.payanam.debug and a release
+# build as io.payanam. The broadcast action io.payanam.PING and io.payanam.MainActivity are
+# not package names and stay untouched.
 $installedPackageName = if ($buildType -eq "release")
 { "io.payanam"
 } else
 { "io.payanam.debug"
 }
 
-if (-not $runDeviceInstall)
+if (-not $installRequested)
 {
-    Write-LogWithTime "Skipping device installation: no install flag was passed (default is build-only)." "Yellow"
-    Write-LogWithTime "Pass -Install to install on the connected device (-CleanInstall and -RunInProcess imply it)." "Yellow"
+    Write-LogWithTime "No device queried: install is opt-in (-InstallApk upgrade|clean)." "Yellow"
     Write-LogWithTime "APK ready for manual install: $apkFinalPath" "Cyan"
     Write-LogWithTime "Target package for this $buildType build: $installedPackageName" "Cyan"
-    Write-LogWithTime "Commands you would run (copy-paste as needed):" "Yellow"
-    Write-LogWithTime "  Upgrade, keeping data: adb install -r -d `"$apkFinalPath`"" "Cyan"
-    Write-LogWithTime "  Clean install, step 1 (removes this build's data): adb uninstall $installedPackageName" "Cyan"
-    Write-LogWithTime "  Clean install, step 2: adb install `"$apkFinalPath`"" "Cyan"
+    Write-LogWithTime "  Upgrade, keeping data: adb install -r `"$apkFinalPath`"" "Cyan"
+    Write-LogWithTime "  Clean install (removes app data): adb uninstall $installedPackageName, then adb install `"$apkFinalPath`"" "Cyan"
 } else
 {
     $deviceConnected = $false
@@ -2263,33 +2030,16 @@ if (-not $runDeviceInstall)
             $deviceConnected = $true
             Write-LogWithTime "Android device detected" "Green"
 
-            # Exact, anchored match on the `package:<name>` line: a substring probe would also
-            # match io.payanam.debug / io.payanam.debug.test and pick the wrong branch.
-            $packageListing = adb shell pm list packages 2>&1
-            $currentPackage = @(
-                $packageListing |
-                    ForEach-Object { $_.ToString().Trim() } |
-                    Where-Object { $_ -eq "package:$installedPackageName" }
-            )
-            if ($currentPackage.Count -gt 0)
+            if ($InstallApk -eq "clean")
             {
-                if ($CleanInstall)
-                {
-                    Write-LogWithTime "Uninstalling previous version of $installedPackageName..." "Yellow"
-                    adb uninstall $installedPackageName 2>$null | Out-Null
-                    Write-LogWithTime "Installing fresh..." "Yellow"
-                    $installResult = adb install $apkFinalPath 2>&1
-                    $installExitCode = $LASTEXITCODE
-                } else
-                {
-                    Write-LogWithTime "Upgrading (keeping data)..." "Yellow"
-                    $installResult = adb install -r -d $apkFinalPath 2>&1
-                    $installExitCode = $LASTEXITCODE
-                }
+                Write-LogWithTime "Clean install: uninstalling $installedPackageName (app data is removed)..." "Yellow"
+                adb uninstall $installedPackageName 2>$null | Out-Null
+                $installResult = adb install $apkFinalPath 2>&1
+                $installExitCode = $LASTEXITCODE
             } else
             {
-                Write-LogWithTime "First time install of $installedPackageName..." "Yellow"
-                $installResult = adb install $apkFinalPath 2>&1
+                Write-LogWithTime "Upgrade install (keeping app data)..." "Yellow"
+                $installResult = adb install -r $apkFinalPath 2>&1
                 $installExitCode = $LASTEXITCODE
             }
 
@@ -2300,10 +2050,11 @@ if (-not $runDeviceInstall)
             {
                 Write-LogWithTime "✅ APK installed successfully!" "Green"
 
-                if ($runPostInstallVerification)
+                # Only -SmokePack goes past the install itself; -InstallApk stops here.
+                if ($runDeviceSmoke)
                 {
                     Write-LogWithTime "" "White"
-                    Write-LogWithTime "=== POST-INSTALL VERIFICATION ===" "Magenta"
+                    Write-LogWithTime "=== DEVICE SMOKE PACK ===" "Magenta"
 
                     $packageName = $installedPackageName
                     $fullActivity = "io.payanam.MainActivity"
@@ -2333,7 +2084,7 @@ if (-not $runDeviceInstall)
                         Write-LogWithTime "" "White"
                         Write-LogWithTime "  📋 For debugging:" "Cyan"
                         Write-LogWithTime "  - Use Settings > Data Management > Export Latest Log" "Yellow"
-                        Write-LogWithTime "  - Or export all logs to Documents/payanam/exported-logs/" "Yellow"
+                        Write-LogWithTime "  - Or export all logs to Documents/Payanam/exported-logs/" "Yellow"
                         Exit-WithCleanup 1
                     }
 
@@ -2348,42 +2099,18 @@ if (-not $runDeviceInstall)
                         Write-LogWithTime "  ⚠️ App responsiveness check inconclusive (may still be initializing)" "Yellow"
                     }
 
-                    if ($runDeviceSmoke)
-                    {
-                        Invoke-DeviceSmokePack -PackageName $packageName -ActivityName $fullActivity -BuildName $buildName
-                    } else
-                    {
-                        Write-LogWithTime "Skipping device smoke pack for profile '$effectiveProfile'." "Yellow"
-                    }
-
-                    if ($RunInProcess.IsPresent)
-                    {
-                        # In-process Compose UI test tier: the only E2E tier the pipeline runs.
-                        # Flag-only by design; invoked by the script only, never by hand.
-                        Write-LogWithTime "Running in-process instrumented tests (:app:connectedDebugAndroidTest)..." "Yellow"
-                        $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true $gradleProps" -StepLabel "In-process UI tests"
-                        if ($inProcessRun.ExitCode -ne 0)
-                        {
-                            Write-LogWithTime "  ❌ In-process tests failed — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
-                            $inProcessRun.Output | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-                            Exit-WithCleanup 1
-                        }
-                        else
-                        {
-                            Write-LogWithTime "  ✅ In-process tests passed." "Green"
-                        }
-                    }
-
-                    Write-LogWithTime "✅ Post-install verification complete!" "Green"
-                } else
-                {
-                    Write-LogWithTime "Skipping post-install verification for profile '$effectiveProfile'." "Yellow"
+                    Invoke-DeviceSmokePack -PackageName $packageName -ActivityName $fullActivity -BuildName $buildName
+                    Write-LogWithTime "✅ Device smoke pack complete!" "Green"
                 }
-
             } else
             {
                 if ($installResult -match "INSTALL_FAILED_UPDATE_INCOMPATIBLE")
                 {
+                    if ($runDeviceSmoke)
+                    {
+                        Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but the install was skipped (signature mismatch)." "Red"
+                        Exit-WithCleanup 1
+                    }
                     Write-LogWithTime "⚠️ APK installation skipped due to signature mismatch with installed app" "Yellow"
                     Write-LogWithTime "$installResult" "Yellow"
                     Write-LogWithTime "APK ready for manual install after uninstalling the incompatible app build: $apkFinalPath" "Cyan"
@@ -2397,7 +2124,12 @@ if (-not $runDeviceInstall)
             }
         } else
         {
-            Write-LogWithTime "⚠️ No Android device connected" "Yellow"
+            if ($runDeviceSmoke)
+            {
+                Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but no Android device is present." "Red"
+                Exit-WithCleanup 1
+            }
+            Write-LogWithTime "⚠️ Install requested but no Android device is connected." "Yellow"
             Write-LogWithTime "APK ready for manual install: $apkFinalPath" "Cyan"
         }
     } catch
@@ -2405,6 +2137,10 @@ if (-not $runDeviceInstall)
         if ($deviceConnected)
         {
             Write-LogWithTime "❌ Device verification failed: $($_.Exception.Message)" "Red"
+            Exit-WithCleanup 1
+        } elseif ($runDeviceSmoke)
+        {
+            Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but no device could be reached: $($_.Exception.Message)" "Red"
             Exit-WithCleanup 1
         } else
         {
@@ -2415,15 +2151,37 @@ if (-not $runDeviceInstall)
 }
 
 # ============================================
+# DEVICE TEST TIER (-RunInProcess)
+# ============================================
+if ($RunInProcess.IsPresent)
+{
+    # In-process Compose UI test tier: the only E2E tier the pipeline runs.
+    Write-LogWithTime "" "White"
+    Write-LogWithTime "=== IN-PROCESS UI TESTS ===" "Magenta"
+    Write-LogWithTime "Running :app:connectedDebugAndroidTest..." "Cyan"
+    $inProcessRun = Invoke-GradleStreaming -GradleArgs ":app:connectedDebugAndroidTest -Ppayanam.noMinify=true $gradleProps" -StepLabel "In-process UI tests"
+    if ($inProcessRun.ExitCode -ne 0)
+    {
+        Write-LogWithTime "  ❌ In-process tests failed — see app/build/reports/androidTests/connected/ and app/build/outputs/androidTest-results/connected/." "Red"
+        $inProcessRun.Output | Select-Object -Last 40 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+        Exit-WithCleanup 1
+    }
+    else
+    {
+        Write-LogWithTime "  ✅ In-process tests passed." "Green"
+    }
+}
+
+# ============================================
 # ARTIFACT RETENTION
 # ============================================
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== ARTIFACT RETENTION ===" "Magenta"
 try
 {
-    Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.apk" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
-    Remove-OrphanedArtifactChecksums -TargetPath $OutputDir
-    Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType File -Filter "*.mapping.txt" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
+    Invoke-BuildArtifactRetention -TargetPath "output/apks" -ItemType File -Filter "*.apk" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
+    Remove-OrphanedArtifactChecksums -TargetPath "output/apks"
+    Invoke-BuildArtifactRetention -TargetPath "output/apks" -ItemType File -Filter "*.mapping.txt" -KeepCount $MaxApkArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/smoke" -ItemType Directory -KeepCount $MaxSmokeArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath "output/androidtest-failures" -ItemType Directory -KeepCount $MaxAndroidTestFailureArtifacts -CurrentBuildName $buildName
 } catch
@@ -2439,7 +2197,7 @@ Write-LogWithTime "========================================" "Green"
 Write-LogWithTime "  BUILD COMPLETED SUCCESSFULLY!" "Green"
 Write-LogWithTime "========================================" "Green"
 Write-LogWithTime "  Build Name: $buildName" "Cyan"
-Write-LogWithTime "  Build #: $buildNumber" "Cyan"
+Write-LogWithTime "  Version: $payanamVersion (sha: $shortSha)" "Cyan"
 Write-LogWithTime "  APK Size: $apkSize MB" "Cyan"
 Write-LogWithTime "  APK Path: $apkFinalPath" "Cyan"
 Write-LogWithTime "========================================" "Green"

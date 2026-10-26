@@ -293,9 +293,9 @@ internal object DesktopUnsupportedPorts {
         object : ApkUpdateSource {
             override val state: SupportState = SupportState.NOT_APPLICABLE
 
-            // The build number the packager stamped this binary with. It is real, but nothing on this
+            // The declared versionCode this binary was stamped with. It is real, but nothing on this
             // platform compares it against a release channel, so it is reported and not acted upon.
-            override val currentBuildNumber: Int? = DesktopBuildInfo.PLATFORM_BUILD_NUMBER
+            override val currentBuildNumber: Int? = DesktopBuildInfo.VERSION_CODE
 
             // The CHECK still answers, and now does so for real: the same shared checker Android uses,
             // asked with this build number and this platform's channel, so both platforms report the

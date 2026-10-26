@@ -3,6 +3,7 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.logging.osToken
 import org.junit.Before
 import org.junit.Rule
 import org.junit.Test
@@ -36,9 +37,14 @@ class UnifiedLoggerTest {
 
         val logContents = Files.readString(logger.getLogPath())
 
-        assertThat(logger.getLogPath().fileName.toString()).contains("payanam_desktop_${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        val buildType = if (DesktopBuildInfo.IS_DEBUG_BUILD) "debug" else "release"
+        val expectedPrefix =
+            "payanam_${osToken(DesktopBuildInfo.PLATFORM)}_${DesktopBuildInfo.VERSION_NAME}_" +
+                "${DesktopBuildInfo.BUILD_SHORT_SHA}_${buildType}_"
+        assertThat(logger.getLogPath().fileName.toString()).startsWith(expectedPrefix)
+        assertThat(logger.getLogPath().fileName.toString()).endsWith(".log")
         assertThat(logContents).contains("Payanam Unified Log | Platform: ${DesktopBuildInfo.PLATFORM}")
-        assertThat(logContents).contains("Build: ${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        assertThat(logContents).contains("Version: ${DesktopBuildInfo.VERSION_DISPLAY_NAME}")
         assertThat(logContents).contains("Session:")
         assertThat(logContents).contains("OS: ${System.getProperty("os.name")}")
         assertThat(logContents).contains("Format: timestamp | level | n | thread=<name> | source | message | [data]")
@@ -57,7 +63,7 @@ class UnifiedLoggerTest {
         logger.i(
             source = "UnifiedLoggerTest",
             message = "Testing structured log event",
-            data = mapOf("screen" to "desktop-home", "build" to DesktopBuildInfo.PLATFORM_BUILD_NUMBER),
+            data = mapOf("screen" to "desktop-home", "build" to DesktopBuildInfo.VERSION_CODE),
         )
         logger.close()
 
@@ -65,7 +71,7 @@ class UnifiedLoggerTest {
         assertThat(logContents).contains("UnifiedLoggerTest")
         assertThat(logContents).contains("Testing structured log event")
         assertThat(logContents).contains("screen=\"desktop-home\"")
-        assertThat(logContents).contains("build=${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        assertThat(logContents).contains("build=${DesktopBuildInfo.VERSION_CODE}")
         assertThat(logContents).doesNotContain("uptimeMs=")
         assertThat(logContents).doesNotContain("seq=")
     }
@@ -258,7 +264,7 @@ class UnifiedLoggerTest {
             Files.setLastModifiedTime(file, FileTime.from(base.plusSeconds(index.toLong())))
         }
         // An exported archive is not a session log, so the prune must leave it alone.
-        val archive = logsDirectory.resolve("payanam_desktop_all_logs_20260301-000000.zip")
+        val archive = logsDirectory.resolve("payanam_logs_${osToken(DesktopBuildInfo.PLATFORM)}_fixture.zip")
         Files.writeString(archive, "archive")
 
         val logger =
@@ -277,6 +283,36 @@ class UnifiedLoggerTest {
                 entries.filter { path -> path.fileName.toString().startsWith("old_") }.count()
             }
         assertThat(retainedOldLogs).isEqualTo(20L)
+    }
+
+    @Test
+    fun `exported copies under the exports subdirectory neither count as sessions nor get pruned`() {
+        val logsDirectory = temporaryFolder.newFolder("logs-exports-retention").toPath()
+        val exportsDirectory = logsDirectory.resolve("exports")
+        Files.createDirectories(exportsDirectory)
+        val base = Instant.parse("2026-03-01T00:00:00Z")
+        // The copy is the OLDEST file on disk, so a recursive prune would take it first.
+        val copy = exportsDirectory.resolve("payanam_desktop_1.0.0_abc1234_debug_20260201_000000.log")
+        Files.writeString(copy, "copy\n")
+        Files.setLastModifiedTime(copy, FileTime.from(base.minusSeconds(1)))
+        repeat(21) { index ->
+            val file = logsDirectory.resolve("old_$index.log")
+            Files.writeString(file, "session $index\n")
+            Files.setLastModifiedTime(file, FileTime.from(base.plusSeconds(index.toLong())))
+        }
+
+        val logger =
+            UnifiedLogger.initialize(
+                logsDirectory = logsDirectory,
+                clock = { base.plusSeconds(1_000) },
+            )
+        logger.close()
+
+        // The session prune still keeps 20 and still drops the oldest session log...
+        assertThat(Files.exists(logsDirectory.resolve("old_0.log"))).isFalse()
+        assertThat(Files.exists(logsDirectory.resolve("old_1.log"))).isTrue()
+        // ...while the copy is neither counted among them nor deleted.
+        assertThat(Files.isRegularFile(copy)).isTrue()
     }
 
     @Test

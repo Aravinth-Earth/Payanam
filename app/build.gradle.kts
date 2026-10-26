@@ -31,27 +31,16 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
-// The version comes from the build script's `-PbuildNumber` flag - the same property the desktop module
-// reads - so the number the gate prints, the number in the APK filename and the number the installed app
-// reports are one number. It used to be hardcoded, which meant a build script could print "Build #2028"
-// and hand over an APK that told the user it was 1825.
-//
-// With no flag (a bare `./gradlew assembleDebug`) it falls back to the tracked build counter, which is
-// where the script's own buildNumber comes from, so the value is never a guess and never stale.
-val buildNumber: Int =
-    (project.findProperty("buildNumber") as String?)?.toIntOrNull()
-        ?: run {
-            val counterFile = rootProject.file("build-tools/tracking/build-counter.json")
-            check(counterFile.exists()) { "Build counter missing: ${counterFile.path}" }
-            val counterJson = counterFile.readText()
-            val androidBlock =
-                requireNotNull(
-                    Regex("\"android\"\\s*:\\s*\\{([^}]*)\\}").find(counterJson)?.groupValues?.get(1),
-                ) { "No android block in ${counterFile.path}; cannot resolve the app version." }
-            requireNotNull(
-                Regex("\"builds\"\\s*:\\s*(\\d+)").find(androidBlock)?.groupValues?.get(1)?.toIntOrNull(),
-            ) { "No android.builds value in ${counterFile.path}; cannot resolve the app version." }
-        }
+// Declared version from gradle/version.properties, parsed once in the root build script.
+val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
+val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
+val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
+
+require(declaredVersionCode == declaredPackedVersionCode) {
+    "Declared version drift: version=$declaredVersionName packs to versionCode $declaredPackedVersionCode, " +
+        "but the file declares $declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version>."
+}
 
 // F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
 // the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
@@ -66,8 +55,9 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = buildNumber
-          versionName = buildNumber.toString()
+          versionCode = declaredVersionCode
+          versionName = declaredVersionName
+          buildConfigField("String", "BUILD_SHORT_SHA", "\"$declaredShortSha\"")
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")

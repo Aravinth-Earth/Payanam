@@ -35,6 +35,7 @@ import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.logging.dbExportName
 import io.payanam.shared.settings.BackupInterval
 import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
@@ -611,11 +612,17 @@ class SettingsViewModel(
 
     /**
      * Builds the timestamped filename used when exporting the encrypted database
-     * (e.g. `payanam_backup_encrypted_YYYYMMDD_HHMMSS.db`).
+     * (e.g. `payanam_backup_encrypted_android_1.0.0_abc1234_debug_YYYYMMDD_HHMMSS.db`).
      */
     fun generateExportFileName(): String {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-        return "payanam_backup_encrypted_$timestamp.db"
+        return dbExportName(
+            "android",
+            BuildConfig.VERSION_NAME,
+            BuildConfig.BUILD_SHORT_SHA,
+            BuildConfig.DEBUG,
+            timestamp,
+        )
     }
 
     /**

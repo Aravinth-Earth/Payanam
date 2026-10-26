@@ -10,6 +10,13 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
+// Declared version and short sha, shared with :app through the root extra properties.
+val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
+val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
+
+version = declaredVersionName
+
 kotlin {
     jvmToolchain(17)
 }
@@ -179,12 +186,10 @@ tasks.named("check") {
 }
 
 // ── Build info generation (matches Android's BuildConfig pattern) ──────────
-// Build scripts pass -PbuildNumber=N -PbuildPlatform=Linux|Windows
-// This task generates DesktopBuildInfo.kt into build/generated/ from those values.
-val buildNumber: Int = project.findProperty("buildNumber")?.toString()?.toIntOrNull() ?: 0
+// Build scripts pass -PbuildPlatform=Linux|Windows|macOS -PbuildTimestamp=... -PbuildType=debug|release.
+// Version and sha come from the root extra properties; this task generates DesktopBuildInfo.kt.
 val buildPlatform: String = project.findProperty("buildPlatform")?.toString() ?: ""
 val buildTimestamp: String = project.findProperty("buildTimestamp")?.toString() ?: ""
-val buildTotalBuilds: Int = project.findProperty("buildTotalBuilds")?.toString()?.toIntOrNull() ?: 0
 // -PbuildType=debug|release, set by the build scripts, which are the only sanctioned build entry points.
 // An absent value means the module was built directly (a test run, an IDE), and that is NOT treated as a
 // debug build: the build-type default for debug logging must never switch itself on by accident.
@@ -201,11 +206,17 @@ tasks.register("generateBuildInfo") {
     doLast {
         val osName = System.getProperty("os.name").lowercase()
         val platform = buildPlatform.ifBlank {
-            if (osName.contains("linux")) "Linux" else "Windows"
+            when {
+                osName.contains("linux") -> "Linux"
+                osName.contains("mac") || osName.contains("darwin") -> "macOS"
+                osName.contains("windows") -> "Windows"
+                else -> error("Unsupported desktop OS for a generated name: ${System.getProperty("os.name")}")
+            }
         }
-        val displayPrefix = if (platform == "Linux") "L" else "W"
+        val platformToken = platform.lowercase()
         val timestamp = buildTimestamp.ifBlank { "00000000_000000" }
         val isDebugBuild = buildType.equals("debug", ignoreCase = true)
+        val typeToken = if (isDebugBuild) "debug" else "release"
 
         val dir = outputDir.get().asFile.resolve("io/payanam/desktop")
         dir.mkdirs()
@@ -215,11 +226,12 @@ package io.payanam.desktop
 /** Auto-generated at build time by generateBuildInfo task. DO NOT EDIT. */
 object DesktopBuildInfo {
     const val PLATFORM = "$platform"
-    const val PLATFORM_BUILD_NUMBER = $buildNumber
-    const val OVERALL_BUILD_NUMBER = $buildTotalBuilds
+    const val VERSION_NAME = "$declaredVersionName"
+    const val VERSION_CODE = $declaredVersionCode
+    const val BUILD_SHORT_SHA = "$declaredShortSha"
     const val BUILD_TIMESTAMP = "$timestamp"
-    const val VERSION_DISPLAY_NAME = "#${displayPrefix}$buildNumber ($timestamp)"
-    const val BUILD_NAME = "Payanam_${platform}_${buildNumber}_$timestamp"
+    const val VERSION_DISPLAY_NAME = "$declaredVersionName ($declaredShortSha)"
+    const val BUILD_NAME = "Payanam_${platformToken}_${declaredVersionName}_${declaredShortSha}_${typeToken}_$timestamp"
     /**
      * Whether this build was produced as a debug build (`-PbuildType=debug`).
      *
@@ -266,14 +278,8 @@ compose.desktop {
             // F-Droid listing uses - not "PayanamDesktop", which leaked a technical qualifier into the
             // window title, the app grid and the binary path.
             packageName = "Payanam"
-            // Bare build number, no "0.1." prefix - the same scheme Android already uses for
-            // versionName/versionCode, and the same number the .deb FILENAME has always carried
-            // (Payanam_Linux_<build>_<stamp>.deb). The prefix only ever survived inside the package
-            // metadata, so `dpkg -l payanam` showed 0.1.64-1 while the file said 64.
-            //
-            // Safe to drop: dpkg compares 64-1 > 0.1.64-1, so upgrades move forward cleanly (checked with
-            // `dpkg --compare-versions`), and nothing parses the prefix.
-            packageVersion = "${buildNumber}"
+            // Declared version. Must stay 3-component: Exe/MSI reject anything else at configuration time.
+            packageVersion = declaredVersionName
             vendor = "Aravinth-Earth"
             description = "Navigate your life journey across dimensions privately."
             // Icon comes from the shared brand assets (assets/branding), the same file Android's
@@ -296,21 +302,10 @@ compose.desktop {
                 perUserInstall = true
                 upgradeUuid = "0f9f504f-1be8-42d7-a8a7-72fd1d067d7e"
                 iconFile.set(rootProject.file("assets/branding/payanam-icon.ico"))
-                // Windows is the ONE place a bare build number cannot be used, and this is a hard
-                // toolchain constraint rather than a preference. Setting nativeDistributions.packageVersion
-                // to a single component fails the build at CONFIGURATION time (so it fails on Linux too,
-                // even though these installers are only built on Windows):
-                //
-                //   * Illegal version for 'Exe': '65' is not a valid version.
-                //       * Correct format: 'MAJOR.MINOR.BUILD'  (MAJOR<=255, MINOR<=255, BUILD<=65535)
-                //
-                // So the build number is carried as the BUILD component with the leading components
-                // pinned to 0 - the least version that satisfies the format, and nothing but the build
-                // number is informative. Note BUILD is capped at 65535; the counter is ~2500.
-                // No Windows installer has ever shipped (only linux-x64 has been built), so moving off
-                // the old 0.1.<build> shape cannot present an MSI with a downgrade.
-                msiPackageVersion = "0.0.${buildNumber}"
-                exePackageVersion = "0.0.${buildNumber}"
+                // Exe/MSI require MAJOR.MINOR.BUILD (MAJOR, MINOR <= 255; BUILD <= 65535) at configuration
+                // time, so the declared version must stay below those caps.
+                msiPackageVersion = declaredVersionName
+                exePackageVersion = declaredVersionName
             }
         }
         // ProGuard runs for the release distribution and STAYS enabled - the point of the rules

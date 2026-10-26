@@ -3,10 +3,13 @@
 package io.payanam.common.logging
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Environment
 import android.os.SystemClock
 import io.payanam.shared.concurrent.appCoroutineScope
 import io.payanam.shared.logging.LogSanitizer
+import io.payanam.shared.logging.logExportName
+import io.payanam.shared.logging.sessionLogName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
@@ -34,10 +37,13 @@ import java.util.concurrent.atomic.AtomicLong
 @Suppress("TooManyFunctions")
 class UnifiedLogger private constructor(
     private val context: Context,
-    private val buildNumber: Int,
+    private val versionName: String,
+    private val buildShortSha: String,
 ) : io.payanam.shared.logging.UnifiedLogger {
     private val logDir: File
     private var logFile: File
+    private val debugBuild: Boolean =
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private val logBuffer = mutableListOf<String>()
     private val mutex = Mutex()
     private val scope = appCoroutineScope("UnifiedLogger", Dispatchers.IO)
@@ -362,7 +368,7 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
@@ -416,13 +422,14 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
 
-                val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val zipFile =
+                    File(exportDir, logExportName("android", versionName, buildShortSha, debugBuild, timestamp))
                 val tmpZip = File(exportDir, "${zipFile.name}.tmp")
 
                 try {
@@ -577,11 +584,14 @@ class UnifiedLogger private constructor(
 
     private fun createSessionLogFile(): File {
         val timestamp = sessionFileNameFormat.format(Date())
-        val sessionFile = File(logDir, "payanam_${buildNumber}_$timestamp.log")
+        val sessionFile = File(logDir, sessionLogName("android", versionName, buildShortSha, debugBuild, timestamp))
         val header =
             buildString {
                 appendLine("=".repeat(HEADER_LINE_LENGTH))
-                appendLine("Payanam Unified Log | Platform: Android | Build: $buildNumber | Session: $timestamp")
+                appendLine(
+                    "Payanam Unified Log | Platform: Android | Version: $versionName ($buildShortSha) | " +
+                        "Session: $timestamp",
+                )
                 appendLine(
                     "Device: ${android.os.Build.MODEL} | OS: Android ${android.os.Build.VERSION.RELEASE} | " +
                         "SDK: ${android.os.Build.VERSION.SDK_INT}",
@@ -608,11 +618,14 @@ class UnifiedLogger private constructor(
         private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
 
+        /** Stands in for the sha when a caller has none: the same token the build scripts use without a `.git`. */
+        private const val NO_SHORT_SHA = "nogit"
+
         // ZIP End-Of-Central-Directory record: fixed 22-byte trailer whose first
         // 4 bytes are the PK\x05\x06 magic. Used to confirm a written zip is complete.
         private const val EOCD_RECORD_SIZE = 22
         private const val EOCD_MAGIC_SIZE = 4
-        private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+        private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
 
         @Volatile
         private var instance: UnifiedLogger? = null
@@ -626,14 +639,24 @@ class UnifiedLogger private constructor(
          */
         fun initialize(
             context: Context,
-            @Suppress("UNUSED_PARAMETER") versionName: String,
-            buildNumber: Int,
+            versionName: String,
+            buildShortSha: String,
         ): UnifiedLogger =
             instance ?: synchronized(this) {
-                instance ?: UnifiedLogger(context, buildNumber).also {
+                instance ?: UnifiedLogger(context, versionName, buildShortSha).also {
                     instance = it
                 }
             }
+
+        /**
+         * Legacy arity: the build number no longer names anything, so it is accepted and dropped.
+         * Production uses the [buildShortSha] overload.
+         */
+        fun initialize(
+            context: Context,
+            versionName: String,
+            @Suppress("UNUSED_PARAMETER") buildNumber: Int,
+        ): UnifiedLogger = initialize(context, versionName, NO_SHORT_SHA)
 
         /** Returns the initialized singleton, throwing if [initialize] was not called. */
         fun getInstance(): UnifiedLogger =

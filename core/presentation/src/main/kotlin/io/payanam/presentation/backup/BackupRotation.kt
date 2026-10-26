@@ -94,11 +94,10 @@ fun pruneBackupArtifacts(
     // backups written oldest-name-last deletes the newest one under keepCount = 1; on tmpfs the same
     // fixture happens to keep it, so the defect is invisible on one filesystem and real on another.
     //
-    // The name breaks the tie because the artifact name IS the stamp: `scheduledBackupArtifactName`
-    // builds `auto_bk_<yyyyMMdd-HHmmss>.db`, zero-padded and fixed-width, so descending name order is
-    // descending chronological order among the artifacts this app writes. mtime stays the primary key,
-    // so this can never promote an artifact over a genuinely newer one - it only makes the order of
-    // two artifacts the filesystem cannot order TOTAL.
+    // The name breaks the tie because the shared backup names carry a fixed-width stamp, so
+    // descending name order is descending time among artifacts of the same version and sha. mtime stays
+    // the primary key, so this can never promote an artifact over a genuinely newer one - it only makes
+    // the order of two artifacts the filesystem cannot order TOTAL.
     val doomed =
         backupDirs
             .sortedWith(

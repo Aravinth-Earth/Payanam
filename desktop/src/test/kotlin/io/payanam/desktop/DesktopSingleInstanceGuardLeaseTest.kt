@@ -3,6 +3,7 @@
 package io.payanam.desktop
 
 import com.google.common.truth.Truth.assertThat
+import io.payanam.shared.logging.osToken
 import org.junit.Test
 import java.nio.file.Files
 import java.nio.file.Path
@@ -100,7 +101,7 @@ class DesktopSingleInstanceGuardLeaseTest {
             ) as DesktopSingleInstanceAcquireResult.AlreadyRunning
 
         assertThat(second.details.processId).isEqualTo(66666L)
-        assertThat(second.details.buildName).contains("Payanam_${DesktopBuildInfo.PLATFORM}_")
+        assertThat(second.details.buildName).contains("Payanam_${osToken(DesktopBuildInfo.PLATFORM)}_")
         assertThat(second.details.versionDisplayName)
             .contains(DesktopBuildInfo.VERSION_DISPLAY_NAME.substringBefore(" "))
         assertThat(second.details.acquiredAt).isNotNull()

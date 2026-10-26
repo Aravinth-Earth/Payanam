@@ -13,6 +13,7 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.formatArgs
+import io.payanam.shared.logging.osToken
 import org.junit.After
 import org.junit.Before
 import org.junit.Rule
@@ -22,6 +23,8 @@ import java.io.File
 import java.nio.file.Files
 import java.nio.file.attribute.PosixFilePermissions
 import java.time.Instant
+import java.util.Collections
+import java.util.zip.ZipFile
 
 /**
  * The desktop's debug-log export buttons, rendered for real on the JVM target.
@@ -47,15 +50,19 @@ class DesktopLogExportActionsTest {
 
     private lateinit var logsDirectory: File
 
+    /** The logger's frozen clock; a test that exports moves it past the session's own stamp. */
+    private var clockNow: Instant = Instant.parse("2026-03-04T05:06:07Z")
+
     @Before
     fun setUp() {
         // The memoized singleton, so both hooks are needed: one to point it at this test's directory and
         // one to keep a leaked instance from pointing later classes at a deleted TemporaryFolder.
         UnifiedLogger.resetForTests()
         logsDirectory = temporaryFolder.newFolder("logs")
+        clockNow = Instant.parse("2026-03-04T05:06:07Z")
         UnifiedLogger.initialize(
             logsDirectory = logsDirectory.toPath(),
-            clock = { Instant.parse("2026-03-04T05:06:07Z") },
+            clock = { clockNow },
             debugEnabled = true,
         )
     }
@@ -85,6 +92,12 @@ class DesktopLogExportActionsTest {
         return if (Files.isRegularFile(path)) Files.readString(path) else ""
     }
 
+    /** Names of the entries an archive carries, so a re-zipped copy would show up as an extra entry. */
+    private fun zipEntryNames(archive: File): Set<String> =
+        ZipFile(archive).use { zip ->
+            Collections.list(zip.entries()).map { it.name }.toSet()
+        }
+
     @Test
     fun `no result line is drawn before any click`() {
         render()
@@ -103,10 +116,11 @@ class DesktopLogExportActionsTest {
         // The export copies THIS session's log, so one line must exist first or the outcome is the
         // failure arm - which is its own case below.
         UnifiedLogger.getInstance().i("test", "seed the session log")
+        // Stamped at an instant later than the session's own, as a real export is.
+        clockNow = Instant.parse("2026-03-04T05:07:09Z")
 
         composeRule.onNodeWithText(strings.settingsActionExportLatestLog).performClick()
 
-        val artifact = logsDirectory.resolve("payanam_desktop_latest_export.log")
         composeRule.waitUntil(timeoutMillis = 10_000) {
             logText().contains("action=\"exportLatestLog\"")
         }
@@ -115,6 +129,23 @@ class DesktopLogExportActionsTest {
         }
         val text = logText()
         assertThat(text).contains("outcome=\"exported\"")
+        // The copy lands in logs/exports under an ordinary session-log name, so the session log it
+        // came from is the only .log file left directly in the logs directory.
+        val sessionName =
+            UnifiedLogger
+                .getInstance()
+                .getLogPath()
+                .fileName
+                .toString()
+        val exportsDirectory = logsDirectory.resolve("exports")
+        val artifacts = exportsDirectory.listFiles().orEmpty().filter { it.name.endsWith(".log") }
+        assertThat(artifacts).hasSize(1)
+        val artifact = artifacts.single()
+        assertThat(artifact.name)
+            .startsWith("payanam_${osToken(DesktopBuildInfo.PLATFORM)}_${DesktopBuildInfo.VERSION_NAME}_")
+        assertThat(artifact.name).endsWith(".log")
+        assertThat(artifact.parentFile.name).isEqualTo("exports")
+        assertThat(Files.isRegularFile(logsDirectory.toPath().resolve(sessionName))).isTrue()
         // The fileName VALUE is the shared LogSanitizer's business - it redacts path-like data values, which
         // is exactly why the absolute-path invariant below holds - so the arm is asserted through `outcome`,
         // which the sanitizer leaves alone.
@@ -136,6 +167,10 @@ class DesktopLogExportActionsTest {
     fun `the all-logs button writes the archive and logs its own action`() {
         render()
         UnifiedLogger.getInstance().i("test", "seed the session log")
+        // A copy under exports/ is what an export writes; the archive must not re-zip it.
+        val exportsDirectory = logsDirectory.toPath().resolve("exports")
+        Files.createDirectories(exportsDirectory)
+        Files.writeString(exportsDirectory.resolve("payanam_desktop_1.0.0_abc1234_debug_20260304_050709.log"), "copy\n")
 
         composeRule.onNodeWithText(strings.settingsActionExportAllLogs).performClick()
 
@@ -145,29 +180,30 @@ class DesktopLogExportActionsTest {
         assertThat(logText()).contains("outcome=\"exported\"")
         val archives = logsDirectory.listFiles().orEmpty().filter { it.name.endsWith(".zip") }
         assertThat(archives).hasSize(1)
-        assertThat(archives.single().name).startsWith("payanam_desktop_all_logs_")
+        assertThat(archives.single().name).startsWith("payanam_logs_${osToken(DesktopBuildInfo.PLATFORM)}_")
+        val sessionName =
+            UnifiedLogger
+                .getInstance()
+                .getLogPath()
+                .fileName
+                .toString()
+        assertThat(zipEntryNames(archives.single())).containsExactly(sessionName)
         // The archive is a copy: the session log it was made from is still there, append-only.
-        assertThat(
-            logsDirectory
-                .resolve(
-                    UnifiedLogger
-                        .getInstance()
-                        .getLogPath()
-                        .fileName
-                        .toString(),
-                ).exists(),
-        ).isTrue()
+        assertThat(logsDirectory.toPath().resolve(sessionName).toFile().exists()).isTrue()
     }
 
     @Test
     fun `an export that cannot write its target logs the failure arm rather than a silent nothing`() {
         render()
         UnifiedLogger.getInstance().i("test", "seed the session log")
+        // Stamped at an instant later than the session's, as a real export is.
+        clockNow = Instant.parse("2026-03-04T05:07:09Z")
 
-        // The export copies into the SAME directory; a directory that refuses new files makes the copy fail
-        // while the open session log keeps accepting appends through its existing handle - the exact split
-        // the failure arm exists for, and the reason the file is not deleted (a deleted file under an open
-        // writer would swallow the log lines this case asserts).
+        // The copy goes into logs/exports, so a logs directory that refuses new files refuses the
+        // subdirectory too and the copy fails while the open session log keeps accepting appends
+        // through its existing handle - the exact split the failure arm exists for, and the reason
+        // the file is not deleted (a deleted file under an open writer would swallow the lines
+        // this case asserts).
         val dir = logsDirectory.toPath()
         val original = Files.getPosixFilePermissions(dir)
         Files.setPosixFilePermissions(dir, PosixFilePermissions.fromString("r-xr-xr-x"))

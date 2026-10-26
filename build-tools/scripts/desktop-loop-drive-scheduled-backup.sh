@@ -566,18 +566,19 @@ else
 fi
 
 # --- (6) Reconcile assert ---
-# Grep the newest payanam_desktop_*.log for 'Auto-backup schedule applied from shared rows' with a bounded retry (~15s).
+# Grep the newest payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log for 'Auto-backup schedule applied from shared rows' with a bounded retry (~15s).
 # This is the REAL proof that onSettingChanged fired and the reconcile path ran.
 RECONCILE_LOG=""
 for _reconcile_dir in "$HOME/Documents/Payanam-debug/logs" "$HOME/Documents/Payanam/logs" \
                       "$HOME/.local/share/Payanam-debug/logs" "$HOME/.local/share/Payanam/logs"; do
-    _reconcile_candidate=$(ls -t "$_reconcile_dir"/payanam_desktop_*.log 2>/dev/null | head -1)
+    # Session log: payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log
+    _reconcile_candidate=$(ls -t "$_reconcile_dir"/payanam_*_*_*_*.log 2>/dev/null | head -1)
     [[ -n "$_reconcile_candidate" ]] || continue
     if [[ -z "$RECONCILE_LOG" || "$_reconcile_candidate" -nt "$RECONCILE_LOG" ]]; then
         RECONCILE_LOG="$_reconcile_candidate"
     fi
 done
-[[ -n "$RECONCILE_LOG" ]] || die "STEP 'enable auto-backup': could not locate any payanam_desktop_*.log in the standard log directories. Cannot assert the reconcile line."
+[[ -n "$RECONCILE_LOG" ]] || die "STEP 'enable auto-backup': could not locate any payanam_<os>_<version>_<sha>_<debug|release>_<stamp>.log in the standard log directories. Cannot assert the reconcile line."
 say "ENABLE: using app log $RECONCILE_LOG for reconcile assert"
 
 RECONCILE_FOUND=0

@@ -5,10 +5,10 @@
 package io.payanam.service
 
 import android.content.Context
-import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Environment
 import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.BuildConfig
 import io.payanam.R
 import io.payanam.backup.BackupCoordinatorCore
 import io.payanam.common.logging.UnifiedLogger
@@ -20,6 +20,7 @@ import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.port.retryPolicyFor
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.WalCheckpointRule
+import io.payanam.shared.logging.autoBackupDirName
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
@@ -137,12 +138,13 @@ class DatabaseBackupCoordinator @Inject constructor(
 
     private fun buildBackupFolderName(): String {
         val timestamp = LocalDateTime.now().format(DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss"))
-        val buildNum = try {
-            context.packageManager.getPackageInfo(context.packageName, 0).longVersionCode
-        } catch (_: PackageManager.NameNotFoundException) {
-            0L
-        }
-        return "auto_bk_${buildNum}_$timestamp"
+        return autoBackupDirName(
+            "android",
+            BuildConfig.VERSION_NAME,
+            BuildConfig.BUILD_SHORT_SHA,
+            BuildConfig.DEBUG,
+            timestamp,
+        )
     }
 
     private fun getBackupDirectory(): File {

@@ -31,8 +31,8 @@ import kotlinx.coroutines.launch
 // rather than Material 3 - the labels, order and behaviour are unchanged.
 //
 // Only the exporter behind the buttons differs: the desktop has no SAF picker and no R class, so
-// [UnifiedLogger.exportLatestLog] and [UnifiedLogger.exportAllLogs] copy the plain files this module
-// already writes into the plain log directory and report the resulting path.
+// [UnifiedLogger.exportLatestLog] copies the current session into `logs/exports/` and
+// [UnifiedLogger.exportAllLogs] zips the session logs beside them, reporting the resulting path.
 
 /** Log action names, so the export lines name WHICH button was pressed rather than "an export". */
 private const val LATEST_LOG_ACTION = "exportLatestLog"

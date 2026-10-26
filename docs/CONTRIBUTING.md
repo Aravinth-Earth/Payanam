@@ -53,7 +53,7 @@ and isn't, and which contributions align with our direction.
    detekt, guardrails, APK assembly):
 
    ```powershell
-   .\build-tools\scripts\build-android.ps1 -Profile full
+   .\build-tools\scripts\build-android.ps1
    ```
 
    This must pass before submitting a PR.

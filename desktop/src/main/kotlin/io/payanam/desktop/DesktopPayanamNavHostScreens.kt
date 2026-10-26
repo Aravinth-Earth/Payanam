@@ -274,7 +274,7 @@ internal class DesktopPayanamNavHostScreens(
                 PreUnlockUpdateSection(
                     uiState =
                         PreUnlockUpdateUiState(
-                            buildNumber = DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+                            buildNumber = DesktopBuildInfo.VERSION_CODE,
                             platformSupport = SupportState.NOT_APPLICABLE,
                         ),
                     // Lives in the port package, not here: this file's own render guard scans it for

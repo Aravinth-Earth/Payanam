@@ -3,6 +3,7 @@
 package io.payanam.desktop.database
 
 import io.payanam.desktop.DesktopAppPaths
+import io.payanam.desktop.DesktopBuildInfo
 import io.payanam.desktop.DesktopKeyValueEntry
 import io.payanam.domain.port.BackupExecutionResult
 import io.payanam.domain.port.BackupFailureStatus
@@ -14,6 +15,7 @@ import io.payanam.domain.port.formatBackupDisplayTimestamp
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.UnifiedLogger
+import io.payanam.shared.logging.autoBackupFileName
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
@@ -223,12 +225,20 @@ internal const val BACKUP_ARTIFACT_PREFIX = "auto_bk_"
 internal const val BACKUP_ARTIFACT_EXTENSION = "db"
 
 /**
- * The artifact name a scheduled backup writes.
+ * The artifact name a scheduled backup writes: the shared `auto_bk_` name carrying version, sha and
+ * build type, so it matches Android's automatic backup and stays visible to the matcher below.
  *
- * [stamp] is an already-formatted timestamp. The name is derived here, beside the matcher rotation
- * prunes with, because a name written at its call site is a name that can drift away from it.
+ * [stamp] is an already-formatted timestamp. Kept as a seam because rotation's fixtures build their
+ * artifacts through it.
  */
-internal fun scheduledBackupArtifactName(stamp: String): String = "$BACKUP_ARTIFACT_PREFIX$stamp.$BACKUP_ARTIFACT_EXTENSION"
+internal fun scheduledBackupArtifactName(stamp: String): String =
+    autoBackupFileName(
+        DesktopBuildInfo.PLATFORM,
+        DesktopBuildInfo.VERSION_NAME,
+        DesktopBuildInfo.BUILD_SHORT_SHA,
+        DesktopBuildInfo.IS_DEBUG_BUILD,
+        stamp,
+    )
 
 /**
  * Whether this file is a backup artifact this rotation owns: a session directory, or a flat artifact

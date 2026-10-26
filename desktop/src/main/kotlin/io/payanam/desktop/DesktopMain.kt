@@ -158,7 +158,7 @@ fun main() {
         data =
             mapOf(
                 "processId" to ProcessHandle.current().pid(),
-                "platformBuildNumber" to DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+                "version" to DesktopBuildInfo.VERSION_DISPLAY_NAME,
             ),
     )
     singleInstanceLease.recordSessionLogPath(sessionLogger.getLogPath())
@@ -168,8 +168,7 @@ fun main() {
         data =
             mapOf(
                 "processId" to ProcessHandle.current().pid(),
-                "platformBuildNumber" to DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
-                "overallBuildNumber" to DesktopBuildInfo.OVERALL_BUILD_NUMBER,
+                "version" to DesktopBuildInfo.VERSION_DISPLAY_NAME,
                 "buildName" to DesktopBuildInfo.BUILD_NAME,
             ),
     )
@@ -364,7 +363,7 @@ internal fun desktopUncaughtExceptionHandler(
                     mapOf(
                         "threadName" to thread.name,
                         "threadId" to thread.id,
-                        "platformBuildNumber" to DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+                        "version" to DesktopBuildInfo.VERSION_DISPLAY_NAME,
                         "buildName" to DesktopBuildInfo.BUILD_NAME,
                     ),
             )

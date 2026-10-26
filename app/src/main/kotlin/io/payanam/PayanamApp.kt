@@ -71,7 +71,7 @@ class PayanamApp : Application() {
      */
     override fun attachBaseContext(base: Context) {
         super.attachBaseContext(base)
-        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
     }
 
     /**
@@ -83,7 +83,7 @@ class PayanamApp : Application() {
         super.onCreate()
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
-        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
         // Hand the real logger to the platform-neutral modules (core/domain, core/scoring). They
         // cannot reach this Android singleton, so they read AppLogger.current instead. Without this
         // call they would log to the no-op default and every diagnostic from those modules would be
@@ -123,6 +123,7 @@ class PayanamApp : Application() {
             mapOf(
                 "versionName" to BuildConfig.VERSION_NAME,
                 "versionCode" to BuildConfig.VERSION_CODE,
+                "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 "debug" to BuildConfig.DEBUG,
             ),
         )
@@ -328,10 +329,11 @@ class PayanamApp : Application() {
                     "isMainThread" to (thread == Looper.getMainLooper().thread),
                     "versionName" to BuildConfig.VERSION_NAME,
                     "versionCode" to BuildConfig.VERSION_CODE,
+                    "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 ),
             )
             // Auto-export the full log ZIP on crash — lands in
-            // Documents/payanam[-debug]/exported-logs/ so it is reachable via the
+            // Documents/Payanam[-debug]/exported-logs/ so it is reachable via the
             // Files app even when the app itself cannot start (crash loop).
             // Best-effort on a separate thread with a hard cap; never blocks.
             val exportThread = Thread {

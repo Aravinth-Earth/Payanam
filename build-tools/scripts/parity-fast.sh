@@ -4,7 +4,7 @@
 #
 # parity-fast.sh - JVM-only inner loop for the Android <-> Linux desktop parity work.
 #
-# Why this exists: the full gate (build-all-platforms.ps1 -Profile full) costs ~10 minutes per
+# Why this exists: the full gate (build-all-platforms.ps1) costs ~10 minutes per
 # cycle, almost all of it Android - unit tests ~5m20s and static analysis ~4m35s. The parity
 # the parity milestones touch only core/ and desktop/, which are pure JVM surfaces, so Android cost
 # buys nothing there. Measured inner loop: ~110s, a 5-6x reduction.
@@ -12,7 +12,7 @@
 # SCOPE CONTRACT - read before trusting a green run:
 #   * These milestones are NOT VERIFIED by this script. It compiles nothing Android-side, installs
 #     nothing, runs no device smoke test and signs nothing.
-#   * The full gate (build-all-platforms.ps1 -Profile full) still runs at EVERY milestone boundary.
+#   * The full gate (build-all-platforms.ps1) still runs at EVERY milestone boundary.
 #     That is what preserves the guarantee; this only shortens the edit/test loop in between.
 #   * If a change touches app/, core/database/ or any Android-only surface, run the full gate.
 #
