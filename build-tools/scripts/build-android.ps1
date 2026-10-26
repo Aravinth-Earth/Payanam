@@ -2106,6 +2106,11 @@ if (-not $installRequested)
             {
                 if ($installResult -match "INSTALL_FAILED_UPDATE_INCOMPATIBLE")
                 {
+                    if ($runDeviceSmoke)
+                    {
+                        Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but the install was skipped (signature mismatch)." "Red"
+                        Exit-WithCleanup 1
+                    }
                     Write-LogWithTime "⚠️ APK installation skipped due to signature mismatch with installed app" "Yellow"
                     Write-LogWithTime "$installResult" "Yellow"
                     Write-LogWithTime "APK ready for manual install after uninstalling the incompatible app build: $apkFinalPath" "Cyan"
@@ -2119,6 +2124,11 @@ if (-not $installRequested)
             }
         } else
         {
+            if ($runDeviceSmoke)
+            {
+                Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but no Android device is present." "Red"
+                Exit-WithCleanup 1
+            }
             Write-LogWithTime "⚠️ Install requested but no Android device is connected." "Yellow"
             Write-LogWithTime "APK ready for manual install: $apkFinalPath" "Cyan"
         }
@@ -2127,6 +2137,10 @@ if (-not $installRequested)
         if ($deviceConnected)
         {
             Write-LogWithTime "❌ Device verification failed: $($_.Exception.Message)" "Red"
+            Exit-WithCleanup 1
+        } elseif ($runDeviceSmoke)
+        {
+            Write-LogWithTime "❌ Smoke pack was requested (-SmokePack) but no device could be reached: $($_.Exception.Message)" "Red"
             Exit-WithCleanup 1
         } else
         {

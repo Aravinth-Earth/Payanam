@@ -187,7 +187,8 @@ function Find-NewestArtifact {
 # ── 3. Guards — every one of them runs before a tag exists ───────────────────
 
 $ghCmd = Get-Command gh -ErrorAction SilentlyContinue
-if (-not $ghCmd) {
+# -DryRun never invokes gh, so a missing CLI must not block it.
+if (-not $ghCmd -and -not $DryRun) {
     Refuse "'gh' (GitHub CLI) not found." "Install it (https://cli.github.com) or use -DryRun for the artefact checks."
 }
 

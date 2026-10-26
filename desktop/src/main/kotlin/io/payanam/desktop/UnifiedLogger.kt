@@ -27,6 +27,12 @@ import java.util.zip.ZipOutputStream
 private const val DEBUG_LOGGING_ENV_VAR = "PAYANAM_DEBUG_LOGGING"
 
 /**
+ * Subdirectory of the logs directory that receives exported copies. The pruner and the archive step
+ * both ignore it, so a copy can never be mistaken for a session.
+ */
+private const val EXPORTS_DIRECTORY_NAME = "exports"
+
+/**
  * Default for [UnifiedLogger.Companion.initialize]'s debug gate. Read once here rather than inside
  * the logger so the value is fixed for the session and recorded in the header.
  */
@@ -161,26 +167,31 @@ class UnifiedLogger private constructor(
     fun getLogPath(): Path = logFilePath
 
     /**
-     * Copies this session's log file to a sibling copy carrying the shared session-log name and
-     * returns it.
+     * Copies this session's log file into the logs directory's `exports/` subdirectory and returns the copy.
      *
      * The desktop writes plain files into a plain directory, so export is a copy - there is no SAF
      * picker and no R class to route a content URI through. The original log is never moved or
      * deleted, so exporting mid-session does not disturb the append-only writer.
+     *
+     * The copy carries the shared session-log name but sits under `exports/`, where the pruner and the
+     * archive step never look; in the logs directory itself a copy would pass for a session.
      *
      * Returns null if the log file does not exist yet or the copy fails; export must never take down
      * the caller, so every failure is swallowed.
      */
     suspend fun exportLatestLog(): File? {
         val source = getLogPath()
+        val logsDirectory = source.parent ?: return null
         return runCatching {
             if (!Files.isRegularFile(source)) {
                 return@runCatching null
             }
-            // Stamped at the export instant, so the copy is a session-log name of its own. A copy
-            // whose name resolves to the source is a no-op in `Files.copy`, not a truncation.
+            // Stamped at the export instant, so the copy is a session-log name of its own; it sits in
+            // exports/ because in the logs directory that name would pass for a session.
+            val exportsDirectory = logsDirectory.resolve(EXPORTS_DIRECTORY_NAME)
+            Files.createDirectories(exportsDirectory)
             val target =
-                source.resolveSibling(
+                exportsDirectory.resolve(
                     sessionLogName(
                         DesktopBuildInfo.PLATFORM,
                         DesktopBuildInfo.VERSION_NAME,
@@ -195,7 +206,7 @@ class UnifiedLogger private constructor(
     }
 
     /**
-     * Zips every regular file in the log directory into a timestamped sibling archive and returns it.
+     * Zips the session logs in the log directory into a timestamped sibling archive and returns it.
      *
      * Same desktop-side contract as [exportLatestLog]: the originals are only read, the archive is a
      * copy, and any failure returns null instead of propagating.
@@ -217,14 +228,11 @@ class UnifiedLogger private constructor(
             ZipOutputStream(Files.newOutputStream(target)).use { zip ->
                 Files.list(logsDirectory).use { entries ->
                     entries
-                        .filter { path -> Files.isRegularFile(path) }
+                        // Only plain .log files directly in the logs directory: the exports subtree is a
+                        // directory entry, and an archive or a copy never becomes a zip entry.
+                        .filter { path -> Files.isRegularFile(path) && path.fileName.toString().endsWith(".log") }
                         .sorted()
                         .forEach { path ->
-                            // A previous export archive in the log directory would otherwise swallow
-                            // this one, so the zip only ever takes the plain log files.
-                            if (path.fileName.toString().endsWith(".zip")) {
-                                return@forEach
-                            }
                             zip.putNextEntry(ZipEntry(path.fileName.toString()))
                             Files.copy(path, zip)
                             zip.closeEntry()
@@ -423,6 +431,8 @@ class UnifiedLogger private constructor(
         }
 
         private fun pruneOldLogs(logsDirectory: Path) {
+            // Non-recursive on purpose: only plain .log files directly in the logs directory count as
+            // sessions, so a copy under exports/ is never pruned or counted.
             Files.list(logsDirectory).use { entries ->
                 entries
                     .filter { path -> Files.isRegularFile(path) && path.fileName.toString().endsWith(".log") }

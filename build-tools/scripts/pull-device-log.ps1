@@ -57,6 +57,9 @@ $exportDir = if ($packageName -eq "io.payanam.debug") {
 }
 $privateLogDir = "/data/data/$packageName/files/logs"
 $logGlob = "payanam_*.log"
+# A real log leaf is payanam_<os>_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.log: one token,
+# no spaces or colons, so tool error text can never pass for a file name.
+$logLeafPattern = '^payanam_[A-Za-z0-9._-]+\.log$'
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "Finding latest log file..." "Cyan"
@@ -64,15 +67,19 @@ Write-LogWithTime "Finding latest log file..." "Cyan"
 # The glob is expanded inside run-as, as the app uid: the shell user cannot read files/logs.
 # run-as refuses a non-debuggable package, which is the release install case, so empty is not an error.
 $privateLeaf = ""
-$privateListing = adb shell "run-as $packageName sh -c 'ls -t files/logs/$logGlob 2>/dev/null | head -1'" 2>&1
-if (-not [string]::IsNullOrWhiteSpace($privateListing)) {
-    $privateLeaf = ($privateListing.Trim() -split '/')[-1]
+$privateListing = [string](adb shell "run-as $packageName sh -c 'ls -t files/logs/$logGlob 2>/dev/null | head -1'" 2>&1)
+$listingLeaf = ($privateListing.Trim() -split '/')[-1]
+if ($listingLeaf -match $logLeafPattern) {
+    $privateLeaf = $listingLeaf
 }
 $privateLog = if ($privateLeaf) { "$privateLogDir/$privateLeaf" } else { "" }
 
 # Fallback: the exported snapshot, pullable on every build type.
-$exportedLog = adb shell "ls -t $exportDir/$logGlob 2>/dev/null | head -1" 2>&1
-$exportedLog = if ([string]::IsNullOrWhiteSpace($exportedLog)) { "" } else { $exportedLog.Trim() }
+$exportedLog = [string](adb shell "ls -t $exportDir/$logGlob 2>/dev/null | head -1" 2>&1)
+$exportedLog = $exportedLog.Trim()
+if ($exportedLog -and -not ((Split-Path $exportedLog -Leaf) -match $logLeafPattern)) {
+    $exportedLog = ""
+}
 
 $latestLog = if ($privateLog) { $privateLog } else { $exportedLog }
 $logSource = if ($privateLog) { "live session" } elseif ($exportedLog) { "exported" } else { "" }

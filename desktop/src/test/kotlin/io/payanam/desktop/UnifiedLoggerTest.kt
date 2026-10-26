@@ -286,6 +286,36 @@ class UnifiedLoggerTest {
     }
 
     @Test
+    fun `exported copies under the exports subdirectory neither count as sessions nor get pruned`() {
+        val logsDirectory = temporaryFolder.newFolder("logs-exports-retention").toPath()
+        val exportsDirectory = logsDirectory.resolve("exports")
+        Files.createDirectories(exportsDirectory)
+        val base = Instant.parse("2026-03-01T00:00:00Z")
+        // The copy is the OLDEST file on disk, so a recursive prune would take it first.
+        val copy = exportsDirectory.resolve("payanam_desktop_1.0.0_abc1234_debug_20260201_000000.log")
+        Files.writeString(copy, "copy\n")
+        Files.setLastModifiedTime(copy, FileTime.from(base.minusSeconds(1)))
+        repeat(21) { index ->
+            val file = logsDirectory.resolve("old_$index.log")
+            Files.writeString(file, "session $index\n")
+            Files.setLastModifiedTime(file, FileTime.from(base.plusSeconds(index.toLong())))
+        }
+
+        val logger =
+            UnifiedLogger.initialize(
+                logsDirectory = logsDirectory,
+                clock = { base.plusSeconds(1_000) },
+            )
+        logger.close()
+
+        // The session prune still keeps 20 and still drops the oldest session log...
+        assertThat(Files.exists(logsDirectory.resolve("old_0.log"))).isFalse()
+        assertThat(Files.exists(logsDirectory.resolve("old_1.log"))).isTrue()
+        // ...while the copy is neither counted among them nor deleted.
+        assertThat(Files.isRegularFile(copy)).isTrue()
+    }
+
+    @Test
     fun `the debug gate starts from the build type unless the environment overrides it`() {
         // Unset: the build type decides, which is how Android falls back to BuildConfig.DEBUG.
         assertThat(resolveDefaultDebugLogging(envValue = null, debugBuild = true)).isTrue()

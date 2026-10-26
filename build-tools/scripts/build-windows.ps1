@@ -3,6 +3,9 @@
 
 param(
     [switch]$Release,
+    # -InstallApp installs the built MSI and runs the desktop smoke pack. Opt-in; absent by default.
+    [switch]$InstallApp,
+    # -CleanInstall uninstalls the previous install and clears local data. Requires -InstallApp.
     [switch]$CleanInstall
 )
 
@@ -858,10 +861,18 @@ $buildType = if ($Release)
 }
 Write-LogWithTime "Build Type: $buildType" "Yellow"
 
+# Install is opt-in: absent -InstallApp nothing installs and no smoke pack runs.
+if ($CleanInstall -and -not $InstallApp)
+{
+    Write-LogWithTime "-CleanInstall needs an install: pass -InstallApp together with -CleanInstall." "Red"
+    Exit-WithCleanup 1
+}
+
 if ($CleanInstall)
 {
     Write-LogWithTime "Clean install: will remove previous Windows install and local data" "Yellow"
 }
+Write-LogWithTime "Desktop install: $(if ($InstallApp) { 'requested (-InstallApp)' } else { 'none (pass -InstallApp)' })" "Yellow"
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== PREFLIGHT CHECKS ===" "Magenta"
@@ -1019,25 +1030,31 @@ $installSkippedReason = ""
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== WINDOWS INSTALLATION ===" "Magenta"
-try
+if (-not $InstallApp)
 {
-    $installResult = Invoke-DesktopInstall -MsiPath $packagedMsiPath -CleanInstallRequested $CleanInstall.IsPresent -BuildName $buildName
-    $installedExePath = [string]$installResult.InstalledExePath
-    if ($installResult.InstallSkipped)
+    Write-LogWithTime "Install and smoke pack skipped: installation is opt-in. Add -InstallApp to install the MSI and run the desktop smoke pack." "Yellow"
+} else
+{
+    try
     {
-        $installSkippedReason = [string]$installResult.SkipReason
-        Write-LogWithTime "⚠️ $installSkippedReason" "Yellow"
-        Write-LogWithTime "New desktop build completed successfully: $buildName" "Cyan"
-        Write-LogWithTime "Close the running app and rerun desktop install/verification when ready." "Yellow"
-    } else
+        $installResult = Invoke-DesktopInstall -MsiPath $packagedMsiPath -CleanInstallRequested $CleanInstall.IsPresent -BuildName $buildName
+        $installedExePath = [string]$installResult.InstalledExePath
+        if ($installResult.InstallSkipped)
+        {
+            $installSkippedReason = [string]$installResult.SkipReason
+            Write-LogWithTime "⚠️ $installSkippedReason" "Yellow"
+            Write-LogWithTime "New desktop build completed successfully: $buildName" "Cyan"
+            Write-LogWithTime "Close the running app and rerun desktop install/verification when ready." "Yellow"
+        } else
+        {
+            Invoke-DesktopSmokePack -InstalledExePath $installedExePath -BuildName $buildName
+            Write-LogWithTime "✅ Post-install verification complete!" "Green"
+        }
+    } catch
     {
-        Invoke-DesktopSmokePack -InstalledExePath $installedExePath -BuildName $buildName
-        Write-LogWithTime "✅ Post-install verification complete!" "Green"
+        Write-LogWithTime "❌ Windows install/verification failed: $($_.Exception.Message)" "Red"
+        Exit-WithCleanup 1
     }
-} catch
-{
-    Write-LogWithTime "❌ Windows install/verification failed: $($_.Exception.Message)" "Red"
-    Exit-WithCleanup 1
 }
 
 Write-LogWithTime "" "White"
@@ -1064,6 +1081,9 @@ if (-not [string]::IsNullOrWhiteSpace($installSkippedReason))
 {
     Write-LogWithTime "  Install Status: skipped" "Cyan"
     Write-LogWithTime "  Install Skip Reason: $installSkippedReason" "Cyan"
+} elseif (-not $InstallApp)
+{
+    Write-LogWithTime "  Install Status: not requested (pass -InstallApp)" "Cyan"
 }
 if (-not [string]::IsNullOrWhiteSpace($installedExePath))
 {
