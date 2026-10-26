@@ -177,6 +177,17 @@ abstract class DesktopAppJourneyHarness {
 
     @After
     fun tearDownHarness() {
+        // SESSIONS FIRST: `closeAndUninstall` installs the pre-session bootstrap layer, so the reset below is
+        // what leaves the holder uninstalled for the next class.
+        //
+        // TWO handles, because a journey does not always hold one itself: a class that creates its database
+        // through the CONTROLLER rather than a fixture (`DesktopDatabaseCreationJourneyTest`) never assigns
+        // `session`, so closing only that field threw an uninitialised-field error inside `runCatching` and the
+        // controller's encrypted connection stayed open for the rest of the JVM - which is what a later class
+        // then tripped over. `isInitialized` makes the unset case explicit, and `closeAndUninstall` releases
+        // whatever the controller owns (a no-op when it never opened one), which is the release a quit performs.
+        runCatching { if (this::session.isInitialized && session.isOpen) session.close() }
+        runCatching { sessionController.closeAndUninstall() }
         LocalDataLayer.resetForTests()
         AppLogger.resetForTests()
         // Copy the session log into the run directory BEFORE the logger is closed and the TemporaryFolder is
@@ -196,7 +207,6 @@ abstract class DesktopAppJourneyHarness {
         }
         sessionLogger.close()
         UnifiedLogger.resetForTests()
-        runCatching { if (!session.isClosed) session.close() }
     }
 
     /**
