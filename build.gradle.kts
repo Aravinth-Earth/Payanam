@@ -77,6 +77,14 @@ extra["payanamVersionName"] = declaredVersionName
 extra["payanamVersionCode"] = declaredVersionCode
 extra["payanamPackedVersionCode"] = declaredPackedVersionCode
 
+// Short sha for generated names; 'nogit' keeps source-tarball and extracted-zip builds working.
+val declaredShortSha: String =
+    runCatching {
+        providers.exec { commandLine("git", "rev-parse", "--short", "HEAD") }
+            .standardOutput.asText.get().trim()
+    }.getOrDefault("").ifEmpty { "nogit" }
+extra["payanamShortSha"] = declaredShortSha
+
 // ./gradlew bumpVersion -Pto=1.1.0 rewrites both lines; a non-increasing target is refused.
 val bumpTargetName: String? = providers.gradleProperty("to").orNull?.trim()?.takeIf { it.isNotEmpty() }
 val bumpTargetCode: Int? = bumpTargetName?.let { target -> runCatching { packed(target) }.getOrNull() }

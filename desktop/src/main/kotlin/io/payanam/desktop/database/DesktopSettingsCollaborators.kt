@@ -181,7 +181,7 @@ internal data class DesktopSettingsCollaborators(
             currentDatabaseSchemaVersion = PayanamDatabaseSchema.VERSION,
             minimumSupportedSchemaVersion = PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION,
             appVersion = io.payanam.desktop.DesktopBuildInfo.VERSION_DISPLAY_NAME,
-            buildNumber = io.payanam.desktop.DesktopBuildInfo.PLATFORM_BUILD_NUMBER,
+            buildNumber = io.payanam.desktop.DesktopBuildInfo.VERSION_CODE,
             // The desktop's in-place update path reports no channel of its own, so STABLE is the channel
             // that names what this platform can actually check. It is a named answer, not a copy of Android's
             // stored row - the desktop has no update-channel row and writes none.

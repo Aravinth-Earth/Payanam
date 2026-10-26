@@ -240,7 +240,7 @@ class UnifiedLogger private constructor(
                     append("Payanam Unified Log | Platform: ")
                     append(DesktopBuildInfo.PLATFORM)
                     append(" | Build: ")
-                    append(DesktopBuildInfo.PLATFORM_BUILD_NUMBER)
+                    append(DesktopBuildInfo.VERSION_DISPLAY_NAME)
                     append(" | Session: ")
                     append(sessionFormatter().format(openedAt.atZone(ZoneId.systemDefault())))
                     append(" | Debug logging: ")
@@ -385,7 +385,7 @@ class UnifiedLogger private constructor(
             Files.createDirectories(logsDirectory)
             pruneOldLogs(logsDirectory)
             val now = clock()
-            val fileName = "payanam_desktop_${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}_${fileTimestampFormatter().format(
+            val fileName = "payanam_desktop_${DesktopBuildInfo.VERSION_CODE}_${fileTimestampFormatter().format(
                 now.atZone(ZoneId.systemDefault()),
             )}.log"
             val logFile = logsDirectory.resolve(fileName)

@@ -36,9 +36,9 @@ class UnifiedLoggerTest {
 
         val logContents = Files.readString(logger.getLogPath())
 
-        assertThat(logger.getLogPath().fileName.toString()).contains("payanam_desktop_${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        assertThat(logger.getLogPath().fileName.toString()).contains("payanam_desktop_${DesktopBuildInfo.VERSION_CODE}")
         assertThat(logContents).contains("Payanam Unified Log | Platform: ${DesktopBuildInfo.PLATFORM}")
-        assertThat(logContents).contains("Build: ${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        assertThat(logContents).contains("Build: ${DesktopBuildInfo.VERSION_DISPLAY_NAME}")
         assertThat(logContents).contains("Session:")
         assertThat(logContents).contains("OS: ${System.getProperty("os.name")}")
         assertThat(logContents).contains("Format: timestamp | level | n | thread=<name> | source | message | [data]")
@@ -57,7 +57,7 @@ class UnifiedLoggerTest {
         logger.i(
             source = "UnifiedLoggerTest",
             message = "Testing structured log event",
-            data = mapOf("screen" to "desktop-home", "build" to DesktopBuildInfo.PLATFORM_BUILD_NUMBER),
+            data = mapOf("screen" to "desktop-home", "build" to DesktopBuildInfo.VERSION_CODE),
         )
         logger.close()
 
@@ -65,7 +65,7 @@ class UnifiedLoggerTest {
         assertThat(logContents).contains("UnifiedLoggerTest")
         assertThat(logContents).contains("Testing structured log event")
         assertThat(logContents).contains("screen=\"desktop-home\"")
-        assertThat(logContents).contains("build=${DesktopBuildInfo.PLATFORM_BUILD_NUMBER}")
+        assertThat(logContents).contains("build=${DesktopBuildInfo.VERSION_CODE}")
         assertThat(logContents).doesNotContain("uptimeMs=")
         assertThat(logContents).doesNotContain("seq=")
     }

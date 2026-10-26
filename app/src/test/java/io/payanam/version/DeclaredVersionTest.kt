@@ -99,6 +99,29 @@ class DeclaredVersionTest {
         )
     }
 
+    @Test
+    fun buildScriptsPublishTheDeclaredVersionAndShortSha() {
+        val rootBuild = repoRoot().resolve("build.gradle.kts").toFile().readText()
+        assertTrue(
+            "the root build script must publish payanamShortSha with a 'nogit' fallback",
+            rootBuild.contains("extra[\"payanamShortSha\"]") && rootBuild.contains("\"nogit\""),
+        )
+        val appBuild = repoRoot().resolve("app/build.gradle.kts").toFile().readText()
+        assertTrue(
+            "app/build.gradle.kts must expose BUILD_SHORT_SHA from payanamShortSha",
+            appBuild.contains("buildConfigField(\"String\", \"BUILD_SHORT_SHA\"") &&
+                appBuild.contains("payanamShortSha"),
+        )
+        val desktopBuild = repoRoot().resolve("desktop/build.gradle.kts").toFile().readText()
+        assertTrue(
+            "desktop/build.gradle.kts must emit the version and sha, never a build number",
+            desktopBuild.contains("VERSION_NAME") &&
+                desktopBuild.contains("BUILD_SHORT_SHA") &&
+                !desktopBuild.contains("PLATFORM_BUILD_NUMBER") &&
+                !desktopBuild.contains("buildTotalBuilds"),
+        )
+    }
+
     /** major * 1_000_000 + minor * 1_000 + patch. Re-implemented here, not imported. */
     private fun packed(version: String): Int {
         val segments = version.split('.')

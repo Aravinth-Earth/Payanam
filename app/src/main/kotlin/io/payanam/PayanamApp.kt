@@ -123,6 +123,7 @@ class PayanamApp : Application() {
             mapOf(
                 "versionName" to BuildConfig.VERSION_NAME,
                 "versionCode" to BuildConfig.VERSION_CODE,
+                "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 "debug" to BuildConfig.DEBUG,
             ),
         )
@@ -328,6 +329,7 @@ class PayanamApp : Application() {
                     "isMainThread" to (thread == Looper.getMainLooper().thread),
                     "versionName" to BuildConfig.VERSION_NAME,
                     "versionCode" to BuildConfig.VERSION_CODE,
+                    "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 ),
             )
             // Auto-export the full log ZIP on crash — lands in

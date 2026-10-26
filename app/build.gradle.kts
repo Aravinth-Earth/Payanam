@@ -35,6 +35,7 @@ val hasReleaseSigning = releaseSigningPropsFile.exists()
 val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
 val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
 val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
+val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
 
 require(declaredVersionCode == declaredPackedVersionCode) {
     "Declared version drift: version=$declaredVersionName packs to versionCode $declaredPackedVersionCode, " +
@@ -56,6 +57,7 @@ android {
           targetSdk = 35
           versionCode = declaredVersionCode
           versionName = declaredVersionName
+          buildConfigField("String", "BUILD_SHORT_SHA", "\"$declaredShortSha\"")
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")

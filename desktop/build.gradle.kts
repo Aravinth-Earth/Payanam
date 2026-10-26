@@ -10,8 +10,10 @@ plugins {
     alias(libs.plugins.spotless)
 }
 
-// Declared version, shared with :app through the payanamVersion* extra properties.
+// Declared version and short sha, shared with :app through the root extra properties.
 val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
+val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
 
 version = declaredVersionName
 
@@ -184,12 +186,10 @@ tasks.named("check") {
 }
 
 // ── Build info generation (matches Android's BuildConfig pattern) ──────────
-// Build scripts pass -PbuildNumber=N -PbuildPlatform=Linux|Windows
-// This task generates DesktopBuildInfo.kt into build/generated/ from those values.
-val buildNumber: Int = project.findProperty("buildNumber")?.toString()?.toIntOrNull() ?: 0
+// Build scripts pass -PbuildPlatform=Linux|Windows -PbuildTimestamp=... -PbuildType=debug|release.
+// Version and sha come from the root extra properties; this task generates DesktopBuildInfo.kt.
 val buildPlatform: String = project.findProperty("buildPlatform")?.toString() ?: ""
 val buildTimestamp: String = project.findProperty("buildTimestamp")?.toString() ?: ""
-val buildTotalBuilds: Int = project.findProperty("buildTotalBuilds")?.toString()?.toIntOrNull() ?: 0
 // -PbuildType=debug|release, set by the build scripts, which are the only sanctioned build entry points.
 // An absent value means the module was built directly (a test run, an IDE), and that is NOT treated as a
 // debug build: the build-type default for debug logging must never switch itself on by accident.
@@ -208,7 +208,6 @@ tasks.register("generateBuildInfo") {
         val platform = buildPlatform.ifBlank {
             if (osName.contains("linux")) "Linux" else "Windows"
         }
-        val displayPrefix = if (platform == "Linux") "L" else "W"
         val timestamp = buildTimestamp.ifBlank { "00000000_000000" }
         val isDebugBuild = buildType.equals("debug", ignoreCase = true)
 
@@ -220,11 +219,12 @@ package io.payanam.desktop
 /** Auto-generated at build time by generateBuildInfo task. DO NOT EDIT. */
 object DesktopBuildInfo {
     const val PLATFORM = "$platform"
-    const val PLATFORM_BUILD_NUMBER = $buildNumber
-    const val OVERALL_BUILD_NUMBER = $buildTotalBuilds
+    const val VERSION_NAME = "$declaredVersionName"
+    const val VERSION_CODE = $declaredVersionCode
+    const val BUILD_SHORT_SHA = "$declaredShortSha"
     const val BUILD_TIMESTAMP = "$timestamp"
-    const val VERSION_DISPLAY_NAME = "#${displayPrefix}$buildNumber ($timestamp)"
-    const val BUILD_NAME = "Payanam_${platform}_${buildNumber}_$timestamp"
+    const val VERSION_DISPLAY_NAME = "$declaredVersionName ($declaredShortSha)"
+    const val BUILD_NAME = "Payanam_${platform}_${declaredVersionName}_${declaredShortSha}_$timestamp"
     /**
      * Whether this build was produced as a debug build (`-PbuildType=debug`).
      *
