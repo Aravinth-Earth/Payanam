@@ -1,6 +1,6 @@
 # Payanam On-Device UI Coverage Matrix
 
-Last Updated: 2026-10-25
+Last Updated: 2026-10-27
 
 Purpose: a single, element-level map of every interactive surface in the app, with what an AI
 agent can drive **on a real Android device today**, what needs a one-line selector added first, and
@@ -234,9 +234,8 @@ clock), taps are selector-based, and **no agent pushes** — all work stays loca
 | H29 | Debug | Enable Debug Logging switch | `settingsDebugEnable` | ✅ A | None | `SettingsDebugTest` |
 | H30 | Debug | Export current / all logs; habit diagnostics | `settingsActionExportLatestLog` / `settingsActionExportAllLogs` / `settingsActionRunHabitScoreDiagnostics` | ✅ A | Surface (current-session export) | `SettingsDebugTest` |
 | H31 | About | View on GitHub / Open F-Droid | `settingsActionViewOnGithub` / `settingsUpdateOpenFdroid` | 🔒 B (external) | None | Manual |
-| H32 | About | Update channel dropdown + items | channel label | 🏷️ L (anchor) | Covered (block read-only) | — |
-| H33 | About | Auto-download / prompt-install / wifi-only / auto-check checkboxes | sibling labels | 🏷️ L | None | `UpdatePrefsTest` |
-| H34 | About | Check/Download/Install update actions | `settingsUpdate*Button` | 🔒 B (network + installer) | None | Out of scope |
+| H32 | About | Auto-download / prompt-install / wifi-only / auto-check checkboxes | sibling labels | 🏷️ L | None | `UpdatePrefsTest` |
+| H33 | About | Check/Download/Install update actions | `settingsUpdate*Button` | 🔒 B (network + installer) | None | Out of scope |
 
 ## 11. Blocked / out of scope (with reason)
 
@@ -269,7 +268,7 @@ reliably (and before the **C** rows above can become **A**).
 | Scoring-config sliders | `lenses/ScoringConfigScreen.kt` | `contentDescription` = factor label |
 | Lenses matrix drill-in rows | `lenses/LensesHabitScoreMatrixSection.kt` | `contentDescription` = row label |
 | Notes note card / dimension picker | `notes/NotesScreen.kt` | `testTag` / `contentDescription` |
-| Settings: dimension name field, weight slider, backup interval anchor, rotation count, unlock-timeout anchor, update-channel anchor | `settings/*`, `components/DimensionVisuals.kt` | `contentDescription` = the row's label |
+| Settings: dimension name field, weight slider, backup interval anchor, rotation count, unlock-timeout anchor | `settings/*`, `components/DimensionVisuals.kt` | `contentDescription` = the row's label |
 | Update checkboxes (4) | `app/.../settings/ui/SettingsDataSections.kt` | merge the sibling `Text` into the checkbox semantics |
 | CompletionDialog override checkboxes | `components/CompletionDialog.kt` | merge sibling text into the checkbox |
 

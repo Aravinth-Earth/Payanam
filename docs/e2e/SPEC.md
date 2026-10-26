@@ -1,5 +1,5 @@
 # Payanam E2E Test Suite — Specification
-Last Updated: 2026-10-25
+Last Updated: 2026-10-27
 
 ## Goal
 Fastest possible UI-driven regression suite covering every user-facing interaction in the app.
@@ -32,7 +32,7 @@ when its SUBJECT is the fresh state:
 | Route | Install | Classes | Why |
 |---|---|---|---|
 | A — first-run gates | fresh (`-KeepInstalled false`) | `FullJourneyTest`, `SmokeInProcessTest`, `DimensionSetupTest`, `FocusModeTest`, `WidgetCommandTest`, `ImportPickerUnificationTest`, `TouchTargetSweepTest` | the onboarding tour, the passphrase gate, the dimension step and the pending-command window only exist on a first run |
-| B — provisioned app | clean start, reuse (`-KeepInstalled true`) | one shared invocation of 18 classes: `TasksCrudTest`, `TasksDetailsTest`, `HabitsCrudTest`, `HabitsFilterSortTest`, `NotesCrudTest`, `NotesTagsDimensionTest`, `JournalCrudTest`, `JournalPerDimensionTest`, `TimeEntryEditTest`, `TimeGapDayPlanTest`, `LensesChartsTest`, `LensesDataTest`, `InsightsVisibilityTest`, `SettingsTogglesTest`, `SettingsBackupRunTest`, `UpdateChannelTypeTest`, `LayoutProbeTest`, `ImportSeamTest` | they need a provisioned app and nothing else — and a CLEAN baseline to start from, because the reuse is inside the run, not between runs |
+| B — provisioned app | clean start, reuse (`-KeepInstalled true`) | one shared invocation of 17 classes: `TasksCrudTest`, `TasksDetailsTest`, `HabitsCrudTest`, `HabitsFilterSortTest`, `NotesCrudTest`, `NotesTagsDimensionTest`, `JournalCrudTest`, `JournalPerDimensionTest`, `TimeEntryEditTest`, `TimeGapDayPlanTest`, `LensesChartsTest`, `LensesDataTest`, `InsightsVisibilityTest`, `SettingsTogglesTest`, `SettingsBackupRunTest`, `LayoutProbeTest`, `ImportSeamTest` | they need a provisioned app and nothing else — and a CLEAN baseline to start from, because the reuse is inside the run, not between runs |
 | C — closed session | reuse, new process | `UnlockTest` | the lock screen only appears once the session has closed, which needs a process restart |
 | D — reset | reuse, new process | `ResetJourneyTest` | the reset restarts the app's own process |
 | E — passphrase lifecycle | fresh (`-KeepInstalled false`), own invocation | `PassphraseLifecycleTest` | it walks the first run itself — onboarding → passphrase setup → change screen — instead of calling `FreshSetup.run()`, so it needs the app at first run and has to lead its own fresh install |
@@ -47,7 +47,7 @@ provisioned. The app's own log confirmed every class reported `setup=reused`: **
 works.**
 
 **Measured (SM-A176B, 2026-10-20).** The shared route B was **20 of 20 green** on that run, so every one of
-the 18 classes the route holds today was green, and `ImportSeamTest` is one of them. It used to sit in
+the 18 classes the route then held was green, and `ImportSeamTest` is one of them. It used to sit in
 route A with a fresh install of its own; it was repaired to drive the REAL encryption probe, health check
 and path resolver instead of stubs, so the file it imports is a real encrypted SQLCipher database on the
 device and the seam under test is actually reached — which is what let it drop the fresh-install
@@ -77,14 +77,14 @@ baseline has to be established **before** the invocation:
 adb uninstall io.payanam.debug
 adb uninstall io.payanam.debug.test
 
-# 2. Then the 18 classes of route B in ONE shared invocation. The route table above is
+# 2. Then the 17 classes of route B in ONE shared invocation. The route table above is
 #    the list of record. -Runs 1, because a second cycle would start on this cycle's data.
 $routeB = @(
     'TasksCrudTest', 'TasksDetailsTest', 'HabitsCrudTest', 'HabitsFilterSortTest',
     'NotesCrudTest', 'NotesTagsDimensionTest', 'JournalCrudTest', 'JournalPerDimensionTest',
     'TimeEntryEditTest', 'TimeGapDayPlanTest', 'LensesChartsTest', 'LensesDataTest',
     'InsightsVisibilityTest', 'SettingsTogglesTest', 'SettingsBackupRunTest',
-    'UpdateChannelTypeTest', 'LayoutProbeTest', 'ImportSeamTest'
+    'LayoutProbeTest', 'ImportSeamTest'
 ) | ForEach-Object { "io.payanam.e2e.$_" }
 
 pwsh build-tools/scripts/run-inprocess-tests.ps1 -Runs 1 -KeepInstalled:$true -TestClass ($routeB -join ',')
