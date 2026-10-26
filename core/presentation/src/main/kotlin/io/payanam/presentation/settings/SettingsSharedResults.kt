@@ -5,11 +5,6 @@ package io.payanam.presentation.settings
 // The four one-shot outcomes the Settings screen renders, split out of the app module's
 // `SettingsUiModels` so a shared screen on either platform can name them.
 //
-// Why these four and not `SettingsUiState`: `SettingsUiState` still reaches two things that are not
-// shared — `io.payanam.BuildConfig` for the app version, and `UpdateChannel`, which is declared inside
-// `UpdateChecker` (an app-module file). Moving the state therefore
-// needs the update checker promoted first; moving these four does not, because they are already pure.
-//
 // Each one is a result, not a status flag, because the screen's own contract is "show what happened":
 // a boolean plus a message field is the shape that loses the failure case.
 

@@ -38,17 +38,15 @@ class DownloadUiStateTest {
     }
 
     @Test
-    fun `a downloading state carries the channel and build it was enriched with`() {
+    fun `a downloading state carries the build it was enriched with`() {
         val state =
             DownloadUiState.Downloading(
                 fileName = "Payanam.apk",
                 bytesDownloaded = 1,
                 totalBytes = 2,
-                channelName = "Dev",
                 buildName = "Payanam_Android_1887_debug_20260921_051900.apk",
             )
 
-        assertThat(state.channelName).isEqualTo("Dev")
         assertThat(state.buildName).isEqualTo("Payanam_Android_1887_debug_20260921_051900.apk")
     }
 

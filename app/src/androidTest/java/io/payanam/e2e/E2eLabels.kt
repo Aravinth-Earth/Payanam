@@ -266,13 +266,6 @@ object E2eLabels {
         // ── dimensions ─────────────────────────────────────────────────────────────────────────────
         val lifeDimension: String get() = shared.locLifeDimension
 
-        // ── update channel: ANDROID-ONLY copy ──────────────────────────────────────────────────────
-        // The in-app updater exists only on Android, so these two strings have no shared counterpart —
-        // they are resolved from this module's own resources rather than from [shared]. Reading them
-        // through [res] keeps them locale-correct on a ta-IN device all the same.
-        val updateChannelDev: String get() = res(io.payanam.R.string.settings_update_channel_dev)
-        val updateChannelBeta: String get() = res(io.payanam.R.string.settings_update_channel_beta)
-
         // ── insights surfaces (shared copy) ────────────────────────────────────────────────────────
         val insightsDailyScoreTrend: String get() = shared.settingsInsightsTimeDailyScoreTrendTitle
         val insightsOverallScoreCard: String get() = shared.settingsInsightsTimeOverallScoreCardTitle
@@ -311,12 +304,6 @@ object E2eLabels {
 
         /** "Build type mismatch — no compatible update is available for this install." */
         val updateTypeMismatch: String get() = shared.settingsUpdateTypeMismatch
-
-        /**
-         * "Dev (daily) channel ships: debug APK" — composed from the SAME resource the app formats, so the
-         * expectation follows the locale instead of asserting English copy.
-         */
-        fun updateChannelShips(channel: String, apk: String): String = shared.settingsUpdateChannelShips.format(channel, apk)
 
         /** "You are on: debug build" — composed from the app's own pattern for the same reason. */
         fun runningBuildType(buildType: String): String = shared.settingsUpdateRunningBuildType.format(buildType)

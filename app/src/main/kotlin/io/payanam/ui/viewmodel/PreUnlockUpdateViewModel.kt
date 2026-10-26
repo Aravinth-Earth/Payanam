@@ -18,7 +18,6 @@ import io.payanam.presentation.updates.ApkDownloader
 import io.payanam.presentation.updates.ApkInstaller
 import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.presentation.updates.UpdateChecker
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
@@ -36,8 +35,8 @@ import javax.inject.Inject
  * Pre-unlock update hatch: manual check → download → install for the DB-LOCKED
  * state. Deliberately reads NO database-backed preferences:
  *
- * - channel is hardcoded to DEV (the rescue channel; beta/stable selection is a
- *   post-unlock Settings preference)
+ * - no stored preference is read at all: the newest release is either newer than
+ *   this install or it is not
  * - no auto-check, no auto-download, no prompt popup — every step is a manual
  *   user tap (design confirmed: pre-unlock = manual only)
  * - reuse: [UpdateChecker] (pure, DB-free), [ApkDownloader] (app-private
@@ -68,14 +67,11 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private val _checkResultMessage = MutableStateFlow<String?>(null)
     val checkResultMessage: StateFlow<String?> = _checkResultMessage.asStateFlow()
 
-    /** Latest build number found by the last check (DEV channel). */
-    private var latestBuildNumber: Int? = null
     private var latestReleaseUrl: String? = null
     private var latestApkUrl: String? = null
 
     /**
-     * The selected channel's published `.sha256` sidecar URL for [latestApkUrl], or null when the
-     * release published none.
+     * The published `.sha256` sidecar URL for [latestApkUrl], or null when the release published none.
      *
      * Held in memory rather than persisted: this hatch runs BEFORE the database is unlocked, so it
      * reads and writes no database-backed preference (see the class doc). That is not a weaker guard —
@@ -113,10 +109,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
             logger.i(
                 "PreUnlockUpdateChecker.check",
                 "Manual update check requested (pre-unlock hatch)",
-                mapOf("currentBuild" to currentBuildNumber, "channel" to UpdateChannel.DEV.name),
+                mapOf("currentBuild" to currentBuildNumber),
             )
             try {
-                val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV, ApkBuildType.running())
+                val result = UpdateChecker.check(currentBuildNumber, ApkBuildType.running())
                 when (result.outcome) {
                     UpdateOutcome.FAILED -> {
                         logger.e(
@@ -129,70 +125,64 @@ class PreUnlockUpdateViewModel @Inject constructor(
                     }
 
                     UpdateOutcome.UPDATE_AVAILABLE -> {
-                        latestBuildNumber = result.latestBuildNumber
                         latestReleaseUrl = result.releaseUrl
-                        val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
-                        latestApkUrl = selected?.apkDownloadUrl
+                        latestApkUrl = result.apkDownloadUrl
                         // The sidecar URL travels with the APK URL it belongs to: the install gate can
                         // only verify this download against the digest this check published.
-                        latestSha256Url = selected?.apkSha256Url
+                        latestSha256Url = result.apkSha256Url
                         logger.i(
                             "PreUnlockUpdateChecker.check",
                             "Update available",
                             mapOf(
-                                "latestBuild" to (result.latestBuildNumber ?: -1),
+                                "latestVersion" to (result.latestVersionName ?: "none"),
                                 "releaseUrl" to (result.releaseUrl ?: ""),
                                 "hasApkUrl" to (latestApkUrl != null),
                                 "hasSha256Url" to (latestSha256Url != null),
                             ),
                         )
-                        _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
+                        _checkResultMessage.value = "update_available_${result.latestVersionName ?: "unknown"}"
                     }
 
                     UpdateOutcome.TYPE_MISMATCH -> {
-                        // Fail closed: the dev channel ships no APK for this
+                        // Fail closed: the newest release ships no APK for this
                         // install's build type. The hatch must name the actual
                         // reason — never fall through to "up to date".
-                        latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
                         latestSha256Url = null
                         logger.i(
                             "PreUnlockUpdateChecker.check",
-                            "Check failed closed: dev channel ships a different build type",
+                            "Check failed closed: the release ships a different build type",
                             mapOf("runningType" to ApkBuildType.running()),
                         )
                         _checkResultMessage.value = "type_mismatch"
                     }
 
-                    UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
-                        latestBuildNumber = null
+                    UpdateOutcome.NO_RELEASE -> {
                         latestReleaseUrl = null
                         latestApkUrl = null
                         latestSha256Url = null
-                        logger.i("PreUnlockUpdateChecker.check", "Check complete: no releases on the dev channel yet")
+                        logger.i("PreUnlockUpdateChecker.check", "Check complete: no release with a version tag yet")
                         _checkResultMessage.value = "no_release"
                     }
 
-                    UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
-                        latestBuildNumber = null
+                    UpdateOutcome.INDETERMINATE -> {
                         latestReleaseUrl = null
                         latestApkUrl = null
                         latestSha256Url = null
                         logger.i(
                             "PreUnlockUpdateChecker.check",
-                            "Check inconclusive — newest release not comparable",
+                            "Check inconclusive — the scan stopped before the release list ended",
                             mapOf("outcome" to result.outcome.name),
                         )
                         _checkResultMessage.value = "check_failed_parse"
                     }
 
                     UpdateOutcome.UP_TO_DATE -> {
-                        latestBuildNumber = null
                         latestReleaseUrl = null
                         latestApkUrl = null
                         latestSha256Url = null
-                        logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
+                        logger.i("PreUnlockUpdateChecker.check", "Up to date")
                         _checkResultMessage.value = "up_to_date"
                     }
                 }

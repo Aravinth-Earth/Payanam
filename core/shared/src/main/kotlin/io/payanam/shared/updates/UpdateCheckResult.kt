@@ -8,22 +8,19 @@ package io.payanam.shared.updates
  * proven-neutral ([UP_TO_DATE]) or explicitly non-success.
  */
 enum class UpdateOutcome {
-    /** The selected channel's newest release is newer than this install. */
+    /** The newest release found is newer than this install and ships an APK this build can install. */
     UPDATE_AVAILABLE,
 
-    /** The selected channel's newest release was FOUND and is not newer. */
+    /** The newest release found is not newer than this install. */
     UP_TO_DATE,
 
-    /** The channel's newest release ships no APK of this install's build type. */
+    /** The newest release found is newer, but ships no APK of this install's build type. */
     TYPE_MISMATCH,
 
-    /** The scan completed: the selected channel has no release at all. */
-    NO_RELEASE_ON_CHANNEL,
+    /** The scan completed and found no release whose tag carries a version. */
+    NO_RELEASE,
 
-    /** The channel's newest release carries no parseable build number. */
-    RELEASE_UNREADABLE,
-
-    /** The page cap was reached before the channel was seen — cannot conclude. */
+    /** The page cap was reached before any release was seen — cannot conclude. */
     INDETERMINATE,
 
     /** The check itself failed; the result's `error` carries the reason. */
@@ -40,10 +37,12 @@ enum class UpdateCheckError {
     UNKNOWN,
 }
 
-/** Per-channel status parsed from the GitHub releases list endpoint. */
-data class ChannelStatus(
-    val channel: UpdateChannel,
-    val buildNumber: Int?,
+/** One release parsed from the GitHub releases list: the version its tag declares and its asset selection. */
+data class ReleaseStatus(
+    /** Canonical `major.minor.patch`, taken from the tag. */
+    val versionName: String,
+    /** [versionName] packed as `major * 1_000_000 + minor * 1_000 + patch`, the same rule as the build. */
+    val versionCode: Int,
     val releaseUrl: String?,
     /** Direct download URL of the APK asset (from the release's assets list). */
     val apkDownloadUrl: String? = null,
@@ -51,20 +50,27 @@ data class ChannelStatus(
     val apkSha256Url: String? = null,
     /**
      * True when this release ships no `.apk` asset for the running build type. Selection fails
-     * closed: no URL and no update verdict for this release.
+     * closed: no URL, and no update is offered for it.
      */
     val typeMismatch: Boolean = false,
 )
 
-/** Outcome of an update check: the verdict, latest build/release info, per-channel statuses. */
+/** Outcome of an update check: the verdict, the newest release found, and its downloadable artifact. */
 data class UpdateCheckResult(
     val outcome: UpdateOutcome,
-    val latestBuildNumber: Int?,
+    /** `major.minor.patch` of the newest release found; null when none was found or the check failed. */
+    val latestVersionName: String?,
+    /** [latestVersionName] packed as `major * 1_000_000 + minor * 1_000 + patch`. */
+    val latestVersionCode: Int?,
     val releaseUrl: String?,
     /** Non-null iff [outcome] is [UpdateOutcome.FAILED]. */
     val error: UpdateCheckError?,
-    /** Status of every channel parsed from the list endpoint. */
-    val channelStatuses: List<ChannelStatus> = emptyList(),
+    /** APK URL of the newest release; null when it ships no APK for the running build type. */
+    val apkDownloadUrl: String? = null,
+    /** Checksum sibling of [apkDownloadUrl], when the release ships one. */
+    val apkSha256Url: String? = null,
+    /** True when the newest release ships no APK for the running build type, so no fetch is possible. */
+    val typeMismatch: Boolean = false,
     /** Epoch millis when this result was produced — staleness for the UI. */
     val checkedAtMs: Long = System.currentTimeMillis(),
 )

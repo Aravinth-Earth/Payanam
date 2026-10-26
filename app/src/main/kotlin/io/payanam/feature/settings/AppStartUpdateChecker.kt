@@ -12,7 +12,6 @@ import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.presentation.updates.UpdatePrefKeys
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.CoroutineScope
@@ -69,9 +68,7 @@ class AppStartUpdateChecker @Inject constructor(
                     logger.d("AppStartUpdateChecker.onAppStart", "Auto-check disabled, skipping start check")
                     return@launch
                 }
-                val channelRaw = appSettingsRepository.getSetting(UpdatePrefKeys.UPDATE_CHANNEL)
-                val channel = UpdateChannel.fromStorage(channelRaw)
-                val result = UpdateChecker.check(BuildConfig.VERSION_CODE, channel, ApkBuildType.running())
+                val result = UpdateChecker.check(BuildConfig.VERSION_CODE, ApkBuildType.running())
                 when (result.outcome) {
                     UpdateOutcome.UPDATE_AVAILABLE -> Unit
 
@@ -82,19 +79,19 @@ class AppStartUpdateChecker @Inject constructor(
                     }
 
                     UpdateOutcome.TYPE_MISMATCH -> {
-                        // Fail-closed mismatch: the channel's newest release has
-                        // no APK for this install's build type. Logged at `i`
-                        // (release builds turn `d` off) so a skipped auto-update
-                        // is diagnosable.
+                        // Fail-closed mismatch: the newest release has no APK
+                        // for this install's build type. Logged at `i` (release
+                        // builds turn `d` off) so a skipped auto-update is
+                        // diagnosable.
                         logger.i(
                             "AppStartUpdateChecker.onAppStart",
-                            "Start check failed closed: channel ships a different build type",
-                            mapOf("channel" to channel.name, "runningType" to ApkBuildType.running()),
+                            "Start check failed closed: release ships a different build type",
+                            mapOf("latestVersion" to (result.latestVersionName ?: "none"), "runningType" to ApkBuildType.running()),
                         )
                         return@launch
                     }
 
-                    UpdateOutcome.NO_RELEASE_ON_CHANNEL, UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                    UpdateOutcome.NO_RELEASE, UpdateOutcome.INDETERMINATE -> {
                         logger.d("AppStartUpdateChecker.onAppStart", "No comparable release on start check", mapOf("outcome" to result.outcome.name))
                         return@launch
                     }
@@ -109,32 +106,29 @@ class AppStartUpdateChecker @Inject constructor(
                 // otherwise just trace — the Settings UI surfaces the result.
                 val autoDownload = appSettingsRepository.getSetting(UpdatePrefKeys.AUTO_DOWNLOAD) == "true"
                 if (!autoDownload) {
-                    logger.d("AppStartUpdateChecker.onAppStart", "Update available on start check, auto-download off", mapOf("latestBuild" to (result.latestBuildNumber ?: -1)))
+                    logger.d("AppStartUpdateChecker.onAppStart", "Update available on start check, auto-download off", mapOf("latestVersion" to (result.latestVersionName ?: "none")))
                     return@launch
                 }
 
                 // Persist the download URL for the Settings UI (which drives polling).
-                val selected = result.channelStatuses.firstOrNull { it.channel == channel }
-                val url = selected?.apkDownloadUrl ?: return@launch
+                val url = result.apkDownloadUrl ?: return@launch
+                val versionName = result.latestVersionName.orEmpty()
                 val fileName = url.substringAfterLast('/')
                 val wifiOnly = appSettingsRepository.getSetting(UpdatePrefKeys.WIFI_ONLY) == "true"
                 // Trace-only diagnostics: what does the start path actually see
                 // before enqueueing (disk state, markers, target presence)?
                 AutoDownloadManager.logDownloadsDirState(context, "start_check_pre_enqueue")
-                val targetOnDisk = AutoDownloadManager.findApkForBuild(
-                    context,
-                    (result.latestBuildNumber ?: -1).toString(),
-                )
-                val lastBuild = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_BUILD)
+                val targetOnDisk = AutoDownloadManager.findApkForBuild(context, versionName)
+                val lastVersion = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_VERSION)
                 val lastAtMs = appSettingsRepository.getSetting(UpdatePrefKeys.LAST_DOWNLOADED_AT)
                 logger.d(
                     "AppStartUpdateChecker.onAppStart",
                     "Pre-enqueue probe",
                     mapOf(
-                        "latestBuild" to (result.latestBuildNumber ?: -1),
+                        "latestVersion" to versionName,
                         "targetOnDisk" to (targetOnDisk != null),
                         "targetPath" to (targetOnDisk ?: "none"),
-                        "lastDownloadedBuild" to (lastBuild ?: "none"),
+                        "lastDownloadedVersion" to (lastVersion ?: "none"),
                         "lastDownloadedAtMs" to (lastAtMs ?: "none"),
                     ),
                 )
@@ -145,7 +139,7 @@ class AppStartUpdateChecker @Inject constructor(
                     appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_FILE, fileName)
                     // Persist the checksum sidecar URL too: the Settings install gate verifies the
                     // download against it, and this path owns no in-memory check result to fall back on.
-                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, selected?.apkSha256Url)
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, result.apkSha256Url)
                     logger.i("AppStartUpdateChecker.onAppStart", "Auto-download enqueued after unlock", mapOf("file" to fileName, "downloadId" to id))
                 }
             } catch (e: Exception) {

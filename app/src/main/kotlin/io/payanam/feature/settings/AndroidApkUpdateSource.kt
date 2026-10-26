@@ -15,8 +15,6 @@ import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.delay
@@ -45,14 +43,14 @@ private const val MAX_DOWNLOAD_POLLS = 1_800
  * Android's answer to the shared update-source port: a real self-install handoff, wrapped around the
  * pieces this app already ships.
  *
- * WHAT THIS PLATFORM CAN DO, IN ONE LINE: check a release channel, fetch an APK into its own storage and
+ * WHAT THIS PLATFORM CAN DO, IN ONE LINE: check the releases list, fetch an APK into its own storage and
  * hand that file to the system installer. Every other answer below is derived from that fact, never from
  * the platform's name.
  *
  * THE TWO ANSWERS THE PORT ASKS FOR ARE SEPARATE ON PURPOSE. [state] is about the INSTALLER, so a build
  * installed by a store answers [SupportState.DECLINES]: the client that installed this app owns its
  * updates, and an app that replaced itself behind that client's back is the thing the store's signature
- * check exists to prevent. [isNewerBuildAvailable] is about the RELEASE CHANNEL, so it still answers for
+ * check exists to prevent. [isNewerBuildAvailable] is about the RELEASE LIST, so it still answers for
  * such a build - knowing a newer release exists is not the same as being allowed to install it, and a
  * screen that can only render one of the two would have to show a lie for a store-managed build.
  *
@@ -62,10 +60,10 @@ private const val MAX_DOWNLOAD_POLLS = 1_800
  * compare and a second thing to keep correct; this class owns only the mapping between the platform's
  * vocabulary and the port's, which is the part the port actually needed and did not have.
  *
- * WHY THE CHECK FAILS CLOSED: five of [UpdateOutcome]'s values mean "the check could not conclude". Each
+ * WHY THE CHECK FAILS CLOSED: four of [UpdateOutcome]'s values mean "the check could not conclude". Each
  * maps to [UpdateAvailability.Inconclusive] rather than [UpdateAvailability.UpToDate], because rendering
- * "could not tell" as "you have the latest build" tells a user their build is current when the channel was
- * never read - the exact quiet lie the port's vocabulary keeps the two apart to prevent.
+ * "could not tell" as "you have the latest build" tells a user their build is current when the release
+ * list was never read - the exact quiet lie the port's vocabulary keeps the two apart to prevent.
  *
  * WHY THE HANDLE IS A PATH: [UpdateDownload.platformHandle] is opaque to shared code, and this platform
  * needs the artifact's location BEFORE it can ask the system anything - [InstallRefusal.FILE_MISSING] is
@@ -73,20 +71,16 @@ private const val MAX_DOWNLOAD_POLLS = 1_800
  * APK, and this class turns that path into the content URI the installer is handed at the last moment.
  *
  * @param context the application context, used for storage, the package manager and the install handoff.
- * @param channel the release channel to ask. Defaults to [UpdateChannel.DEV], the channel this app's
- *   pre-unlock update hatch already treats as its rescue channel: the port asks about the channel without
- *   naming one, and the rescue channel is the one worth answering when nothing has been chosen yet.
  * @param isStoreManaged whether an installer rather than this app answers for updates on this build.
  *   Defaults to the platform's own installer lookup.
- * @param checkForUpdates how the release channel is read. Defaults to the real check; a caller supplies
- *   its own only to answer for a channel this build cannot reach.
+ * @param checkForUpdates how the releases list is read. Defaults to the real check with this install's
+ *   build type; a caller supplies its own only to script an answer.
  */
 class AndroidApkUpdateSource(
     private val context: Context,
-    private val channel: UpdateChannel = UpdateChannel.DEV,
     private val isStoreManaged: Boolean = FdroidBuildCheck.isFDroidBuild(),
-    private val checkForUpdates: suspend (currentBuildNumber: Int, channel: UpdateChannel) -> UpdateCheckResult =
-        { currentBuildNumber, requested -> UpdateChecker.check(currentBuildNumber, requested, ApkBuildType.running()) },
+    private val checkForUpdates: suspend (installedVersionCode: Int) -> UpdateCheckResult =
+        { installedVersionCode -> UpdateChecker.check(installedVersionCode, ApkBuildType.running()) },
     /**
      * The shared install gate. Injected rather than reached for as a singleton so the fetch path is
      * exercised with a scripted verdict; production wiring supplies the same singleton every other
@@ -97,12 +91,12 @@ class AndroidApkUpdateSource(
     private val logger = UnifiedLogger.getInstance()
 
     /**
-     * The most recent channel read, kept so a fetch can resolve the artifact the CHECK found.
+     * The most recent release read, kept so a fetch can resolve the artifact the CHECK found.
      *
-     * The port hands [downloadNewerBuild] an availability answer, and an answer names a build but not an
-     * asset: the URL to fetch lives in the check's own per-channel statuses. Retaining that read is what
-     * lets the fetch address the artifact the check actually verified instead of reconstructing a URL from
-     * a tag, which is the step that fails closed on an unexpected release name.
+     * The port hands [downloadNewerBuild] an availability answer, and an answer names a version code but
+     * not an asset: the URL to fetch lives on the check's own result. Retaining that read is what lets
+     * the fetch address the artifact the check actually verified instead of reconstructing a URL from a
+     * tag, which is the step that fails closed on an unexpected release name.
      */
     @Volatile
     private var lastChecked: UpdateCheckResult? = null
@@ -142,7 +136,7 @@ class AndroidApkUpdateSource(
     override val currentBuildNumber: Int? = BuildConfig.VERSION_CODE
 
     /**
-     * Asks the release channel, and answers in the port's vocabulary without ever reporting an absent
+     * Asks the releases list, and answers in the port's vocabulary without ever reporting an absent
      * result as "up to date".
      *
      * A check that throws is treated exactly like a check that could not conclude: an exception means this
@@ -154,19 +148,18 @@ class AndroidApkUpdateSource(
         if (current == null) {
             logger.w(
                 "$SOURCE.isNewerBuildAvailable",
-                "No build number to compare against: the channel was not read",
-                mapOf("channel" to channel.name),
+                "No build number to compare against: the release list was not read",
             )
             return UpdateAvailability.Inconclusive
         }
         val result =
             try {
-                checkForUpdates(current, channel)
+                checkForUpdates(current)
             } catch (e: Exception) {
                 logger.w(
                     "$SOURCE.isNewerBuildAvailable",
                     "The update check did not complete; reporting inconclusive rather than a verdict",
-                    mapOf("channel" to channel.name, "error" to (e.message ?: e::class.java.simpleName)),
+                    mapOf("error" to (e.message ?: e::class.java.simpleName)),
                 )
                 return UpdateAvailability.Inconclusive
             }
@@ -204,7 +197,7 @@ class AndroidApkUpdateSource(
         if (url == null) {
             return refuseFetch(
                 "The check left no downloadable artifact for this build, so there was nothing to fetch",
-                mapOf("newerBuild" to newer.buildNumber, "channel" to channel.name),
+                mapOf("newerBuild" to newer.buildNumber),
             )
         }
         val fileName = url.substringAfterLast('/')
@@ -219,7 +212,7 @@ class AndroidApkUpdateSource(
         // `UpdateDownload` is this source's claim that the file is installable - and that claim is only
         // true of bytes that matched the digest the release published. A refusal returns null with the
         // file left on disk; nothing unverified ever gets a handle.
-        val verdict = checksumVerifier.verify(fetched, statusFor(newer.buildNumber)?.apkSha256Url)
+        val verdict = checksumVerifier.verify(fetched, releaseFor(newer.buildNumber)?.apkSha256Url)
         logger.i(
             "$SOURCE.downloadNewerBuild",
             "Checksum gate verdict for the fetched artifact",
@@ -320,23 +313,21 @@ class AndroidApkUpdateSource(
     }
 
     /**
-     * The artifact URL for [buildNumber], or null when the last channel read did not carry one.
+     * The artifact URL for [versionCode], or null when the last release read did not carry one.
      *
-     * Matched on BOTH the channel and the build number: a read may hold several channels and a channel may
-     * hold a different build than the one the answer named, and either mismatch would fetch the wrong file.
+     * Matched on the version code: the port's answer names one, and a read of a different release would
+     * fetch the wrong file.
      */
-    private fun artifactUrlFor(buildNumber: Int): String? = statusFor(buildNumber)?.apkDownloadUrl
+    private fun artifactUrlFor(versionCode: Int): String? = releaseFor(versionCode)?.apkDownloadUrl
 
     /**
-     * The last channel read's status for [buildNumber] on this source's channel, or null when that read
-     * did not carry one.
+     * The last release read when it is the [versionCode] this source was asked about, or null.
      *
      * One lookup for both asset URLs (the APK and its `.sha256` sibling), so a digest can never be
-     * paired with a build from a different channel or a different release.
+     * paired with a build from a different release.
      */
-    private fun statusFor(buildNumber: Int): ChannelStatus? = lastChecked
-        ?.channelStatuses
-        ?.firstOrNull { it.channel == channel && it.buildNumber == buildNumber }
+    private fun releaseFor(versionCode: Int): UpdateCheckResult? =
+        lastChecked?.takeIf { it.latestVersionCode == versionCode }
 
     /**
      * Polls the system download until it reports a finished file, and returns null for every other ending.
@@ -398,9 +389,9 @@ class AndroidApkUpdateSource(
     }
 
     /**
-     * Maps one channel read onto the port's vocabulary, naming the outcome that produced it.
+     * Maps one release read onto the port's vocabulary, naming the outcome that produced it.
      *
-     * The five non-verdict outcomes each get their own branch on purpose: they are five different reasons a
+     * The non-verdict outcomes each get their own branch on purpose: they are different reasons a
      * user is not being told their build is current, and collapsing them into one catch-all would make the
      * next added outcome silently join whichever group it was written next to.
      */
@@ -415,17 +406,13 @@ class AndroidApkUpdateSource(
         UpdateOutcome.TYPE_MISMATCH ->
             inconclusive("the release ships no artifact this build could install", outcome.name)
 
-        // A completed scan that found no release for the channel at all.
-        UpdateOutcome.NO_RELEASE_ON_CHANNEL ->
-            inconclusive("the channel has no release to compare against", outcome.name)
+        // A completed scan that found no release carrying a version at all.
+        UpdateOutcome.NO_RELEASE ->
+            inconclusive("the release list has no versioned release to compare against", outcome.name)
 
-        // A release that was found and carries no comparable build number.
-        UpdateOutcome.RELEASE_UNREADABLE ->
-            inconclusive("the release carries no comparable build number", outcome.name)
-
-        // The walk hit its page ceiling, so the channel may simply not have been reached yet.
+        // The walk hit its page ceiling, so the release list may simply not have been reached yet.
         UpdateOutcome.INDETERMINATE ->
-            inconclusive("the scan stopped before the channel was reached", outcome.name)
+            inconclusive("the scan stopped before the release list ended", outcome.name)
 
         // The check itself failed; the reason is logged rather than swallowed.
         UpdateOutcome.FAILED ->
@@ -446,12 +433,11 @@ class AndroidApkUpdateSource(
      */
     private fun UpdateCheckResult.newerOrInconclusive(): UpdateAvailability {
         val verdictName = outcome.name
-        val build = latestBuildNumber
+        val build = latestVersionCode
         if (build == null) {
-            return inconclusive("the update verdict carries no build number", verdictName)
+            return inconclusive("the update verdict carries no version code", verdictName)
         }
-        val artifact = channelStatuses.firstOrNull { it.channel == channel && it.buildNumber == build }
-        if (artifact?.apkDownloadUrl == null) {
+        if (apkDownloadUrl == null) {
             return inconclusive(
                 "the update verdict carries no downloadable artifact",
                 verdictName,
@@ -470,7 +456,7 @@ class AndroidApkUpdateSource(
         logger.w(
             "$SOURCE.isNewerBuildAvailable",
             "Update check did not conclude: $why. Reporting inconclusive, not up to date",
-            data + mapOf("outcome" to outcomeName, "channel" to channel.name),
+            data + mapOf("outcome" to outcomeName),
         )
         return UpdateAvailability.Inconclusive
     }

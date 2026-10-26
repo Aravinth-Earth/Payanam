@@ -13,7 +13,6 @@ import io.payanam.presentation.settings.DatabaseArtifactUiModel
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
-import io.payanam.shared.updates.UpdateChannel
 import kotlinx.coroutines.flow.first
 import java.io.File
 import java.time.Instant
@@ -182,10 +181,6 @@ internal data class DesktopSettingsCollaborators(
             minimumSupportedSchemaVersion = PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION,
             appVersion = io.payanam.desktop.DesktopBuildInfo.VERSION_DISPLAY_NAME,
             buildNumber = io.payanam.desktop.DesktopBuildInfo.VERSION_CODE,
-            // The desktop's in-place update path reports no channel of its own, so STABLE is the channel
-            // that names what this platform can actually check. It is a named answer, not a copy of Android's
-            // stored row - the desktop has no update-channel row and writes none.
-            updateChannel = UpdateChannel.STABLE,
             taskCount =
                 LocalDataLayer.current.tasks
                     .getAllTasks()

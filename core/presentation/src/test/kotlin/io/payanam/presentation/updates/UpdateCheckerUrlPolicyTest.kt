@@ -11,7 +11,7 @@ private const val TRUSTED_API_PAGE =
 
 /** A real release asset: the URL that would be handed to a downloader. */
 private const val TRUSTED_ASSET =
-    "https://github.com/Aravinth-Earth/Payanam/releases/download/dev-v12/payanam_1.0.0_debug_arm64-v8a.apk"
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/v1.0.0/payanam_1.0.0_debug_arm64-v8a.apk"
 
 /**
  * The trusted-URL policy for the two network-supplied URLs in the update path: the pagination
@@ -80,7 +80,7 @@ class UpdateCheckerUrlPolicyTest {
 
         // Another repository, the release page rather than the asset, and a lookalike host each fail.
         assertThat(isTrustedAssetUrl("https://github.com/evil/Payanam/releases/download/x/payanam.apk")).isFalse()
-        assertThat(isTrustedAssetUrl("https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v12")).isFalse()
+        assertThat(isTrustedAssetUrl("https://github.com/Aravinth-Earth/Payanam/releases/tag/v1.0.0")).isFalse()
         assertThat(isTrustedAssetUrl("https://github.com.evil.example/Aravinth-Earth/Payanam/releases/download/x/a.apk"))
             .isFalse()
         // Userinfo makes the authority read as one host while resolving to another.
@@ -129,8 +129,8 @@ class UpdateCheckerUrlPolicyTest {
             """
             [
               {
-                "tag_name": "dev-v12",
-                "name": "Payanam #12",
+                "tag_name": "v1.0.0",
+                "name": "Payanam 1.0.0",
                 "assets": [
                   {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "file:///data/local/tmp/x.apk"},
                   {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "https://evil.example/x.apk.sha256"}
@@ -143,6 +143,7 @@ class UpdateCheckerUrlPolicyTest {
 
         // Fail closed: the URL and its checksum are dropped, and the release reports a mismatch so
         // downstream reads TYPE_MISMATCH rather than a null URL that looks "up to date".
+        assertThat(status.versionName).isEqualTo("1.0.0")
         assertThat(status.apkDownloadUrl).isNull()
         assertThat(status.apkSha256Url).isNull()
         assertThat(status.typeMismatch).isTrue()
@@ -154,8 +155,8 @@ class UpdateCheckerUrlPolicyTest {
             """
             [
               {
-                "tag_name": "dev-v12",
-                "name": "Payanam #12",
+                "tag_name": "v1.0.0",
+                "name": "Payanam 1.0.0",
                 "assets": [
                   {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "$TRUSTED_ASSET"},
                   {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "https://evil.example/x.apk.sha256"}
@@ -166,6 +167,7 @@ class UpdateCheckerUrlPolicyTest {
 
         val status = requireNotNull(parseReleases(body, runningType = "debug")).single()
 
+        assertThat(status.versionName).isEqualTo("1.0.0")
         assertThat(status.apkDownloadUrl).isEqualTo(TRUSTED_ASSET)
         assertThat(status.apkSha256Url).isNull()
         assertThat(status.typeMismatch).isFalse()

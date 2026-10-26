@@ -6,8 +6,7 @@ package io.payanam.presentation.updates
 
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.UnifiedLogger
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.ReleaseStatus
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
@@ -29,27 +28,37 @@ import java.net.URL
 import java.net.UnknownHostException
 import javax.net.ssl.SSLException
 
-/** Map a GitHub tag name to a channel, or null for non-channel tags. */
-private val PERSISTENT_TAG_REGEX = Regex("""^(dev|beta|stable)-v(\d+)$""")
-private val STABLE_TAG_REGEX = Regex("""^v(\d+)$""")
+/** Release tag: `v<major>.<minor>.<patch>`. Every other tag shape matches nothing. */
+private val RELEASE_TAG_REGEX = Regex("""^v(\d+)\.(\d+)\.(\d+)$""")
+
+/** Largest value one version segment may hold. `build.gradle.kts` `packed()` enforces the same
+ *  0..999 bound, so any tag outside it names a versionCode the build could never produce. */
+private const val MAX_VERSION_SEGMENT = 999
+
+/** A release tag's version: the canonical `major.minor.patch` name and the versionCode it packs to. */
+data class ReleaseVersion(
+    val name: String,
+    val code: Int,
+)
 
 /**
- * Reads the release channel out of a GitHub tag name.
+ * Read a release tag's version, or null when the tag is not `v<major>.<minor>.<patch>` with every
+ * segment 0..999.
  *
- * Two spellings are accepted, because this repo publishes both: a persistent release tag
- * (`dev-v12` / `beta-v12` / `stable-v12`) resolves to that channel, and a bare version tag
- * (`v12`) is treated as [UpdateChannel.STABLE] - it is a plain release with no channel prefix.
- * Any other tag returns `null`, so a caller can tell "not a release tag at all" apart from
- * "a release whose channel could not be read".
+ * Packs as `major * 1_000_000 + minor * 1_000 + patch`, the rule `build.gradle.kts` uses. The name is
+ * rebuilt from the parsed digits, so `v01.0.0` reports `1.0.0`.
  */
-fun channelFromTag(tagName: String): UpdateChannel? =
-    PERSISTENT_TAG_REGEX.matchEntire(tagName)?.let { match ->
-        UpdateChannel.entries.firstOrNull { it.tagSuffix == match.groupValues[1] }
-    } ?: STABLE_TAG_REGEX.matchEntire(tagName)?.let {
-        UpdateChannel.STABLE
-    }
-
-private val BUILD_NUMBER_REGEX = Regex("""#(\d+)""")
+fun parseReleaseTag(tagName: String): ReleaseVersion? {
+    val match = RELEASE_TAG_REGEX.matchEntire(tagName) ?: return null
+    val major = match.groupValues[1].toLongOrNull() ?: return null
+    val minor = match.groupValues[2].toLongOrNull() ?: return null
+    val patch = match.groupValues[3].toLongOrNull() ?: return null
+    // Every segment is bounded before packing, or an over-range minor carries into major and two
+    // different tags pack to one code.
+    if (major > MAX_VERSION_SEGMENT || minor > MAX_VERSION_SEGMENT || patch > MAX_VERSION_SEGMENT) return null
+    val code = major * 1_000_000L + minor * 1_000L + patch
+    return ReleaseVersion(name = "$major.$minor.$patch", code = code.toInt())
+}
 
 /** Build-type token inside an artifact name (`_debug_` / `_release_`). */
 private val ARTIFACT_TYPE_REGEX = Regex("""_(debug|release)_""")
@@ -92,7 +101,7 @@ private val RELEASE_JSON =
  * - a missing key and an explicit `null` both return [fallback] (org.json's `NULL` sentinel
  *   compared equal to a missing key, and `optString` answered the fallback for both);
  * - a non-string scalar is coerced to its literal text, so `{"tag_name": 123}` reads as `"123"`
- *   and is then refused by [channelFromTag] - not skipped as an unreadable object;
+ *   and is then refused by [parseReleaseTag] - not skipped as an unreadable object;
  * - an object or array value returns [fallback]. org.json stringified those to JSON text, which no
  *   caller here can use; refusing them is the one deliberate tightening.
  */
@@ -282,8 +291,8 @@ internal enum class NextPageDecision {
  * Decide the walk's next step from a response's `next` URL.
  *
  * [NextPageDecision.REFUSED] is deliberately not [NextPageDecision.END_OF_LIST]:
- * refusing to follow an untrusted URL must never let a truncated scan produce a
- * "no release" or "up to date" verdict, so the caller keeps `scanComplete` false.
+ * refusing to follow an untrusted URL is not reaching the end of the list, so the
+ * caller keeps `scanComplete` false.
  */
 internal fun nextPageDecision(nextUrl: String?): NextPageDecision =
     when {
@@ -352,18 +361,17 @@ fun selectApkAssets(
  * file the attacker meant.
  */
 private fun ApkAssetSelection.withTrustedAssetUrls(
-    channel: UpdateChannel,
-    buildNumber: Int?,
+    version: ReleaseVersion,
     runningType: String,
 ): ApkAssetSelection {
     val apk = apkUrl
     if (apk != null && !isTrustedAssetUrl(apk)) {
-        logRefusedAssetUrl("apk", channel, buildNumber, runningType, apk)
+        logRefusedAssetUrl("apk", version, runningType, apk)
         return copy(apkUrl = null, sha256Url = null, typeMismatch = true)
     }
     val sha = sha256Url
     if (sha != null && !isTrustedAssetUrl(sha)) {
-        logRefusedAssetUrl("sha256", channel, buildNumber, runningType, sha)
+        logRefusedAssetUrl("sha256", version, runningType, sha)
         return copy(sha256Url = null)
     }
     return this
@@ -372,8 +380,7 @@ private fun ApkAssetSelection.withTrustedAssetUrls(
 /** Fail-closed trace for a refused asset URL: the reason only, never the URL itself. */
 private fun logRefusedAssetUrl(
     kind: String,
-    channel: UpdateChannel,
-    buildNumber: Int?,
+    version: ReleaseVersion,
     runningType: String,
     url: String,
 ) {
@@ -382,8 +389,8 @@ private fun logRefusedAssetUrl(
         "Refused a release asset URL outside the project download path; no update offered (fail closed)",
         mapOf(
             "asset" to kind,
-            "channel" to channel.name,
-            "build" to (buildNumber ?: -1),
+            "version" to version.name,
+            "versionCode" to version.code,
             "runningType" to runningType,
             "reason" to (assetRejection(url)?.name ?: UrlRejection.MALFORMED.name),
         ),
@@ -405,8 +412,7 @@ fun artifactNameMatchesBuildType(
  *  type. Logged at `i` because release builds turn `d` off; guarded because the
  *  parse tests call [parseReleases] on a bare JVM without the logger. */
 private fun logFailClosedSelection(
-    channel: UpdateChannel,
-    buildNumber: Int?,
+    version: ReleaseVersion,
     runningType: String,
     assetTypesSeen: List<String>,
 ) {
@@ -414,8 +420,8 @@ private fun logFailClosedSelection(
         "UpdateChecker.parseReleases",
         "Update check failed closed: release ships no APK for the running build type",
         mapOf(
-            "channel" to channel.name,
-            "build" to (buildNumber ?: -1),
+            "version" to version.name,
+            "versionCode" to version.code,
             "runningType" to runningType,
             "expectedType" to runningType,
             "assetTypes" to assetTypesSeen.joinToString(",").ifEmpty { "none" },
@@ -424,19 +430,18 @@ private fun logFailClosedSelection(
 }
 
 /**
- * Parse the GitHub releases list JSON body into per-channel statuses, with the
- * downloadable APK + checksum selected for [runningType].
+ * Parse the GitHub releases list JSON body into release statuses, with the downloadable APK + checksum
+ * selected for [runningType].
  *
- * Pure function (no I/O) — unit-testable. Non-channel tags are ignored;
- * malformed entries are skipped. Returns NULL when the body is not a JSON
- * array at all (the caller fails closed as a parse error); a valid empty
- * array returns an empty list.
+ * Pure function (no I/O). A release whose tag is not `v<major>.<minor>.<patch>` is skipped, as is a
+ * malformed entry. Returns NULL when the body is not a JSON array at all (the caller fails closed as a
+ * parse error); a valid empty array returns an empty list.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: the whole read fails closed as PARSE_ERROR
 fun parseReleases(
     body: String,
     runningType: String,
-): List<ChannelStatus>? {
+): List<ReleaseStatus>? {
     val releases =
         try {
             RELEASE_JSON.parseToJsonElement(body) as? JsonArray
@@ -452,30 +457,28 @@ fun parseReleases(
         logger.w("UpdateChecker.parseReleases", "Release body is not a JSON array", mapOf("bodyLength" to body.length))
         return null
     }
-    val statuses = mutableListOf<ChannelStatus>()
+    val statuses = mutableListOf<ReleaseStatus>()
     for (element in releases) {
         // One bad element is skipped and the rest of the array is still read; decoding the array
         // as a whole would have made that element fatal for the page.
         val release = element as? JsonObject ?: continue
-        val tagName = release.optString("tag_name", "")
-        val channel = channelFromTag(tagName) ?: continue
+        // The tag is the only source of a version; a legacy or malformed tag is not a release
+        // this checker speaks about, so it is skipped rather than guessed at.
+        val version = parseReleaseTag(release.optString("tag_name", "")) ?: continue
         val htmlUrl = release.optString("html_url", "")
-        val title = release.optString("name", tagName)
-        val match = BUILD_NUMBER_REGEX.find(title)
-        val buildNumber = match?.groupValues?.get(1)?.toIntOrNull()
         // Type-aware selection: the running build type decides which asset is
         // downloadable. No match ⇒ fail closed (no URL, verdict false) —
         // never a silent skip that later reads as "up to date".
         val selection = selectApkAssets(release.optArray("assets"), runningType)
         if (selection.typeMismatch) {
-            logFailClosedSelection(channel, buildNumber, runningType, selection.assetTypesSeen)
+            logFailClosedSelection(version, runningType, selection.assetTypesSeen)
         }
         // A selection whose URL is not one of this project's assets offers no update.
-        val trusted = selection.withTrustedAssetUrls(channel, buildNumber, runningType)
+        val trusted = selection.withTrustedAssetUrls(version, runningType)
         statuses.add(
-            ChannelStatus(
-                channel = channel,
-                buildNumber = buildNumber,
+            ReleaseStatus(
+                versionName = version.name,
+                versionCode = version.code,
                 releaseUrl = htmlUrl,
                 apkDownloadUrl = trusted.apkUrl,
                 apkSha256Url = trusted.sha256Url,
@@ -503,19 +506,19 @@ fun nextPageUrl(linkHeader: String?): String? =
     linkHeader?.let { Regex("""<([^>]+)>;[\s]*rel=[\x22]next[\x22]""").find(it)?.groupValues?.get(1) }
 
 /**
- * Checks GitHub releases for app updates across all channels.
+ * Checks GitHub releases for app updates.
  * Walks the releases list endpoint (paginated, up to [MAX_PAGES] pages),
- * parses per-channel statuses with a type-aware asset selection for
- * the running build type, and compares the selected channel's newest build
- * number against the installed version. Every absence is an explicit
- * non-success [UpdateOutcome] — never "up to date".
+ * parses release statuses with a type-aware asset selection for the running
+ * build type, and compares the newest parsed version against the installed
+ * version code. Every absence is an explicit non-success [UpdateOutcome] —
+ * never "up to date".
  */
 object UpdateChecker {
     /**
-     * Page cap for the walk: the selected channel's newest release is searched
-     * page by page (newest first) and the scan stops as soon as it is seen.
-     * Reaching the cap without seeing it yields [UpdateOutcome.INDETERMINATE] —
-     * a "no release" verdict is never emitted from an incomplete scan.
+     * Page cap for the walk: the list is read newest first and the scan stops at its
+     * end or after this many pages. Hitting the cap before any release is parsed
+     * yields [UpdateOutcome.INDETERMINATE] — a "no release" verdict is never emitted
+     * from an incomplete scan.
      */
     private const val MAX_PAGES = 3
     private const val CONNECT_TIMEOUT_MS = 10_000
@@ -524,8 +527,8 @@ object UpdateChecker {
     private val logger = AppLogger.current
 
     /**
-     * Fetch release info for ALL channels (paginated list endpoint), then
-     * derive the result for the [channel] the user has selected.
+     * Fetch the releases list (paginated), then compare the newest parsed release
+     * with [installedVersionCode].
      *
      * [runningType] is the build type of this install; it decides which asset
      * each release offers. Passed IN (defaulting to the real running type) so
@@ -533,27 +536,26 @@ object UpdateChecker {
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     suspend fun check(
-        currentBuildNumber: Int,
-        channel: UpdateChannel = UpdateChannel.DEV,
+        installedVersionCode: Int,
         runningType: String,
     ): UpdateCheckResult =
         withContext(Dispatchers.IO) {
             logger.d(
                 "UpdateChecker.check",
                 "Starting update check",
-                mapOf("currentBuild" to currentBuildNumber, "channel" to channel.name, "runningType" to runningType),
+                mapOf("installedVersionCode" to installedVersionCode, "runningType" to runningType),
             )
             try {
-                // Walk pages (newest first) until the selected channel is seen or
-                // the list ends. A verdict from an unfinished scan would be a
-                // guess, so scanComplete gates the resolve below.
-                val collected = mutableListOf<ChannelStatus>()
+                // Walk pages (newest first) to the end of the list or the cap: the newest
+                // version is a maximum over everything scanned, so no page is skipped.
+                // scanComplete gates the resolve below.
+                val collected = mutableListOf<ReleaseStatus>()
                 var scanComplete = false
                 var url: String? = RELEASES_API_URL
                 var page = 0
                 while (url != null && page < MAX_PAGES) {
                     page++
-                    when (val fetched = fetchPage(url, currentBuildNumber, page)) {
+                    when (val fetched = fetchPage(url, installedVersionCode, page)) {
                         is PageFetch.Failed -> {
                             logger.w("UpdateChecker.check", "Page fetch failed", mapOf("page" to page, "error" to fetched.error.name))
                             return@withContext failureResult(fetched.error)
@@ -566,10 +568,6 @@ object UpdateChecker {
                                 return@withContext failureResult(UpdateCheckError.PARSE_ERROR)
                             }
                             collected += statuses
-                            if (collected.any { it.channel == channel }) {
-                                scanComplete = true
-                                break
-                            }
                             when (nextPageDecision(fetched.nextUrl)) {
                                 NextPageDecision.CONTINUE -> {
                                     url = fetched.nextUrl
@@ -582,7 +580,7 @@ object UpdateChecker {
 
                                 NextPageDecision.REFUSED -> {
                                     // Stop, but the walk did not reach the end of the list, so
-                                    // scanComplete stays false: no verdict is derived from it.
+                                    // scanComplete stays false.
                                     logger.w(
                                         "UpdateChecker.check",
                                         "Refused a pagination URL outside the releases API; walk stopped (fail closed)",
@@ -598,18 +596,19 @@ object UpdateChecker {
                     }
                 }
 
+                val newest = collected.maxByOrNull { it.versionCode }
                 logger.d(
                     "UpdateChecker.check",
-                    "Channels parsed",
+                    "Releases parsed",
                     mapOf(
                         "pages" to page,
                         "found" to collected.size,
                         "scanComplete" to scanComplete,
-                        "selectedBuild" to (collected.firstOrNull { it.channel == channel }?.buildNumber ?: -1),
-                        "selectedTypeMismatch" to (collected.firstOrNull { it.channel == channel }?.typeMismatch == true),
+                        "newestVersion" to (newest?.versionName ?: "none"),
+                        "newestTypeMismatch" to (newest?.typeMismatch == true),
                     ),
                 )
-                resolveUpdateResult(currentBuildNumber, channel, collected, scanComplete)
+                resolveUpdateResult(installedVersionCode, collected, scanComplete)
             } catch (e: UnknownHostException) {
                 logger.w("UpdateChecker.check", "No internet", mapOf("exception" to (e.message ?: "unknown")))
                 failureResult(UpdateCheckError.NO_INTERNET)
@@ -633,14 +632,14 @@ object UpdateChecker {
     /** One page fetch: the body plus the next-page URL, or the failure reason. */
     private fun fetchPage(
         url: String,
-        currentBuildNumber: Int,
+        installedVersionCode: Int,
         page: Int,
     ): PageFetch {
         val connection = URL(url).openConnection() as HttpURLConnection
         connection.apply {
             requestMethod = "GET"
             setRequestProperty("Accept", "application/vnd.github+json")
-            setRequestProperty("User-Agent", "Payanam/$currentBuildNumber")
+            setRequestProperty("User-Agent", "Payanam/$installedVersionCode")
             connectTimeout = CONNECT_TIMEOUT_MS
             readTimeout = READ_TIMEOUT_MS
         }
@@ -670,7 +669,8 @@ object UpdateChecker {
     private fun failureResult(error: UpdateCheckError) =
         UpdateCheckResult(
             outcome = UpdateOutcome.FAILED,
-            latestBuildNumber = null,
+            latestVersionName = null,
+            latestVersionCode = null,
             releaseUrl = null,
             error = error,
         )

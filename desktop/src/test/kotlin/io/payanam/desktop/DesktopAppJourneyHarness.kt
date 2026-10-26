@@ -68,6 +68,9 @@ import java.util.Properties
 /** Long enough for a real dispatcher hop on a loaded CI box, short enough to fail rather than hang. */
 private const val JOURNEY_TIMEOUT_MS = 10_000L
 
+/** The re-read cadence both fixtures install: the shipped 1 s poll spends most of a wait budget on hops. */
+private const val JOURNEY_POLL_INTERVAL_MS = 10L
+
 /**
  * The shared in-process harness the desktop's JOURNEY tests mount through.
  *
@@ -544,7 +547,7 @@ abstract class DesktopAppJourneyHarness {
         }
         session = PayanamDatabaseSession.forGeneratedFixture(connection, schemaVersion = 21)
         LocalDataLayer.resetForTests()
-        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = 10L))
+        LocalDataLayer.install(DesktopPayanamDataLayer(session, pollIntervalMs = JOURNEY_POLL_INTERVAL_MS))
     }
 
     /**
@@ -567,7 +570,14 @@ abstract class DesktopAppJourneyHarness {
         // `DesktopApp` does - so it HOLDS the passphrase the passphrase-change flow needs. A fixture that
         // installed the layer directly left the controller with no passphrase, which is why that surface
         // could not be driven.
-        val result = runBlocking { sessionController.openAndInstall(passphrase.toCharArray()) }
+        // One layer per session, so the only observing repositories are the ones the controller owns.
+        val result =
+            runBlocking {
+                sessionController.openAndInstall(
+                    passphrase = passphrase.toCharArray(),
+                    pollIntervalMs = JOURNEY_POLL_INTERVAL_MS,
+                )
+            }
         check(result is DatabaseOpenResult.Opened) { "the fixture open refused: $result" }
         session = result.session
         session.withSerializedAccess { connection -> seedCanonicalDimensions(connection) }

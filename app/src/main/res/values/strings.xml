@@ -1158,13 +1158,6 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">Check for update</string>
     <string name="settings_update_checking">Checking…</string>
-    <string name="settings_update_channel_label">Update channel</string>
-    <string name="settings_update_channel_dev">Dev (daily)</string>
-    <string name="settings_update_channel_beta">Beta (weekly)</string>
-    <string name="settings_update_channel_stable">Stable (monthly)</string>
-    <string name="settings_update_channel_statuses_title">Channel status</string>
-    <string name="settings_update_channel_build">build #%1$d</string>
-    <string name="settings_update_channel_no_build">no build yet</string>
     <string name="settings_update_auto_download">Auto-download updates</string>
     <string name="settings_update_prompt_install">Prompt to install after download</string>
     <string name="settings_update_wifi_only">Download only on Wi-Fi</string>
@@ -1172,6 +1165,7 @@
     <string name="settings_update_check_again_button">Check again</string>
     <string name="settings_update_downloading">Downloading… %1$d%%</string>
     <string name="settings_update_downloading_header">%1$s · %2$s</string>
+    <string name="settings_update_download_label">Payanam %1$s</string>
     <string name="settings_update_downloaded">Downloaded — ready to install</string>
     <string name="settings_update_download_failed">Download failed. Check connection and retry.</string>
     <string name="settings_update_download_button">Download update</string>
@@ -1196,15 +1190,14 @@
     <string name="settings_update_install_message">A new build has been downloaded. Install it now?</string>
     <string name="settings_update_install_now">Update now</string>
     <string name="settings_update_install_later">Later</string>
-    <string name="settings_update_available">Update available: build #%1$d</string>
-    <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
-    <string name="settings_update_no_releases">No releases on this channel yet.</string>
+    <string name="settings_update_available">Update available: %1$s</string>
+    <string name="settings_update_up_to_date">You\'re up to date (%1$s)</string>
+    <string name="settings_update_no_releases">No releases have been published yet.</string>
     <string name="settings_update_error_network">Could not check for updates. Try again later.</string>
     <string name="settings_update_error_rate_limited">Rate limited. Try again in a few minutes.</string>
     <string name="settings_update_error_github">GitHub unavailable. Try again later.</string>
     <string name="settings_update_error_parse">Could not determine latest version.</string>
     <string name="settings_update_view_release">View release</string>
-    <string name="settings_update_channel_ships">%1$s channel ships: %2$s APK</string>
     <string name="settings_update_running_build_type">You are on: %1$s build</string>
     <string name="settings_update_type_mismatch">Build type mismatch — no compatible update is available for this install.</string>
 

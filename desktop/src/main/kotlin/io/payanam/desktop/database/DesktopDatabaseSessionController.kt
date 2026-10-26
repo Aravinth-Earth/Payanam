@@ -338,7 +338,14 @@ internal class DesktopDatabaseSessionController(
      * Returns the outcome so the caller decides what the user is told; this class only decides what is
      * INSTALLED. A create that refused installs nothing, exactly like a refused open.
      */
-    suspend fun openAndInstall(passphrase: CharArray): DatabaseOpenResult {
+    suspend fun openAndInstall(
+        passphrase: CharArray,
+        /**
+         * Re-read cadence for the layer's observing repositories. Defaults to the shipped interval, so the
+         * app is unchanged; a journey test passes a shorter one so one wait does not span several polls.
+         */
+        pollIntervalMs: Long = DesktopPayanamDataLayer.DEFAULT_POLL_INTERVAL_MS,
+    ): DatabaseOpenResult {
         // Nothing is installed until the open has succeeded: an install followed by a refusal would leave
         // repositories reading a database that was never opened.
         closeAndUninstall()
@@ -363,7 +370,7 @@ internal class DesktopDatabaseSessionController(
         openPassphrase = passphrase.copyOf()
         when (result) {
             is DatabaseOpenResult.Opened -> {
-                val layer = DesktopPayanamDataLayer(result.session)
+                val layer = DesktopPayanamDataLayer(result.session, pollIntervalMs)
                 LocalDataLayer.install(layer)
                 // `session` is published only AFTER the layer exists: `isOpen` is DERIVED from it, so assigning
                 // it earlier announces an open session whose consumers would still read the PREVIOUS

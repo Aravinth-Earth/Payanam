@@ -723,12 +723,12 @@
     <string name="loc_yearly">ஆண்டுதோறும்</string>
     <string name="loc_yesterday">நேற்று</string>
     <string name="loc_your_thoughts">உங்கள் எண்ணங்கள்...</string>
-    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
+    <string name="pre_unlock_update_build_value">#%1$d</string>
     <string name="pre_unlock_update_check_failed">சரிபார்ப்பு தோல்வி — இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்</string>
     <string name="pre_unlock_update_download_failed">பதிவிறக்கம் தோல்வி — மீண்டும் முயற்சிக்கவும்</string>
     <string name="pre_unlock_update_download_install">பதிவிறக்கி நிறுவு</string>
     <string name="pre_unlock_update_downloading">பதிவிறக்குகிறது %1$d%%</string>
-    <string name="pre_unlock_update_hint">கைமுறை மட்டுமே — தானாக ஒருபோதும் இல்லை. Dev சேனல் பயன்படுத்துகிறது.</string>
+    <string name="pre_unlock_update_hint">கைமுறை மட்டுமே — தானாக ஒருபோதும் இல்லை. வெளியிடப்பட்ட பதிப்புகளைச் சரிபார்க்கிறது.</string>
     <string name="pre_unlock_update_up_to_date">சமீபத்திய பதிப்பில்தான் உள்ளீர்கள்</string>
     <string name="preset_full_suite">முழு தொகுப்பு</string>
     <string name="preset_full_suite_desc">அனைத்து அம்சங்களையும் அணுகு</string>
@@ -869,12 +869,7 @@
     <string name="settings_title">அமைப்புகள்</string>
     <string name="settings_update_auto_check">திறந்த பின் புதுப்பிப்புகளைச் சரிபார்</string>
     <string name="settings_update_auto_download">புதுப்பிப்புகளை தானாக பதிவிறக்கு</string>
-    <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
-    <string name="settings_update_channel_build">பில்ட் #%1$d</string>
-    <string name="settings_update_channel_label">புதுப்பிப்பு சேனல்</string>
-    <string name="settings_update_channel_no_build">இன்னும் பில்ட் இல்லை</string>
-    <string name="settings_update_channel_ships">%1$s சேனல் %2$s APK வழங்குகிறது</string>
-    <string name="settings_update_channel_statuses_title">சேனல் நிலை</string>
+    <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: %1$s</string>
     <string name="settings_update_check_again_button">மீண்டும் சரிபார்</string>
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
     <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
@@ -903,7 +898,7 @@
     <string name="settings_update_install_now">இப்போது புதுப்பி</string>
     <string name="settings_update_install_now_button">இப்போது நிறுவு</string>
     <string name="settings_update_install_title">புதுப்பிப்பு கிடைக்கிறது</string>
-    <string name="settings_update_no_releases">இந்தச் சேனலில் இன்னும் வெளியீடுகள் இல்லை.</string>
+    <string name="settings_update_no_releases">இன்னும் வெளியீடுகள் வெளியிடப்படவில்லை.</string>
     <string name="settings_update_not_supported_here">இந்த தளத்தில் புதுப்பிப்புகளை உங்கள் தொகுப்பு மேலாளர் நிறுவுகிறார் — செயலியில் புதுப்பிப்பு நடவடிக்கை இல்லை.</string>
     <string name="settings_update_open_fdroid">F-Droid திற</string>
     <string name="settings_update_paused">பதிவிறக்கம் இடைநிறுத்தப்பட்டது</string>
@@ -913,7 +908,7 @@
     <string name="settings_update_retry_button">மீண்டும் முயற்சி</string>
     <string name="settings_update_running_build_type">நீங்கள் இயக்குவது: %1$s பில்ட்</string>
     <string name="settings_update_type_mismatch">பில்ட் வகை பொருந்தவில்லை — இந்த நிறுவலுக்கு ஏற்ற புதுப்பிப்பு இல்லை.</string>
-    <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
+    <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (%1$s)</string>
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
     <string name="settings_update_wifi_only">வைஃபையில் மட்டும் பதிவிறக்கு</string>
     <string name="skip_focus_mode">பின்னர் தேர்வு செய்கிறேன்</string>

@@ -15,8 +15,6 @@ sealed class DownloadUiState {
         val fileName: String,
         val bytesDownloaded: Long,
         val totalBytes: Long,
-        /** Channel this download belongs to (enriched by the ViewModel). */
-        val channelName: String = "",
         /** Full APK build name, e.g. "Payanam_Android_1568_debug_20260812_193754.apk" (enriched). */
         val buildName: String = "",
     ) : DownloadUiState() {

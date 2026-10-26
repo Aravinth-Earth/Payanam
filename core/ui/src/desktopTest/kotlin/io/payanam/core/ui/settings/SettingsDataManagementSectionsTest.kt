@@ -14,7 +14,6 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.shared.updates.UpdateChannel
 import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
@@ -50,13 +49,12 @@ class SettingsDataManagementSectionsTest {
         awaitingImportPassphrase: Boolean = false,
         importedUhabitsHabitCount: Int = 0,
     ) = SettingsUiState(
-        // Measured facts, not invented ones: the section reads the schema versions and the channel, so a
-        // default here would render a pane reporting something the app never measured.
+        // Measured facts, not invented ones: the section reads the schema versions, so a default here
+        // would render a pane reporting something the app never measured.
         currentDatabaseSchemaVersion = 12,
         minimumSupportedSchemaVersion = 5,
         appVersion = "1.2.3",
         buildNumber = 42,
-        updateChannel = UpdateChannel.STABLE,
         isExporting = isExporting,
         isImporting = isImporting,
         isUhabitsImporting = isUhabitsImporting,

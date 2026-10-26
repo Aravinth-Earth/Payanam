@@ -5,23 +5,20 @@
 package io.payanam.presentation.settings
 
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckResult
 
 /**
  * UI state for the Settings screen.
  *
  * Platform facts arrive as values the caller supplies, not as defaults: the schema versions come from
- * the row the platform actually measured, the version from the platform's own build, and the update
- * channel from the stored preference. A default here would render a settings pane that reports
- * something the app never checked.
+ * the row the platform actually measured and the version from the platform's own build. A default here
+ * would render a settings pane that reports something the app never checked.
  */
 data class SettingsUiState(
     val currentDatabaseSchemaVersion: Int,
     val minimumSupportedSchemaVersion: Int,
     val appVersion: String,
     val buildNumber: Int,
-    val updateChannel: UpdateChannel,
     val taskCount: Int = 0,
     val timeEntryCount: Int = 0,
     val noteCount: Int = 0,

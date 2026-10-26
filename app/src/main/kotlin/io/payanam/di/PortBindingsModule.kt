@@ -227,11 +227,11 @@ object PortBindingsModule {
      * and only the Android side was unwired. Binding it is what makes the port a real dependency
      * rather than an interface nothing resolves.
      *
-     * WHY NO CHANNEL IS NAMED HERE: the adapter defaults to the DEV release channel and documents that
-     * default as the rescue channel this app's pre-unlock hatch already uses, so naming it again here
-     * would be a second answer to "which channel does this app ask about". One source decides.
+     * WHY THE ADAPTER IS DEFAULTS-ONLY HERE: the seam exists so a parity test can drive a scripted
+     * release read through the same mapping production uses, so naming one of its parameters again at
+     * this call site would be a second answer to a question the adapter already documents.
      *
-     * Singleton-scoped because the adapter retains the channel read its own fetch resolves an artifact
+     * Singleton-scoped because the adapter retains the release read its own fetch resolves an artifact
      * from; a per-injection adapter would let a fetch ask a download of a check nobody can see.
      */
     @Provides

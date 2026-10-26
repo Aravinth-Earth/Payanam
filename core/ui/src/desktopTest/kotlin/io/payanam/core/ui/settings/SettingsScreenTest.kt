@@ -29,7 +29,6 @@ import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.shared.updates.UpdateChannel
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -104,7 +103,6 @@ class SettingsScreenTest {
             minimumSupportedSchemaVersion = 5,
             appVersion = "1.2.3",
             buildNumber = 42,
-            updateChannel = UpdateChannel.STABLE,
         ),
     ) {
         composeRule.setContent {
@@ -297,7 +295,6 @@ class SettingsScreenTest {
                 minimumSupportedSchemaVersion = 5,
                 appVersion = "1.2.3",
                 buildNumber = 42,
-                updateChannel = UpdateChannel.STABLE,
             ),
         )
         openCard(strings.settingsDatabaseTitle)
@@ -308,8 +305,9 @@ class SettingsScreenTest {
     /**
      * No shared screen may imply an update check this platform never performed.
      *
-     * The desktop's update source answers `Inconclusive` without ever reading a channel, so the shared settings
-     * screen, which both platforms mount, must not carry an update affordance that only one of them can honour.
+     * The desktop's update source answers `Inconclusive` because this platform has no installer to hand a
+     * release to, so the shared settings screen, which both platforms mount, must not carry an update
+     * affordance that only one of them can honour.
      * The case is the gate's own: with `updateCheckResult` at its default (null - the state the desktop is always
      * in) the screen shows no update copy at all.
      *

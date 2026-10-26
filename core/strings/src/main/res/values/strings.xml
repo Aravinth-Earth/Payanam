@@ -722,12 +722,12 @@
     <string name="loc_yearly">Yearly</string>
     <string name="loc_yesterday">Yesterday</string>
     <string name="loc_your_thoughts">Your thoughts...</string>
-    <string name="pre_unlock_update_build_value">#%1$d (dev)</string>
+    <string name="pre_unlock_update_build_value">#%1$d</string>
     <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
     <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
     <string name="pre_unlock_update_download_install">Download &amp; install</string>
     <string name="pre_unlock_update_downloading">Downloading %1$d%%</string>
-    <string name="pre_unlock_update_hint">Manual only — never automatic. Uses the dev channel.</string>
+    <string name="pre_unlock_update_hint">Manual only — never automatic. Checks released versions.</string>
     <string name="pre_unlock_update_up_to_date">You are on the latest build</string>
     <string name="preset_full_suite">Full Suite</string>
     <string name="preset_full_suite_desc">Access all features</string>
@@ -868,12 +868,7 @@
     <string name="settings_title">Settings</string>
     <string name="settings_update_auto_check">Check for updates after unlock</string>
     <string name="settings_update_auto_download">Auto-download updates</string>
-    <string name="settings_update_available">Update available: build #%1$d</string>
-    <string name="settings_update_channel_build">build #%1$d</string>
-    <string name="settings_update_channel_label">Update channel</string>
-    <string name="settings_update_channel_no_build">no build yet</string>
-    <string name="settings_update_channel_ships">%1$s channel ships: %2$s APK</string>
-    <string name="settings_update_channel_statuses_title">Channel status</string>
+    <string name="settings_update_available">Update available: %1$s</string>
     <string name="settings_update_check_again_button">Check again</string>
     <string name="settings_update_check_button">Check for update</string>
     <string name="settings_update_checking">Checking…</string>
@@ -902,7 +897,7 @@
     <string name="settings_update_install_now">Update now</string>
     <string name="settings_update_install_now_button">Install now</string>
     <string name="settings_update_install_title">Update available</string>
-    <string name="settings_update_no_releases">No releases on this channel yet.</string>
+    <string name="settings_update_no_releases">No releases have been published yet.</string>
     <string name="settings_update_not_supported_here">Updates on this platform are installed by your package manager — there is no in-app update action.</string>
     <string name="settings_update_open_fdroid">Open F-Droid</string>
     <string name="settings_update_paused">Download paused</string>
@@ -912,7 +907,7 @@
     <string name="settings_update_retry_button">Retry</string>
     <string name="settings_update_running_build_type">You are on: %1$s build</string>
     <string name="settings_update_type_mismatch">Build type mismatch — no compatible update is available for this install.</string>
-    <string name="settings_update_up_to_date">You\'re up to date (build #%1$d)</string>
+    <string name="settings_update_up_to_date">You\'re up to date (%1$s)</string>
     <string name="settings_update_view_release">View release</string>
     <string name="settings_update_wifi_only">Download only on Wi-Fi</string>
     <string name="skip_focus_mode">I\'ll choose later</string>

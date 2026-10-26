@@ -3,8 +3,7 @@
 package io.payanam.presentation.updates
 
 import com.google.common.truth.Truth.assertThat
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.ReleaseStatus
 import kotlinx.serialization.json.JsonArray
 import kotlinx.serialization.json.JsonObject
 import kotlinx.serialization.json.JsonPrimitive
@@ -13,38 +12,38 @@ import org.junit.Test
 /** A GitHub release asset URL in the shape GitHub serves it; the policy pins scheme, host and path. */
 private fun assetUrl(fileName: String): String = "https://github.com/Aravinth-Earth/Payanam/releases/download/test/$fileName"
 
-/** The dev-channel APK the fixture release ships, as a real download URL. */
-private const val DEV_APK_URL =
-    "https://github.com/Aravinth-Earth/Payanam/releases/download/dev-v12/" +
+/** The debug APK the newest fixture release ships, as a real download URL. */
+private const val DEBUG_APK_URL =
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/v1.0.0/" +
         "payanam_1.0.0_debug_arm64-v8a.apk"
 
-/** The dev-channel checksum sibling of [DEV_APK_URL]. */
-private const val DEV_SHA_URL = "$DEV_APK_URL.sha256"
+/** The checksum sibling of [DEBUG_APK_URL]. */
+private const val DEBUG_SHA_URL = "$DEBUG_APK_URL.sha256"
 
-/** The stable-channel APK the fixture release ships. */
-private const val STABLE_APK_URL =
-    "https://github.com/Aravinth-Earth/Payanam/releases/download/v11/" +
-        "payanam_1.0.0_release_arm64-v8a.apk"
+/** The release-type APK the older fixture release ships. */
+private const val RELEASE_APK_URL =
+    "https://github.com/Aravinth-Earth/Payanam/releases/download/v0.9.0/" +
+        "payanam_0.9.0_release_arm64-v8a.apk"
 
-/** A GitHub releases list as the list endpoint returns it: one entry per channel release. */
+/** A GitHub releases list as the list endpoint returns it: one entry per versioned release. */
 private val RELEASE_LIST_JSON =
     """
     [
       {
-        "tag_name": "dev-v12",
-        "name": "Payanam #12",
-        "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v12",
+        "tag_name": "v1.0.0",
+        "name": "Payanam 1.0.0",
+        "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/v1.0.0",
         "assets": [
-          {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "$DEV_APK_URL"},
-          {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "$DEV_SHA_URL"}
+          {"name": "payanam_1.0.0_debug_arm64-v8a.apk", "browser_download_url": "$DEBUG_APK_URL"},
+          {"name": "payanam_1.0.0_debug_arm64-v8a.apk.sha256", "browser_download_url": "$DEBUG_SHA_URL"}
         ]
       },
       {
-        "tag_name": "v11",
-        "name": "Payanam #11",
-        "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/v11",
+        "tag_name": "v0.9.0",
+        "name": "Payanam 0.9.0",
+        "html_url": "https://github.com/Aravinth-Earth/Payanam/releases/tag/v0.9.0",
         "assets": [
-          {"name": "payanam_1.0.0_release_arm64-v8a.apk", "browser_download_url": "$STABLE_APK_URL"}
+          {"name": "payanam_0.9.0_release_arm64-v8a.apk", "browser_download_url": "$RELEASE_APK_URL"}
         ]
       }
     ]
@@ -64,7 +63,7 @@ private fun assetsOf(vararg entries: Pair<String, String>): JsonArray =
     )
 
 /**
- * The pure half of [UpdateChecker]: which channel a release tag names, which of a release's assets is
+ * The pure half of [UpdateChecker]: which version a release tag names, which of a release's assets is
  * downloadable for a running build type, and what a release list parses to.
  *
  * None of it needs the network, so all of it is asserted here. The network path (`check`, the page
@@ -77,25 +76,43 @@ private fun assetsOf(vararg entries: Pair<String, String>): JsonArray =
  */
 class UpdateCheckerPureLogicTest {
     @Test
-    fun `a persistent tag resolves to the channel its prefix names`() {
-        assertThat(channelFromTag("dev-v12")).isEqualTo(UpdateChannel.DEV)
-        assertThat(channelFromTag("beta-v3")).isEqualTo(UpdateChannel.BETA)
-        assertThat(channelFromTag("stable-v5")).isEqualTo(UpdateChannel.STABLE)
+    fun `a canonical release tag parses to its version name and packed code`() {
+        assertThat(parseReleaseTag("v1.2.3")).isEqualTo(ReleaseVersion(name = "1.2.3", code = 1_002_003))
+        assertThat(parseReleaseTag("v0.0.1")).isEqualTo(ReleaseVersion(name = "0.0.1", code = 1))
+        assertThat(parseReleaseTag("v12.0.0")).isEqualTo(ReleaseVersion(name = "12.0.0", code = 12_000_000))
     }
 
     @Test
-    fun `a bare version tag is stable and every other tag is refused`() {
-        // The two spellings this repo publishes both have to keep parsing.
-        assertThat(channelFromTag("v12")).isEqualTo(UpdateChannel.STABLE)
+    fun `every tag the old build-number scheme produced is refused`() {
+        // The checker speaks versions now, so a tag that names a build number names nothing it can read.
+        assertThat(parseReleaseTag("dev-v12")).isNull()
+        assertThat(parseReleaseTag("beta-v3")).isNull()
+        assertThat(parseReleaseTag("stable-v5")).isNull()
+        assertThat(parseReleaseTag("v12")).isNull()
+        assertThat(parseReleaseTag("latest")).isNull()
+        assertThat(parseReleaseTag("latest-nightly")).isNull()
+    }
 
-        // Refusal, not a guess: an unknown prefix, a wrong case, a suffix on the version and a
-        // truncated tag all return null so the caller can tell "not a release tag" from "a release
-        // whose channel is unknown".
-        assertThat(channelFromTag("nightly-v3")).isNull()
-        assertThat(channelFromTag("BETA-v3")).isNull()
-        assertThat(channelFromTag("dev-v12-rc1")).isNull()
-        assertThat(channelFromTag("beta-v")).isNull()
-        assertThat(channelFromTag("")).isNull()
+    @Test
+    fun `a malformed version tag is refused rather than repaired`() {
+        // Refusal, not a guess: a pre-release suffix, a missing field, extra content and a wrong case all
+        // return null so the caller can tell "not a release tag" from "a release this checker cannot read".
+        assertThat(parseReleaseTag("v1.2.3-rc1")).isNull()
+        assertThat(parseReleaseTag("v1.2")).isNull()
+        assertThat(parseReleaseTag("v1.2.3.4")).isNull()
+        assertThat(parseReleaseTag("V1.2.3")).isNull()
+        assertThat(parseReleaseTag("1.2.3")).isNull()
+        assertThat(parseReleaseTag("")).isNull()
+    }
+
+    @Test
+    fun `a tag whose segment exceeds 999 is refused rather than packed alongside a smaller one`() {
+        // 999 is the bound `packed()` enforces. Above it, v1.1000.0 packs to the same code as v2.0.0,
+        // so a genuinely newer tag would read as already installed.
+        assertThat(parseReleaseTag("v1.1000.0")).isNull()
+        assertThat(parseReleaseTag("v1.0.1000")).isNull()
+        assertThat(parseReleaseTag("v1000.0.0")).isNull()
+        assertThat(parseReleaseTag("v1.999.999")).isEqualTo(ReleaseVersion(name = "1.999.999", code = 1_999_999))
     }
 
     @Test
@@ -157,31 +174,28 @@ class UpdateCheckerPureLogicTest {
     }
 
     @Test
-    fun `a well formed release list parses to one status per channel release`() {
+    fun `a well formed release list parses to one status per versioned release`() {
         val statuses = requireNotNull(parseReleases(RELEASE_LIST_JSON, runningType = "debug"))
 
         assertThat(statuses).hasSize(2)
-        assertThat(statuses.map { it.channel })
-            .containsExactly(UpdateChannel.DEV, UpdateChannel.STABLE)
-            .inOrder()
+        assertThat(statuses.map { it.versionName }).containsExactly("1.0.0", "0.9.0").inOrder()
+        assertThat(statuses.map { it.versionCode }).containsExactly(1_000_000, 9_000).inOrder()
 
-        val dev = statuses.first()
-        assertThat(dev.buildNumber).isEqualTo(12)
-        assertThat(dev.releaseUrl).isEqualTo("https://github.com/Aravinth-Earth/Payanam/releases/tag/dev-v12")
-        assertThat(dev.apkDownloadUrl).isEqualTo(DEV_APK_URL)
-        assertThat(dev.apkSha256Url).isEqualTo(DEV_SHA_URL)
-        assertThat(dev.typeMismatch).isFalse()
+        val newest = statuses.first()
+        assertThat(newest.releaseUrl).isEqualTo("https://github.com/Aravinth-Earth/Payanam/releases/tag/v1.0.0")
+        assertThat(newest.apkDownloadUrl).isEqualTo(DEBUG_APK_URL)
+        assertThat(newest.apkSha256Url).isEqualTo(DEBUG_SHA_URL)
+        assertThat(newest.typeMismatch).isFalse()
 
-        // The stable release ships only a release apk, so a debug install fails closed on it.
-        val stable = statuses.last()
-        assertThat(stable.buildNumber).isEqualTo(11)
-        assertThat(stable.apkDownloadUrl).isNull()
-        assertThat(stable.apkSha256Url).isNull()
-        assertThat(stable.typeMismatch).isTrue()
+        // The older release ships only a release apk, so a debug install fails closed on it.
+        val older = statuses.last()
+        assertThat(older.apkDownloadUrl).isNull()
+        assertThat(older.apkSha256Url).isNull()
+        assertThat(older.typeMismatch).isTrue()
     }
 
     @Test
-    fun `non-channel tags and malformed array entries are skipped not fatal`() {
+    fun `unversioned tags and malformed array entries are skipped not fatal`() {
         val body =
             """
             [
@@ -189,17 +203,17 @@ class UpdateCheckerPureLogicTest {
               42,
               null,
               {"tag_name": "nightly-v3", "name": "Payanam #99"},
-              {"tag_name": "beta-v4", "name": "Payanam #4", "assets": []}
+              {"tag_name": "v0.4.0", "name": "Payanam 0.4.0", "assets": []}
             ]
             """.trimIndent()
 
         val statuses = requireNotNull(parseReleases(body, runningType = "debug"))
 
-        // A non-channel tag is not a release this checker speaks about; a beta release with no assets
-        // still is, and is reported as a mismatch rather than dropped.
+        // A tag carrying no version is not a release this checker speaks about; a versioned release with no
+        // assets still is, and is reported as a mismatch rather than dropped.
         assertThat(statuses).hasSize(1)
-        assertThat(statuses.single().channel).isEqualTo(UpdateChannel.BETA)
-        assertThat(statuses.single().buildNumber).isEqualTo(4)
+        assertThat(statuses.single().versionName).isEqualTo("0.4.0")
+        assertThat(statuses.single().versionCode).isEqualTo(4_000)
         assertThat(statuses.single().typeMismatch).isTrue()
         assertThat(statuses.single().apkDownloadUrl).isNull()
     }
@@ -209,28 +223,26 @@ class UpdateCheckerPureLogicTest {
         val body =
             """
             [
-              {"tag_name": "dev-v12", "name": null, "html_url": null, "assets": {}},
-              {"tag_name": "beta-v5", "name": "Payanam #5", "assets": "not-an-array"},
+              {"tag_name": "v1.2.0", "name": null, "html_url": null, "assets": {}},
+              {"tag_name": "v0.5.0", "name": "Payanam 0.5.0", "assets": "not-an-array"},
               {"tag_name": 123, "name": "Payanam #7", "assets": []}
             ]
             """.trimIndent()
 
         val statuses = requireNotNull(parseReleases(body, runningType = "debug"))
 
-        // A numeric tag is coerced to its text ("123") and then refused as a channel tag, exactly as
-        // before; an explicit null name falls back to the tag and an explicit null url to "".
-        assertThat(statuses.map { it.channel }).containsExactly(UpdateChannel.DEV, UpdateChannel.BETA).inOrder()
-        val dev = statuses.first()
-        assertThat(dev.buildNumber).isNull()
-        assertThat(dev.releaseUrl).isEqualTo("")
-        assertThat(dev.typeMismatch).isTrue()
+        // A numeric tag is coerced to its text ("123") and then refused as a version, exactly as before; an
+        // explicit null url falls back to "".
+        assertThat(statuses.map { it.versionName }).containsExactly("1.2.0", "0.5.0").inOrder()
+        val first = statuses.first()
+        assertThat(first.releaseUrl).isEqualTo("")
+        assertThat(first.typeMismatch).isTrue()
 
         // `assets` shaped as an object, or as a string, is no asset list: the release is still
         // reported and fails closed rather than disappearing from the scan.
-        val beta = statuses.last()
-        assertThat(beta.buildNumber).isEqualTo(5)
-        assertThat(beta.apkDownloadUrl).isNull()
-        assertThat(beta.typeMismatch).isTrue()
+        val second = statuses.last()
+        assertThat(second.apkDownloadUrl).isNull()
+        assertThat(second.typeMismatch).isTrue()
     }
 
     @Test
@@ -244,23 +256,23 @@ class UpdateCheckerPureLogicTest {
     }
 
     @Test
-    fun `a release with no parseable build number keeps its status with a null build`() {
+    fun `a tag that names no version is skipped rather than reported without one`() {
         val body =
             """
             [
               {"tag_name": "dev-v12", "html_url": "https://d/rel"},
-              {"tag_name": "dev-v13", "name": "Payanam", "html_url": "https://d/rel13"}
+              {"tag_name": "v1.0.0", "name": "Payanam", "html_url": "https://d/rel100"}
             ]
             """.trimIndent()
 
         val statuses = requireNotNull(parseReleases(body, runningType = "debug"))
 
-        // An absent name falls back to the tag, which carries no "#N"; the release is still reported
-        // so it can resolve to RELEASE_UNREADABLE instead of NO_RELEASE_ON_CHANNEL.
-        assertThat(statuses).hasSize(2)
-        assertThat(statuses.map { it.buildNumber }).containsExactly(null, null).inOrder()
-        assertThat(statuses.map { it.releaseUrl }).containsExactly("https://d/rel", "https://d/rel13").inOrder()
-        assertThat(statuses.map { it.typeMismatch }).containsExactly(true, true)
+        // The version is the tag, and only a tag can supply it, so an unreadable tag cannot become a status:
+        // the caller sees NO_RELEASE from a scan that lost every release rather than a version-less entry.
+        assertThat(statuses).hasSize(1)
+        assertThat(statuses.single().versionName).isEqualTo("1.0.0")
+        assertThat(statuses.single().releaseUrl).isEqualTo("https://d/rel100")
+        assertThat(statuses.single().typeMismatch).isTrue()
     }
 
     @Test
@@ -280,11 +292,11 @@ class UpdateCheckerPureLogicTest {
     @Test
     fun `a status parsed from a release is the shape the shared resolve step reads`() {
         // The constructor contract parseReleases relies on: unset urls and a false mismatch by default.
-        assertThat(ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 3, releaseUrl = "u"))
+        assertThat(ReleaseStatus(versionName = "0.3.0", versionCode = 3_000, releaseUrl = "u"))
             .isEqualTo(
-                ChannelStatus(
-                    channel = UpdateChannel.BETA,
-                    buildNumber = 3,
+                ReleaseStatus(
+                    versionName = "0.3.0",
+                    versionCode = 3_000,
                     releaseUrl = "u",
                     apkDownloadUrl = null,
                     apkSha256Url = null,

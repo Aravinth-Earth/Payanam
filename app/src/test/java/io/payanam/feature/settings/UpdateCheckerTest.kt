@@ -2,85 +2,112 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.feature.settings
 
+import io.payanam.presentation.updates.ReleaseVersion
 import io.payanam.presentation.updates.artifactNameMatchesBuildType
-import io.payanam.presentation.updates.channelFromTag
 import io.payanam.presentation.updates.nextPageUrl
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
+import io.payanam.presentation.updates.parseReleaseTag
+import io.payanam.shared.updates.ReleaseStatus
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.shared.updates.resolveUpdateResult
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNotEquals
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 class UpdateCheckerTest {
 
-    private val buildNumberRegex = Regex("""#(\d+)""")
-
-    // ── Build number parsing ──────────────────────────────────────────────
+    // ── Release tag parsing ───────────────────────────────────────────────
 
     @Test
-    fun `parseBuildNumber from release title`() {
-        val title = "Latest Dev Build (#1514)"
-        val match = buildNumberRegex.find(title)
-        assertEquals(1514, match?.groupValues?.get(1)?.toIntOrNull())
+    fun `parseReleaseTag reads a canonical tag`() {
+        assertEquals(ReleaseVersion(name = "1.0.0", code = 1_000_000), parseReleaseTag("v1.0.0"))
     }
 
     @Test
-    fun `parseBuildNumber no match for random string`() {
-        val title = "Some random release"
-        val match = buildNumberRegex.find(title)
-        assertNull(match)
+    fun `parseReleaseTag packs each field into its own thousand`() {
+        assertEquals(1_514_000, parseReleaseTag("v1.514.0")?.code)
+        assertEquals(2_003_004, parseReleaseTag("v2.3.4")?.code)
+        assertEquals(99_999, parseReleaseTag("v0.99.999")?.code)
     }
 
     @Test
-    fun `parseBuildNumber handles multi-digit`() {
-        val title = "Build (#99999)"
-        val match = buildNumberRegex.find(title)
-        assertEquals(99999, match?.groupValues?.get(1)?.toIntOrNull())
+    fun `parseReleaseTag handles single and multi digit fields`() {
+        assertEquals(ReleaseVersion("0.0.1", 1), parseReleaseTag("v0.0.1"))
+        assertEquals(ReleaseVersion("10.20.30", 10_020_030), parseReleaseTag("v10.20.30"))
     }
 
     @Test
-    fun `parseBuildNumber handles single digit`() {
-        val title = "Build (#1)"
-        val match = buildNumberRegex.find(title)
-        assertEquals(1, match?.groupValues?.get(1)?.toIntOrNull())
+    fun `parseReleaseTag rebuilds the name from the parsed digits`() {
+        // Leading zeros are read and then dropped, so one release has exactly one spelling.
+        assertEquals(ReleaseVersion("1.0.0", 1_000_000), parseReleaseTag("v01.000.0"))
+    }
+
+    @Test
+    fun `legacy and malformed tags are ignored rather than guessed at`() {
+        // The build-number scheme this checker used to read is not a version, and a partial version is
+        // not upgraded into one.
+        assertNull(parseReleaseTag("dev-v1704"))
+        assertNull(parseReleaseTag("beta-v1500"))
+        assertNull(parseReleaseTag("stable-v200"))
+        assertNull(parseReleaseTag("v1704"))
+        assertNull(parseReleaseTag("latest"))
+        assertNull(parseReleaseTag("latest-nightly"))
+        assertNull(parseReleaseTag("v1.2"))
+        assertNull(parseReleaseTag("v1.2.3.4"))
+        assertNull(parseReleaseTag("v1.2.3-rc1"))
+        assertNull(parseReleaseTag("V1.2.3"))
+        assertNull(parseReleaseTag(""))
+    }
+
+    @Test
+    fun `a tag with a digit group beyond any versionCode is refused rather than wrapped`() {
+        assertNull(parseReleaseTag("v99999999999999999999.0.0"))
+        assertNull(parseReleaseTag("v1.0.99999999999999999999"))
+        // Above the 999 segment bound, so refused: no accepted tag can pack past an Int.
+        assertNull(parseReleaseTag("v2100.0.1"))
     }
 
     // ── Version comparison ────────────────────────────────────────────────
 
     @Test
-    fun `update available when latest is newer`() {
-        val latest = 1515
-        val current = 1514
-        assertTrue(latest > current)
+    fun `update available when the newest release is newer`() {
+        val result = resolveUpdateResult(1_514_000, listOf(release("1.515.0")))
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
     }
 
     @Test
-    fun `up to date when same build`() {
-        val latest = 1514
-        val current = 1514
-        assertFalse(latest > current)
+    fun `up to date when the newest release is the installed version`() {
+        val result = resolveUpdateResult(1_514_000, listOf(release("1.514.0")))
+        assertEquals(UpdateOutcome.UP_TO_DATE, result.outcome)
     }
 
     @Test
-    fun `no downgrade when local is newer`() {
-        val latest = 1513
-        val current = 1514
-        assertFalse(latest > current)
+    fun `no downgrade when the installed version is newer`() {
+        val result = resolveUpdateResult(1_515_000, listOf(release("1.514.0")))
+        assertEquals(UpdateOutcome.UP_TO_DATE, result.outcome)
     }
 
-    // ── Download filename → build label ───────────────────────────────────
+    // ── Download filename → version label ─────────────────────────────────
 
     @Test
-    fun `build number extracted from apk filename`() {
-        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_debug_20260812_193754.apk"))
-        assertEquals("1568", buildNumberFromFileName("Payanam_Android_1568_20260812_193754.apk")) // legacy untyped
-        assertEquals("", buildNumberFromFileName("Payanam update")) // no build number → empty
-        assertEquals("", buildNumberFromFileName("")) // empty input → empty
+    fun `version extracted from an apk filename, empty when the name declares none`() {
+        assertEquals("1.0.0", versionFromFileName("Payanam_android_1.0.0_a1b2c3d_debug_20261026_101500.apk"))
+        assertEquals("1.4.12", versionFromFileName("Payanam_windows_1.4.12_nogit_release_20261026_101500.apk"))
+        assertEquals("", versionFromFileName("Payanam_Android_1568_debug_20260812_193754.apk")) // legacy build-number name
+        assertEquals("", versionFromFileName("Payanam update")) // no version field → empty
+        assertEquals("", versionFromFileName("")) // empty input → empty
+    }
+
+    @Test
+    fun `a completed-download marker only matches a file that declares its version`() {
+        assertTrue(isApkOfVersion("Payanam_android_1.0.0_a1b2c3d_debug_20261026_101500.apk", "1.0.0"))
+        assertFalse(isApkOfVersion("Payanam_android_1.0.0_a1b2c3d_debug_20261026_101500.apk", "1.0.1"))
+        assertFalse(isApkOfVersion("Payanam_android_1.0.0_a1b2c3d_debug_20261026_101500.apk", ""))
+        // A marker left by the old build-number scheme names no version, so it matches nothing.
+        assertFalse(isApkOfVersion("Payanam_Android_1568_debug_20260812_193754.apk", "1568"))
     }
 
     // ── Type-aware artifact matching (artifact-naming standard) ───────────
@@ -103,106 +130,114 @@ class UpdateCheckerTest {
     }
 
     @Test
-    fun `apk-for-build matcher requires build, type and apk suffix`() {
+    fun `apk-for-build matcher requires version, type and apk suffix`() {
         assertTrue(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk", "1568", "debug"))
         assertFalse(isApkForBuild("Payanam_Android_1568_20260812_193754.apk", "1568", "debug")) // legacy: no type token
         assertFalse(isApkForBuild("Payanam_Android_1568_release_20260812_193754.apk", "1568", "debug")) // wrong type
         assertFalse(isApkForBuild("Payanam_Android_1568_debug_20260812_193754.apk.sha256", "1568", "debug")) // sha sibling must never be returned
-        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug")) // wrong build
+        assertFalse(isApkForBuild("Payanam_Android_1569_debug_20260812_193754.apk", "1568", "debug")) // wrong version
     }
 
-    @Test
-    fun `channel ships the declared build type`() {
-        assertEquals("debug", UpdateChannel.DEV.shippedApkType())
-        assertEquals("release", UpdateChannel.BETA.shippedApkType())
-        assertEquals("release", UpdateChannel.STABLE.shippedApkType())
-    }
-
-    // ── Fail-closed channel verdict ───────────────────────────────────────
+    // ── Fail-closed verdict ───────────────────────────────────────────────
 
     @Test
     fun `type mismatch fails the verdict closed`() {
-        val statuses = listOf(
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = 9999,
-                releaseUrl = "url",
-                apkDownloadUrl = null,
-                typeMismatch = true,
-            ),
-        )
-        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        // Newer build exists, but of another type — the VERDICT must fail closed.
+        val result = resolveUpdateResult(1_000_000, listOf(release("1.2.0", typeMismatch = true)))
+        // A newer release exists, but of another type — the VERDICT must fail closed.
         assertEquals(UpdateOutcome.TYPE_MISMATCH, result.outcome)
-        // The build number is still reported (channel status rows use it).
-        assertEquals(9999, result.latestBuildNumber)
-    }
-
-    @Test
-    fun `matching type with a newer build is available`() {
-        val statuses = listOf(
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = 101,
-                releaseUrl = "url",
-                apkDownloadUrl = "url/apk",
-                apkSha256Url = "url/apk.sha256",
-                typeMismatch = false,
-            ),
-        )
-        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
-    }
-
-    @Test
-    fun `matching type with same or older build is not available`() {
-        val sameBuild = listOf(
-            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 100, releaseUrl = "url", apkDownloadUrl = "url/apk"),
-        )
-        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, sameBuild).outcome)
-
-        val olderBuild = listOf(
-            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 99, releaseUrl = "url", apkDownloadUrl = "url/apk"),
-        )
-        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(100, UpdateChannel.DEV, olderBuild).outcome)
-    }
-
-    @Test
-    fun `no release on the channel is an explicit non-success outcome`() {
-        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = emptyList())
-        assertEquals(UpdateOutcome.NO_RELEASE_ON_CHANNEL, result.outcome)
-        assertNull(result.latestBuildNumber)
+        // The version is still reported (the download rows label themselves from it).
+        assertEquals("1.2.0", result.latestVersionName)
+        assertEquals(1_002_000, result.latestVersionCode)
+        assertNull(result.apkDownloadUrl)
         assertNull(result.error)
     }
 
     @Test
-    fun `an exhausted scan is undetermined, never up to date`() {
-        val result = resolveUpdateResult(
-            currentBuildNumber = 100,
-            channel = UpdateChannel.DEV,
-            statuses = emptyList(),
-            scanComplete = false,
-        )
-        assertEquals(UpdateOutcome.INDETERMINATE, result.outcome)
-    }
-
-    @Test
-    fun `a release without a parseable build number is unreadable, not up to date`() {
-        val statuses = listOf(
-            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = null, releaseUrl = "url", apkDownloadUrl = "url/apk"),
-        )
-        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
-        assertEquals(UpdateOutcome.RELEASE_UNREADABLE, result.outcome)
-    }
-
-    @Test
-    fun `a mismatch on another channel does not affect the selected channel`() {
-        val statuses = listOf(
-            ChannelStatus(channel = UpdateChannel.BETA, buildNumber = 9999, releaseUrl = "beta", typeMismatch = true),
-            ChannelStatus(channel = UpdateChannel.DEV, buildNumber = 101, releaseUrl = "dev", apkDownloadUrl = "dev/apk"),
-        )
-        val result = resolveUpdateResult(currentBuildNumber = 100, channel = UpdateChannel.DEV, statuses = statuses)
+    fun `matching type with a newer version is available`() {
+        val result = resolveUpdateResult(1_000_000, listOf(release("1.0.1", apk = "url/apk", sha = "url/apk.sha256")))
         assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
+        assertEquals("url/apk", result.apkDownloadUrl)
+        assertEquals("url/apk.sha256", result.apkSha256Url)
+    }
+
+    @Test
+    fun `matching type with the same or older version is not available`() {
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(1_000_000, listOf(release("1.0.0"))).outcome)
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(1_000_000, listOf(release("0.99.0"))).outcome)
+    }
+
+    @Test
+    fun `nothing parsable is NO_RELEASE and is distinct from a failed check`() {
+        // A scan that reached the end of the list and found no versioned release: an explicit non-success
+        // with a reason but no error, because the check itself worked.
+        val noRelease = resolveUpdateResult(1_000_000, emptyList())
+        assertEquals(UpdateOutcome.NO_RELEASE, noRelease.outcome)
+        assertNull(noRelease.latestVersionName)
+        assertNull(noRelease.error)
+
+        // The check itself failing is a different outcome, and the only one that carries an error reason.
+        val failed =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.FAILED,
+                latestVersionName = null,
+                latestVersionCode = null,
+                releaseUrl = null,
+                error = UpdateCheckError.NO_INTERNET,
+            )
+        assertNotEquals(noRelease.outcome, failed.outcome)
+        assertEquals(UpdateCheckError.NO_INTERNET, failed.error)
+    }
+
+    @Test
+    fun `an exhausted scan is undetermined, never up to date`() {
+        val result = resolveUpdateResult(installedVersionCode = 1_000_000, releases = emptyList(), scanComplete = false)
+        assertEquals(UpdateOutcome.INDETERMINATE, result.outcome)
+        assertNotEquals(UpdateOutcome.UP_TO_DATE, result.outcome)
+    }
+
+    @Test
+    fun `the newest release wins regardless of list order`() {
+        val newestLast = resolveUpdateResult(1_000_000, listOf(release("1.0.1"), release("1.0.3"), release("1.0.2")))
+        assertEquals("1.0.3", newestLast.latestVersionName)
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, newestLast.outcome)
+
+        val newestFirst = resolveUpdateResult(1_000_000, listOf(release("1.0.3"), release("1.0.1"), release("1.0.2")))
+        assertEquals("1.0.3", newestFirst.latestVersionName)
+    }
+
+    @Test
+    fun `a newer release with no artifact does not fall back to an older installable one`() {
+        // 1.2.0 ships nothing this build can install while 1.1.0 does: the verdict is the MISMATCH, so
+        // the older installable release is never offered as a downgrade.
+        val result =
+            resolveUpdateResult(
+                1_000_000,
+                listOf(release("1.1.0", apk = "url/old.apk"), release("1.2.0", typeMismatch = true)),
+            )
+        assertEquals(UpdateOutcome.TYPE_MISMATCH, result.outcome)
+        assertEquals("1.2.0", result.latestVersionName)
+        assertNull(result.apkDownloadUrl)
+    }
+
+    @Test
+    fun `an older release's mismatch does not mark the newest release as one`() {
+        val result =
+            resolveUpdateResult(
+                1_000_000,
+                listOf(release("1.1.0", typeMismatch = true), release("1.2.0", apk = "url/new.apk")),
+            )
+        assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
+        assertEquals("1.2.0", result.latestVersionName)
+        assertFalse(result.typeMismatch)
+    }
+
+    @Test
+    fun `a newer release that ships nothing is a mismatch only against a newer release`() {
+        // The mismatch is a verdict about being NEWER; an install at or above the mismatched release has
+        // nothing to be told about it.
+        val mismatch = release("1.2.0", typeMismatch = true)
+        assertEquals(UpdateOutcome.TYPE_MISMATCH, resolveUpdateResult(1_000_000, listOf(mismatch)).outcome)
+        assertEquals(UpdateOutcome.UP_TO_DATE, resolveUpdateResult(1_002_000, listOf(mismatch)).outcome)
     }
 
     // ── Error enum coverage ───────────────────────────────────────────────
@@ -223,87 +258,36 @@ class UpdateCheckerTest {
         assertTrue(UpdateCheckError.UNKNOWN in UpdateCheckError.entries)
     }
 
-    // ── Channel mapping ───────────────────────────────────────────────────
-
-    @Test
-    fun `channel from tag ignores non-channel tags`() {
-        assertNull(channelFromTag("v1.2.3"))
-        assertNull(channelFromTag("latest"))
-        assertNull(channelFromTag(""))
-        assertNull(channelFromTag("latest-nightly"))
-        assertNull(channelFromTag("latest-dev")) // former rolling tag
-        assertNull(channelFromTag("latest-stable")) // former rolling tag
-    }
-
-    @Test
-    fun `channel from tag maps persistent tags correctly`() {
-        assertEquals(UpdateChannel.DEV, channelFromTag("dev-v1704"))
-        assertEquals(UpdateChannel.BETA, channelFromTag("beta-v1500"))
-        assertEquals(UpdateChannel.STABLE, channelFromTag("stable-v200"))
-    }
-
-    @Test
-    fun `channel from tag maps plain v tags to stable`() {
-        assertEquals(UpdateChannel.STABLE, channelFromTag("v1704"))
-        assertEquals(UpdateChannel.STABLE, channelFromTag("v200"))
-    }
-
-    @Test
-    fun `channel from tag rejects malformed persistent tags`() {
-        assertNull(channelFromTag("dev-v")) // no build number
-        assertNull(channelFromTag("dev-vabc")) // non-numeric build
-        assertNull(channelFromTag("nightly-v1704")) // unknown channel
-        assertNull(channelFromTag("dev-v1704-extra")) // trailing content
-    }
-
-    @Test
-    fun `channel from storage parses valid values`() {
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("DEV"))
-        assertEquals(UpdateChannel.BETA, UpdateChannel.fromStorage("BETA"))
-        assertEquals(UpdateChannel.STABLE, UpdateChannel.fromStorage("STABLE"))
-    }
-
-    @Test
-    fun `channel from storage falls back to DEV for garbage`() {
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(null))
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage(""))
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("nightly"))
-        assertEquals(UpdateChannel.DEV, UpdateChannel.fromStorage("dev")) // lowercase is invalid storage
-    }
-
-    @Test
-    fun `channel tag suffixes match storage names`() {
-        // Storage stores enum .name (uppercase); tags use tagSuffix (lowercase).
-        assertEquals("dev", UpdateChannel.DEV.tagSuffix)
-        assertEquals("beta", UpdateChannel.BETA.tagSuffix)
-        assertEquals("stable", UpdateChannel.STABLE.tagSuffix)
-    }
-
     // ── UpdateCheckResult construction ────────────────────────────────────
 
     @Test
     fun `result with update available`() {
-        val result = UpdateCheckResult(
-            outcome = UpdateOutcome.UPDATE_AVAILABLE,
-            latestBuildNumber = 1515,
-            releaseUrl = "https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev",
-            error = null,
-        )
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.UPDATE_AVAILABLE,
+                latestVersionName = "1.515.0",
+                latestVersionCode = 1_515_000,
+                releaseUrl = "https://github.com/Aravinth-Earth/Payanam/releases/tag/v1.515.0",
+                error = null,
+            )
         assertEquals(UpdateOutcome.UPDATE_AVAILABLE, result.outcome)
-        assertEquals(1515, result.latestBuildNumber)
+        assertEquals("1.515.0", result.latestVersionName)
+        assertEquals(1_515_000, result.latestVersionCode)
         assertNull(result.error)
     }
 
     @Test
     fun `result with error`() {
-        val result = UpdateCheckResult(
-            outcome = UpdateOutcome.FAILED,
-            latestBuildNumber = null,
-            releaseUrl = null,
-            error = UpdateCheckError.NO_INTERNET,
-        )
+        val result =
+            UpdateCheckResult(
+                outcome = UpdateOutcome.FAILED,
+                latestVersionName = null,
+                latestVersionCode = null,
+                releaseUrl = null,
+                error = UpdateCheckError.NO_INTERNET,
+            )
         assertEquals(UpdateOutcome.FAILED, result.outcome)
-        assertNull(result.latestBuildNumber)
+        assertNull(result.latestVersionName)
         assertEquals(UpdateCheckError.NO_INTERNET, result.error)
     }
 
@@ -323,6 +307,27 @@ class UpdateCheckerTest {
     fun `the outcome enum is closed and deliberately sized`() {
         // Consumers switch exhaustively over UpdateOutcome — adding a state is
         // a deliberate act that must update this count AND every consumer.
-        assertEquals(7, UpdateOutcome.entries.size)
+        assertEquals(6, UpdateOutcome.entries.size)
     }
+
+    /** `major.minor.patch` packed the way the build packs it, so a fixture cannot name one version and compare another. */
+    private fun packed(version: String): Int {
+        val (major, minor, patch) = version.split('.').map { it.toInt() }
+        return major * 1_000_000 + minor * 1_000 + patch
+    }
+
+    /** One release as the parser reports it: the version from its tag plus whatever its assets selected. */
+    private fun release(
+        version: String,
+        apk: String? = null,
+        sha: String? = null,
+        typeMismatch: Boolean = false,
+    ) = ReleaseStatus(
+        versionName = version,
+        versionCode = packed(version),
+        releaseUrl = "https://example.invalid/releases/v$version",
+        apkDownloadUrl = apk,
+        apkSha256Url = sha,
+        typeMismatch = typeMismatch,
+    )
 }
