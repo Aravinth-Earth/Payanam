@@ -1130,9 +1130,22 @@ class SettingsViewModel(
                     _uiState.update { it.copy(downloadState = DownloadUiState.Failed("refresh_failed")) }
                     return@launch
                 }
+                // Classify the outcome before reading the URL: only UPDATE_AVAILABLE carries an
+                // APK asset for this build type. Every other outcome has no URL by definition,
+                // so it publishes as itself and never renders as a download failure.
+                if (fresh.outcome != UpdateOutcome.UPDATE_AVAILABLE) {
+                    // The release list moved past us: no update to download anymore, so the URL
+                    // and checksum of the previous artifact no longer describe a downloadable file.
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_URL, null)
+                    appSettingsRepository.setSetting(UpdatePrefKeys.ACTIVE_DOWNLOAD_SHA256_URL, null)
+                    _uiState.update { it.copy(updateCheckResult = fresh) }
+                    return@launch
+                }
                 val url = fresh.apkDownloadUrl
                 if (url.isNullOrEmpty()) {
-                    _uiState.update { it.copy(downloadState = DownloadUiState.Failed("no_download_url")) }
+                    // Fail closed: an offered update whose release ships no installable APK
+                    // cannot download, while the outcome itself stays UPDATE_AVAILABLE.
+                    _uiState.update { it.copy(updateCheckResult = fresh, downloadState = DownloadUiState.Failed("no_download_url")) }
                     return@launch
                 }
                 logger.i(
@@ -1144,15 +1157,10 @@ class SettingsViewModel(
                         "file" to url.substringAfterLast('/'),
                     ),
                 )
-                if (fresh.outcome == UpdateOutcome.UPDATE_AVAILABLE) {
-                    // Publish the fresh read before enqueueing: the download must use the
-                    // asset URL of the release this re-check just found, never the cached one.
-                    _uiState.update { it.copy(updateCheckResult = fresh) }
-                    startAutoDownload(fresh.latestVersionName ?: version)
-                } else {
-                    // The release list moved past us: no update to download anymore.
-                    _uiState.update { it.copy(updateCheckResult = fresh) }
-                }
+                // Publish the fresh read before enqueueing: the download must use the
+                // asset URL of the release this re-check just found, never the cached one.
+                _uiState.update { it.copy(updateCheckResult = fresh) }
+                startAutoDownload(fresh.latestVersionName ?: version)
             }
         }
     }
