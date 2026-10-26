@@ -1,17 +1,9 @@
 # Desktop Build Script for Payanam Windows app
-# Format: Payanam_Windows_buildNumber_dateTimeStamp
+# Artefact: output/windows/Payanam_Windows_<version>_<sha>_<yyyyMMdd_HHmmss>/
 
 param(
-    [switch]$Clean,
-    [switch]$CleanInstall,
-    [switch]$SkipTests,
-    [switch]$SkipInstall,
-    [switch]$SkipInstallVerification,
-    [switch]$KeepDaemons,
     [switch]$Release,
-    [ValidateSet("auto", "quick", "normal", "full")] [string]$Profile = "auto",
-    [string]$OutputDir = "output/windows",
-    [string]$InstallDir = ""
+    [switch]$CleanInstall
 )
 
 $ErrorActionPreference = "Stop"
@@ -35,215 +27,6 @@ function Get-DateTimeStamp
     return (Get-Date -Format "yyyyMMdd_HHmmss")
 }
 
-function Get-LocalDateTime
-{
-    $now = Get-Date
-    $offsetMinutes = [System.TimeZoneInfo]::Local.GetUtcOffset($now).TotalMinutes
-    $offsetHours = [int][math]::Floor([math]::Abs($offsetMinutes) / 60)
-    $offsetMins = [int]([math]::Abs($offsetMinutes) % 60)
-    $offsetSign = if ($offsetMinutes -ge 0)
-    { "+"
-    } else
-    { "-"
-    }
-    $offsetString = "$offsetSign$($offsetHours.ToString('D2')):$($offsetMins.ToString('D2'))"
-    return $now.ToString("yyyy-MM-ddTHH:mm:ss") + $offsetString
-}
-
-function Format-CanonicalJson
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Json,
-        [int]$IndentSize = 2
-    )
-
-    $builder = [System.Text.StringBuilder]::new()
-    $indentLevel = 0
-    $inString = $false
-    $isEscaped = $false
-    $indentUnit = " " * $IndentSize
-
-    foreach ($char in $Json.ToCharArray())
-    {
-        if ($inString)
-        {
-            [void]$builder.Append($char)
-            if ($isEscaped)
-            {
-                $isEscaped = $false
-            } elseif ($char -eq '\')
-            {
-                $isEscaped = $true
-            } elseif ($char -eq '"')
-            {
-                $inString = $false
-            }
-            continue
-        }
-
-        switch ($char)
-        {
-            '"'
-            {
-                $inString = $true
-                [void]$builder.Append($char)
-            }
-            '{'
-            {
-                [void]$builder.Append($char)
-                $indentLevel++
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            '['
-            {
-                [void]$builder.Append($char)
-                $indentLevel++
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            '}'
-            {
-                $indentLevel--
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-                [void]$builder.Append($char)
-            }
-            ']'
-            {
-                $indentLevel--
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-                [void]$builder.Append($char)
-            }
-            ','
-            {
-                [void]$builder.Append($char)
-                [void]$builder.Append("`n")
-                [void]$builder.Append($indentUnit * $indentLevel)
-            }
-            ':'
-            {
-                [void]$builder.Append(": ")
-            }
-            default
-            {
-                [void]$builder.Append($char)
-            }
-        }
-    }
-
-    return $builder.ToString()
-}
-
-function Write-CanonicalJsonFile
-{
-    param(
-        [Parameter(Mandatory = $true)]
-        [string]$Path,
-        [Parameter(Mandatory = $true)]
-        [object]$InputObject
-    )
-
-    $resolvedPath = if ([System.IO.Path]::IsPathRooted($Path))
-    {
-        $Path
-    } else
-    {
-        Join-Path $projectRoot $Path
-    }
-    $compressedJson = $InputObject | ConvertTo-Json -Depth 10 -Compress
-    $formattedJson = Format-CanonicalJson -Json $compressedJson
-    $utf8NoBom = [System.Text.UTF8Encoding]::new($false)
-    [System.IO.File]::WriteAllText($resolvedPath, "$formattedJson`n", $utf8NoBom)
-}
-
-function ConvertTo-DateTimeOffsetOrNull
-{
-    param([string]$Text)
-    if ([string]::IsNullOrWhiteSpace($Text))
-    {
-        return $null
-    }
-    try
-    {
-        return [DateTimeOffset]::Parse($Text, [System.Globalization.CultureInfo]::InvariantCulture)
-    } catch
-    {
-        return $null
-    }
-}
-
-function Get-HoursSinceTimestamp
-{
-    param([string]$IsoDateTime)
-    $parsed = ConvertTo-DateTimeOffsetOrNull -Text $IsoDateTime
-    if ($null -eq $parsed)
-    {
-        return [double]::PositiveInfinity
-    }
-    $now = [DateTimeOffset]::Now
-    return [math]::Max(0.0, ($now - $parsed).TotalHours)
-}
-
-function Resolve-BuildProfile
-{
-    param(
-        [string]$RequestedProfile,
-        [pscustomobject]$CounterState,
-        [pscustomobject]$PolicyState
-    )
-
-    if ($RequestedProfile -ne "auto")
-    {
-        return [PSCustomObject]@{
-            Profile = $RequestedProfile
-            Reason = "explicit"
-        }
-    }
-
-    if ($null -eq $PolicyState -or $null -eq $PolicyState.autoProfile)
-    {
-        return [PSCustomObject]@{
-            Profile = "quick"
-            Reason = "auto_policy_missing_default_quick"
-        }
-    }
-
-    if (-not $PolicyState.autoProfile.enabled)
-    {
-        return [PSCustomObject]@{
-            Profile = "quick"
-            Reason = "auto_disabled_default_quick"
-        }
-    }
-
-    $fullEveryHours = [double]$PolicyState.autoProfile.fullEveryHours
-    $normalEveryHours = [double]$PolicyState.autoProfile.normalEveryHours
-    $hoursSinceFull = Get-HoursSinceTimestamp -IsoDateTime $CounterState.windows.lastFull
-    $hoursSinceNormal = Get-HoursSinceTimestamp -IsoDateTime $CounterState.windows.lastNormal
-
-    if ($hoursSinceFull -ge $fullEveryHours)
-    {
-        return [PSCustomObject]@{
-            Profile = "full"
-            Reason = "hours_since_windows_full=$([math]::Round($hoursSinceFull, 2)) >= $fullEveryHours"
-        }
-    }
-    if ($hoursSinceNormal -ge $normalEveryHours)
-    {
-        return [PSCustomObject]@{
-            Profile = "normal"
-            Reason = "hours_since_windows_normal=$([math]::Round($hoursSinceNormal, 2)) >= $normalEveryHours"
-        }
-    }
-    return [PSCustomObject]@{
-        Profile = "quick"
-        Reason = "within_thresholds_windows_full=$([math]::Round($hoursSinceFull, 2))h normal=$([math]::Round($hoursSinceNormal, 2))h"
-    }
-}
-
 function Get-BuildArtifactMetadata
 {
     param([System.IO.FileSystemInfo]$Item)
@@ -253,18 +36,16 @@ function Get-BuildArtifactMetadata
     } else
     { $Item.BaseName
     }
-    $buildNumber = -1
+    # Only the trailing timestamp is parsed; an unparsed name sorts first and is deleted first.
     $timestamp = ""
-    if ($artifactName -match '^Payanam_Windows_(\d+)_(\d{8}_\d{6})$')
+    if ($artifactName -match '_(\d{8}_\d{6})$')
     {
-        $buildNumber = [int]$Matches[1]
-        $timestamp = $Matches[2]
+        $timestamp = $Matches[1]
     }
 
     return [PSCustomObject]@{
         Item = $Item
         ArtifactName = $artifactName
-        BuildNumber = $buildNumber
         Timestamp = $timestamp
         LastWriteUtc = $Item.LastWriteTimeUtc
     }
@@ -307,7 +88,6 @@ function Invoke-BuildArtifactRetention
     $protected = $metadata | Where-Object { $_.ArtifactName -eq $CurrentBuildName }
     $candidates = $metadata | Where-Object { $_.ArtifactName -ne $CurrentBuildName }
     $orderedCandidates = $candidates | Sort-Object `
-    @{ Expression = "BuildNumber"; Descending = $true }, `
     @{ Expression = "Timestamp"; Descending = $true }, `
     @{ Expression = "LastWriteUtc"; Descending = $true }
 
@@ -341,13 +121,7 @@ function Update-FileContent
 
 function Invoke-DaemonCleanup
 {
-    if ($KeepDaemons)
-    {
-        Write-LogWithTime "Keeping Gradle/Kotlin daemons alive (-KeepDaemons)." "Yellow"
-        return
-    }
-
-    Write-LogWithTime "Low-memory default: stopping Gradle/Kotlin daemons..." "Yellow"
+    Write-LogWithTime "Stopping Gradle/Kotlin daemons..." "Yellow"
     try
     {
         cmd /c ".\gradlew.bat --stop 2>nul" | Out-Null
@@ -529,10 +303,6 @@ function Get-DesktopInstallRegistryEntry
 
 function Get-DesktopInstallRoot
 {
-    if (-not [string]::IsNullOrWhiteSpace($InstallDir))
-    {
-        return $InstallDir
-    }
     $registryEntry = Get-DesktopInstallRegistryEntry
     if ($null -ne $registryEntry -and -not [string]::IsNullOrWhiteSpace($registryEntry.InstallLocation))
     {
@@ -1028,14 +798,23 @@ function Invoke-DesktopSmokePack
         }
         throw "Desktop session log does not match the expected build name $BuildName."
     }
-    $expectedBuildNumber = [regex]::Match($BuildName, '^Payanam_Windows_(\d+)_').Groups[1].Value
-    if ([string]::IsNullOrWhiteSpace($expectedBuildNumber))
+    # The artefact name carries <version>_<sha>; the session log must carry the same pair.
+    $artifactIdentity = [regex]::Match($BuildName, '^Payanam_Windows_([^_]+)_([^_]+)_\d{8}_\d{6}$')
+    if (-not $artifactIdentity.Success)
     {
-        throw "Could not extract expected Windows build number from $BuildName."
+        throw "Could not extract version and sha from $BuildName."
     }
-    if ($logContents -notmatch "platformBuildNumber=$expectedBuildNumber")
+    $expectedVersion = $artifactIdentity.Groups[1].Value
+    $expectedSha = $artifactIdentity.Groups[2].Value
+    if (($logContents -notmatch [regex]::Escape($expectedVersion)) -or ($logContents -notmatch [regex]::Escape($expectedSha)))
     {
-        throw "Desktop session log does not contain the expected platform build number $expectedBuildNumber."
+        throw "Desktop session log does not carry version $expectedVersion and sha $expectedSha."
+    }
+    $observedLogName = Split-Path -Leaf $logSourcePath
+    $expectedLogNamePattern = '^payanam_' + [regex]::Escape($expectedVersion) + '_' + [regex]::Escape($expectedSha) + '_(debug|release)_\d{8}_\d{6}\.log$'
+    if ($observedLogName -notmatch $expectedLogNamePattern)
+    {
+        throw "Desktop session log name '$observedLogName' does not carry version $expectedVersion and sha $expectedSha."
     }
 
     $shortcutPaths = Get-AllDesktopShortcutPaths
@@ -1054,7 +833,7 @@ function Invoke-DesktopSmokePack
     }
 
     Write-LogWithTime "  ✅ Desktop startup log marker confirmed" "Green"
-    Write-LogWithTime "  ✅ Desktop build identity matches installed build $expectedBuildNumber" "Green"
+    Write-LogWithTime "  ✅ Desktop build identity matches installed build $expectedVersion ($expectedSha)" "Green"
     Write-LogWithTime "  ✅ Start menu shortcut(s) point to installed EXE" "Green"
 }
 
@@ -1076,94 +855,14 @@ $buildType = if ($Release)
 }
 Write-LogWithTime "Build Type: $buildType" "Yellow"
 
-if ($Clean)
-{
-    Write-LogWithTime "Clean mode: will remove previous desktop build outputs" "Yellow"
-}
 if ($CleanInstall)
 {
     Write-LogWithTime "Clean install: will remove previous Windows install and local data" "Yellow"
 }
-if ($SkipInstall)
-{
-    Write-LogWithTime "Install stage: skipped by flag" "Yellow"
-}
-if ($KeepDaemons)
-{
-    Write-LogWithTime "Daemon policy: KEEP alive (-KeepDaemons)" "Yellow"
-} else
-{
-    Write-LogWithTime "Daemon policy: STOP after build (default low-memory mode)" "Yellow"
-}
-
-$counterPath = "build-tools/tracking/build-counter.json"
-$policyPath = "build-tools/config/build-profile-policy.json"
-if (-not (Test-Path $counterPath))
-{
-    throw "Build counter file not found: $counterPath"
-}
-$counter = Get-Content $counterPath -Raw | ConvertFrom-Json
-# Ensure windows section exists (backward compat with old flat JSON)
-if (-not (Get-Member -InputObject $counter -Name "windows" -MemberType NoteProperty))
-{
-    $counter | Add-Member -MemberType NoteProperty -Name "windows" -Value ([PSCustomObject]@{ builds = 0; lastQuick = ""; lastNormal = ""; lastFull = "" })
-}
-
-$profilePolicy = $null
-if (Test-Path $policyPath)
-{
-    $profilePolicy = Get-Content $policyPath -Raw | ConvertFrom-Json
-} else
-{
-    Write-LogWithTime "  ⚠️ Profile policy file not found at $policyPath, using quick defaults for auto." "Yellow"
-}
-$resolvedProfile = Resolve-BuildProfile -RequestedProfile $Profile -CounterState $counter -PolicyState $profilePolicy
-$effectiveProfile = $resolvedProfile.Profile
-Write-LogWithTime "Build Profile: $effectiveProfile (requested=$Profile, reason=$($resolvedProfile.Reason))" "Yellow"
-
-$runDesktopTests = $false
-$runPostInstallVerification = $false
-$runSmokePack = $false
-$runFormatting = $true
-$runDesktopInstall = $true
-switch ($effectiveProfile)
-{
-    "quick"
-    {
-        $runDesktopTests = $false
-        $runFormatting = $false
-    }
-    "normal"
-    {
-        $runDesktopTests = $true
-    }
-    "full"
-    {
-        $runDesktopTests = $true
-        $runPostInstallVerification = $true
-        $runSmokePack = $true
-    }
-}
-if ($SkipTests)
-{
-    $runDesktopTests = $false
-}
-if ($SkipInstallVerification)
-{
-    $runPostInstallVerification = $false
-    $runSmokePack = $false
-}
-if ($SkipInstall)
-{
-    $runDesktopInstall = $false
-}
-
-Write-LogWithTime "Desktop formatting: $(if ($runFormatting) { 'enabled' } else { 'disabled' })" "Yellow"
-Write-LogWithTime "Desktop install: $(if ($runDesktopInstall) { 'enabled' } else { 'disabled' })" "Yellow"
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== PREFLIGHT CHECKS ===" "Magenta"
-Write-LogWithTime "Preflight order: environment -> structure -> installer/runtime inputs -> verification selection." "DarkGray"
+Write-LogWithTime "Preflight order: environment -> structure -> installer/runtime inputs." "DarkGray"
 
 Write-LogWithTime "Checking Java version..." "Cyan"
 if ([string]::IsNullOrWhiteSpace($env:JAVA_HOME))
@@ -1207,133 +906,75 @@ Write-LogWithTime "  Install root: $desktopInstallRoot" "DarkGray"
 Write-LogWithTime "  App-data root: $desktopStateRoot" "DarkGray"
 Write-LogWithTime "  ✅ Desktop install/runtime paths resolved" "Green"
 
-Write-LogWithTime "Selecting desktop verification scope..." "Cyan"
-Write-LogWithTime "  Tests: $(if ($runDesktopTests) { 'enabled' } else { 'disabled' })" "DarkGray"
-Write-LogWithTime "  Install verification: $(if ($runPostInstallVerification) { 'enabled' } else { 'disabled' })" "DarkGray"
-Write-LogWithTime "  Smoke pack: $(if ($runSmokePack) { 'enabled' } else { 'disabled' })" "DarkGray"
 Write-LogWithTime "✅ All preflight checks passed!" "Green"
 
-$counter.totalBuilds++
-$counter.windows.builds++
-$counter.lastBuildDate = Get-LocalDateTime
-switch ($effectiveProfile)
+# Declared version and artefact identity. gradle/version.properties is the only version source.
+$versionPropertiesPath = "gradle/version.properties"
+if (-not (Test-Path $versionPropertiesPath))
 {
-    "quick"
-    { $counter.windows.lastQuick = $counter.lastBuildDate
-    }
-    "normal"
+    Write-LogWithTime "  ❌ $versionPropertiesPath not found - the version has one declared source." "Red"
+    Exit-WithCleanup 1
+}
+$versionProperties = @{}
+foreach ($versionLine in Get-Content $versionPropertiesPath)
+{
+    if ($versionLine -match '^\s*([A-Za-z][A-Za-z0-9_.]*)\s*=\s*(.+?)\s*$')
     {
-        $counter.windows.lastQuick = $counter.lastBuildDate
-        $counter.windows.lastNormal = $counter.lastBuildDate
-    }
-    "full"
-    {
-        $counter.windows.lastQuick = $counter.lastBuildDate
-        $counter.windows.lastNormal = $counter.lastBuildDate
-        $counter.windows.lastFull = $counter.lastBuildDate
+        $versionProperties[$Matches[1]] = $Matches[2]
     }
 }
-
-# ── Build counter integrity check (matches Android) ────────────────────────
-$expectedTotal = [int]$counter.android.builds + [int]$counter.windows.builds + [int]$counter.linux.builds
-if ([int]$counter.totalBuilds -ne $expectedTotal) {
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "  ❌ BUILD COUNTER INTEGRITY CHECK FAILED" "Red"
-    Write-LogWithTime "  totalBuilds ($($counter.totalBuilds)) != android ($($counter.android.builds)) + windows ($($counter.windows.builds)) + linux ($($counter.linux.builds)) = $expectedTotal" "Red"
-    Write-LogWithTime "  Fix build-counter.json manually before the build can proceed." "Yellow"
-    exit 1
-} else {
-    Write-LogWithTime "  ✅ Build counter integrity OK (total = android + windows + linux = $expectedTotal)" "Green"
+$payanamVersion = $versionProperties["version"]
+if ([string]::IsNullOrWhiteSpace($payanamVersion))
+{
+    Write-LogWithTime "  ❌ version= is missing from $versionPropertiesPath" "Red"
+    Exit-WithCleanup 1
 }
 
-$platformBuildNumber = [int]$counter.windows.builds
-$overallBuildNumber = [int]$counter.totalBuilds
+# Short sha for the artefact name; 'nogit' keeps source-tarball and extracted-zip builds working.
+$shortSha = "nogit"
+try
+{
+    $shaProbe = git rev-parse --short HEAD 2>$null
+    if ($LASTEXITCODE -eq 0 -and -not [string]::IsNullOrWhiteSpace($shaProbe))
+    {
+        $shortSha = $shaProbe.Trim()
+    }
+} catch
+{
+    $shortSha = "nogit"
+}
+
 $dateTimeStamp = Get-DateTimeStamp
-$buildName = "Payanam_Windows_${platformBuildNumber}_${dateTimeStamp}"
-$versionDisplayName = "#W${platformBuildNumber} (${dateTimeStamp})"
-# The Windows installer version. Linux and the desktop .deb use the bare build number, but the
-# Compose plugin REQUIRES MAJOR.MINOR.BUILD for Msi/Exe and fails configuration otherwise, so
-# Windows carries the build number as its BUILD component with the leading parts pinned to 0.
-# Used below to locate jpackage's output: Payanam-0.0.<build>.exe / .msi.
-$packageVersion = "0.0.$platformBuildNumber"
-$gradleProps = "-PbuildNumber=$platformBuildNumber -PbuildPlatform=Windows -PbuildTimestamp=$dateTimeStamp -PbuildTotalBuilds=$overallBuildNumber -PbuildType=$buildType"
+$buildName = "Payanam_Windows_$($payanamVersion)_$($shortSha)_$dateTimeStamp"
+$gradleProps = "-PbuildPlatform=Windows -PbuildTimestamp=$dateTimeStamp -PbuildShortSha=$shortSha -PbuildType=$buildType"
 
 Write-LogWithTime "" "White"
-Write-LogWithTime "=== BUILD COUNTER ===" "Magenta"
-Write-LogWithTime "Windows Build #$platformBuildNumber (Total: $overallBuildNumber)" "Cyan"
+Write-LogWithTime "=== BUILD IDENTITY ===" "Magenta"
+Write-LogWithTime "Version: $payanamVersion (sha $shortSha)" "Cyan"
 Write-LogWithTime "Build Name: $buildName" "Cyan"
-
-Write-CanonicalJsonFile -Path $counterPath -InputObject $counter
-Write-LogWithTime "Build counter saved" "Green"
-
-# Build info is now generated at build time via Gradle -P flags (no source file overwrites)
-# Gradle properties: -PbuildNumber=N -PbuildPlatform=Windows -PbuildTimestamp=... -PbuildTotalBuilds=N
-
-if ($Clean)
-{
-    Write-LogWithTime "" "White"
-    Write-LogWithTime "=== CLEANING ===" "Magenta"
-    Write-LogWithTime "Stopping Gradle daemons..." "Yellow"
-    cmd /c ".\gradlew.bat --stop 2>nul" | Out-Null
-    Start-Sleep -Seconds 2
-
-    if (Test-Path "desktop/build")
-    {
-        Write-LogWithTime "Removing desktop/build..." "Yellow"
-        Remove-Item -Recurse -Force "desktop/build" -ErrorAction SilentlyContinue
-    }
-
-    $cleanRun = Invoke-GradleStreaming -GradleArgs "clean" -StepLabel "Clean"
-    if ($cleanRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "  ⚠️ Gradle clean had issues" "Yellow"
-    }
-    Write-LogWithTime "✅ Clean completed" "Green"
-}
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== FORMATTING ===" "Magenta"
-if ($runFormatting)
+# spotless-ratchet.ps1 checks only the files the change touches; never spotlessApply, which mutates the tree.
+& "$scriptDir\spotless-ratchet.ps1"
+if ($LASTEXITCODE -ne 0)
 {
-    # The ratchet, NEVER spotlessApply. A build must not mutate the working tree, and `spotlessApply`
-    # rewrites files that are not part of the change: on this repo it reflowed DesktopStartupGate.kt's
-    # trailing comment out of its `when` branch on every run, changing what that comment documents.
-    # A plain `:desktop:spotlessCheck` cannot be used here either - the module has pre-existing drift,
-    # so a CLEAN checkout fails it (verified). The ratchet checks only the files this change touches,
-    # which blocks new drift without touching unrelated code and without ever writing to disk.
-    & "$scriptDir\spotless-ratchet.ps1"
-    if ($LASTEXITCODE -ne 0)
-    {
-        Write-LogWithTime "❌ Formatting ratchet failed - the files above are not formatted." "Red"
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "✅ Formatting ratchet passed (changed files are formatted)" "Green"
-} else
-{
-    Write-LogWithTime "Skipping desktop formatting for profile '$effectiveProfile'." "Yellow"
+    Write-LogWithTime "❌ Formatting ratchet failed - the files above are not formatted." "Red"
+    Exit-WithCleanup 1
 }
+Write-LogWithTime "✅ Formatting ratchet passed (changed files are formatted)" "Green"
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== DESKTOP VERIFICATION ===" "Magenta"
-if ($runDesktopTests)
+$verificationRun = Invoke-GradleStreaming -GradleArgs ":desktop:detekt :desktop:test :core:ui:desktopTest :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification $gradleProps" -StepLabel "Desktop verification"
+if ($verificationRun.ExitCode -ne 0)
 {
-    # Formatting is the ratchet's job here (see the formatting step). The module-wide
-    # `:desktop:spotlessCheck` is NOT usable: the pre-existing formatting backlog means it can never
-    # pass on a clean checkout. It only ever passed because the old formatting step reformatted the
-    # tree immediately beforehand - which is exactly the mutation this script must not perform.
-    $verificationRun = Invoke-GradleStreaming -GradleArgs ":desktop:detekt :desktop:test :core:ui:desktopTest :desktop:jacocoTestReport :desktop:jacocoTestCoverageVerification $gradleProps" -StepLabel "Desktop verification"
-    if ($verificationRun.ExitCode -ne 0)
-    {
-        Write-LogWithTime "❌ Desktop verification failed!" "Red"
-        $verificationRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
-        Exit-WithCleanup 1
-    }
-    Write-LogWithTime "✅ Desktop verification passed (detekt, tests, coverage)" "Green"
-    Write-LogWithTime "Coverage report: desktop\\build\\reports\\jacoco\\test\\html\\index.html" "DarkGray"
-} else
-{
-    Write-LogWithTime "Skipping desktop tests/static checks for profile '$effectiveProfile'." "Yellow"
+    Write-LogWithTime "❌ Desktop verification failed!" "Red"
+    $verificationRun.Output | Select-Object -Last 30 | ForEach-Object { Write-Host "  $_" -ForegroundColor Red }
+    Exit-WithCleanup 1
 }
+Write-LogWithTime "✅ Desktop verification passed (detekt, tests, coverage)" "Green"
+Write-LogWithTime "Coverage report: desktop\\build\\reports\\jacoco\\test\\html\\index.html" "DarkGray"
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== BUILDING WINDOWS PACKAGE ===" "Magenta"
@@ -1360,14 +1001,14 @@ if (-not (Test-Path $composeOutputRoot))
     Exit-WithCleanup 1
 }
 
-$artifactTarget = Join-Path $OutputDir $buildName
+$artifactTarget = Join-Path "output/windows" $buildName
 New-Item -ItemType Directory -Path $artifactTarget -Force | Out-Null
 Copy-Item -Path (Join-Path $composeOutputRoot "*") -Destination $artifactTarget -Recurse -Force
 Write-LogWithTime "Copied desktop artifacts to $artifactTarget" "Green"
 
 # Verify packaging output — Windows only (EXE + MSI)
-$packagedExePath = Join-Path $artifactTarget "main/exe/Payanam-$packageVersion.exe"
-$packagedMsiPath = Join-Path $artifactTarget "main/msi/Payanam-$packageVersion.msi"
+$packagedExePath = Join-Path $artifactTarget "main/exe/Payanam-$payanamVersion.exe"
+$packagedMsiPath = Join-Path $artifactTarget "main/msi/Payanam-$payanamVersion.msi"
 Invoke-DesktopArtifactVerification -ExePath $packagedExePath -MsiPath $packagedMsiPath
 
 $installedExePath = ""
@@ -1375,41 +1016,32 @@ $installSkippedReason = ""
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== WINDOWS INSTALLATION ===" "Magenta"
-if ($runDesktopInstall)
+try
 {
-    try
+    $installResult = Invoke-DesktopInstall -MsiPath $packagedMsiPath -CleanInstallRequested $CleanInstall.IsPresent -BuildName $buildName
+    $installedExePath = [string]$installResult.InstalledExePath
+    if ($installResult.InstallSkipped)
     {
-        $installResult = Invoke-DesktopInstall -MsiPath $packagedMsiPath -CleanInstallRequested $CleanInstall.IsPresent -BuildName $buildName
-        $installedExePath = [string]$installResult.InstalledExePath
-        if ($installResult.InstallSkipped)
-        {
-            $installSkippedReason = [string]$installResult.SkipReason
-            Write-LogWithTime "⚠️ $installSkippedReason" "Yellow"
-            Write-LogWithTime "New desktop build completed successfully: Windows Build #$platformBuildNumber" "Cyan"
-            Write-LogWithTime "Close the running app and rerun desktop install/verification when ready." "Yellow"
-        } elseif ($runPostInstallVerification)
-        {
-            Invoke-DesktopSmokePack -InstalledExePath $installedExePath -BuildName $buildName
-            Write-LogWithTime "✅ Post-install verification complete!" "Green"
-        } else
-        {
-            Write-LogWithTime "Skipping post-install verification for profile '$effectiveProfile'." "Yellow"
-        }
-    } catch
+        $installSkippedReason = [string]$installResult.SkipReason
+        Write-LogWithTime "⚠️ $installSkippedReason" "Yellow"
+        Write-LogWithTime "New desktop build completed successfully: $buildName" "Cyan"
+        Write-LogWithTime "Close the running app and rerun desktop install/verification when ready." "Yellow"
+    } else
     {
-        Write-LogWithTime "❌ Windows install/verification failed: $($_.Exception.Message)" "Red"
-        Exit-WithCleanup 1
+        Invoke-DesktopSmokePack -InstalledExePath $installedExePath -BuildName $buildName
+        Write-LogWithTime "✅ Post-install verification complete!" "Green"
     }
-} else
+} catch
 {
-    Write-LogWithTime "Skipping Windows install stage for profile '$effectiveProfile'. Packaged artifacts are ready at $artifactTarget" "Yellow"
+    Write-LogWithTime "❌ Windows install/verification failed: $($_.Exception.Message)" "Red"
+    Exit-WithCleanup 1
 }
 
 Write-LogWithTime "" "White"
 Write-LogWithTime "=== ARTIFACT RETENTION ===" "Magenta"
 try
 {
-    Invoke-BuildArtifactRetention -TargetPath $OutputDir -ItemType Directory -KeepCount $MaxDesktopArtifacts -CurrentBuildName $buildName
+    Invoke-BuildArtifactRetention -TargetPath "output/windows" -ItemType Directory -KeepCount $MaxDesktopArtifacts -CurrentBuildName $buildName
     Invoke-BuildArtifactRetention -TargetPath (Get-DesktopVerificationRoot) -ItemType Directory -KeepCount $MaxWindowsSmokeArtifacts -CurrentBuildName $buildName
 } catch
 {
@@ -1421,18 +1053,16 @@ Write-LogWithTime "========================================" "Cyan"
 Write-LogWithTime "  DESKTOP BUILD COMPLETED SUCCESSFULLY!" "Cyan"
 Write-LogWithTime "========================================" "Cyan"
 Write-LogWithTime "  Build Name: $buildName" "Cyan"
-Write-LogWithTime "  Windows Build #: $platformBuildNumber" "Cyan"
-Write-LogWithTime "  Overall Build #: $overallBuildNumber" "Cyan"
-Write-LogWithTime "  Build Profile: $effectiveProfile" "Cyan"
+Write-LogWithTime "  Version: $payanamVersion (sha $shortSha)" "Cyan"
 Write-LogWithTime "  Artifact Path: $artifactTarget" "Cyan"
 Write-LogWithTime "  EXE Path: $packagedExePath" "Cyan"
 Write-LogWithTime "  MSI Path: $packagedMsiPath" "Cyan"
-if (-not $SkipInstall -and -not [string]::IsNullOrWhiteSpace($installSkippedReason))
+if (-not [string]::IsNullOrWhiteSpace($installSkippedReason))
 {
     Write-LogWithTime "  Install Status: skipped" "Cyan"
     Write-LogWithTime "  Install Skip Reason: $installSkippedReason" "Cyan"
 }
-if (-not $SkipInstall -and -not [string]::IsNullOrWhiteSpace($installedExePath))
+if (-not [string]::IsNullOrWhiteSpace($installedExePath))
 {
     Write-LogWithTime "  Installed App Path: $installedExePath" "Cyan"
     Write-LogWithTime "  Desktop Data Root: $desktopStateRoot" "Cyan"
