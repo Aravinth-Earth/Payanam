@@ -15,6 +15,37 @@ function Write-LogWithTime {
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
 
+# Copies an adb subcommand's stdout into a file unchanged. A redirected Process stream preserves the
+# bytes on every OS; PowerShell's `>` re-encodes them and cmd.exe exists only on Windows.
+function Save-AdbExecOutFile {
+    param(
+        [string]$AdbPath,
+        [string]$AdbArguments,
+        [string]$LocalPath
+    )
+
+    $psi = [System.Diagnostics.ProcessStartInfo]::new()
+    $psi.FileName = $AdbPath
+    $psi.Arguments = $AdbArguments
+    $psi.UseShellExecute = $false
+    $psi.RedirectStandardOutput = $true
+    $psi.CreateNoWindow = $true
+
+    $process = [System.Diagnostics.Process]::Start($psi)
+    $stdout = $process.StandardOutput.BaseStream
+    $file = [System.IO.File]::Create($LocalPath)
+    try {
+        $stdout.CopyTo($file)
+    } finally {
+        $file.Dispose()
+        $stdout.Dispose()
+    }
+    $process.WaitForExit()
+    $exitCode = $process.ExitCode
+    $process.Dispose()
+    return $exitCode
+}
+
 Write-LogWithTime "========================================" "Cyan"
 Write-LogWithTime "  Pull Device Log" "Cyan"
 Write-LogWithTime "========================================" "Cyan"
@@ -120,17 +151,21 @@ Write-LogWithTime "" "White"
 Write-LogWithTime "Pulling log file..." "Cyan"
 $localPath = Join-Path $OutputDir $fileName
 
+$pullExitCode = 1
 if ($privateLog) {
-    # An app-private file cannot be adb pull-ed; stream it out instead. cmd.exe redirection is used
-    # rather than PowerShell's, which re-encodes the bytes.
-    $cmdTarget = $localPath -replace '"', '""'
-    cmd /c "adb exec-out run-as $packageName cat $latestLog > ""$cmdTarget""" 2>&1 | Out-Null
+    # An app-private file cannot be adb pull-ed, so its stdout is streamed into the local file.
+    $adbPath = (Get-Command adb -ErrorAction SilentlyContinue).Source
+    if (-not $adbPath) { $adbPath = "adb" }
+    $pullExitCode = Save-AdbExecOutFile -AdbPath $adbPath -AdbArguments "exec-out run-as $packageName cat $latestLog" -LocalPath $localPath
 } else {
     adb pull $latestLog $localPath 2>&1 | Out-Null
+    $pullExitCode = $LASTEXITCODE
 }
 
-if ($LASTEXITCODE -eq 0 -and (Test-Path $localPath)) {
-    $localSizeMB = [math]::Round((Get-Item $localPath).Length / 1MB, 2)
+$pulledLength = if (Test-Path $localPath) { (Get-Item $localPath).Length } else { 0 }
+
+if ($pullExitCode -eq 0 -and $pulledLength -gt 0) {
+    $localSizeMB = [math]::Round($pulledLength / 1MB, 2)
     Write-LogWithTime "✅ Log file pulled successfully!" "Green"
     Write-LogWithTime "" "White"
     Write-LogWithTime "========================================" "Green"
@@ -139,6 +174,6 @@ if ($LASTEXITCODE -eq 0 -and (Test-Path $localPath)) {
     Write-LogWithTime "========================================" "Green"
 } else {
     if (Test-Path $localPath) { Remove-Item $localPath -Force }
-    Write-LogWithTime "❌ Failed to pull log file!" "Red"
+    Write-LogWithTime "❌ Failed to pull log file! (exit code $pullExitCode)" "Red"
     exit 1
 }
