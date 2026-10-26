@@ -10,8 +10,7 @@
 # the passphrase, the session, the preference read, the startup gate - is plain Kotlin behind the
 # `DocumentSource` port, and that is what this loop exercises:
 #
-#   step 1  build the .deb with the full profile (the test-bearing profile; the un-flagged default can
-#           resolve `quick`, which skips every test tier while still printing a tick)
+#   step 1  build the .deb (detekt, tests, coverage, package, retention - one pipeline every run)
 #   step 2  launch the SHIPPED binary from an unpacked copy of that .deb, with an isolated XDG_DATA_HOME,
 #           and read ITS OWN log to confirm the surface it chose (this is the launch half, headed but blind)
 #   step 3  drive the real import through the real shared ViewModel with a real database, stopping only at
@@ -28,7 +27,6 @@
 #   --db <path>          the encrypted database to import          (required)
 #   --pwd <path>         the file holding its passphrase          (required; last non-empty line is the secret)
 #   --data-root <path>   where the run's app data goes            (default: a fresh scratch dir)
-#   --build <profile>    quick|normal|full                        (default: full)
 #   --skip-build         reuse the newest .deb already in output/debs
 #   --reuse-deb <path>   drive this .deb instead of the newest    (implies --skip-build)
 #   --skip-launch        do not launch the app; only run the import harness
@@ -47,7 +45,6 @@ mkdir -p "$SCRATCH" "$LOGS_DIR"
 DB=""
 PWD_FILE=""
 DATA_ROOT=""
-BUILD_PROFILE="full"
 SKIP_BUILD=0
 SKIP_LAUNCH=0
 REUSE_DEB=""
@@ -58,11 +55,10 @@ while [[ $# -gt 0 ]]; do
     --db) DB="${2:-}"; shift 2 ;;
     --pwd) PWD_FILE="${2:-}"; shift 2 ;;
     --data-root) DATA_ROOT="${2:-}"; shift 2 ;;
-    --build) BUILD_PROFILE="${2:-}"; shift 2 ;;
     --skip-build) SKIP_BUILD=1; shift ;;
     --reuse-deb) REUSE_DEB="${2:-}"; REUSE_DEB_GIVEN=1; shift 2 ;;
     --skip-launch) SKIP_LAUNCH=1; shift ;;
-    -h | --help) sed -n '3,40p' "$0"; exit 0 ;;
+    -h | --help) sed -n '3,34p' "$0"; exit 0 ;;
     *) echo "unknown argument: $1" >&2; exit 2 ;;
     esac
 done
@@ -98,13 +94,18 @@ if [[ "$SKIP_BUILD" -eq 1 ]]; then
         step "1/4 build: SKIPPED (--skip-build)"
     fi
 else
-    step "1/4 build: bash build-tools/scripts/build-linux.sh --profile $BUILD_PROFILE"
-    if ! bash build-tools/scripts/build-linux.sh --profile "$BUILD_PROFILE" >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
+    step "1/4 build: bash build-tools/scripts/build-linux.sh"
+    if ! bash build-tools/scripts/build-linux.sh >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
         verdict "LOOP-FAILED: the build failed - see $LOGS_DIR/desktop-import-loop-build-$STAMP.log"
         exit 1
     fi
-    grep -aE "Build Profile|Desktop verification passed|Published DEB" "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" |
-        tail -3 | tee -a "$VERDICT_LOG"
+    # The build log must carry the published artefact line; the naming check fails the loop without it.
+    grep -aE "Desktop verification passed|Published DEB: output/debs/Payanam_Linux_" \
+        "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" |
+        tail -2 | tee -a "$VERDICT_LOG"
+    grep -aqF "Published DEB: output/debs/Payanam_Linux_" \
+        "$LOGS_DIR/desktop-import-loop-build-$STAMP.log" ||
+        { verdict "LOOP-FAILED: the build log names no Payanam_Linux_<version>_<sha>_<stamp>.deb"; exit 1; }
 fi
 
 # ---------------------------------------------------------------- step 2: launch
