@@ -16,7 +16,7 @@
  * with the same types the ViewModel exposes, so step 2 rewrites the section's signature from
  * `viewModel: PreUnlockUpdateViewModel` to `uiState: PreUnlockUpdateUiState` plus three callbacks and
  * deletes the `:app` parameter without changing a pixel of the layout. The `:app` ViewModel keeps every
- * behaviour - the 60s cooldown, the DEV-channel check, the poll job, the FileProvider handoff - and
+ * behaviour - the 60s cooldown, the release check, the poll job, the FileProvider handoff - and
  * keeps its own guard that refuses to act on an F-Droid install; this file only names what the shared
  * section needs in order to draw and to route a tap.
  *
@@ -38,7 +38,7 @@ import io.payanam.shared.platform.SupportState
  * ...)`, the already-landed precedent for a promoted section that takes plain values.
  */
 data class PreUnlockUpdateUiState(
-    /** The build the user is running, shown beside the "version" label as `#1234 (dev)`. */
+    /** The version code this install runs, shown beside the "version" label as a `#`-prefixed number. */
     val buildNumber: Int,
     /**
      * What this platform can do about its own updates, which decides whether the hatch renders as a
@@ -71,7 +71,7 @@ data class PreUnlockUpdateUiState(
     val isChecking: Boolean = false,
     /**
      * The last check's outcome as the ViewModel's own reason key - `"up_to_date"`,
-     * `"type_mismatch"`, `"no_release"`, `"check_failed_<reason>"`, or `"update_available_<build>"` -
+     * `"type_mismatch"`, `"no_release"`, `"check_failed_<reason>"`, or `"update_available_<version>"` -
      * or `null` when no check has run.
      *
      * Kept as the ViewModel's `String?` rather than re-declared as a sealed type on purpose: the section
@@ -89,7 +89,7 @@ data class PreUnlockUpdateUiState(
  * finished download. Collapsing the two would hide that a separate confirmation exists.
  */
 interface PreUnlockUpdateActions {
-    /** The user tapped "Check for update" - ask the DEV channel whether a newer build exists. */
+    /** The user tapped "Check for update" - ask the releases list whether a newer version exists. */
     fun onCheckRequested()
 
     /** The user tapped "Download & install" - start fetching the APK the last check found. */

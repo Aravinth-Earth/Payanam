@@ -13,38 +13,23 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CloudUpload
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.RadioButtonChecked
-import androidx.compose.material.icons.filled.RadioButtonUnchecked
 import androidx.compose.material.icons.filled.Storage
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
@@ -54,12 +39,9 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.settings.StatRow
 import io.payanam.feature.settings.ApkBuildType
-import io.payanam.feature.settings.buildNumberFromFileName
-import io.payanam.feature.settings.labelResId
-import io.payanam.feature.settings.shippedApkType
+import io.payanam.feature.settings.versionFromFileName
 import io.payanam.presentation.download.DownloadUiState
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.CoroutineScope
@@ -180,14 +162,12 @@ internal fun DebugLogExportActions(
  *
  * `expanded` and `onToggleExpanded` are gone for the same reason: nothing in here reads them.
  */
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun AboutSettingsContent(
     uiState: SettingsUiState,
     logger: UnifiedLogger,
     onViewGithub: () -> Unit,
     onCheckForUpdate: () -> Unit = {},
-    onUpdateChannelSelected: (UpdateChannel) -> Unit = {},
     onAutoDownloadToggled: (Boolean) -> Unit = {},
     onPromptInstallToggled: (Boolean) -> Unit = {},
     onWifiOnlyToggled: (Boolean) -> Unit = {},
@@ -270,72 +250,15 @@ internal fun AboutSettingsContent(
                 Text(stringResource(id = R.string.settings_update_open_fdroid))
             }
         } else {
-            // Update channel selector
-            Text(
-                text = stringResource(id = R.string.settings_update_channel_label),
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
-            var channelMenuExpanded by remember { mutableStateOf(false) }
-            ExposedDropdownMenuBox(
-                expanded = channelMenuExpanded,
-                onExpandedChange = { channelMenuExpanded = it },
-            ) {
-                OutlinedTextField(
-                    value = stringResource(id = uiState.updateChannel.labelResId()),
-                    onValueChange = {},
-                    readOnly = true,
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = channelMenuExpanded) },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable),
-                )
-                DropdownMenu(
-                    expanded = channelMenuExpanded,
-                    onDismissRequest = { channelMenuExpanded = false },
-                ) {
-                    UpdateChannel.entries.forEach { option ->
-                        DropdownMenuItem(
-                            text = { Text(stringResource(id = option.labelResId())) },
-                            onClick = {
-                                channelMenuExpanded = false
-                                onUpdateChannelSelected(option)
-                            },
-                        )
-                    }
-                }
-            }
-            Spacer(modifier = Modifier.height(4.dp))
-
-            // What this channel ships vs what this install runs — always visible,
-            // from the same rule the asset selection uses (the running build type
-            // decides what is downloadable). Static: no network check needed.
+            // What this install runs — static, from the same rule the asset selection
+            // uses (the running build type decides what is downloadable). Static: no
+            // network check needed.
             val runningBuildType = ApkBuildType.running()
-            val channelShipsType = uiState.updateChannel.shippedApkType()
-            Text(
-                text = stringResource(
-                    id = R.string.settings_update_channel_ships,
-                    stringResource(id = uiState.updateChannel.labelResId()),
-                    channelShipsType,
-                ),
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant,
-            )
             Text(
                 text = stringResource(id = R.string.settings_update_running_build_type, runningBuildType),
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
             )
-            if (channelShipsType != runningBuildType) {
-                // Static mismatch (network-free): this install can never take this
-                // channel's APK. Same message as the post-check mismatch state, so a
-                // release build on a debug-shipping channel never reads "up to date".
-                Text(
-                    text = stringResource(id = R.string.settings_update_type_mismatch),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.error,
-                )
-            }
             Spacer(modifier = Modifier.height(8.dp))
 
             // Auto-download opt-in + check button
@@ -540,7 +463,7 @@ internal fun AboutSettingsContent(
 
                     UpdateOutcome.UPDATE_AVAILABLE -> {
                         Text(
-                            text = stringResource(id = R.string.settings_update_available, result.latestBuildNumber ?: 0),
+                            text = stringResource(id = R.string.settings_update_available, result.latestVersionName.orEmpty()),
                             color = MaterialTheme.colorScheme.primary,
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -559,8 +482,8 @@ internal fun AboutSettingsContent(
                     }
 
                     UpdateOutcome.TYPE_MISMATCH -> {
-                        // Fail-closed mismatch: the channel ships no APK for this
-                        // install's build type — must never read "up to date" here.
+                        // Fail-closed mismatch: the newest release ships no APK for
+                        // this install's build type — must never read "up to date".
                         Text(
                             text = stringResource(id = R.string.settings_update_type_mismatch),
                             style = MaterialTheme.typography.bodySmall,
@@ -568,7 +491,7 @@ internal fun AboutSettingsContent(
                         )
                     }
 
-                    UpdateOutcome.NO_RELEASE_ON_CHANNEL -> {
+                    UpdateOutcome.NO_RELEASE -> {
                         Text(
                             text = stringResource(id = R.string.settings_update_no_releases),
                             style = MaterialTheme.typography.bodySmall,
@@ -576,7 +499,7 @@ internal fun AboutSettingsContent(
                         )
                     }
 
-                    UpdateOutcome.RELEASE_UNREADABLE, UpdateOutcome.INDETERMINATE -> {
+                    UpdateOutcome.INDETERMINATE -> {
                         Text(
                             text = stringResource(id = R.string.settings_update_error_parse),
                             style = MaterialTheme.typography.bodySmall,
@@ -586,55 +509,9 @@ internal fun AboutSettingsContent(
 
                     UpdateOutcome.UP_TO_DATE -> {
                         Text(
-                            text = stringResource(id = R.string.settings_update_up_to_date, uiState.buildNumber),
+                            text = stringResource(id = R.string.settings_update_up_to_date, uiState.appVersion),
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        )
-                    }
-                }
-            }
-
-            // All-channel status rows (populated from the same list fetch)
-            val statuses = result?.channelStatuses
-            if (statuses != null && statuses.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(12.dp))
-                HorizontalDivider()
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = stringResource(id = R.string.settings_update_channel_statuses_title),
-                    style = MaterialTheme.typography.labelMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                )
-                UpdateChannel.entries.forEach { channel ->
-                    val status = statuses.firstOrNull { it.channel == channel }
-                    val isSelected = channel == uiState.updateChannel
-                    Row(
-                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically,
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(vertical = 4.dp),
-                    ) {
-                        Icon(
-                            imageVector = if (isSelected) Icons.Default.RadioButtonChecked else Icons.Default.RadioButtonUnchecked,
-                            contentDescription = null,
-                            tint = if (isSelected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
-                            modifier = Modifier.size(16.dp),
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = stringResource(id = channel.labelResId()),
-                            style = MaterialTheme.typography.bodyMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        Text(
-                            text = status?.buildNumber?.let { stringResource(id = R.string.settings_update_channel_build, it) }
-                                ?: stringResource(id = R.string.settings_update_channel_no_build),
-                            style = MaterialTheme.typography.bodySmall,
-                            color = if (status?.buildNumber != null) {
-                                MaterialTheme.colorScheme.onSurfaceVariant
-                            } else {
-                                MaterialTheme.colorScheme.outline
-                            },
                         )
                     }
                 }
@@ -644,13 +521,14 @@ internal fun AboutSettingsContent(
             when (val dl = uiState.downloadState) {
                 is DownloadUiState.Downloading -> {
                     Spacer(modifier = Modifier.height(12.dp))
+                    val downloadLabel = downloadVersionLabel(dl.buildName.ifEmpty { dl.fileName })
                     Column(modifier = Modifier.fillMaxWidth()) {
-                        // Line 1: channel · build label
+                        // Line 1: release version · the artifact's own version label
                         Text(
                             text = stringResource(
                                 id = R.string.settings_update_downloading_header,
-                                dl.channelName.ifEmpty { "dev" },
-                                downloadBuildLabel(dl.buildName.ifEmpty { dl.fileName }),
+                                uiState.updateCheckResult?.latestVersionName ?: uiState.appVersion,
+                                downloadLabel,
                             ),
                             style = MaterialTheme.typography.bodyMedium,
                         )
@@ -739,8 +617,16 @@ internal fun AboutSettingsContent(
     }
 }
 
-/** Extract "Payanam #1568" from a DownloadManager title/filename. */
-private fun downloadBuildLabel(fileName: String): String = "Payanam #${buildNumberFromFileName(fileName)}"
+/** "Payanam 1.0.4" for an artifact name; the bare app name when the name declares no version. */
+@Composable
+private fun downloadVersionLabel(fileName: String): String {
+    val version = versionFromFileName(fileName)
+    return if (version.isEmpty()) {
+        stringResource(id = R.string.app_name)
+    } else {
+        stringResource(id = R.string.settings_update_download_label, version)
+    }
+}
 
 /** Map a DownloadManager failure key to a user-friendly string resource. */
 private fun failedMessageRes(key: String): Int = when (key) {

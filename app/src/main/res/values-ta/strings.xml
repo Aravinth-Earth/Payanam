@@ -1158,13 +1158,6 @@
     <!-- Update checker -->
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
     <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
-    <string name="settings_update_channel_label">புதுப்பிப்பு சேனல்</string>
-    <string name="settings_update_channel_dev">டெவ் (தினமும்)</string>
-    <string name="settings_update_channel_beta">பீட்டா (வாரந்தோறும்)</string>
-    <string name="settings_update_channel_stable">ஸ்டேபிள் (மாதந்தோறும்)</string>
-    <string name="settings_update_channel_statuses_title">சேனல் நிலை</string>
-    <string name="settings_update_channel_build">பில்ட் #%1$d</string>
-    <string name="settings_update_channel_no_build">இன்னும் பில்ட் இல்லை</string>
     <string name="settings_update_auto_download">புதுப்பிப்புகளை தானாக பதிவிறக்கு</string>
     <string name="settings_update_prompt_install">பதிவிறக்கிய பின் நிறுவ கேள்வி கேள்</string>
     <string name="settings_update_wifi_only">வைஃபையில் மட்டும் பதிவிறக்கு</string>
@@ -1172,6 +1165,7 @@
     <string name="settings_update_check_again_button">மீண்டும் சரிபார்</string>
     <string name="settings_update_downloading">பதிவிறக்குகிறது… %1$d%%</string>
     <string name="settings_update_downloading_header">%1$s · %2$s</string>
+    <string name="settings_update_download_label">பயணம் %1$s</string>
     <string name="settings_update_downloaded">பதிவிறக்கம் முடிந்தது — நிறுவ தயார்</string>
     <string name="settings_update_download_failed">பதிவிறக்கம் தோல்வி. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_update_download_button">புதுப்பிப்பை பதிவிறக்கு</string>
@@ -1196,15 +1190,14 @@
     <string name="settings_update_install_message">புதிய பில்ட் பதிவிறக்கப்பட்டது. இப்போது நிறுவவா?</string>
     <string name="settings_update_install_now">இப்போது புதுப்பி</string>
     <string name="settings_update_install_later">பின்னர்</string>
-    <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: பில்ட் #%1$d</string>
-    <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (பில்ட் #%1$d)</string>
-    <string name="settings_update_no_releases">இந்தச் சேனலில் இன்னும் வெளியீடுகள் இல்லை.</string>
+    <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: %1$s</string>
+    <string name="settings_update_up_to_date">நீங்கள் புதுப்பித்த நிலையில் உள்ளீர்கள் (%1$s)</string>
+    <string name="settings_update_no_releases">இன்னும் வெளியீடுகள் வெளியிடப்படவில்லை.</string>
     <string name="settings_update_error_network">புதுப்பிப்பைச் சரிபார்க்க முடியவில்லை. பின்னர் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_rate_limited">வரம்பு எட்டப்பட்டது. சில நிமிடங்கள் கழித்து முயற்சிக்கவும்.</string>
     <string name="settings_update_error_github">GitHub கிடைக்கவில்லை. பின்னர் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_parse">சமீபத்திய பதிப்பை தீர்மானிக்க முடியவில்லை.</string>
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
-    <string name="settings_update_channel_ships">%1$s சேனல் %2$s APK வழங்குகிறது</string>
     <string name="settings_update_running_build_type">நீங்கள் இயக்குவது: %1$s பில்ட்</string>
     <string name="settings_update_type_mismatch">பில்ட் வகை பொருந்தவில்லை — இந்த நிறுவலுக்கு ஏற்ற புதுப்பிப்பு இல்லை.</string>
 

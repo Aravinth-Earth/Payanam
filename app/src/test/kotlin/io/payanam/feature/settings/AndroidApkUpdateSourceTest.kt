@@ -13,11 +13,11 @@ import io.payanam.shared.platform.InstallRefusal
 import io.payanam.shared.platform.SupportState
 import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
+import io.payanam.shared.updates.ReleaseStatus
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.resolveUpdateResult
 import kotlinx.coroutines.test.runTest
 import org.junit.Before
 import org.junit.Test
@@ -31,10 +31,10 @@ import java.io.File
  * This platform CAN update itself, so the risk runs the other way from a platform that cannot: the two
  * quiet lies available here are telling a store-managed build that it may replace itself, and turning any
  * check that failed to conclude into "you have the latest build". Both are asserted here, and the second
- * one is asserted per-outcome rather than as a single case, because five different reasons a verdict is
+ * one is asserted per-outcome rather than as a single case, because four different reasons a verdict is
  * unavailable must all stay off "up to date" for the same reason.
  *
- * Every answer here is produced by the class under test through its own collaborators. The channel read is
+ * Every answer here is produced by the class under test through its own collaborators. The release read is
  * scripted through the constructor's own check function, so no network is involved and the mapping under
  * test is the mapping that runs in production. The store-managed build is reached through the constructor's
  * store flag rather than through [FdroidBuildCheck], which reports a fact about the build itself and cannot
@@ -48,27 +48,14 @@ import java.io.File
 class AndroidApkUpdateSourceTest {
     private val context: Context get() = ApplicationProvider.getApplicationContext()
 
-    /** A newer build this app could genuinely fetch: a real build number and a real asset URL. */
-    private val fetchableStatuses =
-        listOf(
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = NEWER_BUILD,
-                releaseUrl = "https://example.invalid/releases/next",
-                apkDownloadUrl = "https://example.invalid/releases/next/Payanam.apk",
-            ),
-        )
-
-    /** Builds this port with a scripted channel read, so no network is involved. */
+    /** Builds this port with a scripted release read, so no network is involved. */
     private fun sourceReporting(
         result: UpdateCheckResult,
         storeManaged: Boolean = false,
-        channel: UpdateChannel = UpdateChannel.DEV,
     ): ApkUpdateSource = AndroidApkUpdateSource(
         context = context,
-        channel = channel,
         isStoreManaged = storeManaged,
-        checkForUpdates = { _, _ -> result },
+        checkForUpdates = { _ -> result },
     )
 
     @Before
@@ -102,7 +89,7 @@ class AndroidApkUpdateSourceTest {
     }
 
     @Test
-    fun `a channel read that establishes nothing is newer answers up to date`() {
+    fun `a check that establishes nothing is newer answers up to date`() {
         runTest {
             val source = sourceReporting(upToDate())
 
@@ -116,7 +103,7 @@ class AndroidApkUpdateSourceTest {
             val source = sourceReporting(availableUpdate())
 
             assertThat(source.isNewerBuildAvailable())
-                .isEqualTo(UpdateAvailability.Newer(buildNumber = NEWER_BUILD, installable = true))
+                .isEqualTo(UpdateAvailability.Newer(buildNumber = NEWEST_VERSION_CODE, installable = true))
         }
     }
 
@@ -129,8 +116,7 @@ class AndroidApkUpdateSourceTest {
         val unavailable =
             listOf(
                 UpdateOutcome.TYPE_MISMATCH,
-                UpdateOutcome.NO_RELEASE_ON_CHANNEL,
-                UpdateOutcome.RELEASE_UNREADABLE,
+                UpdateOutcome.NO_RELEASE,
                 UpdateOutcome.INDETERMINATE,
                 UpdateOutcome.FAILED,
             )
@@ -149,8 +135,8 @@ class AndroidApkUpdateSourceTest {
 
     @Test
     fun `a verdict with nothing to fetch behind it is not reported as an available update`() {
-        // An available-update verdict that carries no artifact would hand shared code an installable build
-        // this platform cannot produce a file for, so it falls back with the check.
+        // A check can only report UPDATE_AVAILABLE with a selected asset, so this shape is defensive: it
+        // still must not become a Newer verdict, because shared code would have nothing to fetch.
         val source = sourceReporting(verdictWithNoArtifact())
 
         runTest {
@@ -166,7 +152,7 @@ class AndroidApkUpdateSourceTest {
             AndroidApkUpdateSource(
                 context = context,
                 isStoreManaged = false,
-                checkForUpdates = { _, _ -> throw IllegalStateException("channel unreachable") },
+                checkForUpdates = { _ -> throw IllegalStateException("release list unreachable") },
             )
 
         runTest {
@@ -185,7 +171,7 @@ class AndroidApkUpdateSourceTest {
             val answer = source.isNewerBuildAvailable()
 
             assertThat(answer)
-                .isEqualTo(UpdateAvailability.Newer(buildNumber = NEWER_BUILD, installable = false))
+                .isEqualTo(UpdateAvailability.Newer(buildNumber = NEWEST_VERSION_CODE, installable = false))
             assertThat(source.state).isEqualTo(SupportState.DECLINES)
         }
     }
@@ -198,7 +184,7 @@ class AndroidApkUpdateSourceTest {
             val source = sourceReporting(availableUpdate(), storeManaged = true)
             source.isNewerBuildAvailable()
 
-            val download = source.downloadNewerBuild(UpdateAvailability.Newer(NEWER_BUILD, installable = true))
+            val download = source.downloadNewerBuild(UpdateAvailability.Newer(NEWEST_VERSION_CODE, installable = true))
 
             assertThat(download).isNull()
         }
@@ -223,7 +209,7 @@ class AndroidApkUpdateSourceTest {
         assertThat(vanished.exists()).isFalse()
 
         val handoff =
-            source.startInstall(UpdateDownload(buildNumber = NEWER_BUILD, platformHandle = vanished.absolutePath))
+            source.startInstall(UpdateDownload(buildNumber = NEWEST_VERSION_CODE, platformHandle = vanished.absolutePath))
 
         assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.FILE_MISSING))
     }
@@ -235,12 +221,12 @@ class AndroidApkUpdateSourceTest {
         // `UpdateDownload` built by hand names no such artifact. Refusing with its own reason keeps this
         // apart from NO_INSTALLER, which would claim the device has nothing that could open the file.
         val source = sourceReporting(upToDate())
-        val unpublished = context.filesDir.resolve("Payanam_Android_${NEWER_BUILD}_debug_test.apk")
+        val unpublished = context.filesDir.resolve("Payanam_Android_${NEWEST_VERSION_NAME}_a1b2c3d_debug_test.apk")
         unpublished.writeBytes(ByteArray(1))
         assertThat(unpublished.exists()).isTrue()
 
         val handoff =
-            source.startInstall(UpdateDownload(buildNumber = NEWER_BUILD, platformHandle = unpublished.absolutePath))
+            source.startInstall(UpdateDownload(buildNumber = NEWEST_VERSION_CODE, platformHandle = unpublished.absolutePath))
 
         assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.CHECKSUM_UNVERIFIED))
     }
@@ -251,7 +237,7 @@ class AndroidApkUpdateSourceTest {
 
         val handoff =
             source.startInstall(
-                UpdateDownload(buildNumber = NEWER_BUILD, platformHandle = presentApk().absolutePath),
+                UpdateDownload(buildNumber = NEWEST_VERSION_CODE, platformHandle = presentApk().absolutePath),
             )
 
         assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.PLATFORM_NOT_APPLICABLE))
@@ -261,69 +247,52 @@ class AndroidApkUpdateSourceTest {
     fun `a handoff for an artifact that was never fetched is refused as no download`() {
         val source = sourceReporting(upToDate())
 
-        val handoff = source.startInstall(UpdateDownload(buildNumber = NEWER_BUILD, platformHandle = ""))
+        val handoff = source.startInstall(UpdateDownload(buildNumber = NEWEST_VERSION_CODE, platformHandle = ""))
 
         assertThat(handoff).isEqualTo(InstallHandoff.Refused(InstallRefusal.NO_DOWNLOAD))
     }
 
-    /**
-     * A channel read whose verdict was actually established: the release was found and is not newer.
-     *
-     * Built from the real per-channel status shape rather than a bare enum, so the mapping is exercised with
-     * the same data a genuine check produces.
-     */
-    private fun upToDate(): UpdateCheckResult = UpdateCheckResult(
-        outcome = UpdateOutcome.UP_TO_DATE,
-        latestBuildNumber = BuildConfig.VERSION_CODE,
-        releaseUrl = "https://example.invalid/releases/current",
-        error = null,
-        channelStatuses = fetchableStatuses,
-    )
+    /** A release read whose verdict was actually established: the newest release is not newer than this install. */
+    private fun upToDate(): UpdateCheckResult =
+        resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(INSTALLED_VERSION_NAME)))
 
-    /** A channel read that found a newer release carrying a downloadable artifact. */
-    private fun availableUpdate(): UpdateCheckResult = UpdateCheckResult(
-        outcome = UpdateOutcome.UPDATE_AVAILABLE,
-        latestBuildNumber = NEWER_BUILD,
-        releaseUrl = "https://example.invalid/releases/next",
-        error = null,
-        channelStatuses = fetchableStatuses,
-    )
+    /** A release read that found a newer release carrying a downloadable artifact. */
+    private fun availableUpdate(): UpdateCheckResult =
+        resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, apk = NEWEST_APK_URL)))
 
     /**
-     * A channel read that ended on [outcome] without reaching a verdict.
-     *
-     * No statuses and no build number: the shape a check produces when the channel could not be read to a
-     * conclusion, which is precisely the case that must never be reported as an available update.
+     * A release read that ended on [outcome] without reaching a verdict, built the way a genuine check
+     * produces it rather than as a bare enum.
      */
-    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult = UpdateCheckResult(
-        outcome = outcome,
-        latestBuildNumber = null,
-        releaseUrl = null,
-        error = if (outcome == UpdateOutcome.FAILED) UpdateCheckError.NO_INTERNET else null,
-    )
+    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult =
+        when (outcome) {
+            UpdateOutcome.TYPE_MISMATCH ->
+                resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, typeMismatch = true)))
 
-    /**
-     * An available-update verdict whose release ships no artifact.
-     *
-     * The gap this covers is real: a release can be newer and carry no APK of this install's build type, and
-     * the checker reports the verdict anyway with the asset selection held closed.
-     */
-    private fun verdictWithNoArtifact(): UpdateCheckResult = UpdateCheckResult(
-        outcome = UpdateOutcome.UPDATE_AVAILABLE,
-        latestBuildNumber = NEWER_BUILD,
-        releaseUrl = "https://example.invalid/releases/next",
-        error = null,
-        channelStatuses =
-        listOf(
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = NEWER_BUILD,
-                releaseUrl = "https://example.invalid/releases/next",
-                apkDownloadUrl = null,
-                typeMismatch = true,
-            ),
-        ),
-    )
+            UpdateOutcome.NO_RELEASE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList())
+            UpdateOutcome.INDETERMINATE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList(), scanComplete = false)
+            UpdateOutcome.FAILED ->
+                UpdateCheckResult(
+                    outcome = UpdateOutcome.FAILED,
+                    latestVersionName = null,
+                    latestVersionCode = null,
+                    releaseUrl = null,
+                    error = UpdateCheckError.NO_INTERNET,
+                )
+
+            else -> error("$outcome is a verdict, not a could-not-conclude outcome")
+        }
+
+    /** An available-update verdict whose release carries no artifact — the defensive shape the mapping guards. */
+    private fun verdictWithNoArtifact(): UpdateCheckResult =
+        UpdateCheckResult(
+            outcome = UpdateOutcome.UPDATE_AVAILABLE,
+            latestVersionName = NEWEST_VERSION_NAME,
+            latestVersionCode = NEWEST_VERSION_CODE,
+            releaseUrl = "https://example.invalid/releases/next",
+            error = null,
+            apkDownloadUrl = null,
+        )
 
     /**
      * A real, non-empty file inside the directory this app publishes to the installer.
@@ -335,13 +304,41 @@ class AndroidApkUpdateSourceTest {
         val directory = context.getExternalFilesDir(null)?.resolve(AutoDownloadManager.SUBDIR)
         requireNotNull(directory) { "the app-private external files dir is unavailable under Robolectric" }
         directory.mkdirs()
-        return File(directory, "Payanam_Android_${NEWER_BUILD}_debug_test.apk").apply {
+        return File(directory, "Payanam_Android_${NEWEST_VERSION_NAME}_a1b2c3d_debug_test.apk").apply {
             writeBytes(ByteArray(1))
         }
     }
 
+    /** One release as the parser reports it: the version from its tag plus whatever its assets selected. */
+    private fun release(
+        version: String,
+        apk: String? = null,
+        typeMismatch: Boolean = false,
+    ) = ReleaseStatus(
+        versionName = version,
+        versionCode = packed(version),
+        releaseUrl = "https://example.invalid/releases/v$version",
+        apkDownloadUrl = apk,
+        typeMismatch = typeMismatch,
+    )
+
+    /** `major.minor.patch` packed the way the build packs it. */
+    private fun packed(version: String): Int {
+        val (major, minor, patch) = version.split('.').map { it.toInt() }
+        return major * 1_000_000 + minor * 1_000 + patch
+    }
+
     private companion object {
-        /** A build strictly newer than this one, so it can never be confused with the installed number. */
-        const val NEWER_BUILD = 9_999
+        /** An install strictly older than [NEWEST_VERSION_CODE], so the comparison is never a tie. */
+        const val INSTALLED_VERSION_NAME = "1.0.0"
+        const val INSTALLED_VERSION_CODE = 1_000_000
+
+        const val NEWEST_VERSION_NAME = "2.0.0"
+        const val NEWEST_VERSION_CODE = 2_000_000
+
+        /** A real artifact URL in the shape the release publisher writes. */
+        const val NEWEST_APK_URL =
+            "https://github.com/Aravinth-Earth/Payanam/releases/download/v2.0.0/" +
+                "Payanam_Android_2.0.0_a1b2c3d_debug_20261026_101500.apk"
     }
 }

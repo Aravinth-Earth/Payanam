@@ -24,7 +24,6 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.settings.SettingsUiState
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.security.BiometricAvailability
 import org.junit.Rule
 import org.junit.Test
@@ -148,7 +147,6 @@ class SettingsDatabaseSecuritySectionSemanticsTest {
             minimumSupportedSchemaVersion = 1,
             appVersion = "0.0.0",
             buildNumber = 1,
-            updateChannel = UpdateChannel.STABLE,
             unlockSessionTimeoutMinutes = 10,
         )
 

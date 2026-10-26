@@ -3,8 +3,6 @@
 package io.payanam.presentation.settings
 
 import io.payanam.presentation.download.DownloadUiState
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
@@ -19,32 +17,29 @@ import org.junit.Test
 /**
  * The state contract of the Settings screen, on its own.
  *
- * The platform facts (version, schema, channel) are constructor arguments here, which is the point
- * this file pins: nothing about them may become a default again, because a default reports a value
- * nothing read. Every other field has a default, and the defaults are what a caller gets before the
- * first load completes, so they are asserted field by field rather than assumed.
+ * The platform facts (version, schema) are constructor arguments here, which is the point this file
+ * pins: nothing about them may become a default again, because a default reports a value nothing read.
+ * Every other field has a default, and the defaults are what a caller gets before the first load
+ * completes, so they are asserted field by field rather than assumed.
  */
 class SettingsUiStateTest {
     private fun state(
         updateCheckResult: UpdateCheckResult? = null,
-        channel: UpdateChannel = UpdateChannel.STABLE,
     ) = SettingsUiState(
         currentDatabaseSchemaVersion = 42,
         minimumSupportedSchemaVersion = 3,
         appVersion = "1.2.3",
         buildNumber = 1234,
-        updateChannel = channel,
         updateCheckResult = updateCheckResult,
     )
 
     @Test
-    fun `the five platform facts are carried verbatim, never substituted`() {
+    fun `the four platform facts are carried verbatim, never substituted`() {
         val state = state()
         assertEquals(42, state.currentDatabaseSchemaVersion)
         assertEquals(3, state.minimumSupportedSchemaVersion)
         assertEquals("1.2.3", state.appVersion)
         assertEquals(1234, state.buildNumber)
-        assertEquals(UpdateChannel.STABLE, state.updateChannel)
     }
 
     @Test
@@ -95,7 +90,6 @@ class SettingsUiStateTest {
         assertEquals(1235, after.buildNumber)
         assertEquals(before.appVersion, after.appVersion)
         assertEquals(before.currentDatabaseSchemaVersion, after.currentDatabaseSchemaVersion)
-        assertEquals(before.updateChannel, after.updateChannel)
         assertEquals(before.taskCount, after.taskCount)
     }
 
@@ -116,7 +110,8 @@ class SettingsUiStateTest {
         val fresh =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,
-                latestBuildNumber = 1234,
+                latestVersionName = "1.2.3",
+                latestVersionCode = 1_002_003,
                 releaseUrl = null,
                 error = null,
                 checkedAtMs = now,
@@ -129,7 +124,8 @@ class SettingsUiStateTest {
         val justInside =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,
-                latestBuildNumber = 1234,
+                latestVersionName = "1.2.3",
+                latestVersionCode = 1_002_003,
                 releaseUrl = null,
                 error = null,
                 checkedAtMs = now - 15 * 60 * 1000L + 1000L,
@@ -141,7 +137,8 @@ class SettingsUiStateTest {
         val justOutside =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,
-                latestBuildNumber = 1234,
+                latestVersionName = "1.2.3",
+                latestVersionCode = 1_002_003,
                 releaseUrl = null,
                 error = null,
                 checkedAtMs = now - 15 * 60 * 1000L - 1,
@@ -154,37 +151,31 @@ class SettingsUiStateTest {
         val result =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UPDATE_AVAILABLE,
-                latestBuildNumber = 2000,
-                releaseUrl = "https://example.invalid/v2000",
+                latestVersionName = "2.0.0",
+                latestVersionCode = 2_000_000,
+                releaseUrl = "https://example.invalid/v2.0.0",
                 error = null,
-                channelStatuses =
-                    listOf(
-                        ChannelStatus(
-                            channel = UpdateChannel.DEV,
-                            buildNumber = 2000,
-                            releaseUrl = "https://example.invalid/v2000",
-                            apkDownloadUrl = "https://example.invalid/app.apk",
-                            apkSha256Url = "https://example.invalid/app.apk.sha256",
-                        ),
-                    ),
+                apkDownloadUrl = "https://example.invalid/app.apk",
+                apkSha256Url = "https://example.invalid/app.apk.sha256",
                 checkedAtMs = 0L,
             )
         assertTrue(state(result).isUpdateResultStale())
     }
 
     @Test
-    fun `a failed check keeps its error and its channel alongside`() {
+    fun `a failed check keeps its error alongside`() {
         val failed =
             UpdateCheckResult(
                 outcome = UpdateOutcome.FAILED,
-                latestBuildNumber = null,
+                latestVersionName = null,
+                latestVersionCode = null,
                 releaseUrl = null,
                 error = UpdateCheckError.RATE_LIMITED,
                 checkedAtMs = System.currentTimeMillis(),
             )
-        val withResult = state(failed, channel = UpdateChannel.BETA)
+        val withResult = state(failed)
         assertEquals(UpdateCheckError.RATE_LIMITED, withResult.updateCheckResult?.error)
-        assertEquals(UpdateChannel.BETA, withResult.updateChannel)
+        assertEquals(UpdateOutcome.FAILED, withResult.updateCheckResult?.outcome)
     }
 
     @Test

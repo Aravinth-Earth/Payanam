@@ -20,109 +20,150 @@ import org.junit.Test
  * cannot-tell.
  */
 class SharedUpdateCheckTest {
-    private fun status(
-        channel: UpdateChannel = UpdateChannel.DEV,
-        buildNumber: Int? = 120,
+    private fun release(
+        version: String = "1.2.0",
         typeMismatch: Boolean = false,
-    ) = ChannelStatus(
-        channel = channel,
-        buildNumber = buildNumber,
-        releaseUrl = "https://example.invalid/release",
+        apk: String? = null,
+        sha: String? = null,
+        releaseUrl: String = "https://example.invalid/release",
+    ) = ReleaseStatus(
+        versionName = version,
+        versionCode = packed(version),
+        releaseUrl = releaseUrl,
+        apkDownloadUrl = apk,
+        apkSha256Url = sha,
         typeMismatch = typeMismatch,
     )
 
     @Test
-    fun `one channel state, one three-way answer - up to date`() {
-        val result =
-            resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses = listOf(status(buildNumber = 120)),
-            )
+    fun `one release state, one three-way answer - up to date`() {
+        val result = resolveUpdateResult(installedVersionCode = 1_002_000, releases = listOf(release("1.2.0")))
 
         assertThat(result.outcome).isEqualTo(UpdateOutcome.UP_TO_DATE)
-        assertThat(result.latestBuildNumber).isEqualTo(120)
+        assertThat(result.latestVersionName).isEqualTo("1.2.0")
+        assertThat(result.latestVersionCode).isEqualTo(1_002_000)
     }
 
     @Test
-    fun `one channel state, one three-way answer - update available`() {
-        val result =
-            resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses = listOf(status(buildNumber = 121)),
-            )
+    fun `one release state, one three-way answer - update available`() {
+        val result = resolveUpdateResult(installedVersionCode = 1_002_000, releases = listOf(release("1.2.1")))
 
         assertThat(result.outcome).isEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
-        assertThat(result.latestBuildNumber).isEqualTo(121)
+        assertThat(result.latestVersionName).isEqualTo("1.2.1")
+        assertThat(result.latestVersionCode).isEqualTo(1_002_001)
     }
 
     @Test
-    fun `one channel state, one three-way answer - cannot tell`() {
-        // The page cap was hit before the channel was seen: the answer must be the explicit
-        // non-success, which is the vocabulary's "Inconclusive" - never a verdict by absence.
-        val result =
-            resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses = emptyList(),
-                scanComplete = false,
-            )
+    fun `one release state, one three-way answer - cannot tell`() {
+        // The page cap was hit before any release was seen: the answer must be the explicit non-success,
+        // which is the vocabulary's "Inconclusive" - never a verdict by absence.
+        val result = resolveUpdateResult(installedVersionCode = 1_002_000, releases = emptyList(), scanComplete = false)
 
         assertThat(result.outcome).isEqualTo(UpdateOutcome.INDETERMINATE)
     }
 
     @Test
     fun `the fail-closed rule holds for every absence - never up to date by accident`() {
-        // A completed scan that did not see the channel.
-        assertThat(
-            resolveUpdateResult(120, UpdateChannel.DEV, emptyList(), scanComplete = true).outcome,
-        ).isEqualTo(UpdateOutcome.NO_RELEASE_ON_CHANNEL)
+        // A completed scan that saw no release carrying a version.
+        val noRelease = resolveUpdateResult(1_002_000, emptyList(), scanComplete = true)
+        assertThat(noRelease.outcome).isEqualTo(UpdateOutcome.NO_RELEASE)
 
-        // A found release with no parseable build number.
-        assertThat(
-            resolveUpdateResult(120, UpdateChannel.DEV, listOf(status(buildNumber = null))).outcome,
-        ).isEqualTo(UpdateOutcome.RELEASE_UNREADABLE)
+        // A newer release that ships nothing this install's type can use.
+        val mismatch = resolveUpdateResult(1_002_000, listOf(release("1.3.0", typeMismatch = true)))
+        assertThat(mismatch.outcome).isEqualTo(UpdateOutcome.TYPE_MISMATCH)
 
-        // A release that ships nothing this install's type can use.
-        assertThat(
-            resolveUpdateResult(120, UpdateChannel.DEV, listOf(status(typeMismatch = true))).outcome,
-        ).isEqualTo(UpdateOutcome.TYPE_MISMATCH)
+        // A truncated scan.
+        val indeterminate = resolveUpdateResult(1_002_000, emptyList(), scanComplete = false)
+        assertThat(indeterminate.outcome).isEqualTo(UpdateOutcome.INDETERMINATE)
 
         // None of the three may ever be reported as UP_TO_DATE: the whole point of the split.
-        assertThat(
-            resolveUpdateResult(120, UpdateChannel.DEV, emptyList(), scanComplete = true).outcome,
-        ).isNotEqualTo(UpdateOutcome.UP_TO_DATE)
+        listOf(noRelease, mismatch, indeterminate).forEach { result ->
+            assertThat(result.outcome).isNotEqualTo(UpdateOutcome.UP_TO_DATE)
+        }
     }
 
     @Test
-    fun `the selected channel is the one compared, not whichever was seen first`() {
+    fun `an install at or above the newest release is up to date, however new that release is`() {
+        // One-directional: a build ahead of the newest published release has nothing to install, so a
+        // downgrade is never reported as an update.
+        assertThat(resolveUpdateResult(1_002_001, listOf(release("1.2.0"))).outcome).isEqualTo(UpdateOutcome.UP_TO_DATE)
+        assertThat(resolveUpdateResult(2_000_000, listOf(release("1.2.0", typeMismatch = true))).outcome)
+            .isEqualTo(UpdateOutcome.UP_TO_DATE)
+    }
+
+    @Test
+    fun `the newest release is the one compared, not whichever was seen first`() {
         val result =
             resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.STABLE,
-                statuses =
-                    listOf(
-                        status(channel = UpdateChannel.DEV, buildNumber = 500),
-                        status(channel = UpdateChannel.STABLE, buildNumber = 119),
-                    ),
+                installedVersionCode = 1_002_000,
+                releases = listOf(release("0.5.0"), release("0.4.0")),
             )
 
         assertThat(result.outcome).isEqualTo(UpdateOutcome.UP_TO_DATE)
-        assertThat(result.latestBuildNumber).isEqualTo(119)
+        assertThat(result.latestVersionCode).isEqualTo(5_000)
+    }
+
+    @Test
+    fun `order does not decide the newest release`() {
+        val versions = listOf("1.0.1", "1.0.3", "1.0.2")
+
+        val forwards = resolveUpdateResult(1_000_000, versions.map { release(it) })
+        val backwards = resolveUpdateResult(1_000_000, versions.reversed().map { release(it) })
+
+        assertThat(forwards.latestVersionName).isEqualTo("1.0.3")
+        assertThat(backwards.latestVersionName).isEqualTo("1.0.3")
+        assertThat(backwards.outcome).isEqualTo(forwards.outcome)
+    }
+
+    @Test
+    fun `the comparison reads the packed code, not the version name`() {
+        // Ordered as text, "0.9.0" sorts above "0.10.0"; ordered as packed codes it does not. The verdict must
+        // follow the code, because that is what the platform installer compares.
+        val result = resolveUpdateResult(9_000, listOf(release("0.9.0"), release("0.10.0")))
+
+        assertThat(result.latestVersionName).isEqualTo("0.10.0")
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
+    }
+
+    @Test
+    fun `a newer release with no artifact does not fall back to an older installable one`() {
+        // 1.3.0 ships nothing this install can use while 1.2.1 does. The verdict stays the mismatch: offering
+        // the older release would install a version the project has already superseded.
+        val result =
+            resolveUpdateResult(
+                1_002_000,
+                listOf(release("1.2.1", apk = "https://example.invalid/old.apk"), release("1.3.0", typeMismatch = true)),
+            )
+
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.TYPE_MISMATCH)
+        assertThat(result.latestVersionName).isEqualTo("1.3.0")
+        assertThat(result.apkDownloadUrl).isNull()
+    }
+
+    @Test
+    fun `a mismatch on an older release does not affect the newest one`() {
+        val result =
+            resolveUpdateResult(
+                1_002_000,
+                listOf(release("1.2.1", typeMismatch = true), release("1.3.0", apk = "https://example.invalid/new.apk")),
+            )
+
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
+        assertThat(result.latestVersionName).isEqualTo("1.3.0")
+        assertThat(result.apkDownloadUrl).isEqualTo("https://example.invalid/new.apk")
+        assertThat(result.typeMismatch).isFalse()
     }
 
     @Test
     fun `FAILED is a distinct outcome, not a synonym for any other`() {
         // FAILED is the only outcome that carries an error reason; conflating it with
-        // INDETERMINATE or NO_RELEASE_ON_CHANNEL would let a failed check render as
+        // INDETERMINATE or NO_RELEASE would let a failed check render as
         // "could not tell" or "no release", hiding the real problem from the user.
         val failed = UpdateOutcome.FAILED
         assertThat(failed).isNotEqualTo(UpdateOutcome.UPDATE_AVAILABLE)
         assertThat(failed).isNotEqualTo(UpdateOutcome.UP_TO_DATE)
         assertThat(failed).isNotEqualTo(UpdateOutcome.TYPE_MISMATCH)
-        assertThat(failed).isNotEqualTo(UpdateOutcome.NO_RELEASE_ON_CHANNEL)
-        assertThat(failed).isNotEqualTo(UpdateOutcome.RELEASE_UNREADABLE)
+        assertThat(failed).isNotEqualTo(UpdateOutcome.NO_RELEASE)
         assertThat(failed).isNotEqualTo(UpdateOutcome.INDETERMINATE)
     }
 
@@ -137,29 +178,23 @@ class SharedUpdateCheckTest {
     }
 
     @Test
-    fun `ChannelStatus carries the APK download and checksum URLs`() {
+    fun `ReleaseStatus carries the APK download and checksum URLs`() {
         // The download URL is what the installer fetches; the checksum URL is what verifies it.
         // A status that loses either would ship an unverifiable update.
         val status =
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = 121,
-                releaseUrl = "https://example.invalid/release",
-                apkDownloadUrl = "https://example.invalid/app.apk",
-                apkSha256Url = "https://example.invalid/app.apk.sha256",
+            release(
+                version = "1.2.1",
+                apk = "https://example.invalid/app.apk",
+                sha = "https://example.invalid/app.apk.sha256",
             )
         assertThat(status.apkDownloadUrl).isEqualTo("https://example.invalid/app.apk")
         assertThat(status.apkSha256Url).isEqualTo("https://example.invalid/app.apk.sha256")
+        assertThat(status.typeMismatch).isFalse()
     }
 
     @Test
-    fun `ChannelStatus defaults APK URLs to null when the release ships no APK`() {
-        val status =
-            ChannelStatus(
-                channel = UpdateChannel.DEV,
-                buildNumber = 121,
-                releaseUrl = "https://example.invalid/release",
-            )
+    fun `ReleaseStatus defaults the APK URLs to null when the release ships no APK`() {
+        val status = release(version = "1.2.1")
         assertThat(status.apkDownloadUrl).isNull()
         assertThat(status.apkSha256Url).isNull()
     }
@@ -169,7 +204,8 @@ class SharedUpdateCheckTest {
         val result =
             UpdateCheckResult(
                 outcome = UpdateOutcome.FAILED,
-                latestBuildNumber = null,
+                latestVersionName = null,
+                latestVersionCode = null,
                 releaseUrl = null,
                 error = UpdateCheckError.NO_INTERNET,
             )
@@ -178,31 +214,24 @@ class SharedUpdateCheckTest {
     }
 
     @Test
-    fun `UpdateCheckResult carries the per-channel statuses it was built from`() {
-        val statuses =
-            listOf(
-                ChannelStatus(
-                    channel = UpdateChannel.DEV,
-                    buildNumber = 121,
-                    releaseUrl = "https://example.invalid/dev",
-                ),
-                ChannelStatus(
-                    channel = UpdateChannel.STABLE,
-                    buildNumber = 120,
-                    releaseUrl = "https://example.invalid/stable",
-                ),
-            )
+    fun `a resolved verdict carries no error reason`() {
+        // The other half of the split: a verdict is not a failure, so the two fields can never both speak.
+        assertThat(resolveUpdateResult(1_002_000, listOf(release("1.2.1"))).error).isNull()
+        assertThat(resolveUpdateResult(1_002_000, emptyList()).error).isNull()
+    }
+
+    @Test
+    fun `UpdateCheckResult carries the artifact URLs of the release it names`() {
         val result =
-            UpdateCheckResult(
-                outcome = UpdateOutcome.UPDATE_AVAILABLE,
-                latestBuildNumber = 121,
-                releaseUrl = "https://example.invalid/dev",
-                error = null,
-                channelStatuses = statuses,
+            resolveUpdateResult(
+                1_002_000,
+                listOf(
+                    release("1.2.1", apk = "https://example.invalid/old.apk"),
+                    release("1.3.0", apk = "https://example.invalid/new.apk", sha = "https://example.invalid/new.apk.sha256"),
+                ),
             )
-        assertThat(result.channelStatuses).hasSize(2)
-        assertThat(result.channelStatuses[0].channel).isEqualTo(UpdateChannel.DEV)
-        assertThat(result.channelStatuses[1].channel).isEqualTo(UpdateChannel.STABLE)
+        assertThat(result.apkDownloadUrl).isEqualTo("https://example.invalid/new.apk")
+        assertThat(result.apkSha256Url).isEqualTo("https://example.invalid/new.apk.sha256")
     }
 
     @Test
@@ -211,7 +240,8 @@ class SharedUpdateCheckTest {
         val result =
             UpdateCheckResult(
                 outcome = UpdateOutcome.UP_TO_DATE,
-                latestBuildNumber = 120,
+                latestVersionName = "1.2.0",
+                latestVersionCode = 1_002_000,
                 releaseUrl = null,
                 error = null,
             )
@@ -221,71 +251,27 @@ class SharedUpdateCheckTest {
     }
 
     @Test
-    fun `resolveUpdateResult propagates the release URL from the selected channel`() {
+    fun `resolveUpdateResult propagates the release URL of the newest release`() {
         val result =
             resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses =
-                    listOf(
-                        status(buildNumber = 121).copy(releaseUrl = "https://example.invalid/r/121"),
-                    ),
+                1_002_000,
+                listOf(release("1.2.1", releaseUrl = "https://example.invalid/r/1.2.1")),
             )
-        assertThat(result.releaseUrl).isEqualTo("https://example.invalid/r/121")
+        assertThat(result.releaseUrl).isEqualTo("https://example.invalid/r/1.2.1")
     }
 
     @Test
-    fun `resolveUpdateResult propagates all channel statuses, not just the selected one`() {
-        val statuses =
-            listOf(
-                status(channel = UpdateChannel.DEV, buildNumber = 121),
-                status(channel = UpdateChannel.STABLE, buildNumber = 120),
-            )
-        val result =
-            resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses = statuses,
-            )
-        assertThat(result.channelStatuses).hasSize(2)
-        assertThat(result.channelStatuses.map { it.channel })
-            .containsExactly(UpdateChannel.DEV, UpdateChannel.STABLE)
+    fun `resolveUpdateResult names no release when the scan found none`() {
+        val result = resolveUpdateResult(1_002_000, emptyList())
+        assertThat(result.latestVersionName).isNull()
+        assertThat(result.latestVersionCode).isNull()
+        assertThat(result.releaseUrl).isNull()
+        assertThat(result.outcome).isEqualTo(UpdateOutcome.NO_RELEASE)
     }
 
-    @Test
-    fun `resolveUpdateResult sets latestBuildNumber to null when the release has no parseable build`() {
-        val result =
-            resolveUpdateResult(
-                currentBuildNumber = 120,
-                channel = UpdateChannel.DEV,
-                statuses = listOf(status(buildNumber = null)),
-            )
-        assertThat(result.latestBuildNumber).isNull()
-        assertThat(result.outcome).isEqualTo(UpdateOutcome.RELEASE_UNREADABLE)
-    }
-
-    @Test
-    fun `UpdateChannel fromStorage parses every known channel name`() {
-        assertThat(UpdateChannel.fromStorage("DEV")).isEqualTo(UpdateChannel.DEV)
-        assertThat(UpdateChannel.fromStorage("BETA")).isEqualTo(UpdateChannel.BETA)
-        assertThat(UpdateChannel.fromStorage("STABLE")).isEqualTo(UpdateChannel.STABLE)
-    }
-
-    @Test
-    fun `UpdateChannel fromStorage falls back to DEV for unknown or null values`() {
-        // A stored value from a removed channel or a corrupted preference must not crash the parser;
-        // it falls back to the most conservative channel (dev) rather than crashing or returning null.
-        assertThat(UpdateChannel.fromStorage("GAMMA")).isEqualTo(UpdateChannel.DEV)
-        assertThat(UpdateChannel.fromStorage("")).isEqualTo(UpdateChannel.DEV)
-        assertThat(UpdateChannel.fromStorage(null)).isEqualTo(UpdateChannel.DEV)
-    }
-
-    @Test
-    fun `UpdateChannel carries the tag suffix the release publisher writes`() {
-        // The tag suffix is what the GitHub release tag is built from: "{tagSuffix}-v{buildNumber}".
-        // A wrong suffix would make the parser look for tags that do not exist.
-        assertThat(UpdateChannel.DEV.tagSuffix).isEqualTo("dev")
-        assertThat(UpdateChannel.BETA.tagSuffix).isEqualTo("beta")
-        assertThat(UpdateChannel.STABLE.tagSuffix).isEqualTo("stable")
+    /** `major.minor.patch` packed as `major * 1_000_000 + minor * 1_000 + patch`, the rule the build uses. */
+    private fun packed(version: String): Int {
+        val (major, minor, patch) = version.split('.').map { it.toInt() }
+        return major * 1_000_000 + minor * 1_000 + patch
     }
 }

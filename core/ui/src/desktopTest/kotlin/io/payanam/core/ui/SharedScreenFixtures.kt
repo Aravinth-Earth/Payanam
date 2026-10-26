@@ -61,7 +61,6 @@ import io.payanam.presentation.notes.NotesViewModel
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.presentation.tasks.TaskFilter
 import io.payanam.shared.security.BiometricAvailability
-import io.payanam.shared.updates.UpdateChannel
 import java.time.LocalDate
 import java.time.LocalDateTime
 import kotlinx.coroutines.flow.Flow
@@ -587,7 +586,6 @@ internal fun settingsUiState() =
         minimumSupportedSchemaVersion = 5,
         appVersion = "1.2.3",
         buildNumber = 42,
-        updateChannel = UpdateChannel.STABLE,
         // Non-zero so the "map imported habits" row is drawn rather than greyed out; a disabled row still
         // exposes its click action, but an absent one would be a control this sweep silently skipped.
         importedUhabitsHabitCount = 3,

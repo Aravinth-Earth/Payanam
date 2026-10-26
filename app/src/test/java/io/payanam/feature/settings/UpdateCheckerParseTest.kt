@@ -7,11 +7,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.presentation.updates.parseReleases
-import io.payanam.shared.updates.ChannelStatus
-import io.payanam.shared.updates.UpdateChannel
-import io.payanam.shared.updates.UpdateCheckError
-import io.payanam.shared.updates.UpdateCheckResult
-import io.payanam.shared.updates.UpdateOutcome
+import io.payanam.shared.updates.ReleaseStatus
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -47,45 +43,45 @@ class UpdateCheckerParseTest {
     fun `parseReleases selects the running type's apk and its sha256 sibling`() {
         val body = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"https://example.test/dev-v1562",
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"https://example.test/v1.0.0",
                "assets":[
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"}
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk"},
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256"}
                ]},
-              {"tag_name":"beta-v1560","name":"Beta #1560","html_url":"https://example.test/beta-v1560",
-               "assets":[{"name":"Payanam_Android_1560_release_20260805_090000.apk","browser_download_url":"${ASSET_BASE}/beta-v1560/Payanam_Android_1560_release_20260805_090000.apk"}]},
-              {"tag_name":"v1558","name":"Stable #1558","html_url":"https://example.test/v1558",
-               "assets":[{"name":"Payanam_Android_1558_release_20260801_080000.apk","browser_download_url":"${ASSET_BASE}/v1558/Payanam_Android_1558_release_20260801_080000.apk"}]}
+              {"tag_name":"v0.9.0","name":"Payanam 0.9.0","html_url":"https://example.test/v0.9.0",
+               "assets":[{"name":"Payanam_Android_0.9.0_e4f5a6b_release_20260805_090000.apk","browser_download_url":"${ASSET_BASE}/v0.9.0/Payanam_Android_0.9.0_e4f5a6b_release_20260805_090000.apk"}]},
+              {"tag_name":"v0.8.0","name":"Payanam 0.8.0","html_url":"https://example.test/v0.8.0",
+               "assets":[{"name":"Payanam_Android_0.8.0_7c8d9e0_release_20260801_080000.apk","browser_download_url":"${ASSET_BASE}/v0.8.0/Payanam_Android_0.8.0_7c8d9e0_release_20260801_080000.apk"}]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(3, statuses.size)
 
-        val dev = statuses.first { it.channel == UpdateChannel.DEV }
-        assertEquals(1562, dev.buildNumber)
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", dev.apkDownloadUrl)
-        assertEquals(dev.apkDownloadUrl + ".sha256", dev.apkSha256Url)
-        assertFalse(dev.typeMismatch)
+        val newest = statuses.first { it.versionName == "1.0.0" }
+        assertEquals(1_000_000, newest.versionCode)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk", newest.apkDownloadUrl)
+        assertEquals(newest.apkDownloadUrl + ".sha256", newest.apkSha256Url)
+        assertFalse(newest.typeMismatch)
 
-        // A debug install can never take the release-only beta/stable assets.
-        val beta = statuses.first { it.channel == UpdateChannel.BETA }
-        assertEquals(1560, beta.buildNumber)
-        assertNull(beta.apkDownloadUrl)
-        assertTrue(beta.typeMismatch)
-        val stable = statuses.first { it.channel == UpdateChannel.STABLE }
-        assertEquals(1558, stable.buildNumber)
-        assertTrue(stable.typeMismatch)
+        // A debug install can never take the release-only 0.9.0/0.8.0 assets.
+        val older = statuses.first { it.versionName == "0.9.0" }
+        assertEquals(9_000, older.versionCode)
+        assertNull(older.apkDownloadUrl)
+        assertTrue(older.typeMismatch)
+        val oldest = statuses.first { it.versionName == "0.8.0" }
+        assertEquals(8_000, oldest.versionCode)
+        assertTrue(oldest.typeMismatch)
     }
 
     @Test
     fun `parseReleases flags a release with no expected-type apk as fail-closed`() {
         val body = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"https://example.test/dev-v1562",
-               "assets":[{"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk"}]}
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"https://example.test/v1.0.0",
+               "assets":[{"name":"Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk"}]}
             ]
         """.trimIndent()
-        // Debug install: the dev release ships only a release-type APK.
+        // Debug install: the release ships only a release-type APK.
         val debugView = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, debugView.size)
         assertTrue(debugView[0].typeMismatch)
@@ -94,7 +90,7 @@ class UpdateCheckerParseTest {
 
         // Release install: the same release selects cleanly.
         val releaseView = requireNotNull(parseReleases(body, "release"))
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", releaseView[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk", releaseView[0].apkDownloadUrl)
         assertFalse(releaseView[0].typeMismatch)
     }
 
@@ -102,22 +98,22 @@ class UpdateCheckerParseTest {
     fun `parseReleases never selects the sha256 sibling as the apk`() {
         val shaFirst = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url",
                "assets":[
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"}
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256"},
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk"}
                ]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(shaFirst, "debug"))
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", statuses[0].apkDownloadUrl)
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256", statuses[0].apkSha256Url)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk", statuses[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256", statuses[0].apkSha256Url)
         assertFalse(statuses[0].typeMismatch)
 
         val shaOnly = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
-               "assets":[{"name":"Payanam_Android_1562_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk.sha256"}]}
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url",
+               "assets":[{"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk.sha256"}]}
             ]
         """.trimIndent()
         val shaOnlyStatuses = requireNotNull(parseReleases(shaOnly, "debug"))
@@ -129,7 +125,7 @@ class UpdateCheckerParseTest {
     fun `parseReleases skips legacy untyped names with no fallback`() {
         val body = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url",
                "assets":[{"name":"Payanam_Android_1562_20260810.apk","browser_download_url":"url/legacy.apk"}]}
             ]
         """.trimIndent()
@@ -142,29 +138,31 @@ class UpdateCheckerParseTest {
     fun `parseReleases picks the expected type when both types are present`() {
         val body = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url",
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url",
                "assets":[
-                 {"name":"Payanam_Android_1562_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk"},
-                 {"name":"Payanam_Android_1562_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk"}
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk"},
+                 {"name":"Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk"}
                ]}
             ]
         """.trimIndent()
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_debug_20260810_120000.apk", requireNotNull(parseReleases(body, "debug"))[0].apkDownloadUrl)
-        assertEquals("${ASSET_BASE}/dev-v1562/Payanam_Android_1562_release_20260810_120000.apk", requireNotNull(parseReleases(body, "release"))[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_debug_20260810_120000.apk", requireNotNull(parseReleases(body, "debug"))[0].apkDownloadUrl)
+        assertEquals("${ASSET_BASE}/v1.0.0/Payanam_Android_1.0.0_a1b2c3d_release_20260810_120000.apk", requireNotNull(parseReleases(body, "release"))[0].apkDownloadUrl)
     }
 
     @Test
-    fun `parseReleases ignores non-channel tags and missing assets`() {
+    fun `parseReleases skips tags that carry no version and keeps ones that do`() {
         val body = """
             [
-              {"tag_name":"v1.2.3","name":"Release v1.2.3","html_url":"url","assets":[]},
               {"tag_name":"dev-v1540","name":"Dev #1540","html_url":"url","assets":[]},
-              {"tag_name":"latest-nightly","name":"Nightly","html_url":"url","assets":[]}
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url","assets":[]},
+              {"tag_name":"latest-nightly","name":"Nightly","html_url":"url","assets":[]},
+              {"tag_name":"v1","name":"Payanam 1","html_url":"url","assets":[]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, statuses.size)
-        assertEquals(UpdateChannel.DEV, statuses[0].channel)
+        assertEquals("1.0.0", statuses[0].versionName)
+        assertEquals(1_000_000, statuses[0].versionCode)
         assertNull(statuses[0].apkDownloadUrl)
         // No assets at all: nothing selectable — fail closed.
         assertTrue(statuses[0].typeMismatch)
@@ -174,42 +172,39 @@ class UpdateCheckerParseTest {
     fun `parseReleases fails closed on a malformed body and accepts a valid empty list`() {
         assertNull(parseReleases("not json at all", "debug"))
         assertNull(parseReleases("", "debug"))
-        assertEquals(emptyList<ChannelStatus>(), parseReleases("[]", "debug"))
+        assertEquals(emptyList<ReleaseStatus>(), parseReleases("[]", "debug"))
     }
 
     @Test
     fun `parseReleases skips malformed entries`() {
         val body = """
             [
-              {"tag_name":"dev-v1562","name":"Dev #1562","html_url":"url"},
+              {"tag_name":"v1.0.0","name":"Payanam 1.0.0","html_url":"url"},
               {"tag_name":123},
               "not-an-object"
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(body, "debug"))
         assertEquals(1, statuses.size)
-        assertEquals(UpdateChannel.DEV, statuses[0].channel)
+        assertEquals("1.0.0", statuses[0].versionName)
     }
 
     @Test
-    fun `parseReleases handles multiple persistent releases`() {
+    fun `parseReleases keeps every release of one series in the order the list carries them`() {
         val body = """
             [
-              {"tag_name":"dev-v1704","name":"Dev #1704","html_url":"url-dev",
-               "assets":[{"name":"Payanam_Android_1704_debug_20260901_120000.apk","browser_download_url":"url-dev.apk"}]},
-              {"tag_name":"dev-v1703","name":"Dev #1703","html_url":"url-dev-old",
-               "assets":[{"name":"Payanam_Android_1703_debug_20260830_120000.apk","browser_download_url":"url-dev-old.apk"}]},
-              {"tag_name":"beta-v1703","name":"Beta #1703","html_url":"url-beta",
-               "assets":[{"name":"Payanam_Android_1703_release_20260830_120000.apk","browser_download_url":"url-beta.apk"}]}
+              {"tag_name":"v1.0.4","name":"Payanam 1.0.4","html_url":"url-dev",
+               "assets":[{"name":"Payanam_Android_1.0.4_a1b2c3d_debug_20260901_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.4/Payanam_Android_1.0.4_a1b2c3d_debug_20260901_120000.apk"}]},
+              {"tag_name":"v1.0.3","name":"Payanam 1.0.3","html_url":"url-dev-old",
+               "assets":[{"name":"Payanam_Android_1.0.3_b2c3d4e_debug_20260830_120000.apk","browser_download_url":"${ASSET_BASE}/v1.0.3/Payanam_Android_1.0.3_b2c3d4e_debug_20260830_120000.apk"}]},
+              {"tag_name":"v0.9.3","name":"Payanam 0.9.3","html_url":"url-beta",
+               "assets":[{"name":"Payanam_Android_0.9.3_c3d4e5f_release_20260830_120000.apk","browser_download_url":"${ASSET_BASE}/v0.9.3/Payanam_Android_0.9.3_c3d4e5f_release_20260830_120000.apk"}]}
             ]
         """.trimIndent()
         val statuses = requireNotNull(parseReleases(body, "debug"))
-        // Both dev-v1704 and dev-v1703 map to DEV channel → 2 entries
-        val devStatuses = statuses.filter { it.channel == UpdateChannel.DEV }
-        assertEquals(2, devStatuses.size)
-        // First one in the list wins for the selected channel
-        assertEquals(1704, devStatuses[0].buildNumber)
-        assertEquals(1, statuses.count { it.channel == UpdateChannel.BETA })
+        assertEquals(listOf("1.0.4", "1.0.3", "0.9.3"), statuses.map { it.versionName })
+        assertEquals(listOf(1_000_004, 1_000_003, 9_003), statuses.map { it.versionCode })
+        assertEquals(listOf(false, false, true), statuses.map { it.typeMismatch })
     }
 
     // ── findApkForBuild (downloads-dir scan) ──────────────────────────────
@@ -229,7 +224,7 @@ class UpdateCheckerParseTest {
             assertEquals(apk.absolutePath, AutoDownloadManager.findApkForBuild(context, "1568", "debug"))
             // Release install: the release-typed APK matches.
             assertEquals(otherType.absolutePath, AutoDownloadManager.findApkForBuild(context, "1568", "release"))
-            // Unknown build: nothing.
+            // Unknown version: nothing.
             assertNull(AutoDownloadManager.findApkForBuild(context, "9999", "debug"))
         } finally {
             apk.delete()

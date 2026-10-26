@@ -67,7 +67,7 @@ interface ApkChecksumVerifier {
  *
  * The sidecar is a tiny text file beside the APK holding one hex digest (see [parseSha256Sidecar]).
  * "No sidecar published" is deliberately [ChecksumVerdict.Skipped] rather than a failure, so a
- * channel that publishes none still works; every other problem is reported as a verdict, never as
+ * release that publishes none still works; every other problem is reported as a verdict, never as
  * an exception. Logging carries the verdict and its reason code only — never the file path, the
  * URL, or the digest.
  */

@@ -12,6 +12,7 @@ import android.content.IntentFilter
 import android.database.Cursor
 import android.net.Uri
 import android.os.Environment
+import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.presentation.download.DownloadUiState
 import java.io.File
@@ -43,7 +44,7 @@ object AutoDownloadManager {
         return try {
             val manager = context.getSystemService(Context.DOWNLOAD_SERVICE) as DownloadManager
             val request = DownloadManager.Request(Uri.parse(url))
-                .setTitle("Payanam #${buildNumberFromFileName(fileName)}")
+                .setTitle(notificationTitle(context, fileName))
                 .setDescription("Downloading update APK")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setDestinationInExternalFilesDir(context, null, "$SUBDIR/$fileName")
@@ -55,6 +56,19 @@ object AutoDownloadManager {
         } catch (e: Exception) {
             logger.e("AutoDownloadManager.enqueue", "Enqueue failed", e)
             null
+        }
+    }
+
+    /**
+     * The system download notification's title: the artifact's version, or the bare app name
+     * when the file name declares none.
+     */
+    private fun notificationTitle(context: Context, fileName: String): String {
+        val version = versionFromFileName(fileName)
+        return if (version.isEmpty()) {
+            context.getString(R.string.app_name)
+        } else {
+            context.getString(R.string.settings_update_download_label, version)
         }
     }
 
@@ -206,8 +220,16 @@ object AutoDownloadManager {
     }
 }
 
-/** Build-number extraction (pure, unit-testable on plain JVM). */
-internal fun buildNumberFromFileName(fileName: String): String = Regex("""_(\d{4,6})_""").find(fileName)?.groupValues?.get(1).orEmpty()
+/** Version extraction (pure, unit-testable on plain JVM): the third `_`-separated artifact field. */
+internal fun versionFromFileName(fileName: String): String =
+    Regex("""^Payanam_[^_]+_(\d+\.\d+\.\d+)_""").find(fileName)?.groupValues?.get(1).orEmpty()
+
+/**
+ * Pure matcher for the completed-download marker: true when [fileName] declares [version].
+ * A legacy name carries no version field, so a marker from the old build-number scheme never matches.
+ */
+internal fun isApkOfVersion(fileName: String, version: String): Boolean =
+    version.isNotEmpty() && versionFromFileName(fileName) == version
 
 /**
  * Resolve the absolute path of a previously downloaded APK inside the
@@ -220,26 +242,30 @@ internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: S
 }
 
 /**
- * Pure matcher for [findApkForBuild]: true when [fileName] names the APK for
- * [buildNumber] built as [buildType] (`_<build>_<type>_` token pair + `.apk`
- * suffix). Legacy untyped names never match (no fallback), and the matching
- * `.sha256` sibling carries both tokens but is excluded by the suffix guard.
+ * Pure matcher for [findApkForBuild]: true when [fileName] carries both the
+ * `_<version>_` and `_<type>_` tokens of the `Payanam_<platform>_<version>_<sha>_<type>_<timestamp>.apk`
+ * artifact name, plus the `.apk` suffix. An absent version never matches (no
+ * fallback), and the matching `.sha256` sibling is excluded by the suffix guard.
  */
-internal fun isApkForBuild(fileName: String, buildNumber: String, buildType: String): Boolean = fileName.endsWith(".apk") && fileName.contains("_${buildNumber}_${buildType}_")
+internal fun isApkForBuild(fileName: String, versionName: String, buildType: String): Boolean =
+    versionName.isNotEmpty() &&
+        fileName.endsWith(".apk") &&
+        fileName.contains("_${versionName}_") &&
+        fileName.contains("_${buildType}_")
 
 /**
  * Scan the app-private downloads dir for an already-downloaded APK of the
- * given build number and [buildType]. Returns the absolute path, or null if
+ * given [versionName] and [buildType]. Returns the absolute path, or null if
  * not present.
  */
 internal fun AutoDownloadManager.findApkForBuild(
     context: Context,
-    buildNumber: String,
+    versionName: String,
     buildType: String = ApkBuildType.running(),
 ): String? {
     val dir = context.getExternalFilesDir(null)?.let { File(it, AutoDownloadManager.SUBDIR) } ?: return null
     val files = dir.listFiles() ?: return null
-    return files.firstOrNull { it.isFile && it.length() > 0 && isApkForBuild(it.name, buildNumber, buildType) }?.absolutePath
+    return files.firstOrNull { it.isFile && it.length() > 0 && isApkForBuild(it.name, versionName, buildType) }?.absolutePath
 }
 
 internal fun downloadFailureMessage(reason: Int): String = when (reason) {

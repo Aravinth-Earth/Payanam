@@ -9,14 +9,14 @@ import java.io.File
 
 /**
  * Pins the update-check parity this module's gate is written about: that Android's and the desktop's
- * sources route one shared [io.payanam.shared.updates.UpdateOutcome] through the SAME shared checker,
- * map all seven outcomes without a catch-all, ask DELIBERATELY DIFFERENT channels, and differ in
- * `installable` because the platforms do rather than by accident. It reads the two production sources
- * off disk instead of instantiating either implementation because no module can see both:
- * `AndroidApkUpdateSource` lives in `:app` and needs Robolectric to construct, and
+ * sources route one shared [io.payanam.shared.updates.UpdateOutcome] through the SAME shared checker, are
+ * asked with the SAME input (the version code this install was stamped with), map all six outcomes without
+ * a catch-all, and differ in `installable` because the platforms do rather than by accident. It reads the
+ * two production sources off disk instead of instantiating either implementation because no module can see
+ * both: `AndroidApkUpdateSource` lives in `:app` and needs Robolectric to construct, and
  * `DesktopUnsupportedPorts` is `internal` to `:desktop`, while `:core:shared` depends on NEITHER - so a
  * test here that called either class would not compile, and a test in `:app` or `:desktop` could only
- * ever drive one platform. Nothing can therefore drive both implementations over one channel state at
+ * ever drive one platform. Nothing can therefore drive both implementations over one release state at
  * runtime; reading both sources is the only place in this build where the two answers can be compared at
  * all, which is why the gate exists. Assertions run against comment-stripped text wherever they claim
  * something is CODE, so a line of prose quoting a rule cannot satisfy a rule, and the comment-stripping
@@ -25,12 +25,10 @@ import java.io.File
  * ITS LIMITS, stated rather than implied. It is a TEXT check: a mapping assembled elsewhere, an outcome
  * routed through a helper this does not read, or a variant added to [io.payanam.shared.updates.UpdateOutcome]
  * and handled correctly somewhere unseen would all read as violations, not as behaviour - this pins
- * SHAPE, not runtime answers. Two things are already compiler-enforced and are pinned here only so the
- * pin is visible: the desktop's `when (result.outcome)` is a statement over an enum in this same module,
- * so Kotlin already rejects a non-exhaustive branch list, and what this adds is the `else` guard - an
- * `else` IS legal and would quietly absorb a variant added later. And the STABLE rationale is asserted
- * where it actually lives, in the desktop's settings collaborators rather than in the port file; see
- * [theChannelsDifferDeliberately_andEachPlatformSaysWhy].
+ * SHAPE, not runtime answers. One thing is already compiler-enforced and is pinned here only so the pin is
+ * visible: each platform's `when` is a statement over an enum in this same module, so Kotlin already
+ * rejects a non-exhaustive branch list, and what this adds is the `else` guard - an `else` IS legal and
+ * would quietly absorb a variant added later.
  */
 class CrossPlatformUpdateCheckParityTest {
     /**
@@ -41,7 +39,7 @@ class CrossPlatformUpdateCheckParityTest {
      */
     @Test
     fun bothPlatformSources_arePresent() {
-        listOf(ANDROID_SOURCE, DESKTOP_SOURCE, DESKTOP_SETTINGS_SOURCE, SHARED_APK_SOURCE).forEach { path ->
+        listOf(ANDROID_SOURCE, DESKTOP_SOURCE, SHARED_APK_SOURCE, SHARED_STATE_SOURCE).forEach { path ->
             val source = File(repositoryRoot, path)
             assertThat(source.exists()).isTrue()
             assertThat(source.readText()).isNotEmpty()
@@ -49,89 +47,78 @@ class CrossPlatformUpdateCheckParityTest {
     }
 
     /**
-     * (i) Both platforms ask the SAME shared checker, so one channel state produces one verdict.
-     *
-     * This is the root of the parity claim: if either platform rolled its own release walk, "the same
-     * answer for the same channel state" would be a coincidence of two independent implementations
-     * rather than a property of one shared object. Both default parameter values are asserted, because a
-     * platform that kept the shared checker but swapped the default for its own copy would satisfy a
-     * looser "calls UpdateChecker" check.
+     * (i) Both platforms ask the SAME shared checker with the SAME first argument, the version code this
+     * install runs, so one release list has one answer rather than two independent implementations.
      */
     @Test
-    fun bothPlatforms_askTheSharedChecker() {
+    fun bothPlatforms_askTheSharedChecker_withTheInstalledVersionCode() {
         assertThat(strippedCode(ANDROID_SOURCE)).contains("UpdateChecker.check(")
         assertThat(strippedCode(DESKTOP_SOURCE)).contains("UpdateChecker.check(")
+
+        assertThat(strippedCode(ANDROID_SOURCE)).contains("UpdateChecker.check(installedVersionCode,")
+        assertThat(strippedCode(DESKTOP_SOURCE)).contains("UpdateChecker.check(installedVersionCode,")
+
+        // And the number handed to it is the one the build tooling stamped, not a constant.
         assertThat(strippedCode(ANDROID_SOURCE))
-            .contains("UpdateChecker.check(currentBuildNumber, requested, ApkBuildType.running())")
+            .contains("override val currentBuildNumber: Int? = BuildConfig.VERSION_CODE")
         assertThat(strippedCode(DESKTOP_SOURCE))
-            .contains("UpdateChecker.check(currentBuildNumber, requested, DESKTOP_UPDATE_RUNNING_TYPE)")
+            .contains("override val currentBuildNumber: Int? = DesktopBuildInfo.VERSION_CODE")
     }
 
     /**
-     * (ii) The desktop names ALL SEVEN outcomes and carries NO `else`.
-     *
-     * Named against [io.payanam.shared.updates.UpdateOutcome.entries] rather than a hardcoded list, so
-     * the assertion is exact in both directions: a mapping that stops naming a variant fails, and so does
-     * the enum gaining one the desktop has not been taught. The `else` half is the part the compiler does
-     * NOT enforce - an exhaustive `when` may still carry a default branch, and that branch is where a
-     * variant added in six months would land silently, mapping to whatever the catch-all returns.
+     * (ii) Both platforms speak the shared result type: a platform that grew a local shape would have to
+     * stop importing the shared one, which fails here.
      */
     @Test
-    fun theDesktopMapping_namesEveryOutcome_andHasNoCatchAll() {
-        val branches = desktopOutcomeWhenBody()
-
-        val named =
-            outcomeBranch
-                .findAll(branches)
-                .map { it.groupValues[1] }
-                .toList()
-        assertThat(named.toSet()).isEqualTo(UpdateOutcome.entries.map { it.name }.toSet())
-        assertThat(UpdateOutcome.entries).hasSize(SEVEN)
-        assertThat(branches).doesNotContain("else")
+    fun bothPlatforms_readTheSharedResultType() {
+        assertThat(strippedCode(ANDROID_SOURCE)).contains("import io.payanam.shared.updates.UpdateCheckResult")
+        assertThat(strippedCode(DESKTOP_SOURCE)).contains("import io.payanam.shared.updates.UpdateCheckResult")
+        assertThat(strippedCode(ANDROID_SOURCE)).contains("import io.payanam.shared.updates.UpdateOutcome")
+        assertThat(strippedCode(DESKTOP_SOURCE)).contains("import io.payanam.shared.updates.UpdateOutcome")
     }
 
     /**
-     * (iii) The two platforms ask DIFFERENT channels on purpose, and each says why at its own site.
+     * (iii) Both platforms name ALL SIX outcomes and carry NO `else`.
      *
-     * The difference is the point rather than a defect: Android defaults to its rescue channel because its
-     * pre-unlock hatch is a dev-track feature, while the desktop has no stored channel to read. Asserted
-     * as code, because a difference that only existed in a comment would be the platforms agreeing in
-     * fact while claiming otherwise in prose.
-     *
-     * AND WHERE THE DESKTOP'S OWN REASONING LIVES: the "no update-channel row and writes none" explanation
-     * sits beside the channel value the desktop REPORTS to shared settings state, in
-     * [DESKTOP_SETTINGS_SOURCE], not in the port file this class otherwise reads. The port file explains
-     * that it asks "this platform's channel" without saying which one is chosen or why. So the
-     * explanation is asserted where it is written rather than where it would have been convenient, and
-     * asserting it in both files is deliberately not done - a test that demanded prose in a file that
-     * honestly does not carry any would push the next change to duplicate an explanation instead of
-     * putting it where it belongs.
+     * Named against [io.payanam.shared.updates.UpdateOutcome.entries] rather than a hardcoded list, so the
+     * assertion is exact in both directions: a mapping that stops naming a variant fails, and so does the
+     * enum gaining one a platform has not been taught. The `else` half is the part the compiler does NOT
+     * enforce - an exhaustive `when` may still carry a default branch, and that branch is where a variant
+     * added in six months would land silently, mapping to whatever the catch-all returns.
      */
     @Test
-    fun theChannelsDifferDeliberately_andEachPlatformSaysWhy() {
-        assertThat(strippedCode(DESKTOP_SOURCE)).contains("checkForUpdates(build, UpdateChannel.STABLE)")
-        assertThat(strippedCode(ANDROID_SOURCE)).contains("private val channel: UpdateChannel = UpdateChannel.DEV")
+    fun bothPlatforms_nameEveryOutcome_andHaveNoCatchAll() {
+        listOf(ANDROID_SOURCE, DESKTOP_SOURCE).forEach { path ->
+            val branches = outcomeWhenBody(path)
 
-        // Android's reason, at the parameter it documents.
-        assertThat(File(repositoryRoot, ANDROID_SOURCE).readText())
-            .contains("the channel this app's")
-        assertThat(File(repositoryRoot, ANDROID_SOURCE).readText())
-            .contains("pre-unlock update hatch already treats as its rescue channel")
-
-        // The desktop's reason, at the channel the desktop reports rather than the one it asks with.
-        assertThat(File(repositoryRoot, DESKTOP_SETTINGS_SOURCE).readText())
-            .contains("the desktop has no update-channel row and writes none")
-        assertThat(File(repositoryRoot, DESKTOP_SETTINGS_SOURCE).readText())
-            .contains("It is a named answer, not a copy of Android")
+            val named = outcomeBranch.findAll(branches).map { it.groupValues[1] }.toSet()
+            assertThat(named).isEqualTo(UpdateOutcome.entries.map { it.name }.toSet())
+            assertThat(branches).doesNotContain("else")
+        }
+        assertThat(UpdateOutcome.entries).hasSize(SIX)
     }
 
     /**
-     * (iv) `installable` differs because the platforms do, and each side documents its own half.
+     * (iv) The fail-closed rule is the same on both platforms: exactly ONE outcome is ever reported as
+     * `UpToDate`, and it is `UP_TO_DATE` — every other outcome means the list was not read to a conclusion.
+     */
+    @Test
+    fun bothPlatforms_reportUpToDate_fromUpToDateOnly() {
+        listOf(ANDROID_SOURCE, DESKTOP_SOURCE).forEach { path ->
+            val branches = outcomeWhenBody(path)
+
+            assertThat(upToDateClaim.findAll(branches).count()).isEqualTo(1)
+            assertThat(upToDateFromUpToDate.find(branches)).isNotNull()
+        }
+    }
+
+    /**
+     * (v) `installable` differs because the platforms do, and each side documents its own half.
      *
      * A constant would be wrong on both ends: `true` on the desktop would advertise an artifact its
      * packager owns, and a store lookup on a platform with no installer would be a question about a
-     * capability that does not exist. Asserted as code on both sides for the same reason the channel
-     * difference is - a documented difference that is not in the code is not a difference.
+     * capability that does not exist. Asserted as code on both sides, because a documented difference that
+     * is not in the code is not a difference.
      */
     @Test
     fun installableDiffers_becauseThePlatformsDo() {
@@ -147,18 +134,29 @@ class CrossPlatformUpdateCheckParityTest {
     }
 
     /**
-     * The body of the desktop's `when (result.outcome)`, brace-matched from the branch list.
+     * (vi) Neither platform asks a channel, and neither reports one: a channel reintroduced in the shared
+     * state would be rendered by both platforms even if neither port ever filled it.
+     */
+    @Test
+    fun neitherPlatform_asksForAChannel() {
+        assertThat(strippedCode(ANDROID_SOURCE)).doesNotContain("UpdateChannel")
+        assertThat(strippedCode(DESKTOP_SOURCE)).doesNotContain("UpdateChannel")
+        assertThat(strippedCode(SHARED_STATE_SOURCE)).doesNotContain("updateChannel")
+    }
+
+    /**
+     * The body of a platform's `when` over the shared outcome, brace-matched from the branch list.
      *
      * Scoped to that `when` rather than the whole file, because the desktop file legitimately has other
      * `when`s and other `else` branches (the download poll's terminal-state switch) that this rule does
      * not govern. Asserting on the file would have made this test fail for the wrong reason the moment
      * either implementation grew an unrelated conditional.
      */
-    private fun desktopOutcomeWhenBody(): String {
-        val source = strippedCode(DESKTOP_SOURCE)
-        val branch = outcomeWhen.find(source) ?: error("No `when (result.outcome)` in $DESKTOP_SOURCE")
+    private fun outcomeWhenBody(relativePath: String): String {
+        val source = strippedCode(relativePath)
+        val branch = outcomeWhen.find(source) ?: error("No `when (... .outcome)` in $relativePath")
         return bracedBodyAt(source, branch.range.last)
-            ?: error("The `when (result.outcome)` in $DESKTOP_SOURCE does not balance")
+            ?: error("The `when` over the outcome in $relativePath does not balance")
     }
 
     /** [relativePath]'s source with every comment blanked out, so prose cannot satisfy a code claim. */
@@ -235,11 +233,18 @@ class CrossPlatformUpdateCheckParityTest {
 
     private val lineComment = Regex("""//[^\n]*""")
 
-    /** The desktop's outcome mapping: a `when` over the shared result's outcome. */
-    private val outcomeWhen = Regex("""when\s*\(\s*result\.outcome\s*\)""")
+    /** A platform's outcome mapping: a `when` over the shared result's outcome, with or without the receiver. */
+    private val outcomeWhen = Regex("""when\s*\(\s*(?:result\.)?outcome\s*\)""")
 
     /** One branch label naming a shared outcome variant. */
     private val outcomeBranch = Regex("""UpdateOutcome\s*\.\s*(\w+)""")
+
+    /** The `UpToDate` claim, however a branch body wraps it. */
+    private val upToDateClaim = Regex("""UpdateAvailability\s*\.\s*UpToDate""")
+
+    /** The only label allowed to produce that claim. */
+    private val upToDateFromUpToDate =
+        Regex("""UpdateOutcome\s*\.\s*UP_TO_DATE\s*->\s*\{?\s*UpdateAvailability\s*\.\s*UpToDate""")
 
     private companion object {
         const val ANDROID_SOURCE =
@@ -247,14 +252,14 @@ class CrossPlatformUpdateCheckParityTest {
 
         const val DESKTOP_SOURCE = "desktop/src/main/kotlin/io/payanam/desktop/port/DesktopUnsupportedPorts.kt"
 
-        /** Where the desktop states WHICH channel it reports and why, as distinct from asking with it. */
-        const val DESKTOP_SETTINGS_SOURCE =
-            "desktop/src/main/kotlin/io/payanam/desktop/database/DesktopSettingsCollaborators.kt"
-
         /** The shared type whose own documentation is half of what makes `installable = false` correct. */
         const val SHARED_APK_SOURCE = "core/shared/src/main/kotlin/io/payanam/shared/platform/ApkUpdateSource.kt"
 
+        /** The state both platforms render: a channel reintroduced here would be shown by both. */
+        const val SHARED_STATE_SOURCE =
+            "core/presentation/src/main/kotlin/io/payanam/presentation/settings/SettingsUiState.kt"
+
         /** [UpdateOutcome.entries]'s current size, asserted so the mapping above cannot be a subset. */
-        const val SEVEN = 7
+        const val SIX = 6
     }
 }
