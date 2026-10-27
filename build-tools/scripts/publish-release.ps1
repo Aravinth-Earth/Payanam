@@ -10,6 +10,7 @@
 # Android is always required: its release signature, signer identity and build-side checksum are verified.
 # F-Droid's recipe lives outside this repo and follows the tag family: tags are v<version>, and versionCode
 # is the literal line in gradle/version.properties. Confirm the recipe before the first tag.
+# Release notes are authored in CHANGELOG.md; the fastlane changelogs are rendered copies of it.
 #
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
@@ -227,6 +228,68 @@ foreach ($locale in @("ta-IN")) {
     }
 }
 
+# CHANGELOG.md is the authored source; each store file is a rendered copy. A copy that drifted refuses the tag.
+$changelogSource = @(git show "${commit}:CHANGELOG.md" 2>$null)
+if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($changelogSource -join ""))) {
+    Refuse "No CHANGELOG.md at $head." "It is the authored source for the release notes of every platform."
+}
+
+function Get-ChangelogEntry {
+    param([string[]]$Lines)
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^##\s+.*?(\d+\.\d+\.\d+)') {
+            return [PSCustomObject]@{ Index = $i; Version = $Matches[1] }
+        }
+    }
+    return [PSCustomObject]@{ Index = -1; Version = "" }
+}
+
+function Get-ChangelogLocaleBody {
+    param([string[]]$Lines, [int]$EntryIndex, [string]$Heading)
+    $body = @()
+    $inBody = $false
+    for ($i = $EntryIndex + 1; $i -lt $Lines.Count; $i++) {
+        $line = $Lines[$i]
+        if ($line -match '^##\s') { break }
+        if ($line -match '^###\s+(.+?)\s*$') {
+            if ($inBody) { break }
+            $inBody = ($Matches[1] -eq $Heading)
+            continue
+        }
+        if ($inBody) { $body += $line }
+    }
+    $first = 0
+    while ($first -lt $body.Count -and [string]::IsNullOrWhiteSpace($body[$first])) { $first++ }
+    $last = $body.Count - 1
+    while ($last -ge $first -and [string]::IsNullOrWhiteSpace($body[$last])) { $last-- }
+    if ($last -lt $first) { return "" }
+    return (($body[$first..$last]) -join "`n")
+}
+
+$entry = Get-ChangelogEntry -Lines $changelogSource
+if ($entry.Index -lt 0) {
+    Refuse "CHANGELOG.md has no '## [x.y.z]' entry at $head." "The newest entry supplies the release notes."
+}
+if ($entry.Version -ne $script:declaredVersion) {
+    Refuse "CHANGELOG.md's newest entry is $($entry.Version), not the declared $($script:declaredVersion)." "Add a '## [$($script:declaredVersion)]' section above it before tagging."
+}
+
+# Locale headings mirror build-tools/scripts/render-changelogs.sh.
+$localeHeadings = @{ "en-US" = "English"; "ta-IN" = "தமிழ்" }
+foreach ($locale in @("en-US", "ta-IN")) {
+    $storeRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
+    $committedBody = (@(git show "${commit}:$storeRel" 2>$null) -join "`n")
+    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($committedBody)) { continue }
+    $renderedBody = Get-ChangelogLocaleBody -Lines $changelogSource -EntryIndex $entry.Index -Heading $localeHeadings[$locale]
+    if ([string]::IsNullOrWhiteSpace($renderedBody)) {
+        Refuse "CHANGELOG.md entry $($script:declaredVersion) has no '### $($localeHeadings[$locale])' section." "Add it, then run bash build-tools/scripts/render-changelogs.sh."
+    }
+    # Trailing whitespace is ignored; any other difference refuses.
+    if ($renderedBody.TrimEnd() -ne $committedBody.TrimEnd()) {
+        Refuse "$storeRel does not match CHANGELOG.md entry $($script:declaredVersion)." "Run bash build-tools/scripts/render-changelogs.sh and commit the rendered file."
+    }
+}
+
 $localTag = @(git tag -l $tag 2>$null)
 if ($localTag -contains $tag) {
     Refuse "Tag $tag already exists locally." "Delete it (git tag -d $tag) if it is stale; a version is released once."
@@ -239,7 +302,7 @@ if ($remoteTag -match [regex]::Escape("refs/tags/$tag")) {
     Refuse "Tag $tag already exists on origin." "A version is released once; bump gradle/version.properties for the next release."
 }
 
-Write-LogWithTime "Guards passed: clean tree, HEAD $head == origin/dev, changelog at $head, $tag unused." "Green"
+Write-LogWithTime "Guards passed: clean tree, HEAD $head == origin/dev, changelogs match CHANGELOG.md at $head, $tag unused." "Green"
 
 # ── 4. Resolve one artefact per platform ─────────────────────────────────────
 

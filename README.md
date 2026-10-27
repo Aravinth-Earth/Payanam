@@ -48,7 +48,7 @@ See [INSTALL.md](INSTALL.md) for sideload and verification steps.
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and PR workflow.
 ## What's new
 
-This project does not maintain a changelog file; see the commit history and releases.
+This project keeps one release-notes entry per version in [CHANGELOG.md](CHANGELOG.md), shared by every platform.
 
 ---
 
