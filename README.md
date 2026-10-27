@@ -13,6 +13,8 @@ Payanam is a privacy-first life dimension manager — tasks, habits, time tracki
 
 **F-Droid build.** A build packaged for F-Droid makes no update call: the store client owns updates for those installs, so the app's own updater is disabled and it never downloads or installs an APK for itself.
 
+**Published releases.** A release ships an Android APK and a Linux `.deb`, both built in `release` mode — a `debug`-type build is a development build and is never published. See [INSTALL.md](INSTALL.md) for the install and checksum-verification steps.
+
 See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
 ---

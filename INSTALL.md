@@ -1,11 +1,11 @@
 # Installing Payanam (Sideload Guide)
 Last Updated: 2026-10-27
 
-This guide covers how to download, verify, and install Payanam on your Android device.
+This guide covers how to download, verify, and install Payanam on your Android device, and how to install the Linux desktop build from a `.deb`.
 
 ## Step 1 — Download
 
-Go to the [Releases page](https://github.com/Aravinth-Earth/Payanam/releases) and pick the newest release — releases are tagged `v<version>` (for example `v1.0.0`), and the build type is whatever that release ships — then download:
+Go to the [Releases page](https://github.com/Aravinth-Earth/Payanam/releases) and pick the newest release — releases are tagged `v<version>` (for example `v1.0.0`), and every published release is a `release`-type build — then download:
 
 - `Payanam_<platform>_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.apk` — the app (e.g. `Payanam_android_1.0.0_a1b2c3d_release_20261027_101500.apk`)
 - `Payanam_<platform>_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.apk.sha256` — checksum file
@@ -81,10 +81,64 @@ To move your data across:
 
 Already have a database on the new device? **Settings → Data Management → Import** replaces it with your exported one.
 
+## Installing the Linux desktop app
+
+Payanam also ships a `.deb` package for Debian-based Linux — Ubuntu, Debian, Linux Mint, Pop!_OS, and anything else that uses `apt`.
+
+### Download
+
+From the same [Releases page](https://github.com/Aravinth-Earth/Payanam/releases), take:
+
+- `Payanam_linux_<version>_<sha>_release_<yyyyMMdd_HHmmss>.deb` — the app (e.g. `Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb`)
+- `Payanam_linux_<version>_<sha>_release_<yyyyMMdd_HHmmss>.deb.sha256` — checksum file
+
+### Verify the .deb (recommended)
+
+Open the `.sha256` file — it contains one line naming the hash and the file it belongs to:
+
+```
+A3F8C2D1E4B7F9A0C2E5D8F1B4A7C0E3F6A9B2C5D8E1F4A7B0C3D6E9F2A5B8C1  Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb
+```
+
+With both files in the same folder, check them against each other:
+
+```bash
+sha256sum -c Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb.sha256
+# Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb: OK
+```
+
+`sha256sum <file>.deb` prints the same hash if you would rather compare by eye.
+
+> If the hash doesn't match, do not install. Re-download the file and try again.
+
+### Install
+
+```bash
+sudo apt install ./Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb
+```
+
+The leading `./` matters: it tells `apt` the argument is a file on disk rather than a package to look up by name. On a distribution without `apt`:
+
+```bash
+sudo dpkg -i Payanam_linux_1.0.0_a1b2c3d_release_20261027_101500.deb
+```
+
+### Update
+
+Download the newer `.deb` and run the same `apt install ./<file>.deb` (or `dpkg -i`) over it. The package replaces the old one in place and your data is untouched.
+
+### Uninstall
+
+```bash
+sudo apt remove payanam
+```
+
+Your data is not part of the package: the database and your notes stay in `~/Documents/Payanam` after the app is removed — delete that folder yourself if you want a clean start.
+
 ## Notes
 
 - **Minimum Android version:** Android 9 (API 28)
-- **What to expect:** one release stream — the newest release is the current version, and its filename states the build type. A `release`-type APK is the steadier build for day-to-day use; a `debug`-type APK is a development build with rough edges.
+- **What to expect:** one release stream — the newest release is the current version, and its filename states the build type. Published releases are `release`-type builds only: a `debug`-type build is a development build and is never published.
 - All data stays on your device; no accounts or internet required
-- **To update:** install a newer APK of the same build type over the existing one — data is preserved.
+- **To update:** install a newer APK over the existing one — data is preserved.
 - **Switching build type is a fresh app:** `debug`-type and `release`-type installs have different app IDs, so a released APK cannot update an older `debug`-type install in place — export your data from the old install and re-import it after installing.
