@@ -253,7 +253,7 @@ function Get-ChangelogLocaleBody {
         if ($line -match '^##\s') { break }
         if ($line -match '^###\s+(.+?)\s*$') {
             if ($inBody) { break }
-            $inBody = ($Matches[1] -eq $Heading)
+            $inBody = $Matches[1].StartsWith($Heading, [System.StringComparison]::Ordinal)
             continue
         }
         if ($inBody) { $body += $line }
@@ -274,8 +274,9 @@ if ($entry.Version -ne $script:declaredVersion) {
     Refuse "CHANGELOG.md's newest entry is $($entry.Version), not the declared $($script:declaredVersion)." "Add a '## [$($script:declaredVersion)]' section above it before tagging."
 }
 
-# Locale headings mirror build-tools/scripts/render-changelogs.sh.
-$localeHeadings = @{ "en-US" = "English"; "ta-IN" = "தமிழ்" }
+# Locale heading prefix per locale, mirroring build-tools/scripts/render-changelogs.sh. ASCII only, so a
+# source line decoded as ANSI cannot stop the match: English for en-US, Tamil for ta-IN.
+$localeHeadings = @{ "en-US" = "English"; "ta-IN" = "Tamil" }
 foreach ($locale in @("en-US", "ta-IN")) {
     $storeRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
     $committedBody = (@(git show "${commit}:$storeRel" 2>$null) -join "`n")
@@ -284,8 +285,8 @@ foreach ($locale in @("en-US", "ta-IN")) {
     if ([string]::IsNullOrWhiteSpace($renderedBody)) {
         Refuse "CHANGELOG.md entry $($script:declaredVersion) has no '### $($localeHeadings[$locale])' section." "Add it, then run bash build-tools/scripts/render-changelogs.sh."
     }
-    # Trailing whitespace is ignored; any other difference refuses.
-    if ($renderedBody.TrimEnd() -ne $committedBody.TrimEnd()) {
+    # Trailing whitespace is ignored; any other difference, case included, refuses.
+    if ($renderedBody.TrimEnd() -cne $committedBody.TrimEnd()) {
         Refuse "$storeRel does not match CHANGELOG.md entry $($script:declaredVersion)." "Run bash build-tools/scripts/render-changelogs.sh and commit the rendered file."
     }
 }

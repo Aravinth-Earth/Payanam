@@ -47,6 +47,7 @@ fi
 # ── Body extraction ──────────────────────────────────────────────────────────
 # Body = the lines of the '### <heading>' section inside the newest entry, with leading and trailing
 # blank lines dropped and one trailing newline kept.
+# The heading is matched as an ASCII prefix, so a mis-decoded non-ASCII section title cannot break it.
 render_body() {
     awk -v heading="$1" -v want="$2" '
         function section_version(text) {
@@ -63,7 +64,7 @@ render_body() {
             name = $0
             sub(/^###[[:space:]]+/, "", name)
             sub(/[[:space:]]+$/, "", name)
-            in_body = (name == heading)
+            in_body = (index(name, heading) == 1)
             next
         }
         in_body { lines[++count] = $0 }
@@ -81,7 +82,9 @@ render_body() {
 }
 
 locales=("en-US" "ta-IN")
-headings=("English" "தமிழ்")
+# Section-heading prefix per locale, ASCII only: English, Tamil. The Tamil heading continues with the
+# locale name in parentheses, so only its ASCII prefix is matched.
+headings=("English" "Tamil")
 
 # Every locale is rendered before any is written, so a missing section cannot leave a half-rendered tree.
 staged_files=()
@@ -108,7 +111,17 @@ for i in "${!locales[@]}"; do
         printf 'unchanged %s\n' "$target"
         continue
     fi
-    mkdir -p "$(dirname "$target")"
-    cat "$staged" > "$target"
+    # Replace atomically: render into a sibling temporary, prove it landed non-empty, then move it over
+    # the target. A failed or empty write must leave the existing store file exactly as it was.
+    target_dir="$(dirname "$target")"
+    mkdir -p "$target_dir" || fail "could not create $target_dir; $target is untouched."
+    incoming="$(mktemp "$target_dir/.changelogs.XXXXXX")" ||
+        fail "could not create a temporary file in $target_dir; $target is untouched."
+    staged_files+=("$incoming")
+    cp "$staged" "$incoming" || fail "could not write $target; the existing file is untouched."
+    [ -s "$incoming" ] || fail "rendered body for ${locales[$i]} is empty; $target is untouched."
+    # mktemp creates 0600; keep whatever mode the store file already had.
+    chmod --reference="$target" "$incoming" 2>/dev/null || chmod 0644 "$incoming" 2>/dev/null || true
+    mv -f "$incoming" "$target" || fail "could not replace $target; the existing file is untouched."
     printf 'wrote     %s\n' "$target"
 done

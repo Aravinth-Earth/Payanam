@@ -18,7 +18,7 @@ Initial release — Payanam (பயணம்): habits, tasks, time, notes & jour
 
 Feedback welcome — Signal/email in Settings → About.
 
-### தமிழ்
+### Tamil (தமிழ்)
 
 முதல் வெளியீடு — பயணம்: பழக்கங்கள், பணிகள், நேரம், குறிப்புகள், நாட்குறிப்பு — வாழ்க்கைப் பரிமாணங்களில் இணைந்தவை.
 
