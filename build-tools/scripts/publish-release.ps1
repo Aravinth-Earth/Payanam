@@ -10,7 +10,8 @@
 # Android is always required: its release signature, signer identity and build-side checksum are verified.
 # F-Droid's recipe lives outside this repo and follows the tag family: tags are v<version>, and versionCode
 # is the literal line in gradle/version.properties. Confirm the recipe before the first tag.
-# Release notes are authored in CHANGELOG.md; the fastlane changelogs are rendered copies of it.
+# Release notes are authored in CHANGELOG.md; the tagged entry is prepended to the release body and
+# the fastlane changelogs are its rendered copies.
 #
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
@@ -244,9 +245,12 @@ function Get-ChangelogEntry {
     return [PSCustomObject]@{ Index = -1; Version = "" }
 }
 
-function Get-ChangelogLocaleBody {
+# Heading as authored, plus the body of one '### <prefix>' section of one entry. The only reader of
+# a locale section: the guard compares Body, the release notes print Heading and Body verbatim.
+function Get-ChangelogLocaleSection {
     param([string[]]$Lines, [int]$EntryIndex, [string]$Heading)
     $body = @()
+    $headingLine = ""
     $inBody = $false
     for ($i = $EntryIndex + 1; $i -lt $Lines.Count; $i++) {
         $line = $Lines[$i]
@@ -254,6 +258,7 @@ function Get-ChangelogLocaleBody {
         if ($line -match '^###\s+(.+?)\s*$') {
             if ($inBody) { break }
             $inBody = $Matches[1].StartsWith($Heading, [System.StringComparison]::Ordinal)
+            if ($inBody) { $headingLine = $line.TrimEnd() }
             continue
         }
         if ($inBody) { $body += $line }
@@ -262,8 +267,8 @@ function Get-ChangelogLocaleBody {
     while ($first -lt $body.Count -and [string]::IsNullOrWhiteSpace($body[$first])) { $first++ }
     $last = $body.Count - 1
     while ($last -ge $first -and [string]::IsNullOrWhiteSpace($body[$last])) { $last-- }
-    if ($last -lt $first) { return "" }
-    return (($body[$first..$last]) -join "`n")
+    if ($last -lt $first) { return [PSCustomObject]@{ Heading = $headingLine; Body = "" } }
+    return [PSCustomObject]@{ Heading = $headingLine; Body = (($body[$first..$last]) -join "`n") }
 }
 
 $entry = Get-ChangelogEntry -Lines $changelogSource
@@ -277,18 +282,24 @@ if ($entry.Version -ne $script:declaredVersion) {
 # Locale heading prefix per locale, mirroring build-tools/scripts/render-changelogs.sh. ASCII only, so a
 # source line decoded as ANSI cannot stop the match: English for en-US, Tamil for ta-IN.
 $localeHeadings = @{ "en-US" = "English"; "ta-IN" = "Tamil" }
+# Sections kept from the guard, in locale order, for the release notes in §8.
+$script:localeSections = [ordered]@{}
 foreach ($locale in @("en-US", "ta-IN")) {
     $storeRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
     $committedBody = (@(git show "${commit}:$storeRel" 2>$null) -join "`n")
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($committedBody)) { continue }
-    $renderedBody = Get-ChangelogLocaleBody -Lines $changelogSource -EntryIndex $entry.Index -Heading $localeHeadings[$locale]
-    if ([string]::IsNullOrWhiteSpace($renderedBody)) {
-        Refuse "CHANGELOG.md entry $($script:declaredVersion) has no '### $($localeHeadings[$locale])' section." "Add it, then run bash build-tools/scripts/render-changelogs.sh."
+    $storePresent = -not ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($committedBody))
+    $section = Get-ChangelogLocaleSection -Lines $changelogSource -EntryIndex $entry.Index -Heading $localeHeadings[$locale]
+    if ([string]::IsNullOrWhiteSpace($section.Body)) {
+        if ($storePresent) {
+            Refuse "CHANGELOG.md entry $($script:declaredVersion) has no '### $($localeHeadings[$locale])' section." "Add it, then run bash build-tools/scripts/render-changelogs.sh."
+        }
+        continue
     }
     # Trailing whitespace is ignored; any other difference, case included, refuses.
-    if ($renderedBody.TrimEnd() -cne $committedBody.TrimEnd()) {
+    if ($storePresent -and $section.Body.TrimEnd() -cne $committedBody.TrimEnd()) {
         Refuse "$storeRel does not match CHANGELOG.md entry $($script:declaredVersion)." "Run bash build-tools/scripts/render-changelogs.sh and commit the rendered file."
     }
+    $script:localeSections[$locale] = $section
 }
 
 $localTag = @(git tag -l $tag 2>$null)
@@ -464,7 +475,19 @@ if ($oldestBuildTime -and -not [string]::IsNullOrWhiteSpace($latestCommitTime)) 
 }
 
 # ── 8. Release notes ─────────────────────────────────────────────────────────
-$releaseNotes = @(
+# User-facing notes first: the CHANGELOG.md entry at the tagged commit, from the sections §3
+# already extracted. The manifest below is appended unchanged.
+$whatsNew = @("## What's new in $($script:declaredVersion)")
+foreach ($locale in $script:localeSections.Keys) {
+    $section = $script:localeSections[$locale]
+    $whatsNew += @("", $section.Heading, "", $section.Body)
+}
+if ($whatsNew.Count -lt 2) {
+    Refuse "CHANGELOG.md entry $($script:declaredVersion) rendered no notes at $head." "The release body carries the entry, so it needs at least one '### <locale>' section."
+}
+$whatsNew += @("", "---", "")
+
+$releaseNotes = $whatsNew + @(
     $buildStamp,
     "",
     "Version: $($script:declaredVersion)",
@@ -495,6 +518,8 @@ if ($DryRun) {
             Write-LogWithTime "[DRY RUN]   asset  : $(Split-Path -Leaf $asset.ChecksumPath)" "Yellow"
         }
     }
+    Write-LogWithTime "[DRY RUN] notes  :" "Yellow"
+    Write-LogWithTime $releaseText "Yellow"
     Write-LogWithTime "[DRY RUN] Complete — no tag and no release were created." "Green"
     exit 0
 }
