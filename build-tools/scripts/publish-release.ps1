@@ -216,24 +216,101 @@ if ($originDev -ne $commit) {
     Refuse "HEAD ($head) differs from origin/dev." "Push dev first: the tag must point at a commit that exists on GitHub."
 }
 
+# ── 3a. Committed text - strict UTF-8, byte-count verified ───────────────────
+# Native stdout is decoded with the console code page, which damages non-ASCII text on an OEM console.
+# These reads decode raw bytes as strict UTF-8 and refuse unless re-encoding gives the blob's own size.
+$script:utf8Strict = [System.Text.UTF8Encoding]::new($false, $true)
+# Verification never reuses the decoding object, so it cannot certify the encoding that produced the text.
+$script:utf8Verify = [System.Text.UTF8Encoding]::new($false, $true)
+
+# git's raw stdout bytes, decoded by an explicit UTF-8 decoder instead of the console code page.
+function Invoke-GitCapture {
+    param([string[]]$Arguments, [System.Text.Encoding]$Decode = $script:utf8Strict)
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = "git"
+    $startInfo.Arguments = (($Arguments | ForEach-Object {
+        if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+    }) -join " ")
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $outBuffer = [System.IO.MemoryStream]::new()
+    $errBuffer = [System.IO.MemoryStream]::new()
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    try {
+        # stderr is drained concurrently so a full pipe cannot block the stdout read.
+        $errTask = $process.StandardError.BaseStream.CopyToAsync($errBuffer)
+        $process.StandardOutput.BaseStream.CopyTo($outBuffer)
+        $errTask.GetAwaiter().GetResult()
+        $process.WaitForExit()
+        $bytes = $outBuffer.ToArray()
+        $exitCode = $process.ExitCode
+    } finally {
+        $outBuffer.Dispose()
+        $errBuffer.Dispose()
+        $process.Dispose()
+    }
+    return [PSCustomObject]@{ Bytes = $bytes; Text = $Decode.GetString($bytes); ExitCode = $exitCode }
+}
+
+# One committed blob as text; $null when the path is absent at that revision. A read that is not the
+# blob byte-for-byte, or text that is not UTF-8, refuses the release instead of publishing damage.
+function Get-CommittedBlobText {
+    param([string]$Revision, [string]$RelativePath)
+
+    $shortRevision = $Revision.Substring(0, 7)
+    $spec = "${Revision}:$($RelativePath.Replace('\', '/'))"
+    $blobSize = (git cat-file -s $spec 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $blobSize -notmatch '^\d+$') { return $null }
+
+    try {
+        $captured = Invoke-GitCapture -Arguments @("cat-file", "blob", $spec)
+        if ($captured.ExitCode -ne 0) { return $null }
+        $text = $captured.Text
+        $textSize = $script:utf8Verify.GetByteCount($text)
+    } catch {
+        Refuse "'$RelativePath' at $shortRevision does not decode as UTF-8." "Decoding failed: $($_.Exception.Message). A committed changelog must be UTF-8 text."
+    }
+
+    if ($captured.Bytes.Length -ne [int64]$blobSize) {
+        Refuse "'$RelativePath' at $shortRevision was read as $($captured.Bytes.Length) bytes but the blob is $blobSize bytes." "The read is not the committed blob byte-for-byte, so the text cannot be trusted."
+    }
+    if ($textSize -ne [int64]$blobSize) {
+        Refuse "'$RelativePath' at $shortRevision decoded to $textSize bytes but the blob is $blobSize bytes." "The text is not the blob re-encoded as UTF-8, so it was decoded with the wrong encoding. Refusing to compare or publish damaged text."
+    }
+
+    # Split as the native pipeline did: no trailing empty element for a final newline.
+    $lines = @($text -split "\r\n|\n|\r")
+    if ($lines.Count -gt 1 -and $lines[$lines.Count - 1] -eq "" -and $text -match '[\r\n]$') {
+        $lines = @($lines[0..($lines.Count - 2)])
+    }
+    return [PSCustomObject]@{ Text = $text; Lines = $lines; Bytes = $textSize }
+}
+
 $changelogRel = "fastlane/metadata/android/en-US/changelogs/$($script:declaredVersionCode).txt"
-$changelogText = (git show "${commit}:$changelogRel" 2>$null | Out-String)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($changelogText.Trim())) {
+$enStore = Get-CommittedBlobText -Revision $commit -RelativePath $changelogRel
+if ($null -eq $enStore -or [string]::IsNullOrWhiteSpace($enStore.Text)) {
     Refuse "No changelog for versionCode $($script:declaredVersionCode) at $head." "Expected $changelogRel in the tagged commit; F-Droid shows that file as What's new."
 }
 foreach ($locale in @("ta-IN")) {
     $translatedRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
-    $translatedText = (git show "${commit}:$translatedRel" 2>$null | Out-String)
-    if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($translatedText.Trim())) {
+    $translated = Get-CommittedBlobText -Revision $commit -RelativePath $translatedRel
+    if ($null -eq $translated -or [string]::IsNullOrWhiteSpace($translated.Text)) {
         Write-LogWithTime "⚠️ No $locale changelog for versionCode $($script:declaredVersionCode) - the default locale is shown." "Yellow"
     }
 }
 
 # CHANGELOG.md is the authored source; each store file is a rendered copy. A copy that drifted refuses the tag.
-$changelogSource = @(git show "${commit}:CHANGELOG.md" 2>$null)
-if ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace(($changelogSource -join ""))) {
+$changelogCommit = Get-CommittedBlobText -Revision $commit -RelativePath "CHANGELOG.md"
+if ($null -eq $changelogCommit -or [string]::IsNullOrWhiteSpace($changelogCommit.Text)) {
     Refuse "No CHANGELOG.md at $head." "It is the authored source for the release notes of every platform."
 }
+$changelogSource = $changelogCommit.Lines
 
 function Get-ChangelogEntry {
     param([string[]]$Lines)
@@ -286,8 +363,9 @@ $localeHeadings = @{ "en-US" = "English"; "ta-IN" = "Tamil" }
 $script:localeSections = [ordered]@{}
 foreach ($locale in @("en-US", "ta-IN")) {
     $storeRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
-    $committedBody = (@(git show "${commit}:$storeRel" 2>$null) -join "`n")
-    $storePresent = -not ($LASTEXITCODE -ne 0 -or [string]::IsNullOrWhiteSpace($committedBody))
+    $storeCommitted = Get-CommittedBlobText -Revision $commit -RelativePath $storeRel
+    $committedBody = if ($null -eq $storeCommitted) { "" } else { $storeCommitted.Lines -join "`n" }
+    $storePresent = -not [string]::IsNullOrWhiteSpace($committedBody)
     $section = Get-ChangelogLocaleSection -Lines $changelogSource -EntryIndex $entry.Index -Heading $localeHeadings[$locale]
     if ([string]::IsNullOrWhiteSpace($section.Body)) {
         if ($storePresent) {
