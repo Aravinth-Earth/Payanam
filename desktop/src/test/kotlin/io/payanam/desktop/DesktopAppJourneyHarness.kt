@@ -245,12 +245,28 @@ abstract class DesktopAppJourneyHarness {
         assertNodeShowsIt(claimed, "the ${tab.route} screen names itself")
     }
 
+    /**
+     * Requires the semantics tree to carry [copy], waiting up to [timeoutMillis] for it.
+     *
+     * A POLL, for the same reason the `await*` helpers are: a mounted screen can still be rendering a
+     * BACKGROUND state when the caller gets control. `DatabaseInitScreen` composes its checking branch until
+     * `DatabaseInitViewModel.checkDatabaseStatus` answers on `Dispatchers.Default`, and the tour
+     * `DesktopFirstRunJourneyTest` asserts by name exists only after that answer arrives.
+     *
+     * The step's own words and the frame directory ride in the wait's condition description, so an expiry
+     * still names what was being watched and where the evidence is.
+     */
     protected fun DesktopComposeUiTest.assertNodeShowsIt(
         copy: String,
         because: String,
+        timeoutMillis: Long = JOURNEY_TIMEOUT_MS,
     ) {
-        val found = onAllNodesWithText(copy).fetchSemanticsNodes().isNotEmpty()
-        check(found) { "$because: nothing on screen carried \"$copy\" (frame: ${runDirectory.path})" }
+        waitUntil(
+            conditionDescription = "$because: nothing on screen carried \"$copy\" (frame: ${runDirectory.path})",
+            timeoutMillis = timeoutMillis,
+        ) {
+            onAllNodesWithText(copy).fetchSemanticsNodes().isNotEmpty()
+        }
     }
 
     /**
@@ -335,11 +351,28 @@ abstract class DesktopAppJourneyHarness {
      * This is the LOG half of cross-platform parity: for the same interaction both apps must emit the same
      * success markers, so a behaviour that works on one platform and silently fails on the other shows up as
      * a missing marker or an extra error line rather than as a difference nobody looked for.
+     *
+     * A POLL, because a marker is written AFTER the state a caller can already see. `createTask` logs its
+     * source line before launching, then inserts, writes tags, scores and schedules the reminder, and only
+     * then logs its success marker - while the list row the caller awaited appears at the insert. The desktop
+     * sink itself never lags the call (`appendEntry` appends under `@Synchronized`); the CALL is what arrives
+     * after the UI. Same shape as the Android tier's `E2eHarness.assertLogged`.
+     *
+     * Early return is the ONLY success path: a marker that never appears runs to [timeoutMillis] and then
+     * fails below, so a genuine absence cannot pass by timing out.
      */
     protected fun assertLogged(
         source: String,
         message: String,
+        timeoutMillis: Long = JOURNEY_TIMEOUT_MS,
     ) {
+        val deadline = System.currentTimeMillis() + timeoutMillis
+        while (System.currentTimeMillis() < deadline) {
+            val text = sessionLogText()
+            if (text.contains("| $source |") && text.contains(message)) return
+            Thread.sleep(JOURNEY_POLL_INTERVAL_MS)
+        }
+        // Re-derived at the deadline rather than remembered, so the two phases stay distinguishable.
         val text = sessionLogText()
         check(text.contains("| $source |")) {
             "the session log carries no '$source' marker (log: ${sessionLogger.getLogPath()})"
