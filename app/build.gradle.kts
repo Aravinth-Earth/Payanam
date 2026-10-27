@@ -1,6 +1,7 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 import java.util.Properties
+import javax.inject.Inject
 import org.gradle.api.GradleException
 
 plugins {
@@ -45,6 +46,46 @@ require(declaredVersionCode == declaredPackedVersionCode) {
 // F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
 // the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
 val fdroidBuild = (project.findProperty("fdroidBuild") as String?)?.toBoolean() ?: false
+
+// :core:strings holds the only authored copy of every string resource. The app's res directory is
+// generated from it verbatim, so `R.string.*` keeps resolving without a second hand-maintained table.
+val payanamStringsResDir = layout.buildDirectory.dir("generated/payanam-strings-res")
+
+// The Variant API can only wire a directory whose producer is a DirectoryProperty on the task
+// itself; Copy exposes a plain File, so the copy is a small typed task instead.
+abstract class CopyPayanamStringsTask : DefaultTask() {
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:Input
+    abstract val relativePaths: SetProperty<String>
+
+    @get:OutputDirectory
+    abstract val destinationDirectory: DirectoryProperty
+
+    @get:Inject
+    abstract val fileSystemOperations: FileSystemOperations
+
+    @TaskAction
+    fun copyStrings() {
+        fileSystemOperations.copy {
+            from(sourceDirectory) {
+                include(relativePaths.get())
+            }
+            into(destinationDirectory)
+        }
+    }
+}
+
+val copyPayanamStrings by tasks.registering(CopyPayanamStringsTask::class) {
+    description = "Copies :core:strings' string tables byte-for-byte into the app's generated res directory"
+    group = "build"
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("core/strings/src/main/res"))
+    relativePaths.set(setOf("values/strings.xml", "values-ta/strings.xml"))
+    destinationDirectory.set(payanamStringsResDir)
+}
 
 android {
     namespace = "io.payanam"
@@ -223,6 +264,17 @@ android {
         if (fdroidBuild) {
             getByName("release").manifest.srcFile("src/fdroid/AndroidManifest.xml")
         }
+    }
+}
+
+// Registers the generated strings as a generated res source per variant, so AGP carries the copy
+// task's dependency to its readers. The SourceSet API cannot do this: it rejects Provider values.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(
+            copyPayanamStrings,
+            CopyPayanamStringsTask::destinationDirectory
+        )
     }
 }
 
