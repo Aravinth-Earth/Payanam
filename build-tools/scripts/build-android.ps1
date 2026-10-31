@@ -549,7 +549,9 @@ function Test-LocalizedStringDuplicates
             "ஏற்றுமதி" = @("backup_trigger_export", "settings_action_export")
             'கடைசி தோல்வி (%1$s): %2$s' = @("backup_failure_dialog_message_with_time", "settings_auto_backup_error_with_time")
             'கடைசி தோல்வி: %1$s' = @("backup_failure_dialog_message_without_time", "settings_auto_backup_error_without_time")
-            "ரத்து" = @("settings_action_cancel", "startup_cancel_action")
+            "தொடங்கு" = @("loc_start", "onboarding_action_start")
+            "தொடர்" = @("loc_continue", "loc_lens_time_streak_label")
+            "விவரங்களைச் சேர்..." = @("loc_add_any_details", "loc_add_details")
             "பயணத்திற்கு வரவேற்கிறோம்" = @("loc_welcome_to_payanam", "startup_title_welcome")
         }
     }
