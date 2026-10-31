@@ -259,7 +259,7 @@
     <string name="loc_blocks">blocks</string>
     <string name="loc_change">Change</string>
     <string name="loc_checking_database_status">Checking database status...</string>
-    <string name="loc_clear_not_filled">Clear Not Filled</string>
+    <string name="loc_clear_not_filled">Clear</string>
     <string name="loc_clear_plan">Clear Plan</string>
     <string name="loc_clear_search">Clear Search</string>
     <string name="loc_complete_task">Complete Task</string>
@@ -1261,6 +1261,5 @@
     <string name="settings_update_error_checksum_unavailable">Update not installed — the download could not be confirmed as genuine. Try again.</string>
     <string name="settings_update_error_checksum_absent">Update not installed — this release cannot be confirmed. Try again later.</string>
     <string name="activity_detail_col_raw">Raw</string>
-    <string name="activity_detail_col_continue">Cont</string>
 
 </resources>
