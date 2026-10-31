@@ -961,15 +961,6 @@
     <string name="startup_reset_dialog_body">This will remove the current local desktop database and clear the saved passphrase so setup can start fresh.</string>
     <string name="startup_reset_action">Reset</string>
     <string name="startup_reset_completed_status">Desktop data was reset. Create a new passphrase to continue.</string>
-    <!-- Startup gate summaries: the header card's per-mode body, moved out of the desktop gate. -->
-    <string name="startup_summary_welcome">Payanam is a local-first life tracker. Nothing leaves this machine, and your database is encrypted with a passphrase only you know.</string>
-    <string name="startup_summary_setup_passphrase">Create the desktop passphrase for this installation before continuing into the local-first app.</string>
-    <string name="startup_summary_unlock">Unlock the existing protected desktop installation to continue into the app.</string>
-    <string name="startup_summary_initialize">Create the local desktop database so this installation can start working on its own.</string>
-    <string name="startup_summary_focus">Choose the initial navigation preset for this desktop installation before entering the app shell.</string>
-    <string name="startup_summary_ready">Desktop startup checks are complete.</string>
-    <string name="startup_summary_security_unavailable">Payanam cannot read its local passphrase configuration. Your data has not been changed.</string>
-    <!-- Startup gate titles: the header card's per-mode heading, moved out of the desktop gate. -->
     <string name="desktop_shell_tagline">Local-first desktop</string>
     <string name="settings_day_boundary_title">Day boundary</string>
     <string name="settings_day_boundary_hint">The hour a day rolls over. Tasks and charts after this hour count toward the next day.</string>
@@ -980,13 +971,6 @@
     <string name="desktop_rail_route_not_selected">%1$s route not selected</string>
     <string name="desktop_content_pane_for">Desktop content pane for %1$s</string>
     <string name="startup_gate_content_description">Desktop startup gate</string>
-    <string name="startup_title_welcome">Welcome to Payanam</string>
-    <string name="startup_title_setup_passphrase">Set up local protection</string>
-    <string name="startup_title_unlock">Unlock local desktop session</string>
-    <string name="startup_title_initialize">Create local data space</string>
-    <string name="startup_title_focus">Choose your focus mode</string>
-    <string name="startup_title_ready">Desktop ready</string>
-    <string name="startup_title_security_unavailable">Security state unreadable</string>
     <string name="startup_cancel_action">Cancel</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
@@ -996,13 +980,10 @@
     <string name="settings_default_landing_current_tasks">current Tasks view</string>
     <string name="settings_default_landing_summary_time">Launches to Time screen</string>
     <string name="settings_default_landing_summary_tasks">Launches to Tasks with %1$s</string>
-    <string name="settings_auto_backup_error_title">Auto-backup failed</string>
-    <string name="settings_auto_backup_error_with_time">Last failure (%1$s): %2$s</string>
-    <string name="settings_auto_backup_error_without_time">Last failure: %1$s</string>
-    <string name="backup_failure_message_template">%1$s backup failed after %2$d attempts: %3$s</string>
-    <string name="backup_trigger_auto">Auto</string>
-    <string name="backup_trigger_manual">Manual</string>
-    <string name="backup_trigger_export">Export</string>
+    <string name="backup_failure_message_template">%1$s failed after %2$d attempts: %3$s</string>
+    <string name="backup_trigger_auto">Auto backup</string>
+    <string name="backup_trigger_manual">Manual backup</string>
+    <string name="backup_trigger_export">Export backup</string>
     <string name="settings_visibility_visible">Visible</string>
     <string name="settings_visibility_hidden">Hidden</string>
     <string name="settings_dimension_label">Label</string>
@@ -1164,7 +1145,6 @@
     <string name="loc_last_365_days">Last 365 Days</string>
     <string name="loc_last_7_days">Last 7 Days</string>
     <string name="loc_last_90_days">Last 90 Days</string>
-    <string name="loc_manual">Manual</string>
     <string name="loc_name">Name</string>
     <string name="loc_habit_sort_running_avg_desc">Average (high to low)</string>
     <string name="loc_habit_sort_running_avg_asc">Average (low to high)</string>

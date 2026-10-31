@@ -956,14 +956,6 @@
     <string name="startup_reset_action">மீட்டமை</string>
     <string name="startup_reset_completed_status">டெஸ்க்டாப் தரவு மீட்டமைக்கப்பட்டது. தொடர புதிய கடவுச்சொல்லை உருவாக்கவும்.</string>
     <!-- Same keys as the English table; parity is a build failure if either side is missing. -->
-    <string name="startup_summary_welcome">பயணம் ஒரு உள்ளூர்-முதன்மை வாழ்க்கை கண்காணிப்பி. எதுவும் இந்த இயந்திரத்தை விட்டு வெளியேறாது; உங்கள் தரவுத்தளம் நீங்கள் மட்டுமே அறிந்த கடவுச்சொல்லால் மறையாக்கப்பட்டுள்ளது.</string>
-    <string name="startup_summary_setup_passphrase">உள்ளூர்-முதன்மை செயலிக்குள் தொடர்வதற்கு முன், இந்த நிறுவலுக்கான டெஸ்க்டாப் கடவுச்சொல்லை உருவாக்கவும்.</string>
-    <string name="startup_summary_unlock">செயலிக்குள் தொடர, ஏற்கனவே உள்ள பாதுகாக்கப்பட்ட டெஸ்க்டாப் நிறுவலைத் திறக்கவும்.</string>
-    <string name="startup_summary_initialize">இந்த நிறுவல் சுயமாக வேலை செய்யத் தொடங்க, உள்ளூர் டெஸ்க்டாப் தரவுத்தளத்தை உருவாக்கவும்.</string>
-    <string name="startup_summary_focus">செயலி கூடத்திற்குள் செல்வதற்கு முன், இந்த டெஸ்க்டாப் நிறுவலுக்கான தொடக்க வழிசெலுத்தல் முன்னமைவைத் தேர்ந்தெடுக்கவும்.</string>
-    <string name="startup_summary_ready">டெஸ்க்டாப் தொடக்க சரிபார்ப்புகள் முடிந்தன.</string>
-    <string name="startup_summary_security_unavailable">பயணத்தால் அதன் உள்ளூர் கடவுச்சொல் அமைப்பை படிக்க முடியவில்லை. உங்கள் தரவு எதுவும் மாற்றப்படவில்லை.</string>
-    <!-- Same keys as the English table; parity is a build failure if either side is missing. -->
     <string name="desktop_shell_tagline">உள்ளூர்-முதன்மை டெஸ்க்டாப்</string>
     <string name="settings_day_boundary_title">நாள் எல்லை</string>
     <string name="settings_day_boundary_hint">நாள் மாறும் மணி. இந்த மணிக்குப் பிறகு பணிகளும் வரைபடங்களும் அடுத்த நாளில் சேரும்.</string>
@@ -974,13 +966,6 @@
     <string name="desktop_rail_route_not_selected">%1$s தேர்ந்தெடுக்கப்படவில்லை</string>
     <string name="desktop_content_pane_for">%1$s-க்கான டெஸ்க்டாப் உள்ளடக்கம்</string>
     <string name="startup_gate_content_description">டெஸ்க்டாப் தொடக்க வாயில்</string>
-    <string name="startup_title_welcome">பயணத்திற்கு வரவேற்கிறோம்</string>
-    <string name="startup_title_setup_passphrase">உள்ளூர் பாதுகாப்பை அமை</string>
-    <string name="startup_title_unlock">உள்ளூர் டெஸ்க்டாப் அமர்வைத் திற</string>
-    <string name="startup_title_initialize">உள்ளூர் தரவு இடத்தை உருவாக்கு</string>
-    <string name="startup_title_focus">கவனநிலையைத் தேர்ந்தெடு</string>
-    <string name="startup_title_ready">டெஸ்க்டாப் தயார்</string>
-    <string name="startup_title_security_unavailable">பாதுகாப்பு நிலையை படிக்க முடியவில்லை</string>
     <string name="startup_cancel_action">ரத்து</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
@@ -990,13 +975,10 @@
     <string name="settings_default_landing_current_tasks">தற்போதைய Tasks காட்சி</string>
     <string name="settings_default_landing_summary_time">நேரத் திரையில் தொடங்கும்</string>
     <string name="settings_default_landing_summary_tasks">Tasks இல் %1$s உடன் தொடங்கும்</string>
-    <string name="settings_auto_backup_error_title">தானியங்கி காப்புப்பிரதி தோல்வியடைந்தது</string>
-    <string name="settings_auto_backup_error_with_time">கடைசி தோல்வி (%1$s): %2$s</string>
-    <string name="settings_auto_backup_error_without_time">கடைசி தோல்வி: %1$s</string>
-    <string name="backup_failure_message_template">%1$s காப்புப்பிரதி %2$d முயற்சிகளுக்குப் பிறகும் தோல்வியடைந்தது: %3$s</string>
-    <string name="backup_trigger_auto">தானியங்கி</string>
-    <string name="backup_trigger_manual">கைமுறை</string>
-    <string name="backup_trigger_export">ஏற்றுமதி</string>
+    <string name="backup_failure_message_template">%1$s %2$d முயற்சிகளுக்குப் பிறகும் தோல்வியடைந்தது: %3$s</string>
+    <string name="backup_trigger_auto">தானியங்கி காப்புப்பிரதி</string>
+    <string name="backup_trigger_manual">கைமுறை காப்புப்பிரதி</string>
+    <string name="backup_trigger_export">காப்புப்பிரதி ஏற்றுமதி</string>
     <string name="settings_visibility_visible">காண்பி</string>
     <string name="settings_visibility_hidden">மறை</string>
     <string name="settings_dimension_label">பெயர்</string>
@@ -1158,7 +1140,6 @@
     <string name="loc_last_365_days">கடந்த 365 நாட்கள்</string>
     <string name="loc_last_7_days">கடந்த 7 நாட்கள்</string>
     <string name="loc_last_90_days">கடந்த 90 நாட்கள்</string>
-    <string name="loc_manual">கையேடு</string>
     <string name="loc_name">பெயர்படி</string>
     <string name="loc_habit_sort_running_avg_desc">சராசரி (அதிகம் முதல் குறைவு)</string>
     <string name="loc_habit_sort_running_avg_asc">சராசரி (குறைவு முதல் அதிகம்)</string>
