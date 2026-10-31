@@ -954,59 +954,29 @@
     <string name="startup_reset_dialog_title">டெஸ்க்டாப் தரவை மீட்டமைக்கவா?</string>
     <string name="startup_reset_dialog_body">இது தற்போதைய உள்ளூர் டெஸ்க்டாப் தரவுத்தளத்தை அகற்றி, சேமித்த கடவுச்சொல்லை அழித்து, அமைப்பை மீண்டும் புதிதாகத் தொடங்க உதவும்.</string>
     <string name="startup_reset_action">மீட்டமை</string>
-    <string name="startup_reset_completed_status">டெஸ்க்டாப் தரவு மீட்டமைக்கப்பட்டது. தொடர புதிய கடவுச்சொல்லை உருவாக்கவும்.</string>
     <!-- Same keys as the English table; parity is a build failure if either side is missing. -->
-    <string name="desktop_shell_tagline">உள்ளூர்-முதன்மை டெஸ்க்டாப்</string>
     <string name="settings_day_boundary_title">நாள் எல்லை</string>
     <string name="settings_day_boundary_hint">நாள் மாறும் மணி. இந்த மணிக்குப் பிறகு பணிகளும் வரைபடங்களும் அடுத்த நாளில் சேரும்.</string>
     <string name="settings_day_boundary_midnight">நள்ளிரவு</string>
     <string name="settings_day_boundary_five_am">காலை 5</string>
-    <string name="desktop_rail_navigate_to">%1$s-க்கு செல்</string>
-    <string name="desktop_rail_route_selected">%1$s தேர்ந்தெடுக்கப்பட்டது</string>
-    <string name="desktop_rail_route_not_selected">%1$s தேர்ந்தெடுக்கப்படவில்லை</string>
     <string name="desktop_content_pane_for">%1$s-க்கான டெஸ்க்டாப் உள்ளடக்கம்</string>
-    <string name="startup_gate_content_description">டெஸ்க்டாப் தொடக்க வாயில்</string>
     <string name="startup_cancel_action">ரத்து</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
          copied there from this table by app/build.gradle.kts. -->
     <string name="debug_launcher_app_name">பயணம் டிபக்</string>
-    <string name="settings_default_landing_time">நேரத் திரை</string>
-    <string name="settings_default_landing_current_tasks">தற்போதைய Tasks காட்சி</string>
-    <string name="settings_default_landing_summary_time">நேரத் திரையில் தொடங்கும்</string>
-    <string name="settings_default_landing_summary_tasks">Tasks இல் %1$s உடன் தொடங்கும்</string>
     <string name="backup_failure_message_template">%1$s %2$d முயற்சிகளுக்குப் பிறகும் தோல்வியடைந்தது: %3$s</string>
     <string name="backup_trigger_auto">தானியங்கி காப்புப்பிரதி</string>
     <string name="backup_trigger_manual">கைமுறை காப்புப்பிரதி</string>
     <string name="backup_trigger_export">காப்புப்பிரதி ஏற்றுமதி</string>
-    <string name="settings_visibility_visible">காண்பி</string>
-    <string name="settings_visibility_hidden">மறை</string>
-    <string name="settings_dimension_label">பெயர்</string>
-    <string name="settings_dimension_color">நிறம்</string>
-    <string name="settings_dimension_hide">பரிமாணம் மறை</string>
     <string name="settings_manual_backup_success">காப்புப்பிரதி வெற்றிகரமாக முடிந்தது (%1$s)</string>
     <string name="settings_manual_backup_failed">காப்புப்பிரதி தோல்வி: %1$s</string>
     <string name="settings_manual_backup_timeout">முடிவு வரக் காத்திருந்த நேரம் முடிந்தது</string>
-    <string name="db_import_passphrase_prompt_verifying">சரிபார்க்கிறது…</string>
     <string name="settings_snackbar_habit_score_diagnostics_complete">பழக்க மதிப்பெண் கண்டறிதல் பதிவானது. பழக்கங்கள்: %1$d, நிகழ்வுகளுடன்: %2$d</string>
     <string name="settings_snackbar_habit_score_diagnostics_failed">பழக்க மதிப்பெண் கண்டறிதல் தோல்வி: %1$s</string>
-    <string name="settings_action_run_legacy_label_fix">பழைய பெயர்களைச் சரிசெய்</string>
-    <string name="settings_action_run_legacy_label_fix_in_progress">பழைய பெயர்கள் சரிசெய்யப்படுகின்றன…</string>
-    <string name="settings_action_run_legacy_label_verify">சரிசெய்தலைச் சரிபார்</string>
-    <string name="settings_action_run_legacy_label_verify_in_progress">பெயர்கள் சரிபார்க்கப்படுகின்றன…</string>
-    <string name="settings_snackbar_legacy_label_fix_complete">பெயர் சரிசெய்தல் முடிந்தது. %1$d வரிகள் சரிசெய்யப்பட்டன</string>
-    <string name="settings_snackbar_legacy_label_fix_failed">பெயர் சரிசெய்தல் தோல்வி: %1$s</string>
-    <string name="settings_snackbar_legacy_label_verify_pass">சரிபார்ப்பு வெற்றி — தரமற்ற பெயர்கள் எதுவும் இல்லை</string>
-    <string name="settings_snackbar_legacy_label_verify_issues">சரிபார்ப்பு: %1$d தரமற்ற வரிகள் உள்ளன</string>
-    <string name="settings_snackbar_legacy_label_verify_failed">சரிபார்ப்பு தோல்வி: %1$s</string>
-    <string name="db_passphrase_unlock_title">தரவுத்தளத்தை திறக்கவும்</string>
-    <string name="db_passphrase_unlock_desc">தொடர பயன்பாட்டு கடவுச்சொல்லை உள்ளிடவும்.</string>
     <string name="db_init_wipe_backup_failed_title">காப்புப்பிரதி தோல்வி</string>
     <string name="db_init_wipe_backup_failed_body">தற்போதைய தரவுத்தளத்தின் பாதுகாப்பான காப்புப்பிரதி உருவாக்க முடியவில்லை. தொடர்வது பாதுகாப்பற்றது. மீண்டும் முயற்சிக்கவும் அல்லது அமைப்புகளில் இருந்து தரவை ஏற்றுமதி செய்யவும்.</string>
     <string name="db_init_dimension_setup_why_desc">வாழ்க்கை பரிமாணங்கள் உங்கள் பணிகள், நேர பதிவுகள், நுண்ணறிவுகளை ஒழுங்குபடுத்தும். இதை முடிக்காமல் பயன்பாட்டை திறக்க முடியாது.</string>
-    <string name="db_init_dimension_setup_default_action">இயல்புநிலை பயன்படுத்து</string>
-    <string name="db_init_dimension_setup_customize_action">தனிப்பயனாக்கு</string>
-    <string name="db_init_dimension_setup_default_desc">இயல்புநிலை அமைப்பில் இந்த தொடக்க பரிமாணங்கள் மற்றும் நிறங்கள் பயன்படுத்தப்படும். பின்னரும் அமைப்புகளில் மாற்றலாம்.</string>
     <string name="db_init_dimension_setup_selected_dimension">தேர்ந்தெடுத்த பரிமாணம்</string>
     <string name="language_switch_dialog_title">ஆப் மொழியை மாற்றவா?</string>
     <string name="language_switch_dialog_message">சிஸ்டம் மொழி மாறியுள்ளது. ஆப் மொழியை %1$s ஆக மாற்றவா?</string>
@@ -1097,8 +1067,6 @@
     <string name="loc_select_duration">கால அளவைத் தேர்ந்தெடு</string>
     <string name="loc_scheduled_not_marked">திட்டமிடப்பட்டது குறிக்கப்படவில்லை</string>
     <string name="loc_summary">சுருக்கம்</string>
-    <string name="loc_text">🔥</string>
-    <string name="loc_text_2">🏆</string>
     <string name="loc_unit">அலகு</string>
     <string name="loc_best_streak">சிறந்த ஸ்ட்ரீக்</string>
     <string name="loc_captured">கைப்பற்றப்பட்டது</string>
@@ -1141,18 +1109,6 @@
     <string name="loc_last_7_days">கடந்த 7 நாட்கள்</string>
     <string name="loc_last_90_days">கடந்த 90 நாட்கள்</string>
     <string name="loc_name">பெயர்படி</string>
-    <string name="loc_habit_sort_running_avg_desc">சராசரி (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_running_avg_asc">சராசரி (குறைவு முதல் அதிகம்)</string>
-    <string name="loc_habit_sort_score_desc">இன்று (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_score_asc">இன்று (குறைவு முதல் அதிகம்)</string>
-    <string name="loc_habit_sort_progress_desc">முன்னேற்றம் (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_progress_asc">முன்னேற்றம் (குறைவு முதல் அதிகம்)</string>
-    <string name="loc_habit_sort_streak_pos_desc">தொடர் (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_streak_pos_asc">தொடர் (குறைவு முதல் அதிகம்)</string>
-    <string name="loc_habit_sort_streak_net_desc">நிகர தொடர் (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_streak_net_asc">நிகர தொடர் (குறைவு முதல் அதிகம்)</string>
-    <string name="loc_habit_sort_pos_continue_desc">நிலைத்தன்மை (அதிகம் முதல் குறைவு)</string>
-    <string name="loc_habit_sort_pos_continue_asc">நிலைத்தன்மை (குறைவு முதல் அதிகம்)</string>
     <string name="loc_next_7_days">அடுத்த 7 நாட்கள்</string>
     <string name="loc_next_30_days">அடுத்த 30 நாட்கள்</string>
     <string name="loc_next_90_days">அடுத்த 90 நாட்கள்</string>
@@ -1255,6 +1211,5 @@
     <string name="settings_update_error_checksum_mismatch">புதுப்பிப்பு நிறுவப்படவில்லை — பதிவிறக்கிய கோப்பு வெளியிடப்பட்ட கோப்புடன் பொருந்தவில்லை. மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_checksum_unavailable">புதுப்பிப்பு நிறுவப்படவில்லை — பதிவிறக்கம் உண்மையானதா என்பதை உறுதிப்படுத்த முடியவில்லை. மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_update_error_checksum_absent">புதுப்பிப்பு நிறுவப்படவில்லை — இந்த வெளியீட்டை உறுதிப்படுத்த முடியாது. பிறகு மீண்டும் முயற்சிக்கவும்.</string>
-    <string name="activity_detail_col_raw">மூல</string>
 
 </resources>

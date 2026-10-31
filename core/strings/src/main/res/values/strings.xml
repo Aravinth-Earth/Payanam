@@ -960,58 +960,28 @@
     <string name="startup_reset_dialog_title">Reset desktop data?</string>
     <string name="startup_reset_dialog_body">This will remove the current local desktop database and clear the saved passphrase so setup can start fresh.</string>
     <string name="startup_reset_action">Reset</string>
-    <string name="startup_reset_completed_status">Desktop data was reset. Create a new passphrase to continue.</string>
-    <string name="desktop_shell_tagline">Local-first desktop</string>
     <string name="settings_day_boundary_title">Day boundary</string>
     <string name="settings_day_boundary_hint">The hour a day rolls over. Tasks and charts after this hour count toward the next day.</string>
     <string name="settings_day_boundary_midnight">Midnight</string>
     <string name="settings_day_boundary_five_am">5 AM</string>
-    <string name="desktop_rail_navigate_to">Navigate to %1$s</string>
-    <string name="desktop_rail_route_selected">%1$s route selected</string>
-    <string name="desktop_rail_route_not_selected">%1$s route not selected</string>
     <string name="desktop_content_pane_for">Desktop content pane for %1$s</string>
-    <string name="startup_gate_content_description">Desktop startup gate</string>
     <string name="startup_cancel_action">Cancel</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
          copied there from this table by app/build.gradle.kts. -->
     <string name="debug_launcher_app_name">Payanam Debug</string>
-    <string name="settings_default_landing_time">Time screen</string>
-    <string name="settings_default_landing_current_tasks">current Tasks view</string>
-    <string name="settings_default_landing_summary_time">Launches to Time screen</string>
-    <string name="settings_default_landing_summary_tasks">Launches to Tasks with %1$s</string>
     <string name="backup_failure_message_template">%1$s failed after %2$d attempts: %3$s</string>
     <string name="backup_trigger_auto">Auto backup</string>
     <string name="backup_trigger_manual">Manual backup</string>
     <string name="backup_trigger_export">Export backup</string>
-    <string name="settings_visibility_visible">Visible</string>
-    <string name="settings_visibility_hidden">Hidden</string>
-    <string name="settings_dimension_label">Label</string>
-    <string name="settings_dimension_color">Color</string>
-    <string name="settings_dimension_hide">Hide dimension</string>
     <string name="settings_manual_backup_success">Backup completed successfully (%1$s)</string>
     <string name="settings_manual_backup_failed">Backup failed: %1$s</string>
     <string name="settings_manual_backup_timeout">Timed out waiting for result</string>
-    <string name="db_import_passphrase_prompt_verifying">Verifying…</string>
     <string name="settings_snackbar_habit_score_diagnostics_complete">Habit score diagnostics logged. Habits: %1$d, with occurrences: %2$d</string>
     <string name="settings_snackbar_habit_score_diagnostics_failed">Habit score diagnostics failed: %1$s</string>
-    <string name="settings_action_run_legacy_label_fix">Fix Legacy Labels</string>
-    <string name="settings_action_run_legacy_label_fix_in_progress">Fixing Legacy Labels…</string>
-    <string name="settings_action_run_legacy_label_verify">Verify Label Fix</string>
-    <string name="settings_action_run_legacy_label_verify_in_progress">Verifying Labels…</string>
-    <string name="settings_snackbar_legacy_label_fix_complete">Label fix done. Fixed %1$d rows</string>
-    <string name="settings_snackbar_legacy_label_fix_failed">Label fix failed: %1$s</string>
-    <string name="settings_snackbar_legacy_label_verify_pass">Label verify passed — no non-standard labels found</string>
-    <string name="settings_snackbar_legacy_label_verify_issues">Label verify: %1$d non-standard rows remain</string>
-    <string name="settings_snackbar_legacy_label_verify_failed">Label verify failed: %1$s</string>
-    <string name="db_passphrase_unlock_title">Unlock your database</string>
-    <string name="db_passphrase_unlock_desc">Enter your app passphrase to continue.</string>
     <string name="db_init_wipe_backup_failed_title">Backup Failed</string>
     <string name="db_init_wipe_backup_failed_body">Could not create a safe backup of your current database. Proceeding is not safe. Please try again or export your data from Settings first.</string>
     <string name="db_init_dimension_setup_why_desc">Life dimensions organize your tasks, time logs, and insights. Complete this step before accessing the app.</string>
-    <string name="db_init_dimension_setup_default_action">Use Defaults</string>
-    <string name="db_init_dimension_setup_customize_action">Customize</string>
-    <string name="db_init_dimension_setup_default_desc">Default setup uses these starter dimensions and colors. You can still customize later from Settings.</string>
     <string name="db_init_dimension_setup_selected_dimension">Selected dimension</string>
     <string name="language_switch_dialog_title">Switch app language?</string>
     <string name="language_switch_dialog_message">System language changed. Switch app language to %1$s?</string>
@@ -1102,8 +1072,6 @@
     <string name="loc_select_duration">Select Duration</string>
     <string name="loc_scheduled_not_marked">Scheduled Not Marked</string>
     <string name="loc_summary">Summary</string>
-    <string name="loc_text">🔥</string>
-    <string name="loc_text_2">🏆</string>
     <string name="loc_unit">Unit</string>
     <string name="loc_best_streak">Best Streak</string>
     <string name="loc_captured">Captured</string>
@@ -1146,18 +1114,6 @@
     <string name="loc_last_7_days">Last 7 Days</string>
     <string name="loc_last_90_days">Last 90 Days</string>
     <string name="loc_name">Name</string>
-    <string name="loc_habit_sort_running_avg_desc">Average (high to low)</string>
-    <string name="loc_habit_sort_running_avg_asc">Average (low to high)</string>
-    <string name="loc_habit_sort_score_desc">Today (high to low)</string>
-    <string name="loc_habit_sort_score_asc">Today (low to high)</string>
-    <string name="loc_habit_sort_progress_desc">Progress (high to low)</string>
-    <string name="loc_habit_sort_progress_asc">Progress (low to high)</string>
-    <string name="loc_habit_sort_streak_pos_desc">Streak (high to low)</string>
-    <string name="loc_habit_sort_streak_pos_asc">Streak (low to high)</string>
-    <string name="loc_habit_sort_streak_net_desc">Net streak (high to low)</string>
-    <string name="loc_habit_sort_streak_net_asc">Net streak (low to high)</string>
-    <string name="loc_habit_sort_pos_continue_desc">Consistency (high to low)</string>
-    <string name="loc_habit_sort_pos_continue_asc">Consistency (low to high)</string>
     <string name="loc_next_7_days">Next 7 Days</string>
     <string name="loc_next_30_days">Next 30 Days</string>
     <string name="loc_next_90_days">Next 90 Days</string>
@@ -1260,6 +1216,5 @@
     <string name="settings_update_error_checksum_mismatch">Update not installed — the downloaded file does not match the published release file. Try again.</string>
     <string name="settings_update_error_checksum_unavailable">Update not installed — the download could not be confirmed as genuine. Try again.</string>
     <string name="settings_update_error_checksum_absent">Update not installed — this release cannot be confirmed. Try again later.</string>
-    <string name="activity_detail_col_raw">Raw</string>
 
 </resources>
