@@ -31,7 +31,7 @@
     <string name="onboarding_action_next">அடுத்து</string>
     <string name="app_name">பயணம்</string>
     <string name="db_passphrase_confirm_label">கடவுச்சொல்லை உறுதிப்படுத்து</string>
-    <string name="db_passphrase_db_summary_journal">ஜர்னல் பதிவுகள்: %1$d</string>
+    <string name="db_passphrase_db_summary_journal">நாட்குறிப்பு பதிவுகள்: %1$d</string>
     <string name="db_passphrase_db_summary_last_updated">கடைசியாக புதுப்பிக்கப்பட்டது: %1$s</string>
     <string name="db_passphrase_db_summary_notes">குறிப்புகள்: %1$d</string>
     <string name="db_passphrase_db_summary_storage_mode">சேமிப்பு முறை: %1$s</string>
@@ -98,9 +98,9 @@
     <string name="settings_option_font_monospace">எழுத்துரு: மோனோஸ்பேஸ்</string>
     <string name="settings_option_font_sans_serif">எழுத்துரு: சான்ஸ் செரிப்</string>
     <string name="settings_option_font_serif">எழுத்துரு: செரிப்</string>
-    <string name="settings_option_theme_dark">இருள் தீம்</string>
-    <string name="settings_option_theme_light">ஒளிர் தீம்</string>
-    <string name="settings_option_theme_system">சிஸ்டம் தீம்</string>
+    <string name="settings_option_theme_dark">இருண்ட தோற்றம்</string>
+    <string name="settings_option_theme_light">ஒளிர் தோற்றம்</string>
+    <string name="settings_option_theme_system">அமைப்பு தோற்றம்</string>
     <string name="settings_option_time_format_12h">12-மணி கடிகாரம்</string>
     <string name="settings_option_time_format_24h">24-மணி கடிகாரம்</string>
     <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
@@ -131,7 +131,7 @@
     <string name="db_init_dimension_setup_color_help">ஏற்கனவே பயன்படுத்திய நிறங்கள் முடக்கப்படும்.</string>
     <string name="db_init_dimension_setup_color_label">பரிமாண நிறம்</string>
     <string name="db_init_dimension_setup_continue_action">சரிபார்த்து தொடரவும்</string>
-    <string name="db_init_dimension_setup_customize_desc">சேர், திருத்து, நீக்கு செயல்களால் பரிமாணங்களை அமைத்து, எடிட்டரில் பெயர், ஐகான், மற்றும் நிறத்தை மாற்றவும்.</string>
+    <string name="db_init_dimension_setup_customize_desc">சேர், திருத்து, நீக்கு செயல்களால் பரிமாணங்களை அமைத்து, எடிட்டரில் பெயர், படவுரு, மற்றும் நிறத்தை மாற்றவும்.</string>
     <string name="db_init_dimension_setup_desc">புதிய தரவுத்தளங்களுக்கு இது கட்டாய அமைப்பு.</string>
     <string name="db_init_dimension_setup_not_saved">உங்கள் வாழ்க்கை பரிமாணங்கள் சேமிக்கப்படவில்லை, எனவே அவற்றை மீண்டும் தேர்ந்தெடுக்க வேண்டும். வேறு எதுவும் தக்கவைக்கப்படவில்லை.</string>
     <string name="db_init_dimension_setup_disable_action">முடக்கு</string>
@@ -141,13 +141,13 @@
     <string name="db_init_dimension_setup_error_name_required">செயலில் உள்ள ஒவ்வொரு பரிமாணத்துக்கும் பெயர் கட்டாயம்.</string>
     <string name="db_init_dimension_setup_error_no_slots_left">மேலும் பரிமாண இடங்கள் இல்லை. நீக்கியதை மீண்டும் சேர்க்கவும் அல்லது உள்ளவற்றை மறுபெயரிடவும்.</string>
     <string name="db_init_dimension_setup_error_row_duplicate_color">நகல் நிறம்</string>
-    <string name="db_init_dimension_setup_error_row_duplicate_icon">நகல் ஐகான்</string>
+    <string name="db_init_dimension_setup_error_row_duplicate_icon">நகல் படவுரு</string>
     <string name="db_init_dimension_setup_error_row_duplicate_name">நகல் பெயர்</string>
     <string name="db_init_dimension_setup_error_unique_colors">செயலில் உள்ள பரிமாண நிறங்கள் ஒவ்வொன்றும் தனித்துவமாக இருக்க வேண்டும்.</string>
-    <string name="db_init_dimension_setup_error_unique_icons">ஒவ்வொரு பரிமாணத்துக்கும் தனித்துவமான ஐகான் தேவை.</string>
+    <string name="db_init_dimension_setup_error_unique_icons">ஒவ்வொரு பரிமாணத்துக்கும் தனித்துவமான படவுரு தேவை.</string>
     <string name="db_init_dimension_setup_error_unique_names">செயலில் உள்ள பரிமாணப் பெயர்கள் ஒவ்வொன்றும் தனித்துவமாக இருக்க வேண்டும்.</string>
-    <string name="db_init_dimension_setup_icon_help">ஏற்கனவே பயன்படுத்திய ஐகான்கள் முடக்கப்படும். ஐகான்கள் ஒற்றை நிறத்தில் app theme tint-ஐ பயன்படுத்தும்.</string>
-    <string name="db_init_dimension_setup_icon_label">பரிமாண ஐகான்</string>
+    <string name="db_init_dimension_setup_icon_help">ஏற்கனவே பயன்படுத்திய படவுருக்கள் முடக்கப்படும். படவுருக்கள் ஒற்றை நிறத்தில் இருக்கும், செயலியின் தோற்ற நிறத்தைப் பயன்படுத்தும்.</string>
+    <string name="db_init_dimension_setup_icon_label">பரிமாண படவுரு</string>
     <string name="db_init_dimension_setup_name_label">பரிமாண பெயர்</string>
     <string name="db_init_dimension_setup_name_placeholder">பெயரிடாத பரிமாணம்</string>
     <string name="db_init_dimension_setup_title">வாழ்க்கைப் பரிமாணங்களை அமை</string>
@@ -220,7 +220,7 @@
     <string name="dimension_color_yellow_800">மஞ்சள் 800</string>
     <string name="dimension_picker_choose_color">நிறத்தைத் தேர்ந்தெடு</string>
     <string name="dimension_picker_choose_icon">ஐகானைத் தேர்ந்தெடு</string>
-    <string name="dimension_picker_icon_option">ஐகான் விருப்பம் %1$s</string>
+    <string name="dimension_picker_icon_option">படவுரு விருப்பம் %1$s</string>
     <string name="feedback_contact_email">payanam.feedback.unsettled941@8alias.com</string>
     <string name="feedback_contact_email_value">மின்னஞ்சல்: %1$s</string>
     <string name="feedback_contact_signal">zatu.69</string>
@@ -383,7 +383,7 @@
     <string name="loc_future">எதிர்காலம்</string>
     <string name="loc_gaps">இடைவெளிகள்</string>
     <string name="loc_go_to_habits">பழக்கங்களுக்குச் செல்</string>
-    <string name="loc_go_to_journal">குறிப்பேட்டுக்குச் செல்</string>
+    <string name="loc_go_to_journal">நாட்குறிப்புக்குச் செல்</string>
     <string name="loc_go_to_notes">குறிப்புகளுக்குச் செல்</string>
     <string name="loc_go_to_tasks">பணிகளுக்குச் செல்</string>
     <string name="loc_go_to_time">நேரத்திற்குச் செல்</string>
@@ -408,9 +408,9 @@
     <string name="loc_import_or_create_new_database">புதிய தரவுத்தளத்தை இறக்குமதி செய் அல்லது உருவாக்கு</string>
     <string name="loc_independent_of_due_date_leave_empty_to_skip">நிலுவைத் தேதியிலிருந்து சாராதது. </string>
     <string name="loc_intentional_rest">வேண்டுமென்றே ஓய்வு</string>
-    <string name="loc_journal">பத்திரிகை</string>
-    <string name="loc_journal_entries">பத்திரிகை பதிவுகள்:</string>
-    <string name="loc_journal_notes">பத்திரிகை குறிப்புகள்</string>
+    <string name="loc_journal">நாட்குறிப்பு</string>
+    <string name="loc_journal_entries">நாட்குறிப்பு பதிவுகள்:</string>
+    <string name="loc_journal_notes">நாட்குறிப்பு குறிப்புகள்</string>
     <string name="loc_journal_saved_for_date">%1$s-க்கு சேமிக்கப்பட்டது</string>
     <string name="loc_journal_saving_for_date">%1$s-க்கு சேமிக்கப்படுகிறது</string>
     <string name="loc_last">கடைசியாக</string>
@@ -419,7 +419,7 @@
     <string name="loc_lens_addressed_reflections_line">சரி செய்யப்பட்ட சிந்தனைகள்: %1$d / %2$d</string>
     <string name="loc_lens_chart_stat_7d_label">7D</string>
     <string name="loc_lens_close_day">நாள் முடிப்பு</string>
-    <string name="loc_lens_close_day_journal_hint">நாள் முடிவு சிந்தனை மற்றும் குறிப்பேடுக்கு இந்த பகுதியைப் பயன்படுத்தவும்.</string>
+    <string name="loc_lens_close_day_journal_hint">நாள் முடிவு சிந்தனைக்கும் நாட்குறிப்பு எழுதுவதற்கும் இந்தப் பகுதியைப் பயன்படுத்தவும்.</string>
     <string name="loc_lens_close_day_notes_hint">நாள் முடிப்பு குறிப்புகள் மற்றும் அடுத்த நாள் நினைவூட்டல்களை பதிவு செய்யவும்.</string>
     <string name="loc_lens_dim_split_chip_w1">1 நாள்</string>
     <string name="loc_lens_dim_split_chip_w180">180 நாட்கள்</string>
@@ -493,7 +493,7 @@
     <string name="loc_lens_time_spent_habits">பழக்கங்கள் மூலம் செலவிட்டது</string>
     <string name="loc_lens_time_spent_tasks">பணிகள் மூலம் செலவிட்டது</string>
     <string name="loc_lens_time_spent_time_only">நேரம் மட்டும் செலவிட்டது</string>
-    <string name="loc_lens_time_spent_untracked">பதிவில்லா செலவிட்ட நேரம்</string>
+    <string name="loc_lens_time_spent_untracked">கண்காணிப்பு இல்லாமல் செலவிட்டது</string>
     <string name="loc_lens_time_streak_label">தொடர்</string>
     <string name="loc_lens_time_streak_line">மோமென்டம் தொடர்: %1$d</string>
     <string name="loc_lens_time_streak_rank_label">தொடர் தரவரிசை</string>
@@ -506,7 +506,7 @@
     <string name="loc_lens_tracked_time_chart_title">தினசரி கண்காணிக்கப்பட்ட நேரம்</string>
     <string name="loc_lens_week_grid_no_data">வாராந்திர வடிவம் காட்ட கண்காணிப்பு தரவு இல்லை.</string>
     <string name="loc_lens_week_grid_title">வாராந்திர வடிவம்</string>
-    <string name="loc_lenses">காட்சிகள்</string>
+    <string name="loc_lenses">பார்வைகள்</string>
     <string name="loc_life_dimension">வாழ்க்கை பரிமாணம்</string>
     <string name="loc_life_dimension_weights">வாழ்க்கை பரிமாண எடைகள்</string>
     <string name="loc_loading_configuration">உள்ளமைவை ஏற்றுகிறது...</string>
@@ -700,7 +700,7 @@
     <string name="loc_tuesday">செவ்வாய்</string>
     <string name="loc_unknown_error_occurred">அறியப்படாத பிழை ஏற்பட்டது</string>
     <string name="loc_unknown_task">அறியப்படாத பணி</string>
-    <string name="loc_untracked">கண்காணிக்கப்படவில்லை</string>
+    <string name="loc_untracked">கண்காணிப்பு இல்லை</string>
     <string name="loc_untracked_tap_to_assign">%1$s • ஒதுக்க தட்டவும்</string>
     <string name="loc_waiting_on">காத்திருக்கிறது...</string>
     <string name="loc_warning">எச்சரிக்கை</string>
@@ -732,7 +732,7 @@
     <string name="pre_unlock_update_up_to_date">சமீபத்திய பதிப்பில்தான் உள்ளீர்கள்</string>
     <string name="preset_full_suite">முழு தொகுப்பு</string>
     <string name="preset_full_suite_desc">அனைத்து அம்சங்களையும் அணுகு</string>
-    <string name="preset_simple_journal">எளிது: குறிப்பேடு</string>
+    <string name="preset_simple_journal">எளிது: நாட்குறிப்பு</string>
     <string name="preset_simple_journal_desc">குறிப்புகளை எழுது மற்றும் நுண்ணறிவுகளை பார்</string>
     <string name="preset_simple_tasks">எளிது: பணிகள்</string>
     <string name="preset_simple_tasks_desc">பணிகளை நிர்வகி</string>
@@ -833,7 +833,7 @@
     <string name="settings_import_dialog_warning">⚠️ இது உங்கள் தற்போதைய தரவுத்தளத்தை முழுமையாக அழித்து, இறக்குமதி செய்யப்பட்டதை மாற்றும்.</string>
     <string name="settings_imported_habits_count">இறக்குமதி செய்யப்பட்ட uHabits பழக்கங்கள்: %1$d</string>
     <string name="settings_insights_charts_empty_hint">இந்த தொகுதிக்கு இன்னும் விளக்கப்படங்கள் இல்லை.</string>
-    <string name="settings_insights_charts_visibility_description">லென்ஸ்களில் எந்த நுண்ணறிவு தொகுதிகள் மற்றும் விளக்கப்படங்கள் தோன்ற வேண்டும், ஏற்றப்பட வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்.</string>
+    <string name="settings_insights_charts_visibility_description">பார்வைகள் திரையில் எந்த நுண்ணறிவு தொகுதிகள் மற்றும் விளக்கப்படங்கள் தோன்ற வேண்டும், ஏற்றப்பட வேண்டும் என்பதைத் தேர்ந்தெடுக்கவும்.</string>
     <string name="settings_insights_charts_visibility_title">நுண்ணறிவு விளக்கப்பட காட்சி</string>
     <string name="settings_insights_time_daily_score_trend_title">நாள் மதிப்பெண் போக்கு</string>
     <string name="settings_insights_time_dimension_score_cards_title">பரிமாண வாரியான மதிப்பெண் அட்டைகள்</string>
@@ -849,7 +849,7 @@
     <string name="settings_language_option_english">ஆங்கிலம்</string>
     <string name="settings_language_option_system">அமைப்பு</string>
     <string name="settings_language_option_tamil">தமிழ்</string>
-    <string name="settings_life_dimensions_description">பரிமாணத்தின் பெயர், ஐகான், அல்லது நிறத்தை மாற்ற பென்சில் படவுருவை தட்டவும்.</string>
+    <string name="settings_life_dimensions_description">பென்சில் படவுருவைத் தட்டி பரிமாணத்தின் பெயர், படவுரு அல்லது நிறத்தை மாற்றவும்.</string>
     <string name="settings_life_dimensions_title">வாழ்க்கை பரிமாணங்கள்</string>
     <string name="settings_loading_preferences">விருப்பங்கள் ஏற்றப்படுகிறது...</string>
     <string name="settings_manual_backup_in_progress">காப்புப்பிரதி நடைபெறுகிறது…</string>
@@ -864,7 +864,7 @@
     <string name="settings_snackbar_import_success">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_uhabits_import_success">uHabits இலிருந்து %1$d பழக்கங்கள், %2$d மீளுருப்படிகள் இறக்குமதி செய்யப்பட்டன</string>
-    <string name="settings_theme_mode">தீம் முறை</string>
+    <string name="settings_theme_mode">தோற்ற முறை</string>
     <string name="settings_time_format">நேர வடிவம்</string>
     <string name="settings_title">அமைப்புகள்</string>
     <string name="settings_update_auto_check">திறந்த பின் புதுப்பிப்புகளைச் சரிபார்</string>

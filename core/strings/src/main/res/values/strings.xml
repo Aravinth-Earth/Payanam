@@ -506,7 +506,7 @@
     <string name="loc_lens_tracked_time_chart_title">Daily Tracked Time</string>
     <string name="loc_lens_week_grid_no_data">No tracked data to show a weekly pattern.</string>
     <string name="loc_lens_week_grid_title">Weekly Pattern</string>
-    <string name="loc_lenses">Lenses</string>
+    <string name="loc_lenses">Views</string>
     <string name="loc_life_dimension">Life Dimension</string>
     <string name="loc_life_dimension_weights">Life Dimension Weights</string>
     <string name="loc_loading_configuration">Loading configuration...</string>
@@ -832,7 +832,7 @@
     <string name="settings_import_dialog_warning">⚠️ This will COMPLETELY DELETE your existing database and replace it with the imported one.</string>
     <string name="settings_imported_habits_count">Imported uHabits habits: %1$d</string>
     <string name="settings_insights_charts_empty_hint">No charts are available yet for this module.</string>
-    <string name="settings_insights_charts_visibility_description">Choose which insights modules and charts should appear and load in Lenses.</string>
+    <string name="settings_insights_charts_visibility_description">Choose which insights modules and charts should appear and load on the Views screen.</string>
     <string name="settings_insights_charts_visibility_title">Insights Charts Visibility</string>
     <string name="settings_insights_time_daily_score_trend_title">Daily score trend</string>
     <string name="settings_insights_time_dimension_score_cards_title">Per-dimension score cards</string>
