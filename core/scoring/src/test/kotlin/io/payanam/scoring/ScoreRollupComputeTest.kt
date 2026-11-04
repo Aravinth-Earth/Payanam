@@ -101,6 +101,97 @@ class ScoreRollupComputeTest {
         assertThat(row.posContinue).isEqualTo(posContinue)
     }
 
+    // -- FREQUENCY windows ---------------------------------------------------------------------------------
+
+    private fun frequencyTask(id: String = "h1") =
+        task(id = id, createdAt = day(14).toString(), recurrenceRule = "3/7")
+
+    private fun occurrenceOn(
+        daysAgo: Int,
+        status: String = "completed",
+        taskId: String = "h1",
+    ) = occurrence(taskId = taskId, dueDate = day(daysAgo).toString(), status = status)
+
+    @Test
+    fun `a frequency habit scores one row per window, not one row per day`() {
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = listOf(occurrenceOn(14), occurrenceOn(13), occurrenceOn(12)),
+            fromDay = day(14),
+        ).first
+
+        assertThat(rows.map { it.dayKey })
+            .containsExactly(day(8).toString(), day(1).toString())
+            .inOrder()
+        assertThat(rows.map { it.score }).containsExactly(1.0, 0.0).inOrder()
+    }
+
+    @Test
+    fun `a partially completed frequency window scores the completed ratio`() {
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = listOf(occurrenceOn(14)),
+            fromDay = day(14),
+        ).first
+
+        assertThat(rows).hasSize(2)
+        assertThat(rows.first().score).isWithin(1e-9).of(1.0 / 3.0)
+    }
+
+    @Test
+    fun `a frequency window caps at one when the target is exceeded`() {
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = listOf(occurrenceOn(14), occurrenceOn(13), occurrenceOn(12), occurrenceOn(11)),
+            fromDay = day(14),
+        ).first
+
+        assertThat(rows.first().score).isEqualTo(1.0)
+    }
+
+    @Test
+    fun `gap days inside a frequency window produce no row`() {
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = listOf(occurrenceOn(14), occurrenceOn(13), occurrenceOn(12)),
+            fromDay = day(14),
+        ).first
+
+        assertThat(rows.map { it.dayKey }).doesNotContain(day(10).toString())
+        assertThat(rows).hasSize(2)
+    }
+
+    @Test
+    fun `an open frequency window produces no row yet`() {
+        val task = task(id = "h1", createdAt = day(3).toString(), recurrenceRule = "3/7")
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = task,
+            occurrences = listOf(occurrenceOn(3)),
+            fromDay = day(3),
+        ).first
+
+        assertThat(rows).isEmpty()
+    }
+
+    @Test
+    fun `a tail starting mid-window scores the whole window, like a full rebuild`() {
+        val occurrences = listOf(occurrenceOn(14), occurrenceOn(13), occurrenceOn(12), occurrenceOn(7))
+        val full = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = occurrences,
+            fromDay = day(14),
+        ).first
+        val tail = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = occurrences,
+            fromDay = day(11),
+        ).first
+
+        assertThat(full.first().score).isEqualTo(1.0)
+        assertThat(tail.first().dayKey).isEqualTo(full.first().dayKey)
+        assertThat(tail.first().score).isEqualTo(full.first().score)
+    }
+
     // -- computeStreaks -----------------------------------------------------------------------------------
 
     @Test

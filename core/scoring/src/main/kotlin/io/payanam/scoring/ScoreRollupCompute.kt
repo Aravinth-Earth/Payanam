@@ -10,11 +10,14 @@ import io.payanam.database.entity.DimensionMetricEntity
 import io.payanam.database.entity.HabitMetricEntity
 import io.payanam.database.entity.TaskEntity
 import io.payanam.database.entity.TaskOccurrenceEntity
+import io.payanam.domain.model.Frequency
 import io.payanam.domain.model.NumDenToConfigConverter
 import io.payanam.domain.model.RecurrenceConfig
+import io.payanam.domain.model.RecurrenceType
 import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /**
@@ -179,6 +182,17 @@ object ScoreRollupCompute {
             ?: return Triple(emptyList(), null, convertedRule) // no history — rule still converted
         val config = RecurrenceConfig.parse(convertedRule)
         val today = LocalDate.now()
+        if (config.type == RecurrenceType.FREQUENCY) {
+            return buildFrequencyMetrics(
+                task = task,
+                occByDate = occByDate,
+                fromDay = fromDay,
+                baseline = baseline,
+                firstDue = firstDue,
+                anchor = anchor,
+                convertedRule = convertedRule,
+            )
+        }
         val rows = mutableListOf<HabitMetricEntity>()
         var sumScores = baseline.sumScores
         var count = baseline.count
@@ -212,6 +226,74 @@ object ScoreRollupCompute {
                 prevAvg = runningAvg
             }
             day = day.plusDays(1)
+        }
+        return Triple(rows, firstDue, convertedRule)
+    }
+
+    /**
+     * L1 rows for a FREQUENCY habit: one row per completed window, scored by
+     * `completed / effectiveTarget`, instead of one row per calendar day.
+     *
+     * A frequency habit is "X times per Y days", so a day with no occurrence is
+     * not a miss unless its whole window ended short. Gap days therefore produce
+     * no row at all, and the current window stays pending until it closes.
+     */
+    private fun buildFrequencyMetrics(
+        task: TaskEntity,
+        occByDate: Map<String, TaskOccurrenceEntity>,
+        fromDay: LocalDate,
+        baseline: MetricBaseline,
+        firstDue: LocalDate?,
+        anchor: LocalDate,
+        convertedRule: String,
+    ): Triple<List<HabitMetricEntity>, LocalDate?, String?> {
+        val frequency = Frequency.legacyParse(task.recurrenceRule)
+        val anchorDate = frequency.anchorDate ?: anchor
+        val occurrences = occByDate.values
+            .mapNotNull { occurrence -> parseLocalDate(occurrence.dueDate)?.let { it to occurrence.status } }
+            .toMap()
+        val yesterday = LocalDate.now().minusDays(1)
+        val denominator = frequency.denominator.coerceAtLeast(1)
+        val windowOffset =
+            Math.floorDiv(ChronoUnit.DAYS.between(anchorDate, fromDay), denominator.toLong()) * denominator
+        val containingWindowStart = anchorDate.plusDays(windowOffset)
+        val rangeStart = if (containingWindowStart.isBefore(anchorDate)) anchorDate else containingWindowStart
+        val windows = RecurrenceScoreCalculator.buildFrequencyWindows(
+            occurrences = occurrences,
+            frequency = frequency,
+            anchorDate = anchorDate,
+            rangeStart = rangeStart,
+            rangeEnd = yesterday,
+        )
+        val rows = mutableListOf<HabitMetricEntity>()
+        var sumScores = baseline.sumScores
+        var count = baseline.count
+        var prevAvg = baseline.prevAvg
+        var streakPos = baseline.streakPos
+        var streakNet = baseline.streakNet
+        var posContinue = baseline.posContinue
+        for (window in windows) {
+            if (window.end.isAfter(yesterday)) continue
+            val score = window.completionRatio.coerceIn(0.0, 1.0)
+            sumScores += score
+            count++
+            val runningAvg = sumScores / count
+            val progress = if (prevAvg == null) score else runningAvg - prevAvg
+            val streaks = computeStreaks(progress, runningAvg, streakPos, streakNet, posContinue)
+            streakPos = streaks[0]
+            streakNet = streaks[1]
+            posContinue = streaks[2]
+            rows += HabitMetricEntity(
+                habitId = task.id,
+                dayKey = window.end.toString(),
+                score = score,
+                runningAvg = runningAvg,
+                progress = progress,
+                streakPos = streakPos,
+                streakNet = streakNet,
+                posContinue = posContinue,
+            )
+            prevAvg = runningAvg
         }
         return Triple(rows, firstDue, convertedRule)
     }
