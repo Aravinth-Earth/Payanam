@@ -619,10 +619,6 @@ class DatabaseInitViewModel(
         )
         scope.launch {
             _uiState.update { it.copy(isCreating = true, errorMessage = null) }
-            // BEFORE the create, so the window the mark exists to cover is closed as early as it can be:
-            // from here until the catalog write lands, a quit loses the confirmed rows, and this is what
-            // makes the next launch say so instead of re-asking in silence.
-            markFirstRunDimensionsPending()
             var tempBackupDir: File? = null
             try {
                 withContext(ioDispatcher) {
@@ -652,6 +648,10 @@ class DatabaseInitViewModel(
                     }
                     val openResult = databaseSessionManager.openDatabase(createPassphrase)
                     openResult.getOrElse { throw IllegalStateException("Failed to open new DB session: ${it.message}", it) }
+                    // AFTER the session opens and BEFORE the catalog write: the repository refuses every
+                    // write while the session is closed, so marking earlier only logged a warning and the
+                    // loss stayed silent. This is the earliest point the row can actually be stored.
+                    markFirstRunDimensionsPending()
                     dimensionSetupPersister.persist(
                         lifeDimensionCatalogRepository = lifeDimensionCatalogRepository,
                         appSettingsRepository = appSettingsRepository,
