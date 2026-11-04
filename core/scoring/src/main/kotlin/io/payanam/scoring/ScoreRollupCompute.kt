@@ -17,6 +17,7 @@ import io.payanam.domain.model.RecurrenceType
 import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
 import java.time.format.DateTimeParseException
+import java.time.temporal.ChronoUnit
 import java.util.Locale
 
 /**
@@ -251,13 +252,18 @@ object ScoreRollupCompute {
         val occurrences = occByDate.values
             .mapNotNull { occurrence -> parseLocalDate(occurrence.dueDate)?.let { it to occurrence.status } }
             .toMap()
-        val rangeStart = if (fromDay.isAfter(anchorDate)) fromDay else anchorDate
+        val yesterday = LocalDate.now().minusDays(1)
+        val denominator = frequency.denominator.coerceAtLeast(1)
+        val windowOffset =
+            Math.floorDiv(ChronoUnit.DAYS.between(anchorDate, fromDay), denominator.toLong()) * denominator
+        val containingWindowStart = anchorDate.plusDays(windowOffset)
+        val rangeStart = if (containingWindowStart.isBefore(anchorDate)) anchorDate else containingWindowStart
         val windows = RecurrenceScoreCalculator.buildFrequencyWindows(
             occurrences = occurrences,
             frequency = frequency,
             anchorDate = anchorDate,
             rangeStart = rangeStart,
-            rangeEnd = LocalDate.now().minusDays(1),
+            rangeEnd = yesterday,
         )
         val rows = mutableListOf<HabitMetricEntity>()
         var sumScores = baseline.sumScores
@@ -267,6 +273,7 @@ object ScoreRollupCompute {
         var streakNet = baseline.streakNet
         var posContinue = baseline.posContinue
         for (window in windows) {
+            if (window.end.isAfter(yesterday)) continue
             val score = window.completionRatio.coerceIn(0.0, 1.0)
             sumScores += score
             count++

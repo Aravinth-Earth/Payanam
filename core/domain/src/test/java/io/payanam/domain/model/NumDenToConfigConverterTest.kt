@@ -66,6 +66,15 @@ class NumDenToConfigConverterTest {
         assertEquals(7, config.frequencyDenominator)
     }
 
+    @Test
+    fun `an embedded start wins over the caller anchor`() {
+        val config = RecurrenceConfig.parse(
+            NumDenToConfigConverter.convert("3/7!start=2026-01-01", LocalDate.of(2026, 2, 1)),
+        )
+        assertEquals(RecurrenceType.FREQUENCY, config.type)
+        assertEquals(LocalDate.of(2026, 1, 1), config.startDate)
+    }
+
     // ── 1/N → INTERVAL N with startDate ────────────────────────────────────
     @Test
     fun `1 slash 7 converts to INTERVAL 7 with anchor start`() {        val config = RecurrenceConfig.parse(NumDenToConfigConverter.convert("1/7", anchor))

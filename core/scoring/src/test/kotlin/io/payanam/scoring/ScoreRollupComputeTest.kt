@@ -161,6 +161,37 @@ class ScoreRollupComputeTest {
         assertThat(rows).hasSize(2)
     }
 
+    @Test
+    fun `an open frequency window produces no row yet`() {
+        val task = task(id = "h1", createdAt = day(3).toString(), recurrenceRule = "3/7")
+        val rows = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = task,
+            occurrences = listOf(occurrenceOn(3)),
+            fromDay = day(3),
+        ).first
+
+        assertThat(rows).isEmpty()
+    }
+
+    @Test
+    fun `a tail starting mid-window scores the whole window, like a full rebuild`() {
+        val occurrences = listOf(occurrenceOn(14), occurrenceOn(13), occurrenceOn(12), occurrenceOn(7))
+        val full = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = occurrences,
+            fromDay = day(14),
+        ).first
+        val tail = ScoreRollupCompute.buildHabitMetricsFrom(
+            task = frequencyTask(),
+            occurrences = occurrences,
+            fromDay = day(11),
+        ).first
+
+        assertThat(full.first().score).isEqualTo(1.0)
+        assertThat(tail.first().dayKey).isEqualTo(full.first().dayKey)
+        assertThat(tail.first().score).isEqualTo(full.first().score)
+    }
+
     // -- computeStreaks -----------------------------------------------------------------------------------
 
     @Test

@@ -47,6 +47,9 @@ object NumDenToConfigConverter {
         val frequency = Frequency.parse(normalized)
         val num = frequency.numerator
         val den = frequency.denominator
+        // The rule's own "!start=" wins over the caller's anchor: a stored frequency
+        // rule is scored from its embedded start, so the persisted CONFIG must agree.
+        val effectiveAnchor = frequency.anchorDate ?: anchorDate
         val config = when {
             // 1/1 or n/n → daily
             num >= den -> RecurrenceConfig.daily()
@@ -57,7 +60,7 @@ object NumDenToConfigConverter {
             den == 7 && num == 4 -> RecurrenceConfig.specificWeekdays(MON_THU_DAYS)
 
             // 1/365 → yearly
-            den == 365 && num == 1 -> RecurrenceConfig.yearly(anchorDate)
+            den == 365 && num == 1 -> RecurrenceConfig.yearly(effectiveAnchor)
 
             // X per Y days with X > 1 is a frequency window. The interval picker
             // always writes 1/N, so X > 1 cannot be an interval.
@@ -65,11 +68,11 @@ object NumDenToConfigConverter {
                 type = RecurrenceType.FREQUENCY,
                 frequencyNumerator = num,
                 frequencyDenominator = den,
-                startDate = anchorDate,
+                startDate = effectiveAnchor,
             )
 
             // 1/N → every N days
-            else -> RecurrenceConfig.everyNDays(den.coerceAtLeast(1), anchorDate)
+            else -> RecurrenceConfig.everyNDays(den.coerceAtLeast(1), effectiveAnchor)
         }
         return config.serialize()
     }
