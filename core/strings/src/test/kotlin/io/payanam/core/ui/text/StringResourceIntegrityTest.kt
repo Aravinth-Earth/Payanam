@@ -54,6 +54,14 @@ class StringResourceIntegrityTest {
         assertThat(trueDuplicates).isEmpty()
     }
 
+    @Test
+    fun `format specifiers match between English and Tamil`() {
+        val tables = tables()
+        val english = tables.getValue("values").associate { it.name to specifiers(it.value) }
+        val tamil = tables.getValue("values-ta").associate { it.name to specifiers(it.value) }
+        assertThat(tamil).containsExactlyEntriesIn(english)
+    }
+
     private fun tables(): Map<String, List<Entry>> {
         val resourceDir = resolveResourceDir()
         return Files.list(resourceDir).use { paths ->
@@ -90,7 +98,16 @@ class StringResourceIntegrityTest {
         error("Could not resolve core/strings/src/main/res from ${Path.of("").toAbsolutePath()}")
     }
 
+    private fun specifiers(value: String): List<String> =
+        formatSpecifier
+            .findAll(value.replace("%%", ""))
+            .map { it.value }
+            .toList()
+            .sorted()
+
     private fun normalize(value: String): String = value.trim().replace(Regex("\\s+"), " ").lowercase(Locale.ROOT)
+
+    private val formatSpecifier = Regex("""%(\d+\$)?[-#+ 0,(<]*\d*(\.\d+)?[a-zA-Z]""")
 
     private data class Entry(
         val name: String,

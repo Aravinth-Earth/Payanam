@@ -338,6 +338,7 @@ class DesktopNavHostDestinationRenderTest {
 
         composeRule.onNodeWithText(strings.dbPassphraseSetupTitle).assertIsDisplayed()
         composeRule.onNodeWithText(strings.dbPassphraseDbSummaryTitle).assertExists()
+        composeRule.onNodeWithText(strings.dbPassphraseDbSummaryTasks.formatArgs(0)).assertExists()
     }
 
     @Test
