@@ -63,6 +63,8 @@ Never hand-edit `gradle/version.properties`. The task writes both lines and refu
 ./gradlew bumpVersion -Pto=1.1.0
 ```
 
+Each segment must be `0`–`999`. `versionCode` packs them as three-digit fields, so `bumpVersion` refuses a segment above `999` — `1.1000.0` cannot be declared.
+
 `versionCode` is packed as `major×1,000,000 + minor×1,000 + patch`:
 
 | Version | versionCode |
