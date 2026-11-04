@@ -421,7 +421,7 @@ internal class DesktopPayanamNavHostScreens(
                 },
                 dismissButton = {
                     TextButton(onClick = { showResetConfirmDialog = false }) {
-                        Text(strings.startupCancelAction)
+                        Text(strings.settingsActionCancel)
                     }
                 },
             )

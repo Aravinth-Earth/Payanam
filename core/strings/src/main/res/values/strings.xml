@@ -34,7 +34,6 @@
     <string name="db_passphrase_db_summary_journal">Journal entries: %1$d</string>
     <string name="db_passphrase_db_summary_last_updated">Last updated: %1$s</string>
     <string name="db_passphrase_db_summary_notes">Notes: %1$d</string>
-    <string name="db_passphrase_db_summary_storage_mode">Storage mode: %1$s</string>
     <string name="db_passphrase_db_summary_tasks">Tasks: %1$d</string>
     <string name="db_passphrase_db_summary_time_entries">Time entries: %1$d</string>
     <string name="db_passphrase_db_summary_title">Detected local database summary</string>
@@ -56,7 +55,6 @@
     <string name="db_passphrase_setup_title">Secure your database</string>
     <string name="db_passphrase_storage_mode_encrypted">Encrypted</string>
     <string name="db_passphrase_storage_mode_label">Storage mode</string>
-    <string name="db_passphrase_storage_mode_plaintext">Plaintext</string>
     <string name="db_passphrase_unlock_action">Unlock</string>
     <string name="db_passphrase_unlock_biometric_action">Unlock with biometric</string>
     <string name="db_passphrase_unlock_biometric_enable_hint">Unlock with passphrase first, then enable biometric from Settings > Security.</string>
@@ -847,7 +845,7 @@
     <string name="settings_insights_time_score_cards_title">Score cards</string>
     <string name="settings_language_option_english">English</string>
     <string name="settings_language_option_system">System</string>
-    <string name="settings_language_option_tamil">தமிழ்</string>
+    <string name="settings_language_option_tamil">Tamil</string>
     <string name="settings_life_dimensions_description">Tap the pencil icon to rename a dimension or update its icon and colour.</string>
     <string name="settings_life_dimensions_title">Life Dimensions</string>
     <string name="settings_loading_preferences">Loading preferences...</string>
@@ -938,8 +936,6 @@
     <string name="settings_import_error_encryption_convert_failed">Imported database could not be converted to encrypted format. Export logs and retry. If it still fails, use reset local data and re-import.</string>
     <string name="settings_import_error_folder_missing_db">Selected folder does not contain a database file.</string>
     <string name="settings_import_error_folder_multiple_db">Selected folder has multiple .db files. Choose a specific backup folder.</string>
-    <string name="settings_import_error_schema_too_new">Imported database schema %1$d is newer than this app supports (%2$d).</string>
-    <string name="settings_import_error_schema_too_old">Imported database schema %1$d is too old. Minimum supported schema is %2$d.</string>
     <string name="settings_import_error_select_main_db">Select the main database file (.db), not -wal or -shm.</string>
     <string name="settings_import_error_source_stream_open">Could not open selected backup source.</string>
     <!-- REWORDED, not promoted verbatim. The old wording said "Export a plaintext backup from the source
@@ -965,7 +961,6 @@
     <string name="settings_day_boundary_midnight">Midnight</string>
     <string name="settings_day_boundary_five_am">5 AM</string>
     <string name="desktop_content_pane_for">Desktop content pane for %1$s</string>
-    <string name="startup_cancel_action">Cancel</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
          copied there from this table by app/build.gradle.kts. -->

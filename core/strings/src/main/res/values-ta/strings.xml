@@ -34,7 +34,6 @@
     <string name="db_passphrase_db_summary_journal">நாட்குறிப்பு பதிவுகள்: %1$d</string>
     <string name="db_passphrase_db_summary_last_updated">கடைசியாக புதுப்பிக்கப்பட்டது: %1$s</string>
     <string name="db_passphrase_db_summary_notes">குறிப்புகள்: %1$d</string>
-    <string name="db_passphrase_db_summary_storage_mode">சேமிப்பு முறை: %1$s</string>
     <string name="db_passphrase_db_summary_tasks">பணிகள்: %1$d</string>
     <string name="db_passphrase_db_summary_time_entries">நேர பதிவுகள்: %1$d</string>
     <string name="db_passphrase_db_summary_title">கண்டறியப்பட்ட உள்ளூர் தரவுத்தள சுருக்கம்</string>
@@ -56,7 +55,6 @@
     <string name="db_passphrase_setup_title">தரவுத்தளப் பாதுகாப்பு</string>
     <string name="db_passphrase_storage_mode_encrypted">குறியாக்கப்பட்டது</string>
     <string name="db_passphrase_storage_mode_label">சேமிப்பு முறை</string>
-    <string name="db_passphrase_storage_mode_plaintext">எளிய உரை</string>
     <string name="db_passphrase_unlock_action">திற</string>
     <string name="db_passphrase_unlock_biometric_action">உயிர்முறை மூலம் திற</string>
     <string name="db_passphrase_unlock_biometric_enable_hint">முதலில் கடவுச்சொல்லால் திறக்கவும்; பின்னர் அமைப்புகள் > பாதுகாப்பில் உயிர்முறை திறப்பை இயக்கவும்.</string>
@@ -103,7 +101,7 @@
     <string name="settings_option_theme_system">அமைப்பு தோற்றம்</string>
     <string name="settings_option_time_format_12h">12-மணி கடிகாரம்</string>
     <string name="settings_option_time_format_24h">24-மணி கடிகாரம்</string>
-    <string name="settings_snackbar_all_logs_export_failed">அனைத்து பதிவுகளின் ஏற்றுமதி தோல்வி</string>
+    <string name="settings_snackbar_all_logs_export_failed">அனைத்துப் பதிவுகளையும் ஏற்றுமதி செய்ய முடியவில்லை</string>
     <string name="settings_snackbar_all_logs_exported">அனைத்துப் பதிவுகளும் ஏற்றுமதி செய்யப்பட்டன: %1$s</string>
     <string name="settings_snackbar_latest_log_export_failed">தற்போதைய அமர்வு பதிவு ஏற்றுமதி தோல்வி</string>
     <string name="settings_snackbar_latest_log_exported">தற்போதைய அமர்வு பதிவு ஏற்றுமதி செய்யப்பட்டது: %1$s</string>
@@ -250,9 +248,9 @@
     <string name="loc_all_time">எல்லா நேரமும்</string>
     <string name="loc_apply">பயன்படுத்து</string>
     <string name="loc_archive">காப்பகம்</string>
-    <string name="loc_archived">காப்பகப்படுத்தப்பட்டது</string>
+    <string name="loc_archived">காப்பகம்</string>
     <string name="loc_auto">ஆட்டோ</string>
-    <string name="loc_back">மீண்டும்</string>
+    <string name="loc_back">திரும்பு</string>
     <string name="loc_based_on_completion_time">நிறைவு நேரத்தின் அடிப்படையில்</string>
     <string name="loc_blocked_by_something">ஏதோவொன்றால் தடுக்கப்பட்டது</string>
     <string name="loc_blocked_reason">தடுக்கப்பட்ட காரணம்</string>
@@ -285,7 +283,7 @@
     <string name="loc_daily">தினசரி</string>
     <string name="loc_daily_reflection">தினசரி பிரதிபலிப்பு</string>
     <string name="loc_database_corruption_detected">தரவுத்தள ஊழல் கண்டறியப்பட்டது</string>
-    <string name="loc_database_needs_repair">தரவுத்தள பழுது தேவை</string>
+    <string name="loc_database_needs_repair">தரவுத்தளத்தைப் பழுதுபார்க்க வேண்டும்</string>
     <string name="loc_database_schema_errors">தரவுத்தள திட்டப் பிழைகள்</string>
     <string name="loc_day_plan">நாள் திட்டம்</string>
     <string name="loc_day_plan_auto_defaults">தானியங்கி வார்ப்புரு இயல்புநிலைகள்</string>
@@ -333,7 +331,7 @@
     <string name="loc_dimension_desc_community_service">பிறருக்கு உதவி, சமூக பங்குபெறல், ஒத்துழைப்பு, மற்றும் தனிப்பட்ட அல்லது குடும்ப தேவைகளைத் தாண்டி பயன் உருவாக்கும் செயல்கள்.</string>
     <string name="loc_dimension_desc_unassigned">வகைப்படுத்தப்படாத அல்லது இறக்குமதி செய்யப்பட்ட பதிவுகளுக்கான அமைப்பு fallback.</string>
     <string name="loc_dimension_reflections">பரிமாண பிரதிபலிப்புகள்</string>
-    <string name="loc_done">செய்துவிட்டேன்</string>
+    <string name="loc_done">முடிந்தது</string>
     <string name="loc_done_2">✓ முடிந்தது</string>
     <string name="loc_due_date">இறுதி தேதி</string>
     <string name="loc_due_date_earliest">நிலுவை தேதி (முன்)</string>
@@ -341,8 +339,8 @@
     <string name="loc_due_date_time">நிலுவைத் தேதி நேரம்</string>
     <string name="loc_due_today_only">இன்று மட்டும்</string>
     <string name="loc_duration">கால அளவு</string>
-    <string name="loc_duration_hours_minutes_compact">%1$dம %2$dநி</string>
-    <string name="loc_duration_minutes_compact">%1$dமீ</string>
+    <string name="loc_duration_hours_minutes_compact">%1$dமணி %2$dநிமி</string>
+    <string name="loc_duration_minutes_compact">%1$dநிமி</string>
     <string name="loc_duration_minutes_plain">கால அளவு: %1$d நிமிடம்</string>
     <string name="loc_e_g_0_7">எ.கா., 0.7</string>
     <string name="loc_e_g_0_8">எ.கா., 0.8</string>
@@ -400,13 +398,13 @@
     <string name="loc_high_alignment">உயர் சீரமைப்பு</string>
     <string name="loc_how_did_it_go">எப்படி சென்றது</string>
     <string name="loc_how_long_did_it_take">எவ்வளவு நேரம் எடுத்தது?</string>
-    <string name="loc_how_was_it_any_observations">எப்படி இருந்தது? </string>
+    <string name="loc_how_was_it_any_observations">எப்படி இருந்தது? ஏதேனும் கவனிப்புகள்?</string>
     <string name="loc_impact">தாக்கம்</string>
     <string name="loc_impact_high_to_low">தாக்கம் அதிகம் முதல் குறைவு</string>
     <string name="loc_impact_levels">தாக்க நிலைகள்</string>
     <string name="loc_import_database_file">தரவுத்தளக் கோப்பை (.db) இறக்குமதி செய்</string>
     <string name="loc_import_or_create_new_database">புதிய தரவுத்தளத்தை இறக்குமதி செய் அல்லது உருவாக்கு</string>
-    <string name="loc_independent_of_due_date_leave_empty_to_skip">நிலுவைத் தேதியிலிருந்து சாராதது. </string>
+    <string name="loc_independent_of_due_date_leave_empty_to_skip">நிலுவைத் தேதியிலிருந்து சாராதது. தவிர்க்கக் காலியாக விடவும்.</string>
     <string name="loc_intentional_rest">வேண்டுமென்றே ஓய்வு</string>
     <string name="loc_journal">நாட்குறிப்பு</string>
     <string name="loc_journal_entries">நாட்குறிப்பு பதிவுகள்:</string>
@@ -417,7 +415,7 @@
     <string name="loc_last_7_days_avg">கடைசி 7 நாள் சராசரி</string>
     <string name="loc_leave_empty_if_not_blocked">தடுக்கவில்லை என்றால் காலியாக விடவும்.</string>
     <string name="loc_lens_addressed_reflections_line">சரி செய்யப்பட்ட சிந்தனைகள்: %1$d / %2$d</string>
-    <string name="loc_lens_chart_stat_7d_label">7D</string>
+    <string name="loc_lens_chart_stat_7d_label">7நா</string>
     <string name="loc_lens_close_day">நாள் முடிப்பு</string>
     <string name="loc_lens_close_day_journal_hint">நாள் முடிவு சிந்தனைக்கும் நாட்குறிப்பு எழுதுவதற்கும் இந்தப் பகுதியைப் பயன்படுத்தவும்.</string>
     <string name="loc_lens_close_day_notes_hint">நாள் முடிப்பு குறிப்புகள் மற்றும் அடுத்த நாள் நினைவூட்டல்களை பதிவு செய்யவும்.</string>
@@ -432,18 +430,18 @@
     <string name="loc_lens_focus_avg_value">%1$d%% சராசரி</string>
     <string name="loc_lens_focus_gap_line">கவன இடைவெளி: %1$s</string>
     <string name="loc_lens_focused_hours_chart_title">தினசரி கவனம் செலுத்திய மணிநேரம்</string>
-    <string name="loc_lens_group_by_dimension">பரிமாணக் குழு வாரியாக</string>
+    <string name="loc_lens_group_by_dimension">பரிமாணம் வாரியாக</string>
     <string name="loc_lens_group_overall">மொத்தம்</string>
     <string name="loc_lens_heatmap_no_data">காட்டக் கண்காணிக்கப்பட்ட பதிவுகள் இல்லை.</string>
     <string name="loc_lens_heatmap_title">தினசரி காலவரிசை</string>
     <string name="loc_lens_kpi_addressed_ratio_value">%1$d / %2$d கவனிக்கப்பட்டது</string>
     <string name="loc_lens_kpi_completion_quality">நிறைவு தரம்</string>
     <string name="loc_lens_kpi_drift">நடைவேற்ற விலகல்</string>
-    <string name="loc_lens_kpi_execution_so_far">இன்றுவரை செயலாக்கம்</string>
+    <string name="loc_lens_kpi_execution_so_far">இதுவரை செயலாக்கம்</string>
     <string name="loc_lens_kpi_focus_gap">கவன இடைவெளி</string>
     <string name="loc_lens_kpi_in_flight">நடப்பில்</string>
     <string name="loc_lens_kpi_missed_so_far">இதுவரை தவறியது</string>
-    <string name="loc_lens_kpi_plan_coverage">திட்ட கவரேஜ்</string>
+    <string name="loc_lens_kpi_plan_coverage">திட்டக் கவர்வு</string>
     <string name="loc_lens_kpi_planned_load">திட்டமிட்ட சுமை</string>
     <string name="loc_lens_kpi_readiness">தயார்நிலை</string>
     <string name="loc_lens_kpi_reflection_outcomes">சிந்தனை முடிவுகள்</string>
@@ -522,7 +520,7 @@
     <string name="loc_metric_net_streak">நிகர தொடர்</string>
     <string name="loc_metric_running_avg">சராசரி</string>
     <string name="loc_minimal_impact">குறைந்தபட்ச தாக்கம்</string>
-    <string name="loc_miss">மிஸ்</string>
+    <string name="loc_miss">தவறவிட்டது</string>
     <string name="loc_missed">தவறவிட்டது</string>
     <string name="loc_moderate">மிதமான</string>
     <string name="loc_moderate_alignment">மிதமான சீரமைப்பு</string>
@@ -602,7 +600,7 @@
     <string name="loc_rank">தரவரிசை</string>
     <string name="loc_reason_optional">காரணம் விருப்பமானது</string>
     <string name="loc_recurrence_pattern">மறுநிகழ்வு முறை</string>
-    <string name="loc_recurring">மீண்டும் மீண்டும்</string>
+    <string name="loc_recurring">மீளும்</string>
     <string name="loc_reminder_notifications">நினைவூட்டல் அறிவிப்புகள்</string>
     <string name="loc_remove">அகற்று</string>
     <string name="loc_repeat_schedule">அட்டவணையை மீண்டும் செய்யவும்</string>
@@ -633,7 +631,7 @@
     <string name="loc_selected_dates_click_remove">தேர்ந்த தேதிகளை அகற்றக் கிளிக் செய்</string>
     <string name="loc_selected_day">தேர்ந்த நாள்</string>
     <string name="loc_settings_chart_excl_empty_days">கண்காணிப்பு இல்லாத நாட்களை விலக்கு</string>
-    <string name="loc_show_archived">காப்பகப்படுத்தப்பட்டதைக் காட்டு</string>
+    <string name="loc_show_archived">காப்பகத்தைக் காட்டு</string>
     <string name="loc_showing_last_10_of_reschedules">%1$d மறுஅட்டவணைகளில் கடைசி 10ஐக் காட்டுகிறது</string>
     <string name="loc_sick_unwell">உடம்பு சரியில்லை</string>
     <string name="loc_skip_task">பணியைத் தவிர்</string>
@@ -659,7 +657,7 @@
     <string name="loc_stop_tracking">கண்காணிப்பை நிறுத்து</string>
     <string name="loc_sunday">ஞாயிறு</string>
     <string name="loc_tagged_title">%1$s: %2$s</string>
-    <string name="loc_tags_hint">tag1, tag2, tag3</string>
+    <string name="loc_tags_hint">டேக்1, டேக்2, டேக்3</string>
     <string name="loc_tags_optional">டேக்குகள் (விருப்பமானது)</string>
     <string name="loc_tap_add_create_task">பணியைச் சேர்க்கத் தட்டவும்</string>
     <string name="loc_tap_add_first_note">முதல் குறிப்பைச் சேர்க்கத் தட்டவும்</string>
@@ -863,7 +861,7 @@
     <string name="settings_snackbar_import_failed">இறக்குமதி தோல்வி: %1$s</string>
     <string name="settings_snackbar_import_success">%1$d பணிகள், %2$d நேர பதிவுகள், %3$d குறிப்புகள் இறக்குமதி செய்யப்பட்டன</string>
     <string name="settings_snackbar_uhabits_import_failed">uHabits இறக்குமதி தோல்வி: %1$s</string>
-    <string name="settings_snackbar_uhabits_import_success">uHabits இலிருந்து %1$d பழக்கங்கள், %2$d மீளுருப்படிகள் இறக்குமதி செய்யப்பட்டன</string>
+    <string name="settings_snackbar_uhabits_import_success">uHabits இலிருந்து %1$d பழக்கங்கள், %2$d மீள்நிகழ்வுகள் இறக்குமதி செய்யப்பட்டன</string>
     <string name="settings_theme_mode">தோற்ற முறை</string>
     <string name="settings_time_format">நேர வடிவம்</string>
     <string name="settings_title">அமைப்புகள்</string>
@@ -872,7 +870,7 @@
     <string name="settings_update_available">புதுப்பிப்பு கிடைக்கிறது: %1$s</string>
     <string name="settings_update_check_again_button">மீண்டும் சரிபார்</string>
     <string name="settings_update_check_button">புதுப்பிப்பைச் சரிபார்</string>
-    <string name="settings_update_checking">புதுப்பிப்புகளைச் சரிபார்க்கிறது…</string>
+    <string name="settings_update_checking">சரிபார்க்கிறது…</string>
     <string name="settings_update_download_button">புதுப்பிப்பைப் பதிவிறக்கு</string>
     <string name="settings_update_download_failed">பதிவிறக்கம் தோல்வி. இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்.</string>
     <string name="settings_update_downloaded">பதிவிறக்கம் முடிந்தது — நிறுவ தயார்</string>
@@ -907,12 +905,12 @@
     <string name="settings_update_prompt_install">பதிவிறக்கிய பின் நிறுவக் கேட்கும்</string>
     <string name="settings_update_retry_button">மீண்டும் முயற்சி செய்</string>
     <string name="settings_update_running_build_type">நீங்கள் இயக்குவது: %1$s பில்ட்</string>
-    <string name="settings_update_type_mismatch">பில்ட் வகை பொருந்தவில்லை — இந்த நிறுவலுக்கு ஏற்ற புதுப்பிப்பு இல்லை.</string>
+    <string name="settings_update_type_mismatch">கட்டுமான வகை பொருந்தவில்லை — இந்த நிறுவலுக்கு ஏற்ற புதுப்பிப்பு இல்லை.</string>
     <string name="settings_update_up_to_date">நீங்கள் சமீபத்திய பதிப்பில் உள்ளீர்கள் (%1$s)</string>
     <string name="settings_update_view_release">வெளியீட்டைக் காண</string>
     <string name="settings_update_wifi_only">வைஃபையில் மட்டும் பதிவிறக்கு</string>
     <string name="skip_focus_mode">பின்னர் தேர்வு செய்கிறேன்</string>
-    <string name="tab_visibility">தாவல் காட்சி</string>
+    <string name="tab_visibility">தாவல் தெரிவுநிலை</string>
     <string name="tab_visibility_warning">தனிப்பட்ட தாவல் மாற்றங்கள் செயலில் உள்ள முன்னமைவை மாற்றும்</string>
     <string name="task_notification_action_complete">முடி</string>
     <string name="task_notification_action_skip">தவிர்</string>
@@ -936,8 +934,6 @@
     <string name="settings_import_error_encryption_convert_failed">இறக்குமதி தரவுத்தளத்தை குறியாக்க வடிவமாக மாற்ற முடியவில்லை. பதிவுகளை ஏற்றுமதி செய்து மீண்டும் முயற்சிக்கவும். தொடர்ந்து தோல்வியெனில் உள்ளூர் தரவை மீட்டமைத்து மீண்டும் இறக்குமதி செய்யவும்.</string>
     <string name="settings_import_error_folder_missing_db">தேர்ந்தெடுத்த கோப்புறையில் தரவுத்தள கோப்பு இல்லை.</string>
     <string name="settings_import_error_folder_multiple_db">தேர்ந்தெடுத்த கோப்புறையில் பல .db கோப்புகள் உள்ளன. குறிப்பிட்ட காப்புப்பிரதி கோப்புறையைத் தேர்ந்தெடுக்கவும்.</string>
-    <string name="settings_import_error_schema_too_new">இறக்குமதி தரவுத்தளத்தின் திட்டப் பதிப்பு %1$d இந்த செயலி ஆதரிப்பதைக் (%2$d) காட்டிலும் புதியது.</string>
-    <string name="settings_import_error_schema_too_old">இறக்குமதி தரவுத்தளத்தின் திட்டப் பதிப்பு %1$d மிகவும் பழையது. குறைந்தபட்ச ஆதரிக்கப்பட்ட திட்டப் பதிப்பு %2$d.</string>
     <string name="settings_import_error_select_main_db">முக்கிய தரவுத்தள கோப்பை (.db) தேர்ந்தெடுக்கவும்; -wal அல்லது -shm அல்ல.</string>
     <string name="settings_import_error_source_stream_open">தேர்ந்தெடுக்கப்பட்ட காப்புப்பிரதி மூலத்தை திறக்க முடியவில்லை.</string>
     <!-- REWORDED with the EN key above, same reason: it must not tell a Tamil reader to export a
@@ -960,7 +956,6 @@
     <string name="settings_day_boundary_midnight">நள்ளிரவு</string>
     <string name="settings_day_boundary_five_am">காலை 5</string>
     <string name="desktop_content_pane_for">%1$s-க்கான டெஸ்க்டாப் உள்ளடக்கம்</string>
-    <string name="startup_cancel_action">ரத்து</string>
 
     <!-- Android app screen copy. Resolved on Android through the generated res directory,
          copied there from this table by app/build.gradle.kts. -->

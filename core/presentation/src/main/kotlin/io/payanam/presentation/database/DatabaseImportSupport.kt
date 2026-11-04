@@ -49,21 +49,6 @@ data class DatabaseImportCopyResult(
     val companionFilesCopied: Int,
 )
 
-/**
- * The schema range an imported plaintext database must fall in, read from the ONE place that owns it.
- *
- * This used to be `DatabaseHealthChecker.MIN_MIGRATABLE_VERSION` / `.CURRENT_VERSION`, which are
- * themselves aliases of [PayanamDatabaseSchema] — an Android library in `:core:database`, invisible to a
- * `kotlin.jvm` module. Naming the shared constant directly keeps the same number and removes a hop.
- */
-object DatabaseImportSchemaRange {
-    /** Oldest schema this build can migrate an import forward from. */
-    val minimumSupported: Int = PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION
-
-    /** The schema this build writes, and therefore the newest an import may be. */
-    val currentSupported: Int = PayanamDatabaseSchema.VERSION
-}
-
 /** Copying an import's artifact family out of a picked document, and gating what may be picked. */
 object DatabaseImportSupport {
     private val logger get() = AppLogger.current
