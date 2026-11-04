@@ -56,7 +56,7 @@ enum class DesktopTopLevelRoute(
     TIME(storageKey = "time", displayName = "Time"),
     JOURNAL(storageKey = "journal", displayName = "Journal"),
     NOTES(storageKey = "notes", displayName = "Notes"),
-    LENSES(storageKey = "lenses", displayName = "Lenses"),
+    LENSES(storageKey = "lenses", displayName = "Views"),
     SETTINGS(storageKey = "settings", displayName = "Settings"),
     ;
 

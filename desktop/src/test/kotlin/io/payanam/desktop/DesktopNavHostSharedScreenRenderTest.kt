@@ -382,7 +382,7 @@ class DesktopNavHostSharedScreenRenderTest {
                 WiredDestination(PayanamTab.Journal.route, "journal", CopiedBy.CONTENT_DESCRIPTION, strings.locPreviousDay),
                 // `locGoToTime` -> "Go to Time": the Time module card's CTA, drawn by `LensesScreen` alone
                 // and present whether that card is expanded or not. Chosen over the screen's own top-bar
-                // title, which is "Lenses" - the Lenses TAB's label, and therefore drawn by the bottom bar
+                // title, which is "Views" - the Views TAB's label, and therefore drawn by the bottom bar
                 // whether or not any body composed.
                 WiredDestination(PayanamTab.Lenses.route, "lenses", CopiedBy.TEXT, strings.locGoToTime),
                 // `settingsAppearanceTitle` -> "Appearance": the settings screen's own first card, against

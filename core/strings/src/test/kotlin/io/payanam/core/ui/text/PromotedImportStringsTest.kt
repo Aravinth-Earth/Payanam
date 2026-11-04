@@ -23,8 +23,6 @@ class PromotedImportStringsTest {
                 strings.settingsImportErrorEncryptionConvertFailed,
                 strings.settingsImportErrorFolderMissingDb,
                 strings.settingsImportErrorFolderMultipleDb,
-                strings.settingsImportErrorSchemaTooNew,
-                strings.settingsImportErrorSchemaTooOld,
                 strings.settingsImportErrorSelectMainDb,
                 strings.settingsImportErrorSourceStreamOpen,
             ).forEach { copy ->
@@ -50,24 +48,6 @@ class PromotedImportStringsTest {
             .isEqualTo("Select the main database file (.db), not -wal or -shm.")
         assertThat(english.settingsImportErrorSourceStreamOpen)
             .isEqualTo("Could not open selected backup source.")
-    }
-
-    @Test
-    fun theTwoSchemaErrorsKeepBothNumbersInOrder() {
-        // These two carry TWO format arguments and they mean different things: the schema the file HAS,
-        // then the schema the app supports. Swapping them would tell a user their old backup is newer
-        // than this app - the exact inverse of the truth - so the order is pinned, not just the presence.
-        listOf(UiLanguage.ENGLISH, UiLanguage.TAMIL).forEach { language ->
-            val strings = UiStrings.of(language)
-            listOf(
-                strings.settingsImportErrorSchemaTooNew,
-                strings.settingsImportErrorSchemaTooOld,
-            ).forEach { copy ->
-                assertThat(copy).contains("%1\$d")
-                assertThat(copy).contains("%2\$d")
-                assertThat(copy.indexOf("%1\$d")).isLessThan(copy.indexOf("%2\$d"))
-            }
-        }
     }
 
     @Test

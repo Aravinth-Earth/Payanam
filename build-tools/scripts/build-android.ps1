@@ -526,145 +526,6 @@ function Invoke-DeviceSmokePack
 # publish-release.ps1 shares the exact same implementation instead of copying it.
 
 
-function Test-LocalizedStringDuplicates
-{
-    param([string]$ResourceRoot = "app/src/main/res")
-
-    # Rare, intentional duplicates can be allowlisted here.
-    # Format:
-    # "app/src/main/res/values/strings.xml" = @{
-    #   "Exact normalized value" = @("key_one", "key_two")
-    # }
-    $stringDuplicateAllowList = @{
-        "app/src/main/res/values/strings.xml" = @{
-            "Auto" = @("backup_trigger_auto", "loc_auto")
-            "Export" = @("backup_trigger_export", "settings_action_export")
-            'Last failure (%1$s): %2$s' = @("backup_failure_dialog_message_with_time", "settings_auto_backup_error_with_time")
-            'Last failure: %1$s' = @("backup_failure_dialog_message_without_time", "settings_auto_backup_error_without_time")
-            "Manual" = @("backup_trigger_manual", "loc_manual")
-        }
-        "app/src/main/res/values-ta/strings.xml" = @{
-            "ஏற்றுமதி" = @("backup_trigger_export", "settings_action_export")
-            'கடைசி தோல்வி (%1$s): %2$s' = @("backup_failure_dialog_message_with_time", "settings_auto_backup_error_with_time")
-            'கடைசி தோல்வி: %1$s' = @("backup_failure_dialog_message_without_time", "settings_auto_backup_error_without_time")
-        }
-    }
-
-    $stringFiles = Get-ChildItem -Path $ResourceRoot -Recurse -File -Filter "strings.xml" |
-        Where-Object { $_.FullName -match '[\\/]values([\\-][^\\/]+)?[\\/]strings\.xml$' }
-
-    if ($stringFiles.Count -eq 0)
-    {
-        Write-LogWithTime "  ⚠️ No strings.xml files found under $ResourceRoot" "Yellow"
-        return $true
-    }
-
-    $violations = @()
-
-    foreach ($file in $stringFiles)
-    {
-        try
-        {
-            [xml]$xmlDoc = Get-Content $file.FullName -Raw
-        } catch
-        {
-            $violations += [PSCustomObject]@{
-                Type = "parse"
-                File = $file.FullName
-                Detail = "Failed to parse XML: $($_.Exception.Message)"
-            }
-            continue
-        }
-
-        $localeFile = ($file.FullName -replace '\\', '/')
-        $localeFile = $localeFile.Substring($localeFile.IndexOf("app/src/main/res/"))
-
-        $strings = @()
-        foreach ($node in $xmlDoc.resources.string)
-        {
-            $name = [string]$node.name
-            if ([string]::IsNullOrWhiteSpace($name))
-            {
-                continue
-            }
-
-            $rawValue = [string]$node.'#text'
-            if ($null -eq $rawValue)
-            {
-                $rawValue = ""
-            }
-
-            $normalizedValue = ($rawValue.Trim() -replace '\s+', ' ')
-            $strings += [PSCustomObject]@{
-                Name = $name
-                Value = $normalizedValue
-            }
-        }
-
-        $duplicateNames = $strings |
-            Group-Object Name |
-            Where-Object { $_.Count -gt 1 }
-        foreach ($dup in $duplicateNames)
-        {
-            $violations += [PSCustomObject]@{
-                Type = "duplicate_name"
-                File = $localeFile
-                Detail = "name='$($dup.Name)' count=$($dup.Count)"
-            }
-        }
-
-        $duplicateValues = $strings |
-            Where-Object { -not [string]::IsNullOrWhiteSpace($_.Value) } |
-            Group-Object Value |
-            Where-Object { $_.Count -gt 1 }
-
-        foreach ($dup in $duplicateValues)
-        {
-            $keys = $dup.Group | Select-Object -ExpandProperty Name | Sort-Object
-            $value = $dup.Name
-
-            $isAllowlisted = $false
-            if ($stringDuplicateAllowList.ContainsKey($localeFile))
-            {
-                $localeAllowList = $stringDuplicateAllowList[$localeFile]
-                if ($localeAllowList.ContainsKey($value))
-                {
-                    $expectedKeys = @($localeAllowList[$value] | Sort-Object)
-                    if (
-                        $expectedKeys.Count -eq $keys.Count -and
-                        ((Compare-Object -ReferenceObject $expectedKeys -DifferenceObject $keys).Count -eq 0)
-                    )
-                    {
-                        $isAllowlisted = $true
-                    }
-                }
-            }
-
-            if (-not $isAllowlisted)
-            {
-                $violations += [PSCustomObject]@{
-                    Type = "duplicate_value"
-                    File = $localeFile
-                    Detail = "value='$value' keys=[$($keys -join ', ')]"
-                }
-            }
-        }
-    }
-
-    if ($violations.Count -gt 0)
-    {
-        Write-LogWithTime "  ❌ Localized strings duplicate check failed ($($violations.Count) issue(s)):" "Red"
-        foreach ($violation in $violations)
-        {
-            Write-LogWithTime "     - [$($violation.Type)] $($violation.File): $($violation.Detail)" "Red"
-        }
-        Write-LogWithTime "  Resolve duplicates or add a precise allowlist exception in build-android.ps1." "Yellow"
-        return $false
-    }
-
-    return $true
-}
-
 function Get-StringTable
 {
     param([string]$Path)
@@ -706,41 +567,23 @@ function Get-StringTable
 function Test-StringParity
 {
     # WHAT "PARITY" MEANS HERE, because the word gets used loosely and the resources hold no category
-    # to hang it on. There are exactly FOUR shipping string tables - app/.../values + values-ta, and
-    # core/strings/.../values + values-ta - and they are FLAT: every entry is a single <string
-    # name="...">, with no plurals, no string-arrays, no translatable="false", and no "normal" versus
-    # "promoted" split anywhere. "Promoted" is history rather than a category: it describes a string
-    # that MOVED from app/... into :core:strings so the desktop renders the same words, and the only
-    # place the word survives is the name of a test file.
+    # to hang it on. There is exactly ONE authored string table per language - core/strings/.../values
+    # and values-ta - and it is FLAT: every entry is a single <string name="...">, with no plurals,
+    # no string-arrays and no translatable="false". The app's res directory is generated from those same
+    # two files by a Copy task in app/build.gradle.kts, so an Android-only copy cannot drift from the
+    # shared one: there is no second table left to compare against.
     #
-    # So this guard checks the two invariants those four tables must satisfy. Both have been broken.
-    #
-    #  RULE A - one language cannot lose a key. app EN and app TA must hold the SAME key set, and so
-    #  must core EN and core TA. A key held by one language only is a screen that ships untranslated,
-    #  and the count difference is the visible symptom of it.
+    #  RULE A - one language cannot lose a key. The EN and TA tables must hold the SAME key set. A key
+    #  held by one language only is a screen that ships untranslated, and the count difference is the
+    #  visible symptom of it.
     #  (app/src/debug/res and app/src/release/res are build-variant OVERLAYS with no Tamil counterpart
-    #  by design, so they are deliberately not paired here rather than being silently skipped.)
-    #
-    #  RULE B - where the two tables hold the same key, they must agree. A key in both ships TWICE:
-    #  once from the shared table the promoted ViewModels read, and once from the platform table the
-    #  Android UI actually resolves. Measured 2026-09-29: 972 keys are held by both, in each language;
-    #  re-measured 2026-10-04: 990 keys are held by both, still with 0 value differences. Treat the
-    #  count as a dated snapshot - what the rule asserts is zero DIFFERENCES, not a particular count.
-    #
-    #  RULE B is the one that has actually failed in the field. settings_import_error_unreadable_db was
-    #  reworded in the shared table while the app table kept "Export a plaintext backup from the source
-    #  device, then re-import" - an instruction no Payanam version can satisfy, because Payanam's export
-    #  IS the encrypted database file - so user-facing Android copy told users to do the impossible.
-    #  The unit test that pinned the wording passed throughout, because it reads UiStrings.of(language),
-    #  which is the shared table. A green test, a wrong APK: the PAIR is what needs checking, and only a
-    #  guard that reads both files can check it.
+    #  by design, so they are deliberately not paired here rather than being silently skipped. Neither
+    #  defines anything the main table lacks except launcher_app_name, which only aliases a key in it.)
     $pairs = @(
-        @{ Name = "app"; En = "app/src/main/res/values/strings.xml"; Ta = "app/src/main/res/values-ta/strings.xml" },
         @{ Name = "core/strings"; En = "core/strings/src/main/res/values/strings.xml"; Ta = "core/strings/src/main/res/values-ta/strings.xml" }
     )
 
     $violations = @()
-    $tables = @{}
 
     foreach ($pair in $pairs)
     {
@@ -767,9 +610,6 @@ function Test-StringParity
             continue
         }
 
-        $tables["$($pair.Name)|en"] = $enTable
-        $tables["$($pair.Name)|ta"] = $taTable
-
         $enOnly = @($enTable.Keys | Where-Object { -not $taTable.ContainsKey($_) } | Sort-Object)
         $taOnly = @($taTable.Keys | Where-Object { -not $enTable.ContainsKey($_) } | Sort-Object)
 
@@ -784,37 +624,6 @@ function Test-StringParity
             $shown = ($taOnly | Select-Object -First 10) -join ', '
             $suffix = if ($taOnly.Count -gt 10) { " (+$($taOnly.Count - 10) more)" } else { "" }
             $violations += "[$($pair.Name)] $($taOnly.Count) key(s) exist in TA but not in EN: $shown$suffix"
-        }
-    }
-
-    foreach ($language in @("en", "ta"))
-    {
-        $appTable = $tables["app|$language"]
-        $coreTable = $tables["core/strings|$language"]
-
-        if ($null -eq $appTable -or $null -eq $coreTable)
-        {
-            continue
-        }
-
-        $differing = 0
-        foreach ($key in ($appTable.Keys | Sort-Object))
-        {
-            if (-not $coreTable.ContainsKey($key))
-            {
-                continue
-            }
-
-            if ($appTable[$key] -ne $coreTable[$key])
-            {
-                $differing++
-                $appValue = $appTable[$key]
-                $coreValue = $coreTable[$key]
-                if ($appValue.Length -gt 110) { $appValue = $appValue.Substring(0, 110) + "..." }
-                if ($coreValue.Length -gt 110) { $coreValue = $coreValue.Substring(0, 110) + "..." }
-
-                $violations += "[$language] '$key' differs between the two tables:`n         app : $appValue`n         core: $coreValue"
-            }
         }
     }
 
@@ -1712,14 +1521,7 @@ if ($importViolations.Count -gt 0)
 }
 Write-LogWithTime "  ✅ File length guard passed" "Green"
 
-Write-LogWithTime "Checking localized strings duplicate guard..." "Cyan"
-if (-not (Test-LocalizedStringDuplicates))
-{
-    Exit-WithCleanup 1
-}
-Write-LogWithTime "  ✅ Localized strings duplicate guard passed" "Green"
-
-Write-LogWithTime "Checking string parity (EN <-> TA keys, app <-> core/strings values)..." "Cyan"
+Write-LogWithTime "Checking string parity (EN <-> TA keys in the shared table)..." "Cyan"
 if (-not (Test-StringParity))
 {
     Exit-WithCleanup 1

@@ -34,7 +34,6 @@
     <string name="db_passphrase_db_summary_journal">Journal entries: %1$d</string>
     <string name="db_passphrase_db_summary_last_updated">Last updated: %1$s</string>
     <string name="db_passphrase_db_summary_notes">Notes: %1$d</string>
-    <string name="db_passphrase_db_summary_storage_mode">Storage mode: %1$s</string>
     <string name="db_passphrase_db_summary_tasks">Tasks: %1$d</string>
     <string name="db_passphrase_db_summary_time_entries">Time entries: %1$d</string>
     <string name="db_passphrase_db_summary_title">Detected local database summary</string>
@@ -56,7 +55,6 @@
     <string name="db_passphrase_setup_title">Secure your database</string>
     <string name="db_passphrase_storage_mode_encrypted">Encrypted</string>
     <string name="db_passphrase_storage_mode_label">Storage mode</string>
-    <string name="db_passphrase_storage_mode_plaintext">Plaintext</string>
     <string name="db_passphrase_unlock_action">Unlock</string>
     <string name="db_passphrase_unlock_biometric_action">Unlock with biometric</string>
     <string name="db_passphrase_unlock_biometric_enable_hint">Unlock with passphrase first, then enable biometric from Settings > Security.</string>
@@ -259,7 +257,7 @@
     <string name="loc_blocks">blocks</string>
     <string name="loc_change">Change</string>
     <string name="loc_checking_database_status">Checking database status...</string>
-    <string name="loc_clear_not_filled">Clear Not Filled</string>
+    <string name="loc_clear_not_filled">Clear</string>
     <string name="loc_clear_plan">Clear Plan</string>
     <string name="loc_clear_search">Clear Search</string>
     <string name="loc_complete_task">Complete Task</string>
@@ -506,7 +504,7 @@
     <string name="loc_lens_tracked_time_chart_title">Daily Tracked Time</string>
     <string name="loc_lens_week_grid_no_data">No tracked data to show a weekly pattern.</string>
     <string name="loc_lens_week_grid_title">Weekly Pattern</string>
-    <string name="loc_lenses">Lenses</string>
+    <string name="loc_lenses">Views</string>
     <string name="loc_life_dimension">Life Dimension</string>
     <string name="loc_life_dimension_weights">Life Dimension Weights</string>
     <string name="loc_loading_configuration">Loading configuration...</string>
@@ -832,7 +830,7 @@
     <string name="settings_import_dialog_warning">⚠️ This will COMPLETELY DELETE your existing database and replace it with the imported one.</string>
     <string name="settings_imported_habits_count">Imported uHabits habits: %1$d</string>
     <string name="settings_insights_charts_empty_hint">No charts are available yet for this module.</string>
-    <string name="settings_insights_charts_visibility_description">Choose which insights modules and charts should appear and load in Lenses.</string>
+    <string name="settings_insights_charts_visibility_description">Choose which insights modules and charts should appear and load on the Views screen.</string>
     <string name="settings_insights_charts_visibility_title">Insights Charts Visibility</string>
     <string name="settings_insights_time_daily_score_trend_title">Daily score trend</string>
     <string name="settings_insights_time_dimension_score_cards_title">Per-dimension score cards</string>
@@ -847,7 +845,7 @@
     <string name="settings_insights_time_score_cards_title">Score cards</string>
     <string name="settings_language_option_english">English</string>
     <string name="settings_language_option_system">System</string>
-    <string name="settings_language_option_tamil">தமிழ்</string>
+    <string name="settings_language_option_tamil">Tamil</string>
     <string name="settings_life_dimensions_description">Tap the pencil icon to rename a dimension or update its icon and colour.</string>
     <string name="settings_life_dimensions_title">Life Dimensions</string>
     <string name="settings_loading_preferences">Loading preferences...</string>
@@ -938,8 +936,6 @@
     <string name="settings_import_error_encryption_convert_failed">Imported database could not be converted to encrypted format. Export logs and retry. If it still fails, use reset local data and re-import.</string>
     <string name="settings_import_error_folder_missing_db">Selected folder does not contain a database file.</string>
     <string name="settings_import_error_folder_multiple_db">Selected folder has multiple .db files. Choose a specific backup folder.</string>
-    <string name="settings_import_error_schema_too_new">Imported database schema %1$d is newer than this app supports (%2$d).</string>
-    <string name="settings_import_error_schema_too_old">Imported database schema %1$d is too old. Minimum supported schema is %2$d.</string>
     <string name="settings_import_error_select_main_db">Select the main database file (.db), not -wal or -shm.</string>
     <string name="settings_import_error_source_stream_open">Could not open selected backup source.</string>
     <!-- REWORDED, not promoted verbatim. The old wording said "Export a plaintext backup from the source
@@ -960,33 +956,61 @@
     <string name="startup_reset_dialog_title">Reset desktop data?</string>
     <string name="startup_reset_dialog_body">This will remove the current local desktop database and clear the saved passphrase so setup can start fresh.</string>
     <string name="startup_reset_action">Reset</string>
-    <string name="startup_reset_completed_status">Desktop data was reset. Create a new passphrase to continue.</string>
-    <!-- Startup gate summaries: the header card's per-mode body, moved out of the desktop gate. -->
-    <string name="startup_summary_welcome">Payanam is a local-first life tracker. Nothing leaves this machine, and your database is encrypted with a passphrase only you know.</string>
-    <string name="startup_summary_setup_passphrase">Create the desktop passphrase for this installation before continuing into the local-first app.</string>
-    <string name="startup_summary_unlock">Unlock the existing protected desktop installation to continue into the app.</string>
-    <string name="startup_summary_initialize">Create the local desktop database so this installation can start working on its own.</string>
-    <string name="startup_summary_focus">Choose the initial navigation preset for this desktop installation before entering the app shell.</string>
-    <string name="startup_summary_ready">Desktop startup checks are complete.</string>
-    <string name="startup_summary_security_unavailable">Payanam cannot read its local passphrase configuration. Your data has not been changed.</string>
-    <!-- Startup gate titles: the header card's per-mode heading, moved out of the desktop gate. -->
-    <string name="desktop_shell_tagline">Local-first desktop</string>
     <string name="settings_day_boundary_title">Day boundary</string>
     <string name="settings_day_boundary_hint">The hour a day rolls over. Tasks and charts after this hour count toward the next day.</string>
     <string name="settings_day_boundary_midnight">Midnight</string>
     <string name="settings_day_boundary_five_am">5 AM</string>
-    <string name="desktop_rail_navigate_to">Navigate to %1$s</string>
-    <string name="desktop_rail_route_selected">%1$s route selected</string>
-    <string name="desktop_rail_route_not_selected">%1$s route not selected</string>
     <string name="desktop_content_pane_for">Desktop content pane for %1$s</string>
-    <string name="startup_gate_content_description">Desktop startup gate</string>
-    <string name="startup_title_welcome">Welcome to Payanam</string>
-    <string name="startup_title_setup_passphrase">Set up local protection</string>
-    <string name="startup_title_unlock">Unlock local desktop session</string>
-    <string name="startup_title_initialize">Create local data space</string>
-    <string name="startup_title_focus">Choose your focus mode</string>
-    <string name="startup_title_ready">Desktop ready</string>
-    <string name="startup_title_security_unavailable">Security state unreadable</string>
-    <string name="startup_cancel_action">Cancel</string>
+
+    <!-- Android app screen copy. Resolved on Android through the generated res directory,
+         copied there from this table by app/build.gradle.kts. -->
+    <string name="debug_launcher_app_name">Payanam Debug</string>
+    <string name="backup_failure_message_template">%1$s failed after %2$d attempts: %3$s</string>
+    <string name="backup_trigger_auto">Auto backup</string>
+    <string name="backup_trigger_manual">Manual backup</string>
+    <string name="backup_trigger_export">Export backup</string>
+    <string name="settings_manual_backup_success">Backup completed successfully (%1$s)</string>
+    <string name="settings_manual_backup_failed">Backup failed: %1$s</string>
+    <string name="settings_snackbar_habit_score_diagnostics_complete">Habit score diagnostics logged. Habits: %1$d, with occurrences: %2$d</string>
+    <string name="settings_snackbar_habit_score_diagnostics_failed">Habit score diagnostics failed: %1$s</string>
+    <string name="notification_channel_tracking">Time Tracking</string>
+    <string name="notification_channel_reminders">Task Reminders</string>
+    <string name="notification_channel_habits">Habit Tracking</string>
+    <string name="notification_channel_missed">Missed Tasks</string>
+    <string name="tracking_notification_subtext">Tracking in progress</string>
+    <string name="tracking_notification_action_open">Open Time</string>
+    <string name="tracking_notification_action_stop">Stop</string>
+    <string name="tracking_notification_content">%1$s • %2$s</string>
+    <string name="tracking_notification_channel_description">Shows active time tracking status</string>
+    <string name="task_reminders_channel_description">Reminders for upcoming and due tasks</string>
+    <string name="habit_tracking_channel_description">Reminders for recurring habits</string>
+    <string name="missed_tasks_channel_description">Alerts for missed task deadlines</string>
+    <string name="tracking_service_channel_description">Shows ongoing time tracking session</string>
+    <string name="tracking_default_entry_title">Time Entry</string>
+    <string name="tracking_default_dimension">Personal Growth</string>
+    <string name="task_notification_title">🔔 %1$s</string>
+    <string name="task_notification_reminder">Task reminder</string>
+    <string name="task_notification_due_at">Due at %1$s</string>
+    <string name="task_notification_due_in_at">Due in %1$dm at %2$s</string>
+    <string name="task_notification_snoozed_until">Snoozed until %1$s</string>
+    <string name="task_notification_action_snooze">Snooze</string>
+    <string name="widget_tracking_title_habit">[Habit] %1$s</string>
+    <string name="widget_tracking_title_task">[Task] %1$s</string>
+    <string name="widget_tracking_title_linked">Linked item</string>
+    <string name="widget_tracking_title_general">General tracking</string>
+    <string name="widget_tracking_status_idle">Idle</string>
+    <string name="widget_tracking_no_active">No active tracking</string>
+    <string name="widget_tracking_tap_to_start">Tap to start</string>
+    <string name="widget_tracking_duration_placeholder">--:--:--</string>
+    <string name="widget_cd_dimension_color">Life dimension color</string>
+    <string name="widget_cd_toggle_tracking">Toggle tracking</string>
+    <string name="widget_description">Quick start and stop time tracking with live duration</string>
+    <string name="widget_name">Time Tracker</string>
+    <string name="db_external_deletion_title">Database Not Found</string>
+    <string name="db_external_deletion_message">Your database was deleted externally while the app was closed. This can happen from app data clearing or reinstallation.\n\nIf you have auto-backups enabled, you can recover your data by importing the latest backup from Settings → Data Management.</string>
+    <string name="settings_update_download_label">Payanam %1$s</string>
+    <string name="settings_update_error_checksum_mismatch">Update not installed — the downloaded file does not match the published release file. Try again.</string>
+    <string name="settings_update_error_checksum_unavailable">Update not installed — the download could not be confirmed as genuine. Try again.</string>
+    <string name="settings_update_error_checksum_absent">Update not installed — this release cannot be confirmed. Try again later.</string>
 
 </resources>

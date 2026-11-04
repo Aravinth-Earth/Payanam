@@ -304,21 +304,9 @@ class DesktopNavHostDestinationRenderTest {
     }
 
     @Test
-    fun `the setup screen renders no Plaintext storage-mode label for an existing database`() {
-        // The rule this pins: no screen tells a user their storage mode is "plaintext". A database that
-        // exists at this gate is about to be encrypted, so the word described a transient step as if it
-        // were the product's storage model.
-        //
-        // MOUNTED DIRECTLY RATHER THAN THROUGH THE GATE, and for a measured reason: the desktop's setup
-        // helper builds its ViewModel over `DesktopDatabasePathResolver()`'s DEFAULT, which resolves the
-        // host's real directory - so a gate mount would probe the developer's own database and this case
-        // would assert on a card whose state depends on the machine it runs on. (An earlier draft did mount
-        // the gate and asserted an absence; mutating the fix back in still passed, because the card never
-        // drew - which is how both the vacuity and the host-path dependency were found.) The resolver here
-        // points at a temp directory holding a file, which is exactly the state the label used to appear in.
-        //
-        // The title is the positive control that the screen drew, and the summary title is the control that
-        // the CARD drew - without it, an absence assertion proves nothing.
+    fun `the setup screen renders the database summary for an existing database`() {
+        // Mounted directly, not through the gate: the gate's default resolver reads the host's real
+        // database directory. This resolver points at a temp directory holding a file.
         val databaseDirectory = temporaryFolder.newFolder("setup-summary")
         databaseDirectory.resolve("payanam.db").writeText("a database the summary card must report")
         // The scope is kept in a field so teardown can cancel AND join it: the factory's default scope is a
@@ -350,33 +338,7 @@ class DesktopNavHostDestinationRenderTest {
 
         composeRule.onNodeWithText(strings.dbPassphraseSetupTitle).assertIsDisplayed()
         composeRule.onNodeWithText(strings.dbPassphraseDbSummaryTitle).assertExists()
-        // The exact text the removed line rendered. That line was FORMATTED - "Storage mode: Plaintext" - so an
-        // exact-match lookup for the bare word never matched it: the first version of this case asserted only
-        // the bare word, and the mutation that re-added the line still passed, which is how the shape was
-        // found. The bare word is asserted too, so a future call site that renders it plainly is caught.
-        composeRule
-            .onNodeWithText(
-                strings.dbPassphraseDbSummaryStorageMode.formatArgs(strings.dbPassphraseStorageModePlaintext),
-            ).assertDoesNotExist()
-        composeRule.onNodeWithText(strings.dbPassphraseStorageModePlaintext).assertDoesNotExist()
-    }
-
-    @Test
-    fun `the unlock gate renders no Plaintext storage-mode label`() {
-        // The same rule at the other gate, as its own case because one test may call `setContent` once and a
-        // shared case could not tell which gate had drawn.
-        //
-        // The file is created for the same reason as above, and the state it reaches is the violating one:
-        // with a fresh vault `storageModeLabelKey` resolves to "plaintext", so the summary card is drawn and
-        // the row is in exactly the branch that used to render the word. The size row's label is the positive
-        // control that the card itself drew - this screen's card carries no title of its own.
-        databaseFile.parentFile?.mkdirs()
-        databaseFile.writeText("a database the summary card must report")
-        mountGate(state(sessionOpen = false))
-
-        composeRule.onNodeWithText(strings.appName).assertIsDisplayed()
-        composeRule.onNodeWithText(strings.locSize).assertExists()
-        composeRule.onNodeWithText(strings.dbPassphraseStorageModePlaintext).assertDoesNotExist()
+        composeRule.onNodeWithText(strings.dbPassphraseDbSummaryTasks.formatArgs(0)).assertExists()
     }
 
     @Test

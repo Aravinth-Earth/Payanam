@@ -23,8 +23,7 @@ import java.io.File
 
 /**
  * The recovery-critical half of [DatabaseImportSupport]: folding a picked export's WAL into its database
- * before the import gate reads it header, and the schema range the import path's "too old / too new"
- * messages report.
+ * before the import gate reads its header.
  *
  * WHY THIS IS THE PART THAT NEEDS A TEST, and why it is worth the lines: the fold DELETES the
  * production `-wal` — the only place a just-committed transaction may still exist — and it may only do
@@ -244,37 +243,6 @@ class DatabaseImportWalFoldTest {
 
         assertTrue(folded)
         assertFalse("Nothing to fold means the platform is never asked", checkpointWasAsked)
-    }
-
-    // -------------------------------------------------------------------------
-    // The schema range, after the import gate stopped reading it
-    // -------------------------------------------------------------------------
-
-    /**
-     * [DatabaseImportSchemaRange] is the shared `MIN_MIGRATABLE_VERSION`/`VERSION` pair, not a private
-     * copy that could drift.
-     *
-     * WHAT CHANGED AND WHY THIS SURVIVES: this section used to drive
-     * `DatabaseImportSupport.validateSupportedPlaintextImportSchema`, the schema gate that ran on an
-     * The encrypted-only import rule removed that gate, because a plaintext
-     * database is now refused at the header check before any version is read — so there is no import
-     * left for the range to gate. The object itself is kept and pinned here instead of deleted
-     * silently: the two numbers are still the ones every "this file is too old / too new" message on
-     * this path reports, and an object that quietly stops being the shared pair is exactly the kind of
-     * drift the two asserts below exist to catch.
-     *
-     * Both ends are asserted because they are different numbers, and a range whose ends had collapsed
-     * together would refuse everything for one reason while reporting it as two.
-     */
-    @Test
-    fun `the importable schema range is the shared pair, not a private copy`() {
-        assertEquals(PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION, DatabaseImportSchemaRange.minimumSupported)
-        assertEquals(PayanamDatabaseSchema.VERSION, DatabaseImportSchemaRange.currentSupported)
-        // A range whose ends crossed would accept nothing at all, so the ordering is part of the value.
-        assertTrue(
-            "The oldest migratable version must not be above the version this build writes",
-            DatabaseImportSchemaRange.minimumSupported < DatabaseImportSchemaRange.currentSupported,
-        )
     }
 
     // -------------------------------------------------------------------------
