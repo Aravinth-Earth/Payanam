@@ -21,7 +21,7 @@ import java.time.LocalDate
  * - 5/7              → WEEKDAYS_ONLY            (Mon–Fri)
  * - 4/7              → SPECIFIC_WEEKDAYS [1,2,3,4] (Mon–Thu default)
  * - 1/365            → YEARLY
- * - anything else    → INTERVAL (denominator / numerator), startDate = anchor
+ * - X/Y with X > 1   → FREQUENCY X per Y days, startDate = anchor
  */
 @Suppress("MagicNumber")
 object NumDenToConfigConverter {
@@ -59,12 +59,17 @@ object NumDenToConfigConverter {
             // 1/365 → yearly
             den == 365 && num == 1 -> RecurrenceConfig.yearly(anchorDate)
 
-            // Everything else: interval of (denominator / numerator) days
-            // e.g. 1/7 → every 7 days, 1/30 → every 30 days, 2/7 handled above
-            else -> {
-                val interval = den / num
-                RecurrenceConfig.everyNDays(interval.coerceAtLeast(1), anchorDate)
-            }
+            // X per Y days with X > 1 is a frequency window. The interval picker
+            // always writes 1/N, so X > 1 cannot be an interval.
+            num > 1 -> RecurrenceConfig(
+                type = RecurrenceType.FREQUENCY,
+                frequencyNumerator = num,
+                frequencyDenominator = den,
+                startDate = anchorDate,
+            )
+
+            // 1/N → every N days
+            else -> RecurrenceConfig.everyNDays(den.coerceAtLeast(1), anchorDate)
         }
         return config.serialize()
     }

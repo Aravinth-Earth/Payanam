@@ -13,8 +13,9 @@ import java.time.LocalDate
  *
  * Given a recurring task, its occurrences, and its existing L1 rows, this
  * function returns the rows needed to extend the habit's tail through
- * yesterday. Gap days (no occurrence) are filled with score 0.0, matching
- * the original cascade exactly. The baseline is seeded from all existing
+ * yesterday. Interval-style habits get a row per scheduled day, with gap days
+ * scored 0.0; a FREQUENCY habit gets one row per completed window, scored by
+ * its completion ratio, and no rows for days inside the window. The baseline is seeded from all existing
  * rows strictly before the computed `fromDay`, so the tail build reproduces
  * the full rebuild's arithmetic (C1 baseline carry-forward).
  *

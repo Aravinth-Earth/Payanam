@@ -57,10 +57,18 @@ class NumDenToConfigConverterTest {
         assertTrue(!config.isScheduledDay(LocalDate.of(2026, 8, 7))) // Friday
     }
 
+    // ── X/Y with X > 1 → FREQUENCY X per Y days ────────────────────────────
+    @Test
+    fun `3 slash 7 converts to FREQUENCY 3 per 7 days`() {
+        val config = RecurrenceConfig.parse(NumDenToConfigConverter.convert("3/7", anchor))
+        assertEquals(RecurrenceType.FREQUENCY, config.type)
+        assertEquals(3, config.frequencyNumerator)
+        assertEquals(7, config.frequencyDenominator)
+    }
+
     // ── 1/N → INTERVAL N with startDate ────────────────────────────────────
     @Test
-    fun `1 slash 7 converts to INTERVAL 7 with anchor start`() {
-        val config = RecurrenceConfig.parse(NumDenToConfigConverter.convert("1/7", anchor))
+    fun `1 slash 7 converts to INTERVAL 7 with anchor start`() {        val config = RecurrenceConfig.parse(NumDenToConfigConverter.convert("1/7", anchor))
         assertEquals(RecurrenceType.INTERVAL, config.type)
         assertEquals(7, config.intervalDays)
         assertTrue(config.isScheduledDay(anchor))
