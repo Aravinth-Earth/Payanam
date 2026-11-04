@@ -110,9 +110,12 @@ class FirstRunDimensionsLossTest {
      * [scope] is a parameter for the restart tests only, and is the whole reason a second ViewModel can
      * exist in this class: the first one's `dispose` cancels the scope it was given.
      */
-    private fun newViewModel(scope: CoroutineScope = this.scope) =
+    private fun newViewModel(
+        scope: CoroutineScope = this.scope,
+        settings: AppSettingsRepository = appSettings,
+    ) =
         DatabaseInitViewModel(
-            appSettingsRepository = appSettings,
+            appSettingsRepository = settings,
             databaseSessionManager = sessionManager,
             lifeDimensionCatalogRepository = lifeDimensions,
             strings = testUiStrings(),
@@ -187,6 +190,32 @@ class FirstRunDimensionsLossTest {
             // And under the SHARED key, not a second spelling of it: a per-module copy of the name would
             // strand the reader on a row nobody writes, and the loss would go silent again.
             assertThat(appSettings.writeLog).contains(AppPreferenceKeys.KEY_FIRST_RUN_DIMENSIONS_PENDING to MARK_SET)
+            viewModel.dispose()
+        }
+
+    /**
+     * E: the mark is written only once the session is open.
+     *
+     * The production repository refuses every write while the session is closed, so a mark placed before
+     * `openDatabase` is swallowed by `runCatching` and the loss stays silent. This drives the real
+     * constraint through a settings repository that refuses writes exactly as production does.
+     */
+    @Test
+    fun `the mark is written after the session opens`() =
+        runTest(testDispatcher) {
+            val gated = SessionGatedAppSettings(appSettings) { sessionManager.isSessionOpen() }
+            val recorder = RecordingMarkPersister()
+            dimensionPersister = recorder
+            val viewModel = newViewModel(settings = gated)
+            advanceUntilIdle()
+
+            viewModel.createNewDatabase(PASSPHRASE)
+            advanceUntilIdle()
+            viewModel.completeNewDatabaseDimensionSetup(dimensionInputs) {}
+            advanceUntilIdle()
+
+            assertThat(sessionManager.openCalls).isEqualTo(1)
+            assertThat(recorder.markAtPersist).isEqualTo(MARK_SET)
             viewModel.dispose()
         }
 
@@ -326,6 +355,20 @@ class FirstRunDimensionsLossTest {
  * function and the mark can only be read through a suspending repository call; asserting the row from
  * outside the write would be asserting the wrong moment.
  */
+/** App settings that refuse writes while the session is closed, matching the production repository. */
+private class SessionGatedAppSettings(
+    private val delegate: FakeAppSettingsRepository,
+    private val isSessionOpen: () -> Boolean,
+) : AppSettingsRepository by delegate {
+    override suspend fun setSetting(
+        key: String,
+        value: String?,
+    ) {
+        check(isSessionOpen()) { "DB not open" }
+        delegate.setSetting(key, value)
+    }
+}
+
 private class RecordingMarkPersister : DatabaseDimensionSetupPersister {
     var persistCalls = 0
     var markAtPersist: String? = null
