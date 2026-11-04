@@ -207,13 +207,13 @@ if (-not [string]::IsNullOrWhiteSpace(($statusLines -join ""))) {
     Refuse "The working tree has uncommitted changes." "Commit or stash before releasing; a release must be reproducible from its tag."
 }
 
-$originDev = (git rev-parse origin/dev 2>$null).Trim()
+$originMain = (git rev-parse origin/main 2>$null).Trim()
 $originExit = $LASTEXITCODE
-if ($originExit -ne 0 -or [string]::IsNullOrWhiteSpace($originDev)) {
-    Refuse "Could not resolve origin/dev." "Fetch it first: git fetch origin dev."
+if ($originExit -ne 0 -or [string]::IsNullOrWhiteSpace($originMain)) {
+    Refuse "Could not resolve origin/main." "Fetch it first: git fetch origin main."
 }
-if ($originDev -ne $commit) {
-    Refuse "HEAD ($head) differs from origin/dev." "Push dev first: the tag must point at a commit that exists on GitHub."
+if ($originMain -ne $commit) {
+    Refuse "HEAD ($head) differs from origin/main." "Push main first: the tag must point at a commit that exists on GitHub."
 }
 
 # ── 3a. Committed text - strict UTF-8, byte-count verified ───────────────────
@@ -392,7 +392,7 @@ if ($remoteTag -match [regex]::Escape("refs/tags/$tag")) {
     Refuse "Tag $tag already exists on origin." "A version is released once; bump gradle/version.properties for the next release."
 }
 
-Write-LogWithTime "Guards passed: clean tree, HEAD $head == origin/dev, changelogs match CHANGELOG.md at $head, $tag unused." "Green"
+Write-LogWithTime "Guards passed: clean tree, HEAD $head == origin/main, changelogs match CHANGELOG.md at $head, $tag unused." "Green"
 
 # ── 4. Resolve one artefact per platform ─────────────────────────────────────
 
