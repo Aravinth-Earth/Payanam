@@ -2,25 +2,27 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.ui.screens
 
+import io.payanam.core.ui.time.buildTimeBlockCompactLabel
+import io.payanam.core.ui.time.formatCompactFocusValue
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
 class TimeScreenTimelineLabelFormattingTest {
 
-    @Test
     /**
      * Format compact focus value formats numeric value with prefix.
      */
+    @Test
     fun formatCompactFocusValue_formats_numeric_value_with_prefix() {
         assertEquals("F: 0.7", formatCompactFocusValue(0.7))
         assertEquals("F: 1.0", formatCompactFocusValue(1.2))
         assertEquals("F: 0.0", formatCompactFocusValue(-0.2))
     }
 
-    @Test
     /**
      * Format compact focus value returns null for missing or invalid values.
      */
+    @Test
     fun formatCompactFocusValue_returnsNull_for_missing_or_invalid_values() {
         assertNull(formatCompactFocusValue(null))
         assertNull(formatCompactFocusValue(Double.NaN))

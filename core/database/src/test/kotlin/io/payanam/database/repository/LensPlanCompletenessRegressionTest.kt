@@ -9,6 +9,9 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
+import io.payanam.domain.lens.computeDayCoverageScore
+import io.payanam.domain.lens.computePlanCompletenessScore
+import io.payanam.domain.lens.computePlanStructureScore
 
 @RunWith(RobolectricTestRunner::class)
 /**

@@ -21,7 +21,7 @@ import java.time.LocalDate
  * - 5/7              → WEEKDAYS_ONLY            (Mon–Fri)
  * - 4/7              → SPECIFIC_WEEKDAYS [1,2,3,4] (Mon–Thu default)
  * - 1/365            → YEARLY
- * - anything else    → INTERVAL (denominator / numerator), startDate = anchor
+ * - X/Y with X > 1   → FREQUENCY X per Y days, startDate = anchor
  */
 @Suppress("MagicNumber")
 object NumDenToConfigConverter {
@@ -47,6 +47,9 @@ object NumDenToConfigConverter {
         val frequency = Frequency.parse(normalized)
         val num = frequency.numerator
         val den = frequency.denominator
+        // The rule's own "!start=" wins over the caller's anchor: a stored frequency
+        // rule is scored from its embedded start, so the persisted CONFIG must agree.
+        val effectiveAnchor = frequency.anchorDate ?: anchorDate
         val config = when {
             // 1/1 or n/n → daily
             num >= den -> RecurrenceConfig.daily()
@@ -57,14 +60,19 @@ object NumDenToConfigConverter {
             den == 7 && num == 4 -> RecurrenceConfig.specificWeekdays(MON_THU_DAYS)
 
             // 1/365 → yearly
-            den == 365 && num == 1 -> RecurrenceConfig.yearly(anchorDate)
+            den == 365 && num == 1 -> RecurrenceConfig.yearly(effectiveAnchor)
 
-            // Everything else: interval of (denominator / numerator) days
-            // e.g. 1/7 → every 7 days, 1/30 → every 30 days, 2/7 handled above
-            else -> {
-                val interval = den / num
-                RecurrenceConfig.everyNDays(interval.coerceAtLeast(1), anchorDate)
-            }
+            // X per Y days with X > 1 is a frequency window. The interval picker
+            // always writes 1/N, so X > 1 cannot be an interval.
+            num > 1 -> RecurrenceConfig(
+                type = RecurrenceType.FREQUENCY,
+                frequencyNumerator = num,
+                frequencyDenominator = den,
+                startDate = effectiveAnchor,
+            )
+
+            // 1/N → every N days
+            else -> RecurrenceConfig.everyNDays(den.coerceAtLeast(1), effectiveAnchor)
         }
         return config.serialize()
     }

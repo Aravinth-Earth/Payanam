@@ -50,7 +50,7 @@ app-logs-for-analysis/
 # Temporary files
 *.tmp
 *.temp
-debug/
+# debug/
 dev_dry_runs/
 
 # Coverage
@@ -74,12 +74,10 @@ venv/
 .opencode/
 .hermes/
 opencode.json
-.ghpo/
 **/AGENTS.md
 **/CLAUDE.md
 AGENTS-REFERENCE.md
 .agents/skills/
-build-tools/scripts/assert-ghpo-cache-fresh.ps1
 build-tools/scripts/install-git-hooks.ps1
 build-tools/scripts/pre-commit.ps1
 
@@ -112,3 +110,6 @@ output/scroll-jank/
 docs/db/node_modules/
 docs/db/generated/
 build-logs/
+
+# Local test data (DB copies, inject scripts — never commit)
+test-data/

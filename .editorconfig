@@ -1,0 +1,6 @@
+# ktlint's rules for this repo. 1.x's `function-naming` does not exempt annotated functions, and
+# Compose's own convention is that a composable is PascalCase - so the annotation is the exemption.
+root = true
+
+[*.{kt,kts}]
+ktlint_function_naming_ignore_when_annotated_with = Composable

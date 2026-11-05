@@ -7,8 +7,10 @@ package io.payanam.database.security
 
 import android.content.Context
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import java.io.File
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.EncryptedFileClassifier
+import io.payanam.shared.database.PayanamDatabaseSchema
 object DatabaseArtifactJanitor {
     private val logger = UnifiedLogger.getInstance()
     private val countTables = listOf("tasks", "time_entries", "day_journal_entries", "journal_notes", "notes")
@@ -22,7 +24,7 @@ object DatabaseArtifactJanitor {
         context: Context,
         logTag: String = "DatabaseArtifactJanitor.cleanupStaleArtifacts",
     ) {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile ?: return
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile ?: return
         val cacheDir = context.cacheDir
         logger.i(
             logTag,
@@ -34,10 +36,10 @@ object DatabaseArtifactJanitor {
         )
         val recovered = recoverFromRicherCorruptSnapshot(context, "$logTag.recover")
         var deleted = 0
-        val tempBackupDir = File(dbDir, "payanam_temp_backup")
+        val tempBackupDir = File(dbDir, DatabaseArtifacts.TEMP_BACKUP_DIR_NAME)
         // Recover from temp backup if the primary DB is missing, then clean only truly orphaned temp backups.
         val restoredFromTempBackup = recoverFromTempBackupIfPrimaryMissing(context, tempBackupDir, logTag)
-        val primaryDbExistsAfterRecovery = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).exists()
+        val primaryDbExistsAfterRecovery = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).exists()
         if (tempBackupDir.exists() && !restoredFromTempBackup && primaryDbExistsAfterRecovery) {
             if (tempBackupDir.deleteRecursively()) {
                 deleted++
@@ -59,14 +61,14 @@ object DatabaseArtifactJanitor {
             deleteMatching(dbDir, logTag) { file ->
                 file.name.endsWith(".enc.tmp") ||
                     file.name.contains(".enc.tmp-") ||
-                    file.name == "${PayanamDatabase.DATABASE_NAME}.enc.tmp" ||
-                    file.name == "${PayanamDatabase.DATABASE_NAME}.lck" ||
+                    file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp" ||
+                    file.name == "${PayanamDatabaseSchema.DATABASE_NAME}.lck" ||
                     file.name.contains(".before_import_") ||
                     file.name.contains(".before_encrypt_")
             }
         deleted +=
             deleteMatching(cacheDir, logTag) { file ->
-                file.name.startsWith("${PayanamDatabase.DATABASE_NAME}.") &&
+                file.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.") &&
                     (file.name.contains(".enc.tmp") || file.name.endsWith(".lck") || file.name.endsWith(".bak"))
             }
         deleted += pruneCorruptSnapshots(dbDir)
@@ -89,17 +91,37 @@ object DatabaseArtifactJanitor {
         context: Context,
         logTag: String,
     ): Boolean {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (!dbFile.exists()) {
             logger.d(logTag, "Skipping richer-corrupt recovery: primary DB file missing")
             return false
         }
         val dbDir = dbFile.parentFile ?: return false
-        val encryptionManager = DatabaseEncryptionManager(context)
-        if (encryptionManager.isEncryptionEnabled()) {
+        // The FILE's own header decides, not the stored mode - the same shared rule the platform probes
+        // apply, so the two platforms cannot disagree about what "encrypted" means. Header-only on
+        // purpose: this runs at cold boot, before the framework is ready, which is what this branch's log
+        // line has always said about not probing by open. The verdict's reason rides the log so a
+        // non-encrypted answer is attributable instead of silent.
+        val header =
+            runCatching {
+                dbFile.inputStream().use { stream ->
+                    val buffer = ByteArray(EncryptedFileClassifier.MINIMUM_PROBE_BYTES)
+                    val read = stream.read(buffer)
+                    if (read <= 0) null else buffer.copyOf(read)
+                }
+            }.getOrNull()
+        val verdict =
+            EncryptedFileClassifier.classify(
+                header = header,
+                totalLength = dbFile.length(),
+                readSucceeded = header != null,
+            )
+        if (verdict.isEncrypted) {
             logger.i(
                 logTag,
-                "Skipping richer-corrupt recovery for encrypted mode at cold boot (no framework-open probes allowed)",
+                "Skipping richer-corrupt recovery for a detectably encrypted file at cold boot " +
+                    "(header check only; no framework-open probes allowed)",
+                mapOf("reason" to verdict.reason.name),
             )
             return false
         }
@@ -116,10 +138,10 @@ object DatabaseArtifactJanitor {
         val candidateBases =
             dbDir.listFiles().orEmpty().filter {
                 it.isFile &&
-                    it.name.startsWith("${PayanamDatabase.DATABASE_NAME}.corrupt") &&
-                    !it.name.endsWith("-wal") &&
-                    !it.name.endsWith("-shm") &&
-                    !it.name.endsWith("-journal")
+                    it.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.corrupt") &&
+                    // The sidecar set is the shared declaration, not three predicates this file can
+                    // drift from: a corrupt snapshot that IS a sidecar is not a recovery candidate.
+                    DatabaseArtifacts.sidecarSuffixes.none { suffix -> it.name.endsWith(suffix) }
             }
         if (candidateBases.isEmpty()) {
             logger.d(logTag, "Skipping richer-corrupt recovery: no corrupt snapshot candidates found")
@@ -145,7 +167,7 @@ object DatabaseArtifactJanitor {
         val timestamp = System.currentTimeMillis()
         val backups = mutableListOf<Pair<File, File>>()
         try {
-            listOf(dbFile, sidecarFor(dbFile, "wal"), sidecarFor(dbFile, "shm"), sidecarFor(dbFile, "journal"))
+            DatabaseArtifacts.filesFor(dbFile)
                 .filter { it.exists() }
                 .forEach { file ->
                     val backup = File(dbDir, "${file.name}.janitor_backup_$timestamp.bak")
@@ -154,9 +176,13 @@ object DatabaseArtifactJanitor {
                 }
 
             candidateBase.copyTo(dbFile, overwrite = true)
-            replaceFromCandidateSidecar(candidateBase, dbFile, "wal")
-            replaceFromCandidateSidecar(candidateBase, dbFile, "shm")
-            replaceFromCandidateSidecar(candidateBase, dbFile, "journal")
+            // Driven by the shared family rather than three hand-typed names: this loop copies (or
+            // removes) every companion of the snapshot, so a sidecar added to the family is replaced
+            // here without anyone adding a fourth line — and one missed line would leave a stale
+            // companion beside a recovered main file, which reads as the pre-crash rows.
+            DatabaseArtifacts.sidecarSuffixes.forEach { suffix ->
+                replaceFromCandidateSidecar(candidateBase, dbFile, suffix)
+            }
             val restoredTotal = readTotalCount(context, dbFile, passphrase)
             check(restoredTotal > primaryTotal) {
                 "Recovered database did not improve table counts."
@@ -194,7 +220,6 @@ object DatabaseArtifactJanitor {
     ): Int {
         val counts =
             DatabaseEncryptionMigrationSupport.readTableCounts(
-                context = context,
                 databaseFile = databaseFile,
                 passphrase = passphrase,
                 tableNames = countTables,
@@ -235,27 +260,43 @@ object DatabaseArtifactJanitor {
         }
     }
 
+    /**
+     * The sidecar of [baseFile] for one [DatabaseArtifacts.sidecarSuffixes] entry.
+     *
+     * CONTRACT: [suffix] is a member of the shared list verbatim — `-wal`, not `wal`. The separator
+     * belongs to that suffix, so this only concatenates. The bare-name form this replaced spelled the
+     * dash itself, which meant a caller could not hand it a shared suffix without producing
+     * `payanam.db--wal` — a file nothing else in the app names and so nothing would ever delete.
+     */
     private fun sidecarFor(
         baseFile: File,
         suffix: String,
-    ): File = File(baseFile.parentFile, "${baseFile.name}-$suffix")
+    ): File = File(baseFile.parentFile, baseFile.name + suffix)
 
-    private fun deleteCorruptFamily(candidateBase: File) {
-        listOf(
-            candidateBase,
-            sidecarFor(candidateBase, "wal"),
-            sidecarFor(candidateBase, "shm"),
-            sidecarFor(candidateBase, "journal"),
-        ).forEach { file ->
-            if (file.exists()) {
-                val deleted = file.delete()
-                logger.d(
-                    "DatabaseArtifactJanitor.deleteCorruptFamily",
-                    "Corrupt snapshot family cleanup entry",
-                    mapOf("file" to file.name, "deleted" to deleted),
-                )
+    /**
+     * Removes a corrupt snapshot's whole family, driven by the SHARED suffix list.
+     *
+     * INTERNAL RATHER THAN PRIVATE so a test can call it directly: the function is the one place that
+     * deletes a family, and its only caller sits behind a recovery flow that needs two real readable
+     * databases to reach. The defect this signature exists for was exactly a family-deletion miss, so the
+     * pin belongs on this function, not three layers up.
+     */
+    internal fun deleteCorruptFamily(candidateBase: File) {
+        // The family comes from the SHARED list, and every entry is handed to sidecarFor verbatim - the
+        // separator belongs to the suffix. This call site used to hand it bare names ("wal"), which under
+        // the concatenating contract above produced `<candidate>wal` and matched nothing: the snapshot's
+        // real -wal/-shm/-journal survived the cleanup and were later counted as snapshots themselves.
+        (listOf(candidateBase) + DatabaseArtifacts.sidecarSuffixes.map { sidecarFor(candidateBase, it) })
+            .forEach { file ->
+                if (file.exists()) {
+                    val deleted = file.delete()
+                    logger.d(
+                        "DatabaseArtifactJanitor.deleteCorruptFamily",
+                        "Corrupt snapshot family cleanup entry",
+                        mapOf("file" to file.name, "deleted" to deleted),
+                    )
+                }
             }
-        }
     }
 
     private fun deleteMatching(
@@ -283,7 +324,7 @@ object DatabaseArtifactJanitor {
         if (!dbDir.exists() || !dbDir.isDirectory) return 0
         val corruptFiles =
             dbDir.listFiles().orEmpty().filter {
-                it.isFile && it.name.startsWith("${PayanamDatabase.DATABASE_NAME}.corrupt")
+                it.isFile && it.name.startsWith("${PayanamDatabaseSchema.DATABASE_NAME}.corrupt")
             }
         if (corruptFiles.size <= 3) {
             logger.d(
@@ -325,7 +366,7 @@ object DatabaseArtifactJanitor {
         tempBackupDir: File,
         logTag: String,
     ): Boolean {
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         if (dbFile.exists() || !tempBackupDir.exists()) {
             logger.d(
                 logTag,
@@ -334,7 +375,7 @@ object DatabaseArtifactJanitor {
             )
             return false
         }
-        val backupDb = File(tempBackupDir, PayanamDatabase.DATABASE_NAME)
+        val backupDb = File(tempBackupDir, PayanamDatabaseSchema.DATABASE_NAME)
         if (!backupDb.exists()) {
             logger.w(
                 logTag,
@@ -346,13 +387,20 @@ object DatabaseArtifactJanitor {
         val dbDir = dbFile.parentFile ?: return false
         return runCatching {
             backupDb.copyTo(dbFile, overwrite = true)
-            listOf("wal", "shm", "journal").forEach { suffix ->
-                val src = File(tempBackupDir, "${PayanamDatabase.DATABASE_NAME}-$suffix")
-                val dst = File(dbDir, "${PayanamDatabase.DATABASE_NAME}-$suffix")
+            DatabaseArtifacts.sidecarFilesFor(backupDb).forEach { src ->
+                val dst = File(dbDir, src.name)
                 if (src.exists()) {
                     src.copyTo(dst, overwrite = true)
                 } else if (dst.exists()) {
-                    dst.delete()
+                    // The guard rather than `dst.delete()`: the return value was discarded here, so a
+                    // companion this failed to remove was indistinguishable from one the backup never had,
+                    // and a surviving `-wal` beside the just-recovered main file is how a recovery that
+                    // reported success hands back the pre-crash rows. The guard logs the intent either way.
+                    DatabaseFileGuard.safeDelete(
+                        dst,
+                        DatabaseFileGuard.DeleteIntent.JANITOR_CLEANUP,
+                        "DatabaseArtifactJanitor.recoverFromTempBackupIfPrimaryMissing",
+                    )
                 }
             }
             tempBackupDir.deleteRecursively()

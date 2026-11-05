@@ -4,14 +4,16 @@ package io.payanam.ui.screens
 
 import android.app.Application
 import androidx.test.core.app.ApplicationProvider
-import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.DimensionPreference
+import io.payanam.core.ui.time.TimeBlockModalTarget
+import io.payanam.core.ui.time.TimeBlockModalTitle
+import io.payanam.core.ui.time.buildTimeBlockModalInitialContext
 import io.payanam.domain.model.LifeDimension
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
-import io.payanam.ui.viewmodel.AppPreferencesState
-import io.payanam.ui.viewmodel.DimensionPreference
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Before
@@ -47,7 +49,7 @@ class TimeBlockModalInitialContextTest {
         )
 
         logger.i("TimeBlockModalInitialContextTest", "Validated manual-create defaults")
-        assertEquals(R.string.loc_add_time_entry, context.titleResId)
+        assertEquals(TimeBlockModalTitle.ADD_ENTRY, context.titleKind)
         assertEquals(LocalDateTime.of(selectedDate, LocalTime.of(9, 0)), context.initialStart)
         assertEquals(LocalDateTime.of(selectedDate, LocalTime.of(10, 0)), context.initialEnd)
         assertNull(context.initialTaskId)
@@ -86,7 +88,7 @@ class TimeBlockModalInitialContextTest {
             fallbackDimensionId = LifeDimension.CAREER_WORK.id,
             fallbackDimensionLabel = LifeDimension.CAREER_WORK.displayName,
         )
-        assertEquals(R.string.loc_edit_time_entry, context.titleResId)
+        assertEquals(TimeBlockModalTitle.EDIT_ENTRY, context.titleKind)
         assertEquals(LifeDimension.HEALTH_WELLNESS.id, context.initialDimensionId)
         assertEquals("ஆரோக்கியம் & நலன்", context.initialDimensionLabel)
         assertEquals("task-1", context.initialTaskId)

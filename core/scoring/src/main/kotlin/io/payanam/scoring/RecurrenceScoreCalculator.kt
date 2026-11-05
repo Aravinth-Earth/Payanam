@@ -2,9 +2,9 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.scoring
 
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Frequency as DomainFrequency
 import io.payanam.domain.model.RecurrenceConfig
+import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
 import java.util.Locale
 import kotlin.math.ceil
@@ -64,7 +64,10 @@ data class FrequencyWindowSummary(
  */
 object RecurrenceScoreCalculator {
 
-    private val logger = UnifiedLogger.getInstance()
+    // Computed, not cached: `AppLogger.current` is swapped once by the app's startup path, so a
+    // plain `val` would freeze this object to whatever was current at class-load (the no-op
+    // default if that happened first) and silently drop every diagnostic for the process lifetime.
+    private val logger get() = AppLogger.current
 
     // Completion-rate window sizes (days) used by the rate calculations.
     private const val WINDOW_DAYS_7 = 7
@@ -128,7 +131,7 @@ object RecurrenceScoreCalculator {
     
     /**
      * Calculate completion statistics from a list of occurrence statuses.
-     * 
+     *
      * @param occurrences List of pairs (dayIndex, status) where dayIndex 0 = today
      * @return Completion statistics
      */
@@ -196,12 +199,12 @@ object RecurrenceScoreCalculator {
     
     /**
      * Calculate frequency-aware completion statistics.
-     * 
+     *
      * This properly handles recurring habits by:
      * 1. Only counting scheduled days (based on recurrence config)
      * 2. Starting from the first recorded occurrence
      * 3. Treating unrecorded scheduled days as "missed"
-     * 
+     *
      * @param occurrences Map of date -> status for recorded occurrences
      * @param recurrenceConfig The recurrence configuration for this habit
      * @param firstOccurrenceDate The date of the first recorded occurrence (tracking start)

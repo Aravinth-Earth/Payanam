@@ -1,27 +1,37 @@
+# SPDX-FileCopyrightText: 2026 Aravinth-Earth
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Publish latest (or specified) APK to GitHub as a rolling release on a channel.
+# Publish the declared version as one GitHub release: tag v<version>, every built artefact attached.
 #
-# Channel matrix (rolling tags, one release per channel at a time):
-#   channel  branch       tag            prerelease  cadence
-#   dev      feature/*    latest-dev     yes         10+ builds/day
-#   beta     dev          latest-beta    yes         2 builds/week
-#   stable   main         latest-stable  no          2 builds/month
-# Explicit -Channel beta/stable from the wrong branch hard-fails (guard below).
+# Version source: gradle/version.properties. The tag is v<version>; no channel, no build number.
+# Artefacts come from -AndroidApkPath / -LinuxDebPath / -WindowsPath, or from output/apks,
+# output/debs and output/windows. Each name must be
+# Payanam_<platform>_<version>_<sha>_<type>_<yyyyMMdd_HHmmss>[.<ext>] and carry the declared version.
+# A platform with no artefact is reported as absent and not attached; -Require turns that into a refusal.
+# Android is always required: its release signature, signer identity and build-side checksum are verified.
+# F-Droid's recipe lives outside this repo and follows the tag family: tags are v<version>, and versionCode
+# is the literal line in gradle/version.properties. Confirm the recipe before the first tag.
+# Release notes are authored in CHANGELOG.md; the tagged entry is prepended to the release body and
+# the fastlane changelogs are its rendered copies.
 #
-# Channel auto-detects from the current git branch when -Channel is omitted.
 # Usage:
 #   .\build-tools\scripts\publish-release.ps1
-#   .\build-tools\scripts\publish-release.ps1 -Channel beta
-#   .\build-tools\scripts\publish-release.ps1 -ApkPath output/apks/Payanam_Android_1027_20260226_222417.apk -Channel stable
+#   .\build-tools\scripts\publish-release.ps1 -Require "Android,Linux,Windows"
+#   .\build-tools\scripts\publish-release.ps1 -AndroidApkPath output/apks/Payanam_android_1.0.0_ceff870a_release_20261026_110012.apk -DryRun
 
 param(
-    [string]$ApkPath = "",
-    [string]$OutputDir = "output/apks",
-    [ValidateSet("auto", "dev", "beta", "stable")] [string]$Channel = "auto",
+    [Alias("ApkPath")][string]$AndroidApkPath = "",
+    [string]$LinuxDebPath = "",
+    [string]$WindowsPath = "",
+    [string[]]$Require = @("Android"),
     [switch]$DryRun
 )
 
 $ErrorActionPreference = "Stop"
+
+# git exit codes are control flow here (a missing ref, an unreachable origin); check $LASTEXITCODE.
+if (Get-Variable -Name PSNativeCommandUseErrorActionPreference -ErrorAction SilentlyContinue) {
+    $PSNativeCommandUseErrorActionPreference = $false
+}
 
 $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $projectRoot = Split-Path -Parent (Split-Path -Parent $scriptDir)
@@ -33,233 +43,587 @@ function Write-LogWithTime {
     Write-Host "[$timestamp] $Message" -ForegroundColor $Color
 }
 
-# ── 1. Resolve APK ────────────────────────────────────────────────────────────
+# Shared release-security helper (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
+# Dot-sourced here AND in build-android.ps1 — single implementation, never copied.
+. "$PSScriptRoot/release-security.ps1"
 
-if ($ApkPath -eq "") {
-    $apks = Get-ChildItem -Path $OutputDir -Filter "*.apk" | Sort-Object LastWriteTime -Descending
-    if ($apks.Count -eq 0) {
-        Write-LogWithTime "No APKs found in $OutputDir. Run build-android.ps1 first." "Red"
-        exit 1
-    }
-    $apkFile = $apks[0]
-    Write-LogWithTime "Auto-selected latest APK: $($apkFile.Name)" "Cyan"
-} else {
-    $apkFile = Get-Item $ApkPath
-    if (-not $apkFile.Exists) {
-        Write-LogWithTime "APK not found: $ApkPath" "Red"
-        exit 1
-    }
-    Write-LogWithTime "Using specified APK: $($apkFile.Name)" "Cyan"
-}
-
-# ── 2. Parse APK filename for build number & timestamp ────────────────────────
-# Expected format: Payanam_Android_1027_20260226_222417.apk
-
-$apkName = $apkFile.BaseName  # without .apk
-$parts = $apkName -split "_"
-
-if ($parts.Count -lt 5) {
-    Write-LogWithTime "APK filename format unexpected: $apkName" "Red"
+# Refuse loudly and stop — a guard that only warns gets ignored.
+function Refuse {
+    param([string]$Message, [string]$Detail = "")
+    Write-LogWithTime "❌ $Message" "Red"
+    if (-not [string]::IsNullOrWhiteSpace($Detail)) { Write-LogWithTime "   $Detail" "Yellow" }
     exit 1
 }
 
-$buildNumber = $parts[2]
-$datePart    = $parts[3]   # yyyyMMdd
-$timePart    = $parts[4]   # HHmmss
+# ── 1. Declared version — the only version source ────────────────────────────
 
-$buildDate = "$($datePart.Substring(0,4))-$($datePart.Substring(4,2))-$($datePart.Substring(6,2))"
-$buildTime = "$($timePart.Substring(0,2)):$($timePart.Substring(2,2))"
+$versionPropertiesPath = "gradle/version.properties"
+if (-not (Test-Path -LiteralPath $versionPropertiesPath)) {
+    Refuse "$versionPropertiesPath not found." "It is the only version source; restore it before releasing."
+}
 
-# ── 3. Get git commit hash and branch ────────────────────────────────────────
+$script:declaredVersion = ""
+$script:declaredVersionCode = ""
+foreach ($versionLine in Get-Content -LiteralPath $versionPropertiesPath) {
+    if ($versionLine -match '^\s*version\s*=\s*(.+?)\s*$') { $script:declaredVersion = $Matches[1] }
+    if ($versionLine -match '^\s*versionCode\s*=\s*(.+?)\s*$') { $script:declaredVersionCode = $Matches[1] }
+}
+if ($script:declaredVersion -notmatch '^\d+\.\d+\.\d+$') {
+    Refuse "$versionPropertiesPath declares no major.minor.patch 'version' (found '$($script:declaredVersion)')."
+}
+if ($script:declaredVersionCode -notmatch '^\d+$') {
+    Refuse "$versionPropertiesPath declares no integer 'versionCode' (found '$($script:declaredVersionCode)')."
+}
 
-$commitHash = (git rev-parse --short HEAD 2>$null).Trim()
-$branch     = (git rev-parse --abbrev-ref HEAD 2>$null).Trim()
+$tag = "v$($script:declaredVersion)"
 
-if ([string]::IsNullOrEmpty($commitHash)) { $commitHash = "unknown" }
-if ([string]::IsNullOrEmpty($branch))     { $branch = "unknown" }
+# ── 2. Artefact name contract ────────────────────────────────────────────────
+# One shape for every platform; the platform token is matched case-insensitively because older
+# artefacts were named Payanam_Android_* and the shared naming helper emits lowercase.
+$artifactNamePattern = '^Payanam_(?<platform>(?i:android|linux|windows))_(?<version>\d+\.\d+\.\d+)_(?<sha>[0-9a-f]{7,40}|nogit)_(?<type>debug|release)_(?<timestamp>\d{8}_\d{6})$'
 
-# ── 3b. Stale-APK warning (never a block) ─────────────────────────────────────
-# The publish flow is "commit tested code, then publish the SAME tested APK".
-# If the APK was built BEFORE the latest commit, it may not contain the just-
-# pushed changes. This is usually a mistake (publishing an old artifact) —
-# warn loudly, but the user may still intend it (e.g. publishing a known-good
-# rollback), so this is a warning, never an exit.
-$apkBuildTime = [DateTime]::ParseExact(
-    "$datePart $timePart", "yyyyMMdd HHmmss",
-    [System.Globalization.CultureInfo]::InvariantCulture)
-$latestCommitTime = git log -1 --format=%cI 2>$null
-if (-not [string]::IsNullOrWhiteSpace($latestCommitTime)) {
-    $commitTime = [DateTimeOffset]::Parse($latestCommitTime, [System.Globalization.CultureInfo]::InvariantCulture).LocalDateTime
-    if ($apkBuildTime -lt $commitTime) {
-        $gap = $commitTime - $apkBuildTime
-        if ($gap.TotalHours -ge 1) {
-            Write-LogWithTime "⚠️  WARNING: APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is OLDER than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss')))." "Yellow"
-            Write-LogWithTime "   The APK may NOT contain the latest committed changes." "Yellow"
-            Write-LogWithTime "   Publish anyway? (This is a warning only — proceeding.)" "Yellow"
-        } else {
-            Write-LogWithTime "ℹ️  APK built at $($apkBuildTime.ToString('yyyy-MM-dd HH:mm:ss')) is $($gap.ToString('hh\:mm\:ss')) older than the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss'))). Within 1h window — expected (build starts before commit)." "Cyan"
+$platforms = @("Android", "Linux", "Windows")
+$artifactDirs = @{ Android = "output/apks"; Linux = "output/debs"; Windows = "output/windows" }
+$artifactExtensions = @{ Android = @(".apk"); Linux = @(".deb"); Windows = @(".zip") }
+$buildHints = @{
+    Android = "Build one with build-tools/scripts/build-android.ps1."
+    Linux   = "Build one with build-tools/scripts/build-linux.sh (release build)."
+    Windows = "Build one with build-tools/scripts/build-windows.ps1 -Release."
+}
+
+function Get-ParsedArtifactName {
+    param([string]$Name)
+    $nameMatch = [regex]::Match($Name, $artifactNamePattern)
+    if (-not $nameMatch.Success) { return $null }
+    return [PSCustomObject]@{
+        Platform  = $nameMatch.Groups["platform"].Value.ToLowerInvariant()
+        Version   = $nameMatch.Groups["version"].Value
+        Sha       = $nameMatch.Groups["sha"].Value
+        Type      = $nameMatch.Groups["type"].Value
+        Timestamp = $nameMatch.Groups["timestamp"].Value
+    }
+}
+
+function New-ArtifactRecord {
+    param([System.IO.FileSystemInfo]$Item, [PSCustomObject]$Parsed)
+    return [PSCustomObject]@{
+        Platform     = $Parsed.Platform
+        Item         = $Item
+        Name         = $Item.Name
+        Version      = $Parsed.Version
+        Sha          = $Parsed.Sha
+        Type         = $Parsed.Type
+        Timestamp    = $Parsed.Timestamp
+        LastWriteUtc = $Item.LastWriteTimeUtc
+    }
+}
+
+# Assert every field a release depends on: platform, declared version, release type.
+function Assert-ArtifactFields {
+    param([PSCustomObject]$Parsed, [string]$Platform, [string]$Name)
+    if ($Parsed.Platform -ne $Platform.ToLowerInvariant()) {
+        Refuse "$Name names platform '$($Parsed.Platform)' but was passed as $Platform."
+    }
+    if ($Parsed.Version -ne $script:declaredVersion) {
+        Refuse "$Name carries version $($Parsed.Version), not the declared $($script:declaredVersion)." "Bump gradle/version.properties, or rebuild the artefact."
+    }
+    if ($Parsed.Type -ne "release") {
+        Refuse "$Name is a '$($Parsed.Type)' artefact; a $tag release ships release-type artefacts only." "Rebuild it in release mode."
+    }
+}
+
+function Resolve-NamedArtifact {
+    param([string]$Path, [string]$Platform)
+    if (-not (Test-Path -LiteralPath $Path)) {
+        Refuse "$Platform artefact not found: $Path"
+    }
+    $item = Get-Item -LiteralPath $Path
+    $baseName = if ($item.PSIsContainer) { $item.Name } else { $item.BaseName }
+    $parsed = Get-ParsedArtifactName -Name $baseName
+    if ($null -eq $parsed) {
+        Refuse "$Platform artefact name does not match the release shape: $($item.Name)." "Expected Payanam_<platform>_<version>_<sha>_<release>_<yyyyMMdd_HHmmss>[.<ext>]."
+    }
+    Assert-ArtifactFields -Parsed $parsed -Platform $Platform -Name $item.Name
+    return New-ArtifactRecord -Item $item -Parsed $parsed
+}
+
+function Find-NewestArtifact {
+    param([string]$Directory, [string]$Platform, [string[]]$Extensions)
+    if (-not (Test-Path -LiteralPath $Directory)) { return $null }
+
+    $candidates = @()
+    $shapeSkipped = 0
+    $typeSkipped = 0
+    $versionSkipped = @()
+
+    foreach ($item in Get-ChildItem -LiteralPath $Directory) {
+        if ($item.PSIsContainer -and $Platform -ne "Windows") { continue }
+        if (-not $item.PSIsContainer -and $Extensions -notcontains $item.Extension.ToLowerInvariant()) { continue }
+
+        $baseName = if ($item.PSIsContainer) { $item.Name } else { $item.BaseName }
+        $parsed = Get-ParsedArtifactName -Name $baseName
+        if ($null -eq $parsed -or $parsed.Platform -ne $Platform.ToLowerInvariant()) { $shapeSkipped++; continue }
+        if ($parsed.Version -ne $script:declaredVersion) { $versionSkipped += "$baseName (version $($parsed.Version))"; continue }
+        if ($parsed.Type -ne "release") { $typeSkipped++; continue }
+        $candidates += (New-ArtifactRecord -Item $item -Parsed $parsed)
+    }
+
+    if ($versionSkipped.Count -gt 0) {
+        Write-LogWithTime "  $Platform : ignored $($versionSkipped.Count) artefact(s) of another version: $($versionSkipped -join ', ')" "Gray"
+    }
+    if ($typeSkipped -gt 0) {
+        Write-LogWithTime "  $Platform : ignored $typeSkipped debug-type artefact(s); a release ships release-type artefacts" "Gray"
+    }
+    if ($shapeSkipped -gt 0) {
+        Write-LogWithTime "  $Platform : ignored $shapeSkipped name(s) outside the release shape" "Gray"
+    }
+    if ($candidates.Count -eq 0) { return $null }
+
+    $sort = @(
+        @{ Expression = "Timestamp"; Descending = $true }
+        @{ Expression = "LastWriteUtc"; Descending = $true }
+    )
+    return ($candidates | Sort-Object -Property $sort | Select-Object -First 1)
+}
+
+# ── 3. Guards — every one of them runs before a tag exists ───────────────────
+
+$ghCmd = Get-Command gh -ErrorAction SilentlyContinue
+# -DryRun never invokes gh, so a missing CLI must not block it.
+if (-not $ghCmd -and -not $DryRun) {
+    Refuse "'gh' (GitHub CLI) not found." "Install it (https://cli.github.com) or use -DryRun for the artefact checks."
+}
+
+$commit = (git rev-parse HEAD 2>$null).Trim()
+$head = (git rev-parse --short HEAD 2>$null).Trim()
+if ([string]::IsNullOrWhiteSpace($commit)) { Refuse "Could not resolve HEAD - refusing to release." }
+
+$statusLines = @(git status --porcelain 2>$null)
+$statusExit = $LASTEXITCODE
+if ($statusExit -ne 0) {
+    Refuse "Could not read the working-tree status (git exit $statusExit)." "A release needs a readable tree."
+}
+if (-not [string]::IsNullOrWhiteSpace(($statusLines -join ""))) {
+    Refuse "The working tree has uncommitted changes." "Commit or stash before releasing; a release must be reproducible from its tag."
+}
+
+$originMain = (git rev-parse origin/main 2>$null).Trim()
+$originExit = $LASTEXITCODE
+if ($originExit -ne 0 -or [string]::IsNullOrWhiteSpace($originMain)) {
+    Refuse "Could not resolve origin/main." "Fetch it first: git fetch origin main."
+}
+if ($originMain -ne $commit) {
+    Refuse "HEAD ($head) differs from origin/main." "Push main first: the tag must point at a commit that exists on GitHub."
+}
+
+# ── 3a. Committed text - strict UTF-8, byte-count verified ───────────────────
+# Native stdout is decoded with the console code page, which damages non-ASCII text on an OEM console.
+# These reads decode raw bytes as strict UTF-8 and refuse unless re-encoding gives the blob's own size.
+$script:utf8Strict = [System.Text.UTF8Encoding]::new($false, $true)
+# Verification never reuses the decoding object, so it cannot certify the encoding that produced the text.
+$script:utf8Verify = [System.Text.UTF8Encoding]::new($false, $true)
+
+# git's raw stdout bytes, decoded by an explicit UTF-8 decoder instead of the console code page.
+function Invoke-GitCapture {
+    param([string[]]$Arguments, [System.Text.Encoding]$Decode = $script:utf8Strict)
+
+    $startInfo = [System.Diagnostics.ProcessStartInfo]::new()
+    $startInfo.FileName = "git"
+    $startInfo.Arguments = (($Arguments | ForEach-Object {
+        if ($_ -match '[\s"]') { '"' + ($_ -replace '"', '\"') + '"' } else { $_ }
+    }) -join " ")
+    $startInfo.UseShellExecute = $false
+    $startInfo.CreateNoWindow = $true
+    $startInfo.RedirectStandardOutput = $true
+    $startInfo.RedirectStandardError = $true
+
+    $outBuffer = [System.IO.MemoryStream]::new()
+    $errBuffer = [System.IO.MemoryStream]::new()
+    $process = [System.Diagnostics.Process]::new()
+    $process.StartInfo = $startInfo
+    [void]$process.Start()
+    try {
+        # stderr is drained concurrently so a full pipe cannot block the stdout read.
+        $errTask = $process.StandardError.BaseStream.CopyToAsync($errBuffer)
+        $process.StandardOutput.BaseStream.CopyTo($outBuffer)
+        $errTask.GetAwaiter().GetResult()
+        $process.WaitForExit()
+        $bytes = $outBuffer.ToArray()
+        $exitCode = $process.ExitCode
+    } finally {
+        $outBuffer.Dispose()
+        $errBuffer.Dispose()
+        $process.Dispose()
+    }
+    return [PSCustomObject]@{ Bytes = $bytes; Text = $Decode.GetString($bytes); ExitCode = $exitCode }
+}
+
+# One committed blob as text; $null when the path is absent at that revision. A read that is not the
+# blob byte-for-byte, or text that is not UTF-8, refuses the release instead of publishing damage.
+function Get-CommittedBlobText {
+    param([string]$Revision, [string]$RelativePath)
+
+    $shortRevision = $Revision.Substring(0, 7)
+    $spec = "${Revision}:$($RelativePath.Replace('\', '/'))"
+    $blobSize = (git cat-file -s $spec 2>$null | Out-String).Trim()
+    if ($LASTEXITCODE -ne 0 -or $blobSize -notmatch '^\d+$') { return $null }
+
+    try {
+        $captured = Invoke-GitCapture -Arguments @("cat-file", "blob", $spec)
+        if ($captured.ExitCode -ne 0) { return $null }
+        $text = $captured.Text
+        $textSize = $script:utf8Verify.GetByteCount($text)
+    } catch {
+        Refuse "'$RelativePath' at $shortRevision does not decode as UTF-8." "Decoding failed: $($_.Exception.Message). A committed changelog must be UTF-8 text."
+    }
+
+    if ($captured.Bytes.Length -ne [int64]$blobSize) {
+        Refuse "'$RelativePath' at $shortRevision was read as $($captured.Bytes.Length) bytes but the blob is $blobSize bytes." "The read is not the committed blob byte-for-byte, so the text cannot be trusted."
+    }
+    if ($textSize -ne [int64]$blobSize) {
+        Refuse "'$RelativePath' at $shortRevision decoded to $textSize bytes but the blob is $blobSize bytes." "The text is not the blob re-encoded as UTF-8, so it was decoded with the wrong encoding. Refusing to compare or publish damaged text."
+    }
+
+    # Split as the native pipeline did: no trailing empty element for a final newline.
+    $lines = @($text -split "\r\n|\n|\r")
+    if ($lines.Count -gt 1 -and $lines[$lines.Count - 1] -eq "" -and $text -match '[\r\n]$') {
+        $lines = @($lines[0..($lines.Count - 2)])
+    }
+    return [PSCustomObject]@{ Text = $text; Lines = $lines; Bytes = $textSize }
+}
+
+$changelogRel = "fastlane/metadata/android/en-US/changelogs/$($script:declaredVersionCode).txt"
+$enStore = Get-CommittedBlobText -Revision $commit -RelativePath $changelogRel
+if ($null -eq $enStore -or [string]::IsNullOrWhiteSpace($enStore.Text)) {
+    Refuse "No changelog for versionCode $($script:declaredVersionCode) at $head." "Expected $changelogRel in the tagged commit; F-Droid shows that file as What's new."
+}
+foreach ($locale in @("ta-IN")) {
+    $translatedRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
+    $translated = Get-CommittedBlobText -Revision $commit -RelativePath $translatedRel
+    if ($null -eq $translated -or [string]::IsNullOrWhiteSpace($translated.Text)) {
+        Write-LogWithTime "⚠️ No $locale changelog for versionCode $($script:declaredVersionCode) - the default locale is shown." "Yellow"
+    }
+}
+
+# CHANGELOG.md is the authored source; each store file is a rendered copy. A copy that drifted refuses the tag.
+$changelogCommit = Get-CommittedBlobText -Revision $commit -RelativePath "CHANGELOG.md"
+if ($null -eq $changelogCommit -or [string]::IsNullOrWhiteSpace($changelogCommit.Text)) {
+    Refuse "No CHANGELOG.md at $head." "It is the authored source for the release notes of every platform."
+}
+$changelogSource = $changelogCommit.Lines
+
+function Get-ChangelogEntry {
+    param([string[]]$Lines)
+    for ($i = 0; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i] -match '^##\s+.*?(\d+\.\d+\.\d+)') {
+            return [PSCustomObject]@{ Index = $i; Version = $Matches[1] }
         }
     }
+    return [PSCustomObject]@{ Index = -1; Version = "" }
 }
 
-# ── 4. Resolve channel (explicit -Channel wins; else auto-detect from branch) ──
-
-if ($Channel -eq "auto") {
-    $Channel = switch -Wildcard ($branch) {
-        "feature/*" { "dev" }
-        "dev"       { "beta" }
-        "main"      { "stable" }
-        default     { "dev" }
+# Heading as authored, plus the body of one '### <prefix>' section of one entry. The only reader of
+# a locale section: the guard compares Body, the release notes print Heading and Body verbatim.
+function Get-ChangelogLocaleSection {
+    param([string[]]$Lines, [int]$EntryIndex, [string]$Heading)
+    $body = @()
+    $headingLine = ""
+    $inBody = $false
+    for ($i = $EntryIndex + 1; $i -lt $Lines.Count; $i++) {
+        $line = $Lines[$i]
+        if ($line -match '^##\s') { break }
+        if ($line -match '^###\s+(.+?)\s*$') {
+            if ($inBody) { break }
+            $inBody = $Matches[1].StartsWith($Heading, [System.StringComparison]::Ordinal)
+            if ($inBody) { $headingLine = $line.TrimEnd() }
+            continue
+        }
+        if ($inBody) { $body += $line }
     }
-    Write-LogWithTime "Auto-detected channel '$Channel' from branch '$branch'" "Cyan"
+    $first = 0
+    while ($first -lt $body.Count -and [string]::IsNullOrWhiteSpace($body[$first])) { $first++ }
+    $last = $body.Count - 1
+    while ($last -ge $first -and [string]::IsNullOrWhiteSpace($body[$last])) { $last-- }
+    if ($last -lt $first) { return [PSCustomObject]@{ Heading = $headingLine; Body = "" } }
+    return [PSCustomObject]@{ Heading = $headingLine; Body = (($body[$first..$last]) -join "`n") }
 }
 
-# ── 4b. Channel ↔ branch guard (hard fail, never a warning) ───────────────────
-# Only beta/stable are strict: they must be published from their owning
-# branches (dev → beta, main → stable). The dev channel is the throwaway
-# pre-release channel — publishing it from any branch is harmless, so no guard.
-# A guard that warns gets ignored; this one exits non-zero with a clear message.
-if ($Channel -eq "beta" -and $branch -ne "dev") {
-    Write-LogWithTime "❌ Channel 'beta' cannot be published from branch '$branch'." "Red"
-    Write-LogWithTime "   '-Channel beta' requires branch 'dev'." "Red"
-    Write-LogWithTime "   Switch to 'dev', or use '-Channel dev' for feature-branch builds." "Red"
-    exit 1
+$entry = Get-ChangelogEntry -Lines $changelogSource
+if ($entry.Index -lt 0) {
+    Refuse "CHANGELOG.md has no '## [x.y.z]' entry at $head." "The newest entry supplies the release notes."
 }
-if ($Channel -eq "stable" -and $branch -ne "main") {
-    Write-LogWithTime "❌ Channel 'stable' cannot be published from branch '$branch'." "Red"
-    Write-LogWithTime "   '-Channel stable' requires branch 'main'." "Red"
-    Write-LogWithTime "   Switch to 'main', or use '-Channel dev' for feature-branch builds." "Red"
-    exit 1
+if ($entry.Version -ne $script:declaredVersion) {
+    Refuse "CHANGELOG.md's newest entry is $($entry.Version), not the declared $($script:declaredVersion)." "Add a '## [$($script:declaredVersion)]' section above it before tagging."
 }
 
-# Channel → display title + prerelease flag mapping.
-# dev/beta roll as prereleases; stable is a full release.
-$ChannelTitle = switch ($Channel) {
-    "dev"    { "Dev" }
-    "beta"   { "Beta" }
-    "stable" { "Stable" }
-}
-
-# ── 5. Generate SHA256 checksum ───────────────────────────────────────────────
-
-Write-LogWithTime "Generating SHA256 checksum..." "Gray"
-$hash = (Get-FileHash -Path $apkFile.FullName -Algorithm SHA256).Hash.ToUpper()
-$sha256FileName = "$($apkFile.Name).sha256"
-$sha256FilePath = Join-Path $apkFile.DirectoryName $sha256FileName
-"$hash  $($apkFile.Name)" | Set-Content -Path $sha256FilePath -Encoding UTF8
-Write-LogWithTime "SHA256: $hash" "Gray"
-
-# ── 6. Build release notes ────────────────────────────────────────────────────
-
-$channelWarning = switch ($Channel) {
-    "dev"    { "🔧 Development build — for testing only" }
-    "beta"   { "🧪 Beta build — feedback welcome" }
-    "stable" { "" }
-}
-
-$releaseNotes = @"
-Payanam $ChannelTitle Build
-
-Build: #$buildNumber | $buildDate $buildTime
-Channel: $Channel
-
-Commit: $commitHash
-Branch: $branch
-
-SHA256: $hash
-
-Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Payanam/blob/main/INSTALL.md) for checksum verification and sideload steps.
-$(if ($channelWarning) { "`n$channelWarning" })
-"@
-
-# ── 7. Delete existing channel release + tag (rolling release) ────────────────
-
-# Guard: gh CLI must exist. Without this, $LASTEXITCODE below would be stale
-# from a previous native command and the script could misbehave silently.
-$ghCmd = Get-Command gh -ErrorAction SilentlyContinue
-if (-not $ghCmd) {
-    Write-LogWithTime "❌ 'gh' (GitHub CLI) not found. Install it (https://cli.github.com) or run with -DryRun." "Red"
-    exit 1
-}
-
-$tag = "latest-$Channel"
-if ($DryRun) {
-    Write-LogWithTime "[DRY RUN] Would delete existing $tag release + tag (if present)" "Yellow"
-} else {
-    $existingRelease = gh release view $tag 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-LogWithTime "Deleting existing $tag release..." "Yellow"
-        gh release delete $tag --yes 2>$null
+# Locale heading prefix per locale, mirroring build-tools/scripts/render-changelogs.sh. ASCII only, so a
+# source line decoded as ANSI cannot stop the match: English for en-US, Tamil for ta-IN.
+$localeHeadings = @{ "en-US" = "English"; "ta-IN" = "Tamil" }
+# Sections kept from the guard, in locale order, for the release notes in §8.
+$script:localeSections = [ordered]@{}
+foreach ($locale in @("en-US", "ta-IN")) {
+    $storeRel = "fastlane/metadata/android/$locale/changelogs/$($script:declaredVersionCode).txt"
+    $storeCommitted = Get-CommittedBlobText -Revision $commit -RelativePath $storeRel
+    $committedBody = if ($null -eq $storeCommitted) { "" } else { $storeCommitted.Lines -join "`n" }
+    $storePresent = -not [string]::IsNullOrWhiteSpace($committedBody)
+    $section = Get-ChangelogLocaleSection -Lines $changelogSource -EntryIndex $entry.Index -Heading $localeHeadings[$locale]
+    if ([string]::IsNullOrWhiteSpace($section.Body)) {
+        if ($storePresent) {
+            Refuse "CHANGELOG.md entry $($script:declaredVersion) has no '### $($localeHeadings[$locale])' section." "Add it, then run bash build-tools/scripts/render-changelogs.sh."
+        }
+        continue
     }
-
-    # Always ensure local tag is deleted (even if release doesn't exist)
-    # This prevents "tag exists locally but not pushed" errors
-    $localTagExists = git rev-parse $tag 2>$null
-    if ($LASTEXITCODE -eq 0) {
-        Write-LogWithTime "Removing stale local tag..." "Yellow"
-        git tag -d $tag
+    # Trailing whitespace is ignored; any other difference, case included, refuses.
+    if ($storePresent -and $section.Body.TrimEnd() -cne $committedBody.TrimEnd()) {
+        Refuse "$storeRel does not match CHANGELOG.md entry $($script:declaredVersion)." "Run bash build-tools/scripts/render-changelogs.sh and commit the rendered file."
     }
-
-    # Also delete remote tag to prevent stale commit reference
-    $remoteTagExists = git ls-remote origin "refs/tags/$tag" 2>$null
-    if (-not [string]::IsNullOrWhiteSpace($remoteTagExists)) {
-        Write-LogWithTime "Removing stale remote tag..." "Yellow"
-        git push origin ":refs/tags/$tag" 2>$null
-    }
+    $script:localeSections[$locale] = $section
 }
 
-# ── 8. Create new release ─────────────────────────────────────────────────────
+$localTag = @(git tag -l $tag 2>$null)
+if ($localTag -contains $tag) {
+    Refuse "Tag $tag already exists locally." "Delete it (git tag -d $tag) if it is stale; a version is released once."
+}
+$remoteTag = (git ls-remote --tags origin "refs/tags/$tag" 2>$null | Out-String).Trim()
+if ($LASTEXITCODE -ne 0) {
+    Refuse "Could not reach origin to check for an existing $tag." "Refusing to release blind."
+}
+if ($remoteTag -match [regex]::Escape("refs/tags/$tag")) {
+    Refuse "Tag $tag already exists on origin." "A version is released once; bump gradle/version.properties for the next release."
+}
 
-Write-LogWithTime "Creating GitHub release: $tag ..." "Cyan"
+Write-LogWithTime "Guards passed: clean tree, HEAD $head == origin/main, changelogs match CHANGELOG.md at $head, $tag unused." "Green"
 
-# dev/beta roll as prereleases; stable is a full (non-prerelease) release.
-$prereleaseFlag = if ($Channel -eq "stable") { @() } else { @("--prerelease") }
+# ── 4. Resolve one artefact per platform ─────────────────────────────────────
 
-if ($DryRun) {
-    Write-LogWithTime "[DRY RUN] Would create release: $tag" "Yellow"
-    Write-LogWithTime "[DRY RUN]   title  : Latest $ChannelTitle Build (#$buildNumber)" "Yellow"
-    Write-LogWithTime "[DRY RUN]   flags  : $($prereleaseFlag -join ' ')" "Yellow"
-    Write-LogWithTime "[DRY RUN]   assets : $($apkFile.Name) + $sha256FileName" "Yellow"
-    Write-LogWithTime "[DRY RUN]   notes  : Payanam $ChannelTitle Build, build #$buildNumber, channel $Channel, commit $commitHash, branch $branch" "Yellow"
-} else {
-    # Build the full argument list first, then splat once — splatting
-    # mid-command with backtick continuations misparses in PowerShell.
-    $ghArgs = @(
-        $tag
-        "--title", "Latest $ChannelTitle Build (#$buildNumber)"
-        "--notes", $releaseNotes
-    )
-    if ($Channel -ne "stable") {
-        $ghArgs += "--prerelease"
+$resolved = @{}
+foreach ($platform in $platforms) {
+    $explicitPath = switch ($platform) {
+        "Android" { $AndroidApkPath }
+        "Linux" { $LinuxDebPath }
+        "Windows" { $WindowsPath }
     }
-    $ghArgs += "$($apkFile.FullName)#$($apkFile.Name)"
-    $ghArgs += "$sha256FilePath#$sha256FileName"
-
-    gh release create @ghArgs
-
-    if ($LASTEXITCODE -ne 0) {
-        Write-LogWithTime "Release creation failed." "Red"
-        exit 1
-    }
-
-    # Create persistent lightweight tag for F-Droid version detection
-    $persistentTag = "v$buildNumber"
-    if ($DryRun) {
-        Write-LogWithTime "[DRY RUN] Would create persistent tag: $persistentTag" "Yellow"
+    $resolved[$platform] = if (-not [string]::IsNullOrWhiteSpace($explicitPath)) {
+        Resolve-NamedArtifact -Path $explicitPath -Platform $platform
     } else {
-        git tag $persistentTag
-        git push origin $persistentTag
-        Write-LogWithTime "Persistent tag created: $persistentTag" "Green"
+        Find-NewestArtifact -Directory $artifactDirs[$platform] -Platform $platform -Extensions $artifactExtensions[$platform]
     }
 }
 
-# ── 9. Print release URL ──────────────────────────────────────────────────────
+# Comma or space separated, so both '-Require Android,Linux' and -File invocation work.
+$requiredPlatforms = @("Android")
+foreach ($requireEntry in $Require) {
+    foreach ($token in ($requireEntry -split '[,;\s]+' | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })) {
+        $knownPlatform = $platforms | Where-Object { $_ -eq $token } | Select-Object -First 1
+        if ($null -eq $knownPlatform) {
+            Refuse "Unknown platform '$token' in -Require." "Use Android, Linux or Windows."
+        }
+        $requiredPlatforms += $knownPlatform
+    }
+}
+$requiredPlatforms = @($requiredPlatforms | Select-Object -Unique)
+Write-LogWithTime "" "White"
+Write-LogWithTime "Artefacts for $tag ($($script:declaredVersion)):" "Cyan"
+foreach ($platform in $platforms) {
+    $artifact = $resolved[$platform]
+    $platformDir = $artifactDirs[$platform]
+    if ($null -eq $artifact) {
+        if ($requiredPlatforms -contains $platform) {
+            Refuse "$platform artefact is required but none was found." $buildHints[$platform]
+        }
+        Write-LogWithTime "  $platform : absent - not attached (no release-type artefact of $($script:declaredVersion) in $($platformDir))" "Yellow"
+        continue
+    }
+    Write-LogWithTime "  $platform : $($artifact.Name)" "Cyan"
+}
+
+# ── 5. Verify the release signature of the Android artefact ──────────────────
+# Fail-closed: if the toolchain cannot complete the checks, the publish refuses. Shared
+# implementation (release-security.ps1) - never copied.
+$android = $resolved["Android"]
+try {
+    Invoke-ReleaseSecurityVerification -ApkPath $android.Item.FullName -FailClosed
+} catch {
+    Refuse "Android signature verification failed." $_.Exception.Message
+}
+
+# ── 6. Verify each build-side SHA256 checksum ────────────────────────────────
+# The build writes the checksum; the publisher verifies it, never generates it, so an artefact
+# altered between build and publish is refused rather than hashed as it now is.
+function Assert-BuildChecksum {
+    param([string]$ArtifactPath, [string]$Label)
+    $checksumPath = "$ArtifactPath.sha256"
+    if (-not (Test-Path -LiteralPath $checksumPath)) {
+        Refuse "$Label has no build-side checksum: $(Split-Path -Leaf $checksumPath)." "The build writes it beside the artefact; without it the artefact cannot be verified."
+    }
+    $checksumLine = ((Get-Content -LiteralPath $checksumPath -Raw) -split "`n")[0]
+    if ([string]::IsNullOrWhiteSpace($checksumLine)) {
+        Refuse "$Label checksum file is empty: $(Split-Path -Leaf $checksumPath)." "A build-side checksum must carry the hash on its first line."
+    }
+    $recordedHash = ($checksumLine.Trim() -split '\s+')[0].ToUpper()
+    $actualHash = (Get-FileHash -Path $ArtifactPath -Algorithm SHA256).Hash.ToUpper()
+    if ($recordedHash -ne $actualHash) {
+        Refuse "$Label checksum MISMATCH - refusing to publish." "recorded at build: $recordedHash ; computed now: $actualHash"
+    }
+    Write-LogWithTime "✅ $Label checksum verified: $actualHash" "Green"
+    return $actualHash
+}
+
+function Resolve-WindowsAsset {
+    param([PSCustomObject]$Artifact)
+    if (-not $Artifact.Item.PSIsContainer) {
+        return [PSCustomObject]@{ Path = $Artifact.Item.FullName; Name = $Artifact.Item.Name }
+    }
+    $parent = Split-Path -Parent $Artifact.Item.FullName
+    $zipPath = Join-Path $parent "$($Artifact.Name).zip"
+    if (Test-Path -LiteralPath $zipPath) {
+        Write-LogWithTime "Reusing packaged Windows artefact: $(Split-Path -Leaf $zipPath)" "Gray"
+        return [PSCustomObject]@{ Path = $zipPath; Name = (Split-Path -Leaf $zipPath) }
+    }
+    if ($DryRun) {
+        return [PSCustomObject]@{ Path = $zipPath; Name = (Split-Path -Leaf $zipPath) }
+    }
+    Compress-Archive -Path $Artifact.Item.FullName -DestinationPath $zipPath -CompressionLevel Optimal
+    if (-not (Test-Path -LiteralPath $zipPath)) { Refuse "Could not package the Windows artefact as $(Split-Path -Leaf $zipPath)." }
+    Write-LogWithTime "Packaged Windows artefact: $(Split-Path -Leaf $zipPath)" "Green"
+    return [PSCustomObject]@{ Path = $zipPath; Name = (Split-Path -Leaf $zipPath) }
+}
+
+$assets = @()
+
+function ConvertTo-BuildTime {
+    param([string]$Timestamp)
+    return [DateTime]::ParseExact($Timestamp, "yyyyMMdd_HHmmss", [System.Globalization.CultureInfo]::InvariantCulture)
+}
+
+$androidHash = Assert-BuildChecksum -ArtifactPath $android.Item.FullName -Label "Android APK"
+$assets += [PSCustomObject]@{
+    Path         = $android.Item.FullName
+    Name         = $android.Item.Name
+    Hash         = $androidHash
+    ChecksumPath = "$($android.Item.FullName).sha256"
+    BuildTime    = ConvertTo-BuildTime $android.Timestamp
+}
+
+if ($null -ne $resolved["Linux"]) {
+    $linux = $resolved["Linux"]
+    $linuxHash = Assert-BuildChecksum -ArtifactPath $linux.Item.FullName -Label "Linux DEB"
+    $assets += [PSCustomObject]@{
+        Path         = $linux.Item.FullName
+        Name         = $linux.Item.Name
+        Hash         = $linuxHash
+        ChecksumPath = "$($linux.Item.FullName).sha256"
+        BuildTime    = ConvertTo-BuildTime $linux.Timestamp
+    }
+}
+
+if ($null -ne $resolved["Windows"]) {
+    $windows = $resolved["Windows"]
+    $windowsAsset = Resolve-WindowsAsset -Artifact $windows
+    # The Windows build writes no checksum sidecar, so this asset ships unverified.
+    Write-LogWithTime "Windows artefact has no build-side checksum; it is attached unverified." "Yellow"
+    $assets += [PSCustomObject]@{
+        Path         = $windowsAsset.Path
+        Name         = $windowsAsset.Name
+        Hash         = ""
+        ChecksumPath = ""
+        BuildTime    = ConvertTo-BuildTime $windows.Timestamp
+    }
+}
+
+# ── 7. Artefact-vs-commit warnings (never a block) ───────────────────────────
+foreach ($platform in $platforms) {
+    $artifact = $resolved[$platform]
+    if ($null -ne $artifact -and $artifact.Sha -ne "nogit" -and $artifact.Sha -ne $head) {
+        Write-LogWithTime "⚠️  $($artifact.Name) was built from $($artifact.Sha), not the release commit $head." "Yellow"
+    }
+}
+
+$oldestBuildTime = ($assets | Sort-Object BuildTime | Select-Object -First 1).BuildTime
+$buildStamp = $oldestBuildTime.ToString("yyyy-MM-dd HH:mm")
+
+$latestCommitTime = git log -1 --format=%cI 2>$null
+if ($oldestBuildTime -and -not [string]::IsNullOrWhiteSpace($latestCommitTime)) {
+    $commitTime = [DateTimeOffset]::Parse($latestCommitTime, [System.Globalization.CultureInfo]::InvariantCulture).LocalDateTime
+    $gap = $commitTime - $oldestBuildTime
+    if ($gap.TotalHours -ge 1) {
+        Write-LogWithTime "⚠️  An attached artefact was built at $($oldestBuildTime.ToString('yyyy-MM-dd HH:mm:ss')), $($gap.ToString('hh\:mm\:ss')) before the latest commit ($($commitTime.ToString('yyyy-MM-dd HH:mm:ss')))." "Yellow"
+        Write-LogWithTime "   It may not contain the latest committed changes. Publishing anyway (warning only)." "Yellow"
+    }
+}
+
+# ── 8. Release notes ─────────────────────────────────────────────────────────
+# User-facing notes first: the CHANGELOG.md entry at the tagged commit, from the sections §3
+# already extracted. The manifest below is appended unchanged.
+$whatsNew = @("## What's new in $($script:declaredVersion)")
+foreach ($locale in $script:localeSections.Keys) {
+    $section = $script:localeSections[$locale]
+    $whatsNew += @("", $section.Heading, "", $section.Body)
+}
+if ($whatsNew.Count -lt 2) {
+    Refuse "CHANGELOG.md entry $($script:declaredVersion) rendered no notes at $head." "The release body carries the entry, so it needs at least one '### <locale>' section."
+}
+$whatsNew += @("", "---", "")
+
+$releaseNotes = $whatsNew + @(
+    $buildStamp,
+    "",
+    "Version: $($script:declaredVersion)",
+    "Commit: $head",
+    "Tag: $tag",
+    "",
+    "Artefacts:"
+)
+foreach ($asset in $assets) {
+    $releaseNotes += "- $($asset.Name)"
+    $releaseNotes += if ([string]::IsNullOrWhiteSpace($asset.Hash)) { "  SHA256: none - no build-side checksum" } else { "  SHA256: $($asset.Hash)" }
+}
+$releaseNotes += ""
+$releaseNotes += "Verify before installing: see [INSTALL.md](https://github.com/Aravinth-Earth/Payanam/blob/main/INSTALL.md) for checksum verification and sideload steps."
+$releaseText = $releaseNotes -join "`n"
+
+# ── 9. Create the release and its tag ────────────────────────────────────────
+Write-LogWithTime "" "White"
+Write-LogWithTime "Release: $tag ($($script:declaredVersion)) on $head" "Cyan"
 
 if ($DryRun) {
-    Write-LogWithTime "[DRY RUN] Complete — nothing was published." "Green"
-} else {
-    $releaseUrl = gh release view $tag --json url --jq ".url" 2>$null
-    Write-LogWithTime "Release published: $releaseUrl" "Green"
+    Write-LogWithTime "[DRY RUN] Would create release $tag" "Yellow"
+    Write-LogWithTime "[DRY RUN]   title  : Payanam $($script:declaredVersion)" "Yellow"
+    Write-LogWithTime "[DRY RUN]   target : $commit" "Yellow"
+    foreach ($asset in $assets) {
+        Write-LogWithTime "[DRY RUN]   asset  : $($asset.Name)" "Yellow"
+        if (-not [string]::IsNullOrWhiteSpace($asset.ChecksumPath)) {
+            Write-LogWithTime "[DRY RUN]   asset  : $(Split-Path -Leaf $asset.ChecksumPath)" "Yellow"
+        }
+    }
+    Write-LogWithTime "[DRY RUN] notes  :" "Yellow"
+    Write-LogWithTime $releaseText "Yellow"
+    Write-LogWithTime "[DRY RUN] Complete — no tag and no release were created." "Green"
+    exit 0
 }
-Write-LogWithTime "APK : $($apkFile.Name)" "Green"
-Write-LogWithTime "SHA256 file: $sha256FileName" "Green"
+
+# gh creates the remote tag at the verified commit; the guards above prove it does not exist yet.
+$ghArgs = @(
+    $tag
+    "--title", "Payanam $($script:declaredVersion)"
+    "--notes", $releaseText
+    "--target", $commit
+)
+foreach ($asset in $assets) {
+    $ghArgs += $asset.Path
+    if (-not [string]::IsNullOrWhiteSpace($asset.ChecksumPath)) { $ghArgs += $asset.ChecksumPath }
+}
+
+gh release create @ghArgs
+if ($LASTEXITCODE -ne 0) {
+    Refuse "Release creation failed." "Check 'gh release list' first; a tag created before the failure has to be removed on the remote before retrying."
+}
+
+# ── 10. Report ───────────────────────────────────────────────────────────────
+$releaseUrl = gh release view $tag --json url --jq ".url" 2>$null
+Write-LogWithTime "Release published: $releaseUrl" "Green"
+Write-LogWithTime "Tag    : $tag on $head" "Green"
+Write-LogWithTime "Local  : git fetch --tags $tag" "Gray"
+foreach ($asset in $assets) {
+    Write-LogWithTime "Asset  : $($asset.Name)" "Green"
+}

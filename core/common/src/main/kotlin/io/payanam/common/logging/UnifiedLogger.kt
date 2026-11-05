@@ -3,16 +3,19 @@
 package io.payanam.common.logging
 
 import android.content.Context
+import android.content.pm.ApplicationInfo
 import android.os.Environment
-import kotlinx.coroutines.CoroutineScope
+import android.os.SystemClock
+import io.payanam.shared.concurrent.appCoroutineScope
+import io.payanam.shared.logging.LogSanitizer
+import io.payanam.shared.logging.logExportName
+import io.payanam.shared.logging.sessionLogName
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.sync.Mutex
 import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
-import android.os.SystemClock
 import java.io.File
 import java.io.FileWriter
 import java.io.IOException
@@ -34,13 +37,16 @@ import java.util.concurrent.atomic.AtomicLong
 @Suppress("TooManyFunctions")
 class UnifiedLogger private constructor(
     private val context: Context,
-    private val buildNumber: Int,
-) {
+    private val versionName: String,
+    private val buildShortSha: String,
+) : io.payanam.shared.logging.UnifiedLogger {
     private val logDir: File
     private var logFile: File
+    private val debugBuild: Boolean =
+        (context.applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE) != 0
     private val logBuffer = mutableListOf<String>()
     private val mutex = Mutex()
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+    private val scope = appCoroutineScope("UnifiedLogger", Dispatchers.IO)
     private val dateFormat = SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.US)
     private val sequenceCounter = AtomicLong(0)
 
@@ -52,10 +58,10 @@ class UnifiedLogger private constructor(
         clearOldLogsSync(keepLast = 9)
         logFile = createSessionLogFile()
 
-        scope.launch {
+        launchSafely {
             while (true) {
                 kotlinx.coroutines.delay(AUTO_FLUSH_INTERVAL_MS)
-                flush()
+                runIterationSafely("auto-flush") { flush() }
             }
         }
 
@@ -67,10 +73,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Logs a DEBUG-level entry. No-op unless debug logging is enabled. */
-    fun d(
+    override fun d(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         if (isDebugLoggingEnabled()) {
             log("DEBUG", source, message, data)
@@ -78,29 +84,29 @@ class UnifiedLogger private constructor(
     }
 
     /** Logs an INFO-level entry. */
-    fun i(
+    override fun i(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         log("INFO", source, message, data)
     }
 
     /** Logs a WARN-level entry. */
-    fun w(
+    override fun w(
         source: String,
         message: String,
-        data: Map<String, Any?>? = null,
+        data: Map<String, Any?>,
     ) {
         log("WARN", source, message, data)
     }
 
     /** Logs an ERROR-level entry, attaching [error] stack/metadata when present. */
-    fun e(
+    override fun e(
         source: String,
         message: String,
-        error: Throwable? = null,
-        data: Map<String, Any?>? = null,
+        error: Throwable?,
+        data: Map<String, Any?>,
     ) {
         log("ERROR", source, message, buildErrorData(error, data, MAX_STACK_FRAMES))
     }
@@ -109,11 +115,11 @@ class UnifiedLogger private constructor(
      * Synchronously logs an ERROR entry and writes it to logcat immediately,
      * bypassing the async buffer (used where a crash is imminent).
      */
-    fun eSync(
+    override fun eSync(
         source: String,
         message: String,
-        error: Throwable? = null,
-        data: Map<String, Any?>? = null,
+        error: Throwable?,
+        data: Map<String, Any?>,
     ) {
         val preparedLog =
             runBlocking {
@@ -137,9 +143,9 @@ class UnifiedLogger private constructor(
         level: String,
         source: String,
         message: String,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
     ) {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 val prepared = prepareLog(level, source, message, data)
                 logBuffer.add(prepared.entry)
@@ -152,42 +158,78 @@ class UnifiedLogger private constructor(
         }
     }
 
+    /**
+     * Runs [block] on this logger's own scope, never letting a failure escape into the process.
+     *
+     * The logger is the last place a failure should be reported FROM, so it must not be the place a
+     * failure is raised FROM: an unexpected throw inside a log write is reported to stderr and
+     * logcat and then dropped. Cancellation is the one exception - it is rethrown, so structured
+     * concurrency still works and a cancelled scope still unwinds quietly.
+     *
+     * Without this, the scope's `CoroutineExceptionHandler` would report the failure back through
+     * `AppLogger`, which is this logger, whose write would fail the same way and start the loop
+     * again. Guarding the writes is what breaks that cycle.
+     */
+    private fun launchSafely(block: suspend () -> Unit) {
+        scope.launch {
+            try {
+                block()
+            } catch (cancellation: CancellationException) {
+                throw cancellation
+            } catch (
+                @Suppress("TooGenericExceptionCaught") failure: Exception,
+            ) {
+                System.err.println("UnifiedLogger: Background log write failed: ${failure.message}")
+                android.util.Log.e(LOGCAT_TAG, "UnifiedLogger background log write failed", failure)
+            }
+        }
+    }
+
+    /**
+     * Runs ONE iteration of a repeating background task, keeping the repeat alive when that
+     * iteration fails.
+     *
+     * [launchSafely] guards a whole block, so a `while (true)` wrapped in it dies with the FIRST
+     * failure: the try/catch sits OUTSIDE the loop, so a throw leaves the `while`, the catch
+     * swallows it, and the loop never runs again. For the auto-flush that failure is SILENT -
+     * entries pile up in the buffer and nothing reaches the log file again, so anything reading
+     * the file (an export, a support bundle, a test waiting on a terminal marker) sees stale
+     * content forever. Guarding each iteration separately keeps one failed flush from ending the
+     * repeat: the failure is reported and the next iteration still runs.
+     *
+     * Cancellation is the only thing that ends a repeat: a [CancellationException] is rethrown, so
+     * a cancelled scope still unwinds the loop quietly. `runCatching` is deliberately NOT used
+     * here - it catches `Throwable`, which would swallow that cancellation as well.
+     */
+    private suspend fun runIterationSafely(
+        description: String,
+        block: suspend () -> Unit,
+    ) {
+        try {
+            block()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
+        } catch (
+            @Suppress("TooGenericExceptionCaught") failure: Exception,
+        ) {
+            System.err.println("UnifiedLogger: Background $description failed: ${failure.message}")
+            android.util.Log.e(LOGCAT_TAG, "UnifiedLogger background $description failed", failure)
+        }
+    }
+
     private fun buildErrorData(
         error: Throwable?,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
         stackFrameLimit: Int,
-    ): Map<String, Any?>? {
-        if (error == null) return data
-
-        val combined = data?.toMutableMap() ?: mutableMapOf()
-        combined["error"] = error.message ?: error.javaClass.simpleName
-        combined["exception"] = error.javaClass.simpleName
-        combined["stack"] =
-            error.stackTrace.take(stackFrameLimit).joinToString(" > ") {
-                "${it.fileName}:${it.lineNumber}:${it.methodName}"
-            }
-        val causeTrace =
-            buildString {
-                var current: Throwable? = error.cause
-                var depth = 0
-                while (current != null && depth < MAX_CAUSE_DEPTH) {
-                    if (isNotEmpty()) append(" || ")
-                    append("${current.javaClass.simpleName}:${current.message ?: "no-message"}")
-                    current = current.cause
-                    depth++
-                }
-            }
-        if (causeTrace.isNotEmpty()) {
-            combined["causeChain"] = causeTrace
-        }
-        return combined
-    }
+    ): Map<String, Any?> =
+        io.payanam.shared.logging.ErrorPayload
+            .build(error, data, stackFrameLimit)
 
     private fun prepareLog(
         level: String,
         source: String,
         message: String,
-        data: Map<String, Any?>?,
+        data: Map<String, Any?>,
     ): PreparedLog {
         val timestamp = dateFormat.format(Date())
         val safeMessage = LogSanitizer.sanitizeMessage(message)
@@ -234,7 +276,7 @@ class UnifiedLogger private constructor(
 
     /** Requests an async flush of the buffered entries to disk. */
     fun flush() {
-        scope.launch {
+        launchSafely {
             mutex.withLock {
                 flushInternal()
             }
@@ -251,7 +293,17 @@ class UnifiedLogger private constructor(
                 }
             }
             logBuffer.clear()
+        } catch (cancellation: CancellationException) {
+            throw cancellation
         } catch (e: IOException) {
+            System.err.println("UnifiedLogger: Failed to flush buffer: ${e.message}")
+            android.util.Log.e(LOGCAT_TAG, "UnifiedLogger flush failed", e)
+        } catch (
+            @Suppress("TooGenericExceptionCaught") e: Exception,
+        ) {
+            // A logger must never be the thing that kills the process. An unexpected throw while
+            // writing the buffer is reported and dropped, never rethrown into the caller - and
+            // `eSync` calls this inside a `runBlocking`, where a rethrow would crash the caller.
             System.err.println("UnifiedLogger: Failed to flush buffer: ${e.message}")
             android.util.Log.e(LOGCAT_TAG, "UnifiedLogger flush failed", e)
         }
@@ -316,7 +368,7 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
@@ -331,7 +383,9 @@ class UnifiedLogger private constructor(
                     if (!tmpFile.renameTo(exportFile)) {
                         throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
                     }
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
                     tmpFile.delete()
                     throw e
                 }
@@ -368,13 +422,14 @@ class UnifiedLogger private constructor(
                 val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
-                val exportDir = File(externalDir, "payanam$suffix/exported-logs")
+                val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
                 if (!exportDir.exists()) {
                     exportDir.mkdirs()
                 }
 
-                val timestamp = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US).format(Date())
-                val zipFile = File(exportDir, "payanam_${buildNumber}_$timestamp.zip")
+                val timestamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(Date())
+                val zipFile =
+                    File(exportDir, logExportName("android", versionName, buildShortSha, debugBuild, timestamp))
                 val tmpZip = File(exportDir, "${zipFile.name}.tmp")
 
                 try {
@@ -383,7 +438,9 @@ class UnifiedLogger private constructor(
                         throw IOException("Atomic rename failed: ${tmpZip.name} → ${zipFile.name}")
                     }
                     cleanupOldExports(exportDir, keepLast = EXPORT_RETENTION_KEEP)
-                } catch (@Suppress("TooGenericExceptionCaught") e: Exception) {
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") e: Exception,
+                ) {
                     tmpZip.delete()
                     throw e
                 }
@@ -432,7 +489,10 @@ class UnifiedLogger private constructor(
      * Zip [snapshot.files] + a session-live.log entry with the buffered lines.
      * Writes to [tmpZip] so the caller can rename atomically afterwards.
      */
-    private fun createZipFileAtomic(tmpZip: File, snapshot: LogSnapshot) {
+    private fun createZipFileAtomic(
+        tmpZip: File,
+        snapshot: LogSnapshot,
+    ) {
         java.util.zip.ZipOutputStream(java.io.FileOutputStream(tmpZip)).use { zos ->
             snapshot.files.forEach { file ->
                 addFileToZip(zos, file)
@@ -447,7 +507,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Re-open the zip and confirm entry count + EOCD magic before it is renamed into place. */
-    private fun verifyZipIntegrity(zipFile: File, expectedEntries: Int) {
+    private fun verifyZipIntegrity(
+        zipFile: File,
+        expectedEntries: Int,
+    ) {
         java.util.zip.ZipFile(zipFile).use { zip ->
             val actual = zip.size()
             if (actual != expectedEntries) {
@@ -463,7 +526,10 @@ class UnifiedLogger private constructor(
     }
 
     /** Prune the exported-logs dir to the newest [keepLast] payanam artifacts. */
-    private fun cleanupOldExports(exportDir: File, keepLast: Int) {
+    private fun cleanupOldExports(
+        exportDir: File,
+        keepLast: Int,
+    ) {
         val artifacts =
             exportDir
                 .listFiles()
@@ -492,7 +558,7 @@ class UnifiedLogger private constructor(
 
     /** Asynchronously prunes old session files, keeping the newest [keepLast]. */
     fun clearOldLogs(keepLast: Int = 10) {
-        scope.launch {
+        launchSafely {
             try {
                 val deletedCount = clearOldLogsSync(keepLast)
                 if (deletedCount > 0) {
@@ -518,11 +584,14 @@ class UnifiedLogger private constructor(
 
     private fun createSessionLogFile(): File {
         val timestamp = sessionFileNameFormat.format(Date())
-        val sessionFile = File(logDir, "payanam_${buildNumber}_$timestamp.log")
+        val sessionFile = File(logDir, sessionLogName("android", versionName, buildShortSha, debugBuild, timestamp))
         val header =
             buildString {
                 appendLine("=".repeat(HEADER_LINE_LENGTH))
-                appendLine("Payanam Unified Log | Platform: Android | Build: $buildNumber | Session: $timestamp")
+                appendLine(
+                    "Payanam Unified Log | Platform: Android | Version: $versionName ($buildShortSha) | " +
+                        "Session: $timestamp",
+                )
                 appendLine(
                     "Device: ${android.os.Build.MODEL} | OS: Android ${android.os.Build.VERSION.RELEASE} | " +
                         "SDK: ${android.os.Build.VERSION.SDK_INT}",
@@ -542,18 +611,21 @@ class UnifiedLogger private constructor(
     companion object {
         private const val HEADER_LINE_LENGTH = 120
         private const val AUTO_FLUSH_INTERVAL_MS = 5000L
-        private const val MAX_STACK_FRAMES = 3
-        private const val MAX_CRASH_STACK_FRAMES = 64
-        private const val MAX_CAUSE_DEPTH = 8
+        private const val MAX_STACK_FRAMES = io.payanam.shared.logging.ErrorPayload.MAX_STACK_FRAMES
+        private const val MAX_CRASH_STACK_FRAMES = io.payanam.shared.logging.ErrorPayload.MAX_CRASH_STACK_FRAMES
         private const val LOG_LEVEL_WIDTH = 5
         private const val MAX_BUFFER_SIZE = 100
         private const val EXPORT_RETENTION_KEEP = 20
         private const val LOGCAT_TAG = "Payanam"
+
+        /** Stands in for the sha when a caller has none: the same token the build scripts use without a `.git`. */
+        private const val NO_SHORT_SHA = "nogit"
+
         // ZIP End-Of-Central-Directory record: fixed 22-byte trailer whose first
         // 4 bytes are the PK\x05\x06 magic. Used to confirm a written zip is complete.
         private const val EOCD_RECORD_SIZE = 22
         private const val EOCD_MAGIC_SIZE = 4
-        private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd-HHmmss", Locale.US)
+        private val sessionFileNameFormat = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US)
 
         @Volatile
         private var instance: UnifiedLogger? = null
@@ -567,14 +639,24 @@ class UnifiedLogger private constructor(
          */
         fun initialize(
             context: Context,
-            @Suppress("UNUSED_PARAMETER") versionName: String,
-            buildNumber: Int,
+            versionName: String,
+            buildShortSha: String,
         ): UnifiedLogger =
             instance ?: synchronized(this) {
-                instance ?: UnifiedLogger(context, buildNumber).also {
+                instance ?: UnifiedLogger(context, versionName, buildShortSha).also {
                     instance = it
                 }
             }
+
+        /**
+         * Legacy arity: the build number no longer names anything, so it is accepted and dropped.
+         * Production uses the [buildShortSha] overload.
+         */
+        fun initialize(
+            context: Context,
+            versionName: String,
+            @Suppress("UNUSED_PARAMETER") buildNumber: Int,
+        ): UnifiedLogger = initialize(context, versionName, NO_SHORT_SHA)
 
         /** Returns the initialized singleton, throwing if [initialize] was not called. */
         fun getInstance(): UnifiedLogger =

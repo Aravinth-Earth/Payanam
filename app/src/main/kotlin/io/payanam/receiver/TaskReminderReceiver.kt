@@ -42,7 +42,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
     /**
      * Delivers the reminder asynchronously (goAsync) when reminders are on.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
         scope.launch {

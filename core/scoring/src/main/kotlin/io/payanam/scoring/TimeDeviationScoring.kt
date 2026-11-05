@@ -2,8 +2,8 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.scoring
 
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.LifeDimension
+import io.payanam.shared.logging.AppLogger
 import kotlin.math.exp
 
 /**
@@ -22,7 +22,10 @@ import kotlin.math.exp
  */
 object TimeDeviationScoring {
 
-    private val logger = UnifiedLogger.getInstance()
+    // Computed, not cached: `AppLogger.current` is swapped once by the app's startup path, so a
+    // plain `val` would freeze this object to whatever was current at class-load (the no-op
+    // default if that happened first) and silently drop every diagnostic for the process lifetime.
+    private val logger get() = AppLogger.current
 
     /**
      * Steepness constant for the Gaussian curve.

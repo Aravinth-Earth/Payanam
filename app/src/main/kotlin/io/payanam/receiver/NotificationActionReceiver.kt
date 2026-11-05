@@ -14,7 +14,7 @@ import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.notification.NotificationScheduler
-import io.payanam.usecase.RecurrenceManager
+import io.payanam.scoring.RecurrenceManager
 import io.payanam.widget.TimeTrackingWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,7 +77,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun handleStopTracking(context: Context, pendingResult: BroadcastReceiver.PendingResult) {
         try {
             val launchIntent = Intent(context, MainActivity::class.java).apply {
@@ -97,7 +97,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun handleTaskAction(
         context: Context,
         intent: Intent,
@@ -176,13 +176,18 @@ class NotificationActionReceiver : BroadcastReceiver() {
                         )
                     } else {
                         when (status) {
-                            "completed" -> recurrenceManager.onTaskCompleted(task, note = null, reason = "notification_action")
-                            "skipped" -> recurrenceManager.onTaskSkipped(task, note = null, reason = "notification_action")
-                            "missed" -> recurrenceManager.onTaskMissed(task, note = null, reason = "notification_action")
+                            "completed" -> recurrenceManager.onTaskCompleted(task, note = null, reason = "notification_action", nextDueStrategy = null)
+                            "skipped" -> recurrenceManager.onTaskSkipped(task, note = null, reason = "notification_action", nextDueStrategy = null)
+                            "missed" -> recurrenceManager.onTaskMissed(task, note = null, reason = "notification_action", nextDueStrategy = null)
                         }
                         val updatedTask = taskRepository.getTaskById(taskId)
                         if (updatedTask != null && updatedTask.recurrenceEnabled) {
-                            notificationScheduler.scheduleForTask(updatedTask)
+                            notificationScheduler.scheduleForTask(
+                                task = updatedTask,
+                                overrideScheduledAt = null,
+                                overrideDueAt = null,
+                                isSnoozed = false,
+                            )
                         }
                     }
                 } else {
@@ -214,7 +219,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-system-API catch in background component
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     private fun handleSnooze(context: Context, intent: Intent, pendingResult: BroadcastReceiver.PendingResult) {
         val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
         val dueAtRaw = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT)

@@ -1,6 +1,6 @@
 Payanam (பயணம் — "journey") is a privacy-first life dimension manager for Android. Track what matters to you across the dimensions of life you define.
 
-<b>Your data never leaves your device.</b> No cloud. No accounts. No tracking. No subscriptions.
+<b>Your data stays on your device by default. You control what leaves it.</b> No cloud of ours. No accounts. No tracking. No subscriptions. Payanam has no servers of its own.
 
 <b>Life Dimensions</b>
 Comes with 9 default dimensions — Work & Livelihood, Physical Health, Family & Relationships, Home Environment, Money & Finance, Mental Health, Recreation & Leisure, Learning & Growth, Community & Service. Customize names, icons, colors, or create your own. Set per-dimension weightage that controls how each life area contributes to your scores.
@@ -33,7 +33,7 @@ Encrypted by default — set a strong passphrase (12+ chars, upper/lower/digit/s
 Enable or disable individual modules. Choose your default home tab. System theme with Material You dynamic colors. English and Tamil locale support. Font family customization (sans, serif, monospace, cursive).
 
 <b>Cross-Platform & Updates</b>
-Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. In-app update checker across 3 channels (dev/beta/stable) with three opt-in levels: check, auto-download over WiFi, and prompt to install.
+Android is in good shape. Windows desktop in early development. Linux and other platforms planned. Goal: fully featured cross-platform apps with same data, features, and privacy. GitHub builds include an in-app update checker (dev/beta/stable, opt-in). The F-Droid build has no in-app updates — update through your F-Droid client. For in-app updates, install from GitHub releases.
 
 Payanam is open source under AGPL-3.0. All improvements stay open.
 

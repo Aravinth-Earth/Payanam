@@ -2,7 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.domain.repository
 
-import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.logging.UnifiedLogger
 import java.time.LocalDate
 /**
  * The rolling time windows an average-daily-time table can report against,

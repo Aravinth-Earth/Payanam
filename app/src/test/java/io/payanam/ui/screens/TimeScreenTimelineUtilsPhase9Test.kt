@@ -4,6 +4,9 @@ package io.payanam.ui.screens
 
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.time.computeTimeOverlaps
+import io.payanam.core.ui.time.resolveOccurrenceWindowMinutes
+import io.payanam.core.ui.time.resolvePlannedTasksForTimeline
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
@@ -15,10 +18,10 @@ import org.robolectric.RobolectricTestRunner
 import java.time.LocalDate
 import java.time.LocalDateTime
 
-@RunWith(RobolectricTestRunner::class)
 /**
  * TimeScreenTimelineUtilsPhase9Test.
  */
+@RunWith(RobolectricTestRunner::class)
 class TimeScreenTimelineUtilsPhase9Test {
     @Before
     fun setUp() {
@@ -72,10 +75,10 @@ class TimeScreenTimelineUtilsPhase9Test {
         assertEquals(1125, window.endMinutes)
     }
 
-    @Test
     /**
      * Resolve occurrence window minutes distributes date only occurrences.
      */
+    @Test
     fun resolveOccurrenceWindowMinutes_distributes_date_only_occurrences() {
         val day = LocalDate.of(2026, 2, 16)
         val occurrence = TaskOccurrence(
@@ -96,10 +99,10 @@ class TimeScreenTimelineUtilsPhase9Test {
         assertEquals(730, window.endMinutes)
     }
 
-    @Test
     /**
      * Resolve occurrence window minutes ignores midnight sentinel when no completion time.
      */
+    @Test
     fun resolveOccurrenceWindowMinutes_ignores_midnight_sentinel_when_no_completion_time() {
         val day = LocalDate.of(2026, 2, 16)
         val occurrence = TaskOccurrence(
@@ -120,10 +123,10 @@ class TimeScreenTimelineUtilsPhase9Test {
         assertEquals(730, window.endMinutes)
     }
 
-    @Test
     /**
      * Resolve planned tasks for timeline filters tasks already tracked for day.
      */
+    @Test
     fun resolvePlannedTasksForTimeline_filters_tasks_already_tracked_for_day() {
         val day = LocalDate.of(2026, 2, 16)
         val planned = listOf(
@@ -143,10 +146,10 @@ class TimeScreenTimelineUtilsPhase9Test {
         assertEquals(listOf("task-2"), remaining.map { it.id })
     }
 
-    @Test
     /**
      * Resolve planned tasks for timeline filters tasks with active or occurrence.
      */
+    @Test
     fun resolvePlannedTasksForTimeline_filters_tasks_with_active_or_occurrence() {
         val day = LocalDate.of(2026, 2, 16)
         val planned = listOf(

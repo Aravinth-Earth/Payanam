@@ -2,27 +2,11 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.scoring
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.LifeDimension
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
-@RunWith(RobolectricTestRunner::class)
 class TimeDeviationScoringTest {
-
-    @Before
-    fun setup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        if (!UnifiedLogger.isInitialized()) {
-            UnifiedLogger.initialize(context, "test", 0)
-        }
-    }
-
     @Test
     fun perfectMatch_returnsOne() {
         val score = TimeDeviationScoring.calculateDimensionScore(120, 120)

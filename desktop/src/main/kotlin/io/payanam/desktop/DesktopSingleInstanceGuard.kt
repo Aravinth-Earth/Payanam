@@ -20,7 +20,7 @@ import javax.swing.JOptionPane
 internal sealed interface DesktopSingleInstanceAcquireResult {
     /**
      * Acquired.
-    
+
      */
     data class Acquired(
         val lease: DesktopSingleInstanceLease,
@@ -28,7 +28,7 @@ internal sealed interface DesktopSingleInstanceAcquireResult {
 
     /**
      * AlreadyRunning.
-    
+
      */
     data class AlreadyRunning(
         val details: DesktopRunningInstanceDetails,
@@ -91,6 +91,7 @@ internal object DesktopSingleInstanceGuard {
     private val trackedProcesses = ConcurrentHashMap<Path, Long>()
     private val trackedDetails = ConcurrentHashMap<Path, DesktopRunningInstanceDetails>()
     private val timestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss z")
+
     /**
      * Tries to take the single-instance file lock: acquired lease, or details
      * of the running instance when the lock is held elsewhere.
@@ -140,6 +141,7 @@ internal object DesktopSingleInstanceGuard {
                 ),
         )
     }
+
     /**
      * Swing dialog telling the user another instance is running (with its
      * PID, build, start time, executable, and log path).
@@ -152,15 +154,15 @@ internal object DesktopSingleInstanceGuard {
         val logFileText = details.logFilePath ?: "not available yet"
         JOptionPane.showMessageDialog(
             null,
-            "Only one Payanam Desktop instance is allowed.\n\n" +
+            "Only one Payanam instance is allowed.\n\n" +
                 "An existing instance is already running.\n" +
                 "Process ID: $processText\n" +
                 "Build: $buildText\n" +
                 "Started at: $startedAtText\n" +
                 "Executable: $executableText\n" +
                 "Log file: $logFileText\n\n" +
-                "Close the running Payanam Desktop window before launching again.",
-            "Payanam Desktop already running",
+                "Close the running Payanam window before launching again.",
+            "Payanam already running",
             JOptionPane.INFORMATION_MESSAGE,
         )
     }

@@ -5,7 +5,8 @@
 package io.payanam.domain.model
 
 
-import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 /**
  * One canonical life-dimension definition: stable [id], [slug], localized
  * fallback label/description, display order, and default weight/color/icon.
@@ -22,7 +23,7 @@ data class CanonicalDimensionDefinition(
 )
 @Suppress("MagicNumber")
 object DimensionTaxonomyCatalog {
-    private fun loggerOrNull(): UnifiedLogger? = runCatching { UnifiedLogger.getInstance() }.getOrNull()
+    private fun logger(): UnifiedLogger = AppLogger.current
     private const val CATALOG_CLASS_NAME = "io.payanam.domain.model.DimensionTaxonomyCatalog"
     val PHYSICAL_HEALTH = CanonicalDimensionDefinition(
         id = "dim_physical_health",
@@ -82,7 +83,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_money_finance",
         slug = "money_finance",
         fallbackLabel = "Money & Finance",
-        fallbackDescription = "Activities involving budgeting, saving, spending, investing, bills, and financial decisions for present and future needs.",
+        fallbackDescription = 
+            "Activities involving budgeting, saving, spending, investing," +
+                "bills, and financial decisions for present and future needs.",
         sortOrder = 60,
         defaultWeight = 0.8,
         defaultColorHex = "#FF9800",
@@ -104,7 +107,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_recreation_leisure",
         slug = "recreation_leisure",
         fallbackLabel = "Recreation & Leisure",
-        fallbackDescription = "Activities done for enjoyment, rest, hobbies, fun, exploration, and renewal outside essential responsibilities.",
+        fallbackDescription = 
+            "Activities done for enjoyment, rest, hobbies, fun," +
+                "exploration, and renewal outside essential responsibilities.",
         sortOrder = 80,
         defaultWeight = 0.7,
         defaultColorHex = "#00BCD4",
@@ -114,7 +119,9 @@ object DimensionTaxonomyCatalog {
         id = "dim_community_service",
         slug = "community_service",
         fallbackLabel = "Community & Service",
-        fallbackDescription = "Activities that help others, support communities, encourage participation, and create value beyond personal or family needs.",
+        fallbackDescription = 
+            "Activities that help others, support communities, encourage" +
+                "participation, and create value beyond personal or family needs.",
         sortOrder = 90,
         defaultWeight = 0.7,
         defaultColorHex = "#607D8B",
@@ -175,7 +182,7 @@ object DimensionTaxonomyCatalog {
         return fromCanonicalId(id)?.also {
             if (id != it.id) {
                 val callerData = fallbackCallerTrace()
-                loggerOrNull()?.w(
+                logger().w(
                     "DimensionTaxonomyCatalog.fromAnyId",
                     "Rejected non-canonical dimension id",
                     mapOf(
@@ -187,7 +194,7 @@ object DimensionTaxonomyCatalog {
             }
         } ?: run {
             val callerData = fallbackCallerTrace()
-            loggerOrNull()?.w(
+            logger().w(
                 "DimensionTaxonomyCatalog.fromAnyId",
                 "Rejected non-canonical dimension id",
                 mapOf(
@@ -208,7 +215,7 @@ object DimensionTaxonomyCatalog {
         }
         val trimmed = label.trim()
         val callerData = fallbackCallerTrace()
-        loggerOrNull()?.w(
+        logger().w(
             "DimensionTaxonomyCatalog.fromAnyLabel",
             "Rejected dimension label; canonical id required",
             mapOf(

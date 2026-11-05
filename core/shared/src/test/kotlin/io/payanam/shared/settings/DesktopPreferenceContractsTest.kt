@@ -4,6 +4,7 @@ package io.payanam.shared.settings
 
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
+
 class DesktopPreferenceContractsTest {
     @Test
     fun `default snapshot stays stable for desktop bootstrap`() {
@@ -16,6 +17,18 @@ class DesktopPreferenceContractsTest {
         assertThat(snapshot.focusModeOnboardingCompleted).isFalse()
         assertThat(snapshot.visibleRoutes()).containsExactlyElementsIn(DesktopTopLevelRoute.entries).inOrder()
         assertThat(snapshot.sessionLoggingEnabled).isTrue()
+        // Scope A: previously non-persisted controls
+        assertThat(snapshot.focusModeEnabled).isTrue()
+        assertThat(snapshot.habitTrackingEnabled).isFalse()
+        assertThat(snapshot.timeInsightsEnabled).isTrue()
+        assertThat(snapshot.autoBackupEnabled).isFalse()
+        assertThat(snapshot.backupFrequency).isEqualTo("60m")
+        assertThat(snapshot.scoringModel).isEqualTo("balanced")
+        assertThat(snapshot.unlockTimeout).isEqualTo(120)
+        // Scope B: genuinely missing desktop settings
+        assertThat(snapshot.timeFormat).isEqualTo("24h")
+        assertThat(snapshot.backupRotationEnabled).isFalse()
+        assertThat(snapshot.backupRotationCount).isEqualTo(50)
     }
 
     @Test
@@ -27,15 +40,16 @@ class DesktopPreferenceContractsTest {
 
     @Test
     fun `all desktop top level routes remain available for shared app shell`() {
-        assertThat(DesktopTopLevelRoute.entries.map { it.storageKey }).containsExactly(
-            "tasks",
-            "habits",
-            "time",
-            "journal",
-            "notes",
-            "lenses",
-            "settings",
-        ).inOrder()
+        assertThat(DesktopTopLevelRoute.entries.map { it.storageKey })
+            .containsExactly(
+                "tasks",
+                "habits",
+                "time",
+                "journal",
+                "notes",
+                "lenses",
+                "settings",
+            ).inOrder()
     }
 
     @Test
@@ -81,5 +95,59 @@ class DesktopPreferenceContractsTest {
         assertThat(journalVisibility[DesktopTopLevelRoute.NOTES]).isTrue()
         assertThat(journalVisibility[DesktopTopLevelRoute.SETTINGS]).isTrue()
         assertThat(journalVisibility[DesktopTopLevelRoute.TASKS]).isFalse()
+    }
+
+    @Test
+    fun `isRouteVisible falls back to DEFAULT_ROUTE_VISIBLE when a route is absent from the map`() {
+        val snapshot =
+            DesktopSettingsSnapshot(
+                routeVisibility = mapOf(DesktopTopLevelRoute.TASKS to true, DesktopTopLevelRoute.JOURNAL to false),
+            )
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.TASKS)).isTrue()
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.JOURNAL)).isFalse()
+        // HABITS is absent — the map lookup returns null, so the fallback must kick in
+        assertThat(snapshot.isRouteVisible(DesktopTopLevelRoute.HABITS))
+            .isEqualTo(DesktopSettingsContracts.DEFAULT_ROUTE_VISIBLE)
+    }
+
+    @Test
+    fun `visibleRoutes only includes routes whose flag is true`() {
+        val snapshot =
+            DesktopSettingsSnapshot(
+                routeVisibility =
+                    mapOf(
+                        DesktopTopLevelRoute.TASKS to true,
+                        DesktopTopLevelRoute.HABITS to false,
+                        DesktopTopLevelRoute.JOURNAL to true,
+                        DesktopTopLevelRoute.SETTINGS to true,
+                    ),
+            )
+        // LENSES, TIME, NOTES absent → default true
+        assertThat(snapshot.visibleRoutes())
+            .containsExactlyElementsIn(
+                listOf(
+                    DesktopTopLevelRoute.TASKS,
+                    DesktopTopLevelRoute.TIME,
+                    DesktopTopLevelRoute.JOURNAL,
+                    DesktopTopLevelRoute.NOTES,
+                    DesktopTopLevelRoute.LENSES,
+                    DesktopTopLevelRoute.SETTINGS,
+                ),
+            ).inOrder()
+    }
+
+    @Test
+    fun `focus preset exposes stable name and description keys for the i18n layer`() {
+        assertThat(FocusModePreset.SIMPLE_TIME_HABITS.nameKey).isEqualTo("preset_simple_time_habits")
+        assertThat(FocusModePreset.SIMPLE_TIME_HABITS.descriptionKey)
+            .isEqualTo("preset_simple_time_habits_desc")
+        assertThat(FocusModePreset.SIMPLE_JOURNAL.nameKey).isEqualTo("preset_simple_journal")
+        assertThat(FocusModePreset.SIMPLE_JOURNAL.descriptionKey)
+            .isEqualTo("preset_simple_journal_desc")
+        assertThat(FocusModePreset.SIMPLE_TASKS.nameKey).isEqualTo("preset_simple_tasks")
+        assertThat(FocusModePreset.SIMPLE_TASKS.descriptionKey)
+            .isEqualTo("preset_simple_tasks_desc")
+        assertThat(FocusModePreset.FULL_SUITE.nameKey).isEqualTo("preset_full_suite")
+        assertThat(FocusModePreset.FULL_SUITE.descriptionKey).isEqualTo("preset_full_suite_desc")
     }
 }

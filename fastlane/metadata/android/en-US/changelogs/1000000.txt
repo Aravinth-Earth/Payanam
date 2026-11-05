@@ -1,0 +1,11 @@
+Initial release — Payanam (பயணம்): habits, tasks, time, notes & journal linked across life dimensions.
+
+• Habits — scored, rolled up to dimension & day
+• Tasks — weighted priority scoring
+• Time tracking — dimension-based, or task/habit-linked
+• Insights — dimension scores, trends, radar
+• Tamil (தமிழ்) interface
+• Encrypted with your passphrase; manual + auto backup
+• 100% local — no cloud, no accounts, no tracking
+
+Feedback welcome — Signal/email in Settings → About.

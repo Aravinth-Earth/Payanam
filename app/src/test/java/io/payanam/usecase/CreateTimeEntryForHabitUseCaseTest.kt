@@ -31,10 +31,10 @@ class CreateTimeEntryForHabitUseCaseTest {
         }
     }
 
-    @Test
     /**
      * Invoke uses canonical dimension id before creating time entry.
      */
+    @Test
     fun invoke_uses_canonical_dimension_id_before_creating_time_entry() = runTest {
         val timeEntryRepository = FakeTimeEntryRepository()
         val appSettingsRepository = FakeAppSettingsRepository(

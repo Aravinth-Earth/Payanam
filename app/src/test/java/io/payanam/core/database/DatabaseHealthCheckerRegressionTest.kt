@@ -6,6 +6,7 @@ import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.PayanamDatabaseSchema
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -39,8 +40,8 @@ class DatabaseHealthCheckerRegressionTest {
         ensureLoggerInitialized()
         val context = ApplicationProvider.getApplicationContext<Context>()
         deleteDatabaseArtifacts(context)
-        val dbFile = context.getDatabasePath(PayanamDatabase.DATABASE_NAME)
-        val walFile = File(dbFile.parent, "${PayanamDatabase.DATABASE_NAME}-wal")
+        val dbFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+        val walFile = File(dbFile.parent, "${PayanamDatabaseSchema.DATABASE_NAME}-wal")
         walFile.parentFile?.mkdirs()
         walFile.writeText("wal-placeholder")
         val hasArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(context)
@@ -86,7 +87,7 @@ class DatabaseHealthCheckerRegressionTest {
         val dbFile = createDatabaseWithRequiredTables(
             context,
             version = 15,
-            fileName = PayanamDatabase.DATABASE_NAME,
+            fileName = PayanamDatabaseSchema.DATABASE_NAME,
         )
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
         assertFalse(result.isHealthy)
@@ -105,7 +106,7 @@ class DatabaseHealthCheckerRegressionTest {
         val dbFile = createDatabaseWithRequiredTables(
             context,
             version = PAYANAM_DATABASE_SCHEMA_VERSION,
-            fileName = PayanamDatabase.DATABASE_NAME,
+            fileName = PayanamDatabaseSchema.DATABASE_NAME,
         )
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
         assertTrue(result.isHealthy)
@@ -123,7 +124,7 @@ class DatabaseHealthCheckerRegressionTest {
         val dbFile = createDatabaseWithRequiredTables(
             context,
             version = newerVersion,
-            fileName = PayanamDatabase.DATABASE_NAME,
+            fileName = PayanamDatabaseSchema.DATABASE_NAME,
         )
         val result = DatabaseHealthChecker.checkDatabaseHealth(context)
         assertFalse(result.isHealthy)
@@ -184,9 +185,9 @@ class DatabaseHealthCheckerRegressionTest {
     }
 
     private fun deleteDatabaseArtifacts(context: Context) {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
         dbDir?.listFiles()?.forEach { file ->
-            if (file.name.startsWith(PayanamDatabase.DATABASE_NAME.substringBeforeLast(".")) ||
+            if (file.name.startsWith(PayanamDatabaseSchema.DATABASE_NAME.substringBeforeLast(".")) ||
                 file.name.endsWith(".db")
             ) {
                 file.deleteRecursively()

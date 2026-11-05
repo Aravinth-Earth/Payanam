@@ -7,21 +7,18 @@ import io.payanam.database.dao.DailyInsightDao
 import io.payanam.database.entity.DailyInsightEntity
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
-const val DAILY_INSIGHT_MODULE_UNIFIED_SNAPSHOT = "lens_unified_snapshot"
-const val DAILY_INSIGHT_MODULE_LENS_DIRTY_DAY = "lens_dirty_day"
+
+// Android's half of the lens dirty-day marker: the Room read and write, nothing else.
+//
+// The metadata shape, its encoding and the merge rule live in the shared model module
+// (LensDirtyDayMetadata, buildLensDirtyDayMetadata, encodeLensDirtyDayMetadata,
+// decodeLensDirtyDayMetadata). They are a PERSISTED FORMAT: both platforms write it into
+// `daily_insights.summary_json` in the same encrypted file, so a second copy of the encoding would let
+// one platform write a payload the other cannot read. Only the storage call is platform-specific.
+
 /**
- * Tracks which days have stale lens snapshots and which modules changed, so the
- * next lens refresh only recomputes what's needed.
- */
-data class LensDirtyDayMetadata(
-    val dayKey: String,
-    val changedModules: Set<String>,
-    val invalidatedAt: String,
-    val reason: String,
-)
-/**
- * Marks [dayKey] as dirty for [changedModules], merging into any existing marker and
- * logging the reason. Stored as a daily_insights row keyed by `lens_dirty_<dayKey>`.
+ * Marks [dayKey] as dirty for [changedModules], merging into any existing marker and logging the reason.
+ * Stored as a daily_insights row keyed by `lens_dirty_<dayKey>`.
  */
 suspend fun markLensDayDirty(
     dailyInsightDao: DailyInsightDao,
@@ -30,20 +27,19 @@ suspend fun markLensDayDirty(
     changedModules: Set<String>,
     reason: String,
 ) {
-    val normalizedModules = changedModules.map { it.trim() }.filter { it.isNotEmpty() }.toSet()
     val existing = loadLensDirtyDayMetadata(dailyInsightDao, dayKey)
-    val mergedModules = (existing?.changedModules.orEmpty() + normalizedModules).toSortedSet()
     val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
     val metadata =
-        LensDirtyDayMetadata(
+        buildLensDirtyDayMetadata(
             dayKey = dayKey,
-            changedModules = mergedModules,
+            existingChangedModules = existing?.changedModules.orEmpty(),
+            changedModules = changedModules,
+            reason = reason,
             invalidatedAt = now,
-            reason = reason.trim().ifEmpty { "unspecified" },
         )
     dailyInsightDao.upsert(
         DailyInsightEntity(
-            id = "lens_dirty_$dayKey",
+            id = lensDirtyDayId(dayKey),
             dayKey = dayKey,
             module = DAILY_INSIGHT_MODULE_LENS_DIRTY_DAY,
             dimensionId = null,
@@ -59,9 +55,14 @@ suspend fun markLensDayDirty(
     logger.d(
         "LensDirtyDayInvalidation.markLensDayDirty",
         "Marked day as dirty for lens snapshot",
-        mapOf("dayKey" to dayKey, "changedModules" to mergedModules.joinToString(","), "reason" to metadata.reason),
+        mapOf(
+            "dayKey" to dayKey,
+            "changedModules" to metadata.changedModules.joinToString(","),
+            "reason" to metadata.reason,
+        ),
     )
 }
+
 /**
  * Clears the dirty marker for [dayKey] (lens snapshot is now up to date).
  */
@@ -77,6 +78,7 @@ suspend fun clearLensDayDirty(
         mapOf("dayKey" to dayKey),
     )
 }
+
 /**
  * Reads the dirty-day metadata for [dayKey], or null if the day is clean.
  */
@@ -88,6 +90,7 @@ suspend fun loadLensDirtyDayMetadata(
     val summary = entity.summaryJson ?: return null
     return decodeLensDirtyDayMetadata(dayKey, summary)
 }
+
 /**
  * Returns the subset of [dayKeys] that currently have a dirty marker.
  */
@@ -100,40 +103,4 @@ suspend fun getLensDirtyDayKeys(
         .getSummariesForDays(dayKeys.toList(), DAILY_INSIGHT_MODULE_LENS_DIRTY_DAY)
         .map { it.dayKey }
         .toSet()
-}
-
-private fun encodeLensDirtyDayMetadata(metadata: LensDirtyDayMetadata): String {
-    val modules = metadata.changedModules.joinToString(",")
-    val safeReason =
-        metadata.reason
-            .replace("|", "/")
-            .replace("\n", " ")
-            .trim()
-    return "dayKey=${metadata.dayKey}|changedModules=$modules|invalidatedAt=${metadata.invalidatedAt}|reason=$safeReason"
-}
-
-private fun decodeLensDirtyDayMetadata(
-    dayKey: String,
-    encoded: String,
-): LensDirtyDayMetadata {
-    val fields =
-        encoded
-            .split("|")
-            .mapNotNull { part ->
-                val index = part.indexOf('=')
-                if (index <= 0) null else part.substring(0, index) to part.substring(index + 1)
-            }.toMap()
-    val modules =
-        fields["changedModules"]
-            ?.split(",")
-            ?.map { it.trim() }
-            ?.filter { it.isNotEmpty() }
-            ?.toSet()
-            .orEmpty()
-    return LensDirtyDayMetadata(
-        dayKey = fields["dayKey"] ?: dayKey,
-        changedModules = modules,
-        invalidatedAt = fields["invalidatedAt"] ?: "",
-        reason = fields["reason"] ?: "unspecified",
-    )
 }

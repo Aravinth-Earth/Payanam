@@ -24,7 +24,7 @@ class UnifiedLoggerTest {
     fun setup() {
         context = ApplicationProvider.getApplicationContext()
         if (!UnifiedLogger.isInitialized()) {
-            UnifiedLogger.initialize(context, "test", 1)
+            UnifiedLogger.initialize(context, "test", "testsha")
         }
         logger = UnifiedLogger.getInstance()
         val currentLogFile = File(logger.getCurrentLogPath())

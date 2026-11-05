@@ -6,6 +6,7 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.security.SharedPassphrasePolicy
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -36,7 +37,7 @@ class PassphrasePolicyTest {
      * Returns true when the validate rejects short passphrase.
      */
     fun validate_rejectsShortPassphrase() {
-        val result = PassphrasePolicy.validate("Ab1!")
+        val result = SharedPassphrasePolicy.validate("Ab1!")
         logger.d("PassphrasePolicyTest.validate_rejectsShortPassphrase", "Validation result", mapOf("isValid" to result.isValid))
         assertThat(result.isValid).isFalse()
         assertThat(result.reasonCode).isEqualTo("min_length")
@@ -47,7 +48,7 @@ class PassphrasePolicyTest {
      * Returns true when the validate rejects missing uppercase.
      */
     fun validate_rejectsMissingUppercase() {
-        val result = PassphrasePolicy.validate("lowercase12!")
+        val result = SharedPassphrasePolicy.validate("lowercase12!")
         logger.d("PassphrasePolicyTest.validate_rejectsMissingUppercase", "Validation result", mapOf("isValid" to result.isValid))
         assertThat(result.isValid).isFalse()
         assertThat(result.reasonCode).isEqualTo("missing_uppercase")
@@ -58,7 +59,7 @@ class PassphrasePolicyTest {
      * Returns true when the validate accepts strong passphrase.
      */
     fun validate_acceptsStrongPassphrase() {
-        val result = PassphrasePolicy.validate("S3cure!Passphrase")
+        val result = SharedPassphrasePolicy.validate("S3cure!Passphrase")
         logger.d("PassphrasePolicyTest.validate_acceptsStrongPassphrase", "Validation result", mapOf("isValid" to result.isValid))
         assertThat(result.isValid).isTrue()
         assertThat(result.reasonCode).isNull()

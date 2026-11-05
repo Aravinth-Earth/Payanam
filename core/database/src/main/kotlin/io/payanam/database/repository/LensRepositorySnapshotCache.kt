@@ -10,6 +10,8 @@ import io.payanam.domain.repository.LensReflectionRecord
 import io.payanam.domain.repository.UnifiedLensSnapshot
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import io.payanam.domain.lens.decodeUnifiedLensSnapshot
+import io.payanam.domain.lens.encodeUnifiedLensSnapshot
 
 internal suspend fun loadSnapshotFromPersistentCache(
     dailyInsightDao: DailyInsightDao,

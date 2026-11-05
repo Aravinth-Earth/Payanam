@@ -1,0 +1,886 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.core.ui.database
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.CloudUpload
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Lock
+import androidx.compose.material.icons.filled.Storage
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
+import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.IMPORT_PICKER_MIME
+import io.payanam.core.ui.components.ImportDatabaseFileButton
+import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.onboarding.OnboardingIntroScreen
+import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.UiLanguage
+import io.payanam.core.ui.text.formatArgs
+import io.payanam.presentation.database.DatabaseInitViewModel
+import io.payanam.presentation.database.RestoreResult
+import io.payanam.shared.database.DatabaseBootIssueType
+import io.payanam.shared.logging.AppLogger
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
+
+/**
+ * The database initialisation / import gate, rendered identically by every platform.
+ *
+ * Moved here from `:app` with its layout unchanged: same column, same spacing, same field order. Only the
+ * things that are genuinely platform- or app-specific were lifted out, so the Android app and the desktop
+ * cannot render two different screens:
+ *
+ *  - The copy comes from [LocalUiStrings], the ambient table the navigation graph installs, exactly as it
+ *    arrived from the platform's resources before. Which language is active is OS interaction (per-app
+ *    language on Android, `Locale.getDefault()` on the desktop) and this module holds none of it.
+ *  - The ViewModel arrives as a parameter rather than being built here. The platform owns retention
+ *    (`retainSharedViewModel` on Android, the desktop's own holder) and construction from the Hilt graph;
+ *    the shared screen owns none of it.
+ *  - [onImportFileSelected] replaces the SAF launcher. The picker is Android's own `OpenDocument` contract
+ *    and the `Uri` it returns is an Android type, so the shared screen asks the platform to pick and hands
+ *    back the MIME filter to use. Each platform answers with its own picker: Android launches `OpenDocument`
+ *    and passes the returned `Uri` on, and the desktop drives its file dialog and passes the token back to
+ *    the ViewModel's import entry. The screen itself never picks, so an empty answer here is a dead control.
+ *  - [debugLogExport] replaces the log-export actions, following the [MandatoryDimensionSetupSection]
+ *    precedent: the exporter writes to Android's own storage and reads Android's Rclass, so the shared
+ *    screen takes a composable slot instead of a parallel exporter.
+ *
+ * The passphrase validation is inlined here rather than imported from `:core:database` because that module
+ * is an Android library and this one is KMP - the validation itself is pure Kotlin with no platform
+ * meaning, so it lives beside the screen that uses it.
+ */
+@Composable
+fun DatabaseInitScreen(
+    onDatabaseReady: () -> Unit,
+    viewModel: DatabaseInitViewModel,
+    onImportFileSelected: (Array<String>) -> Unit,
+    language: UiLanguage,
+    debugLogExport: (@Composable () -> Unit)? = null,
+    /**
+     * True when the host already showed the shared intro in this run - the desktop renders it from its own
+     * startup surface first, so the graph must not show it a second time.
+     */
+    onboardingIntroAlreadyCompleted: Boolean = false,
+    /**
+     * Records that the user has now been through the tour, so a LATER visit to this gate does not repeat it.
+     *
+     * The fact is the PLATFORM's to keep, and it must not live in the encrypted database: this gate is also
+     * reached after a reset, which deletes that database, so a tour flag stored inside it is answered "no"
+     * by the very wipe that made the user reach this screen again. The owner's ruling (2026-10-14):
+     * *"When a user is using a reset option which means user already know how an app works only then they
+     * will be using the reset option. So in that case we don't need to show them the onboarding flow once
+     * more."* A genuinely fresh install has no marker and still sees the tour.
+     */
+    onOnboardingCompleted: () -> Unit = {},
+    /**
+     * Opens this gate at its CREATE form instead of the first-run pair of the tour and the create/import
+     * chooser.
+     *
+     * WHY IT EXISTS, and why it is not "onboarding again". A reset the user asked for leaves a state no
+     * first install has: they know the app, they asked for the data to be replaced, and the only question
+     * that is genuinely open is the passphrase for the database that will replace it. Both alternatives were
+     * measured as wrong on the device (build 2038): the tour re-taught an app the user had been using, and
+     * the chooser offered "create a new database" over the one the reset had just replaced.
+     *
+     * The dimension step behind it is NOT skipped: a new database genuinely needs its life dimensions, and
+     * [io.payanam.presentation.database.DatabaseInitViewModel.createNewDatabase] decides from a FRESH
+     * artifact check at that moment whether there is anything to wipe first - a row or a flag cannot answer
+     * that question.
+     */
+    beginAtDatabaseCreation: Boolean = false,
+) {
+    val strings = LocalUiStrings.current
+    val logger = AppLogger.current
+    val passphraseMismatchError = strings.dbPassphraseErrorMismatch
+    val uiState by viewModel.uiState.collectAsState()
+
+    var importPassphraseInput by rememberSaveable { mutableStateOf("") }
+    // Seeded from the host for the same reason `hasFinishedOnboarding` is: the reset leg of the flow opens
+    // this gate straight at the create form, and the user must never see the tour or the chooser it skips.
+    var showCreatePassphraseForm by rememberSaveable { mutableStateOf(beginAtDatabaseCreation) }
+    var createPassphrase by rememberSaveable { mutableStateOf("") }
+    var createPassphraseConfirm by rememberSaveable { mutableStateOf("") }
+    var createPassphraseError by rememberSaveable { mutableStateOf<String?>(null) }
+    var showCreatePassphrase by rememberSaveable { mutableStateOf(false) }
+    var showCreatePassphraseConfirm by rememberSaveable { mutableStateOf(false) }
+    var showImportPassphrase by rememberSaveable { mutableStateOf(false) }
+    // Seeded from the host, not hardcoded false: the desktop renders this same intro from its own startup
+    // surface first and passes true, and that seed is what stops the second copy here. Android only has
+    // this one, so it keeps the false default.
+    var hasFinishedOnboarding by rememberSaveable { mutableStateOf(onboardingIntroAlreadyCompleted) }
+    if (uiState.showCreateNewWipeConfirm) {
+        PayanamAlertDialog(
+            onDismissRequest = { viewModel.cancelCreateNewWipe() },
+            title = { Text(strings.dbInitWipeConfirmTitle) },
+            text = { Text(strings.dbInitWipeConfirmCreateNewBody) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        logger.i("DatabaseInitScreen", "User confirmed create new with wipe")
+                        viewModel.confirmCreateNew(passphrase = createPassphrase)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(strings.locContinue) }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelCreateNewWipe() }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
+    }
+    if (uiState.showImportWipeConfirm) {
+        PayanamAlertDialog(
+            onDismissRequest = { viewModel.cancelImportWipe() },
+            title = { Text(strings.dbInitWipeConfirmTitle) },
+            text = { Text(strings.dbInitWipeConfirmImportBody) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        logger.i("DatabaseInitScreen", "User confirmed import with wipe")
+                        viewModel.confirmImportAfterWipe(onSuccess = onDatabaseReady)
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error),
+                ) { Text(strings.locContinue) }
+            },
+            dismissButton = {
+                TextButton(onClick = { viewModel.cancelImportWipe() }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
+    }
+    when (uiState.restoreResult) {
+        is RestoreResult.RestoredOk -> PayanamAlertDialog(
+            onDismissRequest = { viewModel.dismissRestoreResult() },
+            title = { Text(strings.dbInitWipeRestoreOkTitle) },
+            text = { Text(strings.dbInitWipeRestoreOkBody) },
+            confirmButton = {
+                Button(onClick = { viewModel.dismissRestoreResult() }) {
+                    Text(strings.locOk)
+                }
+            },
+        )
+
+        is RestoreResult.RestoreFailed -> PayanamAlertDialog(
+            onDismissRequest = { viewModel.dismissRestoreResult() },
+            title = { Text(strings.dbInitWipeRestoreFailedTitle) },
+            text = { Text(strings.dbInitWipeRestoreFailedBody) },
+            confirmButton = {
+                Button(onClick = { viewModel.dismissRestoreResult() }) {
+                    Text(strings.locOk)
+                }
+            },
+        )
+
+        null -> { /* nothing */ }
+    }
+    Surface(
+        modifier = Modifier
+            .fillMaxSize(),
+        color = MaterialTheme.colorScheme.background,
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Icon(
+                imageVector = Icons.Default.Storage,
+                contentDescription = strings.settingsDatabaseTitle,
+                modifier = Modifier.size(80.dp),
+                tint = MaterialTheme.colorScheme.primary,
+            )
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Fold the passphrase-pause state in too: the import is staged there, so a tap must not
+            // start a second one over the only pre-import restore copy. Defined once for all three
+            // onboarding import call sites below (Settings' copy also folds `isExporting`, a flag this
+            // screen does not have).
+            val importInFlight = uiState.isImporting || uiState.awaitingImportPassphrase
+
+            when {
+                uiState.awaitingDimensionSetup -> {
+                    Surface(
+                        modifier = Modifier.fillMaxSize(),
+                        color = MaterialTheme.colorScheme.background,
+                    ) {
+                        Column(modifier = Modifier.fillMaxSize()) {
+                            // WHY THIS IS HERE AND NOT ONLY IN THE STATUS CARD: this flag is set on the
+                            // NEXT launch, and the user is sent straight back to this screen by their own
+                            // need to redo the setup. A message that only appeared on the status screen
+                            // would be scrolled away by the time the re-ask is in front of them - which is
+                            // the same silent loss it exists to report.
+                            if (uiState.firstRunDimensionsNotSaved) {
+                                LostFirstRunDimensionsNotice(
+                                    message = strings.dbInitDimensionSetupNotSaved,
+                                )
+                            }
+                            MandatoryDimensionSetupSection(
+                                isSaving = uiState.isCreating,
+                                onSave = { dimensionInputs ->
+                                    viewModel.completeNewDatabaseDimensionSetup(
+                                        dimensionInputs = dimensionInputs,
+                                        onSuccess = onDatabaseReady,
+                                    )
+                                },
+                                // The section is shared, so the debug-log exporter comes in as a slot: it
+                                // writes to Android's own storage and reads Android's Rclass, and the desktop
+                                // passes nothing rather than a parallel exporter.
+                                debugLogExport = debugLogExport,
+                            )
+                        }
+                    }
+                }
+
+                uiState.awaitingImportPassphrase -> {
+                    Icon(
+                        imageVector = Icons.Default.Lock,
+                        contentDescription = null,
+                        modifier = Modifier.size(64.dp),
+                        tint = MaterialTheme.colorScheme.primary,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = strings.dbImportPassphrasePromptTitle,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = strings.dbImportPassphrasePromptDesc,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = importPassphraseInput,
+                        onValueChange = { importPassphraseInput = it },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(strings.dbPassphraseInputLabel) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
+                        keyboardActions = KeyboardActions(onDone = {
+                            if (importPassphraseInput.isNotBlank() && !uiState.isImporting) {
+                                logger.i("DatabaseInitScreen", "Import passphrase submitted from IME action")
+                                viewModel.resumeImportWithPassphrase(importPassphraseInput, onSuccess = {
+                                    importPassphraseInput = ""
+                                    showImportPassphrase = false
+                                    onDatabaseReady()
+                                })
+                            }
+                        }),
+                        visualTransformation = if (showImportPassphrase) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showImportPassphrase = !showImportPassphrase }) {
+                                Icon(
+                                    imageVector = if (showImportPassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showImportPassphrase) strings.dbPassphraseHideToggle else strings.dbPassphraseShowToggle,
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        enabled = !uiState.isImporting,
+                    )
+
+                    uiState.importPassphraseError?.let { err ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            logger.i("DatabaseInitScreen", "Import passphrase submitted")
+                            viewModel.resumeImportWithPassphrase(importPassphraseInput, onSuccess = {
+                                importPassphraseInput = ""
+                                showImportPassphrase = false
+                                onDatabaseReady()
+                            })
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = importPassphraseInput.isNotBlank() && !uiState.isImporting,
+                    ) {
+                        if (uiState.isImporting) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text(strings.dbImportPassphrasePromptAction)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            logger.i("DatabaseInitScreen", "Import passphrase cancelled")
+                            importPassphraseInput = ""
+                            showImportPassphrase = false
+                            viewModel.cancelImportPassphrase()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = !uiState.isImporting,
+                    ) {
+                        Text(strings.settingsActionCancel)
+                    }
+                }
+
+                showCreatePassphraseForm -> {
+                    Text(
+                        text = strings.dbPassphraseSetupTitle,
+                        style = MaterialTheme.typography.headlineSmall,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = strings.dbPassphraseNoRecoveryWarning,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        textAlign = TextAlign.Center,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedTextField(
+                        value = createPassphrase,
+                        onValueChange = {
+                            createPassphrase = it
+                            createPassphraseError = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(strings.dbPassphraseInputLabel) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = if (showCreatePassphrase) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showCreatePassphrase = !showCreatePassphrase }) {
+                                Icon(
+                                    imageVector = if (showCreatePassphrase) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showCreatePassphrase) strings.dbPassphraseHideToggle else strings.dbPassphraseShowToggle,
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        enabled = !uiState.isCreating,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedTextField(
+                        value = createPassphraseConfirm,
+                        onValueChange = {
+                            createPassphraseConfirm = it
+                            createPassphraseError = null
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        label = { Text(strings.dbPassphraseConfirmLabel) },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        visualTransformation = if (showCreatePassphraseConfirm) VisualTransformation.None else PasswordVisualTransformation(),
+                        trailingIcon = {
+                            IconButton(onClick = { showCreatePassphraseConfirm = !showCreatePassphraseConfirm }) {
+                                Icon(
+                                    imageVector = if (showCreatePassphraseConfirm) Icons.Default.VisibilityOff else Icons.Default.Visibility,
+                                    contentDescription = if (showCreatePassphraseConfirm) strings.dbPassphraseHideToggle else strings.dbPassphraseShowToggle,
+                                )
+                            }
+                        },
+                        singleLine = true,
+                        enabled = !uiState.isCreating,
+                    )
+
+                    createPassphraseError?.let { err ->
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = err,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = {
+                            val validation = validatePassphrase(createPassphrase)
+                            if (!validation.isValid) {
+                                createPassphraseError = passphraseValidationMessage(strings, validation.reasonCode)
+                            } else if (createPassphrase != createPassphraseConfirm) {
+                                createPassphraseError = passphraseMismatchError
+                            } else {
+                                logger.i("DatabaseInitScreen", "Create DB passphrase submitted")
+                                viewModel.createNewDatabase(passphrase = createPassphrase)
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = createPassphrase.isNotBlank() && createPassphraseConfirm.isNotBlank() && !uiState.isCreating,
+                    ) {
+                        if (uiState.isCreating) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(24.dp),
+                                color = MaterialTheme.colorScheme.onPrimary,
+                            )
+                        } else {
+                            Text(strings.dbPassphraseSetupAction)
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    OutlinedButton(
+                        onClick = {
+                            logger.i("DatabaseInitScreen", "Create DB passphrase form cancelled")
+                            showCreatePassphraseForm = false
+                            createPassphrase = ""
+                            createPassphraseConfirm = ""
+                            createPassphraseError = null
+                            showCreatePassphrase = false
+                            showCreatePassphraseConfirm = false
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = !uiState.isCreating,
+                    ) {
+                        Text(strings.locBack)
+                    }
+                }
+
+                uiState.isChecking -> {
+                    CircularProgressIndicator()
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(strings.locCheckingDatabaseStatus)
+                }
+
+                uiState.bootIssue != null -> {
+                    val bootIssue = uiState.bootIssue!!
+                    val emphasizeUpdate = bootIssue.type == DatabaseBootIssueType.DB_TOO_NEW
+                    val titleColor = if (emphasizeUpdate) {
+                        MaterialTheme.colorScheme.tertiary
+                    } else {
+                        MaterialTheme.colorScheme.error
+                    }
+                    val containerColor = if (emphasizeUpdate) {
+                        MaterialTheme.colorScheme.tertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.errorContainer
+                    }
+                    val onContainerColor = if (emphasizeUpdate) {
+                        MaterialTheme.colorScheme.onTertiaryContainer
+                    } else {
+                        MaterialTheme.colorScheme.onErrorContainer
+                    }
+                    Icon(
+                        imageVector = Icons.Default.Info,
+                        contentDescription = strings.locWarning,
+                        modifier = Modifier.size(64.dp),
+                        tint = titleColor,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text(
+                        text = bootIssueTitleRes(bootIssue.type, strings),
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                        color = titleColor,
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = containerColor,
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Text(
+                                text = bootIssueHeadlineRes(bootIssue.type, strings),
+                                fontWeight = FontWeight.Bold,
+                                color = onContainerColor,
+                            )
+                            Text(
+                                text = bootIssueBodyText(bootIssue, uiState.corruptionMessage, strings),
+                                color = onContainerColor,
+                            )
+                            Text(
+                                text = if (emphasizeUpdate) {
+                                    strings.dbInitIssueUpdateAppOrChooseOtherPath
+                                } else {
+                                    strings.locImportOrCreateNewDatabase
+                                },
+                                style = MaterialTheme.typography.bodySmall,
+                                color = onContainerColor,
+                            )
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedButton(
+                        onClick = {
+                            logger.i(
+                                "DatabaseInitScreen",
+                                "Recheck database status clicked",
+                                mapOf("issueType" to bootIssue.type.name),
+                            )
+                            viewModel.retryDatabaseStatusCheck()
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = !uiState.isChecking && !uiState.isCreating && !uiState.isImporting,
+                    ) {
+                        Text(strings.dbInitActionRecheckDatabase)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ImportDatabaseFileButton(
+                        icon = Icons.Default.CloudUpload,
+                        label = strings.locImportDatabaseFile,
+                        logContext = "boot issue path",
+                        enabled = !uiState.isCreating && !importInFlight,
+                        showProgress = importInFlight,
+                        onClick = { onImportFileSelected(IMPORT_PICKER_MIME) },
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    OutlinedButton(
+                        onClick = {
+                            logger.i("DatabaseInitScreen", "Create new database clicked (boot issue path)", mapOf())
+                            showCreatePassphraseForm = true
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        enabled = !uiState.isCreating && !uiState.isImporting,
+                    ) {
+                        Icon(Icons.Default.Add, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(strings.locCreateNewEmptyDatabase)
+                    }
+                }
+
+                uiState.databaseExists -> {
+                    Text(
+                        text = strings.locExistingDatabaseFound,
+                        style = MaterialTheme.typography.headlineMedium,
+                        fontWeight = FontWeight.Bold,
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = MaterialTheme.colorScheme.surfaceVariant,
+                        ),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp),
+                        ) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locSize, fontWeight = FontWeight.Medium)
+                                Text(
+                                    strings.settingsDatabaseSizeValue.formatArgs(uiState.databaseSizeKB),
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locLastModified, fontWeight = FontWeight.Medium)
+                                Text(
+                                    uiState.lastModified?.takeIf { it > 0 }?.let {
+                                        SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
+                                            .format(Date(it))
+                                    } ?: strings.locNotAvailable,
+                                )
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locTasks, fontWeight = FontWeight.Medium)
+                                Text(uiState.taskCount.toString())
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locTimeEntries, fontWeight = FontWeight.Medium)
+                                Text(uiState.timeEntryCount.toString())
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locJournalEntries, fontWeight = FontWeight.Medium)
+                                Text(uiState.journeyEntryCount.toString())
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locNotes, fontWeight = FontWeight.Medium)
+                                Text(uiState.noteCount.toString())
+                            }
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                            ) {
+                                Text(strings.locSchemaVersion, fontWeight = FontWeight.Medium)
+                                Text(uiState.databaseSchemaVersion.toString())
+                            }
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(
+                        onClick = {
+                            logger.i("DatabaseInitScreen", "Continue with existing database", mapOf("taskCount" to uiState.taskCount.toString()))
+                            viewModel.continueWithExistingDatabase(onDatabaseReady)
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .height(56.dp),
+                        // Guards the worst outcome of this branch: a tap mid-import runs
+                        // continueWithExistingDatabase() -> onDatabaseReady -> MainActivity.restartProcess(),
+                        // killing the process before the import's own failure/restore path can run.
+                        enabled = !uiState.isCreating && !uiState.isImporting,
+                    ) {
+                        Icon(Icons.Default.Storage, contentDescription = null)
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(strings.locContinueWithExistingDatabase)
+                    }
+                    Spacer(modifier = Modifier.height(12.dp))
+                    ImportDatabaseFileButton(
+                        icon = Icons.Default.CloudUpload,
+                        label = strings.locImportDatabaseFile,
+                        logContext = "existing",
+                        enabled = !uiState.isCreating && !importInFlight,
+                        showProgress = importInFlight,
+                        onClick = { onImportFileSelected(IMPORT_PICKER_MIME) },
+                    )
+                }
+
+                else -> {
+                    if (!hasFinishedOnboarding) {
+                        OnboardingIntroScreen(
+                            language = language,
+                            onFinished = {
+                                hasFinishedOnboarding = true
+                                // The platform keeps the fact, so the wipe that sent the user here cannot
+                                // resurrect the tour on the next visit.
+                                onOnboardingCompleted()
+                            },
+                        )
+                    } else {
+                        Text(
+                            text = strings.locWelcomeToPayanam,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = strings.locNoDatabaseFoundChooseStart,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            textAlign = TextAlign.Center,
+                        )
+                        Spacer(modifier = Modifier.height(32.dp))
+                        Button(
+                            onClick = {
+                                logger.i("DatabaseInitScreen", "Create new database (no existing) clicked", mapOf())
+                                showCreatePassphraseForm = true
+                            },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .height(56.dp),
+                            enabled = !uiState.isCreating && !uiState.isImporting,
+                        ) {
+                            Icon(Icons.Default.Add, contentDescription = null)
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(strings.locCreateNewEmptyDatabase)
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        ImportDatabaseFileButton(
+                            icon = Icons.Default.CloudUpload,
+                            label = strings.locImportDatabaseFile,
+                            logContext = "no existing",
+                            enabled = !uiState.isCreating && !importInFlight,
+                            showProgress = importInFlight,
+                            onClick = { onImportFileSelected(IMPORT_PICKER_MIME) },
+                        )
+                    }
+                }
+            }
+            if (!uiState.awaitingDimensionSetup && (hasFinishedOnboarding || uiState.databaseExists || uiState.bootIssue != null || showCreatePassphraseForm || uiState.awaitingImportPassphrase || uiState.isChecking)) {
+                Spacer(modifier = Modifier.height(16.dp))
+                debugLogExport?.invoke()
+            }
+
+            uiState.errorMessage?.let { error ->
+                Spacer(modifier = Modifier.height(16.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.errorContainer,
+                    ),
+                ) {
+                    Row(
+                        modifier = Modifier.padding(16.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                        Text(
+                            text = error,
+                            color = MaterialTheme.colorScheme.onErrorContainer,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+/** The shortest passphrase [validatePassphrase] will accept, in characters. */
+private const val PASSPHRASE_MIN_LENGTH = 12
+
+/**
+ * The banner that says a previously confirmed life-dimension setup did not survive.
+ *
+ * Its own composable, and not an inline `Text`, for one reason that is about the test rather than the
+ * layout: the notice is the ONLY thing in the app that reports a lost first-run confirmation, so a
+ * test needs a stable semantics identity to assert that the message is on screen when the flag says
+ * it should be - and absent when it does not. The identity is declared here, in one place, instead of
+ * being spelled as a literal at the call site where a reformat could silently change it.
+ *
+ * The tone is deliberately neutral rather than alarming: nothing was corrupted and nothing else was
+ * kept. A red error card would imply the app had damaged something, and this is the opposite - the
+ * user's unsaved choice is simply not here any more.
+ */
+@Composable
+internal fun LostFirstRunDimensionsNotice(message: String) {
+    Card(
+        modifier =
+            Modifier
+                .fillMaxWidth()
+                .semantics { contentDescription = LOST_FIRST_RUN_DIMENSIONS_NOTICE_ID },
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.secondaryContainer),
+    ) {
+        Text(
+            text = message,
+            modifier = Modifier.padding(16.dp),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSecondaryContainer,
+        )
+    }
+}
+
+/**
+ * The semantics identity [LostFirstRunDimensionsNotice] publishes.
+ *
+ * Internal rather than private so the render test can name the same constant the composable uses;
+ * a test that retyped the literal would pass against a renamed id and fail for the wrong reason.
+ */
+internal const val LOST_FIRST_RUN_DIMENSIONS_NOTICE_ID = "First-run life dimensions were not saved"
+
+/**
+ * Validates a candidate database passphrase: requires at least
+ * [PASSPHRASE_MIN_LENGTH] characters and at least one uppercase, lowercase, digit, and symbol,
+ * returning the first failing rule as [PassphraseValidation.reasonCode].
+ *
+ * Inlined here rather than imported from `:core:database` because that module
+ * is an Android library and this one is KMP - the validation itself is pure
+ * Kotlin with no platform meaning.
+ */
+private fun validatePassphrase(passphrase: String): PassphraseValidation {
+    if (passphrase.length < PASSPHRASE_MIN_LENGTH) {
+        return PassphraseValidation(
+            isValid = false,
+            reasonCode = "min_length",
+        )
+    }
+    if (!passphrase.any { it.isUpperCase() }) {
+        return PassphraseValidation(
+            isValid = false,
+            reasonCode = "missing_uppercase",
+        )
+    }
+    if (!passphrase.any { it.isLowerCase() }) {
+        return PassphraseValidation(
+            isValid = false,
+            reasonCode = "missing_lowercase",
+        )
+    }
+    if (!passphrase.any { it.isDigit() }) {
+        return PassphraseValidation(
+            isValid = false,
+            reasonCode = "missing_digit",
+        )
+    }
+    if (!passphrase.any { !it.isLetterOrDigit() }) {
+        return PassphraseValidation(
+            isValid = false,
+            reasonCode = "missing_symbol",
+        )
+    }
+    return PassphraseValidation(isValid = true, reasonCode = null)
+}
+
+/**
+ * Result of [validatePassphrase]: whether the candidate passphrase is
+ * acceptable, and when rejected the [reasonCode] naming the first failed rule
+ * (e.g. `min_length`, `missing_symbol`).
+ */
+private data class PassphraseValidation(
+    val isValid: Boolean,
+    val reasonCode: String?,
+)

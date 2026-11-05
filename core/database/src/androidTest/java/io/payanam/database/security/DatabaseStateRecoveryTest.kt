@@ -6,13 +6,13 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.session.DatabaseSessionManager
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import io.payanam.shared.database.PayanamDatabaseSchema
 
 /**
  * Tests for database state recovery and cleanup operations.
@@ -65,9 +65,9 @@ class DatabaseStateRecoveryTest {
      */
     fun cleanupStaleArtifacts_removesTemporaryEncryptionFiles() {
         // Arrange: Create some stale encryption temporary files
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
         assertThat(dbDir).isNotNull()
-        val staleTempFile = File(dbDir!!, "${PayanamDatabase.DATABASE_NAME}.enc.tmp")
+        val staleTempFile = File(dbDir!!, "${PayanamDatabaseSchema.DATABASE_NAME}.enc.tmp")
         staleTempFile.createNewFile()
         assertThat(staleTempFile.exists()).isTrue()
 
@@ -93,7 +93,7 @@ class DatabaseStateRecoveryTest {
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-            val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
+            val dbFile = File(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isTrue()
 
             sessionManager.closeDatabase()
@@ -162,8 +162,8 @@ class DatabaseStateRecoveryTest {
             sessionManager.closeDatabase()
 
             // Step 3: Create a stale temp file (simulating crashed import)
-            val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
-            val staleTempFile = File(dbDir!!, "${PayanamDatabase.DATABASE_NAME}.before_import_20260304")
+            val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
+            val staleTempFile = File(dbDir!!, "${PayanamDatabaseSchema.DATABASE_NAME}.before_import_20260304")
             staleTempFile.createNewFile()
             assertThat(staleTempFile.exists()).isTrue()
 
@@ -172,7 +172,7 @@ class DatabaseStateRecoveryTest {
 
             // Assert: Stale import artifact is cleaned, primary DB is preserved
             assertThat(staleTempFile.exists()).isFalse()
-            val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
+            val dbFile = File(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isTrue()
 
             // Step 4: Verify database is still accessible
@@ -200,8 +200,8 @@ class DatabaseStateRecoveryTest {
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-            val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
-            val dbName = PayanamDatabase.DATABASE_NAME
+            val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
+            val dbName = PayanamDatabaseSchema.DATABASE_NAME
             val walFile = File(dbDir!!, "$dbName-wal")
             val shmFile = File(dbDir, "$dbName-shm")
 
@@ -292,9 +292,9 @@ class DatabaseStateRecoveryTest {
         }
 
     private fun deleteAllDatabaseFiles() {
-        val dbDir = context.getDatabasePath(PayanamDatabase.DATABASE_NAME).parentFile
+        val dbDir = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).parentFile
         if (dbDir != null) {
-            val dbName = PayanamDatabase.DATABASE_NAME
+            val dbName = PayanamDatabaseSchema.DATABASE_NAME
             File(dbDir, dbName).delete()
             File(dbDir, "$dbName-wal").delete()
             File(dbDir, "$dbName-shm").delete()

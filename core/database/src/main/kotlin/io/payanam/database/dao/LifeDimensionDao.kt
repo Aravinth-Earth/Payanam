@@ -3,7 +3,10 @@
 package io.payanam.database.dao
 
 import androidx.room.Dao
+import androidx.room.Insert
+import androidx.room.OnConflictStrategy
 import androidx.room.Query
+import androidx.room.Transaction
 import io.payanam.database.entity.LifeDimensionEntity
 import kotlinx.coroutines.flow.Flow
 
@@ -139,4 +142,41 @@ interface LifeDimensionDao {
         val id: String,
         val weight: Double,
     )
+
+    /**
+     * Replaces the entire catalog in one transaction.
+     *
+     * `@Transaction` is the load-bearing part, not decoration: a delete followed by a loop of inserts
+     * leaves the table EMPTY in between, so a concurrent reader — or a crash halfway through — sees a
+     * database with no life dimensions and scoring weights everything by nothing. Room runs the whole
+     * method inside one database transaction, so no reader ever observes the empty state and a failure
+     * rolls back to the rows that were there before.
+     *
+     * REPLACE-on-conflict would silently overwrite an existing row if a caller passed a duplicate `key`,
+     * turning a caller bug into a quietly wrong catalog with no error anywhere. The delete makes the table
+     * empty first, so a plain insert cannot collide with a pre-existing row anyway, and a duplicate WITHIN
+     * the batch is a real error that must roll the whole replace back.
+     */
+    @Transaction
+    suspend fun replaceAll(entities: List<LifeDimensionEntity>): Int {
+        deleteAll()
+        if (entities.isEmpty()) return 0
+        insertAll(entities)
+        return entities.size
+    }
+
+    /**
+     * Removes every row. Not called on its own — [replaceAll] is the entry point, and calling this
+     * separately is the delete-without-the-inserts state that leaves scoring with no dimensions.
+     */
+    @Query("DELETE FROM life_dimensions")
+    suspend fun deleteAll()
+
+    /**
+     * Inserts [entities] as given, aborting on any conflict. Abort rather than replace, so a duplicate
+     * `key` in the caller's list surfaces as an error and rolls [replaceAll] back instead of silently
+     * overwriting a dimension.
+     */
+    @Insert(onConflict = OnConflictStrategy.ABORT)
+    suspend fun insertAll(entities: List<LifeDimensionEntity>)
 }

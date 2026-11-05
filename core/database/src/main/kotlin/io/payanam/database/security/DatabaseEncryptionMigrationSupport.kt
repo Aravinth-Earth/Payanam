@@ -7,8 +7,13 @@ package io.payanam.database.security
 import android.content.Context
 import android.database.sqlite.SQLiteDatabase
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.DatabaseRekeySequence
+import io.payanam.shared.database.EncryptedFileClassifier
 import java.io.File
-import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
+import java.io.IOException
+import net.zetetic.database.sqlcipher.SQLiteDatabase as SqlCipherDatabase
+
 /**
  * Low-level helpers for moving the database between plaintext (Android
  * framework SQLite) and encrypted (SQLCipher) formats during import/export
@@ -17,6 +22,15 @@ import net.sqlcipher.database.SQLiteDatabase as SqlCipherDatabase
  */
 object DatabaseEncryptionMigrationSupport {
     private val logger = UnifiedLogger.getInstance()
+
+    /**
+     * First 16 bytes of every unencrypted SQLite database file.
+     *
+     * The BYTES are the shared declaration's, not a second copy: a private restatement of the magic is how
+     * this file and the classifier came to be able to disagree about what "plaintext" means.
+     */
+    private val SQLITE_PLAINTEXT_MAGIC = io.payanam.shared.database.EncryptedFileClassifier.SQLITE_PLAINTEXT_MAGIC
+
     /**
      * Exports [sourceDatabase] to [destinationDatabase]. When
      * [exportPlaintext] is false the file is copied as-is; otherwise an
@@ -49,7 +63,7 @@ object DatabaseEncryptionMigrationSupport {
         val effectivePassphrase =
             passphrase?.takeIf { it.isNotBlank() }
                 ?: throw IllegalStateException("Passphrase is required for plaintext export from encrypted database.")
-        if (!canOpenWithSqlCipher(context, sourceDatabase, effectivePassphrase)) {
+        if (!canOpenWithSqlCipher(sourceDatabase, effectivePassphrase)) {
             throw IllegalStateException("Database could not be opened for plaintext export.")
         }
         exportSqlCipherToPlaintext(
@@ -60,6 +74,7 @@ object DatabaseEncryptionMigrationSupport {
         )
         logger.i(logTag, "Database snapshot exported as plaintext one-time payload")
     }
+
     /**
      * Ensures [databaseFile] is encrypted with [passphrase]: if it already opens
      * under that key, returns false; if it is plaintext, converts it in place to
@@ -75,7 +90,7 @@ object DatabaseEncryptionMigrationSupport {
             logger.w(logTag, "Encryption migration skipped because database file does not exist")
             return false
         }
-        val isAlreadyEncryptedWithKey = canOpenWithSqlCipher(context, databaseFile, passphrase)
+        val isAlreadyEncryptedWithKey = canOpenWithSqlCipher(databaseFile, passphrase)
         if (isAlreadyEncryptedWithKey) {
             logger.i(logTag, "Database already encrypted with configured passphrase")
             return false
@@ -93,56 +108,22 @@ object DatabaseEncryptionMigrationSupport {
         logger.i(logTag, "Converted plaintext database into SQLCipher format")
         return true
     }
-    /**
-     * Re-keys an encrypted [databaseFile] from [importedPassphrase] to
-     * [targetPassphrase] via `PRAGMA rekey`, verifying it re-opens under the new
-     * key. No-op (false) when the passphrases match or the file is missing.
-     */
-    fun migrateEncryptedDatabaseWithDifferentKey(
-        context: Context,
-        databaseFile: File,
-        importedPassphrase: String,
-        targetPassphrase: String,
-        logTag: String,
-    ): Boolean {
-        if (!databaseFile.exists()) {
-            logger.w(logTag, "Encrypted migration skipped because database file does not exist")
-            return false
-        }
-        if (importedPassphrase == targetPassphrase) {
-            logger.i(logTag, "Imported and target passphrases are identical; no re-encryption needed")
-            return false
-        }
 
-        // Verify imported DB can be opened with the provided passphrase
-        if (!canOpenWithSqlCipher(context, databaseFile, importedPassphrase)) {
-            throw IllegalStateException("Cannot decrypt imported database with provided passphrase.")
-        }
-
-        // Re-encrypt with the target passphrase
-        rekeyEncryptedDatabase(
-            context = context,
-            databaseFile = databaseFile,
-            currentPassphrase = importedPassphrase,
-            newPassphrase = targetPassphrase,
-            logTag = logTag,
-        )
-
-        // Verify re-encryption succeeded
-        if (!canOpenWithSqlCipher(context, databaseFile, targetPassphrase)) {
-            throw IllegalStateException("Re-encryption verification failed after passphrase change.")
-        }
-
-        logger.i(logTag, "Successfully migrated encrypted database to target passphrase")
-        return true
-    }
-
-    @Suppress("UnusedParameter")
     /**
      * Best-effort detection: true when [databaseFile] is not plaintext SQLite
-     * (no "SQLite format 3" magic) and non-empty, implying SQLCipher
+     * (no "SQLite format 3" magic) and long enough to be a database, implying SQLCipher
      * encryption. A plaintext file returns false.
+     *
+     * The format question itself is NOT answered here — [EncryptedFileClassifier] answers it for Android and
+     * for the desktop alike, so the two can no longer disagree. This method supplies the bytes and the one
+     * platform-specific fact left over: whether the Android framework can open the file.
+     *
+     * Read-only for non-plaintext files: their header is inspected as bytes and they are never
+     * opened with the framework reader, so classifying an encrypted file cannot delete it. A file
+     * that does carry the plaintext magic may still be removed by Android's own corrupt-database
+     * recovery during the framework probe — that is pre-existing behaviour, not this path.
      */
+    @Suppress("UnusedParameter")
     fun isDetectablyEncrypted(
         context: Context,
         databaseFile: File,
@@ -160,38 +141,40 @@ object DatabaseEncryptionMigrationSupport {
         if (!databaseFile.exists()) {
             return false
         }
-        val isPlaintext = canOpenWithFramework(databaseFile)
+        val inspection = inspectPlaintextHeader(databaseFile)
+        val verdict =
+            EncryptedFileClassifier.classify(
+                header = inspection.header,
+                totalLength = databaseFile.length(),
+                readSucceeded = inspection.readSucceeded,
+            )
+        val isPlaintext = verdict.hasPlaintextMagic && canOpenWithFramework(databaseFile)
         if (isPlaintext) {
             return false
         }
-
-        // If it's not plaintext, check if it has SQLCipher characteristics
-        // We can't open it directly, but if it's not plaintext SQLite, assume encrypted
-        val magicBytes =
-            databaseFile.inputStream().use { stream ->
-                ByteArray(16).apply { stream.read(this) }
-            }
-
-        // SQLite magic is "SQLite format 3\0"
-        val sqliteMagic = "SQLite format 3\u0000".toByteArray()
-        val hasPlaintextMagic = magicBytes.take(16) == sqliteMagic.take(16)
-        val result = !hasPlaintextMagic && databaseFile.length() > 0
+        val result = verdict.isEncrypted
         logger.i(
             logTag,
             "Database encryption detection",
             mapOf(
                 "isPlaintext" to isPlaintext,
-                "hasPlaintextMagic" to hasPlaintextMagic,
+                "hasPlaintextMagic" to verdict.hasPlaintextMagic,
+                "headerProbeReason" to inspection.reason,
                 "isDetectablyEncrypted" to result,
                 "fileSizeBytes" to databaseFile.length(),
             ),
         )
         return result
     }
+
     /**
      * Changes the SQLCipher key of [databaseFile] from [currentPassphrase] to
      * [newPassphrase] via `PRAGMA rekey`, then verifies it re-opens. Throws on
      * any failure.
+     *
+     * The step ORDER, the decisions and the verification are [DatabaseRekeySequence]'s, shared verbatim with
+     * the desktop. Only the handle is Android's: a `Context`-free `net.zetetic.database.sqlcipher` open,
+     * which is why the library load and the escape helper stay here rather than moving down.
      */
     fun rekeyEncryptedDatabase(
         context: Context,
@@ -199,44 +182,55 @@ object DatabaseEncryptionMigrationSupport {
         currentPassphrase: String,
         newPassphrase: String,
         logTag: String,
-    ) {
-        if (!databaseFile.exists()) {
-            throw IllegalStateException("Database file does not exist for passphrase update.")
-        }
-        SqlCipherDatabase.loadLibs(context)
-        val db =
-            SqlCipherDatabase.openDatabase(
-                databaseFile.absolutePath,
-                currentPassphrase,
-                null,
-                SqlCipherDatabase.OPEN_READWRITE,
-            )
-        try {
-            db.rawExecSQL("PRAGMA rekey = '${escapeSql(newPassphrase)}';")
-        } finally {
-            db.close()
-        }
-        if (!canOpenWithSqlCipher(context, databaseFile, newPassphrase)) {
-            throw IllegalStateException("Rekey verification failed for database.")
-        }
-        logger.i(logTag, "Database rekey completed")
+    ): DatabaseRekeySequence.Outcome {
+        val outcome = DatabaseRekeySequence.rekeyToNewPassphrase(
+            databaseFile = databaseFile,
+            currentPassphrase = currentPassphrase,
+            newPassphrase = newPassphrase,
+            openForRekey = { file, passphrase ->
+                System.loadLibrary("sqlcipher")
+                val db =
+                    SqlCipherDatabase.openDatabase(
+                        file.absolutePath,
+                        passphrase,
+                        null,
+                        SqlCipherDatabase.OPEN_READWRITE,
+                        null,
+                    )
+                object : DatabaseRekeySequence.RekeyableDatabase {
+                    override fun applyRekey(statement: String) {
+                        db.rawExecSQL(statement)
+                    }
+
+                    override fun close() {
+                        db.close()
+                    }
+                }
+            },
+            canOpenWith = { file, passphrase -> canOpenWithSqlCipher(file, passphrase) },
+        )
+        logger.i(logTag, "Database rekey completed", mapOf("outcome" to outcome.name))
+        return outcome
     }
+
     /**
      * Returns row counts for [tableNames] from [databaseFile], opening it with
      * SQLCipher when [passphrase] is supplied (and valid) or falling back to
      * the framework SQLite reader; unknown/missing tables count as 0.
      */
     fun readTableCounts(
-        context: Context,
         databaseFile: File,
         passphrase: String?,
         tableNames: List<String>,
     ): Map<String, Int> {
+        // No Context: counting rows never touches the Android framework. The parameter used to be threaded
+        // here from callers that had one, and the only genuine use of a Context in this whole file is
+        // `context.cacheDir` in the plaintext->SQLCipher migration below - a different function.
         if (!databaseFile.exists()) {
             return tableNames.associateWith { 0 }
         }
-        if (!passphrase.isNullOrBlank() && canOpenWithSqlCipher(context, databaseFile, passphrase)) {
-            return readCountsWithSqlCipher(context, databaseFile, passphrase, tableNames)
+        if (!passphrase.isNullOrBlank() && canOpenWithSqlCipher(databaseFile, passphrase)) {
+            return readCountsWithSqlCipher(databaseFile, passphrase, tableNames)
         }
         if (canOpenWithFramework(databaseFile)) {
             return readCountsWithFramework(databaseFile, tableNames)
@@ -250,7 +244,7 @@ object DatabaseEncryptionMigrationSupport {
         passphrase: String,
         logTag: String,
     ) {
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val tempEncrypted =
             File(
                 context.cacheDir,
@@ -284,11 +278,12 @@ object DatabaseEncryptionMigrationSupport {
                 "",
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             val sourceVersion = encryptedDb.version
             encryptedDb.rawExecSQL("PRAGMA rekey = '${escapeSql(passphrase)}';")
-            encryptedDb.rawExecSQL("PRAGMA user_version = $sourceVersion;")
+            writeUserVersion(encryptedDb, sourceVersion)
             logger.i(
                 logTag,
                 "SQLCipher rekey conversion completed for plaintext source",
@@ -300,42 +295,23 @@ object DatabaseEncryptionMigrationSupport {
         if (!tempEncrypted.exists() || tempEncrypted.length() == 0L) {
             throw IllegalStateException("Encrypted migration output was unreadable.")
         }
-        var encryptedOutput = tempEncrypted
-        if (!canOpenWithSqlCipher(context, encryptedOutput, passphrase)) {
+        // Single standard path: the rekey result must open under the passphrase. If it does not, the
+        // migration fails and the caller restores the previous database. There is deliberately no
+        // fallback chain — untested fallbacks masked failures (the row-copy fallback could never
+        // open its destination and shipped unnoticed) and recovery is the callers' job.
+        if (!canOpenWithSqlCipher(tempEncrypted, passphrase)) {
             logger.w(
                 logTag,
-                "Rekey path did not produce SQLCipher-readable output; attempting sqlcipher_export fallback",
+                "Rekey output did not open as SQLCipher; failing the migration (no fallback)",
             )
-            encryptedOutput =
-                runCatching {
-                    exportPlaintextToEncryptedViaAttach(
-                        context = context,
-                        plaintextDatabase = tempEncrypted,
-                        passphrase = passphrase,
-                        logTag = logTag,
-                    )
-                }.getOrElse { attachError ->
-                    logger.w(
-                        logTag,
-                        "sqlcipher_export fallback failed; attempting row-copy fallback",
-                        mapOf(
-                            "error" to (attachError.message ?: "Unknown error"),
-                            "exception" to attachError.javaClass.simpleName,
-                        ),
-                    )
-                    copyPlaintextToSqlCipherByRow(
-                        context = context,
-                        plaintextDatabase = tempEncrypted,
-                        passphrase = passphrase,
-                        logTag = logTag,
-                    )
-                }
+            tempEncrypted.delete()
+            throw IllegalStateException("Encrypted migration output was unreadable.")
         }
         replaceWithEncryptedSnapshot(
             sourceDatabase = sourceDatabase,
-            tempEncrypted = encryptedOutput,
+            tempEncrypted = tempEncrypted,
         )
-        if (!canOpenWithSqlCipher(context, sourceDatabase, passphrase)) {
+        if (!canOpenWithSqlCipher(sourceDatabase, passphrase)) {
             val frameworkReadable = canOpenWithFramework(sourceDatabase)
             logger.w(
                 logTag,
@@ -349,177 +325,6 @@ object DatabaseEncryptionMigrationSupport {
             )
             throw IllegalStateException("Encrypted migration output was unreadable.")
         }
-    }
-
-    private fun exportPlaintextToEncryptedViaAttach(
-        context: Context,
-        plaintextDatabase: File,
-        passphrase: String,
-        logTag: String,
-    ): File {
-        val exportedEncrypted =
-            File(
-                context.cacheDir,
-                "${plaintextDatabase.name}.${System.currentTimeMillis()}.export.enc.tmp",
-            )
-        if (exportedEncrypted.exists()) {
-            exportedEncrypted.delete()
-        }
-        SqlCipherDatabase.loadLibs(context)
-        val plainDb =
-            SqlCipherDatabase.openDatabase(
-                plaintextDatabase.absolutePath,
-                "",
-                null,
-                SqlCipherDatabase.OPEN_READWRITE,
-            )
-        try {
-            val sourceVersion = plainDb.version
-            logger.i(
-                logTag,
-                "Starting sqlcipher_export fallback",
-                mapOf(
-                    "sourcePath" to plaintextDatabase.absolutePath,
-                    "targetPath" to exportedEncrypted.absolutePath,
-                ),
-            )
-            plainDb.rawExecSQL(
-                "ATTACH DATABASE '${escapeSql(exportedEncrypted.absolutePath)}' AS encrypted KEY '${escapeSql(passphrase)}';",
-            )
-            plainDb.rawExecSQL("SELECT sqlcipher_export('encrypted');")
-            plainDb.rawExecSQL("PRAGMA encrypted.user_version = $sourceVersion;")
-            plainDb.rawExecSQL("DETACH DATABASE encrypted;")
-            logger.i(
-                logTag,
-                "sqlcipher_export fallback completed",
-                mapOf("userVersion" to sourceVersion),
-            )
-        } finally {
-            plainDb.close()
-        }
-        if (!exportedEncrypted.exists() || exportedEncrypted.length() == 0L ||
-            !canOpenWithSqlCipher(context, exportedEncrypted, passphrase)
-        ) {
-            throw IllegalStateException("Encrypted migration output was unreadable.")
-        }
-        if (plaintextDatabase.exists()) {
-            plaintextDatabase.delete()
-        }
-        return exportedEncrypted
-    }
-
-    @Suppress("NestedBlockDepth", "LoopWithTooManyJumpStatements")
-    private fun copyPlaintextToSqlCipherByRow(
-        context: Context,
-        plaintextDatabase: File,
-        passphrase: String,
-        logTag: String,
-    ): File {
-        val encryptedOutput =
-            File(
-                context.cacheDir,
-                "${plaintextDatabase.name}.${System.currentTimeMillis()}.rowcopy.enc.tmp",
-            )
-        if (encryptedOutput.exists()) {
-            encryptedOutput.delete()
-        }
-        val sourceDb =
-            SQLiteDatabase.openDatabase(
-                plaintextDatabase.absolutePath,
-                null,
-                SQLiteDatabase.OPEN_READONLY,
-            )
-        SqlCipherDatabase.loadLibs(context)
-        val destDb =
-            SqlCipherDatabase.openOrCreateDatabase(
-                encryptedOutput,
-                passphrase,
-                null,
-            )
-        try {
-            destDb.rawExecSQL("PRAGMA foreign_keys = OFF;")
-            val tableDefinitions = mutableListOf<Pair<String, String>>()
-            sourceDb
-                .rawQuery(
-                    "SELECT name, sql FROM sqlite_master WHERE type='table' AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY name",
-                    null,
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val tableName = cursor.getString(0) ?: continue
-                        val createSql = cursor.getString(1) ?: continue
-                        tableDefinitions.add(tableName to createSql)
-                    }
-                }
-
-            tableDefinitions.forEach { (_, createSql) ->
-                destDb.rawExecSQL(createSql)
-            }
-
-            tableDefinitions.forEach { (tableName, _) ->
-                val escapedTable = tableName.replace("\"", "\"\"")
-                sourceDb.rawQuery("SELECT * FROM \"$escapedTable\"", null).use { cursor ->
-                    val columns = cursor.columnNames
-                    if (columns.isEmpty()) return@use
-                    val columnSql = columns.joinToString(",") { "\"${it.replace("\"", "\"\"")}\"" }
-                    val valueSql = columns.joinToString(",") { "?" }
-                    val statement =
-                        destDb.compileStatement(
-                            "INSERT INTO \"$escapedTable\" ($columnSql) VALUES ($valueSql)",
-                        )
-                    destDb.beginTransaction()
-                    try {
-                        while (cursor.moveToNext()) {
-                            statement.clearBindings()
-                            for (index in columns.indices) {
-                                when (cursor.getType(index)) {
-                                    android.database.Cursor.FIELD_TYPE_NULL -> statement.bindNull(index + 1)
-                                    android.database.Cursor.FIELD_TYPE_INTEGER -> statement.bindLong(index + 1, cursor.getLong(index))
-                                    android.database.Cursor.FIELD_TYPE_FLOAT -> statement.bindDouble(index + 1, cursor.getDouble(index))
-                                    android.database.Cursor.FIELD_TYPE_STRING -> statement.bindString(index + 1, cursor.getString(index))
-                                    android.database.Cursor.FIELD_TYPE_BLOB -> statement.bindBlob(index + 1, cursor.getBlob(index))
-                                    else -> statement.bindNull(index + 1)
-                                }
-                            }
-                            statement.executeInsert()
-                        }
-                        destDb.setTransactionSuccessful()
-                    } finally {
-                        destDb.endTransaction()
-                        statement.close()
-                    }
-                }
-            }
-            sourceDb
-                .rawQuery(
-                    "SELECT sql FROM sqlite_master WHERE type IN ('index','trigger','view') AND name NOT LIKE 'sqlite_%' AND sql IS NOT NULL ORDER BY type, name",
-                    null,
-                ).use { cursor ->
-                    while (cursor.moveToNext()) {
-                        val ddl = cursor.getString(0) ?: continue
-                        runCatching { destDb.rawExecSQL(ddl) }
-                    }
-                }
-
-            destDb.rawExecSQL("PRAGMA user_version = ${sourceDb.version};")
-            logger.i(
-                logTag,
-                "Row-copy fallback completed",
-                mapOf(
-                    "tableCount" to tableDefinitions.size,
-                    "targetPath" to encryptedOutput.absolutePath,
-                ),
-            )
-        } finally {
-            runCatching { sourceDb.close() }
-            runCatching { destDb.close() }
-        }
-        if (!encryptedOutput.exists() || encryptedOutput.length() == 0L || !canOpenWithSqlCipher(context, encryptedOutput, passphrase)) {
-            throw IllegalStateException("Encrypted migration output was unreadable.")
-        }
-        if (plaintextDatabase.exists()) {
-            plaintextDatabase.delete()
-        }
-        return encryptedOutput
     }
 
     private fun replaceWithEncryptedSnapshot(
@@ -542,20 +347,21 @@ object DatabaseEncryptionMigrationSupport {
         destinationDatabase: File,
         passphrase: String,
     ) {
-        SqlCipherDatabase.loadLibs(context)
+        System.loadLibrary("sqlcipher")
         val sourceDb =
             SqlCipherDatabase.openDatabase(
                 sourceDatabase.absolutePath,
                 passphrase,
                 null,
                 SqlCipherDatabase.OPEN_READWRITE,
+                null,
             )
         try {
             sourceDb.rawExecSQL(
                 "ATTACH DATABASE '${escapeSql(destinationDatabase.absolutePath)}' AS plaintext KEY '';",
             )
             sourceDb.rawExecSQL("SELECT sqlcipher_export('plaintext');")
-            sourceDb.rawExecSQL("PRAGMA plaintext.user_version = ${sourceDb.version};")
+            writeUserVersion(sourceDb, sourceDb.version, schema = "plaintext")
             sourceDb.rawExecSQL("DETACH DATABASE plaintext;")
         } finally {
             sourceDb.close()
@@ -565,9 +371,118 @@ object DatabaseEncryptionMigrationSupport {
         }
     }
 
+    /**
+     * Sets `user_version` on [database] to [version], in the main schema or in the attached
+     * [schema] when one is named — the single named place in this module where that header field
+     * is written.
+     *
+     * The pragma is issued as a QUERY and the cursor is drained before returning, mirroring the
+     * desktop's `writePragma`. That shape exists because `Statement.execute`/`executeUpdate`
+     * persist `0` for `PRAGMA user_version` on SQLCipher JDBC 0.2.13 (measured there); on this
+     * module's driver no equivalent loss has been measured, so the drain is carried over as the
+     * known-good form rather than as a fix — but keep it. Stepping the statement and reading the
+     * cursor to completion is what makes "did this pragma actually take effect?" answerable, and
+     * the `.use` below is what guarantees it on the error path too. Do not "simplify" this into
+     * `rawExecSQL`.
+     *
+     * [schema] is a SQLCipher attach alias from a caller in this file, never user input.
+     */
+    private fun writeUserVersion(
+        database: SqlCipherDatabase,
+        version: Int,
+        schema: String? = null,
+    ) {
+        val qualified = if (schema == null) "user_version" else "$schema.user_version"
+        database.rawQuery("PRAGMA $qualified = $version;", null).use { cursor ->
+            while (cursor.moveToNext()) {
+                // Drained deliberately: see above.
+            }
+        }
+    }
+
+    /**
+     * Outcome of inspecting a database file's header without opening it as a database.
+     *
+     * [reason] is one of `absent`, `tooShort`, `readFailed`, `noMagic` or `plaintextMagic`, so a
+     * non-plaintext answer is always attributable in the logs instead of a silent `false`.
+     *
+     * [header] and [readSucceeded] carry the evidence to [EncryptedFileClassifier], which owns the verdict.
+     * The boolean fields are that same verdict as this file's own logs used to compute it, kept because
+     * [canOpenWithFramework] needs to know whether it is even allowed to attempt a framework open.
+     */
+    private data class HeaderInspection(
+        val hasPlaintextMagic: Boolean,
+        val reason: String,
+        val header: ByteArray?,
+        val readSucceeded: Boolean,
+    )
+
+    /**
+     * Reads the first 16 bytes of [databaseFile] and reports whether they are the plaintext SQLite
+     * magic, **without opening the file as a database**.
+     *
+     * The read is checked (`bytesRead >= 16`) and a failure degrades to `false` with a distinct
+     * reason; no broad catch is used. Do not switch to `readNBytes` — that is API 33+ while the app
+     * supports API 28+.
+     *
+     * This method only GATHERS evidence. The verdict belongs to [EncryptedFileClassifier], shared with the
+     * desktop, which is what stops the two platforms from re-deriving a threshold and drifting apart again.
+     *
+     * Invariant: this classification assumes **full-file encryption**. No
+     * `cipher_plaintext_header_size` (or equivalent partial-header setting) is configured anywhere in
+     * the app, so an encrypted file cannot carry the plaintext magic. If such a setting is ever
+     * introduced, an encrypted file could match the magic and be misclassified, and this check must
+     * be revisited with it.
+     */
+    private fun inspectPlaintextHeader(databaseFile: File): HeaderInspection {
+        if (!databaseFile.exists()) {
+            return HeaderInspection(
+                hasPlaintextMagic = false,
+                reason = "absent",
+                header = null,
+                readSucceeded = false,
+            )
+        }
+        val header = ByteArray(SQLITE_PLAINTEXT_MAGIC.size)
+        val bytesRead =
+            try {
+                databaseFile.inputStream().use { stream -> stream.read(header) }
+            } catch (e: IOException) {
+                logger.w(
+                    "DatabaseEncryptionMigrationSupport",
+                    "IMPORT_PROBE_HEADER_READ_FAILED",
+                    mapOf(
+                        "file" to databaseFile.name,
+                        "reason" to "readFailed",
+                        "error" to e.javaClass.simpleName,
+                    ),
+                )
+                return HeaderInspection(
+                    hasPlaintextMagic = false,
+                    reason = "readFailed",
+                    header = null,
+                    readSucceeded = false,
+                )
+            }
+        val hasPlaintextMagic = header.contentEquals(SQLITE_PLAINTEXT_MAGIC)
+        return HeaderInspection(
+            hasPlaintextMagic = hasPlaintextMagic,
+            reason = when {
+                bytesRead < header.size -> "tooShort"
+                hasPlaintextMagic -> "plaintextMagic"
+                else -> "noMagic"
+            },
+            // A short read hands back the bytes actually read, so the classifier — not this method — decides
+            // that a file too small for a header is too small to be a database.
+            header = if (bytesRead <= 0) null else header.copyOf(maxOf(bytesRead, header.size)),
+            readSucceeded = true,
+        )
+    }
+
     private fun canOpenWithFramework(databaseFile: File): Boolean {
         val existsBefore = databaseFile.exists()
         val sizeBefore = databaseFile.length()
+        val inspection = inspectPlaintextHeader(databaseFile)
         logger.i(
             "DatabaseEncryptionMigrationSupport",
             "IMPORT_PROBE_OPEN_BEFORE",
@@ -575,18 +490,32 @@ object DatabaseEncryptionMigrationSupport {
                 "file" to databaseFile.name,
                 "exists" to existsBefore,
                 "sizeBytes" to sizeBefore,
+                "hasPlaintextMagic" to inspection.hasPlaintextMagic,
+                "headerProbeReason" to inspection.reason,
             ),
         )
-        val result = runCatching {
-            SQLiteDatabase
-                .openDatabase(
-                    databaseFile.absolutePath,
-                    null,
-                    SQLiteDatabase.OPEN_READONLY,
-                ).use { db ->
-                    db.version >= 0
-                }
-        }.getOrDefault(false)
+        if (!inspection.hasPlaintextMagic) {
+            logger.i(
+                "DatabaseEncryptionMigrationSupport",
+                "IMPORT_PROBE_OPEN_SKIPPED",
+                mapOf(
+                    "file" to databaseFile.name,
+                    "headerProbeReason" to inspection.reason,
+                ),
+            )
+            return false
+        }
+        val result =
+            runCatching {
+                SQLiteDatabase
+                    .openDatabase(
+                        databaseFile.absolutePath,
+                        null,
+                        SQLiteDatabase.OPEN_READONLY,
+                    ).use { db ->
+                        db.version >= 0
+                    }
+            }.getOrDefault(false)
         logger.i(
             "DatabaseEncryptionMigrationSupport",
             "IMPORT_PROBE_OPEN_AFTER",
@@ -623,19 +552,19 @@ object DatabaseEncryptionMigrationSupport {
         }
 
     private fun readCountsWithSqlCipher(
-        context: Context,
         databaseFile: File,
         passphrase: String,
         tableNames: List<String>,
     ): Map<String, Int> =
         runCatching {
-            SqlCipherDatabase.loadLibs(context)
+            System.loadLibrary("sqlcipher")
             SqlCipherDatabase
                 .openDatabase(
                     databaseFile.absolutePath,
                     passphrase,
                     null,
                     SqlCipherDatabase.OPEN_READONLY,
+                    null,
                 ).use { db ->
                     tableNames.associateWith { tableName ->
                         db.rawQuery("SELECT COUNT(*) FROM $tableName", null).use { cursor ->
@@ -646,25 +575,26 @@ object DatabaseEncryptionMigrationSupport {
         }.getOrElse {
             tableNames.associateWith { 0 }
         }
+
     /**
      * Probing check: returns true if [databaseFile] opens read-only under
      * [passphrase] via SQLCipher (used to decide plaintext-vs-encrypted and to
      * verify rekey/export results).
      */
     fun canOpenWithSqlCipher(
-        context: Context,
         databaseFile: File,
         passphrase: String,
         logTag: String = "DatabaseEncryptionMigrationSupport",
     ): Boolean =
         runCatching {
-            SqlCipherDatabase.loadLibs(context)
+            System.loadLibrary("sqlcipher")
             SqlCipherDatabase
                 .openDatabase(
                     databaseFile.absolutePath,
                     passphrase,
                     null,
                     SqlCipherDatabase.OPEN_READONLY,
+                    null,
                 ).use { db ->
                     db.version >= 0
                 }
@@ -681,25 +611,47 @@ object DatabaseEncryptionMigrationSupport {
             false
         }
 
+    /**
+     * Removes the `-wal`/`-shm`/`-journal` companions of [databaseFile] through [DatabaseFileGuard].
+     *
+     * `File.delete()` here reported nothing at all, so a companion this call failed to remove was
+     * indistinguishable from one that was never created — and a surviving `-wal` beside a migrated
+     * main file is how a migration the app reported as done leaves the old rows readable. The guard
+     * names the caller and the intent in the log, so the failure is findable afterwards.
+     */
     private fun deleteCompanionFiles(databaseFile: File) {
-        val wal = File(databaseFile.parentFile, "${databaseFile.name}-wal")
-        val shm = File(databaseFile.parentFile, "${databaseFile.name}-shm")
-        val journal = File(databaseFile.parentFile, "${databaseFile.name}-journal")
-        listOf(wal, shm, journal).forEach { file ->
-            if (file.exists()) {
-                file.delete()
+        DatabaseArtifacts.sidecarFilesFor(databaseFile).forEach { file ->
+            if (!file.exists()) {
+                return@forEach
             }
+            DatabaseFileGuard.safeDelete(
+                file,
+                DatabaseFileGuard.DeleteIntent.JANITOR_CLEANUP,
+                "DatabaseEncryptionMigrationSupport.deleteCompanionFiles",
+            )
         }
     }
 
     private fun escapeSql(value: String): String = value.replace("'", "''")
 
     // Writes database_init_completed = true directly into app_settings, bypassing Room.
-    // Uses SQLCipher if passphrase non-null, plain SQLite otherwise.
+    // SQLCipher only: a keyless open would CREATE a plaintext database (see below).
+
     /**
      * Writes `database_init_completed = true` directly into the app_settings
-     * table (bypassing Room), using SQLCipher when [passphrase] is set or plain
-     * SQLite otherwise — so the app knows first-run init finished.
+     * table (bypassing Room), using SQLCipher under [passphrase] — so the app
+     * knows first-run init finished.
+     *
+     * **A null passphrase is REFUSED, not answered with a plaintext write.** The branch that used to sit
+     * here opened the file with the framework `SQLiteDatabase` and `OPEN_READWRITE`, and that call CREATES
+     * the database when the path is absent — so a caller that reached this with no key would leave a
+     * PLAINTEXT Payanam database on disk, which is the one artefact this build must never produce. There is
+     * also no legitimate caller: the only path into this function is `DatabaseInitViewModel`'s
+     * `markDatabaseInitCompletedDirect`, which is called from `resumeImportWithPassphrase` with a
+     * `String` passphrase the user has already unlocked the file with. A caller that somehow arrives without
+     * one has a bug, and a refusal it can report is better than a silent plaintext file it cannot.
+     *
+     * @throws IllegalStateException when [passphrase] is null.
      */
     fun markDatabaseInitCompleted(
         context: Context,
@@ -707,19 +659,24 @@ object DatabaseEncryptionMigrationSupport {
         passphrase: String?,
         logTag: String = "DatabaseEncryptionMigrationSupport",
     ) {
+        if (passphrase == null) {
+            logger.e(
+                logTag,
+                "Refused to write database_init_completed without a passphrase: a keyless open would create a plaintext database",
+                null,
+                mapOf("file" to databaseFile.name),
+            )
+            throw IllegalStateException("Refusing to write database_init_completed without a passphrase.")
+        }
         val updatedAt =
             java.time.LocalDateTime
                 .now()
                 .format(java.time.format.DateTimeFormatter.ISO_LOCAL_DATE_TIME)
         val sql = "INSERT OR REPLACE INTO app_settings(`key`, value, updatedAt) VALUES (?, ?, ?)"
         val args = arrayOf("database_init_completed", "true", updatedAt)
-        if (passphrase != null) {
-            SqlCipherDatabase.loadLibs(context)
-            SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE).use { db ->
-                db.execSQL(sql, args)
-            }
-        } else {
-            SQLiteDatabase.openDatabase(databaseFile.absolutePath, null, SQLiteDatabase.OPEN_READWRITE).use { db -> db.execSQL(sql, args) }
+        System.loadLibrary("sqlcipher")
+        SqlCipherDatabase.openDatabase(databaseFile.absolutePath, passphrase, null, SqlCipherDatabase.OPEN_READWRITE, null).use { db ->
+            db.execSQL(sql, args)
         }
         logger.i(logTag, "Database init completed flag written directly to DB")
     }

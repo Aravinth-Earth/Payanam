@@ -10,8 +10,10 @@ import android.os.Build
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.security.PassphraseKdf
 import java.nio.charset.StandardCharsets
 import java.security.KeyStore
 import java.security.MessageDigest
@@ -20,15 +22,13 @@ import java.util.Arrays
 import javax.crypto.Cipher
 import javax.crypto.KeyGenerator
 import javax.crypto.SecretKey
-import javax.crypto.SecretKeyFactory
 import javax.crypto.spec.GCMParameterSpec
-import javax.crypto.spec.PBEKeySpec
 
 @Suppress("TooManyFunctions")
 /**
  * Owns the at-rest encryption metadata for the local database: the PBKDF2
- * passphrase verifier, the plaintext-vs-encrypted mode flag, biometric
- * Keystore wrapping, the session timeout, and the unlock lockout counter.
+ * passphrase verifier, biometric Keystore wrapping, the session timeout,
+ * and the unlock lockout counter.
  * All state is persisted in a private SharedPreferences store and every
  * mutating step is breadcrumbed for crash-safety.
  */
@@ -44,7 +44,7 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.init",
             "Initializing encryption manager",
             mapOf(
-                "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "hasPassphraseConfigured" to hasPassphraseConfigured(),
                 "hasVerifierHash" to !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank(),
                 "hasVerifierSalt" to !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank(),
                 "biometricPrefEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
@@ -58,14 +58,22 @@ class DatabaseEncryptionManager(
      * salt are present — i.e. a usable passphrase was configured.
      */
     fun hasPassphraseConfigured(): Boolean =
-        prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED &&
-            !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
+        !prefs.getString(KEY_VERIFIER_HASH, null).isNullOrBlank() &&
             !prefs.getString(KEY_VERIFIER_SALT, null).isNullOrBlank()
     /**
-     * True when the database is stored in encrypted mode (the mode flag says
-     * so); does not itself prove a passphrase verifier exists.
+     * True when the database file is detectably encrypted — answered by the FILE.
+     *
+     * The answer comes from the same probe every other file question on this platform uses, so the
+     * two platforms cannot disagree about what "encrypted" means, and a file that is not detectably
+     * encrypted still reads `false`.
+     *
+     * A missing database file (fresh install) returns false — the honest answer, and the same one a
+     * plaintext file gets.
      */
-    fun isEncryptionEnabled(): Boolean = prefs.getString(KEY_MODE, MODE_PLAINTEXT) == MODE_ENCRYPTED
+    fun isEncryptionEnabled(): Boolean {
+        val file = appContext.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME) ?: return false
+        return DatabaseEncryptionMigrationSupport.isDetectablyEncrypted(appContext, file, "DatabaseEncryptionManager.isEncryptionEnabled")
+    }
     /**
      * The configured auto-lock duration in minutes, clamped to the
      * [MIN_SESSION_TIMEOUT_MINUTES]..[MAX_SESSION_TIMEOUT_MINUTES] range.
@@ -142,8 +150,7 @@ class DatabaseEncryptionManager(
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
         )
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.disableBiometricUnlock",
             stage = "requested",
             data =
@@ -154,8 +161,7 @@ class DatabaseEncryptionManager(
         )
         return runCatching {
             disableBiometricUnlockInternal()
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.disableBiometricUnlock",
                 stage = "completed",
             )
@@ -170,8 +176,7 @@ class DatabaseEncryptionManager(
                 "Failed to disable biometric unlock cleanly",
                 error,
             )
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.disableBiometricUnlock",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -181,58 +186,53 @@ class DatabaseEncryptionManager(
     }
     /**
      * First-time passphrase setup. Derives and persists the PBKDF2 verifier,
-     * clears any prior biometric material, flips the mode to encrypted, and
-     * records each step via breadcrumbs. Returns true on success.
+     * clears any prior biometric material, and records each step via
+     * breadcrumbs. Returns true on success.
      */
     fun configurePassphrase(passphrase: String): Boolean {
         logger.i(
             "DatabaseEncryptionManager.configurePassphrase",
             "Configuring database passphrase",
             mapOf(
-                "passphraseLength" to passphrase.length,
-                "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "passphraseProvided" to passphrase.isNotEmpty(),
+                "hadPassphraseConfigured" to hasPassphraseConfigured(),
             ),
         )
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.configurePassphrase",
             stage = "started",
             data =
                 mapOf(
-                    "passphraseLength" to passphrase.length,
-                    "modeBefore" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                    "passphraseProvided" to passphrase.isNotEmpty(),
+                    "hadPassphraseConfigured" to hasPassphraseConfigured(),
                 ),
         )
         return runCatching {
             persistVerifier(passphrase)
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "verifier_persisted",
             )
             disableBiometricUnlockInternal()
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "biometric_state_cleared",
             )
             check(
                 prefs
                     .edit()
-                    .putString(KEY_MODE, MODE_ENCRYPTED)
                     .putBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false)
                     .commit(),
-            ) { "Failed to persist encryption mode" }
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            ) { "Failed to persist encryption state" }
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
-                stage = "mode_persisted",
+                stage = "encryption_state_persisted",
             )
 
             logger.i(
                 "DatabaseEncryptionManager.configurePassphrase",
                 "Database passphrase configured",
-                mapOf("mode" to MODE_ENCRYPTED),
+                mapOf("passphraseConfigured" to true),
             )
             true
         }.getOrElse { error ->
@@ -241,8 +241,7 @@ class DatabaseEncryptionManager(
                 "Failed to configure database passphrase",
                 error,
             )
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.configurePassphrase",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -254,6 +253,26 @@ class DatabaseEncryptionManager(
      * Changes the passphrase: verifies [currentPassphrase] first, then persists
      * a fresh verifier and drops biometric wrapping (must be re-enrolled).
      * Returns false if the current passphrase does not verify.
+     *
+     * **The change is atomic in the metadata store, because the old verifier is unrecoverable
+     * once the new one is committed.** [persistVerifier] commits the new salt and hash, and the
+     * biometric teardown that follows can still fail, so a bare `false` would report a refusal
+     * while the NEW verifier was already durable and the OLD one gone — a state no file restore
+     * can repair, and one that locks the user out of their own database. So the verifier keys are
+     * armed into the `_bak_` side-car keys first ([backupEncryptionPrefs]), the mutation runs, and
+     * any failure restores them ([restoreEncryptionPrefs]).
+     *
+     * Two consequences, both deliberate:
+     * - **The change is refused when the rollback cannot be armed.** An unarmed change may land
+     *   half-applied, so [backupEncryptionPrefs] failing returns `false` rather than proceeding.
+     * - **A successful change consumes the side-car backup it armed** ([clearEncryptionPrefsBackup]),
+     *   so stale backups cannot shadow the live verifier. Do not call this inside a window where a
+     *   caller has already armed the backup and still needs it: the import flows do
+     *   (`SettingsEncryptedImportSupport`) and they do not change a passphrase.
+     *
+     * A rollback restores the metadata keys only. The teardown's Keystore aliases cannot be
+     * restored, but no path that reaches a rollback has deleted one: the only throw site in
+     * [disableBiometricUnlockInternal] is the prefs commit check, which precedes both deletions.
      */
     fun updatePassphrase(
         currentPassphrase: String,
@@ -263,26 +282,45 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.updatePassphrase",
             "Updating database passphrase metadata",
             mapOf(
-                "currentLength" to currentPassphrase.length,
-                "newLength" to newPassphrase.length,
+                "currentProvided" to currentPassphrase.isNotEmpty(),
+                "newProvided" to newPassphrase.isNotEmpty(),
             ),
         )
         if (!verifyPassphrase(currentPassphrase)) {
             logger.w("DatabaseEncryptionManager.updatePassphrase", "Current passphrase verification failed")
             return false
         }
-        return runCatching {
-            persistVerifier(newPassphrase)
-            disableBiometricUnlockInternal()
-            logger.i(
+        if (!backupEncryptionPrefs()) {
+            logger.e(
                 "DatabaseEncryptionManager.updatePassphrase",
-                "Database passphrase metadata updated; biometric unlock disabled for re-enrollment",
+                "Refusing to change the passphrase: the verifier rollback could not be armed",
             )
-            true
-        }.getOrElse { error ->
-            logger.e("DatabaseEncryptionManager.updatePassphrase", "Failed to update passphrase metadata", error)
-            false
+            return false
         }
+        val changed =
+            runCatching {
+                persistVerifier(newPassphrase)
+                disableBiometricUnlockInternal()
+                logger.i(
+                    "DatabaseEncryptionManager.updatePassphrase",
+                    "Database passphrase metadata updated; biometric unlock disabled for re-enrollment",
+                )
+                true
+            }.getOrElse { error ->
+                logger.e("DatabaseEncryptionManager.updatePassphrase", "Failed to update passphrase metadata", error)
+                val restored = restoreEncryptionPrefs()
+                logger.e(
+                    "DatabaseEncryptionManager.updatePassphrase",
+                    "Rolled back the passphrase verifier after a failed change",
+                    null,
+                    mapOf("verifierRestored" to restored),
+                )
+                false
+            }
+        if (changed) {
+            clearEncryptionPrefsBackup()
+        }
+        return changed
     }
     /**
      * Wipes all encryption state: clears the security prefs and deletes both
@@ -290,8 +328,7 @@ class DatabaseEncryptionManager(
      * of encryption entirely. Returns true on success.
      */
     fun resetEncryptionState(): Boolean {
-        CrashSafeBreadcrumbs.record(
-            context = appContext,
+        CrashBreadcrumbs.record(
             source = "DatabaseEncryptionManager.resetEncryptionState",
             stage = "started",
         )
@@ -300,16 +337,14 @@ class DatabaseEncryptionManager(
             deleteKeyAlias(BIOMETRIC_KEY_ALIAS)
             deleteKeyAlias(LEGACY_WRAP_KEY_ALIAS)
             logger.w("DatabaseEncryptionManager.resetEncryptionState", "Encryption state reset and keystore keys cleared")
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.resetEncryptionState",
                 stage = "completed",
             )
             true
         }.getOrElse { error ->
             logger.e("DatabaseEncryptionManager.resetEncryptionState", "Failed to reset encryption state", error)
-            CrashSafeBreadcrumbs.record(
-                context = appContext,
+            CrashBreadcrumbs.record(
                 source = "DatabaseEncryptionManager.resetEncryptionState",
                 stage = "failed",
                 data = mapOf("error" to (error.message ?: "unknown")),
@@ -403,8 +438,29 @@ class DatabaseEncryptionManager(
      * Validates [passphrase] by re-deriving the PBKDF2 verifier from the stored
      * salt and comparing it against the stored hash with a constant-time
      * [MessageDigest.isEqual] to avoid timing leaks.
+     *
+     * ENFORCES THE UNLOCK LOCKOUT, and counts a wrong passphrase itself. Both halves belong here for the
+     * same reason the desktop store does them: the lockout is a property of the credential, so the thing
+     * that compares a passphrase has to consult the active lockout before it can compare one, and has to
+     * persist the failure before it can answer - otherwise a correct passphrase is accepted while the
+     * owner is locked out, and an attempt that is refused by the lockout costs nothing, which is the
+     * schedule the shared policy promises (attempt 3 costs 30s) nobody was enforcing here before.
+     *
+     * A verifier that is absent or corrupt is a CONFIGURATION fault, not a wrong passphrase, so it is
+     * refused without counting - the same distinction the desktop store draws.
      */
     fun verifyPassphrase(passphrase: String): Boolean {
+        val now = System.currentTimeMillis()
+        val lockoutUntil = prefs.getLong(KEY_UNLOCK_LOCKOUT_UNTIL_MS, 0L)
+        if (lockoutUntil > now) {
+            val remainingSeconds = ((lockoutUntil - now) + 999L) / 1000L
+            logger.w(
+                "DatabaseEncryptionManager.verifyPassphrase",
+                "Passphrase verification blocked: unlock lockout active",
+                mapOf("lockoutSecondsRemaining" to remainingSeconds),
+            )
+            return false
+        }
         val salt = decodeOrNull(prefs.getString(KEY_VERIFIER_SALT, null))
         if (salt == null) {
             logger.w("DatabaseEncryptionManager.verifyPassphrase", "Passphrase verification blocked: missing verifier salt")
@@ -417,6 +473,17 @@ class DatabaseEncryptionManager(
         }
         val actual = deriveVerifier(passphrase, salt)
         val valid = MessageDigest.isEqual(expected, actual)
+        if (valid) {
+            // Re-arm the policy so the next failure is counted from one. Clearing on success is what the
+            // shared contract means by "the counter is cleared after a successful unlock", and it is why
+            // a locked-out owner who finds their passphrase is not punished for the earlier attempts.
+            resetUnlockAttempts()
+        } else {
+            // Counted here rather than left to the caller, for the same reason the lockout is consulted
+            // above: both stores count inside their verification, so a shared caller that records again
+            // would escalate the schedule twice as fast and lock the owner out on attempt 2.
+            recordFailedUnlockAttempt()
+        }
         logger.i(
             "DatabaseEncryptionManager.verifyPassphrase",
             "Passphrase verification completed",
@@ -582,7 +649,7 @@ class DatabaseEncryptionManager(
     }
 
     private fun persistVerifier(passphrase: String) {
-        val salt = ByteArray(SALT_BYTES).also { secureRandom.nextBytes(it) }
+        val salt = ByteArray(PassphraseKdf.SALT_BYTES).also { secureRandom.nextBytes(it) }
         val hash = deriveVerifier(passphrase, salt)
         try {
             val persisted =
@@ -610,11 +677,11 @@ class DatabaseEncryptionManager(
         salt: ByteArray,
     ): ByteArray {
         val passphraseChars = passphrase.toCharArray()
-        val keySpec = PBEKeySpec(passphraseChars, salt, PBKDF2_ITERATIONS, PBKDF2_BITS)
         return try {
-            SecretKeyFactory.getInstance(PBKDF2_ALGORITHM).generateSecret(keySpec).encoded
+            // The SHARED configuration: Android and the desktop must not derive the same passphrase at
+            // different costs, which is what a private constant on each side produced.
+            PassphraseKdf.derive(passphraseChars, salt)
         } finally {
-            keySpec.clearPassword()
             Arrays.fill(passphraseChars, '\u0000')
         }
     }
@@ -711,7 +778,7 @@ class DatabaseEncryptionManager(
             "DatabaseEncryptionManager.sanitizeLegacySecurityState",
             "Security state sanitized",
             mapOf(
-                "mode" to (prefs.getString(KEY_MODE, MODE_PLAINTEXT) ?: MODE_PLAINTEXT),
+                "hasPassphraseConfigured" to hasPassphraseConfigured(),
                 "biometricEnabled" to prefs.getBoolean(KEY_BIOMETRIC_UNLOCK_ENABLED, false),
                 "hasWrappedPassphrase" to hasBiometricWrappedPassphrase(),
             ),
@@ -758,7 +825,6 @@ class DatabaseEncryptionManager(
 
     private companion object {
         private const val PREFS_NAME = "db_security_prefs"
-        private const val KEY_MODE = "db_mode"
         private const val KEY_UNLOCK_FAILED_ATTEMPTS = "unlock_failed_attempts"
         private const val KEY_UNLOCK_LOCKOUT_UNTIL_MS = "unlock_lockout_until_ms"
         private const val KEY_SESSION_TIMEOUT_MINUTES = "session_timeout_minutes"
@@ -769,20 +835,15 @@ class DatabaseEncryptionManager(
         private const val KEY_BIOMETRIC_WRAPPED_IV = "db_biometric_wrapped_iv"
         private const val KEY_WRAPPED_PASSPHRASE_LEGACY = "db_wrapped_passphrase"
         private const val KEY_WRAPPED_IV_LEGACY = "db_wrapped_iv"
-        private const val MODE_PLAINTEXT = "plaintext"
-        private const val MODE_ENCRYPTED = "encrypted"
-
         private const val BIOMETRIC_KEY_ALIAS = "payanam_db_biometric_passphrase_key"
         private const val LEGACY_WRAP_KEY_ALIAS = "payanam_db_passphrase_key"
         private const val ANDROID_KEYSTORE = "AndroidKeyStore"
         private const val TRANSFORMATION = "AES/GCM/NoPadding"
         private const val GCM_TAG_BITS = 128
-        private const val SALT_BYTES = 32
 
         private const val BACKUP_PREFIX = "_bak_"
         private val BACKUP_STRING_KEYS =
             arrayOf(
-                KEY_MODE,
                 KEY_VERIFIER_HASH,
                 KEY_VERIFIER_SALT,
                 KEY_BIOMETRIC_WRAPPED_PASSPHRASE,
@@ -792,9 +853,6 @@ class DatabaseEncryptionManager(
             )
         private val BACKUP_BOOLEAN_KEYS = arrayOf(KEY_BIOMETRIC_UNLOCK_ENABLED)
 
-        private const val PBKDF2_ITERATIONS = 210_000
-        private const val PBKDF2_BITS = 256
-        private const val PBKDF2_ALGORITHM = "PBKDF2WithHmacSHA256"
         private const val DEFAULT_SESSION_TIMEOUT_MINUTES = 10
         private const val MIN_SESSION_TIMEOUT_MINUTES = 1
         private const val MAX_SESSION_TIMEOUT_MINUTES = 240

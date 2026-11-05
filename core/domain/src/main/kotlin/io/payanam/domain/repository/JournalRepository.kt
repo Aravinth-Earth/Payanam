@@ -107,6 +107,50 @@ interface AppSettingsRepository {
      * Get all settings as a map.
      */
     fun getAllSettings(): Flow<Map<String, String?>>
+
+    /**
+     * Whether the first-run database setup has completed.
+     *
+     * The flag is ONE `app_settings` row - the key [DATABASE_INIT_COMPLETED_KEY], the value
+     * [INIT_COMPLETED_VALUE], and an `updatedAt` stamped on write. An absent row, a null value, and an
+     * unparseable value ALL read as `false`, which is what the Android-only raw-SQLite reader did before
+     * this lived on the contract; a first launch therefore reads `false` rather than failing.
+     *
+     * A default method rather than an abstract one on purpose: every fake in the test sources implements
+     * this interface for the key/value methods alone, and an abstract member would break them for no gain.
+     * The storage location is exactly what [setSetting] writes, so this adds no row shape of its own.
+     */
+    suspend fun isDatabaseInitCompleted(): Boolean = getSetting(DATABASE_INIT_COMPLETED_KEY)?.toBoolean() ?: false
+
+    /**
+     * Records that the first-run database setup finished, by writing the row [isDatabaseInitCompleted]
+     * reads - same key, same value, same `INSERT OR REPLACE` upsert, so a desktop first run and an
+     * Android first run write an identical row and neither can flip the other's next launch.
+     */
+    suspend fun markDatabaseInitCompleted() {
+        setSetting(DATABASE_INIT_COMPLETED_KEY, INIT_COMPLETED_VALUE)
+    }
+
+    companion object {
+        /**
+         * The stored `app_settings` key, verbatim.
+         *
+         * It is a data contract, not a name: Android wrote this row through raw SQLCipher
+         * (`INSERT OR REPLACE INTO app_settings(`key`, value, updatedAt) VALUES (?, ?, ?)`) and reads it
+         * with `SELECT value FROM app_settings WHERE key = ? LIMIT 1`, so a renamed constant is a data
+         * migration rather than a refactor. `:core:presentation`'s `AppPreferenceKeys` declares the same
+         * string for the shared state layer; this module cannot import it, because `:core:presentation`
+         * depends on `:core:domain` and the edge would cycle.
+         */
+        const val DATABASE_INIT_COMPLETED_KEY = "database_init_completed"
+
+        /**
+         * The stored value meaning "completed", as the string `"true"` Android already wrote - not `1`, and
+         * not a boolean column, because [isDatabaseInitCompleted] parses it with [String.toBoolean] and
+         * anything else silently reads as `false`.
+         */
+        const val INIT_COMPLETED_VALUE = "true"
+    }
 }
 
 /**

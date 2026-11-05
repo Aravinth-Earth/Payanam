@@ -55,6 +55,7 @@ spotless {
 }
 
 dependencies {
+    api(project(":core:shared"))
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)
     implementation(libs.timber)

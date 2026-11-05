@@ -5,6 +5,8 @@ package io.payanam.ui.screens
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.time.hourHeightDpForSlotMinutes
+import io.payanam.core.ui.time.nearestTimeScalePreset
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before
@@ -24,10 +26,10 @@ class TimeScreenScalePresetsTest {
         logger.i("TimeScreenScalePresetsTest.setUp", "Preparing time-scale preset regression tests")
     }
 
-    @Test
     /**
      * Hour height dp for slot minutes supports sub five minute presets.
      */
+    @Test
     fun hourHeightDpForSlotMinutes_supports_sub_five_minute_presets() {
         val oneMinute = hourHeightDpForSlotMinutes(1)
         val twoMinutes = hourHeightDpForSlotMinutes(2)
@@ -49,10 +51,10 @@ class TimeScreenScalePresetsTest {
         assertTrue(threeMinutes > fiveMinutes)
     }
 
-    @Test
     /**
      * Nearest time scale preset round trips for one two three minute presets.
      */
+    @Test
     fun nearestTimeScalePreset_roundTrips_for_one_two_three_minute_presets() {
         val oneMinutePreset = nearestTimeScalePreset(hourHeightDpForSlotMinutes(1))
         val twoMinutePreset = nearestTimeScalePreset(hourHeightDpForSlotMinutes(2))

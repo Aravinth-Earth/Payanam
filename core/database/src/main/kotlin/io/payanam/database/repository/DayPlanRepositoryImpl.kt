@@ -4,7 +4,6 @@
 
 package io.payanam.database.repository
 
-import androidx.room.withTransaction
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.dao.DayPlanDao
 import io.payanam.database.entity.DayPlanAllocationEntity
@@ -196,7 +195,7 @@ class DayPlanRepositoryImpl
         ) {
             requireTodayOrFuture(dayKey)
             setDayMode(dayKey = dayKey, mode = MODE_CUSTOM, templateId = null)
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 val now = LocalDateTime.now().format(formatter)
                 // Replace as one atomic batch to avoid partial states during high-frequency updates.
                 sessionManager.requireDatabase().dayPlanDao().deleteAllocationsForDay(dayKey)
@@ -244,7 +243,7 @@ class DayPlanRepositoryImpl
                 return
             }
             val entities =
-                sessionManager.requireDatabase().withTransaction {
+                sessionManager.inTransaction {
                     val now = LocalDateTime.now().format(formatter)
                     sessionManager.requireDatabase().dayPlanDao().deleteAllocationsForDay(dayKey)
                     val replacementAllocations =
@@ -277,7 +276,7 @@ class DayPlanRepositoryImpl
          */
         override suspend fun clearDayPlan(dayKey: String) {
             requireTodayOrFuture(dayKey)
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 sessionManager.requireDatabase().dayPlanDao().deleteAllocationsForDay(dayKey)
                 setDayMode(dayKey = dayKey, mode = MODE_AUTO, templateId = null)
             }
@@ -482,7 +481,7 @@ class DayPlanRepositoryImpl
                     updatedAt = now,
                 )
             val allocationEntities =
-                sessionManager.requireDatabase().withTransaction {
+                sessionManager.inTransaction {
                     sessionManager.requireDatabase().dayPlanDao().insertTemplate(template)
                     val createdAllocations =
                         allocations
@@ -524,7 +523,7 @@ class DayPlanRepositoryImpl
         ) {
             val existing = sessionManager.requireDatabase().dayPlanDao().getTemplateById(id) ?: return
             val now = LocalDateTime.now().format(formatter)
-            sessionManager.requireDatabase().withTransaction {
+            sessionManager.inTransaction {
                 sessionManager.requireDatabase().dayPlanDao().insertTemplate(
                     existing.copy(
                         name = name.trim(),

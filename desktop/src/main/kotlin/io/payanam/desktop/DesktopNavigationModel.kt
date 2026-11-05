@@ -2,7 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.desktop
 
-import io.payanam.shared.settings.DesktopSettingsSnapshot
+import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.shared.settings.DesktopTopLevelRoute
 
 /**
@@ -13,26 +13,38 @@ data class DesktopNavigationModel(
     val launchRoute: DesktopTopLevelRoute,
     val primaryRoutes: List<DesktopTopLevelRoute>,
 )
+
 /**
- * Builds the navigation model from the settings snapshot (visibility-aware).
+ * Builds the navigation model from the SHARED preferences: `tabVisibility` and `launchDestination` are
+ * Android's own rows, so the rail shows what the database says rather than a desktop copy of it.
  */
-fun desktopNavigationModel(settings: DesktopSettingsSnapshot): DesktopNavigationModel =
+fun desktopNavigationModel(preferences: AppPreferencesState): DesktopNavigationModel =
     DesktopNavigationModel(
-        launchRoute = desktopLaunchRoute(settings),
-        primaryRoutes = settings.visibleRoutes(),
+        launchRoute = desktopLaunchRoute(preferences),
+        primaryRoutes = preferences.visibleRoutes(),
     )
+
 /**
- * Preferred launch route, falling back to the first visible (or SETTINGS)
- * when it is hidden.
+ * Preferred launch route, falling back to the first visible (or SETTINGS) when it is hidden.
  */
-fun desktopLaunchRoute(settings: DesktopSettingsSnapshot): DesktopTopLevelRoute {
-    val preferredRoute = settings.launchRoute
-    return if (settings.isRouteVisible(preferredRoute)) {
+fun desktopLaunchRoute(preferences: AppPreferencesState): DesktopTopLevelRoute {
+    val preferredRoute = DesktopTopLevelRoute.fromStorageKey(preferences.launchDestination.route)
+    return if (preferences.isRouteVisible(preferredRoute)) {
         preferredRoute
     } else {
-        settings.visibleRoutes().firstOrNull() ?: DesktopTopLevelRoute.SETTINGS
+        preferences.visibleRoutes().firstOrNull() ?: DesktopTopLevelRoute.SETTINGS
     }
 }
+
+/**
+ * Whether `tab_visible_<route>` says this route is shown. The settings tab's row is always true, because
+ * the mapper writes it that way - Android's own rule, not a desktop exception.
+ */
+fun AppPreferencesState.isRouteVisible(route: DesktopTopLevelRoute): Boolean = tabVisibility[route.storageKey] == true
+
+/** The routes the navigation rail shows, in enum order. */
+fun AppPreferencesState.visibleRoutes(): List<DesktopTopLevelRoute> = DesktopTopLevelRoute.entries.filter { route -> isRouteVisible(route) }
+
 /**
  * One-line description of what this route contains (for tooltips/help).
  */

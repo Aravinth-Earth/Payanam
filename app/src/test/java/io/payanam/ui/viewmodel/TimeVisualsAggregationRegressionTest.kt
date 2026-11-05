@@ -6,6 +6,7 @@ import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.TimeEntry
 import io.payanam.domain.repository.DayPlanAllocationRecord
+import io.payanam.presentation.time.TimeVisualsCalculator
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Before

@@ -70,10 +70,16 @@
         </provider>
 
         <!-- Time Tracking Service -->
+        <!-- Android 14+ wants a declared subtype for the specialUse foreground
+             service type. The subtype is what makes the special use reviewable. -->
         <service
             android:name=".service.TrackingService"
             android:exported="false"
-            android:foregroundServiceType="specialUse" />
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="time_tracking" />
+        </service>
 
         <!-- Time Tracking Widget -->
         <receiver

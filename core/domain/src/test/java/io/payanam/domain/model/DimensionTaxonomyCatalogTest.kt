@@ -2,29 +2,10 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.domain.model
 
-import android.content.Context
 import com.google.common.truth.Truth.assertThat
-import androidx.test.core.app.ApplicationProvider
-import io.payanam.common.logging.UnifiedLogger
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
-@RunWith(RobolectricTestRunner::class)
 class DimensionTaxonomyCatalogTest {
-    private lateinit var logger: UnifiedLogger
-
-    @Before
-    fun setup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        if (!UnifiedLogger.isInitialized()) {
-            UnifiedLogger.initialize(context, "test", 0)
-        }
-        logger = UnifiedLogger.getInstance()
-        logger.d("DimensionTaxonomyCatalogTest.setup", "Logger initialized for taxonomy catalog tests")
-    }
-
     @Test
     fun entries_follow_foundation_first_order() {
         assertThat(

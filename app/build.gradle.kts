@@ -1,6 +1,8 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 import java.util.Properties
+import javax.inject.Inject
+import org.gradle.api.GradleException
 
 plugins {
     alias(libs.plugins.android.application)
@@ -30,6 +32,61 @@ val releaseSigningProps = Properties().apply {
 }
 val hasReleaseSigning = releaseSigningPropsFile.exists()
 
+// Declared version from gradle/version.properties, parsed once in the root build script.
+val declaredVersionName: String = rootProject.extra["payanamVersionName"] as String
+val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
+val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
+val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
+
+require(declaredVersionCode == declaredPackedVersionCode) {
+    "Declared version drift: version=$declaredVersionName packs to versionCode $declaredPackedVersionCode, " +
+        "but the file declares $declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version>."
+}
+
+// F-Droid build: the recipe passes -PfdroidBuild=true. That build must not ship
+// the self-updater nor REQUEST_INSTALL_PACKAGES (see src/fdroid/AndroidManifest.xml).
+val fdroidBuild = (project.findProperty("fdroidBuild") as String?)?.toBoolean() ?: false
+
+// :core:strings holds the only authored copy of every string resource. The app's res directory is
+// generated from it verbatim, so `R.string.*` keeps resolving without a second hand-maintained table.
+val payanamStringsResDir = layout.buildDirectory.dir("generated/payanam-strings-res")
+
+// The Variant API can only wire a directory whose producer is a DirectoryProperty on the task
+// itself; Copy exposes a plain File, so the copy is a small typed task instead.
+abstract class CopyPayanamStringsTask : DefaultTask() {
+
+    @get:InputDirectory
+    @get:PathSensitive(PathSensitivity.RELATIVE)
+    abstract val sourceDirectory: DirectoryProperty
+
+    @get:Input
+    abstract val relativePaths: SetProperty<String>
+
+    @get:OutputDirectory
+    abstract val destinationDirectory: DirectoryProperty
+
+    @get:Inject
+    abstract val fileSystemOperations: FileSystemOperations
+
+    @TaskAction
+    fun copyStrings() {
+        fileSystemOperations.copy {
+            from(sourceDirectory) {
+                include(relativePaths.get())
+            }
+            into(destinationDirectory)
+        }
+    }
+}
+
+val copyPayanamStrings by tasks.registering(CopyPayanamStringsTask::class) {
+    description = "Copies :core:strings' string tables byte-for-byte into the app's generated res directory"
+    group = "build"
+    sourceDirectory.set(rootProject.layout.projectDirectory.dir("core/strings/src/main/res"))
+    relativePaths.set(setOf("values/strings.xml", "values-ta/strings.xml"))
+    destinationDirectory.set(payanamStringsResDir)
+}
+
 android {
     namespace = "io.payanam"
     compileSdk = 36
@@ -39,8 +96,9 @@ android {
           applicationId = "io.payanam"
           minSdk = 28
           targetSdk = 35
-          versionCode = 1704
-          versionName = "1704"
+          versionCode = declaredVersionCode
+          versionName = declaredVersionName
+          buildConfigField("String", "BUILD_SHORT_SHA", "\"$declaredShortSha\"")
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
@@ -50,6 +108,7 @@ android {
         buildConfigField("boolean", "PLANS_CTA_ENABLED", "true")
         buildConfigField("boolean", "FOCUS_MODE_SETTINGS_ENABLED", "true")
         buildConfigField("boolean", "SCORE_SETTINGS_ENABLED", "true")
+        buildConfigField("boolean", "FDROID_BUILD", "$fdroidBuild")
 
 
 
@@ -61,10 +120,11 @@ android {
             arg("room.schemaLocation", "$projectDir/schemas")
         }
 
-        // ARM64-only default for all builds (debug + release).
-        // Pass -PuniversalBuild=true to include all ABIs (emulator, CI, Chromebook).
-        val universalBuild = (project.findProperty("universalBuild") as String?)?.toBoolean() ?: false
-        if (!universalBuild) {
+        // Universal APK by default: every ABI ships, so a build from any channel
+        // installs on any device. Pass -Parm64Only=true for the arm64-only APK used
+        // for local USB iteration.
+        val arm64Only = (project.findProperty("arm64Only") as String?)?.toBoolean() ?: false
+        if (arm64Only) {
             ndk {
                 abiFilters += listOf("arm64-v8a")
             }
@@ -110,10 +170,18 @@ android {
 
     buildTypes {
         debug {
-            isMinifyEnabled = true
-            isShrinkResources = true
+            // The in-process instrumentation tier needs an unminified build. When the debug
+            // build type is minified, AGP also runs R8 over the androidTest APK, and R8 strips
+            // test-runtime classes that are only reached indirectly (kotlin.LazyKt and friends),
+            // which crashes AndroidJUnitRunner before the first test is executed:
+            //   NoClassDefFoundError: Failed resolution of: Lkotlin/LazyKt;
+            //     at androidx.test.platform.io.TestDirCalculator.<init>
+            // build-android.ps1 -RunInProcess passes -Ppayanam.noMinify=true for this reason.
+            val noMinify = (project.providers.gradleProperty("payanam.noMinify").orNull
+                ?: "false").toBoolean()
+            isMinifyEnabled = !noMinify
+            isShrinkResources = !noMinify
             applicationIdSuffix = ".debug"
-            resValue("string", "launcher_app_name", "@string/debug_launcher_app_name")
             if (hasDevDebugSigning) {
                 signingConfig = signingConfigs.getByName("debug")
             }
@@ -123,7 +191,6 @@ android {
             )
         }
         release {
-            resValue("string", "launcher_app_name", "@string/app_name")
             isMinifyEnabled = true
             isShrinkResources = true
             isDebuggable = false
@@ -134,6 +201,26 @@ android {
             )
             if (hasReleaseSigning) {
                 signingConfig = signingConfigs.getByName("release")
+            } else {
+                // The refusal to emit an unsigned release is opt-in, not unconditional: a
+                // third-party builder (F-Droid) compiles this repo from source with a bare
+                // `assembleRelease` and no release keystore, and an unconditional throw would
+                // break that build outright. Our own pipeline passes
+                // -Ppayanam.requireReleaseSigning=true, and only there does the build stop
+                // rather than produce a release artefact that carries no release signature.
+                val requireReleaseSigning =
+                    (project.providers.gradleProperty("payanam.requireReleaseSigning").orNull
+                        ?: "false").toBoolean()
+                if (requireReleaseSigning) {
+                    throw GradleException(
+                        "Release signing is required but keystore-release.properties is missing. " +
+                            "This build refuses to emit an unsigned release artefact. Provide " +
+                            "keystore-release.properties at the repository root (storeFile, " +
+                            "storePassword, keyAlias, keyPassword), or build without " +
+                            "-Ppayanam.requireReleaseSigning=true. Third-party builders (F-Droid) " +
+                            "build without that property and are unaffected.",
+                    )
+                }
             }
         }
     }
@@ -149,6 +236,21 @@ android {
         }
     }
 
+    // Robolectric unit tests must see the app's MERGED resources: without this the app's own
+    // strings resolve to unresolved IDs at runtime and getString() throws
+    // Resources$NotFoundException (measured in TaskReminderSchedulerTest).
+    testOptions {
+        unitTests.isIncludeAndroidResources = true
+    }
+
+    // Stated explicitly rather than left to the default, so the security floor in lint.xml
+    // cannot be quietly switched off by a future AGP default change. Warnings stay warnings
+    // on purpose: the existing warning backlog is large and warningsAsErrors would fail every
+    // build for unrelated reasons, which is how a gate gets bypassed instead of fixed.
+    lint {
+        abortOnError = true
+    }
+
     buildFeatures {
         compose = true
         buildConfig = true
@@ -159,6 +261,20 @@ android {
         getByName("main") {
             java.srcDir("src/main/kotlin")
         }
+        if (fdroidBuild) {
+            getByName("release").manifest.srcFile("src/fdroid/AndroidManifest.xml")
+        }
+    }
+}
+
+// Registers the generated strings as a generated res source per variant, so AGP carries the copy
+// task's dependency to its readers. The SourceSet API cannot do this: it rejects Provider values.
+androidComponents {
+    onVariants { variant ->
+        variant.sources.res?.addGeneratedSourceDirectory(
+            copyPayanamStrings,
+            CopyPayanamStringsTask::destinationDirectory
+        )
     }
 }
 
@@ -194,8 +310,15 @@ dependencies {
     implementation(project(":core:shared"))
     implementation(project(":core:domain"))
     implementation(project(":core:database"))
+    implementation(project(":core:backup"))
+    // The shared state layer: the ViewModels move here one feature at a time, and the Android app
+    // consumes them like any other platform.
+    implementation(project(":core:presentation"))
     implementation(project(":core:scoring"))
     implementation(project(":core:common"))
+    // The shared UI layer. Onboarding renders from :core:ui so Android and the desktop draw the
+    // same composable from one definition instead of two copies that drift.
+    implementation(project(":core:ui"))
 
     // Core Android
     implementation(libs.core.ktx)
@@ -231,6 +354,11 @@ dependencies {
 
     // Room (for direct DB/DAO access via DatabaseSessionManager)
     implementation(libs.room.runtime)
+    implementation(libs.room.ktx)
+    // androidx.sqlite: direct dependency for SupportSQLiteOpenHelper/FrameworkSQLiteOpenHelperFactory
+    // used by the AppDatabaseInitPorts/UhabitsImporter reads (Room does not expose these as api).
+    implementation(libs.androidx.sqlite)
+    implementation(libs.androidx.sqlite.framework)
 
     // WorkManager for auto-backup
     implementation(libs.workmanager)
@@ -239,13 +367,13 @@ dependencies {
     // Vico Charts
     implementation(libs.vico.compose)
     implementation(libs.vico.compose.m3)
-    implementation(libs.vico.core)
 
     // Logging
     implementation(libs.timber)
 
     // Testing
     testImplementation(libs.junit)
+    testImplementation(libs.truth)
     androidTestImplementation(libs.junit.ext)
     androidTestImplementation(libs.espresso.core)
     androidTestImplementation(platform(libs.compose.bom))

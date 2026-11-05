@@ -4,6 +4,7 @@ package io.payanam.shared.settings
 
 import io.payanam.shared.transfer.BackupJsonContract
 import io.payanam.shared.transfer.DataModuleSelection
+
 /**
  * Extraction readiness of a settings area: already shared, ready to extract next, or
  * still Android-only.
@@ -37,6 +38,7 @@ data class SettingsFoundationSnapshot(
      */
     fun areasWithStatus(status: FoundationReadiness): Int = areas.count { it.status == status }
 }
+
 object SettingsFoundationContracts {
     /**
      * Builds a foundation snapshot with the default area checklist.
@@ -50,6 +52,7 @@ object SettingsFoundationContracts {
             moduleSelection = moduleSelection,
             areas = defaultAreas(),
         )
+
     /**
      * Returns the built-in foundation area checklist (settings transfer, structure,
      * tasks/time, notes/lenses).

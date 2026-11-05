@@ -68,7 +68,24 @@ spotless {
 
 dependencies {
     implementation(project(":core:domain"))
+    // Entities + mappers now live in the platform-neutral model module, consumed here through
+    // Room/KSP and by :core:database-jvm through JDBC. Package names are preserved, so no imports
+    // in this module changed.
+    //
+    // `api`, not `implementation`: the app module legitimately uses io.payanam.database.entity.*
+    // types directly (UhabitsImporter, the import/export path, ...). While those classes were this
+    // module's own source they were visible to consumers automatically; moving them out means this
+    // edge must be exported or the app loses them off its compile classpath.
+    api(project(":core:database-model"))
     implementation(project(":core:common"))
+    // The shared schema contract (version, minimum migratable version, critical-table set) lives here
+    // so the desktop can consume the same facts instead of hardcoding its own copies.
+    implementation(project(":core:shared"))
+    // The roll-up compute moved into shared code so the desktop can run the same
+    // calculation, and this module is one of its callers. `implementation`, not `api`:
+    // nothing outside this module needs the compute on its own classpath - the desktop
+    // module takes its own edge to it.
+    implementation(project(":core:scoring"))
     
     implementation(libs.core.ktx)
     implementation(libs.coroutines.core)
@@ -91,6 +108,10 @@ dependencies {
     testImplementation(libs.truth)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.robolectric)
+    // Test-only: SharedStateOverRoomTest drives a class from :core:presentation (the shared Notes
+    // ViewModel) over this module's Room repositories - the Android half of the "a shared class
+    // executes here" proof. No production code in this module reads :core:presentation.
+    testImplementation(project(":core:presentation"))
     testImplementation(libs.coroutines.test)
     
     // Android test dependencies for integration tests
@@ -101,6 +122,8 @@ dependencies {
     androidTestImplementation(libs.robolectric)
     androidTestImplementation(libs.room.testing)
     androidTestImplementation(libs.coroutines.test)
+    androidTestImplementation("androidx.test:runner:1.6.2")
+    androidTestImplementation("androidx.test:rules:1.6.1")
 }
 
 jacoco {

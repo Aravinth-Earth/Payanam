@@ -1,5 +1,5 @@
 # Contributing to Payanam
-Last Updated: 2026-08-22
+Last Updated: 2026-09-19
 
 Payanam is a local-first, FOSS (AGPL-3.0) project. Contributions are welcome — this
 guide keeps the codebase consistent and the quality gates green for everyone.
@@ -40,6 +40,55 @@ and isn't, and which contributions align with our direction.
 - Use descriptive branch names: `feature/...`, `fix/...`, `chore/...`.
 - One logical change per PR. Small, focused PRs review faster.
 
+## Versioning & releases
+
+Releases are **stable only** and ship from `main`. `dev` is the integration line and never publishes.
+
+| Branch | Role |
+|---|---|
+| `dev` | integration; every feature and fix lands here first |
+| `main` | release line; only what is ready to ship |
+
+### Version rule
+
+Semantic versioning, bumped **once per release, on `main`**:
+
+- **MAJOR** — breaking change to user data or behaviour, or a contract that cannot migrate
+- **MINOR** — a new user-facing capability
+- **PATCH** — fixes, copy, internal changes
+
+Never hand-edit `gradle/version.properties`. The task writes both lines and refuses a non-increasing version:
+
+```bash
+./gradlew bumpVersion -Pto=1.1.0
+```
+
+Each segment must be `0`–`999`. `versionCode` packs them as three-digit fields, so `bumpVersion` refuses a segment above `999` — `1.1000.0` cannot be declared.
+
+`versionCode` is packed as `major×1,000,000 + minor×1,000 + patch`:
+
+| Version | versionCode |
+|---|---:|
+| 1.0.0 | 1000000 |
+| 1.0.1 | 1000001 |
+| 1.1.0 | 1001000 |
+| 2.0.0 | 2000000 |
+
+### Release checklist
+
+1. All intended work is merged to `dev` and green.
+2. Open `dev → main` and merge.
+3. On `main`: `./gradlew bumpVersion -Pto=x.y.z`.
+4. On `main`: add `## [x.y.z] - YYYY-MM-DD` to `CHANGELOG.md` (English and Tamil) and `fastlane/metadata/android/{en-US,ta-IN}/changelogs/<versionCode>.txt`.
+5. Commit `Release x.y.z` on `main` and push.
+6. `pwsh build-tools/scripts/build-all-platforms.ps1 -Release`.
+7. `pwsh build-tools/scripts/publish-release.ps1` — creates tag `v<x.y.z>` and the release.
+8. **Back-merge `main → dev`** so the version and changelog reach the development line.
+
+`publish-release.ps1` refuses unless the tree is clean, `HEAD == origin/main`, the changelog exists at that commit, and the tag is unused.
+
+Feature and fix PRs never touch the version or the changelog.
+
 ## Before opening a PR
 
 1. Run the quick gate locally — Spotless (formatting) + detekt (static
@@ -53,7 +102,7 @@ and isn't, and which contributions align with our direction.
    detekt, guardrails, APK assembly):
 
    ```powershell
-   .\build-tools\scripts\build-android.ps1 -Profile full
+   .\build-tools\scripts\build-android.ps1
    ```
 
    This must pass before submitting a PR.
@@ -86,7 +135,15 @@ baseline** — if you legitimately remove a violation, regenerate it:
 ## Code style
 
 - Kotlin formatting is enforced by Spotless (ktlint). Run `./gradlew spotlessApply`
-  to auto-format.
+  to auto-format a module you changed.
+- The build gate also runs a **spotless ratchet** (`build-tools/scripts/spotless-ratchet.ps1`),
+  which fails when a `.kt` file *changed in your working tree* is unformatted. Pre-existing
+  drift elsewhere is ignored, so you are only on the hook for files you touch.
+- **Known limitation:** a repo-wide `./gradlew spotlessApply` currently fails and writes
+  nothing, because `core/database` and `app` contain unfixable `ktlint(standard:kdoc)` errors
+  ("A KDoc is not allowed inside 'modifier_list'"). Format only the module you touched
+  (`./gradlew :<module>:spotlessApply`), and note that `spotlessApply` can delete comments —
+  read every removed line before committing.
 - Keep numeric literals in scoring/config logic as named constants where the
   value's meaning isn't obvious (detekt `MagicNumber` rule).
 - Every source file must carry the AGPL SPDX header (Spotless enforces this).

@@ -10,6 +10,8 @@ import io.payanam.database.entity.TaskOccurrenceEntity
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import io.payanam.scoring.MetricBaseline
+import io.payanam.scoring.ScoreRollupCompute
 import java.time.LocalDate
 /**
  * Provides the score rollup backfill service test.
@@ -80,7 +82,7 @@ class ScoreRollupBackfillServiceTest {
     // ── computeStreaks: self-gov ceiling fix ──────────────────────────────
     @Test
     fun `ceiling fix keeps streak when runningAvg is 1`() {
-        val s = ScoreRollupBackfillService.computeStreaks(progress = 0.0, runningAvg = 1.0, streakPos = 5, streakNet = 5, posContinue = 5)
+        val s = ScoreRollupCompute.computeStreaks(progress = 0.0, runningAvg = 1.0, streakPos = 5, streakNet = 5, posContinue = 5)
         assertEquals(6, s[0])
         assertEquals(5, s[1])
         assertEquals(5, s[2])
@@ -88,7 +90,7 @@ class ScoreRollupBackfillServiceTest {
 
     @Test
     fun `missed day resets streakPos`() {
-        val s = ScoreRollupBackfillService.computeStreaks(progress = -0.2, runningAvg = 0.8, streakPos = 4, streakNet = 4, posContinue = 5)
+        val s = ScoreRollupCompute.computeStreaks(progress = -0.2, runningAvg = 0.8, streakPos = 4, streakNet = 4, posContinue = 5)
         assertEquals(0, s[0])
         assertEquals(3, s[1])
         assertEquals(5, s[2])
@@ -96,7 +98,7 @@ class ScoreRollupBackfillServiceTest {
 
     @Test
     fun `positive progress advances streaks`() {
-        val s = ScoreRollupBackfillService.computeStreaks(progress = 0.1, runningAvg = 0.9, streakPos = 2, streakNet = 1, posContinue = 3)
+        val s = ScoreRollupCompute.computeStreaks(progress = 0.1, runningAvg = 0.9, streakPos = 2, streakNet = 1, posContinue = 3)
         assertEquals(3, s[0])
         assertEquals(2, s[1])
         assertEquals(4, s[2])
@@ -108,7 +110,7 @@ class ScoreRollupBackfillServiceTest {
         val t = task("h1")
         val start = LocalDate.of(2026, 8, 1)
         val occs = (0 until 7).map { occurrence("h1", start.plusDays(it.toLong())) }
-        val (rows, firstDue, rule) = ScoreRollupBackfillService.buildHabitMetrics(t, occs)
+        val (rows, firstDue, rule) = ScoreRollupCompute.buildHabitMetrics(t, occs)
         assertEquals(LocalDate.of(2026, 8, 1), firstDue)
         assertEquals("CONFIG:type=DAILY", rule) // num/den 1/1 → DAILY conversion
         assertTrue(rows.isNotEmpty())
@@ -134,7 +136,7 @@ class ScoreRollupBackfillServiceTest {
             occurrence("h2", start),
             occurrence("h2", start.plusDays(2)),
         )
-        val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(t, occs)
+        val (rows, _, _) = ScoreRollupCompute.buildHabitMetrics(t, occs)
         assertEquals(1.0, rows[0].score, 1e-9)
         assertEquals(0.0, rows[1].score, 1e-9)
         assertEquals(0.5, rows[1].runningAvg, 1e-9)
@@ -145,7 +147,7 @@ class ScoreRollupBackfillServiceTest {
     @Test
     fun `no occurrences produces no rows`() {
         val t = task("h3")
-        val (rows, firstDue, _) = ScoreRollupBackfillService.buildHabitMetrics(t, emptyList())
+        val (rows, firstDue, _) = ScoreRollupCompute.buildHabitMetrics(t, emptyList())
         assertTrue(rows.isEmpty())
         assertEquals(null, firstDue)
     }
@@ -154,7 +156,7 @@ class ScoreRollupBackfillServiceTest {
     fun `non-recurring task is skipped`() {
         val t = task("h4", recurrenceEnabled = 0)
         val occs = listOf(occurrence("h4", LocalDate.of(2026, 8, 1)))
-        val (rows, _, _) = ScoreRollupBackfillService.buildHabitMetrics(t, occs)
+        val (rows, _, _) = ScoreRollupCompute.buildHabitMetrics(t, occs)
         assertTrue(rows.isEmpty())
     }
 
@@ -174,7 +176,7 @@ class ScoreRollupBackfillServiceTest {
             HabitMetricEntity("b", start.plusDays(2).toString(), 0.0, 0.0, 0.0, 0, 0, 0),
         )
         val firstDue = mapOf("a" to start, "b" to start.plusDays(2))
-        val rows = ScoreRollupBackfillService.buildDimensionMetrics(listOf(a, b), firstDue, aRows + bRows)
+        val rows = ScoreRollupCompute.buildDimensionMetrics(listOf(a, b), firstDue, aRows + bRows)
         assertTrue("expected dimension rows, got ${rows.size}", rows.isNotEmpty())
         // day start: only habit a (b not yet started) -> score 1.0
         val day0 = rows.first { it.dayKey == start.toString() }
@@ -194,7 +196,7 @@ class ScoreRollupBackfillServiceTest {
             DimensionMetricEntity("dim_y", d1, 0.6, 0.6, 0.6, 1, 1, 1),
             DimensionMetricEntity("dim_x", d2, 0.9, 0.85, 0.05, 2, 2, 2),
         )
-        val days = ScoreRollupBackfillService.buildDayMetrics(dimRows)
+        val days = ScoreRollupCompute.buildDayMetrics(dimRows)
         assertEquals(2, days.size)
         val day1 = days.first { it.dayKey == d1 }
         assertEquals(0.7, day1.dayScore, 1e-9) // (0.8+0.6)/2
@@ -206,6 +208,6 @@ class ScoreRollupBackfillServiceTest {
 
     @Test
     fun `empty dimension rows produce no day rows`() {
-        assertTrue(ScoreRollupBackfillService.buildDayMetrics(emptyList()).isEmpty())
+        assertTrue(ScoreRollupCompute.buildDayMetrics(emptyList()).isEmpty())
     }
 }

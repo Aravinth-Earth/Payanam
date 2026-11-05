@@ -4,20 +4,22 @@
 
 package io.payanam.ui.viewmodel
 
-import android.content.Context
-import android.content.Intent
-import android.net.Uri
-import androidx.core.content.FileProvider
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import dagger.hilt.android.lifecycle.HiltViewModel
-import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.BuildConfig
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.feature.settings.AutoDownloadManager
-import io.payanam.feature.settings.DownloadUiState
-import io.payanam.feature.settings.UpdateChannel
-import io.payanam.feature.settings.UpdateChecker
+import io.payanam.feature.settings.ApkBuildType
+import io.payanam.feature.settings.ApkChecksumVerifier
+import io.payanam.feature.settings.installBlockKey
+import io.payanam.feature.settings.logName
+import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.updates.ApkDownloader
+import io.payanam.presentation.updates.ApkInstaller
+import io.payanam.presentation.updates.InstallSourceReader
+import io.payanam.presentation.updates.UpdateChecker
+import io.payanam.shared.updates.UpdateCheckError
+import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
@@ -33,22 +35,28 @@ import javax.inject.Inject
  * Pre-unlock update hatch: manual check → download → install for the DB-LOCKED
  * state. Deliberately reads NO database-backed preferences:
  *
- * - channel is hardcoded to DEV (the rescue channel; beta/stable selection is a
- *   post-unlock Settings preference)
+ * - no stored preference is read at all: the newest release is either newer than
+ *   this install or it is not
  * - no auto-check, no auto-download, no prompt popup — every step is a manual
  *   user tap (design confirmed: pre-unlock = manual only)
- * - reuse: [UpdateChecker] (pure, DB-free), [AutoDownloadManager] (app-private
- *   dir, disk guard, retention), FileProvider install (same as Settings)
+ * - reuse: [UpdateChecker] (pure, DB-free), [ApkDownloader] (app-private
+ *   dir, disk guard, retention), [ApkInstaller] (FileProvider handoff, same as Settings)
  *
  * Traces land under "PreUnlockUpdateChecker.*" so a stuck hatch session is
  * fully diagnosable from one log export.
  */
 @HiltViewModel
 class PreUnlockUpdateViewModel @Inject constructor(
-    @ApplicationContext private val context: Context,
+    private val installSourceReader: InstallSourceReader,
+    private val apkDownloader: ApkDownloader,
+    private val apkInstaller: ApkInstaller,
+    private val checksumVerifier: ApkChecksumVerifier,
 ) : ViewModel() {
 
     private val logger = UnifiedLogger.getInstance()
+
+    /** F-Droid installs are updated by the F-Droid client — the hatch must not offer self-updates. */
+    val isFDroidBuild: Boolean = installSourceReader.isFDroidBuild()
 
     private val _downloadState = MutableStateFlow<DownloadUiState>(DownloadUiState.Idle)
     val downloadState: StateFlow<DownloadUiState> = _downloadState.asStateFlow()
@@ -59,10 +67,18 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private val _checkResultMessage = MutableStateFlow<String?>(null)
     val checkResultMessage: StateFlow<String?> = _checkResultMessage.asStateFlow()
 
-    /** Latest build number found by the last check (DEV channel). */
-    private var latestBuildNumber: Int? = null
     private var latestReleaseUrl: String? = null
     private var latestApkUrl: String? = null
+
+    /**
+     * The published `.sha256` sidecar URL for [latestApkUrl], or null when the release published none.
+     *
+     * Held in memory rather than persisted: this hatch runs BEFORE the database is unlocked, so it
+     * reads and writes no database-backed preference (see the class doc). That is not a weaker guard —
+     * a persisted download URL is not read back here either, so the install gate and the download it
+     * guards always belong to the same check.
+     */
+    private var latestSha256Url: String? = null
     private var pollJob: Job? = null
 
     /** Cooldown guard: 60s between manual checks (mirrors Settings rate guards). */
@@ -71,8 +87,12 @@ class PreUnlockUpdateViewModel @Inject constructor(
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
 
     /** User tapped "Check for update" (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: UpdateChecker.check network + JSON parsing
+    @Suppress("TooGenericExceptionCaught") // Intentional: UpdateChecker.check network + JSON parsing
     fun checkForUpdate() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.check", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val now = System.currentTimeMillis()
         if (now - lastCheckTimestampMs < checkCooldownMs) {
             logger.d(
@@ -89,39 +109,82 @@ class PreUnlockUpdateViewModel @Inject constructor(
             logger.i(
                 "PreUnlockUpdateChecker.check",
                 "Manual update check requested (pre-unlock hatch)",
-                mapOf("currentBuild" to currentBuildNumber, "channel" to UpdateChannel.DEV.name),
+                mapOf("currentBuild" to currentBuildNumber),
             )
             try {
-                val result = UpdateChecker.check(currentBuildNumber, UpdateChannel.DEV)
-                if (result.error != null) {
-                    logger.e(
-                        "PreUnlockUpdateChecker.check",
-                        "Check failed",
-                        null,
-                        mapOf("error" to result.error.name),
-                    )
-                    _checkResultMessage.value = "check_failed_${result.error.name}"
-                } else if (result.isUpdateAvailable) {
-                    latestBuildNumber = result.latestBuildNumber
-                    latestReleaseUrl = result.releaseUrl
-                    val selected = result.channelStatuses.firstOrNull { it.channel == UpdateChannel.DEV }
-                    latestApkUrl = selected?.apkDownloadUrl
-                    logger.i(
-                        "PreUnlockUpdateChecker.check",
-                        "Update available",
-                        mapOf(
-                            "latestBuild" to (result.latestBuildNumber ?: -1),
-                            "releaseUrl" to (result.releaseUrl ?: ""),
-                            "hasApkUrl" to (latestApkUrl != null),
-                        ),
-                    )
-                    _checkResultMessage.value = "update_available_${result.latestBuildNumber}"
-                } else {
-                    latestBuildNumber = null
-                    latestReleaseUrl = null
-                    latestApkUrl = null
-                    logger.i("PreUnlockUpdateChecker.check", "Up to date on dev channel")
-                    _checkResultMessage.value = "up_to_date"
+                val result = UpdateChecker.check(currentBuildNumber, ApkBuildType.running())
+                when (result.outcome) {
+                    UpdateOutcome.FAILED -> {
+                        logger.e(
+                            "PreUnlockUpdateChecker.check",
+                            "Check failed",
+                            null,
+                            mapOf("error" to (result.error?.name ?: UpdateCheckError.UNKNOWN.name)),
+                        )
+                        _checkResultMessage.value = "check_failed_${result.error?.name ?: UpdateCheckError.UNKNOWN.name}"
+                    }
+
+                    UpdateOutcome.UPDATE_AVAILABLE -> {
+                        latestReleaseUrl = result.releaseUrl
+                        latestApkUrl = result.apkDownloadUrl
+                        // The sidecar URL travels with the APK URL it belongs to: the install gate can
+                        // only verify this download against the digest this check published.
+                        latestSha256Url = result.apkSha256Url
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Update available",
+                            mapOf(
+                                "latestVersion" to (result.latestVersionName ?: "none"),
+                                "releaseUrl" to (result.releaseUrl ?: ""),
+                                "hasApkUrl" to (latestApkUrl != null),
+                                "hasSha256Url" to (latestSha256Url != null),
+                            ),
+                        )
+                        _checkResultMessage.value = "update_available_${result.latestVersionName ?: "unknown"}"
+                    }
+
+                    UpdateOutcome.TYPE_MISMATCH -> {
+                        // Fail closed: the newest release ships no APK for this
+                        // install's build type. The hatch must name the actual
+                        // reason — never fall through to "up to date".
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        latestSha256Url = null
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Check failed closed: the release ships a different build type",
+                            mapOf("runningType" to ApkBuildType.running()),
+                        )
+                        _checkResultMessage.value = "type_mismatch"
+                    }
+
+                    UpdateOutcome.NO_RELEASE -> {
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        latestSha256Url = null
+                        logger.i("PreUnlockUpdateChecker.check", "Check complete: no release with a version tag yet")
+                        _checkResultMessage.value = "no_release"
+                    }
+
+                    UpdateOutcome.INDETERMINATE -> {
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        latestSha256Url = null
+                        logger.i(
+                            "PreUnlockUpdateChecker.check",
+                            "Check inconclusive — the scan stopped before the release list ended",
+                            mapOf("outcome" to result.outcome.name),
+                        )
+                        _checkResultMessage.value = "check_failed_parse"
+                    }
+
+                    UpdateOutcome.UP_TO_DATE -> {
+                        latestReleaseUrl = null
+                        latestApkUrl = null
+                        latestSha256Url = null
+                        logger.i("PreUnlockUpdateChecker.check", "Up to date")
+                        _checkResultMessage.value = "up_to_date"
+                    }
                 }
             } catch (e: Exception) {
                 logger.e("PreUnlockUpdateChecker.check", "Check threw", e)
@@ -134,6 +197,10 @@ class PreUnlockUpdateViewModel @Inject constructor(
 
     /** User tapped "Download & install" (manual only). */
     fun download() {
+        if (isFDroidBuild) {
+            logger.i("PreUnlockUpdateChecker.download", "F-Droid install; in-app update hatch disabled")
+            return
+        }
         val url = latestApkUrl ?: run {
             logger.d("PreUnlockUpdateChecker.download", "No download URL available — check first")
             return
@@ -146,7 +213,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
                 "Manual download requested",
                 mapOf("fileName" to fileName),
             )
-            val id = AutoDownloadManager.enqueue(context, url, fileName, wifiOnly = false)
+            val id = apkDownloader.enqueue(url, fileName, wifiOnly = false)
             if (id == null) {
                 _downloadState.value = DownloadUiState.Failed("enqueue_failed")
                 logger.e("PreUnlockUpdateChecker.download", "Enqueue failed", null)
@@ -155,7 +222,7 @@ class PreUnlockUpdateViewModel @Inject constructor(
             pollJob?.cancel()
             pollJob = viewModelScope.launch(Dispatchers.IO) {
                 while (isActive) {
-                    val state = AutoDownloadManager.queryProgress(context, id)
+                    val state = apkDownloader.queryProgress(id)
                     _downloadState.value = state
                     if (state is DownloadUiState.Downloaded) {
                         logger.i(
@@ -175,8 +242,15 @@ class PreUnlockUpdateViewModel @Inject constructor(
         }
     }
 
-    /** User tapped "Install now" — launch the system installer (manual only). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: FileProvider + startActivity system installer handoff
+    /**
+     * User tapped "Install now" — verify the downloaded APK, then launch the system installer (manual only).
+     *
+     * Fail-closed: only a verified download may reach the installer. Every other verdict leaves the
+     * downloaded file in place and reports its own reason key through [downloadState], which is the same
+     * mechanism this hatch already reports every other download failure through. The installer collaborator
+     * repeats the check at its own seam, so a file swapped between this check and the handoff is still
+     * refused there.
+     */
     fun install() {
         val path = (_downloadState.value as? DownloadUiState.Downloaded)?.localPath ?: run {
             logger.d("PreUnlockUpdateChecker.install", "No downloaded file — nothing to install")
@@ -188,28 +262,33 @@ class PreUnlockUpdateViewModel @Inject constructor(
             logger.e("PreUnlockUpdateChecker.install", "File missing at install time", null, mapOf("path" to path))
             return
         }
-        try {
-            val uri: Uri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                file,
-            )
-            val intent = Intent(Intent.ACTION_VIEW).apply {
-                setDataAndType(uri, "application/vnd.android.package-archive")
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            val resolved: android.content.ComponentName? = intent.resolveActivity(context.packageManager)
-            val resolvedInstallerName = resolved?.className ?: "none"
+        viewModelScope.launch {
+            val verdict = checksumVerifier.verify(file, latestSha256Url)
             logger.i(
                 "PreUnlockUpdateChecker.install",
-                "Install handoff to system installer",
-                mapOf(
-                    "fileName" to file.name,
-                    "resolvedInstaller" to resolvedInstallerName,
-                ),
+                "Install gate verdict",
+                mapOf("verdict" to verdict.logName()),
             )
-            context.startActivity(intent)
+            val blockKey = verdict.installBlockKey()
+            if (blockKey != null) {
+                // The APK is the user's only copy, so it is left untouched: the reason key explains
+                // why it is not being installed.
+                _downloadState.value = DownloadUiState.Failed(blockKey)
+                return@launch
+            }
+            launchInstaller(path)
+        }
+    }
+
+    /** Hand [path] to the platform installer, which verifies the digest again before its own handoff. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: installer handoff may throw
+    private suspend fun launchInstaller(path: String) {
+        try {
+            val success = apkInstaller.install(path, latestSha256Url)
+            if (!success) {
+                _downloadState.value = DownloadUiState.Failed("install_launch_failed")
+                logger.e("PreUnlockUpdateChecker.install", "Install launch failed", null)
+            }
         } catch (e: Exception) {
             _downloadState.value = DownloadUiState.Failed("install_launch_failed")
             logger.e("PreUnlockUpdateChecker.install", "Install launch failed", e)

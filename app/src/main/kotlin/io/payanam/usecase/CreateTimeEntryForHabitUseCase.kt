@@ -1,12 +1,14 @@
 //  SPDX-FileCopyrightText: 2026 Aravinth-Earth
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 @file:Suppress("TooGenericExceptionCaught", "SwallowedException")
+
 package io.payanam.usecase
 
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TimeEntryInput
+import io.payanam.domain.port.HabitTimeEntryRecorder
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import kotlinx.coroutines.flow.first
@@ -22,7 +24,7 @@ import javax.inject.Singleton
 class CreateTimeEntryForHabitUseCase @Inject constructor(
     private val timeEntryRepository: TimeEntryRepository,
     private val appSettingsRepository: AppSettingsRepository,
-) {
+) : HabitTimeEntryRecorder {
     private val logger = UnifiedLogger.getInstance()
 
     /**
@@ -32,7 +34,7 @@ class CreateTimeEntryForHabitUseCase @Inject constructor(
      * @param actualCompletedAt The actual completion time
      * @param actualDurationMinutes The actual duration in minutes
      */
-    suspend operator fun invoke(
+    override suspend operator fun invoke(
         task: Task,
         actualCompletedAt: LocalDateTime?,
         actualDurationMinutes: Int?,

@@ -17,9 +17,39 @@ import dagger.hilt.InstallIn
 import dagger.hilt.android.EntryPointAccessors
 import dagger.hilt.android.HiltAndroidApp
 import dagger.hilt.components.SingletonComponent
-import io.payanam.common.logging.CrashSafeBreadcrumbs
+import io.payanam.common.logging.SharedPreferencesBreadcrumbStore
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.data.RoomPayanamDataLayer
+import io.payanam.domain.port.HabitTimeEntryRecorder
+import io.payanam.domain.port.PerformanceTracer
+import io.payanam.domain.port.ScoreCalculator
+import io.payanam.domain.port.ScoreChangeStream
+import io.payanam.domain.port.ScoreRollupTrigger
+import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.port.TimeTrackingController
+import io.payanam.domain.port.TimeTrackingWidgetRefresher
+import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.domain.repository.DayPlanRepository
+import io.payanam.domain.repository.HabitMetricRepository
+import io.payanam.domain.repository.JournalRepository
+import io.payanam.domain.repository.LensRepository
+import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.domain.repository.NoteRepository
+import io.payanam.domain.repository.ScoreWindowRepository
+import io.payanam.domain.repository.ScoringConfigRepository
+import io.payanam.domain.repository.TagRepository
+import io.payanam.domain.repository.TaskOccurrenceRepository
+import io.payanam.domain.repository.TaskRepository
+import io.payanam.domain.repository.TaskRescheduleRepository
+import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.feature.settings.AppStartUpdateChecker
+import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.presentation.flags.FeatureFlagsState
+import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.scoring.port.TaskRecurrenceHandler
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.ui.logging.DebugLoggingPrefs
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
 
@@ -32,21 +62,68 @@ import timber.log.Timber
 class PayanamApp : Application() {
 
     /**
+     * Init the platform logger at the EARLIEST application phase. Manifest components (broadcast
+     * receivers) can be instantiated before onCreate runs - measured under Robolectric with merged
+     * resources (NotificationActionReceiver.<init> -> UnifiedLogger.getInstance() throwing
+     * "not initialized" from registerBroadcastReceivers), and reachable in production on a cold
+     * start straight into a receiver (boot / notification action), where getInstance() before init
+     * throws. initialize() is idempotent, so onCreate's own call below remains a harmless no-op.
+     */
+    override fun attachBaseContext(base: Context) {
+        super.attachBaseContext(base)
+        UnifiedLogger.initialize(base, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
+    }
+
+    /**
      * Boot sequence: logger first, crash handler + breadcrumbs, notification
      * channels, then the lazy app-start update check.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: app-level defensive catch
+    @Suppress("TooGenericExceptionCaught") // Intentional: app-level defensive catch
     override fun onCreate() {
         super.onCreate()
 
         // Initialize UnifiedLogger FIRST (persistent logs to app internal storage /logs/)
-        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.VERSION_CODE)
+        val logger = UnifiedLogger.initialize(this, BuildConfig.VERSION_NAME, BuildConfig.BUILD_SHORT_SHA)
+        // Hand the real logger to the platform-neutral modules (core/domain, core/scoring). They
+        // cannot reach this Android singleton, so they read AppLogger.current instead. Without this
+        // call they would log to the no-op default and every diagnostic from those modules would be
+        // discarded silently - the failure mode this project forbids.
+        AppLogger.install(logger)
+        // Then the crash-safe breadcrumb store, and for the same reason plus one: it is the same
+        // install-once-then-read shape as AppLogger.install, and the reason it must come after it is
+        // the trail's own lifecycle - a breadcrumb recorded before the logger exists could be reported
+        // into a no-op default and lost, and the replay below logs through AppLogger.current. So:
+        // logger, then store, then drain. Installed in onCreate rather than lazily because a ViewModel
+        // or a Hilt-injected component can record a breadcrumb before any Activity is composed, and a
+        // store that arrives late silently discards the steps it would have covered.
+        CrashBreadcrumbs.install(SharedPreferencesBreadcrumbStore(this))
+        // The shared state layer cannot read BuildConfig either, so the flags reach it through the shared
+        // holder - the same shape as AppLogger.install above and LocalDataLayer.install below. Installed here
+        // rather than in MainActivity because a ViewModel can be constructed before a composition exists; the
+        // UI reads the same values through LocalFeatureFlags, so both paths carry one source of truth.
+        PlatformFeatureFlags.install(
+            FeatureFlagsState(
+                minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                recurringTasksEnabled = FeatureFlags.recurringTasksEnabled,
+                scoringEnabled = FeatureFlags.scoringEnabled,
+                remindersEnabled = FeatureFlags.remindersEnabled,
+                tagsEnabled = FeatureFlags.tagsEnabled,
+                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
+            ),
+        )
+        // Debug-level logging follows the user's stored toggle via a plain-prefs mirror (the
+        // encrypted-DB preference cannot be read before unlock): a stored disable is respected
+        // from process start, and only a never-set value falls back to the build-type default.
+        // The fallback keeps the interaction trace working from process start on debug builds —
+        // the onboarding / DB-init / dimension gates all run before preferences are loaded.
+        UnifiedLogger.setDebugLoggingEnabled(DebugLoggingPrefs.resolve(this))
         logger.i(
             "PayanamApp.onCreate",
             "Application starting",
             mapOf(
                 "versionName" to BuildConfig.VERSION_NAME,
                 "versionCode" to BuildConfig.VERSION_CODE,
+                "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 "debug" to BuildConfig.DEBUG,
             ),
         )
@@ -56,11 +133,75 @@ class PayanamApp : Application() {
             Timber.plant(Timber.DebugTree())
         }
         logPreviousProcessExitReason(logger)
-        CrashSafeBreadcrumbs.dumpToLoggerAndClear(this, "PayanamApp.onCreate")
+        // Drain the trail left by the previous process, through the shared seam. Wrapped because the
+        // shared replay deliberately does not swallow - a store that cannot be read is the finding, not
+        // an inconvenience - while startup must continue: the Android breadcrumb object this replaces
+        // did swallow, and losing the app over a diagnostic gap is the worse failure.
+        runCatching { CrashBreadcrumbs.replayToLoggerAndClear("PayanamApp.onCreate") }
+            .onFailure { failure ->
+                logger.w(
+                    "PayanamApp.onCreate",
+                    "Could not replay the crash-safe breadcrumb trail",
+                    mapOf("reason" to (failure.message ?: "unknown")),
+                )
+            }
         installGlobalCrashLogging(logger)
 
         // Create notification channels
         createNotificationChannels()
+
+        // Put the shared data layer in force. The shared ViewModels in :core/presentation cannot use Hilt,
+        // so they read LocalDataLayer.current; without this the holder stays un-installed and every shared
+        // screen fails with a loud "no data layer" error rather than showing the user's data.
+        //
+        // Installed at process start, unlike the desktop which installs on unlock. The reason is a real
+        // platform difference, not a divergence: Android's repository graph is app-scoped and exists from
+        // process start, and its actual guard is the SESSION lock - a read before unlock fails inside the
+        // repository, with the correct reason. The desktop has neither, so it has nothing to install until
+        // it has opened the file.
+        //
+        // Resolved through an EntryPoint rather than field injection, for the same reason as the update
+        // check below: nothing extra is constructed during super.onCreate(), and a failure here is logged
+        // instead of crashing before the crash handler is installed.
+        try {
+            val dataLayerEntryPoint =
+                EntryPointAccessors.fromApplication(this, DataLayerEntryPoint::class.java)
+            LocalDataLayer.install(
+                RoomPayanamDataLayer(
+                    notes = dataLayerEntryPoint.noteRepository(),
+                    tags = dataLayerEntryPoint.tagRepository(),
+                    tasks = dataLayerEntryPoint.taskRepository(),
+                    timeEntries = dataLayerEntryPoint.timeEntryRepository(),
+                    dayPlans = dataLayerEntryPoint.dayPlanRepository(),
+                    taskOccurrences = dataLayerEntryPoint.taskOccurrenceRepository(),
+                    journal = dataLayerEntryPoint.journalRepository(),
+                    habitMetrics = dataLayerEntryPoint.habitMetricRepository(),
+                    scoreWindows = dataLayerEntryPoint.scoreWindowRepository(),
+                    taskReschedules = dataLayerEntryPoint.taskRescheduleRepository(),
+                    appSettings = dataLayerEntryPoint.appSettingsRepository(),
+                    // The Room-backed catalog. It was already bound in Hilt (`RepositoryModule`) and already
+                    // injected into `AppPreferencesViewModel`; it just was not reachable through the SHARED
+                    // holder, which is what left the desktop with no way to read the same rows.
+                    lifeDimensions = dataLayerEntryPoint.lifeDimensionCatalogRepository(),
+                    lenses = dataLayerEntryPoint.lensRepository(),
+                    scoringConfig = dataLayerEntryPoint.scoringConfigRepository(),
+                    reminderScheduler = dataLayerEntryPoint.reminderScheduler(),
+                    scoreRollupTrigger = dataLayerEntryPoint.scoreRollupTrigger(),
+                    recurrenceHandler = dataLayerEntryPoint.recurrenceHandler(),
+                    habitTimeEntryRecorder = dataLayerEntryPoint.habitTimeEntryRecorder(),
+                    scoreCalculator = dataLayerEntryPoint.scoreCalculator(),
+                    tracer = dataLayerEntryPoint.tracer(),
+                    scoreChanges = dataLayerEntryPoint.scoreChanges(),
+                    // Both ports are already bound in `PortBindingsModule`; naming them here is what makes
+                    // the shared seam carry Android's real objects rather than leaving the entries to be
+                    // filled by a platform that has none.
+                    timeTrackingController = dataLayerEntryPoint.timeTrackingController(),
+                    timeTrackingWidgetRefresher = dataLayerEntryPoint.timeTrackingWidgetRefresher(),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.e("PayanamApp.onCreate", "Shared data layer not installed", e)
+        }
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
 
         // App-start update check — resolved LAZILY via EntryPoint so nothing
@@ -91,6 +232,90 @@ class PayanamApp : Application() {
         fun appStartUpdateChecker(): AppStartUpdateChecker
     }
 
+    /**
+     * Hilt entry point for the repositories the shared data layer needs.
+     *
+     * Not a repository-provider list in general - it names exactly the repositories the current
+     * [io.payanam.presentation.data.PayanamDataLayer] holds, and grows with that interface.
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface DataLayerEntryPoint {
+        /** The Room-backed notes repository. */
+        fun noteRepository(): NoteRepository
+
+        /** The Room-backed tag repository. */
+        fun tagRepository(): TagRepository
+
+        /** The Room-backed task repository. */
+        fun taskRepository(): TaskRepository
+
+        /** The Room-backed time-entry repository. */
+        fun timeEntryRepository(): TimeEntryRepository
+
+        /** The Room-backed day-plan repository. */
+        fun dayPlanRepository(): DayPlanRepository
+
+        /** The Room-backed task-occurrence repository. */
+        fun taskOccurrenceRepository(): TaskOccurrenceRepository
+
+        /** The Room-backed habit L1 metric repository. */
+        fun habitMetricRepository(): HabitMetricRepository
+
+        /** The Room-backed score-window repository. */
+        fun scoreWindowRepository(): ScoreWindowRepository
+
+        /** The Room-backed task-reschedule repository. */
+        fun taskRescheduleRepository(): TaskRescheduleRepository
+
+        /** Arms and cancels task reminders. */
+        fun reminderScheduler(): TaskReminderScheduler
+
+        /** Starts and stops a tracking session on this platform. */
+        fun timeTrackingController(): TimeTrackingController
+
+        /** Repaints the home-screen time-tracking widget. */
+        fun timeTrackingWidgetRefresher(): TimeTrackingWidgetRefresher
+
+        /** Recomputes the score roll-ups. */
+        fun scoreRollupTrigger(): ScoreRollupTrigger
+
+        /** Advances a recurring task's schedule. */
+        fun recurrenceHandler(): TaskRecurrenceHandler
+
+        /** Records the time entry a completed habit produces. */
+        fun habitTimeEntryRecorder(): HabitTimeEntryRecorder
+
+        /** Computes a task's score. */
+        fun scoreCalculator(): ScoreCalculator
+
+        /** Records performance events. */
+        fun tracer(): PerformanceTracer
+
+        /** The Room-backed lens repository. */
+        fun lensRepository(): LensRepository
+
+        /** The Room-backed scoring-configuration repository. */
+        fun scoringConfigRepository(): ScoringConfigRepository
+
+        /** The score-change stream the shared state layer listens to. */
+        fun scoreChanges(): ScoreChangeStream
+
+        /** The Room-backed app-settings repository. */
+        fun appSettingsRepository(): AppSettingsRepository
+
+        /** The Room-backed journal repository. */
+        fun journalRepository(): JournalRepository
+
+        /**
+         * The Room-backed life-dimension catalog.
+         *
+         * Named here because [io.payanam.presentation.data.PayanamDataLayer] holds it: this entry point
+         * lists exactly the repositories the shared data layer carries, and grows with that interface.
+         */
+        fun lifeDimensionCatalogRepository(): LifeDimensionCatalogRepository
+    }
+
     private fun installGlobalCrashLogging(logger: UnifiedLogger) {
         val previousHandler = Thread.getDefaultUncaughtExceptionHandler()
         Thread.setDefaultUncaughtExceptionHandler { thread, throwable ->
@@ -104,10 +329,11 @@ class PayanamApp : Application() {
                     "isMainThread" to (thread == Looper.getMainLooper().thread),
                     "versionName" to BuildConfig.VERSION_NAME,
                     "versionCode" to BuildConfig.VERSION_CODE,
+                    "buildShortSha" to BuildConfig.BUILD_SHORT_SHA,
                 ),
             )
             // Auto-export the full log ZIP on crash — lands in
-            // Documents/payanam[-debug]/exported-logs/ so it is reachable via the
+            // Documents/Payanam[-debug]/exported-logs/ so it is reachable via the
             // Files app even when the app itself cannot start (crash loop).
             // Best-effort on a separate thread with a hard cap; never blocks.
             val exportThread = Thread {
@@ -169,7 +395,10 @@ class PayanamApp : Application() {
                         "System process exit record",
                         mapOf(
                             "reason" to info.reason,
-                            "reasonDescription" to describeExitReason(info.reason),
+                            // Named "reasonKind", not "reasonDescription": the sanitiser treats any key
+                            // containing "description" as user content and redacts the value, which hid
+                            // the readable name and left only the opaque numeric code in the export.
+                            "reasonKind" to describeExitReason(info.reason),
                             "importance" to info.importance,
                             "status" to info.status,
                             "description" to (info.description ?: "none"),

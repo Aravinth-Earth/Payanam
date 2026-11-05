@@ -1,6 +1,11 @@
-# Static analysis gate for Payanam.
+# Static analysis + JVM/desktop/Android unit-test gate for Payanam.
 # Enforces detekt (KDoc + style rules) on every PR to dev/main and on pushes to
-# dev, so contributor quality checks are enforced in CI, not just locally.
+# dev, so contributor quality checks are enforced in CI, not just locally. It
+# also runs the platform-free JVM/desktop test set on every PR, so the shared
+# core and the Compose Desktop layers are exercised on the same change that
+# touches them rather than only on a maintainer's machine. A third job runs the
+# Android modules' JVM-side unit tests, so `app` and the two Android libraries
+# are no longer the only code whose tests run in no CI gate.
 #
 # NOTE: this runs detekt only, NOT the full `preCommitCheck`. The repo's
 # spotless/ktlint and lint checks have pre-existing violations on `dev` that are
@@ -22,16 +27,84 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Set up JDK 17
-        uses: actions/setup-java@v4
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
         with:
           distribution: "temurin"
           java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
 
       - name: Run detekt
-        run: ./gradlew detekt --no-daemon --console=plain
+        # The bare `detekt` task does not reach the KMP modules' per-target slices - :core:ui:detekt
+        # is SKIPPED - so the per-target tasks are named explicitly. detektAndroidMain is deliberately
+        # absent: it needs :core:ui:compileAndroidMain and therefore an Android SDK on the runner,
+        # which is the same tradeoff build-tools/scripts/parity-fast.sh already documents. The
+        # androidMain slice is covered by the local full gate.
+        run: ./gradlew detekt :core:ui:detektMetadataCommonMain :core:ui:detektDesktopMain --no-daemon --console=plain
+
+  jvm-desktop-tests:
+    name: JVM + desktop tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      # The Compose Desktop test tier composes real scenes and captures images, which needs a display
+      # server even though it renders off-screen. `xvfb-run` is preinstalled on the GitHub runner image;
+      # this guard only covers an image that drops it, so the step never fails for a missing binary.
+      - name: Ensure a virtual display is available
+        run: command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+
+      - name: Run the JVM and desktop test set
+        # The platform-free half of the suite: the shared core modules and the Compose Desktop layers.
+        # No Android SDK is needed - the same tasks the local parity run uses - so this job is the CI
+        # counterpart of `build-tools/scripts/parity-fast.sh`'s JVM half.
+        run: xvfb-run -a ./gradlew :core:shared:test :core:domain:test :core:scoring:test :core:database-jvm:test :core:backup:test :core:presentation:test :core:strings:test :desktop:test :core:ui:desktopTest --no-daemon --console=plain
+
+  android-unit-tests:
+    name: Android unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@cf277c60eb25467037889841efdb72551f06f6c3 # v4.9.1
+        with:
+          distribution: "temurin"
+          java-version: "17"
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+
+      - name: Grant execute permission for gradlew
+        run: chmod +x ./gradlew
+
+      - name: Run the Android unit-test set
+        # The Android modules' JVM-side unit tests: `app` (45 test classes, including the regression
+        # locks), `:core:database` (Room/DAO and migration policy) and `:core:common` (logging and
+        # utilities). These are local JVM tests - Robolectric supplies the Android runtime where one is
+        # needed - so NO emulator, device or instrumentation step is involved and no virtual display is
+        # required. The ubuntu-latest image ships the Android SDK, which is why this job needs no
+        # setup-android action; `compileSdk 36` is the same value the CodeQL job already compiles against.
+        run: ./gradlew :app:testDebugUnitTest :core:database:testDebugUnitTest :core:common:testDebugUnitTest --no-daemon --console=plain
+

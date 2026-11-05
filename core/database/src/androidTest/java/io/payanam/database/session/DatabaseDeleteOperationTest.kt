@@ -6,13 +6,13 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.security.DatabaseEncryptionManager
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import java.io.File
+import io.payanam.shared.database.PayanamDatabaseSchema
 
 /**
  * Tests for database deletion and cleanup operations.
@@ -56,7 +56,7 @@ class DatabaseDeleteOperationTest {
         sessionManager.closeDatabase()
         encryptionManager.resetEncryptionState()
         // Clean up database files
-        deleteDatabase(PayanamDatabase.DATABASE_NAME)
+        deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
         logger.d("DatabaseDeleteOperationTest.tearDown", "Database and encryption state cleaned up")
     }
 
@@ -70,7 +70,7 @@ class DatabaseDeleteOperationTest {
             encryptionManager.configurePassphrase(testPassphrase)
             val openResult = sessionManager.openDatabase(testPassphrase)
             assertThat(openResult.isSuccess).isTrue()
-            val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
+            val dbFile = File(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isTrue()
             logger.d(
                 "DatabaseDeleteOperationTest.deleteDatabase_removesPhysicalDatabaseFile",
@@ -80,7 +80,7 @@ class DatabaseDeleteOperationTest {
 
             // Act: Close and delete database
             sessionManager.closeDatabase()
-            deleteDatabase(PayanamDatabase.DATABASE_NAME)
+            deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
 
             // Assert: Database file no longer exists
             val stillExists = dbFile.exists()
@@ -139,7 +139,7 @@ class DatabaseDeleteOperationTest {
 
             // Act: Close, delete, and reset
             sessionManager.closeDatabase()
-            deleteDatabase(PayanamDatabase.DATABASE_NAME)
+            deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
             encryptionManager.resetEncryptionState()
 
             // Act: Create new database with different passphrase
@@ -174,15 +174,15 @@ class DatabaseDeleteOperationTest {
             assertThat(openResult.isSuccess).isTrue()
 
             sessionManager.closeDatabase()
-            val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
+            val dbFile = File(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath)
 
             // Act: First deletion
-            deleteDatabase(PayanamDatabase.DATABASE_NAME)
+            deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
             assertThat(dbFile.exists()).isFalse()
 
             // Act: Second deletion (should not crash even if file already gone)
             try {
-                deleteDatabase(PayanamDatabase.DATABASE_NAME)
+                deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
                 // If we get here, deletion was idempotent
                 assertThat(true).isTrue()
                 logger.d(
@@ -251,8 +251,8 @@ class DatabaseDeleteOperationTest {
             assertThat(sessionManager.isOpen.value).isFalse()
 
             // Step 3: Delete old database
-            deleteDatabase(PayanamDatabase.DATABASE_NAME)
-            val dbFile = File(context.getDatabasePath(PayanamDatabase.DATABASE_NAME).absolutePath)
+            deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
+            val dbFile = File(context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME).absolutePath)
             assertThat(dbFile.exists()).isFalse()
 
             // Step 4: Reset encryption state for new import

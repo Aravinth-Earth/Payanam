@@ -19,10 +19,10 @@ class DatabaseModuleMigrationPolicyRegressionTest {
         UnifiedLogger.initialize(context, "test", 0)
     }
 
-    @Test
     /**
      * Production database module does not use destructive migration fallback.
      */
+    @Test
     fun production_database_module_does_not_use_destructive_migration_fallback() {
         val modulePath = resolveDatabaseModuleSourcePath()
         val sessionManagerPath = resolveDatabaseSessionManagerSourcePath()

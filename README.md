@@ -1,13 +1,19 @@
 # Payanam (பயணம்)
 
+Last Updated: 2026-10-27
+
 > **Your Progress, Your Privacy** — Local-first life dimension manager for Android + Desktop
 
-**Latest Builds:**
-- 🔧 **Dev** (rolling): [latest-dev](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-dev) — pre-release, multiple builds/day
-- 🧪 **Beta** (rolling): [latest-beta](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-beta) — pre-release, ~2 builds/week
-- 🚀 **Stable** (rolling): [latest-stable](https://github.com/Aravinth-Earth/Payanam/releases/tag/latest-stable) — stable, ~2 builds/month
+[![License: AGPL v3](https://img.shields.io/badge/License-AGPL--3.0-purple?style=flat-square&labelColor=1a1a1a)](LICENSE)
+[![FOSS](https://img.shields.io/badge/FOSS-Yes-brightgreen?style=flat-square&labelColor=1a1a1a)](LICENSE)
+![Android 9+](https://img.shields.io/badge/Android-9%2B-green?style=flat-square&labelColor=1a1a1a)
+[![Release](https://img.shields.io/github/v/release/Aravinth-Earth/Payanam?label=Release&style=flat-square&labelColor=1a1a1a)](https://github.com/Aravinth-Earth/Payanam/releases)
 
-Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking.
+Payanam is a privacy-first life dimension manager — tasks, habits, time tracking, journal, and insights across the dimensions of life you define. All data stays on your device. No cloud, no accounts, no tracking, no telemetry — and no network call ever carries your data. The only network traffic the app can generate is an optional update check that contacts GitHub and sends nothing but the app's version code, and, on Android only and only when you accept an update, the download of a GitHub release asset; build metadata is not user data, and nothing about you or your usage is ever sent.
+
+**F-Droid build.** A build packaged for F-Droid makes no update call: the store client owns updates for those installs, so the app's own updater is disabled and it never downloads or installs an APK for itself.
+
+**Published releases.** A release ships an Android APK and a Linux `.deb`, both built in `release` mode — a `debug`-type build is a development build and is never published. See [INSTALL.md](INSTALL.md) for the install and checksum-verification steps.
 
 See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
@@ -21,7 +27,7 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 |---|---|
 | ![Habits list](docs/images/screenshots/en/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/en/2_tasks_list.jpg) |
 | ![Time timeline](docs/images/screenshots/en/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/en/4_dimension_insights.jpg) |
-| ![Lenses radar](docs/images/screenshots/en/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/en/6_settings.jpg) |
+| ![Views radar](docs/images/screenshots/en/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/en/6_settings.jpg) |
 
 **Tamil (தமிழ்)**
 
@@ -29,7 +35,7 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 |---|---|
 | ![Habits list](docs/images/screenshots/ta/1_habits_list.jpg) | ![Tasks list](docs/images/screenshots/ta/2_tasks_list.jpg) |
 | ![Time timeline](docs/images/screenshots/ta/3_time_timeline.jpg) | ![Dimension insights](docs/images/screenshots/ta/4_dimension_insights.jpg) |
-| ![Lenses radar](docs/images/screenshots/ta/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/ta/6_settings.jpg) |
+| ![Views radar](docs/images/screenshots/ta/5_lenses_radar.jpg) | ![Settings](docs/images/screenshots/ta/6_settings.jpg) |
 
 ---
 
@@ -42,7 +48,9 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 
 See [INSTALL.md](INSTALL.md) for sideload and verification steps.
 See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for development setup and PR workflow.
-See [CHANGELOG.md](CHANGELOG.md) for what's new.
+## What's new
+
+This project keeps one release-notes entry per version in [CHANGELOG.md](CHANGELOG.md), shared by every platform.
 
 ---
 
@@ -59,6 +67,16 @@ See [CHANGELOG.md](CHANGELOG.md) for what's new.
 | ✅ | Desktop foundation — Compose Desktop with Windows EXE/MSI |
 | 🔄 | Export / Import — Auto-backup + manual export/import with passphrase |
 | ⏭️ | Cross-device sync (planned) |
+
+---
+
+## Privacy & network
+
+Payanam is offline by design. It has no servers, no accounts, no analytics, and no telemetry: no data about you or your usage ever leaves your device, and the app is fully functional offline.
+
+**Local session logs.** Both the Android and desktop builds keep a session log on your device recording app errors, navigation and diagnostics — that log is what makes a bug report actionable, and it also records that a passphrase reset was attempted. It never leaves your device, it rotates automatically (the desktop keeps the 20 most recent sessions, Android keeps 9), and credentials, file paths and note/journal content are redacted before they are written. On desktop, debug-level entries follow the build: a debug build logs them from start-up and a release build does not, the in-app Debug logging switch changes that at runtime, and launching with the environment variable overrides the build's default for that session (`export PAYANAM_DEBUG_LOGGING=true` on Linux/macOS; `$env:PAYANAM_DEBUG_LOGGING = "true"` in Windows PowerShell).
+
+**Fail-closed security state.** If the desktop app cannot read its stored passphrase configuration, it refuses to start rather than continuing, because it cannot tell a fresh install apart from a damaged one. The recovery it offers clears only the passphrase and its lockout state — your tasks, journal, notes and settings are not touched.
 
 ---
 
@@ -120,7 +138,8 @@ Windows users can also use `.\build-tools\scripts\build-android.ps1` for the ful
 ## Credits
 
 Inspiration from [uHabits](https://github.com/iSoron/uhabits), [SATT](https://github.com/Razeeman/Android-SimpleTimeTracker), and [Google Stitch](https://stitch.google.com).  
-Third-party libraries: AndroidX, Compose, Hilt, Room, Coroutines, [Vico Charts](https://github.com/patrykandpatrick/vico), Timber.
+Third-party libraries: AndroidX, Kotlin & kotlinx (Coroutines, Serialization), Jetpack Compose + Material3, Hilt (Dagger), Room, [SQLCipher](https://www.zetetic.net/sqlcipher/) (database encryption), [Vico Charts](https://github.com/patrykandpatrick/vico), Timber, WorkManager.  
+Quality tooling: [detekt](https://detekt.dev), [Spotless](https://github.com/diffplug/spotless) + [ktlint](https://ktlint.github.io), JUnit, [Robolectric](https://robolectric.org), [Mockito](https://site.mockito.org), [Truth](https://truth.dev), Espresso.
 
 ---
 

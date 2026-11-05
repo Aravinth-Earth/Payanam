@@ -1,0 +1,502 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.feature.settings
+
+import android.content.Context
+import android.content.Intent
+import androidx.core.content.FileProvider
+import io.payanam.BuildConfig
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.presentation.download.DownloadUiState
+import io.payanam.presentation.updates.UpdateChecker
+import io.payanam.shared.platform.ApkUpdateSource
+import io.payanam.shared.platform.InstallHandoff
+import io.payanam.shared.platform.InstallRefusal
+import io.payanam.shared.platform.SupportState
+import io.payanam.shared.platform.UpdateAvailability
+import io.payanam.shared.platform.UpdateDownload
+import io.payanam.shared.updates.UpdateCheckResult
+import io.payanam.shared.updates.UpdateOutcome
+import kotlinx.coroutines.delay
+import java.io.File
+import java.util.Collections
+
+/** Mime type the system package installer answers for. */
+private const val APK_MIME_TYPE = "application/vnd.android.package-archive"
+
+/** Suffix of the authority this app publishes its downloaded artifacts under. */
+private const val PROVIDER_AUTHORITY_SUFFIX = ".fileprovider"
+
+/** Interval between progress queries against a download that is still running. */
+private const val DOWNLOAD_POLL_INTERVAL_MS = 1_000L
+
+/**
+ * How many polls a single fetch may spend waiting before it gives up and reports no artifact.
+ *
+ * A poll costs one system query, so this is a wall-clock ceiling of roughly [DOWNLOAD_POLL_INTERVAL_MS]
+ * multiplied by this count. It is bounded on purpose: an unbounded wait would turn a download the system
+ * silently abandons into a call that never returns, which is worse than refusing to install.
+ */
+private const val MAX_DOWNLOAD_POLLS = 1_800
+
+/**
+ * Android's answer to the shared update-source port: a real self-install handoff, wrapped around the
+ * pieces this app already ships.
+ *
+ * WHAT THIS PLATFORM CAN DO, IN ONE LINE: check the releases list, fetch an APK into its own storage and
+ * hand that file to the system installer. Every other answer below is derived from that fact, never from
+ * the platform's name.
+ *
+ * THE TWO ANSWERS THE PORT ASKS FOR ARE SEPARATE ON PURPOSE. [state] is about the INSTALLER, so a build
+ * installed by a store answers [SupportState.DECLINES]: the client that installed this app owns its
+ * updates, and an app that replaced itself behind that client's back is the thing the store's signature
+ * check exists to prevent. [isNewerBuildAvailable] is about the RELEASE LIST, so it still answers for
+ * such a build - knowing a newer release exists is not the same as being allowed to install it, and a
+ * screen that can only render one of the two would have to show a lie for a store-managed build.
+ *
+ * WHY IT WRAPS WHAT ALREADY EXISTS INSTEAD OF REIMPLEMENTING IT: the release walk, the type-aware asset
+ * selection, the app-private download directory and the installer's own handoff are all already in this
+ * module, already logged, already tested. A second copy of the same walk would be a second answer to
+ * compare and a second thing to keep correct; this class owns only the mapping between the platform's
+ * vocabulary and the port's, which is the part the port actually needed and did not have.
+ *
+ * WHY THE CHECK FAILS CLOSED: four of [UpdateOutcome]'s values mean "the check could not conclude". Each
+ * maps to [UpdateAvailability.Inconclusive] rather than [UpdateAvailability.UpToDate], because rendering
+ * "could not tell" as "you have the latest build" tells a user their build is current when the release
+ * list was never read - the exact quiet lie the port's vocabulary keeps the two apart to prevent.
+ *
+ * WHY THE HANDLE IS A PATH: [UpdateDownload.platformHandle] is opaque to shared code, and this platform
+ * needs the artifact's location BEFORE it can ask the system anything - [InstallRefusal.FILE_MISSING] is
+ * only answerable by looking at the file. The handle therefore carries the absolute path of the fetched
+ * APK, and this class turns that path into the content URI the installer is handed at the last moment.
+ *
+ * @param context the application context, used for storage, the package manager and the install handoff.
+ * @param isStoreManaged whether an installer rather than this app answers for updates on this build.
+ *   Defaults to the platform's own installer lookup.
+ * @param checkForUpdates how the releases list is read. Defaults to the real check with this install's
+ *   build type; a caller supplies its own only to script an answer.
+ */
+class AndroidApkUpdateSource(
+    private val context: Context,
+    private val isStoreManaged: Boolean = FdroidBuildCheck.isFDroidBuild(),
+    private val checkForUpdates: suspend (installedVersionCode: Int) -> UpdateCheckResult =
+        { installedVersionCode -> UpdateChecker.check(installedVersionCode, ApkBuildType.running()) },
+    /**
+     * The shared install gate. Injected rather than reached for as a singleton so the fetch path is
+     * exercised with a scripted verdict; production wiring supplies the same singleton every other
+     * install path uses.
+     */
+    private val checksumVerifier: ApkChecksumVerifier = DefaultApkChecksumVerifier(),
+) : ApkUpdateSource {
+    private val logger = UnifiedLogger.getInstance()
+
+    /**
+     * The most recent release read, kept so a fetch can resolve the artifact the CHECK found.
+     *
+     * The port hands [downloadNewerBuild] an availability answer, and an answer names a version code but
+     * not an asset: the URL to fetch lives on the check's own result. Retaining that read is what lets
+     * the fetch address the artifact the check actually verified instead of reconstructing a URL from a
+     * tag, which is the step that fails closed on an unexpected release name.
+     */
+    @Volatile
+    private var lastChecked: UpdateCheckResult? = null
+
+    /**
+     * Build numbers whose fetched artifact matched its published digest, so only those may be handed to
+     * an installer.
+     *
+     * Why a set of build numbers and not a re-hash at install time: [startInstall] is deliberately not
+     * suspend (see the port's contract), so it must not fetch a sidecar or hash a multi-megabyte file on
+     * the caller's thread. The bytes are hashed once, when the artifact is fetched ([downloadNewerBuild]
+     * is suspend and is where the file appears), and this set is the provenance record that the artifact
+     * being handed over is the one that matched. A caller that constructs a [UpdateDownload] by hand is
+     * therefore refused rather than trusted.
+     */
+    private val verifiedBuilds: MutableSet<Int> = Collections.synchronizedSet(mutableSetOf<Int>())
+
+    /**
+     * [SupportState.SUPPORTED] for a build that installs itself, [SupportState.DECLINES] for one whose
+     * installer answers for updates.
+     *
+     * DECLINES rather than NOT_APPLICABLE: the self-install concept exists perfectly well on this platform,
+     * and this build simply is not allowed to use it - which is what declining means. Reporting the
+     * concept as absent would also hide the real reason, sending a reader to look for a missing feature
+     * instead of the store that installed the app.
+     */
+    override val state: SupportState =
+        if (isStoreManaged) SupportState.DECLINES else SupportState.SUPPORTED
+
+    /**
+     * The version code the build tooling stamped into this APK, which is the number release tags are
+     * compared against.
+     *
+     * Real rather than a sentinel: a fabricated 0 would read as "always out of date" to anything comparing
+     * it, and null would hide a build that genuinely knows its own number.
+     */
+    override val currentBuildNumber: Int? = BuildConfig.VERSION_CODE
+
+    /**
+     * Asks the releases list, and answers in the port's vocabulary without ever reporting an absent
+     * result as "up to date".
+     *
+     * A check that throws is treated exactly like a check that could not conclude: an exception means this
+     * platform did not learn anything, which is [UpdateAvailability.Inconclusive] and not a verdict.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: any check failure means "could not conclude", not a verdict
+    override suspend fun isNewerBuildAvailable(): UpdateAvailability {
+        val current = currentBuildNumber
+        if (current == null) {
+            logger.w(
+                "$SOURCE.isNewerBuildAvailable",
+                "No build number to compare against: the release list was not read",
+            )
+            return UpdateAvailability.Inconclusive
+        }
+        val result =
+            try {
+                checkForUpdates(current)
+            } catch (e: Exception) {
+                logger.w(
+                    "$SOURCE.isNewerBuildAvailable",
+                    "The update check did not complete; reporting inconclusive rather than a verdict",
+                    mapOf("error" to (e.message ?: e::class.java.simpleName)),
+                )
+                return UpdateAvailability.Inconclusive
+            }
+        lastChecked = result
+        return result.toAvailability()
+    }
+
+    /**
+     * Fetches the artifact the check found, and reports nothing it cannot install from.
+     *
+     * Every way this can end without an artifact returns null rather than a [UpdateDownload]: a handle to
+     * a file that was never fetched is worse than no handle, because it moves the failure to the install
+     * step where the user is already waiting on an installer that cannot open it.
+     */
+    override suspend fun downloadNewerBuild(availability: UpdateAvailability): UpdateDownload? {
+        val newer =
+            availability as? UpdateAvailability.Newer
+                ?: return refuseFetch(
+                    "Only a newer-build answer names something to fetch",
+                    mapOf("askedWith" to availability::class.java.simpleName),
+                )
+        if (!newer.installable) {
+            return refuseFetch(
+                "The answer says this platform could not install the newer build; nothing was fetched",
+                mapOf("newerBuild" to newer.buildNumber),
+            )
+        }
+        if (isStoreManaged) {
+            return refuseFetch(
+                "This build's installer answers for updates, so this app fetches no artifact to replace itself",
+                mapOf("newerBuild" to newer.buildNumber),
+            )
+        }
+        val url = artifactUrlFor(newer.buildNumber)
+        if (url == null) {
+            return refuseFetch(
+                "The check left no downloadable artifact for this build, so there was nothing to fetch",
+                mapOf("newerBuild" to newer.buildNumber),
+            )
+        }
+        val fileName = url.substringAfterLast('/')
+        val downloadId =
+            AutoDownloadManager.enqueue(context, url, fileName, wifiOnly = false)
+                ?: return refuseFetch(
+                    "The system download service refused the request, so no artifact was fetched",
+                    mapOf("newerBuild" to newer.buildNumber, "fileName" to fileName),
+                )
+        val fetched = awaitFetchedArtifact(downloadId, newer.buildNumber) ?: return null
+        // The checksum gate for this path. It sits where the artifact comes into existence, because a
+        // `UpdateDownload` is this source's claim that the file is installable - and that claim is only
+        // true of bytes that matched the digest the release published. A refusal returns null with the
+        // file left on disk; nothing unverified ever gets a handle.
+        val verdict = checksumVerifier.verify(fetched, releaseFor(newer.buildNumber)?.apkSha256Url)
+        logger.i(
+            "$SOURCE.downloadNewerBuild",
+            "Checksum gate verdict for the fetched artifact",
+            mapOf("newerBuild" to newer.buildNumber, "verdict" to verdict.logName()),
+        )
+        if (verdict != ChecksumVerdict.Verified) {
+            return refuseFetch(
+                "The fetched artifact did not verify against its published digest, so nothing installable is offered",
+                mapOf("newerBuild" to newer.buildNumber, "verdict" to verdict.logName()),
+            )
+        }
+        verifiedBuilds.add(newer.buildNumber)
+        logger.i(
+            "$SOURCE.downloadNewerBuild",
+            "Fetched a newer build into this app's own storage",
+            mapOf("newerBuild" to newer.buildNumber, "fileName" to fetched.name),
+        )
+        return UpdateDownload(buildNumber = newer.buildNumber, platformHandle = fetched.absolutePath)
+    }
+
+    /**
+     * Hands the fetched artifact to the system installer and reports whether the handoff actually started.
+     *
+     * The order is deliberate: the file is checked before any URI is built, so an artifact that is gone
+     * costs nothing and is reported as the precise [InstallRefusal.FILE_MISSING] instead of surfacing as
+     * an installer failure. Provenance is then checked - only a build whose fetched artifact matched its
+     * published digest may proceed, so a handle this source never verified is
+     * [InstallRefusal.CHECKSUM_UNVERIFIED]. The launch is then attempted and its outcome reported - this
+     * platform cannot know whether the user completed the install, only whether the system accepted the
+     * handoff, so [InstallHandoff.Launched] claims nothing beyond that.
+     *
+     * EVERY failure past that point is [InstallRefusal.NO_INSTALLER], and deliberately so: whether no
+     * activity accepted the artifact or this build cannot publish that location at all, the file is present
+     * and nothing can open it, which is exactly what that reason declares. Splitting those cases would
+     * name distinctions the contract does not draw.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: any handoff failure means no installer took the artifact
+    override fun startInstall(download: UpdateDownload): InstallHandoff {
+        if (isStoreManaged) {
+            return refuseInstall(
+                download,
+                InstallRefusal.PLATFORM_NOT_APPLICABLE,
+                "This build's installer answers for updates, so a self-install handoff does not apply to it",
+            )
+        }
+        val handle = download.platformHandle
+        if (handle.isBlank()) {
+            return refuseInstall(
+                download,
+                InstallRefusal.NO_DOWNLOAD,
+                "The download carries no artifact location, so nothing was ever fetched",
+            )
+        }
+        val file = File(handle)
+        if (!file.exists()) {
+            return refuseInstall(
+                download,
+                InstallRefusal.FILE_MISSING,
+                "The fetched artifact was gone before the installer could be asked for it",
+                mapOf("path" to handle),
+            )
+        }
+        // The install gate for this path, immediately before the intent is built and after the file's
+        // presence is established (so a vanished file still gets its precise reason). Only a build whose
+        // artifact this source verified may be handed over: a handle this source never produced has no
+        // provenance, and an unverified APK is not installable.
+        if (!verifiedBuilds.contains(download.buildNumber)) {
+            return refuseInstall(
+                download,
+                InstallRefusal.CHECKSUM_UNVERIFIED,
+                "No artifact for this build was verified against its published digest, so none is handed over",
+            )
+        }
+        return try {
+            val uri = FileProvider.getUriForFile(context, "${context.packageName}$PROVIDER_AUTHORITY_SUFFIX", file)
+            val intent =
+                Intent(Intent.ACTION_VIEW).apply {
+                    setDataAndType(uri, APK_MIME_TYPE)
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                }
+            context.startActivity(intent)
+            logger.i(
+                "$SOURCE.startInstall",
+                "Handed the fetched build to the system installer",
+                mapOf("build" to download.buildNumber, "fileName" to file.name),
+            )
+            InstallHandoff.Launched
+        } catch (e: Exception) {
+            refuseInstall(
+                download,
+                InstallRefusal.NO_INSTALLER,
+                "The artifact could not be handed to any installer on this device",
+                mapOf("path" to handle),
+                error = e,
+            )
+        }
+    }
+
+    /**
+     * The artifact URL for [versionCode], or null when the last release read did not carry one.
+     *
+     * Matched on the version code: the port's answer names one, and a read of a different release would
+     * fetch the wrong file.
+     */
+    private fun artifactUrlFor(versionCode: Int): String? = releaseFor(versionCode)?.apkDownloadUrl
+
+    /**
+     * The last release read when it is the [versionCode] this source was asked about, or null.
+     *
+     * One lookup for both asset URLs (the APK and its `.sha256` sibling), so a digest can never be
+     * paired with a build from a different release.
+     */
+    private fun releaseFor(versionCode: Int): UpdateCheckResult? =
+        lastChecked?.takeIf { it.latestVersionCode == versionCode }
+
+    /**
+     * Polls the system download until it reports a finished file, and returns null for every other ending.
+     *
+     * Terminal states are exactly the two that can never become a file: a failed download, and the poll
+     * ceiling above. A pause is not terminal - the system resumes it - so it keeps waiting.
+     */
+    private suspend fun awaitFetchedArtifact(
+        downloadId: Long,
+        buildNumber: Int,
+    ): File? {
+        var poll = 0
+        while (poll < MAX_DOWNLOAD_POLLS) {
+            when (val state = AutoDownloadManager.queryProgress(context, downloadId)) {
+                is DownloadUiState.Downloaded -> {
+                    val path = state.localPath
+                    if (path == null) {
+                        logger.w(
+                            "$SOURCE.downloadNewerBuild",
+                            "The download finished without a location, so no artifact can be installed",
+                            mapOf("build" to buildNumber, "fileName" to state.fileName),
+                        )
+                        return null
+                    }
+                    val file = File(path)
+                    return if (file.exists()) {
+                        file
+                    } else {
+                        logger.w(
+                            "$SOURCE.downloadNewerBuild",
+                            "The download reported success but the artifact is not on disk",
+                            mapOf("build" to buildNumber, "path" to path),
+                        )
+                        null
+                    }
+                }
+
+                is DownloadUiState.Failed -> {
+                    logger.w(
+                        "$SOURCE.downloadNewerBuild",
+                        "The download failed, so no artifact was fetched",
+                        mapOf("build" to buildNumber, "reason" to state.message),
+                    )
+                    return null
+                }
+
+                else -> {
+                    poll++
+                    delay(DOWNLOAD_POLL_INTERVAL_MS)
+                }
+            }
+        }
+        logger.w(
+            "$SOURCE.downloadNewerBuild",
+            "The download did not finish within the wait ceiling, so no artifact is offered for install",
+            mapOf("build" to buildNumber, "downloadId" to downloadId),
+        )
+        return null
+    }
+
+    /**
+     * Maps one release read onto the port's vocabulary, naming the outcome that produced it.
+     *
+     * The non-verdict outcomes each get their own branch on purpose: they are different reasons a
+     * user is not being told their build is current, and collapsing them into one catch-all would make the
+     * next added outcome silently join whichever group it was written next to.
+     */
+    private fun UpdateCheckResult.toAvailability(): UpdateAvailability = when (outcome) {
+        UpdateOutcome.UPDATE_AVAILABLE -> newerOrInconclusive()
+
+        // The only outcome that was actually read and proved there is nothing newer.
+        UpdateOutcome.UP_TO_DATE -> UpdateAvailability.UpToDate
+
+        // The release exists and is newer, but ships no artifact this build could install: a verdict
+        // about a file that is not there.
+        UpdateOutcome.TYPE_MISMATCH ->
+            inconclusive("the release ships no artifact this build could install", outcome.name)
+
+        // A completed scan that found no release carrying a version at all.
+        UpdateOutcome.NO_RELEASE ->
+            inconclusive("the release list has no versioned release to compare against", outcome.name)
+
+        // The walk hit its page ceiling, so the release list may simply not have been reached yet.
+        UpdateOutcome.INDETERMINATE ->
+            inconclusive("the scan stopped before the release list ended", outcome.name)
+
+        // The check itself failed; the reason is logged rather than swallowed.
+        UpdateOutcome.FAILED ->
+            inconclusive("the check failed", outcome.name, mapOf("error" to (error?.name ?: "unspecified")))
+    }
+
+    /**
+     * The newer-build answer, or inconclusive when the verdict cannot be backed by a fetchable artifact.
+     *
+     * A check can report an available update without naming a build or without carrying an asset URL, and
+     * neither supports a fetch. Reporting [UpdateAvailability.Newer] anyway would hand shared code an
+     * installable build this platform cannot produce a file for.
+     *
+     * [installable] is also forced to false for a store-managed build. The check knows a newer release
+     * exists and that it ships an artifact - it knows nothing about who may install it - so leaving this at
+     * true would have this source contradict its own [state] and then refuse the fetch it just advertised.
+     * The release still gets reported, which is the part a store-managed build is allowed to know.
+     */
+    private fun UpdateCheckResult.newerOrInconclusive(): UpdateAvailability {
+        val verdictName = outcome.name
+        val build = latestVersionCode
+        if (build == null) {
+            return inconclusive("the update verdict carries no version code", verdictName)
+        }
+        if (apkDownloadUrl == null) {
+            return inconclusive(
+                "the update verdict carries no downloadable artifact",
+                verdictName,
+                mapOf("newerBuild" to build),
+            )
+        }
+        return UpdateAvailability.Newer(buildNumber = build, installable = !isStoreManaged)
+    }
+
+    /** Logs why this platform could not conclude, and returns the answer that keeps it off "up to date". */
+    private fun inconclusive(
+        why: String,
+        outcomeName: String,
+        data: Map<String, Any?> = emptyMap(),
+    ): UpdateAvailability.Inconclusive {
+        logger.w(
+            "$SOURCE.isNewerBuildAvailable",
+            "Update check did not conclude: $why. Reporting inconclusive, not up to date",
+            data + mapOf("outcome" to outcomeName),
+        )
+        return UpdateAvailability.Inconclusive
+    }
+
+    /** Logs a refusal to fetch, and returns the null the port expects for "no artifact". */
+    private fun refuseFetch(
+        why: String,
+        data: Map<String, Any?> = emptyMap(),
+    ): UpdateDownload? {
+        logger.w("$SOURCE.downloadNewerBuild", "No artifact was fetched: $why", data)
+        return null
+    }
+
+    /**
+     * Logs a refusal to install, and returns it as the port's refusal vocabulary.
+     *
+     * The underlying exception, when there was one, is carried as data rather than as a throwable: this
+     * platform already answers the caller with a refusal, and logging it as a throwable would report an
+     * error for a handoff that was correctly declined.
+     */
+    private fun refuseInstall(
+        download: UpdateDownload,
+        reason: InstallRefusal,
+        why: String,
+        data: Map<String, Any?> = emptyMap(),
+        error: Throwable? = null,
+    ): InstallHandoff {
+        val details =
+            data +
+                mapOf(
+                    "build" to download.buildNumber,
+                    "reason" to reason.name,
+                    "error" to (error?.message ?: error?.let { it::class.java.simpleName }),
+                )
+        logger.w("$SOURCE.startInstall", "No installer was launched: $why", details)
+        return InstallHandoff.Refused(reason)
+    }
+
+    /** Log-source prefix, so every line from this class is attributable to it in an export. */
+    private companion object {
+        const val SOURCE = "AndroidApkUpdateSource"
+    }
+}

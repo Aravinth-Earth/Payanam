@@ -2,28 +2,12 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.scoring
 
-import android.content.Context
-import androidx.test.core.app.ApplicationProvider
-import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.model.Frequency as DomainFrequency
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
-import org.junit.Before
 import org.junit.Test
-import org.junit.runner.RunWith
-import org.robolectric.RobolectricTestRunner
 
-@RunWith(RobolectricTestRunner::class)
 class RecurrenceScoreCalculatorTest {
-
-    @Before
-    fun setup() {
-        val context = ApplicationProvider.getApplicationContext<Context>()
-        if (!UnifiedLogger.isInitialized()) {
-            UnifiedLogger.initialize(context, "test", 0)
-        }
-    }
-
     @Test
     fun `parseRRuleToFrequency parses FREQ=DAILY correctly`() {
         val rule = "FREQ=DAILY;INTERVAL=1"

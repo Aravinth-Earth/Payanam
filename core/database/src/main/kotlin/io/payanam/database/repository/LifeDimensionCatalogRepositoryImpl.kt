@@ -4,6 +4,7 @@ package io.payanam.database.repository
 
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.mapper.toConfiguredLifeDimension
+import io.payanam.database.mapper.toLifeDimensionEntity
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
@@ -134,6 +135,28 @@ class LifeDimensionCatalogRepositoryImpl
                 "Updated life dimension weight",
                 mapOf("dimensionId" to dimensionId, "weight" to weight),
             )
+        }
+
+        /**
+         * Replaces the whole catalog in ONE transaction, and returns the row count written.
+         *
+         * Delegates the atomicity to [LifeDimensionDao.replaceAll] rather than sequencing a delete and
+         * inserts here: between those two statements the catalog is empty, and a reader — or a crash — would
+         * see a database whose life dimensions are all missing. The timestamp is taken ONCE so every row in
+         * one replace shares a createdAt, which is also what makes this testable.
+         */
+        override suspend fun replaceAllDimensions(dimensions: List<ConfiguredLifeDimension>): Int {
+            val timestamp = now()
+            val written =
+                sessionManager.requireDatabase().lifeDimensionDao().replaceAll(
+                    dimensions.map { it.toLifeDimensionEntity(timestamp) },
+                )
+            logger.i(
+                "LifeDimensionCatalogRepositoryImpl.replaceAllDimensions",
+                "Replaced the life dimension catalog",
+                mapOf("requested" to dimensions.size, "written" to written),
+            )
+            return written
         }
 
         private fun now(): String = LocalDateTime.now().format(dateTimeFormatter)

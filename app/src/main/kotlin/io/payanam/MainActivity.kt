@@ -4,6 +4,7 @@
 
 package io.payanam
 
+import android.annotation.SuppressLint
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -13,6 +14,8 @@ import android.os.Bundle
 import android.os.LocaleList
 import android.os.Process
 import android.os.SystemClock
+import android.view.KeyEvent
+import android.view.MotionEvent
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.layout.fillMaxSize
@@ -38,24 +41,35 @@ import androidx.lifecycle.lifecycleScope
 import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
-import io.payanam.common.logging.CrashSafeBreadcrumbs
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.flags.LocalFeatureFlags
+import io.payanam.core.ui.navigation.PayanamExternalNavigationCommand
+import io.payanam.core.ui.navigation.PayanamNavHost
+import io.payanam.core.ui.preferences.AppLanguageOption
+import io.payanam.core.ui.preferences.AppPreferencesState
+import io.payanam.core.ui.preferences.LocalAppPreferences
+import io.payanam.core.ui.text.rememberUiLanguage
+import io.payanam.core.ui.theme.PayanamTheme
 import io.payanam.database.DatabaseHealthChecker
-import io.payanam.database.PayanamDatabase
 import io.payanam.database.backfill.ScoreRollupBackfillService
 import io.payanam.database.security.DatabaseArtifactJanitor
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.port.ProcessRestart
+import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.notification.NotificationScheduler
+import io.payanam.platform.AndroidStartupRecovery
+import io.payanam.presentation.flags.FeatureFlagsState
+import io.payanam.scoring.RecurrenceManager
 import io.payanam.service.AutoBackupWorker
-import io.payanam.ui.PayanamNavHost
-import io.payanam.ui.theme.PayanamTheme
-import io.payanam.ui.viewmodel.AppLanguageOption
-import io.payanam.ui.viewmodel.AppPreferencesState
+import io.payanam.shared.database.DatabaseArtifacts
+import io.payanam.shared.database.DatabaseHealthReport
+import io.payanam.shared.database.PayanamDatabaseSchema
+import io.payanam.shared.logging.CrashBreadcrumbs
+import io.payanam.ui.AndroidPayanamNavHostScreens
+import io.payanam.ui.logging.InteractionLog
 import io.payanam.ui.viewmodel.AppPreferencesViewModel
-import io.payanam.ui.viewmodel.LocalAppPreferences
-import io.payanam.usecase.RecurrenceManager
 import io.payanam.widget.TimeTrackingWidgetProvider
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
@@ -70,22 +84,6 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Sealed set of navigation commands the activity must handle from view models.
- */
-sealed interface ExternalNavigationCommand {
-    /**
-     * A command from outside the nav graph (widget/notification) asking to open
-     * the Time screen, optionally into quick-start or stop-tracking mode.
-     */
-    data class OpenTimeScreen(
-        val openQuickStart: Boolean,
-        val openStopTracking: Boolean,
-        val source: String,
-        val requestId: Long = System.currentTimeMillis(),
-    ) : ExternalNavigationCommand
-}
-
-/**
  * Single-activity entry point: owns the startup gate sequence (database init,
  * passphrase setup/unlock, focus-mode onboarding), language/theme application,
  * external navigation intents, DB-session lifecycle (auto-lock touch, WAL
@@ -94,12 +92,15 @@ sealed interface ExternalNavigationCommand {
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
-    private val pendingExternalCommand = MutableStateFlow<ExternalNavigationCommand?>(null)
+    private val pendingExternalCommand = MutableStateFlow<PayanamExternalNavigationCommand?>(null)
     private var hasEnteredForegroundOnce = false
     private var lastStoppedAtElapsedMs: Long? = null
 
     @Inject
     lateinit var notificationScheduler: Lazy<NotificationScheduler>
+
+    @Inject
+    lateinit var startupRecovery: Lazy<AndroidStartupRecovery>
 
     @Inject
     lateinit var recurrenceManager: Lazy<RecurrenceManager>
@@ -112,6 +113,12 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var sessionManager: DatabaseSessionManager
+
+    @Inject
+    lateinit var encryptionManager: DatabaseEncryptionManager
+
+    @Inject
+    lateinit var processRestart: ProcessRestart
 
     private var showDatabaseInit by mutableStateOf(false)
     private var showFocusModeOnboarding by mutableStateOf(false)
@@ -127,6 +134,24 @@ class MainActivity : FragmentActivity() {
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
+    }
+
+    /**
+     * Feeds the debug-only interaction trace. Purely observational: the event is forwarded
+     * untouched, so this can never alter gesture handling.
+     */
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        InteractionLog.recordTouch(ev)
+        return super.dispatchTouchEvent(ev)
+    }
+
+    /** Records key gestures (e.g. Back) into the debug-only interaction trace. */
+    @SuppressLint("RestrictedApi") // @RestrictTo in androidx; overriding is the interception point
+    override fun dispatchKeyEvent(event: KeyEvent): Boolean {
+        if (event.action == KeyEvent.ACTION_UP) {
+            InteractionLog.recordKey(event.keyCode)
+        }
+        return super.dispatchKeyEvent(event)
     }
 
     /**
@@ -154,18 +179,17 @@ class MainActivity : FragmentActivity() {
         )
         logPendingRestartMarker(preJanitorSnapshot, postJanitorSnapshot)
         val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
-        val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
+        val dbFile = getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         logger.i(
             "MainActivity.onCreate",
             "DB artifact presence at startup",
             mapOf(
                 "db" to dbFile.exists(),
-                "wal" to java.io.File(dbFile.parent, "${io.payanam.database.PayanamDatabase.DATABASE_NAME}-wal").exists(),
-                "shm" to java.io.File(dbFile.parent, "${io.payanam.database.PayanamDatabase.DATABASE_NAME}-shm").exists(),
+                "wal" to File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX).exists(),
+                "shm" to File(dbFile.parent, dbFile.name + DatabaseArtifacts.SHM_SUFFIX).exists(),
                 "sizeKB" to if (dbFile.exists()) dbFile.length() / 1024 else 0L,
             ),
         )
-        val encryptionManager = DatabaseEncryptionManager(this)
         var hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
         logger.i("MainActivity.onCreate", "Encryption state resolved", mapOf("hasPassphraseConfigured" to hasPassphraseConfigured))
 
@@ -247,7 +271,17 @@ class MainActivity : FragmentActivity() {
         val startupHealthLogSummary = resolveStartupHealthLogSummary(
             hasDatabaseArtifacts = hasDatabaseArtifacts,
             shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
-            healthResult = healthResult,
+            // The shared summary reads the SHARED report; Android's checker returns its own type, so
+            // convert once here rather than at every call site.
+            healthResult = healthResult?.let { result ->
+                DatabaseHealthReport(
+                    isHealthy = result.isHealthy,
+                    errorMessage = result.errorMessage,
+                    needsRepair = result.needsRepair,
+                    needsMigration = result.needsMigration,
+                    detectedVersion = result.currentVersion,
+                )
+            },
         )
         logger.i(
             "MainActivity.onCreate",
@@ -304,13 +338,29 @@ class MainActivity : FragmentActivity() {
                     themeMode = defaultPrefsState.themeMode,
                     fontFamily = defaultPrefsState.fontFamily,
                 ) {
-                    CompositionLocalProvider(LocalAppPreferences provides defaultPrefsState) {
+                    CompositionLocalProvider(
+                        LocalAppPreferences provides defaultPrefsState,
+                        LocalFeatureFlags provides
+                            FeatureFlagsState(
+                                minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                                recurringTasksEnabled = FeatureFlags.recurringTasksEnabled,
+                                scoringEnabled = FeatureFlags.scoringEnabled,
+                                remindersEnabled = FeatureFlags.remindersEnabled,
+                                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
+                            ),
+                    ) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
                             PayanamNavHost(
+                                screens = remember { AndroidPayanamNavHostScreens(onDatabaseResetObserved = { reresolveStartupGatesAfterReset() }) },
+                                language = rememberUiLanguage(),
+                                minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                                tabVisibility = defaultPrefsState.tabVisibility,
+                                landingRoute = "",
+                                isLandingReady = false,
                                 shouldShowPassphraseUnlock = showPassphraseUnlock,
                                 shouldShowPassphraseSetup = showPassphraseSetup,
                                 shouldShowDatabaseInit = showDatabaseInit,
@@ -318,13 +368,19 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    if (sessionManager.isDbOpen()) {
-                                        logger.i("MainActivity.onCreate", "Database init completed (create-new); session open, dismissing init gate")
-                                        showDatabaseInit = false
-                                    } else {
-                                        logger.i("MainActivity.onCreate", "Database init completed (import); restarting process for clean Room/Hilt re-initialization")
-                                        restartProcess()
-                                    }
+                                    // The import path carries on — the smooth transition, on both platforms
+                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
+                                    // needed ... we can smoothly handle it"). The import path re-opens the
+                                    // imported database in-process, so the session check is the OBSERVABLE,
+                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // the imported data with no relaunch.
+                                    val sessionOpen = sessionManager.isDbOpen()
+                                    logger.i(
+                                        "MainActivity.onCreate",
+                                        "Database init completed; dismissing init gate and carrying on (no restart)",
+                                        mapOf("sessionOpen" to sessionOpen),
+                                    )
+                                    showDatabaseInit = false
                                 },
                                 onRestartAfterDelete = {
                                     logger.i("MainActivity.onCreate", "Delete all data confirmed; restarting process for clean Room/Hilt re-initialization")
@@ -338,7 +394,16 @@ class MainActivity : FragmentActivity() {
                                     resumeToRouteAfterUnlock = null
                                     intent?.removeExtra(EXTRA_RETURN_ROUTE_AFTER_UNLOCK)
                                 },
-                                appPreferencesViewModel = null,
+                                onFocusModePresetSelected = { preset ->
+                                    // No preferences ViewModel exists on this path; the focus-mode preset can
+                                    // only be chosen by the post-unlock flow, which does have one.
+                                    logger.w(
+                                        "MainActivity.onCreate",
+                                        "Focus mode preset selected on the startup-gate path, which has no preferences ViewModel",
+                                        mapOf("preset" to preset.presetId),
+                                    )
+                                },
+                                onSilentUnlockRequested = { route -> requestSilentUnlock(route) },
                             )
                         }
                     }
@@ -389,13 +454,29 @@ class MainActivity : FragmentActivity() {
                     themeMode = prefsState.themeMode,
                     fontFamily = prefsState.fontFamily,
                 ) {
-                    CompositionLocalProvider(LocalAppPreferences provides prefsState) {
+                    CompositionLocalProvider(
+                        LocalAppPreferences provides prefsState,
+                        LocalFeatureFlags provides
+                            FeatureFlagsState(
+                                minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                                recurringTasksEnabled = FeatureFlags.recurringTasksEnabled,
+                                scoringEnabled = FeatureFlags.scoringEnabled,
+                                remindersEnabled = FeatureFlags.remindersEnabled,
+                                plansCtaEnabled = FeatureFlags.plansCtaEnabled,
+                            ),
+                    ) {
                         Surface(
                             modifier = Modifier.fillMaxSize(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
                             PayanamNavHost(
+                                screens = remember { AndroidPayanamNavHostScreens(onDatabaseResetObserved = { reresolveStartupGatesAfterReset() }) },
+                                language = rememberUiLanguage(),
+                                minimalModeEnabled = FeatureFlags.minimalModeEnabled,
+                                tabVisibility = prefsState.tabVisibility,
+                                landingRoute = prefsState.launchDestination.route,
+                                isLandingReady = !prefsState.isLoading,
                                 shouldShowPassphraseUnlock = showPassphraseUnlock,
                                 shouldShowPassphraseSetup = showPassphraseSetup,
                                 shouldShowDatabaseInit = showDatabaseInit,
@@ -403,13 +484,19 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    if (sessionManager.isDbOpen()) {
-                                        logger.i("MainActivity.onCreate", "Database init completed (create-new); session open, dismissing init gate")
-                                        showDatabaseInit = false
-                                    } else {
-                                        logger.i("MainActivity.onCreate", "Database init completed (import); restarting process for clean Room/Hilt re-initialization")
-                                        restartProcess()
-                                    }
+                                    // The import path carries on — the smooth transition, on both platforms
+                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
+                                    // needed ... we can smoothly handle it"). The import path re-opens the
+                                    // imported database in-process, so the session check is the OBSERVABLE,
+                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // the imported data with no relaunch.
+                                    val sessionOpen = sessionManager.isDbOpen()
+                                    logger.i(
+                                        "MainActivity.onCreate",
+                                        "Database init completed; dismissing init gate and carrying on (no restart)",
+                                        mapOf("sessionOpen" to sessionOpen),
+                                    )
+                                    showDatabaseInit = false
                                 },
                                 onRestartAfterDelete = {
                                     logger.i("MainActivity.onCreate", "Delete all data confirmed; restarting process for clean Room/Hilt re-initialization")
@@ -423,7 +510,28 @@ class MainActivity : FragmentActivity() {
                                     resumeToRouteAfterUnlock = null
                                     intent?.removeExtra(EXTRA_RETURN_ROUTE_AFTER_UNLOCK)
                                 },
-                                appPreferencesViewModel = prefsViewModel,
+                                backupFailureMessage = prefsState.autoBackupLastErrorMessage,
+                                backupFailureAt = prefsState.autoBackupLastErrorAt,
+                                onDismissBackupFailure = { prefsViewModel.dismissAutoBackupFailureMessage() },
+                                onFocusModePresetSelected = { preset ->
+                                    prefsViewModel.setActivePreset(preset)
+                                    prefsViewModel.markFocusModeOnboardingCompleted()
+                                    // Lower the gate in the SAME breath as marking the row, or the graph is handed
+                                    // straight back to the chooser it just left. `showFocusModeOnboarding` is read
+                                    // once per `onCreate` and is what the nav host follows, so marking the row
+                                    // alone leaves the graph on `focus_mode_selection` until the process restarts.
+                                    //
+                                    // Measured 2026-10-14 on SM-A176B (fresh install, then a language change that
+                                    // restarts the activity): the chooser came up, the tap below selected a preset,
+                                    // and the run then sat on the chooser for the rest of the phase -
+                                    //   PayanamNavHost: Focus mode preset selected, navigating to Lenses | [preset="full_suite"]
+                                    //   PayanamNavHost.destinationChanged | [route="lenses"]
+                                    //   PayanamNavHost: Startup gate moved; the graph follows it | [from="lenses", to="focus_mode_selection"]
+                                    // with no shell on screen afterwards. The same bounce is what a real user would
+                                    // see for as long as the process lived.
+                                    showFocusModeOnboarding = false
+                                },
+                                onSilentUnlockRequested = { route -> requestSilentUnlock(route) },
                             )
                         }
                     }
@@ -437,7 +545,7 @@ class MainActivity : FragmentActivity() {
      * screen widget, and kicks off startup maintenance unless a startup gate
      * is still pending.
      */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     override fun onStart() {
         super.onStart()
         maybeStartNewLogSession()
@@ -472,7 +580,7 @@ class MainActivity : FragmentActivity() {
     }
 
     /** Runs lightweight startup housekeeping (log rotation, maintenance triggers). */
-    @Suppress("TooGenericExceptionCaught")  // Intentional: multi-operation try block; broad catch intentional
+    @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     private fun runStartupMaintenance() {
         if (startupMaintenanceJob?.isActive == true) {
             logger.d("MainActivity.onStart", "Startup maintenance already running; skipping duplicate launch")
@@ -480,30 +588,21 @@ class MainActivity : FragmentActivity() {
         }
         val appContext = applicationContext
         startupMaintenanceJob = startupMaintenanceScope.launch {
-            if (FeatureFlags.minimalModeEnabled) {
-                logger.i("MainActivity.onStart", "Minimal mode: skipping recurrence maintenance (habits disabled)")
-            } else {
-                try {
-                    val repairedCount = recurrenceManager.get().repairStuckRecurringTasks()
-                    if (repairedCount > 0) {
-                        logger.i(
-                            "MainActivity.onStart",
-                            "Repaired stuck recurring tasks",
-                            mapOf(
-                                "repairedCount" to repairedCount,
-                            ),
-                        )
-                    }
-                    recurrenceManager.get().autoAdvanceRecurringTasks()
-                    logger.i("MainActivity.onStart", "Auto-advanced recurring tasks")
-                    // One-time score roll-up backfill (rule conversion + L1/L2/L3)
-                    scoreRollupBackfillService.get().runIfNeeded()
-                } catch (e: CancellationException) {
-                    logger.d("MainActivity.onStart", "Startup recurrence maintenance cancelled")
-                    throw e
-                } catch (e: Exception) {
-                    logger.e("MainActivity.onStart", "Failed to auto-advance recurring tasks", e)
-                }
+            // One startup step list on both platforms: the steps are the shared StartupRecoveryStep
+            // entries, and the AndroidStartupRecovery implementation owns the minimal-mode decision
+            // (an empty list rather than a claimed step) exactly as the desktop's implementation does.
+            try {
+                val steps = startupRecovery.get().runStartupRecovery()
+                logger.i(
+                    "MainActivity.onStart",
+                    "Startup recovery ran",
+                    mapOf("steps" to steps.joinToString(separator = ",")),
+                )
+            } catch (e: CancellationException) {
+                logger.d("MainActivity.onStart", "Startup recovery cancelled")
+                throw e
+            } catch (e: Exception) {
+                logger.e("MainActivity.onStart", "Startup recovery failed", e)
             }
             if (FeatureFlags.remindersEnabled) {
                 try {
@@ -563,6 +662,7 @@ class MainActivity : FragmentActivity() {
         setIntent(intent)
         handleExternalNavigationIntent(intent)
     }
+
     /**
      * Safety-net relock: if encryption is on but the DB session died while
      * backgrounded, presents the in-place unlock gate again.
@@ -570,7 +670,6 @@ class MainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
-        val encryptionManager = DatabaseEncryptionManager(this)
         // Safety-net: if the process stayed alive but the DB session is gone (e.g., SessionManager
         // timer fired and closed the DB without killing the process, which shouldn't happen but is
         // defensive), restart the process for a clean cold-boot auth flow.
@@ -628,22 +727,79 @@ class MainActivity : FragmentActivity() {
     // scratch with the correct encryption state. Use after operations that replace the DB file on
     // disk (e.g. import), where activity.recreate() leaves a stale Room singleton pointing at the
     // old bootstrap file descriptor.
+
+    /**
+     * Re-resolves the startup gates after a COMPLETED forgot-passphrase reset.
+     *
+     * `onCreate` resolves these ONCE, and a reset invalidates every one of them mid-run: the database
+     * artifact family is deleted and the credential is cleared, so nothing is left to unlock and the
+     * database-init gate is what the user must see. The stale values were the measured defect (build 2038):
+     * after the passphrase was set, the graph went to `lenses` and this Activity's still-true
+     * `showPassphraseUnlock` bounced it back to `passphrase_unlock` - a gate for the credential the reset had
+     * just deleted - and the app then entered the first-run flow over a database the user had asked to be
+     * replaced.
+     *
+     * This is a RE-DERIVATION, not a second answer: the same facts and the same resolvers `onCreate` uses,
+     * with the two session-dependent facts answered as the reset left them (`isHealthy = false` for a file
+     * that is not there, `databaseInitCompleted = false` for a row that went with it). The init gate then
+     * reports ready through the existing `onDatabaseReady` path, which lowers its flag the same way it did
+     * on a first run.
+     */
+    private fun reresolveStartupGatesAfterReset() {
+        val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
+        val hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
+        val shouldShowPassphraseUnlock =
+            hasPassphraseConfigured && encryptionManager.isEncryptionEnabled() && !sessionManager.isOpen.value
+        val shouldShowDatabaseInit =
+            resolveShouldShowDatabaseInit(
+                hasDatabaseArtifacts = hasDatabaseArtifacts,
+                shouldShowPassphraseUnlock = shouldShowPassphraseUnlock,
+                isHealthy = false,
+                databaseInitCompleted = false,
+            )
+        showPassphraseUnlock = shouldShowPassphraseUnlock
+        showDatabaseInit = shouldShowDatabaseInit
+        showPassphraseSetup = !hasPassphraseConfigured && !shouldShowDatabaseInit && !shouldShowPassphraseUnlock
+        // A wiped database has no focus-mode row either, and that row is read through the session the reset
+        // closed. The gate is the init gate now; focus onboarding is re-decided when the database is.
+        showFocusModeOnboarding = false
+        logger.w(
+            "MainActivity.reresolveStartupGatesAfterReset",
+            "Startup gates re-resolved after the forgot-passphrase reset",
+            mapOf(
+                "hasDatabaseArtifacts" to hasDatabaseArtifacts,
+                "hasPassphraseConfigured" to hasPassphraseConfigured,
+                "sessionOpen" to sessionManager.isOpen.value,
+                "showPassphraseUnlock" to shouldShowPassphraseUnlock,
+                "showDatabaseInit" to shouldShowDatabaseInit,
+                "showPassphraseSetup" to showPassphraseSetup,
+            ),
+        )
+    }
+
     /** Forces a process restart (used after unrecoverable DB/init state). */
     private fun restartProcess() {
         logger.i("MainActivity.restartProcess", "Restarting process for clean Room/Hilt re-initialization")
         val snapshot = captureDbArtifactSnapshot()
         persistRestartMarker(snapshot)
-        CrashSafeBreadcrumbs.record(
-            context = this,
+        CrashBreadcrumbs.record(
             source = "MainActivity.restartProcess",
             stage = "kill_process_for_restart",
         )
         logger.flush()
-        packageManager.getLaunchIntentForPackage(packageName)?.let { intent ->
-            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK)
-            startActivity(intent)
+        // The rebuild-and-relaunch itself is the shared port's job, not this class's: it already launches
+        // the same intent with NEW_TASK|CLEAR_TASK and kills this pid unconditionally, and it reports a
+        // refusal with a reason instead of leaving the caller unable to tell "restarted" from "nothing
+        // happened". The snapshot marker above stays here because it is this screen's own diagnostic (the
+        // pre-restart DB-artifact state the next launch reads back), not the port's restart bookkeeping.
+        val outcome = processRestart.restartProcess()
+        if (outcome is ProcessRestartOutcome.Refused) {
+            logger.w(
+                "MainActivity.restartProcess",
+                "Process restart refused: ${outcome.reason}",
+                mapOf("reason" to outcome.reason.name, "detail" to (outcome.detail ?: "")),
+            )
         }
-        Process.killProcess(Process.myPid())
     }
 
     /** Attempts a silent (no-UI) unlock and navigates to [returnRoute] on success. */
@@ -665,10 +821,10 @@ class MainActivity : FragmentActivity() {
 
     /** Captures a snapshot of DB artifact state (db/wal/shm size + existence) for diagnostics. */
     private fun captureDbArtifactSnapshot(): DbArtifactSnapshot {
-        val dbFile = getDatabasePath(io.payanam.database.PayanamDatabase.DATABASE_NAME)
+        val dbFile = getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
         val dbDir = dbFile.parentFile
-        val walFile = File(dbFile.parent, "${io.payanam.database.PayanamDatabase.DATABASE_NAME}-wal")
-        val shmFile = File(dbFile.parent, "${io.payanam.database.PayanamDatabase.DATABASE_NAME}-shm")
+        val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
+        val shmFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.SHM_SUFFIX)
         val dirListing = dbDir?.listFiles()
             ?.filter { it.isFile }
             ?.sortedBy { it.name }
@@ -767,10 +923,11 @@ class MainActivity : FragmentActivity() {
         val source = intent.getStringExtra(EXTRA_NAV_SOURCE) ?: "unknown"
         val openQuickStart = intent.getBooleanExtra(EXTRA_OPEN_TIME_QUICK_START, false)
         val openStopTracking = intent.getBooleanExtra(EXTRA_OPEN_TIME_STOP_TRACKING, false)
-        pendingExternalCommand.value = ExternalNavigationCommand.OpenTimeScreen(
+        pendingExternalCommand.value = PayanamExternalNavigationCommand.OpenTimeScreen(
             openQuickStart = openQuickStart,
             openStopTracking = openStopTracking,
             source = source,
+            requestId = System.currentTimeMillis(),
         )
 
         logger.i(
@@ -791,6 +948,13 @@ class MainActivity : FragmentActivity() {
         appLanguage: AppLanguageOption,
         effectiveLanguageTag: String,
     ): Boolean {
+        // The JVM default locale is what every SHARED formatter reads for dates, weekday names and the
+        // "last updated" timestamps (`Locale.getDefault()` in the shared screens). It is set on EVERY
+        // application - both API branches and both the SYSTEM and explicit cases - because the pre-33 branch
+        // already did and the 33+ per-app-locale branch did not, so on a modern device whose app language
+        // differs from the system locale the shared screens formatted with the SYSTEM locale while their copy
+        // was the app language. The desktop applies the same rule in its shell root.
+        Locale.setDefault(Locale.forLanguageTag(effectiveLanguageTag))
         if (appLanguage == AppLanguageOption.SYSTEM && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val localeManager = getSystemService(LocaleManager::class.java)
             val hasAppOverride = !localeManager.applicationLocales.isEmpty
@@ -938,7 +1102,7 @@ internal data class StartupHealthLogSummary(
 internal fun resolveStartupHealthLogSummary(
     hasDatabaseArtifacts: Boolean,
     shouldShowPassphraseUnlock: Boolean,
-    healthResult: DatabaseHealthChecker.HealthCheckResult?,
+    healthResult: DatabaseHealthReport?,
 ): StartupHealthLogSummary = when {
     !hasDatabaseArtifacts -> StartupHealthLogSummary(
         status = "no_database_artifacts",

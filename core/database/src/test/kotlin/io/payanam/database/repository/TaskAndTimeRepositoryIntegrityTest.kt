@@ -13,6 +13,7 @@ import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.TaskInput
 import io.payanam.domain.model.TimeEntryInput
+import io.payanam.domain.time.TimeEntryDimensionRule
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -21,19 +22,19 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import java.time.LocalDateTime
 
-@RunWith(RobolectricTestRunner::class)
 /**
  * Provides the task and time repository integrity test.
  */
+@RunWith(RobolectricTestRunner::class)
 class TaskAndTimeRepositoryIntegrityTest {
     private lateinit var database: PayanamDatabase
     private lateinit var taskRepository: TaskRepositoryImpl
     private lateinit var timeEntryRepository: TimeEntryRepositoryImpl
 
-    @Before
     /**
      * Updates the setup.
      */
+    @Before
     fun setup() {
         val context = ApplicationProvider.getApplicationContext<Context>()
         UnifiedLogger.initialize(context, "test", 0)
@@ -50,18 +51,18 @@ class TaskAndTimeRepositoryIntegrityTest {
         timeEntryRepository = TimeEntryRepositoryImpl(sessionManager)
     }
 
-    @After
     /**
      * Performs the tear down.
      */
+    @After
     fun tearDown() {
         database.close()
     }
 
-    @Test
     /**
      * Performs the task repository status transitions persist expected fields.
      */
+    @Test
     fun taskRepository_statusTransitionsPersistExpectedFields() =
         runBlocking {
             val completedTask =
@@ -119,10 +120,10 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(archived?.archivedAt).isNotNull()
         }
 
-    @Test
     /**
      * Performs the task repository delete task removes row.
      */
+    @Test
     fun taskRepository_deleteTask_removesRow() =
         runBlocking {
             val task =
@@ -139,10 +140,10 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(taskRepository.getTaskById(task.id)).isNull()
         }
 
-    @Test
     /**
      * Performs the task repository update task updates due date and status.
      */
+    @Test
     fun taskRepository_updateTask_updatesDueDateAndStatus() =
         runBlocking {
             val task =
@@ -169,10 +170,10 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(updated.dueDate).isEqualTo(LocalDateTime.of(2026, 2, 23, 14, 0))
         }
 
-    @Test
     /**
      * Time entry repository start entry stops previous active entry.
      */
+    @Test
     fun timeEntryRepository_startEntry_stopsPreviousActiveEntry() =
         runBlocking {
             val firstStart = LocalDateTime.of(2026, 2, 20, 9, 0)
@@ -199,10 +200,10 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(active?.id).isEqualTo(second.id)
         }
 
-    @Test
     /**
      * Time entry repository stop active with focus persists trimmed focus note.
      */
+    @Test
     fun timeEntryRepository_stopActiveWithFocus_persistsTrimmedFocusNote() =
         runBlocking {
             val started =
@@ -225,10 +226,10 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(row?.focusRatedAt).isNotNull()
         }
 
-    @Test
     /**
      * Time entry repository update and delete time entry persists then removes.
      */
+    @Test
     fun timeEntryRepository_updateAndDeleteTimeEntry_persistsThenRemoves() =
         runBlocking {
             val task =
@@ -290,23 +291,23 @@ class TaskAndTimeRepositoryIntegrityTest {
             assertThat(database.timeEntryDao().getById(created.id)).isNull()
         }
 
-    @Test
     /**
      * Resolve persisted dimension id canonicalizes legacy ids and blank task ids normalize to null.
      */
+    @Test
     fun resolvePersistedDimensionId_canonicalizesLegacyIds_and_blankTaskIdsNormalizeToNull() {
         assertThat(
-            resolvePersistedDimensionId(
+            TimeEntryDimensionRule.resolveDimensionId(
                 dimensionId = "dim_learning",
                 lifeIntentionCategory = "Learning & Growth",
             ),
         ).isNull()
         assertThat(
-            resolvePersistedDimensionId(
+            TimeEntryDimensionRule.resolveDimensionId(
                 dimensionId = null,
                 lifeIntentionCategory = "Community & Service",
             ),
         ).isNull()
-        assertThat(normalizeOptionalIdentifier("   ")).isNull()
+        assertThat(TimeEntryDimensionRule.normalizeIdentifier("   ")).isNull()
     }
 }

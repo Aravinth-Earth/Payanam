@@ -381,7 +381,7 @@ class TaskOccurrenceRepositoryImpl
 
             // UPSERT: update the existing row for (task, day) if present,
             // otherwise insert. Mirrors toggleOccurrence and the
-            // self-governance ledger rule — auto/missed writes must never
+            // self-governance rule — auto/missed writes must never
             // duplicate a user row (see OCC_CHECK_EXISTING in the DB flow spec).
             val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
             if (existing != null) {
