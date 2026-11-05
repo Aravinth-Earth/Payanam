@@ -33,8 +33,41 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  # Always runs, and tells the Kotlin jobs whether this change can affect them at
+  # all. Job-level permissions replace the workflow-level ones for this job, and
+  # `pull-requests: read` is what lets paths-filter list the PR's changed files.
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      android: ${{ steps.filter.outputs.android }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        with:
+          filters: |
+            code:      app/**, core/**, desktop/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
+            android:   app/**, core/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
+            desktop:   desktop/**, core/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
+            workflows: .github/**
+
   detekt:
     name: Detekt static analysis
+    needs: changes
+    # A skipped job reports Success, so a failed change-detection must run the work
+    # instead of skipping it: `always()` plus the `result != 'success'` arm fails safe.
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -66,6 +99,8 @@ jobs:
 
   jvm-desktop-tests:
     name: JVM + desktop tests
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -101,6 +136,8 @@ jobs:
 
   android-unit-tests:
     name: Android unit tests
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
