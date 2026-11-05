@@ -22,6 +22,9 @@ on:
   push:
     branches: ["dev"]
   pull_request:
+    # Draft runs are skipped below, so ready_for_review is what triggers the gate once a
+    # draft is marked ready; listing types replaces the defaults, so all four are named.
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: ["main", "dev"]
 
 permissions:
@@ -70,7 +73,7 @@ jobs:
     needs: changes
     # A skipped job reports Success, so a failed change-detection must run the work
     # instead of skipping it: `always()` plus the `result != 'success'` arm fails safe.
-    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
+    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -103,7 +106,7 @@ jobs:
   jvm-desktop-tests:
     name: JVM + desktop tests
     needs: changes
-    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')
+    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -140,7 +143,7 @@ jobs:
   android-unit-tests:
     name: Android unit tests
     needs: changes
-    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')
+    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -176,7 +179,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
-    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')
+    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
