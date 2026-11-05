@@ -975,7 +975,6 @@
     <string name="tracking_notification_subtext">கண்காணிப்பு நடைபெறுகிறது</string>
     <string name="tracking_notification_action_open">நேரத்தைத் திற</string>
     <string name="tracking_notification_action_stop">நிறுத்து</string>
-    <string name="tracking_notification_content">%1$s • %2$s</string>
     <string name="tracking_notification_channel_description">செயலில் உள்ள நேர கண்காணிப்பு நிலையை காட்டும்</string>
     <string name="task_reminders_channel_description">வரவிருக்கும் மற்றும் நிலுவை பணிகளுக்கான நினைவூட்டல்கள்</string>
     <string name="habit_tracking_channel_description">மீளும் பழக்கங்களுக்கு நினைவூட்டல்கள்</string>
