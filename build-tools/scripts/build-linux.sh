@@ -180,6 +180,10 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
 fi
 ok "Desktop source structure present"
 
+# Store-listing assets. A 120000 symlink checks out as path text on Windows.
+python3 "$SCRIPT_DIR/check-store-listing-assets.py" --repo-root "$PROJECT_ROOT" \
+    || fail "Store-listing asset guard failed - fix the tracked mode or the image content."
+
 ok "All preflight checks passed!"
 
 # ════════════════════════════════════════════════════════════════════════════
