@@ -331,6 +331,7 @@
     <string name="loc_dimension_desc_community_service">பிறருக்கு உதவி, சமூக பங்குபெறல், ஒத்துழைப்பு, மற்றும் தனிப்பட்ட அல்லது குடும்ப தேவைகளைத் தாண்டி பயன் உருவாக்கும் செயல்கள்.</string>
     <string name="loc_dimension_desc_unassigned">வகைப்படுத்தப்படாத அல்லது இறக்குமதி செய்யப்பட்ட பதிவுகளுக்கான அமைப்பு fallback.</string>
     <string name="loc_dimension_reflections">பரிமாண பிரதிபலிப்புகள்</string>
+    <string name="loc_dismiss">மூடு</string>
     <string name="loc_done">முடிந்தது</string>
     <string name="loc_done_2">✓ முடிந்தது</string>
     <string name="loc_due_date">இறுதி தேதி</string>
@@ -374,6 +375,7 @@
     <string name="loc_focus_rating_0_1">கவனம் மதிப்பீடு (0.00-1.00)</string>
     <string name="loc_focus_rating_value">தேர்ந்தெடுக்கப்பட்டது: %1$s</string>
     <string name="loc_focus_required_0_1">கவனம் தேவை (0-1)</string>
+    <string name="loc_focus_tabs_visible">%1$d தாவல்கள் தெரியும்</string>
     <string name="loc_focused_minutes_value">கவன நேரம்: %1$s</string>
     <string name="loc_follow_original_schedule">அசல் அட்டவணையைப் பின்பற்றவும்</string>
     <string name="loc_friday">வெள்ளிக்கிழமை</string>

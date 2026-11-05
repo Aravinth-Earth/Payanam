@@ -190,6 +190,20 @@ fun NotesScreen(viewModel: NotesViewModel) {
                     }
                 }
 
+                uiState.error != null -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = uiState.error ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+
                 uiState.filteredNotes.isEmpty() -> {
                     Box(
                         modifier = Modifier.fillMaxSize(),

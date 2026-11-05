@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.settings.FocusModePreset
 
 /**
@@ -245,7 +246,7 @@ private fun PresetCard(
                         },
                     )
                     Text(
-                        text = "${preset.visibleTabs.size} tabs visible",
+                        text = strings.locFocusTabsVisible.formatArgs(preset.visibleTabs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)
