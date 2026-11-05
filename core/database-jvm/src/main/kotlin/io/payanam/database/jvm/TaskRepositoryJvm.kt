@@ -739,10 +739,10 @@ class TaskRepositoryJvm(
                 " WHERE $KEY_COLUMN = ?"
 
         /** Verbatim from `TaskDao.getAllTasks`. */
-        const val ALL_TASKS_SQL = "SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC"
+        const val ALL_TASKS_SQL = "SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC, id ASC"
 
         /** Verbatim from `TaskDao.getTasksByStatus`. */
-        const val STATUS_SQL = "SELECT * FROM tasks WHERE status = ? ORDER BY taskScore DESC"
+        const val STATUS_SQL = "SELECT * FROM tasks WHERE status = ? ORDER BY taskScore DESC, id ASC"
 
         /** Verbatim from `TaskDao.getTasksDueOn`. */
         const val DUE_ON_SQL = """
@@ -752,7 +752,7 @@ class TaskRepositoryJvm(
                 day_key = ?
                 OR (day_key IS NULL AND date(dueDate) = date(?))
             )
-            ORDER BY taskScore DESC
+            ORDER BY taskScore DESC, id ASC
         """
 
         /** Verbatim from `TaskDao.getTaskById`. */
@@ -778,11 +778,11 @@ class TaskRepositoryJvm(
                 )
             )
             OR (recurrenceEnabled = 1 AND status = 'pending')
-            ORDER BY taskScore DESC
+            ORDER BY taskScore DESC, id ASC
         """
 
         /** Verbatim from `TaskDao.getRecurringTasks`. */
-        const val RECURRING_SQL = "SELECT * FROM tasks WHERE recurrenceEnabled = 1"
+        const val RECURRING_SQL = "SELECT * FROM tasks WHERE recurrenceEnabled = 1 AND status != 'archived'"
 
         /** Verbatim from `TaskDao.deleteById`. */
         const val DELETE_BY_ID_SQL = "DELETE FROM tasks WHERE id = ?"
@@ -850,7 +850,7 @@ class TaskRepositoryJvm(
                 status = 'pending',
                 lastOccurrenceDate = ?,
                 updatedAt = ?
-            WHERE id = ?
+            WHERE id = ? AND status != 'archived'
         """
     }
 }
