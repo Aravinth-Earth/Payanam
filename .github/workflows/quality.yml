@@ -21,6 +21,9 @@ on:
   pull_request:
     branches: ["main", "dev"]
 
+permissions:
+  contents: read
+
 # Superseded pull-request runs are cancelled: a new push to the same PR makes the
 # previous run's result irrelevant, and these jobs are long enough that letting the
 # stale run finish would queue behind it. Pushes to `dev` are NOT cancelled, because
@@ -33,6 +36,7 @@ jobs:
   detekt:
     name: Detekt static analysis
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -63,6 +67,7 @@ jobs:
   jvm-desktop-tests:
     name: JVM + desktop tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -97,6 +102,7 @@ jobs:
   android-unit-tests:
     name: Android unit tests
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
