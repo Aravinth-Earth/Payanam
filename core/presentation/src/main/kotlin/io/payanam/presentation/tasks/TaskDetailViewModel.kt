@@ -842,6 +842,13 @@ class TaskDetailViewModel(
     }
 
     /**
+     * Clears the last error so the screen stops re-reporting it.
+     */
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
+    }
+
+    /**
      * Releases the coroutine scope this ViewModel created.
      *
      * `onCleared` used to do this: it was the androidx lifecycle hook that ran when the framework dropped the

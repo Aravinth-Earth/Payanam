@@ -35,6 +35,8 @@ import androidx.compose.ui.window.DialogProperties
  *
  * Use this instead of `androidx.compose.material3.AlertDialog` for every dialog the shared screens show.
  * The `properties` parameter is honoured except for `usePlatformDefaultWidth`, which is always false here.
+ * [dismissOnClickOutside] is a second veto for that one property: a dialog holding typed text passes
+ * `false` so an outside tap cannot discard the draft, and back-press dismissal is unaffected.
  */
 @Composable
 fun PayanamAlertDialog(
@@ -51,6 +53,7 @@ fun PayanamAlertDialog(
     titleContentColor: Color = AlertDialogDefaults.titleContentColor,
     textContentColor: Color = AlertDialogDefaults.textContentColor,
     tonalElevation: Dp = AlertDialogDefaults.TonalElevation,
+    dismissOnClickOutside: Boolean = true,
     properties: DialogProperties = DialogProperties(),
 ) {
     AlertDialog(
@@ -73,7 +76,8 @@ fun PayanamAlertDialog(
         properties =
             DialogProperties(
                 dismissOnBackPress = properties.dismissOnBackPress,
-                dismissOnClickOutside = properties.dismissOnClickOutside,
+                // Either the dedicated parameter or a caller-supplied `properties` may veto it.
+                dismissOnClickOutside = dismissOnClickOutside && properties.dismissOnClickOutside,
                 usePlatformDefaultWidth = false,
             ),
     )

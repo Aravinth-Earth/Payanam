@@ -304,8 +304,10 @@
     <string name="loc_default_time_with_label">Default Time: %1$s</string>
     <string name="loc_delete">Delete</string>
     <string name="loc_delete_note">Delete Note</string>
+    <string name="loc_delete_note_confirm">Delete Note?</string>
     <string name="loc_delete_task">Delete Task?</string>
     <string name="loc_delete_template">Delete Template</string>
+    <string name="loc_delete_time_entry">Delete Time Entry?</string>
     <string name="loc_description_optional">Description (optional)</string>
     <string name="loc_details_optional">Details (optional)</string>
     <string name="loc_deviation">Deviation</string>

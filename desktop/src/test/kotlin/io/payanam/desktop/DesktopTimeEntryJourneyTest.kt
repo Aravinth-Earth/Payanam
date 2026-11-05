@@ -6,6 +6,7 @@ import androidx.compose.ui.test.ExperimentalTestApi
 import androidx.compose.ui.test.onAllNodesWithContentDescription
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithTag
 import androidx.compose.ui.test.onNodeWithText
@@ -90,7 +91,8 @@ class DesktopTimeEntryJourneyTest : DesktopAppJourneyHarness() {
                 .performScrollTo()
                 .performClick()
             awaitNodeWithText(strings.locDelete)
-            onNodeWithText(strings.locDelete).performClick()
+            onNodeWithText(strings.locDelete).performClick() // opens the confirm dialog
+            onAllNodesWithText(strings.locDelete).onLast().performClick() // confirms - same "Delete" label
 
             awaitContentDescriptionContainingGone(SECOND_DIMENSION)
             assertLogged("TimeViewModel.deleteTimeEntry", "Time entry deleted")
