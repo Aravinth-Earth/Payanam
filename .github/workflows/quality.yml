@@ -63,10 +63,30 @@ jobs:
         uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
         with:
           filters: |
-            code:      app/**, core/**, desktop/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
-            android:   app/**, core/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
-            desktop:   desktop/**, core/**, gradle/**, **/*.gradle.kts, gradle.properties, settings.gradle.kts
-            workflows: .github/**
+            code:
+              - 'app/**'
+              - 'core/**'
+              - 'desktop/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            android:
+              - 'app/**'
+              - 'core/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            desktop:
+              - 'desktop/**'
+              - 'core/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+            workflows:
+              - '.github/**'
 
   detekt:
     name: Detekt static analysis
