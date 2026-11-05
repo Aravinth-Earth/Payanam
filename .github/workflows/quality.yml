@@ -29,7 +29,7 @@ permissions:
 # stale run finish would queue behind it. Pushes to `dev` are NOT cancelled, because
 # that run is the one allowed to populate the Gradle cache (see cache-read-only below).
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:

@@ -16,7 +16,7 @@ on:
 # Superseded pull-request runs are cancelled; pushes to `main` and the weekly
 # scheduled run are left to finish so their results are not dropped.
 concurrency:
-  group: ${{ github.workflow }}-${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
