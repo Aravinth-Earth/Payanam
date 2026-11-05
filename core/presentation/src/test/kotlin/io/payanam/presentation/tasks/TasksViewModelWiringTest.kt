@@ -6,6 +6,7 @@ import com.google.common.truth.Truth.assertThat
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
+import io.payanam.presentation.lenses.FakeScoringConfigRepository
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.launch
@@ -65,6 +66,7 @@ class TasksViewModelWiringTest {
                 override val habitTimeEntryRecorder: FakeHabitTimeEntryRecorder = habitRecorder
                 override val scoreChanges: FakeScoreChangeStream = scoreChangeStream
                 override val scoreCalculator: FakeScoreCalculator = scoreCalc
+                override val scoringConfig: FakeScoringConfigRepository = FakeScoringConfigRepository()
                 override val tracer: FakePerformanceTracer = perfTracer
             },
         )

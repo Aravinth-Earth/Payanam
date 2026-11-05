@@ -97,7 +97,8 @@ internal object RecurrenceConfigCodec {
             ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
         val monthlyDates = parts["monthlyDates"]?.split(",")
             ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
-        val interval = parts["interval"]?.toIntOrNull() ?: 1
+        // Coerced: a stored "interval=0" would make the INTERVAL rule divide by zero.
+        val interval = parts["interval"]?.toIntOrNull()?.coerceAtLeast(1) ?: 1
         val freq = parts["freq"]?.split("/")
         val freqNum = freq?.getOrNull(0)?.toIntOrNull() ?: 1
         val freqDen = freq?.getOrNull(1)?.toIntOrNull() ?: 1

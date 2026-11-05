@@ -22,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import kotlin.math.ceil
 import kotlin.math.max
 
 /**
@@ -450,7 +451,8 @@ class RecurrenceManager(
                     ),
                 )
                 val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-                val daysToAdd = frequency.denominator.toLong() / frequency.numerator
+                // Ceiling, not integer division: a 9-per-7 rule gave 7/9 = 0 days, so the due date never moved.
+                val daysToAdd = max(1L, ceil(frequency.denominator.toDouble() / frequency.numerator).toLong())
                 baseDate.plusDays(daysToAdd).atTime(preservedTime)
             }
 

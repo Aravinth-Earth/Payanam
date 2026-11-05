@@ -67,7 +67,7 @@ object ElegantTaskScoring : ScoreCalculator {
     /**
      * Calculate the task score (0..1) using custom config.
      */
-    fun calculateScore(task: Task, config: ScoringConfig): Double {
+    override fun calculateScore(task: Task, config: ScoringConfig): Double {
         val logger = AppLogger.current
         logger.d("ElegantTaskScoring.calculateScore", "Calculating score for task", mapOf(
             "taskId" to task.id
