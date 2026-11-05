@@ -96,6 +96,7 @@ fun EditTaskScreen(
     // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
     // composable scope and not inside the save callback.
     val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
+    val minimalModeEnabled = LocalFeatureFlags.current.minimalModeEnabled
     // The notification permission, and the offer that may follow a save that left a reminder armed. The
     // offer is raised AFTER the save, never before it: the edit is committed either way, and the user
     // is only losing the notification that would have told them about the reminder.
@@ -153,14 +154,21 @@ fun EditTaskScreen(
                     tagSuggestions = uiState.tagSuggestions,
                     onSave = { input ->
                         viewModel.updateTask(input)
-                        // Whether this save leaves a reminder armed. The screen can see the three facts
-                        // the reminder needs - the feature flag, the mode and the time - and the
-                        // ViewModel re-arms the reminder from exactly those, so this is the same
-                        // question the scheduler asks.
+                        // Whether this save leaves a reminder armed - the scheduler's own decision, not
+                        // a guess from the form fields, so a warning is never raised for a reminder no
+                        // alarm was created for.
                         val reminderArmed =
-                            remindersEnabled &&
-                                input.notificationMode != "off" &&
-                                input.dueDate != null
+                            reminderWillBeArmed(
+                                taskId = taskId,
+                                taskTitle = input.title,
+                                dueAt = input.dueDate,
+                                recurrenceEnabled = input.recurrenceEnabled,
+                                status = uiState.task?.status ?: "pending",
+                                notificationMode = input.notificationMode,
+                                customNotificationMinutes = input.customNotificationMinutes,
+                                remindersEnabled = remindersEnabled,
+                                minimalModeEnabled = minimalModeEnabled,
+                            )
                         // The save has been handed over and the reminder re-armed. The offer only reports
                         // that the notification cannot arrive, so the way back is held until the offer
                         // has been seen - the edit itself is already saved either way.

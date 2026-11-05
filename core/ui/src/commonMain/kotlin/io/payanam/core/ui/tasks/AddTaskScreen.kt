@@ -94,6 +94,7 @@ fun AddTaskScreen(
     // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
     // composable scope and not inside the save callback.
     val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
+    val minimalModeEnabled = LocalFeatureFlags.current.minimalModeEnabled
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     // The notification permission, and the offer that may follow a save that armed a reminder. The
@@ -550,15 +551,21 @@ fun AddTaskScreen(
                             "recurrenceRule" to (if (recurrenceEnabled) recurrenceRule else "none"),
                         ),
                     )
-                    // Whether THIS save arms a reminder. The screen can see the three facts the reminder
-                    // needs - the feature flag, the mode and the time - and the ViewModel arms the
-                    // reminder from exactly those, so this is the same question the scheduler asks.
-                    // A recurring task with no date still gets the ViewModel's default due time, so it
-                    // still arms one.
+                    // Whether THIS save arms a reminder - the scheduler's own decision, not a guess
+                    // from three form fields, because a reminder with no alarm behind it must not
+                    // raise the warning that says it will not arrive.
                     val reminderArmed =
-                        remindersEnabled &&
-                            notificationMode != "off" &&
-                            (dueDateTime != null || recurrenceEnabled)
+                        reminderWillBeArmed(
+                            taskId = "",
+                            taskTitle = title,
+                            dueAt = dueDateTime,
+                            recurrenceEnabled = recurrenceEnabled,
+                            status = "pending",
+                            notificationMode = notificationMode,
+                            customNotificationMinutes = normalizedCustomMinutes,
+                            remindersEnabled = remindersEnabled,
+                            minimalModeEnabled = minimalModeEnabled,
+                        )
                     viewModel.createTask(
                         title = title,
                         description = description.ifBlank { null },
