@@ -481,17 +481,26 @@ class DayPlanViewModel(
     /**
      * Deletes template [id] and clears any open selection/editor state.
      */
+    @Suppress("TooGenericExceptionCaught") // Intentional: any repo call can throw
     fun deleteTemplate(id: String) {
         scope.launch {
-            dayPlanRepository.deleteTemplate(id)
-            _uiState.update {
-                it.copy(
-                    selectedTemplate = null,
-                    isEditingTemplate = false,
-                    isCreatingNew = false,
-                )
+            try {
+                dayPlanRepository.deleteTemplate(id)
+                _uiState.update {
+                    it.copy(
+                        selectedTemplate = null,
+                        isEditingTemplate = false,
+                        isCreatingNew = false,
+                        errorMessage = null,
+                    )
+                }
+                logger.i("DayPlanViewModel.deleteTemplate", "Deleted template", mapOf("id" to id))
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                _uiState.update { it.copy(errorMessage = e.message ?: "Failed to delete template") }
+                logger.e("DayPlanViewModel.deleteTemplate", "Failed to delete template", e, mapOf("id" to id))
             }
-            logger.i("DayPlanViewModel.deleteTemplate", "Deleted template", mapOf("id" to id))
         }
     }
 

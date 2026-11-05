@@ -304,8 +304,10 @@
     <string name="loc_default_time_with_label">இயல்பு நேரம்: %1$s</string>
     <string name="loc_delete">நீக்கு</string>
     <string name="loc_delete_note">குறிப்பை நீக்கு</string>
+    <string name="loc_delete_note_confirm">குறிப்பை நீக்கவா?</string>
     <string name="loc_delete_task">பணியை நீக்கவா?</string>
     <string name="loc_delete_template">வார்ப்புருவை நீக்கு</string>
+    <string name="loc_delete_time_entry">நேரப் பதிவை நீக்கவா?</string>
     <string name="loc_description_optional">விளக்கம் (விரும்பினால்)</string>
     <string name="loc_details_optional">விவரங்கள் (விரும்பினால்)</string>
     <string name="loc_deviation">விலகல்</string>

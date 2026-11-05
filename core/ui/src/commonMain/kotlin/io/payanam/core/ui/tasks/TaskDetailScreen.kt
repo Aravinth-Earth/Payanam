@@ -17,6 +17,10 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -34,6 +38,7 @@ import io.payanam.core.ui.components.RescheduleDialog
 import io.payanam.core.ui.components.StatusAction
 import io.payanam.core.ui.components.StatusNoteDialog
 import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.presentation.tasks.TaskDetailViewModel
 import io.payanam.shared.logging.AppLogger
 
@@ -51,11 +56,33 @@ fun TaskDetailScreen(
     var showDeleteDialog by remember { mutableStateOf(false) }
     var currentStatusAction by remember { mutableStateOf<StatusAction?>(null) }
     var showRescheduleDialog by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val actionFailedReasonPlaceholder = "__TASK_DETAIL_ERROR_REASON__"
+    val actionFailedMessageTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedReasonPlaceholder)
     LaunchedEffect(taskId) {
         logger.d("TaskDetailScreen.LaunchedEffect", "Loading task", mapOf("taskId" to taskId))
         viewModel.loadTask(taskId)
     }
+    LaunchedEffect(uiState.error) {
+        val error = uiState.error ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error),
+            withDismissAction = true,
+            duration = SnackbarDuration.Indefinite,
+        )
+        viewModel.clearError()
+    }
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    actionColor = MaterialTheme.colorScheme.inversePrimary,
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(strings.locTaskDetails) },

@@ -55,6 +55,7 @@ import io.payanam.domain.model.Task
 import io.payanam.core.ui.components.DimensionBadgeLabelRow
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.TagEditorField
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.text.LocalUiStrings
@@ -138,6 +139,7 @@ fun TimeBlockModalDialog(
     var tagsRaw by remember(initialTags) { mutableStateOf(initialTags.joinToString(", ")) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
     var dimensionExpanded by remember { mutableStateOf(false) }
@@ -575,9 +577,9 @@ fun TimeBlockModalDialog(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    deleteAction?.let { onDelete ->
+                    if (deleteAction != null) {
                         OutlinedButton(
-                            onClick = onDelete,
+                            onClick = { showDeleteConfirm = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error,
@@ -620,6 +622,37 @@ fun TimeBlockModalDialog(
                 }
             }
         }
+    }
+    // Delete destroys a stored entry or a whole task, so it is confirmed before the callback runs.
+    if (showDeleteConfirm && deleteAction != null) {
+        PayanamAlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = {
+                Text(
+                    if (onDeleteTask != null) {
+                        strings.locDeleteTask
+                    } else {
+                        strings.locDeleteTimeEntry
+                    },
+                )
+            },
+            text = { Text(strings.locThisActionCannotBeUndone) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        deleteAction?.invoke()
+                    },
+                ) {
+                    Text(strings.locDelete, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
     }
     if (showStartDatePicker) {
         DatePickerAlertDialog(

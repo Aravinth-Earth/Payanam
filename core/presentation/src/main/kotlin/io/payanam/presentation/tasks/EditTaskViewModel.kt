@@ -13,6 +13,7 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -48,6 +49,7 @@ class EditTaskViewModel(
     private val notificationScheduler: TaskReminderScheduler,
     private val scoreRollupTrigger: ScoreRollupTrigger,
     private val scoreCalculator: ScoreCalculator,
+    private val resultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
@@ -121,9 +123,15 @@ class EditTaskViewModel(
     /**
      * Persists the edited fields, replaces tags, recomputes scores (roll-up
      * cascade for habits), and re-arms the reminder.
+     *
+     * [onResult] reports the outcome off the write's own coroutine: the caller navigates away only on
+     * success, so a failed write cannot close the screen as if it had saved.
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
-    fun updateTask(input: EditTaskInput) {
+    fun updateTask(
+        input: EditTaskInput,
+        onResult: (Result<Unit>) -> Unit = {},
+    ) {
         val taskId = currentTaskId ?: return
         logger.i(
             "EditTaskViewModel.updateTask",
@@ -195,6 +203,7 @@ class EditTaskViewModel(
                     ),
                 )
                 _uiState.update { it.copy(isSaving = false) }
+                launch(resultDispatcher) { onResult(Result.success(Unit)) }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -209,6 +218,7 @@ class EditTaskViewModel(
                 _uiState.update {
                     it.copy(isSaving = false, error = e.message)
                 }
+                launch(resultDispatcher) { onResult(Result.failure(e)) }
             }
         }
     }
@@ -254,12 +264,16 @@ class EditTaskViewModel(
  * implementation, so a call site on either platform contains no wiring and cannot supply a different data
  * source by accident.
  */
-fun editTaskViewModel(scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)): EditTaskViewModel =
+fun editTaskViewModel(
+    scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    resultDispatcher: CoroutineDispatcher = Dispatchers.Default,
+): EditTaskViewModel =
     EditTaskViewModel(
         taskRepository = LocalDataLayer.current.tasks,
         tagRepository = LocalDataLayer.current.tags,
         notificationScheduler = LocalDataLayer.current.reminderScheduler,
         scoreRollupTrigger = LocalDataLayer.current.scoreRollupTrigger,
         scoreCalculator = LocalDataLayer.current.scoreCalculator,
+        resultDispatcher = resultDispatcher,
         scope = scope,
     )
