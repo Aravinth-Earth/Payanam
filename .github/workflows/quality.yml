@@ -21,6 +21,14 @@ on:
   pull_request:
     branches: ["main", "dev"]
 
+# Superseded pull-request runs are cancelled: a new push to the same PR makes the
+# previous run's result irrelevant, and these jobs are long enough that letting the
+# stale run finish would queue behind it. Pushes to `dev` are NOT cancelled, because
+# that run is the one allowed to populate the Gradle cache (see cache-read-only below).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
   detekt:
     name: Detekt static analysis
