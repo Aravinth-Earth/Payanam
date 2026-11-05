@@ -112,6 +112,14 @@ fun DayScreen(
                     CircularProgressIndicator()
                 }
             } else {
+                uiState.error?.let { message ->
+                    Text(
+                        text = message,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.error,
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    )
+                }
                 SummaryTabContent(
                     uiState = uiState,
                     onOverallResponseChange = { promptKey ->

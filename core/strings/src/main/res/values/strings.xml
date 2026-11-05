@@ -331,6 +331,7 @@
     <string name="loc_dimension_desc_community_service">Activities that help others, support communities, encourage participation, and create value beyond personal or family needs.</string>
     <string name="loc_dimension_desc_unassigned">System fallback for uncategorized or imported records.</string>
     <string name="loc_dimension_reflections">Dimension Reflections</string>
+    <string name="loc_dismiss">Dismiss</string>
     <string name="loc_done">Done</string>
     <string name="loc_done_2">✓ Done</string>
     <string name="loc_due_date">Due Date</string>
@@ -374,6 +375,7 @@
     <string name="loc_focus_rating_0_1">Focus Rating (0.00-1.00)</string>
     <string name="loc_focus_rating_value">Selected: %1$s</string>
     <string name="loc_focus_required_0_1">Focus Required (0-1)</string>
+    <string name="loc_focus_tabs_visible">%1$d tabs visible</string>
     <string name="loc_focused_minutes_value">Focused: %1$s</string>
     <string name="loc_follow_original_schedule">Follow Original Schedule</string>
     <string name="loc_friday">Friday</string>

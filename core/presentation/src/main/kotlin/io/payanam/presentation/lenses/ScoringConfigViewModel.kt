@@ -9,6 +9,7 @@ import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -46,18 +47,33 @@ class ScoringConfigViewModel(
         loadConfig()
     }
 
+    @Suppress("TooGenericExceptionCaught") // A closed DB session surfaces as an arbitrary repository exception
     private fun loadConfig() {
         scope.launch {
             logger.d("ScoringConfigViewModel.loadConfig", "Loading scoring config")
-            val config = scoringConfigRepository.getConfig()
-            originalConfig = config
-            _uiState.value =
-                _uiState.value.copy(
-                    config = config,
-                    isLoading = false,
-                    hasChanges = false,
-                )
-            logger.i("ScoringConfigViewModel.loadConfig", "Config loaded")
+            try {
+                val config = scoringConfigRepository.getConfig()
+                originalConfig = config
+                _uiState.value =
+                    _uiState.value.copy(
+                        config = config,
+                        isLoading = false,
+                        hasChanges = false,
+                    )
+                logger.i("ScoringConfigViewModel.loadConfig", "Config loaded")
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.e("ScoringConfigViewModel.loadConfig", "Failed to load scoring config", e)
+                val defaults = ScoringConfig.defaults()
+                originalConfig = defaults
+                _uiState.value =
+                    _uiState.value.copy(
+                        config = defaults,
+                        isLoading = false,
+                        hasChanges = false,
+                    )
+            }
         }
     }
 

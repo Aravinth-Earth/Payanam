@@ -376,15 +376,11 @@ class DayViewModel(
 
                             "dimension" -> {
                                 resp.dimensionKey?.let { dimKey ->
-                                    val resolvedDimensionId = DimensionTaxonomyCatalog.fromCanonicalId(dimKey)?.id
-                                    try {
-                                        val dimensionId =
-                                            resolvedDimensionId ?: throw IllegalArgumentException("Unknown dimension key: $dimKey")
-                                        val dimMap = dimensionResponses.getOrPut(dimensionId) { mutableMapOf() }
-                                        dimMap[resp.promptKey] = resp.responseText
-                                    } catch (_: Exception) {
-                                        logger.w("DayViewModel.loadDayData", "Unknown dimension: $dimKey")
-                                    }
+                                    // Keyed by the stored key: an id the taxonomy does not know (a user's own
+                                    // dimension) must still reach the form, not be dropped.
+                                    val dimensionId = DimensionTaxonomyCatalog.fromCanonicalId(dimKey)?.id ?: dimKey
+                                    val dimMap = dimensionResponses.getOrPut(dimensionId) { mutableMapOf() }
+                                    dimMap[resp.promptKey] = resp.responseText
                                 }
                             }
                         }
@@ -394,6 +390,7 @@ class DayViewModel(
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
+                        error = null,
                         journalEntry = journalEntry,
                         overallResponses = overallResponses,
                         dimensionResponses = dimensionResponses.mapValues { it.value.toMap() },
@@ -413,7 +410,7 @@ class DayViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.e("DayViewModel.loadDayData", "Failed to load day journal data", e)
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }

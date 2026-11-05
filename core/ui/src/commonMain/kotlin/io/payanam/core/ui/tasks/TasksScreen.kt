@@ -386,6 +386,21 @@ fun TasksScreen(
                     }
                 }
 
+                // Only preempts the list when nothing loaded, so a failed write on a populated list still shows it.
+                chromeState.error != null && chromeState.oneTimeTaskCount == 0 && chromeState.recurringTaskCount == 0 -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = chromeState.error ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+
                 effectiveTabIndex == 0 -> {
                     HabitsTabRoute(
                         viewModel = viewModel,

@@ -85,6 +85,7 @@ class TasksViewModel(
             .map { state ->
                 TasksChromeUiState(
                     isLoading = state.isLoading,
+                    error = state.error,
                     recurringTaskCount = state.recurringTasks.size,
                     oneTimeTaskCount = state.oneTimeTasks.size,
                     habitSortOption = state.habitSortOption,
