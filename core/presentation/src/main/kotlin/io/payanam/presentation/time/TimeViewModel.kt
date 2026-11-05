@@ -414,7 +414,16 @@ class TimeViewModel(
                         focusNote = normalizedFocusNote,
                         focusRatedAt = resolvedFocusRatedAt,
                     )
+                // Read BEFORE the write: the entry stops being the active one the moment it is updated
+                // with an end time, so afterwards there is no way to tell whether the tracking service
+                // was showing it.
+                val wasActiveEntry = timeEntryRepository.getActiveTimeEntry()?.id == entryId
                 timeEntryRepository.updateTimeEntry(entryId, input)
+                // Ending the entry the service is showing must also end that service: its notification
+                // is driven by the service, not by the entry, so it keeps counting otherwise.
+                if (input.endedAt != null && wasActiveEntry) {
+                    stopTrackingIfNoEntryRemains()
+                }
                 loadEntriesForDate(_uiState.value.selectedDate)
             } catch (e: CancellationException) {
                 throw e
@@ -430,6 +439,27 @@ class TimeViewModel(
                 _uiState.update { it.copy(error = e.message) }
             }
         }
+    }
+
+    /**
+     * Ends the foreground tracking session when nothing is running any more.
+     *
+     * The service holds ONE session and one notification, so it is stopped only when no other entry is
+     * still active: a second, overlapping entry keeps the service - and its notification - alive, because
+     * it is that entry the notification is now counting.
+     */
+    private suspend fun stopTrackingIfNoEntryRemains() {
+        val stillActive = timeEntryRepository.getActiveTimeEntry()
+        if (stillActive != null) {
+            logger.i(
+                "TimeViewModel.stopTrackingIfNoEntryRemains",
+                "Another entry is still active; keeping the tracking service",
+                mapOf("entryId" to stillActive.id),
+            )
+            return
+        }
+        timeTrackingController.stopTracking()
+        logger.i("TimeViewModel.stopTrackingIfNoEntryRemains", "No entry left active; stopping the tracking service")
     }
 
     /**

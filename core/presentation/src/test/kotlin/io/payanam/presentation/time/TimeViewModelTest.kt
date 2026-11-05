@@ -880,6 +880,87 @@ class TimeViewModelTest {
             )
         }
 
+    /**
+     * Ending the entry the tracking service is showing also ends that service: its notification is
+     * driven by the service, so an entry closed in the store alone leaves it counting for a session the
+     * database no longer has.
+     */
+    @Test
+    fun `ending the active entry stops the tracking service`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            assertEquals(1, timeTrackingController.stopCalls)
+        }
+
+    /** A second entry still running keeps the service, because the notification now counts that one. */
+    @Test
+    fun `ending an entry while another is still active keeps the tracking service`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            // The store hands over to the overlapping entry once the first one carries an end time.
+            timeEntryRepository.activeEntryAfterEnding = entry("entry-2", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            assertEquals(0, timeTrackingController.stopCalls)
+        }
+
+    /** An edit that does not end the entry never touches the service. */
+    @Test
+    fun `editing a running entry without an end leaves the tracking service alone`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = null,
+                endTime = null,
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            assertEquals(0, timeTrackingController.stopCalls)
+        }
+
     /** Rating an edit stamps WHEN it was rated, so a later rating is distinguishable from this one. */
     @Test
     fun `rating an edit stamps the moment it was rated`() =
@@ -2055,6 +2136,8 @@ class TimeViewModelTest {
         val deleted = mutableListOf<String>()
 
         var activeEntry: TimeEntry? = null
+        /** What the store reports as active once an entry is closed; null means nothing is left running. */
+        var activeEntryAfterEnding: TimeEntry? = null
         var allEntries: List<TimeEntry> = emptyList()
         var stopCalls = 0
 
@@ -2122,6 +2205,10 @@ class TimeViewModelTest {
         ): TimeEntry {
             if (failUpdate) throw IllegalStateException("update failed")
             updated += id to input
+            // Mirrors the store: an entry carrying an end time is no longer the active one.
+            if (input.endedAt != null && activeEntry?.id == id) {
+                activeEntry = activeEntryAfterEnding
+            }
             return TimeEntry(
                 id = id,
                 lifeIntentionCategory = input.lifeIntentionCategory,
