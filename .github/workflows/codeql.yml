@@ -44,6 +44,12 @@ jobs:
           distribution: "temurin"
           java-version: "17"
 
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          # Pull requests read the cache only; the `dev` push run is the one that writes it.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+
       - name: Initialize CodeQL
         uses: github/codeql-action/init@4bfa242aa49c5f7c6770b98670d354a7dfac05f8 # v3.39.1
         with:
