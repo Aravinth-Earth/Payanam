@@ -121,7 +121,7 @@ jobs:
         # absent: it needs :core:ui:compileAndroidMain and therefore an Android SDK on the runner,
         # which is the same tradeoff build-tools/scripts/parity-fast.sh already documents. The
         # androidMain slice is covered by the local full gate.
-        run: ./gradlew detekt :core:ui:detektMetadataCommonMain :core:ui:detektDesktopMain --max-workers=4 --no-daemon --console=plain
+        run: ./gradlew detekt :core:ui:detektMetadataCommonMain :core:ui:detektDesktopMain --no-daemon --console=plain
 
   jvm-desktop-tests:
     name: JVM + desktop tests
@@ -158,7 +158,7 @@ jobs:
         # The platform-free half of the suite: the shared core modules and the Compose Desktop layers.
         # No Android SDK is needed - the same tasks the local parity run uses - so this job is the CI
         # counterpart of `build-tools/scripts/parity-fast.sh`'s JVM half.
-        run: xvfb-run -a ./gradlew :core:shared:test :core:domain:test :core:scoring:test :core:database-jvm:test :core:backup:test :core:presentation:test :core:strings:test :desktop:test :core:ui:desktopTest --max-workers=4 --no-daemon --console=plain
+        run: xvfb-run -a ./gradlew :core:shared:test :core:domain:test :core:scoring:test :core:database-jvm:test :core:backup:test :core:presentation:test :core:strings:test :desktop:test :core:ui:desktopTest --no-daemon --console=plain
 
   android-unit-tests:
     name: Android unit tests
