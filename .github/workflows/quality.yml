@@ -60,7 +60,7 @@ jobs:
 
       - name: Detect changed paths
         id: filter
-        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
         with:
           filters: |
             code:
@@ -71,6 +71,7 @@ jobs:
               - '**/*.gradle.kts'
               - 'gradle.properties'
               - 'settings.gradle.kts'
+              - '.github/workflows/**'
             android:
               - 'app/**'
               - 'core/**'
@@ -78,6 +79,7 @@ jobs:
               - '**/*.gradle.kts'
               - 'gradle.properties'
               - 'settings.gradle.kts'
+              - '.github/workflows/**'
             desktop:
               - 'desktop/**'
               - 'core/**'
@@ -85,6 +87,7 @@ jobs:
               - '**/*.gradle.kts'
               - 'gradle.properties'
               - 'settings.gradle.kts'
+              - '.github/workflows/**'
             workflows:
               - '.github/**'
 
@@ -93,7 +96,7 @@ jobs:
     needs: changes
     # A skipped job reports Success, so a failed change-detection must run the work
     # instead of skipping it: `always()` plus the `result != 'success'` arm fails safe.
-    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -126,7 +129,7 @@ jobs:
   jvm-desktop-tests:
     name: JVM + desktop tests
     needs: changes
-    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -163,7 +166,7 @@ jobs:
   android-unit-tests:
     name: Android unit tests
     needs: changes
-    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')"
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -199,10 +202,10 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     needs: changes
-    if: always() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')"
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
       - name: Run actionlint
-        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0
