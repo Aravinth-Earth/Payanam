@@ -18,6 +18,7 @@ import io.payanam.MainActivity
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.core.ui.text.uiStringsFor
+import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.ConfiguredLifeDimension
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.repository.AppSettingsRepository
@@ -55,6 +56,9 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
 
     @Inject
     lateinit var lifeDimensionCatalogRepository: LifeDimensionCatalogRepository
+
+    @Inject
+    lateinit var sessionManager: DatabaseSessionManager
 
     private val logger = UnifiedLogger.getInstance()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -145,6 +149,26 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
     ) {
         scope.launch {
             try {
+                if (!sessionManager.isDbOpen()) {
+                    // Every read below goes through requireDatabase and throws while the session is closed,
+                    // which leaves the previous RemoteViews (and its pre-boot chronometer) on screen. Render
+                    // the idle layout from static resources instead of querying.
+                    val lockedViews = RemoteViews(context.packageName, R.layout.widget_time_tracking)
+                    val lockedPalette = fallbackThemePalette(context)
+                    applyThemePalette(lockedViews, lockedPalette)
+                    applyIdleState(context, lockedViews, lockedPalette)
+                    applyClickIntents(context, lockedViews, appWidgetId, isTrackingActive = false)
+                    appWidgetManager.updateAppWidget(appWidgetId, lockedViews)
+                    logger.d(
+                        "TimeTrackingWidget.updateWidget",
+                        "Rendered idle widget; database session is closed",
+                        mapOf(
+                            "widgetId" to appWidgetId,
+                        ),
+                    )
+                    return@launch
+                }
+
                 // Get active time entry
                 val activeEntry = timeEntryRepository.observeActiveTimeEntry().first()
                 val views = RemoteViews(context.packageName, R.layout.widget_time_tracking)
@@ -206,60 +230,10 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
                     )
                 } else {
                     // No active tracking
-                    views.setTextViewText(
-                        R.id.widget_task_title,
-                        context.getString(R.string.widget_tracking_no_active),
-                    )
-                    views.setTextViewText(
-                        R.id.widget_dimension,
-                        context.getString(R.string.widget_tracking_tap_to_start),
-                    )
-                    views.setTextViewText(
-                        R.id.widget_status,
-                        context.getString(R.string.widget_tracking_status_idle),
-                    )
-                    views.setTextViewText(
-                        R.id.widget_duration_text,
-                        context.getString(R.string.widget_tracking_duration_placeholder),
-                    )
-                    views.setImageViewResource(R.id.widget_action_icon, android.R.drawable.ic_media_play)
-                    views.setInt(R.id.widget_action_icon, "setColorFilter", themePalette.actionIconColor)
-                    views.setInt(R.id.widget_dimension_chip, "setColorFilter", themePalette.secondaryTextColor)
-                    views.setTextColor(R.id.widget_duration_text, themePalette.primaryTextColor)
-                    views.setTextColor(R.id.widget_status, themePalette.idleStatusColor)
-                    views.setViewVisibility(R.id.widget_duration_chronometer, View.GONE)
-                    views.setViewVisibility(R.id.widget_duration_text, View.VISIBLE)
-                    views.setChronometer(
-                        R.id.widget_duration_chronometer,
-                        SystemClock.elapsedRealtime(),
-                        "%s",
-                        false,
-                    )
+                    applyIdleState(context, views, themePalette)
                 }
 
-                // Set click intent - open app
-                val openQuickPickPendingIntent = createOpenTimeQuickPickPendingIntent(
-                    context = context,
-                    requestCode = appWidgetId * 10 + 1,
-                )
-                views.setOnClickPendingIntent(R.id.widget_container, openQuickPickPendingIntent)
-                if (activeEntry != null) {
-                    // Active state: icon stops tracking
-                    val stopPendingIntent = createOpenTimeStopTrackingPendingIntent(
-                        context = context,
-                        requestCode = appWidgetId * 10 + 2,
-                    )
-                    views.setOnClickPendingIntent(R.id.widget_action_icon, stopPendingIntent)
-                } else {
-                    // Idle state: icon opens quick picker
-                    views.setOnClickPendingIntent(
-                        R.id.widget_action_icon,
-                        createOpenTimeQuickPickPendingIntent(
-                            context = context,
-                            requestCode = appWidgetId * 10 + 3,
-                        ),
-                    )
-                }
+                applyClickIntents(context, views, appWidgetId, isTrackingActive = activeEntry != null)
 
                 appWidgetManager.updateAppWidget(appWidgetId, views)
 
@@ -284,33 +258,107 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private suspend fun resolveThemePalette(context: Context): WidgetThemePalette {
-        val configuredTheme = appSettingsRepository.getSetting(KEY_THEME_MODE)
-        val useDarkTheme = when (configuredTheme) {
-            THEME_DARK -> true
-            THEME_LIGHT -> false
-            else -> isSystemDarkMode(context)
-        }
-        return if (useDarkTheme) {
-            WidgetThemePalette(
-                backgroundDrawableRes = R.drawable.widget_background_dark,
-                primaryTextColor = Color.parseColor("#F6F7FB"),
-                secondaryTextColor = Color.parseColor("#B5B9C8"),
-                activeStatusColor = Color.parseColor("#92E0A7"),
-                idleStatusColor = Color.parseColor("#B5B9C8"),
-                actionIconColor = Color.parseColor("#EDEFF5"),
+    /** Applies the idle layout: no active entry, so nothing here depends on stored data. */
+    private fun applyIdleState(
+        context: Context,
+        views: RemoteViews,
+        themePalette: WidgetThemePalette,
+    ) {
+        views.setTextViewText(
+            R.id.widget_task_title,
+            context.getString(R.string.widget_tracking_no_active),
+        )
+        views.setTextViewText(
+            R.id.widget_dimension,
+            context.getString(R.string.widget_tracking_tap_to_start),
+        )
+        views.setTextViewText(
+            R.id.widget_status,
+            context.getString(R.string.widget_tracking_status_idle),
+        )
+        views.setTextViewText(
+            R.id.widget_duration_text,
+            context.getString(R.string.widget_tracking_duration_placeholder),
+        )
+        views.setImageViewResource(R.id.widget_action_icon, android.R.drawable.ic_media_play)
+        views.setInt(R.id.widget_action_icon, "setColorFilter", themePalette.actionIconColor)
+        views.setInt(R.id.widget_dimension_chip, "setColorFilter", themePalette.secondaryTextColor)
+        views.setTextColor(R.id.widget_duration_text, themePalette.primaryTextColor)
+        views.setTextColor(R.id.widget_status, themePalette.idleStatusColor)
+        views.setViewVisibility(R.id.widget_duration_chronometer, View.GONE)
+        views.setViewVisibility(R.id.widget_duration_text, View.VISIBLE)
+        // Paused chronometer: an idle widget must not keep counting from a previous boot.
+        views.setChronometer(
+            R.id.widget_duration_chronometer,
+            SystemClock.elapsedRealtime(),
+            "%s",
+            false,
+        )
+    }
+
+    /** Wires the container tap to the quick picker and the action icon to stop or start. */
+    private fun applyClickIntents(
+        context: Context,
+        views: RemoteViews,
+        appWidgetId: Int,
+        isTrackingActive: Boolean,
+    ) {
+        views.setOnClickPendingIntent(
+            R.id.widget_container,
+            createOpenTimeQuickPickPendingIntent(
+                context = context,
+                requestCode = appWidgetId * 10 + 1,
+            ),
+        )
+        if (isTrackingActive) {
+            // Active state: icon stops tracking
+            views.setOnClickPendingIntent(
+                R.id.widget_action_icon,
+                createOpenTimeStopTrackingPendingIntent(
+                    context = context,
+                    requestCode = appWidgetId * 10 + 2,
+                ),
             )
         } else {
-            WidgetThemePalette(
-                backgroundDrawableRes = R.drawable.widget_background_light,
-                primaryTextColor = Color.parseColor("#1B1F2A"),
-                secondaryTextColor = Color.parseColor("#5E6578"),
-                activeStatusColor = Color.parseColor("#1F8A4C"),
-                idleStatusColor = Color.parseColor("#5E6578"),
-                actionIconColor = Color.parseColor("#2F3A52"),
+            // Idle state: icon opens quick picker
+            views.setOnClickPendingIntent(
+                R.id.widget_action_icon,
+                createOpenTimeQuickPickPendingIntent(
+                    context = context,
+                    requestCode = appWidgetId * 10 + 3,
+                ),
             )
         }
     }
+
+    private suspend fun resolveThemePalette(context: Context): WidgetThemePalette =
+        when (appSettingsRepository.getSetting(KEY_THEME_MODE)) {
+            THEME_DARK -> darkThemePalette()
+            THEME_LIGHT -> lightThemePalette()
+            else -> fallbackThemePalette(context)
+        }
+
+    /** Palette for paths that cannot read settings, which includes a closed database session. */
+    private fun fallbackThemePalette(context: Context): WidgetThemePalette =
+        if (isSystemDarkMode(context)) darkThemePalette() else lightThemePalette()
+
+    private fun darkThemePalette(): WidgetThemePalette = WidgetThemePalette(
+        backgroundDrawableRes = R.drawable.widget_background_dark,
+        primaryTextColor = Color.parseColor("#F6F7FB"),
+        secondaryTextColor = Color.parseColor("#B5B9C8"),
+        activeStatusColor = Color.parseColor("#92E0A7"),
+        idleStatusColor = Color.parseColor("#B5B9C8"),
+        actionIconColor = Color.parseColor("#EDEFF5"),
+    )
+
+    private fun lightThemePalette(): WidgetThemePalette = WidgetThemePalette(
+        backgroundDrawableRes = R.drawable.widget_background_light,
+        primaryTextColor = Color.parseColor("#1B1F2A"),
+        secondaryTextColor = Color.parseColor("#5E6578"),
+        activeStatusColor = Color.parseColor("#1F8A4C"),
+        idleStatusColor = Color.parseColor("#5E6578"),
+        actionIconColor = Color.parseColor("#2F3A52"),
+    )
 
     private suspend fun resolveDimensionVisual(
         context: Context,
