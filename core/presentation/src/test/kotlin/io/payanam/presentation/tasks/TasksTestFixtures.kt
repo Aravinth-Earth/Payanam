@@ -54,19 +54,20 @@ import java.time.LocalDateTime
  * Taking the real day keeps the suite independent of which day it runs on.
  *
  * A SECOND expiry, found on 2026-09-26 at 01:18, and this one is about the HOUR rather than the day. The
- * OVERDUE filter is the only branch that compares against an instant rather than a day
- * (`TasksViewModelSorting`: `task.dueDate?.isBefore(now)` with `now = LocalDateTime.now()`), so a task due
- * today at 09:00 is not overdue at 01:18 - correctly, but the fixture asserted it was. A 09:00 anchor is only
- * safe between 09:00 and midnight, so the suite went red on every overnight run.
+ * OVERDUE filter used to compare against an instant (`task.dueDate?.isBefore(now)`), so a task due today at
+ * 09:00 was not overdue at 01:18 - correctly, but the fixture asserted it was.
+ *
+ * The OVERDUE filter is day-based (`TasksViewModelSorting` compares `dueDate.toLocalDate()` with today), so
+ * no fixture on this day is ever overdue: a test that needs an overdue task derives one with
+ * `now.minusDays(1)`.
  */
 internal val TASKS_TEST_DAY: LocalDate = LocalDate.now()
 
 /**
  * The instant every fixture uses - today at 00:00, the first minute of the anchored day.
  *
- * Midnight, not 09:00: `00:00` is the only time on the anchored day that is unambiguously "already reached",
- * so a task due at it counts as overdue at every hour the suite can run at. The earlier 09:00 anchor looked
- * safe because it never rolls the DAY over, which is not the comparison the OVERDUE filter makes.
+ * Midnight keeps the fixture on [TASKS_TEST_DAY] while also being a time of day already reached at every
+ * hour the suite can run at, so a fixture due date never reads as future by accident.
  */
 internal val TASKS_TEST_TIME: LocalDateTime = TASKS_TEST_DAY.atStartOfDay()
 

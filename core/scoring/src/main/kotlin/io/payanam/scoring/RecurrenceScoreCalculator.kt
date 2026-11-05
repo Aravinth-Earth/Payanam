@@ -154,7 +154,7 @@ object RecurrenceScoreCalculator {
          * Days with no actionable occurrences count as satisfied (1.0).
          */
         fun calculateRate(days: Int): Double {
-            val relevant = occurrences.filter { it.first <= days }
+            val relevant = occurrences.filter { it.first < days }
             if (relevant.isEmpty()) return 1.0
             val completed = relevant.count { it.second == "completed" }
             val total = relevant.count { it.second in listOf("completed", "skipped", "missed") }
@@ -178,7 +178,7 @@ object RecurrenceScoreCalculator {
         }
         
         // Current streak from today backwards
-        val recentOccurrences = occurrences.filter { it.first <= WINDOW_DAYS_7 }.sortedBy { it.first }
+        val recentOccurrences = occurrences.filter { it.first < WINDOW_DAYS_7 }.sortedBy { it.first }
         for ((_, status) in recentOccurrences) {
             if (status == "completed") {
                 currentStreak++
@@ -385,12 +385,9 @@ object RecurrenceScoreCalculator {
             }
         }
 
-        allWindows.asReversed().forEach { window ->
-            if (window.isSatisfied) {
-                currentStreak++
-            } else {
-                return@forEach
-            }
+        for (window in allWindows.asReversed()) {
+            if (!window.isSatisfied) break
+            currentStreak++
         }
 
         val stats = CompletionStats(

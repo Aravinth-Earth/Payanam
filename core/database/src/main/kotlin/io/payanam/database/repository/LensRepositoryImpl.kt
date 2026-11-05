@@ -777,7 +777,7 @@ class LensRepositoryImpl
 
 private fun determinePriority(taskScore: Double): String =
     when {
-        taskScore >= 80.0 -> "High"
-        taskScore >= 50.0 -> "Medium"
+        taskScore >= 0.8 -> "High"
+        taskScore >= 0.5 -> "Medium"
         else -> "Low"
     }

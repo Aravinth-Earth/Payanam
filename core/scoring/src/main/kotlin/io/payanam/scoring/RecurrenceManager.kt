@@ -62,7 +62,7 @@ class RecurrenceManager(
         var skippedNotOverdue = 0
         for (task in tasks) {
             if (isFrequencyHabit(task)) {
-                frequencyHabitSync.sync(task)
+                frequencyHabitSync.sync(task, effectiveToday)
                 processedCount++
                 continue
             }

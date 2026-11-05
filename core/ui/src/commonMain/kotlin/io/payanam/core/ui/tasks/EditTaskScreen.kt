@@ -74,6 +74,8 @@ import io.payanam.presentation.tasks.EditTaskInput
 import io.payanam.core.ui.components.EditTimePickerDialog
 import io.payanam.core.ui.components.EnhancedRecurrencePickerDialog
 import io.payanam.core.ui.components.resolveAlignmentIndex
+import io.payanam.core.ui.components.resolveControlIndex
+import io.payanam.core.ui.components.resolveEnergyIndex
 import io.payanam.core.ui.components.resolveImpactIndex
 import java.time.Instant
 import java.time.LocalDate
@@ -275,10 +277,10 @@ private fun EditTaskContent(
         mutableIntStateOf(resolveAlignmentIndex(task.goalAlignment))
     }
     var energyIndex by remember {
-        mutableIntStateOf(energyValues.indexOf(task.energyLevel).coerceAtLeast(0))
+        mutableIntStateOf(resolveEnergyIndex(task.energyLevel))
     }
     var controlIndex by remember {
-        mutableIntStateOf(controlValues.indexOf(task.controlLevel).coerceAtLeast(0))
+        mutableIntStateOf(resolveControlIndex(task.controlLevel))
     }
     var explicitUrgency by remember { mutableStateOf(task.explicitUrgency?.toString() ?: "") }
     var focusRequired by remember { mutableStateOf(task.focusRequired?.toString() ?: "") }

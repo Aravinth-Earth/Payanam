@@ -132,6 +132,7 @@ class TasksViewModelLoadPipelineTest {
                 listOf(
                     task(id = "overdue", dueDate = now.minusDays(1)),
                     task(id = "today", dueDate = now.withHour(23).withMinute(59)),
+                    task(id = "today-early", dueDate = now.toLocalDate().atStartOfDay()),
                     task(id = "future", dueDate = now.plusDays(3)),
                     task(id = "completed", status = "completed", dueDate = now.minusDays(2)),
                     task(id = "archived", status = "archived", dueDate = now.minusDays(1)),
@@ -139,8 +140,8 @@ class TasksViewModelLoadPipelineTest {
             createViewModel()
             advanceUntilIdle()
             val state = viewModel.uiState.value
-            assertThat(state.todayCount).isEqualTo(1) // "today"
-            assertThat(state.overdueCount).isEqualTo(1) // "overdue"
+            assertThat(state.todayCount).isEqualTo(2) // "today", "today-early"
+            assertThat(state.overdueCount).isEqualTo(1) // "overdue"; earlier today is not overdue
             assertThat(state.taskFilterCounts.future).isEqualTo(1) // "future"
             assertThat(state.isLoading).isFalse()
         }
@@ -531,6 +532,19 @@ class TasksViewModelLoadPipelineTest {
             )
         val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC)
         assertThat(result.map { it.id }).containsExactly("overdue")
+    }
+
+    /** OVERDUE is day-based, so a task due earlier today is still a TODAY task. */
+    @Test
+    fun `overdue filter excludes tasks due earlier today`() {
+        val now = LocalDateTime.now()
+        val tasks =
+            listOf(
+                task(id = "earlier-today", dueDate = now.toLocalDate().atStartOfDay()),
+                task(id = "yesterday", dueDate = now.minusDays(1)),
+            )
+        val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC)
+        assertThat(result.map { it.id }).containsExactly("yesterday")
     }
 
     /** FUTURE filter keeps tasks with due date after today or null due date. */

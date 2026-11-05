@@ -43,6 +43,8 @@ object ElegantTaskScoring : ScoreCalculator {
     private const val DURATION_LONG_SCORE = 0.35
     // Small floor added to each factor to avoid zeroing the product out.
     private const val SCORE_FLOOR = 0.05
+    // Guards the geometric-mean divisor when every configured weight is zero.
+    private const val MIN_TOTAL_WEIGHT = 1e-6
 
     private fun normalizeDuration(minutes: Int): Double {
         return when {
@@ -87,10 +89,12 @@ object ElegantTaskScoring : ScoreCalculator {
         // Get factor values from config
         val normalizedImpactLevel = normalizeImpactLevel(task.impactLevel)
         val normalizedAlignment = normalizeAlignmentLevel(task.goalAlignment)
+        val normalizedEnergyLevel = normalizeEnergyLevel(task.energyLevel)
+        val normalizedControlLevel = normalizeControlLevel(task.controlLevel)
         val impactValue = config.impactLevelWeights[normalizedImpactLevel] ?: 0.5
         val alignmentValue = config.alignmentWeights[normalizedAlignment] ?: 0.5
-        val energyValue = config.energyLevelWeights[task.energyLevel] ?: 0.5
-        val controlValue = config.controlLevelWeights[task.controlLevel] ?: 0.5
+        val energyValue = config.energyLevelWeights[normalizedEnergyLevel] ?: 0.5
+        val controlValue = config.controlLevelWeights[normalizedControlLevel] ?: 0.5
         val durationValue = normalizeDuration(task.durationMinutes)
         
         // Add small floor to avoid zeroing out
@@ -113,7 +117,7 @@ object ElegantTaskScoring : ScoreCalculator {
             config.controlWeight,
             config.durationWeight
         )
-        val totalWeight = weights.sum()
+        val totalWeight = weights.sum().coerceAtLeast(MIN_TOTAL_WEIGHT)
         
         var product = 1.0
         for (i in factors.indices) {
@@ -171,6 +175,25 @@ object ElegantTaskScoring : ScoreCalculator {
         return when (level) {
             "High Alignment" -> "Strong Alignment"
             "Low Alignment" -> "Weak Alignment"
+            else -> level
+        }
+    }
+
+    /** Normalizes a legacy energy level label to the canonical form. */
+    internal fun normalizeEnergyLevel(level: String): String {
+        return when (level) {
+            "Medium", "Moderate Energy" -> "Moderate"
+            "High Energy" -> "High"
+            "Low Energy" -> "Low"
+            else -> level
+        }
+    }
+
+    /** Normalizes a legacy control level label to the canonical form. */
+    internal fun normalizeControlLevel(level: String): String {
+        return when (level) {
+            "Self", "Self Controlled", "Fully Independent" -> "Full Control"
+            "Fully Dependent" -> "External Dependent"
             else -> level
         }
     }

@@ -450,7 +450,6 @@ class TasksViewModel(
                         logger.e("TasksViewModel.loadTasks", "Failed to load tasks", e)
                         _uiState.update { it.copy(isLoading = false, error = e.message) }
                     }.collect { tasks ->
-                        val now = LocalDateTime.now()
                         val today = LocalDate.now()
                         val state = _uiState.value
                         val activeTasks = tasks.filter { it.status != "archived" }
@@ -471,7 +470,7 @@ class TasksViewModel(
                             }
                         val overdueCount =
                             activeOneTime.count { task ->
-                                task.dueDate?.isBefore(now) == true &&
+                                task.dueDate?.toLocalDate()?.isBefore(today) == true &&
                                     task.status != "completed" && task.status != "archived"
                             }
                         val futureCount =

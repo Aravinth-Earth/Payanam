@@ -269,6 +269,34 @@ class ElegantTaskScoringTest {
         assertThat(dimensions).contains("Career & Work")
     }
 
+    @Test
+    fun calculateScore_withEveryWeightAtZero_returnsFiniteScore() {
+        val zeroWeights = ScoringConfig(
+            dimensionWeight = 0.0,
+            impactWeight = 0.0,
+            alignmentWeight = 0.0,
+            energyWeight = 0.0,
+            controlWeight = 0.0,
+            durationWeight = 0.0,
+        )
+
+        val score = ElegantTaskScoring.calculateScore(baseTask(), zeroWeights)
+
+        assertThat(score.isFinite()).isTrue()
+        assertThat(score).isAtLeast(0.0)
+        assertThat(score).isAtMost(1.0)
+    }
+
+    @Test
+    fun calculateScore_legacyEnergyAndControlLabels_scoreAsTheirCanonicalLabels() {
+        val legacy = baseTask().copy(energyLevel = "Medium", controlLevel = "Self Controlled")
+        val canonical = baseTask().copy(energyLevel = "Moderate", controlLevel = "Full Control")
+
+        assertThat(ElegantTaskScoring.calculateScore(legacy))
+            .isWithin(1e-12)
+            .of(ElegantTaskScoring.calculateScore(canonical))
+    }
+
     private fun baseTask(
         impact: String = "Moderate Impact",
         durationMinutes: Int = 10,

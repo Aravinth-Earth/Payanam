@@ -7,7 +7,6 @@ package io.payanam.presentation.tasks
 import io.payanam.domain.model.Task
 import io.payanam.shared.logging.AppLogger
 import java.time.LocalDate
-import java.time.LocalDateTime
 
 /**
  * Sorts habits for the listing according to [option].
@@ -156,7 +155,6 @@ private fun filterTasks(
     tasks: List<Task>,
     filter: TaskFilter,
 ): List<Task> {
-    val now = LocalDateTime.now()
     val today = LocalDate.now()
     return when (filter) {
         TaskFilter.ALL -> {
@@ -178,7 +176,7 @@ private fun filterTasks(
 
         TaskFilter.OVERDUE -> {
             tasks.filter { task ->
-                task.dueDate?.isBefore(now) == true &&
+                task.dueDate?.toLocalDate()?.isBefore(today) == true &&
                     task.status != "completed" && task.status != "archived"
             }
         }

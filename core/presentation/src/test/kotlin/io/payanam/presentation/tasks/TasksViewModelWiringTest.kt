@@ -128,7 +128,7 @@ class TasksViewModelWiringTest {
             assertThat(
                 viewModel.uiState.value.filteredOneTimeTasks
                     .map { it.id },
-            ).containsAtLeast("overdue", "today")
+            ).containsExactly("overdue")
             viewModel.dispose()
         }
 
