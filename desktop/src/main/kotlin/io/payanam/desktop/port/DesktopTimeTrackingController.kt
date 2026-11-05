@@ -35,13 +35,11 @@ import java.util.UUID
  * [startTracking], so an entry can be active on this platform even though no platform session was ever
  * begun, and Stop has to work.
  *
- * The recurrence question is answered by the INJECTED [TaskRecurrenceHandler], which on this platform is
- * `DesktopUnsupportedPorts.recurrenceHandler`. That is deliberate: the desktop has exactly one owner of
- * recurrence answers, and a second `RecurrenceManager` inside this class would reintroduce the duplicate
- * the seam was built to remove. Its honest "not a frequency habit" answer therefore means the attached task
- * IS completed here and the recurrence schedule is NOT advanced — which is the desktop's already-recorded
- * divergence (Android advances recurrence and the desktop reads back what it wrote), not a new one. It is
- * reported at `warn` here rather than left to be inferred from a silent schedule that did not move.
+ * The recurrence question is answered by the INJECTED [TaskRecurrenceHandler], which on this platform is the
+ * shared `RecurrenceManager` bound by `DesktopPayanamDataLayer`. That is deliberate: the desktop has exactly
+ * one owner of recurrence answers, and a second `RecurrenceManager` inside this class would reintroduce the
+ * duplicate the seam was built to remove. The answer is therefore the same one Android acts on: a frequency
+ * habit's completion advances its schedule, and a non-recurring task is closed out here.
  *
  * @param timeEntries the shared store's time entries; the active one is stopped here.
  * @param tasks completes the task a stopped entry was attached to.
