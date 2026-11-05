@@ -20,16 +20,9 @@ import io.payanam.MainActivity
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
-import kotlinx.coroutines.CancellationException
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.launch
 import java.time.Duration
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
@@ -98,8 +91,6 @@ class TrackingService : Service() {
     }
 
     private val binder = TrackingBinder()
-    private val serviceScope = CoroutineScope(SupervisorJob() + Dispatchers.Main)
-    private var updateJob: Job? = null
     private lateinit var notificationManager: NotificationManager
 
     /**
@@ -238,17 +229,10 @@ class TrackingService : Service() {
         _currentSession.value = session
         _isTracking.value = true
 
-        // Start as foreground service
+        // Start as foreground service. The notification's chronometer is platform-driven
+        // (`setUsesChronometer(true)`), so it is posted once here rather than re-posted each second.
         startForeground(NOTIFICATION_ID, buildNotification(session))
 
-        // Start periodic updates
-        updateJob?.cancel()
-        updateJob = serviceScope.launch {
-            while (true) {
-                delay(1000) // Update every second
-                runNotificationIterationSafely(logger) { updateNotification() }
-            }
-        }
         logger.i(
             "TrackingService.startTrackingSession",
             "Tracking session started and foreground service running",
@@ -271,7 +255,6 @@ class TrackingService : Service() {
                 "durationSeconds" to (durationSeconds ?: 0L),
             ),
         )
-        updateJob?.cancel()
         _currentSession.value = null
         _isTracking.value = false
         stopForeground(STOP_FOREGROUND_REMOVE)
@@ -288,7 +271,6 @@ class TrackingService : Service() {
 
     private fun buildNotification(session: TrackingSession): Notification {
         val elapsed = Duration.between(session.startTime, LocalDateTime.now())
-        val elapsedText = formatDuration(elapsed)
 
         // Intent to open app (same target semantics as widget quick start)
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
@@ -328,13 +310,7 @@ class TrackingService : Service() {
         return NotificationCompat.Builder(this, CHANNEL_ID)
             .setSmallIcon(R.mipmap.ic_launcher_foreground)
             .setContentTitle(session.taskTitle)
-            .setContentText(
-                getString(
-                    R.string.tracking_notification_content,
-                    session.dimension,
-                    elapsedText,
-                ),
-            )
+            .setContentText(session.dimension)
             .setSubText(getString(R.string.tracking_notification_subtext))
             .setOngoing(true)
             .setOnlyAlertOnce(true)
@@ -369,21 +345,8 @@ class TrackingService : Service() {
         notificationManager.createNotificationChannel(channel)
     }
 
-    private fun formatDuration(duration: Duration): String {
-        val totalSeconds = duration.seconds
-        val hours = totalSeconds / 3600
-        val minutes = (totalSeconds % 3600) / 60
-        val seconds = totalSeconds % 60
-
-        return when {
-            hours > 0 -> String.format("%d:%02d:%02d", hours, minutes, seconds)
-            else -> String.format("%02d:%02d", minutes, seconds)
-        }
-    }
-
     /**
-     * Cancels the per-second notification ticker and flushes the encrypted
-     * database's WAL checkpoint before the service dies.
+     * Flushes the encrypted database's WAL checkpoint before the service dies.
      */
     override fun onDestroy() {
         logger.i(
@@ -393,41 +356,9 @@ class TrackingService : Service() {
                 "wasTracking" to _isTracking.value,
             ),
         )
-        updateJob?.cancel()
         // Flush WAL journal when foreground service exits
         sessionManager.checkpoint()
         super.onDestroy()
-    }
-}
-
-/**
- * Runs ONE tick of the per-second notification update, keeping the ticker alive when that tick
- * fails.
- *
- * A throw from a single tick would otherwise leave the loop AND take the process down with it: the
- * ticker's scope is a hand-rolled `SupervisorJob` scope with no exception handler, so the failure
- * reaches the platform's uncaught-exception handler. The session would then be left with a
- * notification frozen at whatever elapsed time the last successful tick showed. Reporting the
- * failure and continuing keeps the ticker running; only cancellation ends it.
- *
- * A [CancellationException] is rethrown, so cancelling the ticker still unwinds it quietly.
- */
-private suspend fun runNotificationIterationSafely(
-    logger: UnifiedLogger,
-    block: suspend () -> Unit,
-) {
-    try {
-        block()
-    } catch (cancellation: CancellationException) {
-        throw cancellation
-    } catch (
-        @Suppress("TooGenericExceptionCaught") failure: Exception,
-    ) {
-        logger.e(
-            "TrackingService.updateNotification",
-            "Notification update failed; continuing",
-            failure,
-        )
     }
 }
 

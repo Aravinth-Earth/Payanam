@@ -10,6 +10,7 @@ import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.shared.platform.StartupRecoveryStep
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.runBlocking
 import org.junit.After
 import org.junit.Before
@@ -89,5 +90,21 @@ class AndroidStartupRecoveryTest {
         assertThat(ran).doesNotContain(StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS)
         assertThat(ran).contains(StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS)
         assertThat(ran).contains(StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS)
+    }
+
+    @Test
+    fun `a cancelled step is rethrown instead of being dropped like a failure`() {
+        val cancelling: RecurrenceManager = mock {
+            onBlocking { repairStuckRecurringTasks() } doThrow CancellationException("scope cancelled")
+        }
+
+        val thrown = try {
+            runBlocking { recovery(cancelling).runStartupRecovery() }
+            null
+        } catch (e: CancellationException) {
+            e
+        }
+
+        assertThat(thrown).isNotNull()
     }
 }

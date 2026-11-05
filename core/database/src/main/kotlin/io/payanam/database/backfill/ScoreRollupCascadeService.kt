@@ -23,6 +23,7 @@ import io.payanam.domain.model.RecurrenceType
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.scoring.MetricBaseline
 import io.payanam.scoring.ScoreRollupCompute
+import kotlinx.coroutines.CancellationException
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeParseException
@@ -263,6 +264,8 @@ class ScoreRollupCascadeService
                 logger.i(tag, "CASCADE_END", mapOf("elapsedMs" to (System.currentTimeMillis() - started)))
                 scoreChangeEventBus.emit(date)
                 logger.i(tag, "Score change event emitted", mapOf("date" to date.toString()))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_FAILED", e, mapOf("taskId" to taskId, "date" to date.toString()))
             }
@@ -349,6 +352,8 @@ class ScoreRollupCascadeService
                 )
                 scoreChangeEventBus.emit(LocalDate.now())
                 logger.i(tag, "Score change event emitted", mapOf("date" to "rule-change"))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_RULE_CHANGE_FAILED", e, mapOf("taskId" to taskId))
             }
@@ -416,6 +421,8 @@ class ScoreRollupCascadeService
                         "ms=${System.currentTimeMillis() - started}",
                     ).filter { it.isNotEmpty() }.joinToString(" | "),
                 )
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(tag, "CASCADE_DAY_ONLY_FAILED", e, mapOf("fromDay" to changeDate.toString()))
             }
@@ -567,6 +574,8 @@ class ScoreRollupCascadeService
                         )
                     }
                 }
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(tag, "PREFILL_TODAY_FAILED", e, mapOf("today" to LocalDate.now().toString()))
             }
@@ -757,6 +766,8 @@ class ScoreRollupCascadeService
                 )
                 scoreChangeEventBus.emit(LocalDate.now())
                 logger.i(tag, "Score change event emitted", mapOf("date" to "catch-up"))
+            } catch (e: CancellationException) {
+                throw e
             } catch (e: Exception) {
                 logger.e(tag, "CATCHUP_FAILED", e)
             }

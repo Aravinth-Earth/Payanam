@@ -982,7 +982,6 @@
     <string name="tracking_notification_subtext">Tracking in progress</string>
     <string name="tracking_notification_action_open">Open Time</string>
     <string name="tracking_notification_action_stop">Stop</string>
-    <string name="tracking_notification_content">%1$s • %2$s</string>
     <string name="tracking_notification_channel_description">Shows active time tracking status</string>
     <string name="task_reminders_channel_description">Reminders for upcoming and due tasks</string>
     <string name="habit_tracking_channel_description">Reminders for recurring habits</string>
