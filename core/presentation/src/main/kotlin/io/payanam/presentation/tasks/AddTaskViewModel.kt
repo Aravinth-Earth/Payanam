@@ -5,6 +5,7 @@ package io.payanam.presentation.tasks
 import io.payanam.domain.model.TaskInput
 import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.TagRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.data.LocalDataLayer
@@ -34,6 +35,7 @@ class AddTaskViewModel(
     private val tagRepository: TagRepository,
     private val notificationScheduler: TaskReminderScheduler,
     private val scoreCalculator: ScoreCalculator,
+    private val scoringConfigRepository: ScoringConfigRepository,
     private val resultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
@@ -150,7 +152,7 @@ class AddTaskViewModel(
 
                 // Calculate and update score
                 if (PlatformFeatureFlags.current.scoringEnabled) {
-                    val score = scoreCalculator.calculateScore(task)
+                    val score = scoreCalculator.calculateScore(task, scoringConfigRepository.getConfig())
                     taskRepository.updateTaskScore(task.id, score)
                     logger.d(
                         "AddTaskViewModel.createTask",
@@ -226,6 +228,7 @@ fun addTaskViewModel(
         tagRepository = LocalDataLayer.current.tags,
         notificationScheduler = LocalDataLayer.current.reminderScheduler,
         scoreCalculator = LocalDataLayer.current.scoreCalculator,
+        scoringConfigRepository = LocalDataLayer.current.scoringConfig,
         resultDispatcher = resultDispatcher,
         scope = scope,
     )

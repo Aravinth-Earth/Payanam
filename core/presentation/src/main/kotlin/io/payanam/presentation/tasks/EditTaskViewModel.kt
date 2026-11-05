@@ -7,6 +7,7 @@ import io.payanam.domain.model.TaskInput
 import io.payanam.domain.port.ScoreCalculator
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
+import io.payanam.domain.repository.ScoringConfigRepository
 import io.payanam.domain.repository.TagRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.data.LocalDataLayer
@@ -49,6 +50,7 @@ class EditTaskViewModel(
     private val notificationScheduler: TaskReminderScheduler,
     private val scoreRollupTrigger: ScoreRollupTrigger,
     private val scoreCalculator: ScoreCalculator,
+    private val scoringConfigRepository: ScoringConfigRepository,
     private val resultDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
@@ -165,7 +167,7 @@ class EditTaskViewModel(
                         mapOf("taskId" to taskId),
                     )
                 } else if (PlatformFeatureFlags.current.scoringEnabled) {
-                    val score = scoreCalculator.calculateScore(updatedTask)
+                    val score = scoreCalculator.calculateScore(updatedTask, scoringConfigRepository.getConfig())
                     taskRepository.updateTaskScore(taskId, score)
                     logger.d(
                         "EditTaskViewModel.updateTask",
@@ -274,6 +276,7 @@ fun editTaskViewModel(
         notificationScheduler = LocalDataLayer.current.reminderScheduler,
         scoreRollupTrigger = LocalDataLayer.current.scoreRollupTrigger,
         scoreCalculator = LocalDataLayer.current.scoreCalculator,
+        scoringConfigRepository = LocalDataLayer.current.scoringConfig,
         resultDispatcher = resultDispatcher,
         scope = scope,
     )
