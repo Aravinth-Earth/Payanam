@@ -12,13 +12,17 @@ import android.provider.Settings
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.MutableState
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.core.app.ActivityCompat
 import androidx.core.app.NotificationManagerCompat
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.platform.SupportState
 
@@ -97,6 +101,30 @@ actual fun rememberNotificationPermission(): NotificationPermission {
                 mapOf("state" to platformState.name),
             )
         }
+    // The permission and the app-wide switch can both be changed OUTSIDE this app - in the system
+    // settings screen this handle itself offers - and neither reports back. Coming back to the
+    // foreground is the only moment that change becomes visible, so the platform is re-read on every
+    // resume: without this the handle keeps the answer it was made with, and a screen that warns from
+    // it keeps warning until it is recreated.
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner, context, stateHolder) {
+        val observer =
+            LifecycleEventObserver { _, event ->
+                if (event != Lifecycle.Event.ON_RESUME) return@LifecycleEventObserver
+                val resumedState = notificationSupportState(context)
+                if (resumedState == stateHolder.value) return@LifecycleEventObserver
+                stateHolder.value = resumedState
+                AppLogger.current.i(
+                    SOURCE,
+                    "Notification permission changed while the app was away; re-read on resume",
+                    mapOf("state" to resumedState.name),
+                )
+            }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
     return remember(stateHolder, launcher, activity, hasAskedHolder) {
         AndroidNotificationPermission(
             stateHolder = stateHolder,
@@ -221,10 +249,9 @@ private fun shouldShowNotificationRationale(activity: Activity?): Boolean {
  * WHY THE STATE IS NOT RE-READ HERE:
  *
  * The settings screen reports nothing back - no result, no callback - so the switch the user flips
- * there is only visible to a later read of the platform. The handle's [NotificationPermission.state] is
- * a snapshot taken when the handle was made, refreshed by a platform read whenever the permission
- * dialog is answered; a caller that sends the user to the settings screen and wants the answer that
- * follows has to read the platform again once the app is back in front.
+ * there is only visible to a later read of the platform. That read is the resume observer in
+ * [rememberNotificationPermission]: the handle's [NotificationPermission.state] is re-read when the
+ * app comes back to the foreground, which is when the user returns from this screen.
  */
 private fun openNotificationSettings(context: Context) {
     val intent =
