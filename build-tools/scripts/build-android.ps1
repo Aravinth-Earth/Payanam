@@ -37,6 +37,7 @@ function Write-LogWithTime
 # Dot-sourced here AND in publish-release.ps1 — single implementation, never copied.
 . "$PSScriptRoot/release-security.ps1"
 . "$PSScriptRoot/lib/naming.ps1"
+. "$PSScriptRoot/lib/python.ps1"
 
 function Get-DateTimeStamp
 {
@@ -1657,6 +1658,14 @@ if ($LASTEXITCODE -ne 0)
     Exit-WithCleanup 1
 } else {
     Write-LogWithTime "  ✅ Spotless ratchet passed" "Green"
+}
+
+# Check 7: store-listing assets. A 120000 symlink checks out as path text on Windows.
+& (Get-PayanamPython) (Join-Path $PSScriptRoot "check-store-listing-assets.py") --repo-root $projectRoot
+if ($LASTEXITCODE -ne 0)
+{
+    Write-LogWithTime "  ❌ Store-listing asset guard failed - fix the tracked mode or the image content." "Red"
+    Exit-WithCleanup 1
 }
 
 Write-LogWithTime "✅ All preflight checks passed!" "Green"
