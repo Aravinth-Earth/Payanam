@@ -882,7 +882,7 @@ fun PayanamNavHost(
                 ) { backStackEntry ->
                     val typeName = backStackEntry.arguments?.read { getStringOrNull("type") } ?: return@composable
                     val key = backStackEntry.arguments?.read { getStringOrNull("key") } ?: return@composable
-                    logger.i("PayanamNavHost", "Opening score detail", mapOf("type" to typeName, "key" to key))
+                    logger.i("PayanamNavHost", "Opening score detail", mapOf("type" to typeName, "dimensionKey" to key))
                     screens.scoreDetail(nav = navActions, type = typeName, key = key)
                 }
                 composable(

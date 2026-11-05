@@ -412,7 +412,6 @@ fun TasksScreen(
                                 "TasksScreen.searchQueryChanged",
                                 "Habit search query changed",
                                 mapOf(
-                                    "query" to newQuery,
                                     "queryLength" to newQuery.length,
                                     "elapsedSinceOpenMs" to (elapsedMillis() - habitSearchOpenElapsed),
                                 ),
@@ -424,7 +423,6 @@ fun TasksScreen(
                                 "TasksScreen.searchClosed",
                                 "Habit search closed",
                                 mapOf(
-                                    "query" to habitSearchQuery,
                                     "queryLength" to habitSearchQuery.length,
                                     "elapsedSinceOpenMs" to (closeMs - habitSearchOpenElapsed),
                                 ),
@@ -636,7 +634,6 @@ private fun HabitsTabContent(
                 "TasksScreen.habitSearchFiltered",
                 "Habit search filter applied",
                 mapOf(
-                    "query" to searchQuery,
                     "queryLength" to searchQuery.length,
                     "inputRows" to rows.size,
                     "matchedRows" to displayRows.size,

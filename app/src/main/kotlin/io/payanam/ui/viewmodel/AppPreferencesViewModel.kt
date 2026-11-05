@@ -213,15 +213,16 @@ class AppPreferencesViewModel @Inject constructor(
                 "AppPreferencesViewModel.observeSettings",
                 "Dimension trace catalogIds=${configuredDimensions.joinToString(",") { it.id }} defaultIds=${dimensionPrefs.joinToString(",") { it.id }} customIds=${dynamicDimensionOptions.joinToString(",") { it.id }}",
             )
+            // Label text is user content: only counts are logged, never the label itself.
             logger.i(
                 "AppPreferencesViewModel.observeSettings",
-                "Dimension label trace ${
-                    (
-                        dimensionPrefs.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" } +
-                            dynamicDimensionOptions.map { "${it.id}:label=${it.label},custom=${it.hasCustomLabelOverride}" }
-                        )
-                        .joinToString(" | ")
-                }",
+                "Dimension label trace",
+                mapOf(
+                    "defaultDimensionCount" to dimensionPrefs.size,
+                    "defaultCustomLabelCount" to dimensionPrefs.count { it.hasCustomLabelOverride },
+                    "dynamicDimensionCount" to dynamicDimensionOptions.size,
+                    "dynamicCustomLabelCount" to dynamicDimensionOptions.count { it.hasCustomLabelOverride },
+                ),
             )
             logger.i(
                 "AppPreferencesViewModel.observeSettings",

@@ -332,6 +332,9 @@ class UnifiedLogger private constructor(
                     flushInternal()
                     sequenceCounter.set(0)
                     logFile = createSessionLogFile()
+                    // One file is created per foreground, so retention must run here too; without it a
+                    // long-lived process grows the log directory without bound.
+                    clearOldLogsSync(keepLast = 9)
                     logFile.absolutePath
                 }
             }
@@ -376,10 +379,9 @@ class UnifiedLogger private constructor(
                 val exportFile = File(exportDir, logFile.name)
                 val tmpFile = File(exportDir, "${logFile.name}.tmp")
                 try {
+                    // The flush loop appends to the live file while this copy runs, so a length check
+                    // against it races; the atomic rename is what guarantees a complete publish.
                     snapshot.file.copyTo(tmpFile, overwrite = true)
-                    if (tmpFile.length() != snapshot.file.length()) {
-                        throw IOException("Copy verification failed: ${snapshot.file.length()} != ${tmpFile.length()}")
-                    }
                     if (!tmpFile.renameTo(exportFile)) {
                         throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
                     }
