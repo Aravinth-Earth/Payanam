@@ -13,12 +13,19 @@ Every tracked file under fastlane/ must be mode 100644, and every tracked .png /
 must carry its format signature on disk - a working tree that already received path text is
 caught by the signature, not only by the mode.
 
+The tracked-mode check REQUIRES a git checkout: a source archive has no index to read. When
+`git rev-parse --is-inside-work-tree` fails, or git itself is unavailable, the script prints one
+skip line and exits 0 instead of failing the build. The image signature check still applies
+whenever a checkout exists, and its violations are still reported.
+
 USAGE
     python3 build-tools/scripts/check-store-listing-assets.py [--repo-root PATH]
     python3 build-tools/scripts/check-store-listing-assets.py --self-test
 
 Prints one line per violation and nothing on success.
-Exit codes: 0 clean, 1 violations, 2 git missing / git failed / repo root unusable.
+Exit codes: 0 clean or skipped (no git checkout), 1 violations, 2 git ls-files failed / repo
+root unusable. Paths are read NUL-separated (`git ls-files -s -z`), so a path holding spaces or
+non-ASCII bytes stays one record.
 
 Pure Python 3 standard library. Output is ASCII only: this runs on a Windows console that
 raises UnicodeEncodeError on other characters.
@@ -45,19 +52,20 @@ def emit(message):
 
 
 def parse_entries(stdout):
-    """Parse `git ls-files -s` output into (mode, path) tuples, keeping the listed order.
+    """Parse `git ls-files -s -z` output into (mode, path) tuples, keeping the listed order.
 
-    A line is `<mode> <sha> <stage>\\t<path>`. Anything else means git printed something the
-    guard does not understand, which is reported as an error rather than read as a pass.
+    Records are NUL-separated; a record is `<mode> <sha> <stage>\\t<path>`. Anything else means
+    git printed something the guard does not understand, which is reported as an error rather
+    than read as a pass.
     """
     entries = []
-    for line in stdout.splitlines():
-        if not line.strip():
+    for record in stdout.split("\0"):
+        if not record.strip():
             continue
-        meta, separator, path = line.partition("\t")
+        meta, separator, path = record.partition("\t")
         fields = meta.split()
         if not separator or len(fields) != 3:
-            raise ValueError("unexpected git ls-files line: {}".format(line))
+            raise ValueError("unexpected git ls-files record: {}".format(record))
         entries.append((fields[0], path))
     return entries
 
@@ -115,11 +123,26 @@ def self_test():
                 failures.append(
                     "{}: expected {} problem(s), got {}".format(label, expected, len(problems))
                 )
+        # Fifth assertion: a NUL-separated record whose path is non-ASCII must survive parsing and
+        # reach the signature check.
+        (root / "caf\u00e9.png").write_bytes(b"plain text, not a png\n")
+        nul_record = "100644 {} 0\tcaf\u00e9.png\0".format("0" * 40)
+        try:
+            nul_problems = find_problems(parse_entries(nul_record), root)
+        except ValueError as exc:
+            nul_problems = None
+            failures.append("NUL-separated non-ASCII path: parse failed ({})".format(exc))
+        if nul_problems is not None and len(nul_problems) != 1:
+            failures.append(
+                "NUL-separated non-ASCII path: expected 1 problem(s), got {}".format(
+                    len(nul_problems)
+                )
+            )
     if failures:
         for failure in failures:
             emit("SELF-TEST FAILED: {}".format(failure))
         return 1
-    emit("self-test passed: 4 assertions")
+    emit("self-test passed: 5 assertions")
     return 0
 
 
@@ -146,9 +169,23 @@ def main(argv=None):
     if not root.is_dir():
         emit("store-listing guard: repo root is unusable: {}".format(root))
         return 2
+    # No work tree means no index, so there are no tracked modes to check: skip, never fail.
+    try:
+        probe = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "--is-inside-work-tree"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+        )
+    except OSError:
+        emit("store-listing guard: not a git checkout - skipped")
+        return 0
+    if probe.returncode != 0:
+        emit("store-listing guard: not a git checkout - skipped")
+        return 0
     try:
         result = subprocess.run(
-            ["git", "-C", str(root), "ls-files", "-s", "--", LISTING_DIR],
+            ["git", "-C", str(root), "ls-files", "-s", "-z", "--", LISTING_DIR],
             stdout=subprocess.PIPE,
             stderr=subprocess.PIPE,
             check=False,
