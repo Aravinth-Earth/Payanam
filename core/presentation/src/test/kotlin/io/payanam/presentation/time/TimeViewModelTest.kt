@@ -907,6 +907,8 @@ class TimeViewModelTest {
             advanceUntilIdle()
 
             assertEquals(1, timeTrackingController.stopCalls)
+            // The widget renders its own chronometer, so it keeps counting until something refreshes it.
+            assertEquals(1, widgetRefresher.refreshes)
         }
 
     /** A second entry still running keeps the service, because the notification now counts that one. */
@@ -934,6 +936,8 @@ class TimeViewModelTest {
             advanceUntilIdle()
 
             assertEquals(0, timeTrackingController.stopCalls)
+            // Nothing stopped, so there is nothing for the widget to re-render.
+            assertEquals(0, widgetRefresher.refreshes)
         }
 
     /** An edit that does not end the entry never touches the service. */
@@ -2136,6 +2140,7 @@ class TimeViewModelTest {
         val deleted = mutableListOf<String>()
 
         var activeEntry: TimeEntry? = null
+
         /** What the store reports as active once an entry is closed; null means nothing is left running. */
         var activeEntryAfterEnding: TimeEntry? = null
         var allEntries: List<TimeEntry> = emptyList()

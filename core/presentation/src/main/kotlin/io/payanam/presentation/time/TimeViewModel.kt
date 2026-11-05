@@ -459,6 +459,7 @@ class TimeViewModel(
             return
         }
         timeTrackingController.stopTracking()
+        widgetRefresher.refreshWidget()
         logger.i("TimeViewModel.stopTrackingIfNoEntryRemains", "No entry left active; stopping the tracking service")
     }
 
