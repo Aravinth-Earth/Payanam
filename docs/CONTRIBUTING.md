@@ -1,5 +1,5 @@
 # Contributing to Payanam
-Last Updated: 2026-09-19
+Last Updated: 2026-11-05
 
 Payanam is a local-first, FOSS (AGPL-3.0) project. Contributions are welcome — this
 guide keeps the codebase consistent and the quality gates green for everyone.
@@ -27,6 +27,7 @@ and isn't, and which contributions align with our direction.
 ## Development setup
 
 - **Java 17** (toolchain enforced in Gradle)
+- **Python 3** (build preflight checks and the `build-tools/scripts/*.py` tools)
 - **Android SDK 35** (for the `app` module)
 - Clone, then build once to warm Gradle:
 
