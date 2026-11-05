@@ -7,6 +7,9 @@
 # Android modules' JVM-side unit tests, so `app` and the two Android libraries
 # are no longer the only code whose tests run in no CI gate.
 #
+# Each job runs only when the changed paths can affect it; a workflow-file
+# change runs actionlint instead of the Kotlin gate.
+#
 # NOTE: this runs detekt only, NOT the full `preCommitCheck`. The repo's
 # spotless/ktlint and lint checks have pre-existing violations on `dev` that are
 # out of scope for this gate; adding them here would red-fail every PR for
@@ -168,3 +171,15 @@ jobs:
         # setup-android action; `compileSdk 36` is the same value the CodeQL job already compiles against.
         run: ./gradlew :app:testDebugUnitTest :core:database:testDebugUnitTest :core:common:testDebugUnitTest --no-daemon --console=plain
 
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: always() && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Run actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7
