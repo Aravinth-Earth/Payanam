@@ -1,0 +1,148 @@
+appId: io.payanam
+name: Reminder Complete reaches the DB after the passphrase unlock
+---
+# WHAT IT PROVES
+#   Complete tapped on the reminder while the app process is dead is applied after
+#   the passphrase unlock. Two outcomes are accepted because the app hides the list
+#   when nothing is left: the congratulation message, or the habit's TODAY cell
+#   reading completed ("<habit>, <ISO date>, <status>", CheckmarkPanelCanvas.kt:129).
+#
+# ENV: PASS, HABIT_NAME, DUE_HOUR, DUE_MINUTE, REMINDER_WAIT_MS, TODAY,
+#      STATUS_COMPLETED, ALL_HABITS_DONE, ACTION_EXPAND, ACTION_COMPLETE
+#
+# TIMING (measured on device, 2026-11-06)
+#   reminder fires 15 min before the due time (DEFAULT_ADVANCE_MINUTES).
+#   Creation path takes ~1m45s, so a +20 min due leaves the fire ~5 min after save.
+#   With SCHEDULE_EXACT_ALARM granted the alarm is exact; without it delivery can
+#   slip a few minutes, which is why REMINDER_WAIT_MS is generous.
+#   Do not start within ~20 min of midnight: the form keeps today's date.
+
+# killApp is `am kill`, which only kills BACKGROUND processes: Home first.
+- pressKey: Home
+- killApp
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+- tapOn:
+    id: "nav.tab.habits"
+
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 20000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}"
+- hideKeyboard
+
+# Recurring makes it a habit; DAILY is preselected in the rule dialog.
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+    timeout: 15000
+- tapOn:
+    id: "recurrence.preset.daily"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+
+# Due time by keyboard: the dial has no addressable elements.
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+
+# Reminder mode stays at its default (auto) = 15 min before the due time.
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 30000
+- takeScreenshot: 110-habit-created
+
+# The reminder fires with the process killed.
+- pressKey: Home
+- killApp
+- takeScreenshot: 111-app-closed
+
+- swipe:
+    start: 50%, 0%
+    end: 50%, 70%
+- extendedWaitUntil:
+    visible: "${HABIT_NAME}"
+    timeout: ${REMINDER_WAIT_MS}
+- takeScreenshot: 112-reminder-in-shade
+
+- tapOn:
+    text: "${ACTION_EXPAND}"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "${ACTION_COMPLETE}"
+    timeout: 15000
+- tapOn: "${ACTION_COMPLETE}"
+- takeScreenshot: 113-action-tapped
+
+# The activity opens itself on the action tap; do not restart it.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.habits"
+
+# Completing the LAST habit replaces the list with the congratulation message, so
+# accept either that message or the row carrying today's date with the status.
+- extendedWaitUntil:
+    visible: "${ALL_HABITS_DONE}|${HABIT_NAME}, ${TODAY}, ${STATUS_COMPLETED}"
+    timeout: 30000
+- takeScreenshot: 115-complete-verified

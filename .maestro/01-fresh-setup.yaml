@@ -1,0 +1,85 @@
+appId: io.payanam
+name: Fresh setup, unlock, enable debug logging
+---
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- takeScreenshot: 01-launch
+
+# Onboarding tour: one primary button advances each slide.
+- repeat:
+    times: 4
+    commands:
+      - tapOn:
+          id: "onboarding.primary_button"
+          optional: true
+- takeScreenshot: 02-after-onboarding
+
+# Focus-mode chooser (a preset is preselected).
+- tapOn:
+    id: "onboarding.focus_mode_continue_button"
+    optional: true
+- takeScreenshot: 03-focus-mode
+
+# Database gate: create a new empty database.
+- extendedWaitUntil:
+    visible:
+      id: "db_init.create_database_button"
+    timeout: 30000
+- tapOn:
+    id: "db_init.create_database_button"
+- takeScreenshot: 04-db-gate
+
+# Passphrase setup (create form).
+- extendedWaitUntil:
+    visible:
+      id: "db_init.passphrase_field"
+    timeout: 15000
+- tapOn:
+    id: "db_init.passphrase_field"
+- inputText: "${PASS}"
+- tapOn:
+    id: "db_init.passphrase_confirm_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "db_init.passphrase_submit_button"
+- takeScreenshot: 05-passphrase-submitted
+
+# Dimension step loads its list first; the continue button appears after.
+- extendedWaitUntil:
+    visible:
+      id: "db_init.dimension_setup_continue_button"
+    timeout: 45000
+- takeScreenshot: 06-dimensions-loaded
+- tapOn:
+    id: "db_init.dimension_setup_continue_button"
+- takeScreenshot: 07-dimensions-continued
+
+# First run goes straight into the app; the gate locks only on the next launch.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- takeScreenshot: 08-main-ui
+
+# Debug logging FIRST, so the whole run lands in the session log.
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- takeScreenshot: 09-settings
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.debug_logging_switch"
+    timeout: 15000
+- takeScreenshot: 10-debug-card
+- tapOn:
+    id: "settings.debug_logging_switch"
+- takeScreenshot: 11-debug-on

@@ -1,0 +1,196 @@
+appId: io.payanam
+name: Reminder Miss reaches the DB after the passphrase unlock
+---
+# WHAT IT PROVES
+#   Miss tapped on the reminder while the app process is dead is applied after the
+#   passphrase unlock: the habit's TODAY cell on the habits list reads missed.
+#   The signal is that cell's contentDescription
+#   ("<habit>, <ISO date>, <status>", CheckmarkPanelCanvas.kt:129). The canvas
+#   draws missed as a red "✗" cell; the word in the description is the only
+#   machine-readable form of it, and it is the app's own status word
+#   (TasksHabitCache.kt:82 maps occurrence "missed" -> CheckmarkStatus.MISSED).
+#   A missed habit stays in the list under the default filters
+#   (TasksViewModelSorting.visibleHabitsForDisplay: showCompletedHabits hides only
+#   COMPLETED, and hideAllMarkedToday/dueTodayOnly are off by default).
+#
+#   THE MISS ACTION ONLY EXISTS ON A HABIT REMINDER. TaskReminderReceiver adds it
+#   only when notificationType == TYPE_HABIT_TRACKING, which
+#   NotificationScheduler sets only for a recurring task. This flow therefore
+#   depends on the habit being recurring — a one-time task reminder has three
+#   actions (Complete, Skip, Snooze) and no Miss, and the wait below would fail.
+#
+# ENV (all required; none is defaulted here)
+#   PASS             database passphrase
+#   HABIT_NAME       "flow14-miss" — SHORT and unique to this flow. A name shared
+#                    with another flow lets a stale notification satisfy the wait
+#                    and proves the wrong habit. Unique per RUN too (append a
+#                    suffix): a rerun under the same name leaves the first run's
+#                    missed row on screen, and the assertion can match THAT row.
+#   DUE_HOUR/DUE_MINUTE  from DUE = now + 17 min (below)
+#   REMINDER_WAIT_MS 240000
+#   TODAY            the DEVICE's date when the action is applied:
+#                    adb shell date +%F  (not the host's date)
+#   STATUS_MISSED    the build's missed word (values/strings.xml loc_missed;
+#                    values-ta/strings.xml on a Tamil device). Passed in, never
+#                    hardcoded, so one flow serves every locale.
+#   ACTION_EXPAND, ACTION_MISS  the shade's expand label, and the action label
+#
+# REMINDER LEAD TIME: 15 min — ReminderDecider.DEFAULT_ADVANCE_MINUTES, the value
+# the form's untouched "auto" reminder mode uses. The alarm fires 15 min BEFORE
+# the due time: set the due time 17 min ahead and the reminder is due ~2 min
+# after the habit is saved.
+#   bash: DUE_HOUR=$(date -d '+17 min' +%H); DUE_MINUTE=$(date -d '+17 min' +%M)
+#   pwsh: DUE_HOUR=(Get-Date).AddMinutes(17).ToString('HH'); DUE_MINUTE=...'mm'
+# Do not start within ~20 min of midnight: the form keeps today's date, so a due
+# time that wraps past 23:59 is already in the past and no alarm is armed.
+#
+# DEVICE: awake and unlocked. A sleeping screen has no shade, and Maestro cannot
+# wake it.
+#
+
+# Maestro's killApp runs `am kill`, which only kills BACKGROUND processes: on a
+# foreground app it is a no-op and the DB session stays open. Send it Home first.
+- pressKey: Home
+- killApp
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+- tapOn:
+    id: "nav.tab.habits"
+
+# ── this flow's own habit ─────────────────────────────────────────────────────
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 20000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}"
+- hideKeyboard
+
+# Recurring is what makes Miss exist at all on the reminder.
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+    timeout: 15000
+- tapOn:
+    id: "recurrence.preset.daily"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+
+# Reminder mode stays at its default (auto) = 15 min before the due time.
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 30000
+- takeScreenshot: 140-habit-created
+
+# ── the reminder fires with the process killed ────────────────────────────────
+# Maestro's killApp runs `am kill`, which only kills BACKGROUND processes: on a
+# foreground app it is a no-op and the DB session stays open. Send it Home first.
+- pressKey: Home
+- killApp
+- takeScreenshot: 141-app-closed
+- swipe:
+    start: 50%, 0%
+    end: 50%, 70%
+- extendedWaitUntil:
+    visible: "${HABIT_NAME}"
+    timeout: ${REMINDER_WAIT_MS}
+- takeScreenshot: 142-reminder-in-shade
+
+- tapOn:
+    text: "${ACTION_EXPAND}"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "${ACTION_MISS}"
+    timeout: 15000
+- tapOn: "${ACTION_MISS}"
+- takeScreenshot: 143-action-tapped
+
+# ── unlock, then assert the write landed ──────────────────────────────────────
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.habits"
+
+# The list accumulates a habit per run, so this flow's row may be below the fold.
+- scrollUntilVisible:
+    element:
+      text: "${HABIT_NAME}, .*"
+    direction: DOWN
+    timeout: 60000
+
+# (1) TODAY's cell now carries a status at all: PENDING/UNKNOWN render as the
+#     not-filled word, so any other word means an occurrence row exists for today.
+- extendedWaitUntil:
+    visible: "${HABIT_NAME}, ${TODAY}, .*"
+    timeout: 30000
+- takeScreenshot: 144-today-cell-written
+
+# (2) That status is MISSED. This is the assertion with teeth: the receiver
+#     passes a status STRING to one shared handler
+#     (NotificationActionReceiver.handleTaskAction), so Miss writing "skipped" or
+#     "completed" is a real failure mode that (1) alone cannot see.
+- assertVisible: "${HABIT_NAME}, ${TODAY}, ${STATUS_MISSED}"
+- takeScreenshot: 145-today-cell-missed

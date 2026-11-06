@@ -1,0 +1,39 @@
+appId: io.payanam
+name: The affordance is gone once the permission is granted
+---
+- launchApp:
+    stopApp: false
+# The focus-mode chooser can reappear on a relaunch; dismiss it if present.
+- tapOn:
+    id: "onboarding.focus_mode_continue_button"
+    optional: true
+- tapOn:
+    id: "onboarding.primary_button"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 30000
+    optional: true
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+    optional: true
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 82-settings-with-permission
+- assertNotVisible:
+    id: "settings.reminders_card"
