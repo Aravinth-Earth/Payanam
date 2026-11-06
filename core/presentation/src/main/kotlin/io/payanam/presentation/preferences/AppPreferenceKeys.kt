@@ -60,6 +60,16 @@ object AppPreferenceKeys {
     /** The timeline scale key before it was renamed. Read only to migrate a value written by an older build. */
     const val KEY_TIME_SCALE_LEGACY_KEY = "time_scale"
 
+    /**
+     * Whether an edit ended the entry the tracking service was showing and its stop is not confirmed yet.
+     *
+     * A PENDING-INTENT row, not a record of a result: written before the stop is attempted and cleared once
+     * the store reports no active entry and the service has been stopped, so a mark left behind after a
+     * restart is a stop still owed. It lives in `app_settings` beside the other pending-intent rows, so no
+     * new storage exists for it.
+     */
+    const val KEY_TRACKING_SERVICE_STOP_PENDING = "tracking_service_stop_pending"
+
     /** Whether automatic backups run. */
     const val KEY_AUTO_BACKUP_ENABLED = "auto_backup_enabled"
 

@@ -7,6 +7,7 @@ import io.payanam.domain.model.TimeEntryInput
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
+import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
@@ -15,6 +16,8 @@ import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.preferences.AppPreferenceKeys
+import io.payanam.presentation.tasks.FakeAppSettingsRepository
 import io.payanam.presentation.tasks.FakeRecurrenceHandler
 import io.payanam.presentation.tasks.FakeReminderScheduler
 import io.payanam.presentation.tasks.FakeTaskOccurrenceRepository
@@ -72,6 +75,7 @@ class TimeViewModelTest {
     private lateinit var reminderScheduler: FakeReminderScheduler
     private lateinit var timeTrackingController: FakeTimeTrackingController
     private lateinit var widgetRefresher: FakeTimeTrackingWidgetRefresher
+    private lateinit var appSettings: FakeAppSettingsRepository
     private var viewModelScope: CoroutineScope? = null
 
     @Before
@@ -85,6 +89,7 @@ class TimeViewModelTest {
         reminderScheduler = FakeReminderScheduler()
         timeTrackingController = FakeTimeTrackingController()
         widgetRefresher = FakeTimeTrackingWidgetRefresher()
+        appSettings = FakeAppSettingsRepository()
     }
 
     @After
@@ -108,6 +113,7 @@ class TimeViewModelTest {
             reminderScheduler = reminderScheduler,
             timeTrackingController = timeTrackingController,
             widgetRefresher = widgetRefresher,
+            appSettings = appSettings,
             scope = scope,
         )
     }
@@ -1043,6 +1049,101 @@ class TimeViewModelTest {
 
             assertEquals(1, timeTrackingController.stopCalls)
             assertEquals(1, widgetRefresher.refreshes)
+        }
+
+    /**
+     * A later save retries a cleanup an earlier save could not make: the owed stop is a stored mark, so the
+     * retry is not limited to the save that ended the entry. This save cannot take the "it was the active
+     * entry" branch, because the entry it writes is already ended.
+     */
+    @Test
+    fun `a later save of the ended entry retries a failed stop`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            timeEntryRepository.failActiveLookup = true
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+            assertEquals(0, timeTrackingController.stopCalls)
+
+            timeEntryRepository.failActiveLookup = false
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 45),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            assertEquals(1, timeTrackingController.stopCalls)
+            assertEquals(
+                "false",
+                appSettings.getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING),
+            )
+        }
+
+    /**
+     * The owed stop survives the ViewModel that recorded it: a recreated screen reads the same stored mark,
+     * which is what makes the retry durable rather than a field on one instance.
+     */
+    @Test
+    fun `a new view model completes a stop an earlier one left pending`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val first = viewModel()
+            advanceUntilIdle()
+
+            timeEntryRepository.failActiveLookup = true
+            first.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+            assertEquals(0, timeTrackingController.stopCalls)
+            assertEquals(
+                "true",
+                appSettings.getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING),
+            )
+
+            // A second ViewModel, as a recreated screen gets: only the stored mark carries over.
+            timeEntryRepository.failActiveLookup = false
+            val second = viewModel()
+            advanceUntilIdle()
+            second.reconcileTrackingService()
+            advanceUntilIdle()
+
+            assertEquals(1, timeTrackingController.stopCalls)
+            assertEquals(
+                "false",
+                appSettings.getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING),
+            )
         }
 
     /**
@@ -2204,6 +2305,7 @@ class TimeViewModelTest {
                     override val timeTrackingController: TimeTrackingController = this@TimeViewModelTest.timeTrackingController
                     override val timeTrackingWidgetRefresher: TimeTrackingWidgetRefresher =
                         this@TimeViewModelTest.widgetRefresher
+                    override val appSettings: AppSettingsRepository = this@TimeViewModelTest.appSettings
                     override val recurrenceHandler: TaskRecurrenceHandler = this@TimeViewModelTest.recurrenceHandler
                 },
             )

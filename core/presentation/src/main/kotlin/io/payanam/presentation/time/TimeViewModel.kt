@@ -11,11 +11,13 @@ import io.payanam.domain.model.TimeEntryInput
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
+import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
@@ -35,7 +37,6 @@ import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicBoolean
 
 /**
  * ViewModel for the Time-tracking screen: loads the selected day's entries,
@@ -51,14 +52,13 @@ class TimeViewModel(
     private val reminderScheduler: TaskReminderScheduler,
     private val timeTrackingController: TimeTrackingController,
     private val widgetRefresher: TimeTrackingWidgetRefresher,
+    private val appSettings: AppSettingsRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
     // One lock over every session transition: a start and the end-of-entry reconciliation read and write
     // the same active entry, so an unsynchronized pair lets the stop end a session that has just begun.
     private val sessionMutex = Mutex()
-    // Whether an edit ended the entry the tracking service was showing and the stop is not confirmed yet.
-    private val serviceStopPending = AtomicBoolean(false)
     private val _uiState = MutableStateFlow(TimeScreenUiState())
     val uiState: StateFlow<TimeScreenUiState> = _uiState.asStateFlow()
     private var entriesJob: Job? = null
@@ -449,14 +449,14 @@ class TimeViewModel(
                         true
                     }
                 timeEntryRepository.updateTimeEntry(entryId, input)
-                // Ending the entry the service is showing must also end that service: its notification
-                // is driven by the service, not by the entry, so it keeps counting otherwise. The pending
-                // flag is what a later lifecycle point retries from, because a retried save finds the
-                // entry already ended and would never take this branch again.
+                // Ending the entry the service is showing owes it a stop. The mark is written BEFORE the
+                // attempt, so a stop that fails survives this save, this ViewModel and a restart.
                 if (input.endedAt != null && wasActiveEntry) {
-                    serviceStopPending.set(true)
-                    stopTrackingIfNoEntryRemains()
+                    markServiceStopPending()
                 }
+                // Reconciled after EVERY successful write, not only the one that ended an entry: a later save
+                // is what retries a stop an earlier save could not make.
+                reconcileTrackingServiceNow()
                 loadEntriesForDate(_uiState.value.selectedDate)
             } catch (e: CancellationException) {
                 throw e
@@ -477,33 +477,80 @@ class TimeViewModel(
     /**
      * Retries a tracking-service stop an earlier save could not complete.
      *
-     * A save that ended the entry the service was showing leaves [serviceStopPending] set when its stop
-     * failed, and nothing else revisits it: the entry is already ended, so a retried save takes the "not
-     * the active entry" branch and skips the stop. The Time screen calls this when it comes back to the
-     * foreground.
+     * The mark is a stored `app_settings` row ([AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING]), not a
+     * field, so it outlives this instance and the process: a recreated screen retries the same owed stop.
+     * The Time screen calls this on every return to the foreground.
      *
-     * Gated on [serviceStopPending] rather than run unconditionally, because a stop with no session is
-     * not free on either platform: the Android controller starts the service to deliver the stop action,
-     * and the desktop's logs a refusal.
+     * The mark is also the guard: with none there is nothing owed, and a stop with no session is not free on
+     * either platform - the Android controller starts the service to deliver the stop action, and the
+     * desktop's logs a refusal.
      */
     fun reconcileTrackingService() {
-        if (!serviceStopPending.get()) return
-        scope.launch {
-            logger.i(
-                "TimeViewModel.reconcileTrackingService",
-                "Retrying the tracking-service stop an earlier save left pending",
-            )
-            stopTrackingIfNoEntryRemains()
+        scope.launch { reconcileTrackingServiceNow() }
+    }
+
+    /** [reconcileTrackingService] on the caller's coroutine, for a save that already runs in one. */
+    private suspend fun reconcileTrackingServiceNow() {
+        if (!isServiceStopPending()) return
+        logger.i(
+            "TimeViewModel.reconcileTrackingService",
+            "Retrying the tracking-service stop an earlier save left pending",
+        )
+        stopTrackingIfNoEntryRemains()
+    }
+
+    /**
+     * Records that the tracking service is still owed a stop.
+     *
+     * Best-effort: a mark that cannot be written loses the retry, not the save, so it is logged rather than
+     * thrown - the caller's write has already been committed.
+     */
+    private suspend fun markServiceStopPending() {
+        try {
+            appSettings.setSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING, "true")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.markServiceStopPending", "Could not record the owed tracking-service stop", e)
+        }
+    }
+
+    /** Clears the owed stop once it has been made, or once no entry is left for it to affect. */
+    private suspend fun clearServiceStopPending() {
+        try {
+            appSettings.setSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING, "false")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.clearServiceStopPending", "Could not clear the owed tracking-service stop", e)
         }
     }
 
     /**
+     * Whether a stop is still owed, read back with [String.toBoolean] the way the other pending marks are.
+     *
+     * An unreadable store answers "no" and leaves the mark in place, so the stop is retried by a later read
+     * rather than reported as a failure of whatever asked.
+     */
+    private suspend fun isServiceStopPending(): Boolean =
+        try {
+            appSettings
+                .getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING)
+                ?.toBoolean() ?: false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.isServiceStopPending", "Could not read the owed tracking-service stop", e)
+            false
+        }
+
+    /**
      * Ends the foreground tracking session when nothing is running any more.
      *
-     * The answer comes from the store, not from the save that ended an entry: that is what makes a stop
-     * that failed retryable, and what keeps a stop from running at all while another entry is still live.
-     * A failing read or stop is logged and leaves [serviceStopPending] set, so [reconcileTrackingService]
-     * retries it later; neither is thrown, because the caller's write has already been committed.
+     * The answer comes from the store, not from the save that ended an entry: that is what makes a stop that
+     * failed retryable, and what keeps a stop from running at all while another entry is still live. A failing
+     * read or stop is logged and leaves the owed-stop mark in place, so a later save or a resume retries it;
+     * neither is thrown, because the caller's write has already been committed.
      *
      * The service holds ONE session and one notification, so it is stopped only when no other entry is
      * still active: a second, overlapping entry keeps the service - and its notification - alive, because
@@ -529,7 +576,7 @@ class TimeViewModel(
                 return
             }
         if (stillActive != null) {
-            serviceStopPending.set(false)
+            clearServiceStopPending()
             logger.i(
                 "TimeViewModel.stopTrackingIfNoEntryRemains",
                 "Another entry is still active; keeping the tracking service",
@@ -540,7 +587,7 @@ class TimeViewModel(
         try {
             timeTrackingController.stopTracking()
             widgetRefresher.refreshWidget()
-            serviceStopPending.set(false)
+            clearServiceStopPending()
             logger.i("TimeViewModel.stopTrackingIfNoEntryRemains", "No entry left active; stopping the tracking service")
         } catch (e: Exception) {
             logger.e("TimeViewModel.stopTrackingIfNoEntryRemains", "Failed to stop the tracking service", e)
@@ -1362,6 +1409,7 @@ fun timeViewModel(scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispa
         reminderScheduler = dataLayer.reminderScheduler,
         timeTrackingController = dataLayer.timeTrackingController,
         widgetRefresher = dataLayer.timeTrackingWidgetRefresher,
+        appSettings = dataLayer.appSettings,
         scope = scope,
     )
 }

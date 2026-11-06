@@ -35,6 +35,7 @@ class AppPreferenceKeysTest {
             "KEY_TIME_FORMAT" to AppPreferenceKeys.KEY_TIME_FORMAT,
             "KEY_TIME_HOUR_HEIGHT_DP" to AppPreferenceKeys.KEY_TIME_HOUR_HEIGHT_DP,
             "KEY_TIME_SCALE_LEGACY_KEY" to AppPreferenceKeys.KEY_TIME_SCALE_LEGACY_KEY,
+            "KEY_TRACKING_SERVICE_STOP_PENDING" to AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING,
             "KEY_AUTO_BACKUP_ENABLED" to AppPreferenceKeys.KEY_AUTO_BACKUP_ENABLED,
             "KEY_AUTO_BACKUP_INTERVAL" to AppPreferenceKeys.KEY_AUTO_BACKUP_INTERVAL,
             "KEY_AUTO_BACKUP_LAST_RUN" to AppPreferenceKeys.KEY_AUTO_BACKUP_LAST_RUN,
