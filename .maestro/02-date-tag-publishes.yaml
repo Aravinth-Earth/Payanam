@@ -4,6 +4,7 @@ name: The date dialog confirm button is reachable by id
 # Regression guard for a tag that compiled, linted and did nothing: the confirm
 # button lives in a material3 DatePickerDialog, which draws in its own window.
 - launchApp
+# Cold start: the app boots to the unlock screen before the database opens.
 - extendedWaitUntil:
     visible:
       id: "passphrase_unlock.passphrase_field"
@@ -14,6 +15,7 @@ name: The date dialog confirm button is reachable by id
 - hideKeyboard
 - tapOn:
     id: "passphrase_unlock.unlock_button"
+# The unlock decrypts the database; nothing renders until it finishes.
 - extendedWaitUntil:
     visible:
       id: "nav.tab.tasks"
@@ -23,20 +25,17 @@ name: The date dialog confirm button is reachable by id
 - extendedWaitUntil:
     visible:
       id: "tasks.add_button"
-    timeout: 20000
 - tapOn:
     id: "tasks.add_button"
 - extendedWaitUntil:
     visible:
       id: "task_add.due_date_button"
-    timeout: 20000
 - tapOn:
     id: "task_add.due_date_button"
 # Fails here if the dialog does not publish its tags.
 - extendedWaitUntil:
     visible:
       id: "task_add.due_date_confirm_button"
-    timeout: 20000
 - takeScreenshot: 60-date-confirm-visible
 - tapOn:
     id: "task_add.due_date_confirm_button"

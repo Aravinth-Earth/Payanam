@@ -22,7 +22,7 @@ name: Fresh setup, unlock, enable debug logging
     optional: true
 - takeScreenshot: 03-focus-mode
 
-# Database gate: create a new empty database.
+# Cold start with a cleared state: this wait covers the first database build.
 - extendedWaitUntil:
     visible:
       id: "db_init.create_database_button"
@@ -35,7 +35,6 @@ name: Fresh setup, unlock, enable debug logging
 - extendedWaitUntil:
     visible:
       id: "db_init.passphrase_field"
-    timeout: 15000
 - tapOn:
     id: "db_init.passphrase_field"
 - inputText: "${PASS}"
@@ -57,7 +56,7 @@ name: Fresh setup, unlock, enable debug logging
     id: "db_init.dimension_setup_continue_button"
 - takeScreenshot: 07-dimensions-continued
 
-# First run goes straight into the app; the gate locks only on the next launch.
+# First run goes into the app and seeds the DB; the gate locks on the next launch.
 - extendedWaitUntil:
     visible:
       id: "nav.tab.settings"
@@ -78,7 +77,6 @@ name: Fresh setup, unlock, enable debug logging
 - extendedWaitUntil:
     visible:
       id: "settings.debug_logging_switch"
-    timeout: 15000
 - takeScreenshot: 10-debug-card
 - tapOn:
     id: "settings.debug_logging_switch"

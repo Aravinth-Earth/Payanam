@@ -1,26 +1,15 @@
 appId: io.payanam
 name: Reminder Complete reaches the DB after the passphrase unlock
 ---
-# WHAT IT PROVES
-#   Complete tapped on the reminder while the app process is dead is applied after
-#   the passphrase unlock. Two outcomes are accepted because the app hides the list
-#   when nothing is left: the congratulation message, or the habit's TODAY cell
-#   reading completed ("<habit>, <ISO date>, <status>", CheckmarkPanelCanvas.kt:129).
-#
-# ENV: PASS, HABIT_NAME, DUE_HOUR, DUE_MINUTE, REMINDER_WAIT_MS, TODAY,
-#      STATUS_COMPLETED, ALL_HABITS_DONE, ACTION_EXPAND, ACTION_COMPLETE
-#
-# TIMING (measured on device, 2026-11-06)
-#   reminder fires 15 min before the due time (DEFAULT_ADVANCE_MINUTES).
-#   Creation path takes ~1m45s, so a +20 min due leaves the fire ~5 min after save.
-#   With SCHEDULE_EXACT_ALARM granted the alarm is exact; without it delivery can
-#   slip a few minutes, which is why REMINDER_WAIT_MS is generous.
-#   Do not start within ~20 min of midnight: the form keeps today's date.
+# Complete tapped on the dead-process reminder is applied after the passphrase unlock.
+# The reminder fires 15 min before the due time (the runner sets the due 22 min ahead)
+# and delivery can slip without SCHEDULE_EXACT_ALARM, so the shade wait is generous.
 
 # killApp is `am kill`, which only kills BACKGROUND processes: Home first.
 - pressKey: Home
 - killApp
 - launchApp
+# Cold start after the kill: the unlock screen comes up before the database opens.
 - extendedWaitUntil:
     visible:
       id: "passphrase_unlock.passphrase_field"
@@ -31,6 +20,7 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - hideKeyboard
 - tapOn:
     id: "passphrase_unlock.unlock_button"
+# The unlock decrypts the database; nothing renders until it finishes.
 - extendedWaitUntil:
     visible:
       id: "nav.tab.habits"
@@ -41,7 +31,6 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - extendedWaitUntil:
     visible:
       id: "tasks.add_button"
-    timeout: 20000
 - tapOn:
     id: "tasks.add_button"
 - tapOn:
@@ -55,7 +44,6 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - extendedWaitUntil:
     visible:
       id: "recurrence.confirm_button"
-    timeout: 15000
 - tapOn:
     id: "recurrence.preset.daily"
     optional: true
@@ -68,7 +56,6 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - extendedWaitUntil:
     visible:
       id: "task_add.due_time_input_toggle"
-    timeout: 15000
 - tapOn:
     id: "task_add.due_time_input_toggle"
 - tapOn:
@@ -94,10 +81,8 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - extendedWaitUntil:
     visible:
       id: "nav.tab.habits"
-    timeout: 30000
 - takeScreenshot: 110-habit-created
 
-# The reminder fires with the process killed.
 - pressKey: Home
 - killApp
 - takeScreenshot: 111-app-closed
@@ -116,11 +101,10 @@ name: Reminder Complete reaches the DB after the passphrase unlock
     optional: true
 - extendedWaitUntil:
     visible: "${ACTION_COMPLETE}"
-    timeout: 15000
 - tapOn: "${ACTION_COMPLETE}"
 - takeScreenshot: 113-action-tapped
 
-# The activity opens itself on the action tap; do not restart it.
+# The activity opens itself on the action tap; its cold start precedes the unlock.
 - launchApp:
     stopApp: false
 - extendedWaitUntil:
@@ -133,6 +117,7 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 - hideKeyboard
 - tapOn:
     id: "passphrase_unlock.unlock_button"
+# Decrypt plus the queued Complete write; the list renders after both.
 - extendedWaitUntil:
     visible:
       id: "nav.tab.habits"
@@ -144,5 +129,4 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 # accept either that message or the row carrying today's date with the status.
 - extendedWaitUntil:
     visible: "${ALL_HABITS_DONE}|${HABIT_NAME}, ${TODAY}, ${STATUS_COMPLETED}"
-    timeout: 30000
 - takeScreenshot: 115-complete-verified

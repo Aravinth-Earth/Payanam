@@ -23,6 +23,7 @@ name: The affordance is gone once the permission is granted
 - tapOn:
     id: "passphrase_unlock.unlock_button"
     optional: true
+# The unlock decrypts the database; nothing renders until it finishes.
 - extendedWaitUntil:
     visible:
       id: "nav.tab.settings"
