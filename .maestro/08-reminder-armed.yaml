@@ -1,0 +1,76 @@
+appId: io.payanam
+name: Arm a reminder on a new recurring habit from whatever state the app is in
+---
+# Run with the app in front; both the unlocked and the unlock-screen states are covered.
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+    optional: true
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+    optional: true
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.habits"
+
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 20000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}"
+- hideKeyboard
+
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+    timeout: 15000
+- tapOn:
+    id: "recurrence.preset.daily"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+
+# Due time by keyboard: the dial has no addressable elements.
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+
+# Reminder mode stays at its default (auto) = 15 min before the due time.
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 30000
+- takeScreenshot: 130-reminder-armed

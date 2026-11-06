@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the reminder-action Maestro flows against a real device: PASS=... DEVICE=<serial> [flow ...].
-# Labels come from the locale's resources; preconditions are checked below. SUITE=exact-alarm runs 06/07.
+# Labels come from the locale's resources. SUITE=exact-alarm runs 06/07; SUITE=archive runs 08/09.
 set -uo pipefail
 
 DEVICE="${DEVICE:?set DEVICE to the adb serial}"
@@ -102,9 +102,9 @@ case "$appop" in
 esac
 
 # Exact alarms are a precondition, not an assumption: an inexact alarm can land
-# minutes late, past REMINDER_WAIT_MS. A clean install resets this appop to default.
-# SUITE=exact-alarm drives the appop itself (06 denied, then 07 granted), so it is exempt.
-if [ "${SUITE:-}" != "exact-alarm" ]; then
+# minutes late, past REMINDER_WAIT_MS, and a clean install resets this appop.
+# SUITE=exact-alarm and SUITE=archive drive or ignore the appop, so they are exempt.
+if [ "${SUITE:-}" != "exact-alarm" ] && [ "${SUITE:-}" != "archive" ]; then
   needs_exact_alarm=0
   for f in "${FLOWS[@]}"; do
     case "$f" in
@@ -165,6 +165,62 @@ if [ "${SUITE:-}" = "exact-alarm" ]; then
   exit 0
 fi
 
+# ---- archive sequence ---------------------------------------------------------
+# The alarm read sits between the two flows, so this cannot be a single Maestro flow.
+if [ "${SUITE:-}" = "archive" ]; then
+  say "archive sequence (08 arm, read alarms, 09 archive, read alarms)"
+
+  # Read-only: counts the pending RTC_WAKEUP alarms this package still owns.
+  app_id_re="${APP_ID//./\\.}"
+  pending_alarms() {
+    adb -s "$DEVICE" shell dumpsys alarm 2>/dev/null \
+      | grep -cE "RTC_WAKEUP #[0-9]+: Alarm\{.*${app_id_re}\}" || true
+  }
+
+  habit="archive-$(date +%H%M%S)"
+  # +25 puts the fire time ~10 min past the save, so the alarm is armed at save time.
+  due_hour=$(date -d '+25 minutes' '+%H')
+  due_minute=$(date -d '+25 minutes' '+%M')
+
+  if ! normalise_ui_state; then
+    echo "08 not started; bring $APP_ID to the front and re-run"; exit 15
+  fi
+
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/08-reminder-armed.yaml" \
+      -e PASS="$PASS" \
+      -e HABIT_NAME="$habit" \
+      -e DUE_HOUR="$due_hour" -e DUE_MINUTE="$due_minute" \
+      --test-output-dir "$OUT_DIR"; then
+    echo "FAIL 08-reminder-armed.yaml"; exit 16
+  fi
+
+  armed=$(pending_alarms)
+  echo "pending alarms after 08: $armed"
+  # An unarmed reminder makes 09 pass without cancelling anything, which proves nothing.
+  if [ "$armed" != "1" ]; then
+    echo "ABORT: $APP_ID owns $armed pending RTC_WAKEUP alarm(s) after 08, expected exactly 1"
+    echo "09 would then pass while cancelling nothing. Fix the arm step before trusting this check."
+    exit 17
+  fi
+
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/09-archive-cancels-reminder.yaml" \
+      -e PASS="$PASS" \
+      -e HABIT_NAME="$habit" \
+      --test-output-dir "$OUT_DIR"; then
+    echo "FAIL 09-archive-cancels-reminder.yaml (pending alarms before archive: $armed)"; exit 18
+  fi
+
+  cancelled=$(pending_alarms)
+  echo "pending alarms after 09: $cancelled (before archive: $armed)"
+  if [ "$cancelled" != "0" ]; then
+    echo "FAIL archiving did not cancel the reminder: pending alarms $armed -> $cancelled"
+    exit 19
+  fi
+
+  say "summary: 2 passed, 0 failed (archive sequence); pending alarms $armed -> $cancelled"
+  exit 0
+fi
+
 pass_count=0
 fail_count=0
 failed_names=()
@@ -216,5 +272,10 @@ say "summary: $pass_count passed, $fail_count failed"
 case " ${FLOWS[*]} " in
   *" 06-"*|*" 07-"*) ;;
   *) echo "exact-alarm flows 06/07 skipped: run SUITE=exact-alarm (needs SCHEDULE_EXACT_ALARM denied, then granted)" ;;
+esac
+# 08/09 need an alarm read between them, which one Maestro flow cannot do.
+case " ${FLOWS[*]} " in
+  *" 08-"*|*" 09-"*) ;;
+  *) echo "archive flows 08/09 skipped: run SUITE=archive (reads the pending alarm count between the flows)" ;;
 esac
 [ "$fail_count" -eq 0 ] || { printf 'failed: %s\n' "${failed_names[*]}"; exit 1; }

@@ -1,0 +1,22 @@
+appId: io.payanam
+name: Archive the habit from its detail screen
+---
+# Archive taps the detail button; its handler archives the task and navigates back.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+- tapOn:
+    id: "nav.tab.habits"
+- extendedWaitUntil:
+    visible: "${HABIT_NAME}"
+    timeout: 30000
+- tapOn: "${HABIT_NAME}"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+- takeScreenshot: 131-detail-before-archive
+- tapOn:
+    id: "task_detail.archive_button"
+- takeScreenshot: 132-after-archive
