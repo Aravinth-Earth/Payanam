@@ -1046,5 +1046,12 @@ class DayViewModelTest {
             override suspend fun deleteOccurrence(id: String) {
                 error("stub")
             }
+
+            override suspend fun clearActualDurationMinutes(
+                taskId: String,
+                date: LocalDate,
+            ) {
+                error("stub")
+            }
         }
 }

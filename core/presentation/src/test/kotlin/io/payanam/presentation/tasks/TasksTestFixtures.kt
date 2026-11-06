@@ -456,6 +456,20 @@ internal class FakeTaskOccurrenceRepository : TaskOccurrenceRepository {
     override suspend fun deleteOccurrence(id: String) {
         occurrences.value = occurrences.value.filterNot { it.id == id }
     }
+
+    override suspend fun clearActualDurationMinutes(
+        taskId: String,
+        date: LocalDate,
+    ) {
+        occurrences.value =
+            occurrences.value.map { occurrence ->
+                if (occurrence.taskId == taskId && occurrence.occurrenceDate.startsWith(date.toString())) {
+                    occurrence.copy(actualDurationMinutes = null)
+                } else {
+                    occurrence
+                }
+            }
+    }
 }
 
 /** The reschedule repository. */

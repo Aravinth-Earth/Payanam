@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -61,6 +62,7 @@ import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -159,8 +161,15 @@ fun TimeBlockModalDialog(
     val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title
     val timeFormatter = DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a")
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    val liveEndDate = endDate ?: LocalDate.now()
-    val liveEndTime = endTime ?: LocalTime.now()
+    // Ticks only while an active entry is shown, so its open end keeps moving and the duration matches the stop.
+    val liveNow by produceState(initialValue = LocalDateTime.now(), isActiveEntry) {
+        while (isActiveEntry) {
+            value = LocalDateTime.now()
+            delay(1_000L)
+        }
+    }
+    val liveEndDate = endDate ?: liveNow.toLocalDate()
+    val liveEndTime = endTime ?: liveNow.toLocalTime()
     val liveDurationMinutes = Duration.between(
         LocalDateTime.of(startDate, startTime),
         LocalDateTime.of(liveEndDate, liveEndTime),

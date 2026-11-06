@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.presentation.time
 
+import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
 import io.payanam.domain.model.TimeEntryInput
 import io.payanam.domain.port.TaskReminderScheduler
@@ -1038,6 +1039,37 @@ class TimeViewModelTest {
             assertTrue(
                 viewModel.uiState.value.timeEntries
                     .isEmpty(),
+            )
+        }
+
+    /**
+     * The duration the stopped session wrote onto the task's occurrence is cleared with the entry, so the
+     * deleted minutes cannot return as supplemental time for the day.
+     */
+    @Test
+    fun `deleting an entry clears the occurrence duration`() =
+        runTest {
+            timeEntryRepository.entriesByDate[TASKS_TEST_DAY] = listOf(entry("entry-1", taskId = "task-1"))
+            taskOccurrenceRepository.occurrences.value =
+                listOf(
+                    TaskOccurrence(
+                        id = "o1",
+                        taskId = "task-1",
+                        occurrenceDate = TASKS_TEST_DAY.toString(),
+                        status = "completed",
+                        actualDurationMinutes = 45,
+                    ),
+                )
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.deleteTimeEntry("entry-1")
+            advanceUntilIdle()
+
+            assertNull(
+                taskOccurrenceRepository.occurrences.value
+                    .single()
+                    .actualDurationMinutes,
             )
         }
 

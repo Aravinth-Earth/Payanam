@@ -27,9 +27,9 @@ import java.util.UUID
  *  - **Starting an entry stops the running one first.** There is a single running entry by design; the
  *    `endedAt IS NULL LIMIT 1` reads depend on that invariant holding.
  *  - **Journaling the day is not optional.** Every mutation marks the affected day lens-dirty for module
- *    `time_entry`, and an UPDATE marks **both** the day the entry used to sit on and the day it now sits
- *    on. Marking only the new day leaves the previous day's lens serving a snapshot that no longer matches
- *    the table.
+ *    `time_entry`, and an UPDATE marks the start and end days of the row it used to occupy and of the row
+ *    it now occupies. Marking only the new day leaves the previous day's lens serving a snapshot that no
+ *    longer matches the table.
  *  - **`stopActiveTimeEntry()` records a focus rating of 0.0, not null.** The plain stop path has always
  *    written `0.0`, while the rated path clamps to `0.0..1.0` and trims a blank note away. Both are
  *    preserved: the stored `0.0` is what the focus statistics have always seen.
@@ -184,7 +184,7 @@ class TimeEntryRepositoryJvm(
 
     /**
      * Rewrites entry [id] from [input]: re-resolves the dimension, recomputes the day key from the new
-     * start time, and marks the previous and the new day lens-dirty.
+     * start time, and marks the start and end days of both the old and the new row lens-dirty.
      *
      * @throws IllegalArgumentException when [id] does not exist.
      */
@@ -224,7 +224,13 @@ class TimeEntryRepositoryJvm(
             // The trailing id satisfies the statement's `WHERE id = ?`; without it nothing matches.
             JdbcQueries.write(session, UPDATE_FULL_ROW_SQL, updated.toBindings() + updated.id)
             markDirtyForDayKey(existing.dayKey, "time_entry_updated_previous_day")
+            existing.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_updated_previous_end_day")
+                }
+            }
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_updated_target_day")
+            input.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_updated_target_end_day") }
             logger.i(
                 "TimeEntryRepositoryJvm.updateTimeEntry",
                 "Time entry updated",
@@ -266,7 +272,13 @@ class TimeEntryRepositoryJvm(
             // The trailing id satisfies the statement's `WHERE id = ?`; without it nothing matches.
             JdbcQueries.write(session, UPDATE_FULL_ROW_SQL, updated.toBindings() + updated.id)
             markDirtyForDayKey(existing.dayKey, "time_entry_direct_updated_previous_day")
+            existing.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_direct_updated_previous_end_day")
+                }
+            }
             markDirtyForDay(entry.startedAt.toLocalDate(), "time_entry_direct_updated_target_day")
+            entry.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_direct_updated_target_end_day") }
             logger.i(
                 "TimeEntryRepositoryJvm.updateTimeEntryDirect",
                 "Time entry updated",
@@ -276,7 +288,7 @@ class TimeEntryRepositoryJvm(
     }
 
     /**
-     * Hard-deletes [id], clears its tag links, and marks its day lens-dirty.
+     * Hard-deletes [id], clears its tag links, and marks its start and end days lens-dirty.
      *
      * **The child statement is the point of this method, and Room's DAO does not write it either** —
      * Room issues `PRAGMA foreign_keys = ON` on every open, so the declared `ON DELETE CASCADE` from
@@ -311,11 +323,19 @@ class TimeEntryRepositoryJvm(
                 JdbcQueries.write(session, DELETE_BY_ID_SQL, arrayOf(id))
             }
             markDirtyForDayKey(existing?.dayKey, "time_entry_deleted")
+            existing?.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_deleted_end_day")
+                }
+            }
             logger.i("TimeEntryRepositoryJvm.deleteTimeEntry", "Time entry deleted", mapOf("id" to id))
         }
     }
 
-    /** Persists a completed (or explicit) entry from [input] with `endedAt` already supplied. */
+    /**
+     * Persists a completed (or explicit) entry from [input] with `endedAt` already supplied, and marks the
+     * start and end days lens-dirty.
+     */
     override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry =
         JdbcFlows.onIo {
             logger.i(
@@ -348,6 +368,7 @@ class TimeEntryRepositoryJvm(
                 )
             JdbcQueries.write(session, INSERT_SQL, entity.toBindings())
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_created")
+            input.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_created_end_day") }
             logger.i(
                 "TimeEntryRepositoryJvm.createTimeEntry",
                 "Time entry created",
@@ -403,6 +424,7 @@ class TimeEntryRepositoryJvm(
             ),
         )
         markDirtyForDayKey(active.dayKey, "time_entry_stopped")
+        markDirtyForDay(now.toLocalDate(), "time_entry_stopped_end_day")
         logger.i("TimeEntryRepositoryJvm.stopActiveTimeEntry", "Entry stopped", mapOf("id" to active.id))
         return readById(active.id)?.toDomain()
     }

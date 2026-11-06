@@ -26,9 +26,10 @@ object TimeVisualsCalculator {
         now: LocalDateTime = LocalDateTime.now(),
     ): TimeDayOverallSummary {
         val intervals = buildIntervals(selectedDate, entries, now)
-        val trackedMinutes = intervals.sumOf { Duration.between(it.first, it.second).toMinutes().coerceAtLeast(0) }
+        val mergedIntervals = mergeIntervals(intervals)
+        val trackedMinutes = mergedIntervals.sumOf { Duration.between(it.first, it.second).toMinutes().coerceAtLeast(0) }
         val activeBlockCount = entries.count { it.endedAt == null }
-        val weightedFocus = intervals.sumOf { (it.third * Duration.between(it.first, it.second).toMinutes()).toLong() }
+        val weightedFocus = mergedIntervals.sumOf { (it.third * Duration.between(it.first, it.second).toMinutes()).toLong() }
         val focusedMinutesPercent =
             if (trackedMinutes > 0L) {
                 (weightedFocus.toFloat() / trackedMinutes.toFloat()).coerceIn(0f, 1f)
@@ -73,14 +74,17 @@ object TimeVisualsCalculator {
         allocations: List<DayPlanAllocationRecord>,
         now: LocalDateTime = LocalDateTime.now(),
     ): List<TimeDimensionDaySummary> {
-        val intervals = buildIntervals(selectedDate, entries, now)
         val groupedEntries =
             entries.groupBy { entry ->
                 InsightsDimensionContract.timeEntryDimensionId(entry, taskLookup)
             }
-        val trackedByDimensionFromEntries =
+        val mergedIntervalsByDimension =
             groupedEntries.mapValues { (_, dimEntries) ->
-                buildIntervals(selectedDate, dimEntries, now)
+                mergeIntervals(buildIntervals(selectedDate, dimEntries, now))
+            }
+        val trackedByDimensionFromEntries =
+            mergedIntervalsByDimension.mapValues { (_, dimIntervals) ->
+                dimIntervals
                     .sumOf { Duration.between(it.first, it.second).toMinutes().coerceAtLeast(0) }
                     .toLong()
             }
@@ -105,7 +109,7 @@ object TimeVisualsCalculator {
             dimensionIds
                 .map { dimensionId ->
                     val dimEntries = groupedEntries[dimensionId].orEmpty()
-                    val dimIntervals = buildIntervals(selectedDate, dimEntries, now)
+                    val dimIntervals = mergedIntervalsByDimension[dimensionId].orEmpty()
                     val trackedFromEntries = trackedByDimensionFromEntries[dimensionId] ?: 0L
                     val trackedSupplemental = supplementalByDimension[dimensionId] ?: 0L
                     val tracked = trackedFromEntries + trackedSupplemental
@@ -152,6 +156,36 @@ object TimeVisualsCalculator {
     }
 
     /**
+     * Unions overlapping [intervals] so a minute covered by two entries is counted once, and carries the
+     * duration-weighted average focus of the spans a union covers.
+     */
+    private fun mergeIntervals(intervals: List<Triple<LocalDateTime, LocalDateTime, Double>>): List<Triple<LocalDateTime, LocalDateTime, Double>> {
+        if (intervals.size < 2) return intervals
+        val merged = mutableListOf<Triple<LocalDateTime, LocalDateTime, Double>>()
+        var mergedStart = intervals.first().first
+        var mergedEnd = intervals.first().second
+        var focusWeight = intervals.first().third * Duration.between(mergedStart, mergedEnd).toMinutes()
+        var coveredMinutes = Duration.between(mergedStart, mergedEnd).toMinutes()
+        for (index in 1 until intervals.size) {
+            val (start, end, focus) = intervals[index]
+            val minutes = Duration.between(start, end).toMinutes()
+            if (start.isBefore(mergedEnd)) {
+                if (end.isAfter(mergedEnd)) mergedEnd = end
+                focusWeight += focus * minutes
+                coveredMinutes += minutes
+            } else {
+                merged += Triple(mergedStart, mergedEnd, if (coveredMinutes > 0) focusWeight / coveredMinutes else 0.0)
+                mergedStart = start
+                mergedEnd = end
+                focusWeight = focus * minutes
+                coveredMinutes = minutes
+            }
+        }
+        merged += Triple(mergedStart, mergedEnd, if (coveredMinutes > 0) focusWeight / coveredMinutes else 0.0)
+        return merged
+    }
+
+    /**
      * The instant [selectedDate] stops owning time, so every interval on it is bounded by the same value.
      *
      * A day that is not today ends where its successor begins, not one second before that: the boundary is
@@ -184,9 +218,13 @@ object TimeVisualsCalculator {
     private fun countOverlaps(intervals: List<Triple<LocalDateTime, LocalDateTime, Double>>): Int {
         if (intervals.size < 2) return 0
         var overlaps = 0
+        var maxEnd = intervals.first().second
         for (i in 1 until intervals.size) {
-            if (intervals[i].first.isBefore(intervals[i - 1].second)) {
+            if (intervals[i].first.isBefore(maxEnd)) {
                 overlaps++
+            }
+            if (intervals[i].second.isAfter(maxEnd)) {
+                maxEnd = intervals[i].second
             }
         }
         return overlaps
