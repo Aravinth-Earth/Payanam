@@ -299,6 +299,19 @@ private fun EditTaskContent(
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
+    // The recurring first occurrence feeds both the preview and the saved due date; it is computed once
+    // here so the two can never disagree.
+    val recurringFirstOccurrence =
+        if (recurrenceEnabled) {
+            selectedTime?.let { time ->
+                io.payanam.domain.model.RecurrenceConfig.parse(recurrenceRule)
+                    .getScheduledDatesInRange(LocalDate.now(), LocalDate.now().plusMonths(1))
+                    .firstOrNull()
+                    ?.atTime(time)
+            }
+        } else {
+            null
+        }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -400,39 +413,29 @@ private fun EditTaskContent(
                         ?: strings.locSelectTime,
                 )
             }
-            if (selectedTime != null) {
-                val calculatedFirstOccurrence = run {
-                    val config = io.payanam.domain.model.RecurrenceConfig.parse(recurrenceRule)
-                    val nextDates = config.getScheduledDatesInRange(
-                        LocalDate.now(),
-                        LocalDate.now().plusMonths(1),
-                    )
-                    nextDates.firstOrNull()?.atTime(selectedTime!!)
-                }
-                if (calculatedFirstOccurrence != null) {
-                    androidx.compose.material3.Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            if (recurringFirstOccurrence != null) {
+                androidx.compose.material3.Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                text = strings.locFirstOccurrence,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = calculatedFirstOccurrence.format(
-                                    DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
+                        Text(
+                            text = strings.locFirstOccurrence,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = recurringFirstOccurrence.format(
+                                DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }
@@ -605,6 +608,8 @@ private fun EditTaskContent(
             onClick = {
                 val dueDateTime = if (selectedDate != null) {
                     LocalDateTime.of(selectedDate, selectedTime ?: LocalTime.MIDNIGHT)
+                } else if (recurrenceEnabled) {
+                    recurringFirstOccurrence
                 } else {
                     null
                 }
